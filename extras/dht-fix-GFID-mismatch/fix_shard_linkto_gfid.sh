@@ -32,7 +32,7 @@ usage() {
          f.22,       0x987803f423b84d04bd81136e9bdc6fed, subvol_0,    0xb71646556c1245b5a6b5c475976e8222, subvol_1
 
     - generate a bash script for fixing the affected linkto files at 
-      script per subvol is creaded at /tmp/dht/ FIX_gfid_subvol_0
+      script per subvol is creaded at /tmp/dht/FIX_gfid_subvol_0
       can be run manually or by passing -f option
     
     Assumption:
@@ -60,6 +60,9 @@ get_bricks_from_volume() {
 }
 
 init() {
+    
+    gluster volume info "$vol" > /dev/null || usage;
+    
     num_of_bricks_str=$(get_cluster_topo)
     cluster_topo=($(echo $num_of_bricks_str | grep -o -E '[0-9]+'))
     
@@ -80,17 +83,17 @@ init() {
     echo "bricks_per_subvol: $bricks_per_subvol"
 
     printf '%64s\n' | tr ' ' '-'
-    for (( i = 0; i < $subvols_cnt; i++ )) 
-    do
-        echo "subvolume-$i bricks:"
-        let start=$i*$bricks_per_subvol 
-        let end=($i+1)*$bricks_per_subvol;
-        for (( j = $start ; j < $end ; j++ ))
-        do
-            echo "${bricks[$j]}"
-        done
-        printf '%64s\n' | tr ' ' '-'
-    done
+#    for (( i = 0; i < $subvols_cnt; i++ )) 
+#    do
+#        echo "subvolume-$i bricks:"
+#        let start=$i*$bricks_per_subvol 
+#        let end=($i+1)*$bricks_per_subvol;
+#        for (( j = $start ; j < $end ; j++ ))
+#        do
+#            echo "${bricks[$j]}"
+#        done
+#        printf '%64s\n' | tr ' ' '-'
+#    done
     
     rm -rf $work_dir;
     mkdir -p $work_dir; 
@@ -98,7 +101,7 @@ init() {
 
 
 #----------------------------------------------------
-# server-side
+# subvol-side
 #----------------------------------------------------
 
 get_data_file_gfid() {
@@ -137,15 +140,18 @@ logged_GFID_mismatch() {
     
     #fixing-script
     linkto_gfid_path=".glusterfs/${lgfid:2:2}/${lgfid:4:2}/${lgfid:2:8}-${lgfid:10:4}-${lgfid:14:4}-${lgfid:18:4}-${lgfid:22}" 
-    let lf_brick_0=$hashed_subvol*$bricks_per_subvol;
-    for (( i = $lf_brick_0; i < $bricks_per_subvol; i++ )); do
-        host=$(echo ${bricks[$i]} | cut -d ":" -f 1)
-        bpath=$(echo  ${bricks[$i]} | cut -f2 -d':')
+    echo "logged_GFID_mismatch $linkto_gfid_path"
+    let sb_start=$hashed_subvol*$bricks_per_subvol 
+    let sb_end=($hashed_subvol+1)*$bricks_per_subvol;
+    
+    for (( i = $sb_start; i < $sb_end; i++ )); do
+        local h=$(echo ${bricks[$i]} | cut -d ":" -f 1)
+        local path=$(echo  ${bricks[$i]} | cut -f2 -d':')
 
-cat << EOT >> $work_dir/$FIX_SCRIPT
+cat <<EOT >> $work_dir/$FIX_SCRIPT
 
-ssh $host << FIX
-    cd $bpath/$shard_dir
+ssh $h << FIX
+    cd $path/$shard_dir
     setfattr -x "trusted.gfid" $f
     mv ../$linkto_gfid_path /var/log/glusterfs/
     setfattr -n "trusted.gfid" -v $dgfid $file
@@ -210,7 +216,6 @@ run_command_on_server()
     output=$(ssh -n "${host}" "${cmd}")
     if [ -n "$output" ]
     then
-        echo "node $host ---> end remote run"
         echo "$output"
     fi
 }
@@ -247,12 +252,10 @@ run_per_subvol() {
         #if the same host (for the runner script)
         subvol_stat[$i]=0;
         if is_local_node $host; then 
-            echo "node $host ---> start local run"
             (./$script_path -v $vol -r $bpath -s $i) &  
         else
             scp $(pwd)/$script_path $host:/tmp/fix_shard_linkto_gfid_$i.sh              
             cmd="/tmp/fix_shard_linkto_gfid_$i.sh -v $vol -r $bpath -s $i"
-            echo "node $host ---> start remote run"
             run_command_on_server "${host}" "${cmd}" &
         fi 
     done
@@ -263,7 +266,7 @@ run_per_subvol() {
 wait_for_all_subvol() 
 {
   
-  let timeout=1800 #10min
+  let timeout=1800 #30min
   let iter=0
   let counter=$subvols_cnt;
   
@@ -288,7 +291,7 @@ wait_for_all_subvol()
                 echo "subvol $i -->  detected as done"
                 mv $work_dir/$i/$REPORT_NAME_FILE $work_dir/${REPORT_NAME}_subvol$i
                 mv $work_dir/$i/$FIX_SCRIPT $work_dir/${FIX_SCRIPT}_$i; 
-                chmod +x $work_dir/$FIX_SCRIPT $work_dir/${FIX_SCRIPT}_$i;
+                chmod +x $work_dir/${FIX_SCRIPT}_$i;
                 subvol_stat[$i]=1;
                 ((counter-=1))
             fi        
@@ -374,22 +377,24 @@ done
 if [ $OPTIND -eq 1 ]; then usage "$@"; exit 0; fi
 
 #----------------------------------------------------
-echo "$(date +"%T") Running for $vol"
 script_path=$0
 init;
 
 #runner per subvol
 if [ -n "$brick_root" ] && [ -n "$hashed_subvol" ]; then
-    echo "Running in subvol_$hashed_subvol"
+    echo "Start: RUN in SUBVOL $hashed_subvol"
     local_hostname=$(echo ${bricks[ $hashed_subvol*$bricks_per_subvol]} | cut -f1 -d':') 
     run;
+    echo "End: RUN in SUBVOL $hashed_subvol"
     exit 0;
 fi
 
 #main flow
+echo "$(date +"%T") Start: Run for volume $vol ------------------------->"
 run_per_subvol;
 wait_for_all_subvol;
 if [ "$dry_mode" = false ] ; then
     echo "Running fix script"
     run_fix; 
 fi    
+echo "$(date +"%T") END: <------------------------- Run for volume $vol"
