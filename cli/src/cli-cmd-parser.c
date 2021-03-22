@@ -4452,13 +4452,15 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
          */
     }
 
+    /*TODO: the below force option should be completely removed after a
+            couple of releases as it is deprecated.*/
     if (strcmp(words[i], "force") == 0) {
-        ret = -1;
-        cli_err(
-            "\'force\' option is deprecated and"
-            "should not be used while creating snapshot");
-        gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
-        goto out;
+        cli_out(
+            "Warning: \'force\' option is deprecated and "
+            "should not be used in the future while "
+            "creating snapshot. Snapshot create command will "
+            "only execute if all the bricks used in creating "
+            "the snapshot are online.");
     } else {
         ret = -1;
         cli_err("Invalid Syntax.");
@@ -4466,7 +4468,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
         goto out;
     }
 
-    /* Check if the command has anything after the description */
+    /* Check if the command has anything after the force */
     if (++i < wordcount) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");
