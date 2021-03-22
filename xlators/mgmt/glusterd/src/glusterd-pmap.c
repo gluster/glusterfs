@@ -267,7 +267,8 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
     return ret;
 }
 
-/* Allocate memory and store details about of a new port */
+/* Allocate memory to store details about the new port i.e, port number,
+ * brickname associated with that port, etc */
 
 int
 pmap_port_new(xlator_t *this, int port, char *brickname, void *xprt,

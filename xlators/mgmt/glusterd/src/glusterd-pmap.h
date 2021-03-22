@@ -21,10 +21,10 @@
 #include "rpcsvc.h"
 
 struct pmap_ports {
-    int port;
+    struct cds_list_head port_list;
     char *brickname;
     void *xprt;
-    struct cds_list_head port_list;
+    int port;
 };
 
 struct pmap_registry {
