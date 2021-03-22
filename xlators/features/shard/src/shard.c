@@ -1495,12 +1495,13 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
          * set 0.
          */
 
-        shard_inode_ctx_set(inode, this, buf, size, SHARD_MASK_BLOCK_SIZE);
-    }
-    /* If the file is sharded, also set the remaining attributes,
-     * except for ia_size and ia_blocks.
-     */
-    if (size) {
+        shard_inode_ctx_set(inode, this, buf, size,
+                            SHARD_LOOKUP_MASK | SHARD_MASK_BLOCK_SIZE);
+        (void)shard_inode_ctx_invalidate(inode, this, buf);
+    } else if (size) {
+        /* If the file is sharded, also set the remaining attributes,
+         * except for ia_size and ia_blocks.
+         */
         shard_inode_ctx_set(inode, this, buf, 0, SHARD_LOOKUP_MASK);
         (void)shard_inode_ctx_invalidate(inode, this, buf);
     }
