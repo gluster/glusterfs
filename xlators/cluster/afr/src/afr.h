@@ -177,8 +177,6 @@ typedef struct _afr_private {
 
     xlator_t **children;
 
-    inode_t *root_inode;
-
     int favorite_child; /* subvolume to be preferred in resolving
                                     split-brain cases */
     /* For thin-arbiter. */
