@@ -195,8 +195,21 @@ setup_cluster()
     local servers=${3}
     local unclean=""
     local quorum_policy="stop"
+    local dfresult=""
 
     logger "setting up cluster ${name} with the following ${servers}"
+
+    # check that shared_storage is mounted
+    dfresult=$(df -T ${HA_VOL_MNT})
+    if [[ -z "${dfresult}" ]]; then
+        logger "gluster shared_storage is not mounted, exiting..."
+        exit 1
+    fi
+
+    if [[ "${dfresult}" != *"fuse.glusterfs"* ]]; then
+        logger "gluster shared_storage is not mounted, exiting..."
+        exit 1
+    fi
 
     # pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} ${servers}
     pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} --enable ${servers}
