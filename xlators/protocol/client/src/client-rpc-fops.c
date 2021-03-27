@@ -2419,6 +2419,13 @@ client3_3_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
+    if (local->check_reopen) {
+        if (lock.l_type == F_WRLCK)
+            set_fd_reopen_status(this, xdata, FD_REOPEN_NOT_ALLOWED);
+        else
+            set_fd_reopen_status(this, xdata, FD_REOPEN_ALLOWED);
+    }
+
 out:
     if ((rsp.op_ret == -1) && (EAGAIN != gf_error_to_errno(rsp.op_errno))) {
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
@@ -5061,6 +5068,7 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
             0,
         },
     };
+    dict_t *xdata = NULL;
     int32_t gf_cmd = 0;
     clnt_local_t *local = NULL;
     clnt_conf_t *conf = NULL;
@@ -5087,6 +5095,10 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
+    ret = dict_get_int32(args->xdata, "fd-reopen-status", &local->check_reopen);
+    if (ret)
+        local->check_reopen = 0;
+
     local->owner = frame->root->lk_owner;
     local->cmd = args->cmd;
     local->fd = fd_ref(args->fd);
@@ -5100,6 +5112,13 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
             client_is_setlk(local->cmd)) {
             client_add_lock_for_recovery(local->fd, args->flock, &local->owner,
                                          local->cmd);
+        } else if (local->check_reopen) {
+            xdata = dict_new();
+            if (xdata == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+            }
+            set_fd_reopen_status(this, xdata, FD_BAD);
         }
 
         goto unwind;
@@ -5116,8 +5135,10 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(lk, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(lk, frame, -1, op_errno, NULL, xdata);
     GF_FREE(req.xdata.xdata_val);
+    if (xdata)
+        dict_unref(xdata);
 
     return 0;
 }

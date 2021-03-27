@@ -941,6 +941,9 @@ typedef struct _afr_local {
     gf_boolean_t need_full_crawl;
     gf_boolean_t is_read_txn;
     gf_boolean_t is_new_entry;
+
+    /* For fix_open */
+    unsigned char *need_open;
 } afr_local_t;
 
 typedef struct afr_spbc_timeout {

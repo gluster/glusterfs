@@ -25,6 +25,8 @@
 #include <glusterfs/statedump.h>
 
 #include "afr-transaction.h"
+#include "afr-self-heal.h"
+#include "protocol-common.h"
 
 gf_boolean_t
 afr_is_fd_fixable(fd_t *fd)
@@ -235,12 +237,35 @@ afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     call_count = afr_frame_return(frame);
     if (call_count == 0)
         AFR_STACK_DESTROY(frame);
-
     return 0;
 }
 
+static void
+afr_fd_ctx_reset_need_open(fd_t *fd, xlator_t *this, unsigned char *need_open)
+{
+    afr_fd_ctx_t *fd_ctx = NULL;
+    afr_private_t *priv = NULL;
+    int i = 0;
+
+    priv = this->private;
+    fd_ctx = afr_fd_ctx_get(fd, this);
+    if (!fd_ctx)
+        return;
+
+    LOCK(&fd->lock);
+    {
+        for (i = 0; i < priv->child_count; i++) {
+            if (fd_ctx->opened_on[i] == AFR_FD_OPENING && need_open[i]) {
+                fd_ctx->opened_on[i] = AFR_FD_NOT_OPENED;
+                need_open[i] = 0;
+            }
+        }
+    }
+    UNLOCK(&fd->lock);
+}
+
 static int
-afr_fd_ctx_need_open(fd_t *fd, xlator_t *this, unsigned char *need_open)
+afr_fd_ctx_set_need_open(fd_t *fd, xlator_t *this, unsigned char *need_open)
 {
     afr_fd_ctx_t *fd_ctx = NULL;
     afr_private_t *priv = NULL;
@@ -248,7 +273,6 @@ afr_fd_ctx_need_open(fd_t *fd, xlator_t *this, unsigned char *need_open)
     int count = 0;
 
     priv = this->private;
-
     fd_ctx = afr_fd_ctx_get(fd, this);
     if (!fd_ctx)
         return 0;
@@ -271,32 +295,222 @@ afr_fd_ctx_need_open(fd_t *fd, xlator_t *this, unsigned char *need_open)
     return count;
 }
 
+static int
+afr_do_fix_open(call_frame_t *frame, xlator_t *this)
+{
+    afr_local_t *local = frame->local;
+    afr_private_t *priv = NULL;
+    int i = 0;
+    int need_open_count = 0;
+
+    priv = this->private;
+
+    need_open_count = AFR_COUNT(local->need_open, priv->child_count);
+    if (!need_open_count) {
+        goto out;
+    }
+    gf_msg_debug(this->name, 0, "need open count: %d", need_open_count);
+    local->call_count = need_open_count;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!local->need_open[i])
+            continue;
+
+        if (IA_IFDIR == local->fd->inode->ia_type) {
+            gf_msg_debug(this->name, 0, "opening fd for dir %s on subvolume %s",
+                         local->loc.path, priv->children[i]->name);
+            STACK_WIND_COOKIE(frame, afr_openfd_fix_open_cbk, (void *)(long)i,
+                              priv->children[i],
+                              priv->children[i]->fops->opendir, &local->loc,
+                              local->fd, NULL);
+        } else {
+            gf_msg_debug(this->name, 0,
+                         "opening fd for file %s on subvolume %s",
+                         local->loc.path, priv->children[i]->name);
+
+            STACK_WIND_COOKIE(
+                frame, afr_openfd_fix_open_cbk, (void *)(long)i,
+                priv->children[i], priv->children[i]->fops->open, &local->loc,
+                local->fd_ctx->flags & ~(O_CREAT | O_EXCL | O_TRUNC), local->fd,
+                NULL);
+        }
+        if (!--need_open_count)
+            break;
+    }
+    return 0;
+
+out:
+    afr_fd_ctx_reset_need_open(local->fd, this, local->need_open);
+    AFR_STACK_DESTROY(frame);
+    return 0;
+}
+
+static int
+afr_is_reopen_allowed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                          int32_t op_ret, int32_t op_errno,
+                          struct gf_flock *lock, dict_t *xdata)
+{
+    afr_local_t *local = frame->local;
+    afr_private_t *priv = NULL;
+    int ret = -1;
+    int call_count = 0;
+    int i = (long)cookie;
+    int32_t fd_reopen_status = -1;
+    int32_t final_reopen_status = -1;
+
+    priv = this->private;
+    local->replies[i].valid = 1;
+    local->replies[i].op_ret = op_ret;
+    local->replies[i].op_errno = op_errno;
+    if (op_ret != 0) {
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_LK_HEAL_DOM,
+               "Failed getlk for %s", uuid_utoa(local->fd->inode->gfid));
+    }
+
+    if (xdata)
+        local->replies[i].xdata = dict_ref(xdata);
+
+    call_count = afr_frame_return(frame);
+
+    if (call_count)
+        return 0;
+
+    /* Currently we get 3 values from the lower layer (protocol/client) in the
+     * getlk_cbk.
+     *  FD_REOPEN_ALLOWED : No conflicting locks are held and reopen is allowed
+     *  FD_REOPEN_NOT_ALLOWED : Conflicting locks are held and reopen is not
+     *                          allowed
+     *  FD_BAD : FD is not valid
+     *
+     * - If we get FD_REOPEN_NOT_ALLOWED from any of the bricks, will block the
+     *   reopen taking this as high priority.
+     * - If we get FD_BAD from all the replies, we will not reopen since we do
+     *   not know the correct status.
+     * - If we get FD_BAD from few brick and FD_REOPEN_NOT_ALLOWED from one or
+     *   more bricks, then we will block reopen.
+     * - If we get FD_BAD from few bricks and FD_REOPEN_ALLOWED from one or
+     *   more bricks, then we will allow the reopen.
+     *
+     *   We will update the final_reopen_status only when the value returned
+     *   from lower layer is >= FD_REOPEN_ALLOWED and < FD_BAD. We will not set
+     *   FD_BAD in final_reopen_status, since it can lead to unexpected
+     *   behaviours.
+     *
+     *   At the end of this loop, if we still have final_reopen_status as -1
+     *   i.e., the init value, it means we failed to get the fd status from any
+     *   of the bricks or we do not have a valid fd on any of the bricks. We
+     *   will not reopen the fd in this case as well.
+     */
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (final_reopen_status != FD_REOPEN_NOT_ALLOWED &&
+            local->replies[i].xdata) {
+            ret = dict_get_int32(xdata, "fd-reopen-status", &fd_reopen_status);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
+                       "Failed to get whether reopen is allowed or not on fd "
+                       "for file %s on subvolume %s.",
+                       local->loc.path, priv->children[i]->name);
+            } else if (fd_reopen_status >= FD_REOPEN_ALLOWED &&
+                       fd_reopen_status < FD_BAD) {
+                final_reopen_status = fd_reopen_status;
+            }
+        }
+
+        if (final_reopen_status == FD_REOPEN_NOT_ALLOWED)
+            break;
+    }
+
+    if (final_reopen_status == FD_REOPEN_NOT_ALLOWED) {
+        gf_log(this->name, GF_LOG_INFO,
+               "Conflicting locks held on file %s. FD reopen is not allowed.",
+               local->loc.path);
+    } else if (final_reopen_status == -1) {
+        gf_log(this->name, GF_LOG_INFO,
+               "Failed to get the lock information "
+               "on file %s. FD reopen is not allowed.",
+               local->loc.path);
+    } else {
+        afr_local_replies_wipe(local, priv);
+        afr_do_fix_open(frame, this);
+        return 0;
+    }
+
+    afr_fd_ctx_reset_need_open(local->fd, this, local->need_open);
+    AFR_STACK_DESTROY(frame);
+    return 0;
+}
+
+void
+afr_is_reopen_allowed(xlator_t *this, call_frame_t *frame)
+{
+    afr_private_t *priv = NULL;
+    afr_local_t *local = NULL;
+    dict_t *xdata = NULL;
+    int i = 0;
+    int call_count = 0;
+    struct gf_flock flock = {
+        0,
+    };
+
+    local = frame->local;
+    priv = this->private;
+
+    flock.l_type = F_WRLCK;
+    afr_set_lk_owner(frame, this, frame->root);
+    lk_owner_copy(&flock.l_owner, &frame->root->lk_owner);
+
+    call_count = AFR_COUNT(local->child_up, priv->child_count);
+    if (!call_count)
+        goto out;
+    local->call_count = call_count;
+
+    xdata = dict_new();
+    if (xdata == NULL)
+        goto out;
+
+    if (dict_set_int32(xdata, "fd-reopen-status", -1))
+        goto out;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (local->child_up[i]) {
+            STACK_WIND_COOKIE(frame, afr_is_reopen_allowed_cbk, (void *)(long)i,
+                              priv->children[i], priv->children[i]->fops->lk,
+                              local->fd, F_GETLK, &flock, xdata);
+        } else {
+            continue;
+        }
+
+        if (!--call_count)
+            break;
+    }
+
+    dict_unref(xdata);
+    return;
+
+out:
+    if (xdata)
+        dict_unref(xdata);
+    afr_fd_ctx_reset_need_open(local->fd, this, local->need_open);
+    AFR_STACK_DESTROY(frame);
+    return;
+}
+
 void
 afr_fix_open(fd_t *fd, xlator_t *this)
 {
-    afr_private_t *priv = NULL;
-    int i = 0;
     call_frame_t *frame = NULL;
     afr_local_t *local = NULL;
     int ret = -1;
     int32_t op_errno = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
-    unsigned char *need_open = NULL;
     int call_count = 0;
-
-    priv = this->private;
 
     if (!afr_is_fd_fixable(fd))
         goto out;
 
     fd_ctx = afr_fd_ctx_get(fd, this);
     if (!fd_ctx)
-        goto out;
-
-    need_open = alloca0(priv->child_count);
-
-    call_count = afr_fd_ctx_need_open(fd, this, need_open);
-    if (!call_count)
         goto out;
 
     frame = create_frame(this, this->ctx->pool);
@@ -307,47 +521,24 @@ afr_fix_open(fd_t *fd, xlator_t *this)
     if (!local)
         goto out;
 
+    call_count = afr_fd_ctx_set_need_open(fd, this, local->need_open);
+    if (!call_count)
+        goto out;
+
     local->loc.inode = inode_ref(fd->inode);
     ret = loc_path(&local->loc, NULL);
     if (ret < 0)
         goto out;
-
     local->fd = fd_ref(fd);
     local->fd_ctx = fd_ctx;
 
-    local->call_count = call_count;
-
-    gf_msg_debug(this->name, 0, "need open count: %d", call_count);
-
-    for (i = 0; i < priv->child_count; i++) {
-        if (!need_open[i])
-            continue;
-
-        if (IA_IFDIR == fd->inode->ia_type) {
-            gf_msg_debug(this->name, 0, "opening fd for dir %s on subvolume %s",
-                         local->loc.path, priv->children[i]->name);
-
-            STACK_WIND_COOKIE(frame, afr_openfd_fix_open_cbk, (void *)(long)i,
-                              priv->children[i],
-                              priv->children[i]->fops->opendir, &local->loc,
-                              local->fd, NULL);
-        } else {
-            gf_msg_debug(this->name, 0,
-                         "opening fd for file %s on subvolume %s",
-                         local->loc.path, priv->children[i]->name);
-
-            STACK_WIND_COOKIE(frame, afr_openfd_fix_open_cbk, (void *)(long)i,
-                              priv->children[i], priv->children[i]->fops->open,
-                              &local->loc, fd_ctx->flags & (~O_TRUNC),
-                              local->fd, NULL);
-        }
-
-        if (!--call_count)
-            break;
-    }
-
+    afr_is_reopen_allowed(this, frame);
     return;
+
 out:
+    if (call_count)
+        afr_fd_ctx_reset_need_open(fd, this, local->need_open);
     if (frame)
         AFR_STACK_DESTROY(frame);
+    return;
 }
