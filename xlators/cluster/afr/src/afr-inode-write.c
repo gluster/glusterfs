@@ -36,6 +36,7 @@ __afr_inode_write_finalize(call_frame_t *frame, xlator_t *this)
     struct iatt *stbuf = NULL;
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    afr_lock_t *lock = NULL;
     afr_read_subvol_args_t args = {
         0,
     };
@@ -43,6 +44,12 @@ __afr_inode_write_finalize(call_frame_t *frame, xlator_t *this)
     local = frame->local;
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, local->inode, out);
+
+    if (local->update_num_inodelks &&
+        local->transaction.type == AFR_DATA_TRANSACTION) {
+        lock = &local->inode_ctx->lock[local->transaction.type];
+        lock->num_inodelks = local->num_inodelks;
+    }
 
     /*This code needs to stay till DHT sends fops on linked
      * inodes*/
@@ -128,6 +135,7 @@ __afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    int num_inodelks = 0;
 
     local = frame->local;
     priv = this->private;
@@ -140,8 +148,16 @@ __afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
 
     local->replies[child_index].op_ret = op_ret;
     local->replies[child_index].op_errno = op_errno;
-    if (xdata)
+    if (xdata) {
         local->replies[child_index].xdata = dict_ref(xdata);
+        if (dict_get_int32_sizen(xdata, GLUSTERFS_INODELK_COUNT,
+                                 &num_inodelks) == 0) {
+            if (num_inodelks > local->num_inodelks) {
+                local->num_inodelks = num_inodelks;
+                local->update_num_inodelks = _gf_true;
+            }
+        }
+    }
 
     if (op_ret >= 0) {
         if (prebuf)
@@ -277,7 +293,6 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
     afr_local_t *local = frame->local;
     uint32_t open_fd_count = 0;
     uint32_t write_is_append = 0;
-    int32_t num_inodelks = 0;
 
     LOCK(&frame->lock);
     {
@@ -299,15 +314,6 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
             local->open_fd_count = open_fd_count;
             local->update_open_fd_count = _gf_true;
         }
-
-        ret = dict_get_int32_sizen(xdata, GLUSTERFS_INODELK_COUNT,
-                                   &num_inodelks);
-        if (ret < 0)
-            goto unlock;
-        if (num_inodelks > local->num_inodelks) {
-            local->num_inodelks = num_inodelks;
-            local->update_num_inodelks = _gf_true;
-        }
     }
 unlock:
     UNLOCK(&frame->lock);
@@ -317,7 +323,6 @@ void
 afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
-    afr_lock_t *lock = NULL;
 
     local = frame->local;
 
@@ -336,11 +341,6 @@ afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 
     if (local->update_open_fd_count)
         local->inode_ctx->open_fd_count = local->open_fd_count;
-    if (local->update_num_inodelks &&
-        local->transaction.type == AFR_DATA_TRANSACTION) {
-        lock = &local->inode_ctx->lock[local->transaction.type];
-        lock->num_inodelks = local->num_inodelks;
-    }
 }
 
 int
@@ -2530,6 +2530,12 @@ afr_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 
     if (!local->xdata_req)
         goto out;
+
+    if (dict_set_str_sizen(local->xdata_req, GLUSTERFS_INODELK_DOM_COUNT,
+                           this->name)) {
+        op_errno = ENOMEM;
+        goto out;
+    }
 
     local->fd = fd_ref(fd);
     ret = afr_set_inode_local(this, local, fd->inode);
