@@ -349,6 +349,7 @@ typedef struct shard_inode_ctx {
     inode_t *inode;
     int fsync_count;
     inode_t *base_inode;
+    gf_boolean_t i_ctx_refresh_protect;
 } shard_inode_ctx_t;
 
 typedef enum {

@@ -239,6 +239,36 @@ shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
     return ret;
 }
 
+static int
+__shard_inode_ctx_mark_write_locked(inode_t *inode, xlator_t *this,
+                                    gf_boolean_t value)
+{
+    int ret = -1;
+    shard_inode_ctx_t *ctx = NULL;
+
+    ret = __shard_inode_ctx_get(inode, this, &ctx);
+    if (ret)
+        return ret;
+
+    ctx->i_ctx_refresh_protect = value;
+    return 0;
+}
+
+static int
+shard_inode_ctx_mark_write_locked(inode_t *inode, xlator_t *this,
+                                  gf_boolean_t value)
+{
+    int ret = -1;
+
+    LOCK(&inode->lock);
+    {
+        ret = __shard_inode_ctx_mark_write_locked(inode, this, value);
+    }
+    UNLOCK(&inode->lock);
+
+    return ret;
+}
+
 int
 __shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
                                     inode_t *shard_inode)
@@ -340,8 +370,9 @@ __shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
     if (ret)
         return ret;
 
-    if ((stbuf->ia_size != ctx->stat.ia_size) ||
-        (stbuf->ia_blocks != ctx->stat.ia_blocks))
+    if (((stbuf->ia_size != ctx->stat.ia_size) ||
+         (stbuf->ia_blocks != ctx->stat.ia_blocks)) &&
+        (!ctx->i_ctx_refresh_protect))
         ctx->refresh = _gf_true;
 
     return 0;
@@ -5607,6 +5638,8 @@ shard_common_inode_write_do(call_frame_t *frame, xlator_t *this)
 
     if ((fd->flags & O_DIRECT) && (local->fop == GF_FOP_WRITE))
         odirect = _gf_true;
+
+    shard_inode_ctx_mark_write_locked(fd->inode, this, _gf_true);
 
     while (cur_block <= last_block) {
         if (wind_failed) {
