@@ -3809,9 +3809,6 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     }
 
     if (__is_root_gfid(loc->inode->gfid)) {
-        if (!priv->root_inode)
-            priv->root_inode = inode_ref(loc->inode);
-
         if (priv->choose_local && !priv->did_discovery) {
             /* Logic to detect which subvolumes of AFR are
                local, in order to prefer them for reads

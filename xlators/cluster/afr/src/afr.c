@@ -621,8 +621,6 @@ init(xlator_t *this)
         goto out;
     }
 
-    priv->root_inode = NULL;
-
     ret = 0;
 out:
     return ret;
