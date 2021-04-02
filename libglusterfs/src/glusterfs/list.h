@@ -66,21 +66,34 @@ list_add_order(struct list_head *new, struct list_head *head,
     list_add(new, pos);
 }
 
+/* Delete a list entry by making the prev/next entries
+   point to each other.
+
+   This is only for internal list manipulation where we know
+   the prev/next entries already! */
+static inline void
+_list_del(struct list_head *old)
+{
+    old->next->prev = old->prev;
+    old->prev->next = old->next;
+}
+
+#define LIST_POISON1 ((void *)0xdead000000000100)
+#define LIST_POISON2 ((void *)0xdead000000000122)
+
 static inline void
 list_del(struct list_head *old)
 {
-    old->prev->next = old->next;
-    old->next->prev = old->prev;
+    _list_del(old);
 
-    old->next = (void *)0xbabebabe;
-    old->prev = (void *)0xcafecafe;
+    old->next = (struct list_head *)LIST_POISON1;
+    old->prev = (struct list_head *)LIST_POISON2;
 }
 
 static inline void
 list_del_init(struct list_head *old)
 {
-    old->prev->next = old->next;
-    old->next->prev = old->prev;
+    _list_del(old);
 
     old->next = old;
     old->prev = old;
@@ -89,14 +102,14 @@ list_del_init(struct list_head *old)
 static inline void
 list_move(struct list_head *list, struct list_head *head)
 {
-    list_del(list);
+    _list_del(list);
     list_add(list, head);
 }
 
 static inline void
 list_move_tail(struct list_head *list, struct list_head *head)
 {
-    list_del(list);
+    _list_del(list);
     list_add_tail(list, head);
 }
 
