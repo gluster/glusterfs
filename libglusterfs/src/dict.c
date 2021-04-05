@@ -16,20 +16,25 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-#include "glusterfs/dict.h"
-#define XXH_INLINE_ALL
-#include "xxhash.h"
-#include "glusterfs/compat.h"
-#include "glusterfs/compat-errno.h"
-#include "glusterfs/byte-order.h"
-#include "glusterfs/statedump.h"
-#include "glusterfs/libglusterfs-messages.h"
 
 /* dict_t is always initialized with hash_size = 1
  * with this usage it's implemented as a doubly-linked list
  * and the hash calculation done per operation is not necessary.
  * using this macro to delimit blocks related to hash imp */
 #define DICT_LIST_IMP 1
+
+
+#include "glusterfs/dict.h"
+#if !DICT_LIST_IMP
+#define XXH_INLINE_ALL
+#include "xxhash.h"
+#endif
+#include "glusterfs/compat.h"
+#include "glusterfs/compat-errno.h"
+#include "glusterfs/byte-order.h"
+#include "glusterfs/statedump.h"
+#include "glusterfs/libglusterfs-messages.h"
+
 
 struct dict_cmp {
     dict_t *dict;
@@ -574,8 +579,11 @@ dict_get(dict_t *this, char *key)
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
-
+#if !DICT_LIST_IMP
     return dict_getn(this, key, strlen(key));
+#else   
+    return dict_getn(this, key, 0);
+#endif
 }
 
 data_t *
@@ -634,8 +642,11 @@ dict_del(dict_t *this, char *key)
                          "!this || key=%s", key);
         return _gf_false;
     }
-
+#if !DICT_LIST_IMP
     return dict_deln(this, key, strlen(key));
+#else
+    return dict_deln(this, key, 0);
+#endif
 }
 
 gf_boolean_t
@@ -1574,8 +1585,11 @@ dict_get_with_ref(dict_t *this, char *key, data_t **data)
                          "dict OR key (%s) is NULL", key);
         return -EINVAL;
     }
-
+#if !DICT_LIST_IMP
     return dict_get_with_refn(this, key, strlen(key), data);
+#else
+    return dict_get_with_refn(this, key, 0, data);
+#endif
 }
 
 static int
