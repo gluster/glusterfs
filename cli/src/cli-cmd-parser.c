@@ -4300,7 +4300,6 @@ out:
 }
 
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
- *                                           [force]
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
  * @arg-2, wordcount: Contains number of words present in the CLI command.
@@ -4448,14 +4447,20 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
             goto out;
         i++;
         /* point the index to next word.
-         * As description might be follwed by force option.
+         * As description might be follwed by force option which is deprecated.
          * Before that, check if wordcount limit is reached
          */
     }
 
+    /*TODO: the below force option should be completely removed after a
+            couple of releases as it is deprecated.*/
     if (strcmp(words[i], "force") == 0) {
-        flags = GF_CLI_FLAG_OP_FORCE;
-
+        cli_out(
+            "Warning: \'force\' option is deprecated and "
+            "should not be used in the future while "
+            "creating snapshot. Snapshot create command will "
+            "only execute if all the bricks used in creating "
+            "the snapshot are online.");
     } else {
         ret = -1;
         cli_err("Invalid Syntax.");
@@ -4463,7 +4468,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
         goto out;
     }
 
-    /* Check if the command has anything after "force" keyword */
+    /* Check if the command has anything after the force */
     if (++i < wordcount) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");

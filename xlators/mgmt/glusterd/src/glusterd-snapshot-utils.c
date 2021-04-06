@@ -2761,50 +2761,10 @@ out:
     return ret;
 }
 
-gf_boolean_t
-glusterd_volume_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
-                                 int down_count, gf_boolean_t first_brick_on,
-                                 int8_t snap_force, int quorum_count,
-                                 char *quorum_type, char **op_errstr,
-                                 uint32_t *op_errno)
-{
-    gf_boolean_t quorum_met = _gf_false;
-    const char err_str[] = "One or more bricks may be down.";
-    xlator_t *this = THIS;
-
-    GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
-
-    if (!volinfo || !dict) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_INVALID_ENTRY,
-               "input parameters NULL");
-        goto out;
-    }
-
-    /* In a n-way replication where n >= 3 we should not take a snapshot
-     * if even one brick is down, irrespective of the quorum being met.
-     * TODO: Remove this restriction once n-way replication is
-     * supported with snapshot.
-     */
-    if (down_count) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DISCONNECTED, "%s",
-               err_str);
-        *op_errstr = gf_strdup(err_str);
-        *op_errno = EG_BRCKDWN;
-    } else {
-        quorum_met = _gf_true;
-    }
-
-    /* TODO : Support for n-way relication in snapshot*/
-out:
-    return quorum_met;
-}
-
 static int32_t
 glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
                              dict_t *dict, const char *key_prefix,
-                             int8_t snap_force, int quorum_count,
-                             char *quorum_type, char **op_errstr,
-                             uint32_t *op_errno)
+                             char **op_errstr, uint32_t *op_errno)
 {
     int ret = 0;
     xlator_t *this = THIS;
@@ -2814,13 +2774,11 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
         0,
     }; /* key_prefix is passed from above, but is really quite small */
     int keylen;
-    int down_count = 0;
-    gf_boolean_t first_brick_on = _gf_true;
     glusterd_conf_t *priv = NULL;
     gf_boolean_t quorum_met = _gf_false;
     int distribute_subvols = 0;
     int32_t brick_online = 0;
-    const char err_str[] = "quorum is not met";
+    const char err_str[] = "One or more bricks may be down.";
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -2846,52 +2804,42 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
             ret = dict_get_int32n(dict, key, keylen, &brick_online);
             if (ret || !brick_online) {
                 ret = 1;
-                gf_msg(this->name, GF_LOG_ERROR, 0,
-                       GD_MSG_SERVER_QUORUM_NOT_MET, "%s", err_str);
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DISCONNECTED,
+                       "%s", err_str);
                 *op_errstr = gf_strdup(err_str);
                 *op_errno = EG_BRCKDWN;
                 goto out;
             }
         }
-        ret = 0;
-        quorum_met = _gf_true;
     } else {
         distribute_subvols = volinfo->brick_count / volinfo->dist_leaf_count;
         for (j = 0; j < distribute_subvols; j++) {
             /* by default assume quorum is not met
                Currently only distributed replicate volumes are
-               handled.
+               handled. quorum is not met even if one of the bricks are down.
             */
             ret = 1;
-            quorum_met = _gf_false;
             for (i = 0; i < volinfo->dist_leaf_count; i++) {
                 keylen = snprintf(
                     key, sizeof(key), "%s%" PRId64 ".brick%" PRId64 ".status",
                     key_prefix, index, (j * volinfo->dist_leaf_count) + i);
                 ret = dict_get_int32n(dict, key, keylen, &brick_online);
                 if (ret || !brick_online) {
-                    if (i == 0)
-                        first_brick_on = _gf_false;
-                    down_count++;
+                    ret = -1;
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
+                           GD_MSG_BRICK_DISCONNECTED, "%s", err_str);
+                    *op_errstr = gf_strdup(err_str);
+                    *op_errno = EG_BRCKDWN;
+                    goto out;
                 }
             }
-
-            quorum_met = glusterd_volume_quorum_calculate(
-                volinfo, dict, down_count, first_brick_on, snap_force,
-                quorum_count, quorum_type, op_errstr, op_errno);
-            /* goto out if quorum is not met */
-            if (!quorum_met) {
-                ret = -1;
-                goto out;
-            }
-
-            down_count = 0;
-            first_brick_on = _gf_true;
         }
     }
 
+    quorum_met = _gf_true;
     if (quorum_met) {
-        gf_msg_debug(this->name, 0, "volume %s is in quorum", volinfo->volname);
+        gf_msg_debug(this->name, 0, "All bricks in volume %s are online.",
+                     volinfo->volname);
         ret = 0;
     }
 
@@ -2902,84 +2850,15 @@ out:
 static int32_t
 glusterd_snap_common_quorum_calculate(glusterd_volinfo_t *volinfo, dict_t *dict,
                                       int64_t index, const char *key_prefix,
-                                      int8_t snap_force,
-                                      gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
 {
-    int quorum_count = 0;
-    char *quorum_type = NULL;
-    int32_t tmp = 0;
     int32_t ret = -1;
     xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
 
-    /* for replicate volumes with replica count equal to or
-       greater than 3, do quorum check by getting what type
-       of quorum rule has been set by getting the volume
-       option set. If getting the option fails, then assume
-       default.
-       AFR does this:
-       if quorum type is "auto":
-       - for odd number of bricks (n), n/2 + 1
-       bricks should be present
-       - for even number of bricks n, n/2 bricks
-       should be present along with the 1st
-       subvolume
-       if quorum type is not "auto":
-       - get the quorum count from dict with the
-       help of the option "cluster.quorum-count"
-       if the option is not there in the dict,
-       then assume quorum type is auto and follow
-       the above method.
-       For non replicate volumes quorum is met only if all
-       the bricks of the volume are online
-     */
-
-    if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
-        if (volinfo->replica_count % 2 == 0)
-            quorum_count = volinfo->replica_count / 2;
-        else
-            quorum_count = volinfo->replica_count / 2 + 1;
-    } else if (GF_CLUSTER_TYPE_DISPERSE == volinfo->type) {
-        quorum_count = volinfo->disperse_count - volinfo->redundancy_count;
-    } else {
-        quorum_count = volinfo->brick_count;
-    }
-
-    ret = dict_get_str_sizen(volinfo->dict, "cluster.quorum-type",
-                             &quorum_type);
-    if (!ret && !strcmp(quorum_type, "fixed")) {
-        ret = dict_get_int32_sizen(volinfo->dict, "cluster.quorum-count", &tmp);
-        /* if quorum-type option is not found in the
-           dict assume auto quorum type. i.e n/2 + 1.
-           The same assumption is made when quorum-count
-           option cannot be obtained from the dict (even
-           if the quorum-type option is not set to auto,
-           the behavior is set to the default behavior)
-         */
-        if (!ret) {
-            /* for dispersed volumes, only allow quorums
-               equal or larger than minimum functional
-               value.
-             */
-            if ((GF_CLUSTER_TYPE_DISPERSE != volinfo->type) ||
-                (tmp >= quorum_count)) {
-                quorum_count = tmp;
-            } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_QUORUM_COUNT_IGNORED,
-                       "Ignoring small quorum-count "
-                       "(%d) on dispersed volume",
-                       tmp);
-                quorum_type = NULL;
-            }
-        } else
-            quorum_type = NULL;
-    }
-
     ret = glusterd_volume_quorum_check(volinfo, index, dict, key_prefix,
-                                       snap_force, quorum_count, quorum_type,
                                        op_errstr, op_errno);
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
@@ -3095,7 +2974,7 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
                  snap_volume ? "vol" : "clone");
 
         ret = glusterd_snap_common_quorum_calculate(
-            volinfo, dict, i, key_prefix, 0, snap_volume, op_errstr, op_errno);
+            volinfo, dict, i, key_prefix, op_errstr, op_errno);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
                    "volume %s "
@@ -3112,8 +2991,6 @@ static int32_t
 glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
                                       char **op_errstr, uint32_t *op_errno)
 {
-    int8_t snap_force = 0;
-    int32_t force = 0;
     const char err_str[] = "glusterds are not in quorum";
     char key_prefix[16] = {
         0,
@@ -3156,10 +3033,6 @@ glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
             goto out;
         }
     }
-
-    ret = dict_get_int32(dict, "flags", &force);
-    if (!ret && (force & GF_CLI_FLAG_OP_FORCE))
-        snap_force = 1;
 
     /* Do a quorum check of glusterds also. Because, the missed snapshot
      * information will be saved by glusterd and if glusterds are not in
@@ -3216,8 +3089,7 @@ glusterd_snap_quorum_check_for_create(dict_t *dict, gf_boolean_t snap_volume,
                  snap_volume ? "snap-vol" : "vol");
 
         ret = glusterd_snap_common_quorum_calculate(
-            volinfo, dict, i, key_prefix, snap_force, snap_volume, op_errstr,
-            op_errno);
+            volinfo, dict, i, key_prefix, op_errstr, op_errno);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_NOT_FOUND,
                    "volume %s "
