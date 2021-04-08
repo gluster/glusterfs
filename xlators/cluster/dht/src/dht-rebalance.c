@@ -1007,7 +1007,7 @@ dht_rebalance_sparse_segment(xlator_t *subvol, fd_t *fd, off_t *offset,
         ret = syncop_seek(subvol, fd, data, GF_SEEK_DATA, NULL, &data);
         if (ret < 0) {
             if (ret == -ENXIO) {
-                return 0; /* No more data segments */
+                ret = 0; /* No more data segments */
             }
             return ret; /* Error occurred */
         }
@@ -1031,6 +1031,8 @@ dht_rebalance_sparse_segment(xlator_t *subvol, fd_t *fd, off_t *offset,
          * modifying the file concurrently. In this case we need to find a
          * new data segment to migrate. */
     } while (*size <= 0);
+
+    *offset = data;
 
     return 1;
 }
