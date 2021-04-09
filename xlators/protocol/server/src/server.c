@@ -685,10 +685,8 @@ server_graph_janitor_threads(void *data)
         LOCK(&ctx->volfile_lock);
         {
             totchildcount = 0;
-            for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+            if (top->children)
                 totchildcount++;
-                break;
-            }
             if (!totchildcount && !ctx->destroy_ctx) {
                 ctx->destroy_ctx = _gf_true;
                 destroy_ctx = _gf_true;
