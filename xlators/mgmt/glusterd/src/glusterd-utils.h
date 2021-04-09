@@ -669,7 +669,7 @@ int32_t
 glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
                            char *origin_brick_path);
 
-void
+int
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque);
 
 int
