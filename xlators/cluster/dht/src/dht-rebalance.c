@@ -998,41 +998,38 @@ static int32_t
 dht_rebalance_sparse_segment(xlator_t *subvol, fd_t *fd, off_t *offset,
                              size_t *size)
 {
-    off_t data;
     off_t hole;
     int32_t ret;
 
     do {
-        data = *offset;
-        ret = syncop_seek(subvol, fd, data, GF_SEEK_DATA, NULL, &data);
+        ret = syncop_seek(subvol, fd, *offset, GF_SEEK_DATA, NULL, offset);
+        if (ret >= 0) {
+            /* Starting at the offset of the last data segment, find the
+             * next hole. After a data segment there should always be a
+             * hole, since EOF is considered a hole. */
+            ret = syncop_seek(subvol, fd, *offset, GF_SEEK_HOLE, NULL, &hole);
+        }
+
         if (ret < 0) {
             if (ret == -ENXIO) {
-                ret = 0; /* No more data segments */
+                /* This can happen if there are no more data segments (i.e.
+                 * the offset is at EOF), or there was a data segment but the
+                 * file has been truncated to a smaller size between both
+                 * seek requests. In both cases we are done. The file doesn't
+                 * contain more data. */
+                ret = 0;
             }
-            return ret; /* Error occurred */
-        }
-
-        /* Starting at the offset of the last data segment, find the
-         * next hole */
-        ret = syncop_seek(subvol, fd, data, GF_SEEK_HOLE, NULL, &hole);
-        if (ret < 0) {
-            /* If an error occurred here it's a real error because
-             * if the seek for a data segment was successful then
-             * necessarily another hole must exist (EOF is a hole)
-             */
             return ret;
         }
-
-        /* Calculate the total size of the current data block */
-        *size = hole - data;
 
         /* It could happen that at the same offset we detected data in the
          * first seek, there could be a hole in the second seek if user is
          * modifying the file concurrently. In this case we need to find a
          * new data segment to migrate. */
-    } while (*size <= 0);
+    } while (hole <= *offset);
 
-    *offset = data;
+    /* Calculate the total size of the current data block */
+    *size = hole - *offset;
 
     return 1;
 }
