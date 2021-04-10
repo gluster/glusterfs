@@ -7,4 +7,6 @@ This session covers how posix xlator converts File Operations(FOPs) in glusterfs
 Following internal data structures are discussed as part of the session.
     - inode_t
     - dentry_t
-    - fd_t
+    - fd_t  
+3. Xlator interface - [video](https://youtu.be/EnYAzpR336I) - [slides](https://www.slideshare.net/PranithKarampuri/gluster-dev-session-3-xlator-interface)  
+This session covers xlator interface in glusterfs which is how all functionality/modules are divided into in glusterfs.
