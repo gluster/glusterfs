@@ -50,4 +50,4 @@ TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
 
 cleanup
-
+#G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000

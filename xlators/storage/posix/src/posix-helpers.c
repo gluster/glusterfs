@@ -1013,6 +1013,7 @@ posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
     struct stat stat = {
         0,
     };
+    char gfid_link[] = "1";
 
     *op_errno = 0;
 
@@ -1062,13 +1063,36 @@ posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
                "setting GFID on %s failed ", path);
         goto out;
     }
+
     gf_uuid_copy(uuid_curr, uuid_req);
 
 verify_handle:
+    ret = sys_lgetxattr(path, GFID_LINK_CREATED, gfid_link, 1);
+    if (ret == 1) {
+        ret = 0;
+        goto out;
+    }
     if (!S_ISDIR(stat.st_mode))
         ret = posix_handle_hard(this, path, uuid_curr, &stat);
     else
         ret = posix_handle_soft(this, path, loc, uuid_curr, &stat);
+
+    /* Populate a new xattr(glink) on real_path after link has been populated
+       so that at the time of lookup we can skip gfid
+       (.glusterfs/h1/h2/<file|dir>) validation. If lookup operation has found a
+       xattr(trusted.glink) on real path it means posix_gfid_set set a link with
+       gfid at the time of entry creation successfully and there is no need to
+       validate it.
+    */
+
+    if (!ret) {
+        ret = sys_lsetxattr(path, GFID_LINK_CREATED, gfid_link, 1,
+                            XATTR_CREATE);
+        if (ret == -1) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GFID_FAILED,
+                   "setting GFID_LINK_CREATED on %s failed ", path);
+        }
+    }
 
 out:
     if (ret && !(*op_errno))
@@ -1735,6 +1759,7 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
     */
 
     uuid_t uuid_curr;
+    uuid_t uuid_req;
     int ret = 0;
     struct stat stat = {
         0,
@@ -1743,6 +1768,8 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         0,
     };
     struct posix_private *priv = NULL;
+    ssize_t size = 0;
+    char gfid_link[] = "1";
 
     priv = this->private;
 
@@ -1762,8 +1789,8 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
                    uuid_utoa(loc->inode->gfid));
             return -ENOENT;
         }
-        ret = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
-        if (ret != 16) {
+        size = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (size != 16) {
             /* TODO: This is a very hacky way of doing this, and very prone to
              *       errors and unexpected behavior. This should be changed. */
             struct timespec ts = {.tv_sec = stbuf.ia_ctime,
@@ -1778,8 +1805,8 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
         if (sys_lstat(path, &stat) != 0) {
             return -errno;
         }
-        ret = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
-        if (ret != 16) {
+        size = sys_lgetxattr(path, GFID_XATTR_KEY, uuid_curr, 16);
+        if (size != 16) {
             /* TODO: This is a very hacky way of doing this, and very prone to
              *       errors and unexpected behavior. This should be changed. */
             if (is_fresh_file(&stat.st_ctim)) {
@@ -1789,9 +1816,65 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
             }
         }
     }
+    /* posix_gfid_set populate a xattr trusted.glink on the real_path
+       to make sure gfid/link has been correctly set duing any entry creation.
+       So at the time of fresh lookup there is no need to verify_handle because
+       it consumes time during lookup while huge number of files(1M)
+       are available on the backend.
+    */
 
-    (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
-    return 0;
+    if (size == 16) {
+        ret = sys_lgetxattr(path, GFID_LINK_CREATED, gfid_link, 1);
+        if (ret == 1) {
+            return 0;
+        } else {
+            goto verify_handle;
+        }
+    }
+
+    ret = dict_get_gfuuid(xattr_req, "gfid-req", &uuid_req);
+    if (ret) {
+        gf_msg_debug(this->name, 0, "failed to get the gfid from dict for %s",
+                     loc->path);
+        ret = -1;
+        goto out;
+    }
+    if (gf_uuid_is_null(uuid_req)) {
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,
+               "gfid is null for %s", loc ? loc->path : "");
+        ret = -1;
+        goto out;
+    }
+
+    ret = sys_lsetxattr(path, GFID_XATTR_KEY, uuid_req, 16, XATTR_CREATE);
+    if (ret == -1) {
+        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GFID_FAILED,
+               "setting GFID on %s failed ", path);
+        goto out;
+    }
+    gf_uuid_copy(uuid_curr, uuid_req);
+
+verify_handle:
+    if (!S_ISDIR(stat.st_mode))
+        ret = posix_handle_hard(this, path, uuid_curr, &stat);
+    else
+        ret = posix_handle_soft(this, path, loc, uuid_curr, &stat);
+
+    /* Set a new xattr GFID_LINK_CREATED while new gfid has changed
+       to avoid verify_handle during next lookup operation.
+    */
+    if (!ret) {
+        ret = sys_lsetxattr(path, GFID_LINK_CREATED, gfid_link, 1,
+                            XATTR_CREATE);
+        if (ret == -1 && errno != EEXIST) {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GFID_FAILED,
+                   "setting GFID_LINK_CREATED on %s failed ", path);
+        } else {
+            ret = 0;
+        }
+    }
+out:
+    return ret;
 }
 
 int
