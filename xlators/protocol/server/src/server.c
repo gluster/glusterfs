@@ -695,7 +695,7 @@ server_graph_janitor_threads(void *data)
 out:
     free(arg->victim_name);
     free(arg);
-    if (!top->children && destroy_ctx) {
+    if (destroy_ctx) {
         gf_log(THIS->name, GF_LOG_INFO,
                "Going to Cleanup ctx pool memory and exit the process %s",
                ctx->cmdlinestr);
