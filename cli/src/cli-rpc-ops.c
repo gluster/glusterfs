@@ -10478,8 +10478,8 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    cli_out("%-40s%-40s", "Option", "Value");
-    cli_out("%-40s%-40s", "------", "-----");
+    cli_out("%-40s %-39s", "Option", "Value");
+    cli_out("%-40s %-39s", "------", "-----");
     for (i = 1; i <= count; i++) {
         ret = snprintf(dict_key, sizeof dict_key, "key%d", i);
         ret = dict_get_strn(dict, dict_key, ret, &key);
@@ -10496,7 +10496,7 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
                    dict_key);
             goto out;
         }
-        cli_out("%-39s: %-39s", key, value);
+        cli_out("%-40s %-39s", key, value);
     }
 
 out:
