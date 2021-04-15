@@ -580,6 +580,10 @@ void
 gf_log_globals_init(void *data, gf_loglevel_t level)
 {
     glusterfs_ctx_t *ctx = data;
+    pthread_mutexattr_t log_m_attr;
+    int ret;
+
+    ret = pthread_mutexattr_init(&log_m_attr);
 
     pthread_mutex_init(&ctx->log.logfile_mutex, NULL);
 
@@ -592,7 +596,12 @@ gf_log_globals_init(void *data, gf_loglevel_t level)
     ctx->log.timeout = GF_LOG_FLUSH_TIMEOUT_DEFAULT;
     ctx->log.localtime = GF_LOG_LOCALTIME_DEFAULT;
 
-    pthread_mutex_init(&ctx->log.log_buf_lock, NULL);
+    if (ret) {
+        pthread_mutex_init(&ctx->log.log_buf_lock, NULL);
+    } else {
+        pthread_mutexattr_settype(&log_m_attr, PTHREAD_MUTEX_RECURSIVE);
+        pthread_mutex_init(&ctx->log.log_buf_lock, &log_m_attr);
+    }
 
     INIT_LIST_HEAD(&ctx->log.lru_queue);
 
