@@ -451,7 +451,7 @@ glusterd_rpcsvc_options_build(dict_t *options)
         backlog = GLUSTERFS_SOCKET_LISTEN_BACKLOG;
         ret = dict_set_uint32(options, "transport.listen-backlog", backlog);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                     "Key=transport.listen-backlog", NULL);
             goto out;
         }
@@ -587,7 +587,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
 
     ret = dict_get_str(THIS->options, GEOREP "-log-group", &greplg_s);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
                 "Key=log-group", NULL);
         ret = 0;
     } else {

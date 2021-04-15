@@ -1131,8 +1131,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
         case GD_OP_PROFILE_VOLUME: {
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_msg(this->name, GF_LOG_CRITICAL, errno,
-                       GD_MSG_DICT_GET_FAILED,
+                gf_msg(this->name, GF_LOG_CRITICAL, ret, GD_MSG_DICT_GET_FAILED,
                        "volname is not present in "
                        "operation ctx");
                 goto out;
@@ -1153,8 +1152,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
             }
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_msg(this->name, GF_LOG_CRITICAL, errno,
-                       GD_MSG_DICT_GET_FAILED,
+                gf_msg(this->name, GF_LOG_CRITICAL, ret, GD_MSG_DICT_GET_FAILED,
                        "volname is not present in "
                        "operation ctx");
                 goto out;

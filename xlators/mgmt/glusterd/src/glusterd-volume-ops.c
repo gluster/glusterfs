@@ -568,7 +568,7 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
     ret = dict_get_int32n(dict, "heal-op", SLEN("heal-op"),
                           (int32_t *)&heal_op);
     if (ret || (heal_op == GF_SHD_OP_INVALID)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
                 "Key=heal-op", NULL);
         ret = -1;
         goto out;
@@ -608,7 +608,7 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
         key = "cluster.granular-entry-heal";
         ret = dict_set_int8(dict, "is-special-key", 1);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                     "Key=is-special-key", NULL);
             goto out;
         }
@@ -616,21 +616,21 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
 
     ret = dict_set_strn(dict, "key1", SLEN("key1"), key);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                 "Key=key1", NULL);
         goto out;
     }
 
     ret = dict_set_strn(dict, "value1", SLEN("value1"), value);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                 "Key=value1", NULL);
         goto out;
     }
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), 1);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -728,7 +728,7 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
 
     ret = dict_set_int32n(dict, "count", SLEN("count"), volinfo->brick_count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -1689,7 +1689,7 @@ glusterd_op_stage_heal_volume(dict_t *dict, char **op_errstr)
 
     opt_dict = volinfo->dict;
     if (!opt_dict) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, NULL);
         ret = 0;
         goto out;
     }

@@ -145,7 +145,7 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
 
         ret = dict_set_dynstr(dict, "host-uuid", host_uuid);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                     "Key=host-uuid", NULL);
             goto out;
         }

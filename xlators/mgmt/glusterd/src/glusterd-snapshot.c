@@ -5061,7 +5061,7 @@ glusterd_snap_set_unsupported_opt(
         ret = dict_set_dynstr(volinfo->dict, unsupported_opt[i].key,
                               unsupported_opt[i].value);
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_msg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
                    "dict set failed");
             goto out;
         }
