@@ -45,12 +45,16 @@ EXPECT "data-2" cat $B0/${V0}2/a
 gfid_a=$(gf_get_gfid_xattr $B0/${V0}0/a)
 gfid_str_a=$(gf_gfid_xattr_to_str $gfid_a)
 
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 TEST fd2=`fd_available`
 TEST fd_open $fd2 'rw' $M1/a
+
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^2$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^2$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 # Kill 2nd brick and try writing to the file. The write should fail due to
 # quorum failure.
@@ -66,6 +70,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
 TEST ! fd_write $fd1 "data-4"
 TEST ! fd_cat $fd1
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^2$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 # Enable heal and check the files will have same content on all the bricks after
 # the heal is completed.
@@ -89,7 +96,9 @@ TEST ! fd_write $fd1 "data-5"
 
 # At this point only one brick will have the lock. Try taking the lock again on
 # the bad fd, which should also fail with EBADFD.
-TEST ! flock -x $fd1
+# TODO: At the moment quorum failure in lk leads to unlock on the bricks where
+# lock succeeds. This will change lock state on 3rd brick, commenting for now
+#TEST ! flock -x $fd1
 
 # Kill the only brick that is having lock and try taking lock on another client
 # which should succeed.
@@ -97,15 +106,25 @@ TEST kill_brick $V0 $H0 $B0/${V0}2
 EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replicate-0 2
 TEST flock -x $fd2
 TEST fd_write $fd2 "data-6"
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+
 
 # Bring the brick up and try writing & reading on the old fd, which should still
 # fail and operations on the 2nd fd should succeed.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" brick_up_status $V0 $H0 $B0/${V0}2
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M1 $V0-replicate-0 2
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 TEST ! fd_write $fd1 "data-7"
 
 TEST ! fd_cat $fd1
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 TEST fd_cat $fd2
 
 # Close both the fds which will release the locks and then re-open and take lock
@@ -113,17 +132,15 @@ TEST fd_cat $fd2
 TEST fd_close $fd1
 TEST fd_close $fd2
 
-TEST ! ls /proc/$$/fd/$fd1
-TEST ! ls /proc/$$/fd/$fd2
-EXPECT_WITHIN $REOPEN_TIMEOUT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT_WITHIN $REOPEN_TIMEOUT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT_WITHIN $REOPEN_TIMEOUT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 TEST fd1=`fd_available`
 TEST fd_open $fd1 'rw' $M0/a
-EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT_WITHIN $REOPEN_TIMEOUT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 TEST flock -x $fd1
 TEST fd_write $fd1 "data-8"
@@ -134,6 +151,10 @@ EXPECT "data-8" head -n 1 $B0/${V0}1/a
 EXPECT "data-8" head -n 1 $B0/${V0}2/a
 
 TEST fd_close $fd1
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT_WITHIN $REOPEN_TIMEOUT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+
 
 # Heal the volume
 TEST $CLI volume heal $V0 enable
@@ -152,9 +173,9 @@ EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT "0" afr_child_up_status_meta $M0 $V0-replica
 TEST fd1=`fd_available`
 TEST fd_open $fd1 'rw' $M0/a
 
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 # Restart the brick and then write. Now fd should get re-opened and write should
 # succeed on the previously down brick as well since there are no locks held on
@@ -163,7 +184,7 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
 TEST fd_write $fd1 "data-10"
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
 
 EXPECT "data-10" head -n 1 $B0/${V0}0/a
 EXPECT "data-10" head -n 1 $B0/${V0}1/a
@@ -177,9 +198,9 @@ TEST fd1=`fd_available`
 TEST fd_open $fd1 'rw' $M0/a
 TEST flock -x $fd1
 
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 # Kill & restart another brick so that it will return EBADFD
 TEST kill_brick $V0 $H0 $B0/${V0}1
@@ -194,9 +215,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^1$" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_meta $M0 $V0-replicate-0 1
 TEST ! fd_write $fd1 "data-11"
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
-EXPECT "N" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
-EXPECT "Y" gf_check_file_opened_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
+EXPECT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}0 $gfid_str_a
+EXPECT "^0$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}1 $gfid_str_a
+EXPECT "^1$" gf_open_file_count_in_brick $V0 $H0 $B0/${V0}2 $gfid_str_a
 
 EXPECT "data-10" head -n 1 $B0/${V0}0/a
 EXPECT "data-10" head -n 1 $B0/${V0}1/a

@@ -307,8 +307,12 @@ int
 client_attempt_lock_recovery(xlator_t *this, clnt_fd_ctx_t *fdctx);
 int32_t
 delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner);
-int32_t
-delete_granted_locks_fd(clnt_fd_ctx_t *fdctx);
+void
+__delete_granted_locks_owner_from_fdctx(clnt_fd_ctx_t *fdctx,
+                                        gf_lkowner_t *owner,
+                                        struct list_head *deleted);
+void
+destroy_client_locks_from_list(struct list_head *deleted);
 int32_t
 client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
 void
