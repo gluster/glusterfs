@@ -1324,7 +1324,7 @@ br_scrubber_scale_up(xlator_t *this, struct br_scrubber *fsscrub,
                "%d/%d [total scrubber(s): %d]",
                v2, i, diff, (v1 + i));
 
-    if (scrub != NULL) {
+    if (ret && scrub) {
         GF_FREE(scrub);
     }
 
