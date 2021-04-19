@@ -637,7 +637,6 @@ server_graph_janitor_threads(void *data)
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
     uint32_t parent_down = 0;
-    uint32_t totchildcount = 1;
     struct rpc_clnt *rpc = NULL;
 
     GF_ASSERT(data);
@@ -684,12 +683,7 @@ server_graph_janitor_threads(void *data)
         xlator_mem_cleanup(victim);
         LOCK(&ctx->volfile_lock);
         {
-            totchildcount = 0;
-            for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-                totchildcount++;
-                break;
-            }
-            if (!totchildcount && !ctx->destroy_ctx) {
+            if (!top->children && !ctx->destroy_ctx) {
                 ctx->destroy_ctx = _gf_true;
                 destroy_ctx = _gf_true;
             }
@@ -701,7 +695,7 @@ server_graph_janitor_threads(void *data)
 out:
     free(arg->victim_name);
     free(arg);
-    if (!totchildcount && destroy_ctx) {
+    if (destroy_ctx) {
         gf_log(THIS->name, GF_LOG_INFO,
                "Going to Cleanup ctx pool memory and exit the process %s",
                ctx->cmdlinestr);
