@@ -6,7 +6,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_CPPFLAGS = $(AM_CPPFLAGS) \
 	-DFILTERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/filter\" \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
-	-I$(top_srcdir)/libglusterd/src/
+	-I$(top_srcdir)/libglusterd/src/  \
+	-I$(CONTRIBDIR)/xxhash
 
 glusterd_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
@@ -26,7 +27,8 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-bitd-svc.c glusterd-scrub-svc.c glusterd-server-quorum.c \
 	glusterd-reset-brick.c glusterd-shd-svc.c glusterd-shd-svc-helper.c \
         glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c glusterd-ganesha.c \
-	$(CONTRIBDIR)/mount/mntent.c
+	$(CONTRIBDIR)/mount/mntent.c \
+	$(CONTRIBDIR)/xxhash/xxhash.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/libglusterd/src/libglusterd.la \
@@ -48,7 +50,8 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
         glusterd-shd-svc.h glusterd-shd-svc-helper.h \
         glusterd-gfproxyd-svc.h glusterd-gfproxyd-svc-helper.h \
 	$(CONTRIBDIR)/userspace-rcu/rculist-extra.h \
-	$(CONTRIBDIR)/mount/mntent_compat.h
+	$(CONTRIBDIR)/mount/mntent_compat.h \
+	$(CONTRIBDIR)/xxhash/xxhash.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \

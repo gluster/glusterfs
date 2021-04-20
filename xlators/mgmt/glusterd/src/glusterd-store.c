@@ -3310,6 +3310,13 @@ glusterd_store_retrieve_volume(char *volname, glusterd_snap_t *snap)
     if (!snap) {
         glusterd_list_add_order(&volinfo->vol_list, &priv->volumes,
                                 glusterd_compare_volume_name);
+        ret = glusterd_add_volume_to_hashtable(this, volname, volinfo);
+        if (ret) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    GD_MSG_ADD_VOLUME_TO_HASH_TABLE_FAILED, "Volume: %s",
+                    volname, NULL);
+            goto out;
+        }
 
     } else {
         ret = glusterd_volinfo_find(volinfo->parent_volname, &origin_volinfo);

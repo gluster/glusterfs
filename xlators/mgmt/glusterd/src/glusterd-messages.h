@@ -322,7 +322,8 @@ GLFS_MSGID(
     GD_MSG_ADD_BRICK_MNT_INFO_FAIL, GD_MSG_GET_MNT_ENTRY_INFO_FAIL,
     GD_MSG_QUORUM_CLUSTER_COUNT_GET_FAIL, GD_MSG_POST_COMMIT_OP_FAIL,
     GD_MSG_POST_COMMIT_FROM_UUID_REJCT, GD_MSG_POST_COMMIT_REQ_SEND_FAIL,
-    GD_MSG_GRACEFUL_CLEANUP_SET_FAIL);
+    GD_MSG_GRACEFUL_CLEANUP_SET_FAIL, GD_MSG_ADD_VOLUME_TO_HASH_TABLE_FAILED,
+    GD_MSG_FAILED_TO_COMPUTE_HASH, GD_MSG_HASH_TABLE_NOT_FOUND);
 
 #define GD_MSG_INVALID_ENTRY_STR "Invalid data entry"
 #define GD_MSG_INVALID_ARGUMENT_STR                                            \
@@ -449,5 +450,9 @@ GLFS_MSGID(
 #define GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL_STR                         \
     "Failed to allocate memory or get serialized length of dict"
 #define GD_MSG_GET_XATTR_FAIL_STR "Failed to get extended attribute"
+#define GD_MSG_ADD_VOLUME_TO_HASH_TABLE_FAILED_STR                             \
+    "Failed to add volume in hash table"
+#define GD_MSG_FAILED_TO_COMPUTE_HASH_STR "Failed to compute hash for the key"
+#define GD_MSG_HASH_TABLE_NOT_FOUND_STR "Failed to get the hash table"
 
 #endif /* !_GLUSTERD_MESSAGES_H_ */
