@@ -2134,7 +2134,7 @@ index_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     int ret = -1;
     char *flag = NULL;
 
-    ret = dict_get_str(xdata, "link-count", &flag);
+    ret = dict_get_str_sizen(xdata, "link-count", &flag);
     if ((ret == 0) && (strcmp(flag, GF_XATTROP_INDEX_COUNT) == 0)) {
         STACK_WIND(frame, index_fstat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
