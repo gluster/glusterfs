@@ -1054,6 +1054,10 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_lookup(linked_inode);
 
+        if (dict_get_sizen(xdata, GF_NAMESPACE_KEY)) {
+            inode_set_namespace_inode(linked_inode, linked_inode);
+        }
+
         feo.nodeid = inode_to_fuse_nodeid(linked_inode);
 
         inode_unref(linked_inode);
@@ -1186,8 +1190,19 @@ fuse_lookup_resume(fuse_state_t *state)
         gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": LOOKUP %s",
                state->finh->unique, state->loc.path);
         state->loc.inode = inode_new(state->loc.parent->table);
-        if (gf_uuid_is_null(state->gfid))
+        if (gf_uuid_is_null(state->gfid)) {
+            /* this is when its all completely new lookup, send namespace key
+             * here */
+            if (state->xdata) {
+                int ret = dict_set_int32(state->xdata, GF_NAMESPACE_KEY, 1);
+                if (ret) {
+                    gf_log(THIS->name, GF_LOG_DEBUG,
+                           "BUG: dict set failed (path: %s), still continuing",
+                           state->loc.path);
+                }
+            }
             gf_uuid_generate(state->gfid);
+        }
         fuse_gfid_set(state);
     }
 
@@ -2010,12 +2025,21 @@ static int
 fuse_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-    if (op_ret == -1 && op_errno == ENOTSUP)
+    fuse_state_t *state = frame->root->state;
+    if (op_ret == -1 && op_errno == ENOTSUP) {
         GF_LOG_OCCASIONALLY(gf_fuse_xattr_enotsup_log, "glusterfs-fuse",
                             GF_LOG_CRITICAL,
                             "extended attribute not supported "
                             "by the backend storage");
+        goto out;
+    }
+    if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
+        /* This inode onwards we will set namespace */
+        inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
+        inode_set_namespace_inode(inode, inode);
+    }
 
+out:
     return fuse_err_cbk(frame, cookie, this, op_ret, op_errno, xdata);
 }
 

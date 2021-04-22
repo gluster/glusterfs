@@ -128,6 +128,9 @@
 
 #define XATTR_IS_BD(x) (strncmp(x, BD_XATTR_KEY, SLEN(BD_XATTR_KEY)) == 0)
 
+/* required for namespace */
+#define GF_NAMESPACE_KEY "trusted.glusterfs.namespace"
+
 #define GF_XATTR_LINKINFO_KEY "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
 #define PGFID_XATTR_KEY_PREFIX "trusted.pgfid."
@@ -226,6 +229,10 @@ enum gf_internal_fop_indicator {
 #define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define QUOTA_READ_ONLY_KEY "trusted.glusterfs.quota.read-only"
+
+/* simple-quota */
+#define SQUOTA_SIZE_KEY "trusted.gfs.squota.size"
+#define SQUOTA_LIMIT_KEY "trusted.gfs.squota.limit"
 
 /* ctime related */
 #define CTIME_MDATA_XDATA_KEY "set-ctime-mdata"
