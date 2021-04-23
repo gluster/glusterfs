@@ -312,6 +312,7 @@ enum glusterd_mgmt_v3_procnum {
     GLUSTERD_MGMT_V3_POST_VALIDATE,
     GLUSTERD_MGMT_V3_UNLOCK,
     GLUSTERD_MGMT_V3_POST_COMMIT,
+    /* Always add new proc just before the MGMT_V3_MAXVALUE declartion */
     GLUSTERD_MGMT_V3_MAXVALUE,
 };
 
