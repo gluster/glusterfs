@@ -60,9 +60,9 @@ pmap_registry_new(glusterd_conf_t *priv)
     if (!pmap)
         return NULL;
 
+    CDS_INIT_LIST_HEAD(&pmap->ports);
     pmap->base_port = priv->base_port;
     pmap->max_port = priv->max_port;
-    CDS_INIT_LIST_HEAD(&pmap->ports);
 
     return pmap;
 }
@@ -282,8 +282,8 @@ pmap_port_new(xlator_t *this, int port, char *brickname, void *xprt,
 
     CDS_INIT_LIST_HEAD(&tmp_port->port_list);
     tmp_port->brickname = gf_strdup(brickname);
-    tmp_port->port = port;
     tmp_port->xprt = xprt;
+    tmp_port->port = port;
 
     *new_port = tmp_port;
 
