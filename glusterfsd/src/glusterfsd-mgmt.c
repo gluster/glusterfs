@@ -2337,6 +2337,7 @@ post_unlock:
            restart the process */
         gf_log("mgmt", GF_LOG_ERROR, "failed to fetch volume file (key:%s)",
                ctx->cmd_args.volfile_id);
+        emancipate(ctx, ret);
         cleanup_and_exit(0);
     }
 
