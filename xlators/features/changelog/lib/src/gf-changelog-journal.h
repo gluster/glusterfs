@@ -72,6 +72,7 @@ typedef struct gf_changelog_history_data {
     int len;
 
     int htime_fd;
+    char changelog_path[PATH_MAX];
 
     /* parallelism count */
     int n_parallel;
@@ -84,6 +85,10 @@ typedef struct gf_changelog_history_data {
 
 typedef struct gf_changelog_consume_data {
     /** set of inputs */
+    /* changelog path */
+    char changelog_path[PATH_MAX];
+
+    gf_boolean_t no_publish;
 
     /* fd to read from */
     int fd;
