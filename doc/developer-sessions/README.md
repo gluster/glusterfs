@@ -9,4 +9,6 @@ Following internal data structures are discussed as part of the session.
     - dentry_t
     - fd_t  
 3. Xlator interface - [video](https://youtu.be/EnYAzpR336I) - [slides](https://www.slideshare.net/PranithKarampuri/gluster-dev-session-3-xlator-interface)  
-This session covers xlator interface in glusterfs which is how all functionality/modules are divided into in glusterfs.
+This session covers xlator interface in glusterfs which is how all functionality/modules are divided into in glusterfs.  
+4. Programming Model - [video](https://youtu.be/tmSpZT2nAVo) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-4-call-frame-and-programming-model-247038588)
+This session covers programming model used in glusterfs along with the data structures used to achieve it.  
