@@ -844,33 +844,6 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
                    "symlink %s -> %s failed", oldpath, newstr);
             return -1;
         }
-
-        ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
-
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "stat on %s failed ", newstr);
-            return -1;
-        }
-    }
-
-    ret = sys_stat(real_path, &newbuf);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-               "stat on %s failed ", real_path);
-        return -1;
-    }
-
-    if (!oldbuf)
-        return ret;
-
-    if (newbuf.st_ino != oldbuf->st_ino || newbuf.st_dev != oldbuf->st_dev) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
-               "mismatching ino/dev between file %s (%lld/%lld) "
-               "and handle %s (%lld/%lld)",
-               oldpath, (long long)oldbuf->st_ino, (long long)oldbuf->st_dev,
-               newpath, (long long)newbuf.st_ino, (long long)newbuf.st_dev);
-        ret = -1;
     }
 
     return ret;
