@@ -215,7 +215,6 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
     struct pmap_registry *pmap = NULL;
     struct pmap_ports *tmp_port = NULL;
     char *tmp_brick;
-    char *new_brickname;
     char *entry;
     size_t brickname_len;
     int ret = -1;
@@ -257,11 +256,10 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
                 entry = strstr(entry + brickname_len, brickname);
             }
         }
-        ret = gf_asprintf(&new_brickname, "%s %s", tmp_brick, brickname);
+        ret = gf_asprintf(&(tmp_port->brickname), "%s %s", tmp_brick,
+                          brickname);
         if (ret > 0) {
             ret = 0;
-            tmp_port->brickname = gf_strdup(new_brickname);
-            GF_FREE(new_brickname);
             GF_FREE(tmp_brick);
         }
     }
