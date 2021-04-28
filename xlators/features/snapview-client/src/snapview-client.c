@@ -2114,6 +2114,7 @@ gf_svc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, SVC_MSG_NO_MEMORY, NULL);
         goto out;
     }
+    frame->local = local;
 
     /*
      * This is mainly for samba shares (or windows clients). As part of
@@ -2141,7 +2142,6 @@ gf_svc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     local->subvolume = subvolume;
     local->fd = fd_ref(fd);
-    frame->local = local;
 
     STACK_WIND(frame, gf_svc_readdirp_cbk, subvolume, subvolume->fops->readdirp,
                fd, size, off, xdata);
