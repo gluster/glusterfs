@@ -3247,8 +3247,6 @@ gf_asprintf_append(char **string_ptr, const char *format, ...)
 {
     va_list arg;
     int rv = 0;
-    char *tmp = *string_ptr;
-
     va_start(arg, format);
     rv = gf_vasprintf(string_ptr, format, arg);
     va_end(arg);
