@@ -104,6 +104,7 @@ pmap_port_alloc(xlator_t *this)
     pmap = pmap_registry_get(this);
 
     while (true) {
+        /* coverity[DC.WEAK_CRYPTO] */
         p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
         if (pmap_port_isfree(p)) {
             break;
@@ -260,6 +261,7 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
         if (ret > 0) {
             ret = 0;
             tmp_port->brickname = gf_strdup(new_brickname);
+            GF_FREE(new_brickname);
             GF_FREE(tmp_brick);
         }
     }
