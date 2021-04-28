@@ -906,9 +906,9 @@ xml_output:
                                       replica_count, disperse_count,
                                       redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
-                                       : (transport == 1) ? "rdma"
-                                                          : "tcp,rdma"));
+        cli_out("Transport-type: %s",
+                ((transport == 0) ? "tcp"
+                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -7894,68 +7894,6 @@ out:
 }
 
 static void
-cmd_heal_volume_brick_out(dict_t *dict, int brick)
-{
-    uint64_t num_entries = 0;
-    int ret = 0;
-    char key[64] = {0};
-    char *hostname = NULL;
-    char *path = NULL;
-    char *status = NULL;
-    uint64_t i = 0;
-    uint32_t time = 0;
-    char timestr[GF_TIMESTR_SIZE] = {0};
-    char *shd_status = NULL;
-
-    snprintf(key, sizeof key, "%d-hostname", brick);
-    ret = dict_get_str(dict, key, &hostname);
-    if (ret)
-        goto out;
-    snprintf(key, sizeof key, "%d-path", brick);
-    ret = dict_get_str(dict, key, &path);
-    if (ret)
-        goto out;
-    cli_out("\nBrick %s:%s", hostname, path);
-
-    snprintf(key, sizeof key, "%d-status", brick);
-    ret = dict_get_str(dict, key, &status);
-    if (status && status[0] != '\0')
-        cli_out("Status: %s", status);
-
-    snprintf(key, sizeof key, "%d-shd-status", brick);
-    ret = dict_get_str(dict, key, &shd_status);
-
-    if (!shd_status) {
-        snprintf(key, sizeof key, "%d-count", brick);
-        ret = dict_get_uint64(dict, key, &num_entries);
-        cli_out("Number of entries: %" PRIu64, num_entries);
-
-        for (i = 0; i < num_entries; i++) {
-            snprintf(key, sizeof key, "%d-%" PRIu64, brick, i);
-            ret = dict_get_str(dict, key, &path);
-            if (ret)
-                continue;
-            time = 0;
-            snprintf(key, sizeof key, "%d-%" PRIu64 "-time", brick, i);
-            ret = dict_get_uint32(dict, key, &time);
-            if (ret || !time) {
-                cli_out("%s", path);
-            } else {
-                gf_time_fmt(timestr, sizeof timestr, time, gf_timefmt_FT);
-                if (i == 0) {
-                    cli_out("at                    path on brick");
-                    cli_out("-----------------------------------");
-                }
-                cli_out("%s %s", timestr, path);
-            }
-        }
-    }
-
-out:
-    return;
-}
-
-static void
 cmd_heal_volume_statistics_heal_count_out(dict_t *dict, int brick)
 {
     uint64_t num_entries = 0;
@@ -8090,12 +8028,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             heal_op_str = "to perform full self heal";
             substr = "\nUse heal info commands to check status.";
             break;
-        case GF_SHD_OP_INDEX_SUMMARY:
-            heal_op_str = "list of entries to be healed";
-            break;
-        case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            heal_op_str = "list of split brain entries";
-            break;
         case GF_SHD_OP_STATISTICS:
             heal_op_str = "crawl statistics";
             break;
@@ -8111,6 +8043,8 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         case GF_SHD_OP_HEAL_SUMMARY:
         case GF_SHD_OP_HEALED_FILES:
         case GF_SHD_OP_HEAL_FAILED_FILES:
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
             /* These cases are never hit; they're coded just to silence the
              * compiler warnings.*/
             break;
@@ -8188,8 +8122,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             break;
         case GF_SHD_OP_INDEX_SUMMARY:
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            for (i = 0; i < brick_count; i++)
-                cmd_heal_volume_brick_out(dict, i);
             break;
         default:
             break;
