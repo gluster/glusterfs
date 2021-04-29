@@ -2854,9 +2854,14 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
     uint32_t new_op_version = 0;
     gf_boolean_t quorum_action = _gf_false;
     glusterd_svc_t *svc = NULL;
+    dict_t *volinfo_dict_orig = NULL;
 
     priv = this->private;
     GF_ASSERT(priv);
+
+    volinfo_dict_orig = dict_new();
+    if (!volinfo_dict_orig)
+        goto out;
 
     ret = dict_get_int32n(dict, "count", SLEN("count"), &dict_count);
     if (ret) {
@@ -2886,6 +2891,11 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
                FMTSTR_CHECK_VOL_EXISTS, volname);
+        goto out;
+    }
+
+    if (dict_copy(volinfo->dict, volinfo_dict_orig) == NULL) {
+        ret = -ENOMEM;
         goto out;
     }
 
@@ -3113,6 +3123,12 @@ out:
     gf_msg_debug(this->name, 0, "returning %d", ret);
     if (quorum_action)
         glusterd_do_quorum_action();
+    if (ret < 0 && count > 1) {
+        if (dict_reset(volinfo->dict) == 0)
+            dict_copy(volinfo_dict_orig, volinfo->dict);
+    }
+    if (volinfo_dict_orig)
+        dict_unref(volinfo_dict_orig);
     return ret;
 }
 
