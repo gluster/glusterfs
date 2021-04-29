@@ -27,6 +27,7 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
+#include <glusterfs/byte-order.h>
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
 #include <glusterfs/defaults.h>
@@ -648,6 +649,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
     struct rda_fd_ctx *ctx;
     off_t offset;
     struct rda_priv *priv = this->private;
+    int ret = 0;
 
     ctx = get_rda_fd_ctx(fd, this);
     if (!ctx)
@@ -696,6 +698,16 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
     GF_ATOMIC_INC(ctx->prefetching);
 
     UNLOCK(&ctx->lock);
+
+    /* if the file is sharded then server will return the below
+     * xattr as part of dict that is used to update the ia_size
+     * in d_stat
+     */
+    ret = dict_set_uint64(ctx->xattrs, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
+    if (ret) {
+        gf_msg_debug(this->name, -ret, "Unable to set list-xattr in dict ");
+        goto err;
+    }
 
     STACK_WIND(nframe, rda_fill_fd_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readdirp, fd, priv->rda_req_size,
