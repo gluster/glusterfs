@@ -4823,11 +4823,43 @@ shard_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+shard_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+{
+    SHARD_STACK_UNWIND(open, frame, op_ret, op_errno, fd, xdata);
+    return 0;
+}
+
+int
 shard_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
     STACK_WIND(frame, shard_open_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+    return 0;
+}
+
+int
+shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+              dict_t *xdata)
+{
+    int ret = 0;
+
+    xdata = xdata ? dict_ref(xdata) : dict_new();
+
+    /* if the file is sharded then server will return the below
+     * xattr as part of dict that is used to update the ia_size
+     * in d_stat. This is helpful incase readdir-ahead is enabled
+     */
+    ret = dict_set_uint64(xdata, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
+    if (ret)
+        gf_msg_debug(this->name, -ret,
+                     "Unable to set GF_XATTR_SHARD_FILE_SIZE in the dict ");
+
+    STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+
+    dict_unref(xdata);
     return 0;
 }
 
@@ -7481,6 +7513,7 @@ shard_releasedir(xlator_t *this, fd_t *fd)
 struct xlator_fops fops = {
     .lookup = shard_lookup,
     .open = shard_open,
+    .opendir = shard_opendir,
     .flush = shard_flush,
     .fsync = shard_fsync,
     .stat = shard_stat,
