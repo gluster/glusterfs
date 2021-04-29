@@ -259,10 +259,9 @@ port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
         }
         ret = gf_asprintf(&new_brickname, "%s %s", tmp_brick, brickname);
         if (ret > 0) {
-            ret = 0;
-            tmp_port->brickname = gf_strdup(new_brickname);
-            GF_FREE(new_brickname);
+            tmp_port->brickname = new_brickname;
             GF_FREE(tmp_brick);
+            ret = 0;
         }
     }
 
