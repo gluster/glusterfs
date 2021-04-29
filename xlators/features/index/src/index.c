@@ -22,6 +22,7 @@
 #define XATTROP_SUBDIR "xattrop"
 #define DIRTY_SUBDIR "dirty"
 #define ENTRY_CHANGES_SUBDIR "entry-changes"
+#define RENAME_CHANGES_SUBDIR "rename-changes"
 
 struct index_syncop_args {
     inode_t *parent;
@@ -2343,7 +2344,8 @@ index_priv_dump(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
-    gf_proc_dump_write("xattrop-pending-count", "%"PRId64, priv->pending_count);
+    gf_proc_dump_write("xattrop-pending-count", "%" PRId64,
+                       priv->pending_count);
 
     return 0;
 }
@@ -2478,6 +2480,10 @@ init(xlator_t *this)
     }
 
     ret = index_dir_create(this, ENTRY_CHANGES_SUBDIR);
+    if (ret < 0)
+        goto out;
+
+    ret = index_dir_create(this, RENAME_CHANGES_SUBDIR);
     if (ret < 0)
         goto out;
 

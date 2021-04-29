@@ -321,6 +321,8 @@ reconfigure(xlator_t *this, dict_t *options)
             afr_selfheal_childup(this, priv);
     }
 
+    GF_OPTION_RECONF("gfid-mismatch-heal", priv->gfid_mismatch_heal, options,
+                     bool, out);
     ret = 0;
 out:
     return ret;
@@ -571,6 +573,8 @@ init(xlator_t *this)
     GF_OPTION_INIT("use-anonymous-inode", priv->use_anon_inode, bool, out);
     if (priv->quorum_count != 0)
         priv->consistent_io = _gf_false;
+
+    GF_OPTION_INIT("gfid-mismatch-heal", priv->gfid_mismatch_heal, bool, out);
 
     priv->wait_count = 1;
 
@@ -1333,6 +1337,14 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
      .tags = {"replicate"},
      .description = "Setting this option heals directory renames efficiently"},
+
+    {.key = {"gfid-mismatch-heal"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "no",
+     .op_version = {GD_OP_VERSION_10_0},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE,
+     .tags = {"replicate"},
+     .description = "Setting this option automatically heals gfid mismatches"},
 
     {.key = {NULL}},
 };

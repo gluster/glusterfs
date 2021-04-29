@@ -276,6 +276,7 @@ typedef struct _afr_private {
     gf_boolean_t consistent_io;
     gf_boolean_t data_self_heal; /* on/off */
     gf_boolean_t use_anon_inode;
+    gf_boolean_t gfid_mismatch_heal;
 
     /*For lock healing.*/
     struct list_head saved_locks;
