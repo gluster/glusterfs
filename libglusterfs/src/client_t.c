@@ -733,8 +733,9 @@ gf_client_dump_inodes_to_dict(xlator_t *this, dict_t *dict)
                 clienttable->cliententries[count].next_free)
                 continue;
             client = clienttable->cliententries[count].client;
-            if (!strcmp(client->bound_xl->name, this->name)) {
-                if (client->bound_xl && client->bound_xl->itable) {
+            if (client->bound_xl &&
+                !strcmp(client->bound_xl->name, this->name)) {
+                if (client->bound_xl->itable) {
                     /* Presently every brick contains only
                      * one bound_xl for all connections.
                      * This will lead to duplicating of
