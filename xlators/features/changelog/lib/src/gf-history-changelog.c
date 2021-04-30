@@ -892,6 +892,7 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
                        "unable to read htime file");
                 goto out;
             }
+            buffer[n_read] = '\0';
 
             len = strlen(buffer);
 
