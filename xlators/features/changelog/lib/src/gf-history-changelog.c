@@ -884,7 +884,7 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
             /**
              * TODO: handle short reads later...
              */
-            n_read = sys_read(fd, buffer, PATH_MAX);
+            n_read = sys_read(fd, buffer, PATH_MAX - 1);
             if (n_read < 0) {
                 ret = -1;
                 gf_msg(this->name, GF_LOG_ERROR, errno,
