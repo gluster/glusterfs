@@ -1798,56 +1798,6 @@ out:
 }
 
 static int
-gf_cli_rename_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                         void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    char msg[1024] = {
-        0,
-    };
-
-    GF_ASSERT(myframe);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
-               XDR_DECODE_FAIL);
-        goto out;
-    }
-
-    gf_log("cli", GF_LOG_INFO, "Received resp to probe");
-    snprintf(msg, sizeof(msg), "Rename volume %s",
-             (rsp.op_ret) ? "unsuccessful" : "successful");
-
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_str("volRename", msg, rsp.op_ret, rsp.op_errno,
-                                 rsp.op_errstr);
-        if (ret)
-            gf_log("cli", GF_LOG_ERROR, XML_ERROR);
-        goto out;
-    }
-
-    if (rsp.op_ret)
-        cli_err("volume rename: failed");
-    else
-        cli_out("volume rename: success");
-
-    ret = rsp.op_ret;
-
-out:
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
-    return ret;
-}
-
-static int
 gf_cli_reset_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                         void *myframe)
 {
@@ -4124,39 +4074,14 @@ gf_cli_defrag_volume(call_frame_t *frame, xlator_t *this, void *data)
     return ret;
 }
 
+/* This function is obsolete and not used anymore, keeping it as a dummy
+ * function */
+
 static int32_t
 gf_cli_rename_volume(call_frame_t *frame, xlator_t *this, void *data)
 {
-    gf_cli_req req = {{
-        0,
-    }};
-    int ret = 0;
-    dict_t *dict = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = data;
-
-    ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
-                                      &req.dict.dict_len);
-    if (ret < 0) {
-        gf_log(this->name, GF_LOG_ERROR, DICT_SERIALIZE_FAIL);
-
-        goto out;
-    }
-
-    ret = cli_cmd_submit(NULL, &req, frame, cli_rpc_prog,
-                         GLUSTER_CLI_RENAME_VOLUME, NULL, this,
-                         gf_cli_rename_volume_cbk, (xdrproc_t)xdr_gf_cli_req);
-
-out:
-    GF_FREE(req.dict.dict_val);
-    gf_log("cli", GF_LOG_DEBUG, RETURNING, ret);
-
-    return ret;
+    gf_log("cli", GF_LOG_WARNING, "This option is depreciated");
+    return -1;
 }
 
 static int32_t
