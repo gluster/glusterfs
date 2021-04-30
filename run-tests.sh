@@ -109,70 +109,70 @@ function check_dependencies()
     MISSING=""
 
     # Check for dbench
-    if env dbench --usage > /dev/null 2>&1
+    if ! env dbench --usage > /dev/null 2>&1
     then
         MISSING="$MISSING dbench"
     fi
 
     # Check for git
-    if env git --version > /dev/null 2>&1
+    if ! env git --version > /dev/null 2>&1
     then
         MISSING="$MISSING git"
     fi
 
     # Check for nfs-utils (Linux-only: built-in NetBSD with different name)
     if [ "x$(uname -s)" = "xLinux" ] ; then
-      if env mount.nfs -V > /dev/null 2>&1
+      if ! env mount.nfs -V > /dev/null 2>&1
       then
           MISSING="$MISSING nfs-utils"
       fi
     fi
 
     # Check for netstat
-    if env netstat --version > /dev/null 2>&1
+    if ! env netstat --version > /dev/null 2>&1
     then
         MISSING="$MISSING netstat"
     fi
 
     # Check for the Perl Test Harness
-    if env prove --version > /dev/null 2>&1
+    if ! env prove --version > /dev/null 2>&1
     then
         MISSING="$MISSING perl-Test-Harness"
     fi
 
-    if which json_verify > /dev/null
+    if ! command -v json_verify > /dev/null
     then
         MISSING="$MISSING json_verify"
     fi
 
     # Check for XFS programs (Linux Only: NetBSD does without)
     if [ "x$(uname -s)" = "xLinux" ] ; then
-      if env mkfs.xfs -V > /dev/null 2>&1
+      if ! env mkfs.xfs -V > /dev/null 2>&1
       then
           MISSING="$MISSING xfsprogs"
       fi
     fi
 
     # Check for attr
-    if env getfattr --version > /dev/null 2>&1
+    if ! env getfattr --version > /dev/null 2>&1
     then
         MISSING="$MISSING attr"
     fi
 
     # Check for pidof
-    if pidof pidof > /dev/null 2>&1
+    if ! pidof pidof > /dev/null 2>&1
     then
         MISSING="$MISSING pidof"
     fi
 
     # Check for netstat
-    if env netstat --version > /dev/null 2>&1
+    if ! env netstat --version > /dev/null 2>&1
     then
         MISSING="$MISSING netstat"
     fi
 
     # Check for killall
-    if env killall --version > /dev/null 2>&1
+    if ! env killall --version > /dev/null 2>&1
     then
         MISSING="$MISSING killall"
     fi
