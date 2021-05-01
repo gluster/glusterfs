@@ -853,7 +853,6 @@ int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     int ret = 0;
-    struct stat stat;
     int index = 0;
     int dfd = 0;
     char newstr[POSIX_GFID_HASH2_LEN] = {
@@ -865,23 +864,12 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
     dfd = priv->arrdfd[index];
 
     snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_utoa(gfid));
-    ret = sys_fstatat(dfd, newstr, &stat, AT_SYMLINK_NOFOLLOW);
-
-    if (ret == -1) {
-        if (errno != ENOENT) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
-                   newstr);
-        }
-        goto out;
-    }
-
     ret = sys_unlinkat(dfd, newstr);
-    if (ret) {
+    if (ret && (errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
                "unlink %s is failed", newstr);
     }
 
-out:
     return ret;
 }
 
