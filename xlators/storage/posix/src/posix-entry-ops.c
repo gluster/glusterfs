@@ -412,6 +412,43 @@ posix_set_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
     return ret;
 }
 
+static int
+posix_acl_xattr_from_dict(const char *path, char *key, dict_t *xattr_req)
+{
+    int ret = 0;
+    data_t *data = NULL;
+
+    data = dict_get(xattr_req, key);
+    if (data) {
+        ret = sys_lsetxattr(path, key, data->data, data->len, 0);
+#ifdef __FreeBSD__
+        if (ret != -1) {
+            ret = 0;
+        }
+#endif /* __FreeBSD__ */
+    }
+
+    return ret;
+}
+
+static int
+posix_acl_xattr_set(const char *path, dict_t *xattr_req)
+{
+    int ret = 0;
+
+    if (!xattr_req)
+        goto out;
+
+    ret = posix_acl_xattr_from_dict(path, POSIX_ACL_ACCESS_XATTR, xattr_req);
+    if (ret)
+        goto out;
+
+    ret = posix_acl_xattr_from_dict(path, POSIX_ACL_DEFAULT_XATTR, xattr_req);
+
+out:
+    return ret;
+}
+
 int
 posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
             dev_t dev, mode_t umask, dict_t *xdata)
@@ -554,7 +591,7 @@ real_op:
 #endif
 
 post_op:
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);
@@ -935,7 +972,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         goto out;
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed ", real_path);
@@ -1658,7 +1695,7 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
         goto out;
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);
@@ -2324,7 +2361,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                "chown on %s failed", real_path);
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);
