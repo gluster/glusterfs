@@ -368,8 +368,6 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
 void
 posix_janitor_timer_start(xlator_t *this);
 int
-posix_acl_xattr_set(xlator_t *this, const char *path, dict_t *xattr_req);
-int
 posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc,
                 dict_t *xattr_req);
 int

@@ -1794,51 +1794,6 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
     return 0;
 }
 
-int
-posix_acl_xattr_set(xlator_t *this, const char *path, dict_t *xattr_req)
-{
-    int ret = 0;
-    data_t *data = NULL;
-    struct stat stat = {
-        0,
-    };
-
-    if (!xattr_req)
-        goto out;
-
-    if (sys_lstat(path, &stat) != 0)
-        goto out;
-
-    data = dict_get(xattr_req, POSIX_ACL_ACCESS_XATTR);
-    if (data) {
-        ret = sys_lsetxattr(path, POSIX_ACL_ACCESS_XATTR, data->data, data->len,
-                            0);
-#ifdef __FreeBSD__
-        if (ret != -1) {
-            ret = 0;
-        }
-#endif /* __FreeBSD__ */
-        if (ret != 0)
-            goto out;
-    }
-
-    data = dict_get(xattr_req, POSIX_ACL_DEFAULT_XATTR);
-    if (data) {
-        ret = sys_lsetxattr(path, POSIX_ACL_DEFAULT_XATTR, data->data,
-                            data->len, 0);
-#ifdef __FreeBSD__
-        if (ret != -1) {
-            ret = 0;
-        }
-#endif /* __FreeBSD__ */
-        if (ret != 0)
-            goto out;
-    }
-
-out:
-    return ret;
-}
-
 static int
 _handle_entry_create_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
 {
