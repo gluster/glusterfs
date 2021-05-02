@@ -867,7 +867,7 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
     ret = sys_unlinkat(dfd, newstr);
     if (ret && (errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
-               "unlink %s is failed", newstr);
+               "unlink %s failed", newstr);
     }
 
     return ret;
