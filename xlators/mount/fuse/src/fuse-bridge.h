@@ -330,6 +330,27 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
                 return;                                                        \
             }                                                                  \
             state->umask = fci->umask;                                         \
+                                                                               \
+            ret = dict_set_int16(state->xdata, "umask", fci->umask);           \
+            if (ret < 0) {                                                     \
+                gf_log("glusterfs-fuse", GF_LOG_WARNING,                       \
+                       "%s Failed adding umask"                                \
+                       " to request",                                          \
+                       op);                                                    \
+                send_fuse_err(this, finh, ENOMEM);                             \
+                free_fuse_state(state);                                        \
+                return;                                                        \
+            }                                                                  \
+            ret = dict_set_int16(state->xdata, "mode", fci->mode);             \
+            if (ret < 0) {                                                     \
+                gf_log("glusterfs-fuse", GF_LOG_WARNING,                       \
+                       "%s Failed adding mode "                                \
+                       "to request",                                           \
+                       op);                                                    \
+                send_fuse_err(this, finh, ENOMEM);                             \
+                free_fuse_state(state);                                        \
+                return;                                                        \
+            }                                                                  \
         }                                                                      \
     } while (0)
 
