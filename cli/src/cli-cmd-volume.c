@@ -3253,7 +3253,7 @@ gf_asprintf_append(char **string_ptr, const char *format, ...)
     rv = gf_vasprintf(string_ptr, format, arg);
     va_end(arg);
 
-    if (tmp)
+    if (rv >= 0)
         GF_FREE(tmp);
 
     return rv;
