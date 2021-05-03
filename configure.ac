@@ -1362,6 +1362,53 @@ AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
     AC_MSG_NOTICE([LTO is disabled])
 ])
 
+dnl ------------------------------
+dnl Checking posix_spawn(3) sanity
+dnl ------------------------------
+
+AC_ARG_ENABLE(posix_spawn,
+              AS_HELP_STRING([--disable-posix_spawn],
+                             [Disable usage of posix_spawn when calling out]),
+              AC_MSG_CHECKING([if posix_spawn returns properly on failure])
+              [ case "$enableval" in
+                no)
+                     AC_MSG_RESULT(no)
+                     posix_spawn=no
+                     ;;
+                *)   AC_MSG_RESULT(yes)
+                    posix_spawn=yes
+                     ;;
+                esac ],
+              AC_MSG_CHECKING([if posix_spawn returns properly on failure])
+              AC_RUN_IFELSE([AC_LANG_SOURCE([[
+/*
+ * Test posix_spawn(3) return value on failure,
+ * adapted from and because of
+ * https://sourceware.org/bugzilla/show_bug.cgi?id=18433
+ */
+#include <stdio.h>
+#include <spawn.h>
+#include <errno.h>
+
+int main()
+{
+  extern char **environ;
+  char *argv[[]] = { "3a7e588d3bdc4a069dbef540886ecf78", 0 };
+  pid_t pid = -1;
+  int ret = ret = posix_spawn(&pid, argv[[0]], 0, 0, argv, environ);
+  return ret == ENOENT ? 0 : 1;
+}
+]])
+],
+    AC_MSG_RESULT(yes)
+    posix_spawn=yes,
+    AC_MSG_RESULT(no)
+    posix_spawn=no,
+    AC_MSG_RESULT(yes)
+    posix_spawn=yes
+))
+AM_CONDITIONAL([USE_POSIX_SPAWN], [test x$posix_spawn = xyes])
+
 # Default value for sbindir
 prefix_temp=$prefix
 exec_prefix_temp=$exec_prefix
