@@ -4846,21 +4846,29 @@ shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     int ret = 0;
 
     xdata = xdata ? dict_ref(xdata) : dict_new();
+    if (!xdata) {
+        ret = -1;
+        goto err;
+    }
 
     /* if the file is sharded then server will return the below
      * xattr as part of dict that is used to update the ia_size
      * in d_stat. This is helpful incase readdir-ahead is enabled
      */
     ret = dict_set_uint64(xdata, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
-    if (ret)
+    if (ret) {
         gf_msg_debug(this->name, -ret,
                      "Unable to set GF_XATTR_SHARD_FILE_SIZE in the dict ");
+        goto err;
+    }
 
     STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
 
-    dict_unref(xdata);
-    return 0;
+err:
+    if (xdata)
+        dict_unref(xdata);
+    return ret;
 }
 
 int
