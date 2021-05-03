@@ -17,7 +17,7 @@ TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 TEST $CLI volume set $V0 md-cache-timeout 10
 
 # Write data into a file such that its size crosses shard-block-size
-TEST dd if=/dev/zero of=$M0/foo bs=1048576 count=10
+TEST dd if=/dev/zero of=$M0/foo bs=1048576 count=10 oflag=direct
 
 # Size of the file should be the aggregated size, not the shard-block-size
 EXPECT "10485760" echo `ls -la $M0 | grep foo | awk '{print $5}'`
