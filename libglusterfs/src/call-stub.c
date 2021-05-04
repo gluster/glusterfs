@@ -16,20 +16,17 @@
 #include "glusterfs/libglusterfs-messages.h"
 
 static call_stub_t *
-stub_new(call_frame_t *frame, const char wind, const glusterfs_fop_t fop)
+stub_new(call_frame_t *frame, const uint32_t wind, const glusterfs_fop_t fop)
 {
     call_stub_t *new = NULL;
 
-    GF_VALIDATE_OR_GOTO("call-stub", frame, out);
-
-    new = mem_get0(frame->this->ctx->stub_mem_pool);
+    new = GF_CALLOC(1, sizeof(call_stub_t), gf_common_mt_char);
     GF_VALIDATE_OR_GOTO("call-stub", new, out);
 
-    new->frame = frame;
-    new->wind = wind;
-    new->fop = fop;
-    new->stub_mem_pool = frame->this->ctx->stub_mem_pool;
     INIT_LIST_HEAD(&new->list);
+    new->frame = frame;
+    new->fop = fop;
+    new->wind = wind;
 
     INIT_LIST_HEAD(&new->args_cbk.entries);
 out:
@@ -2368,9 +2365,7 @@ call_stub_destroy(call_stub_t *stub)
     else
         call_stub_wipe_args_cbk(stub);
 
-    stub->stub_mem_pool = NULL;
-
-    mem_put(stub);
+    GF_FREE(stub);
 out:
     return;
 }
