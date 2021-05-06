@@ -22,7 +22,7 @@ void
 glusterd_scrubsvc_build(glusterd_svc_t *svc)
 {
     svc->manager = glusterd_scrubsvc_manager;
-    svc->start = glusterd_scrubsvc_start;
+    svc->start = glusterd_genericsvc_start;
     svc->stop = glusterd_scrubsvc_stop;
 }
 
@@ -107,40 +107,6 @@ out:
         gf_event(EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
     gf_msg_debug(this->name, 0, "Returning %d", ret);
 
-    return ret;
-}
-
-int
-glusterd_scrubsvc_start(glusterd_svc_t *svc, int flags)
-{
-    int i = 0;
-    int ret = -1;
-    dict_t *cmdict = NULL;
-    char key[16] = {0};
-    char *options[] = {svc->name, "--process-name", NULL};
-
-    cmdict = dict_new();
-    if (!cmdict) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
-        goto error_return;
-    }
-
-    for (i = 0; options[i]; i++) {
-        ret = snprintf(key, sizeof(key), "arg%d", i);
-        ret = dict_set_strn(cmdict, key, ret, options[i]);
-        if (ret)
-            goto dealloc_dict;
-    }
-
-    ret = dict_set_str(cmdict, "cmdarg0", "--global-timer-wheel");
-    if (ret)
-        goto dealloc_dict;
-
-    ret = glusterd_svc_start(svc, flags, cmdict);
-
-dealloc_dict:
-    dict_unref(cmdict);
-error_return:
     return ret;
 }
 
