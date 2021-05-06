@@ -52,10 +52,6 @@
 #define DHT_DBG_HASHED_SUBVOL_PATTERN "dht.file.hashed-subvol.*"
 #define DHT_DBG_HASHED_SUBVOL_KEY "dht.file.hashed-subvol."
 
-/* Array to hold custom xattr keys
- */
-extern char *xattrs_to_heal[];
-
 /* Rebalance nodeuuid flags */
 #define REBAL_NODEUUID_MINE 0x01
 
