@@ -53,6 +53,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "7" online_brick_count
 
 # active heal
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT '7' ec_child_up_count_shd $V0 0
 TEST $CLI volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
@@ -75,6 +76,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "7" online_brick_count
 
 # self-healing
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT '7' ec_child_up_count_shd $V0 0
 TEST $CLI volume heal $V0 full
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
