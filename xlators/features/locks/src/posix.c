@@ -4962,6 +4962,7 @@ struct xlator_fops fops = {
     .rchecksum = pl_rchecksum,
     .statfs = pl_statfs,
     .fsyncdir = pl_fsyncdir,
+    .fsync = pl_fsync,
     .readdir = pl_readdir,
     .symlink = pl_symlink,
     .link = pl_link,
