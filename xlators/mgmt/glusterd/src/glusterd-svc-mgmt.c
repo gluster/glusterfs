@@ -536,24 +536,23 @@ glusterd_genericsvc_start(glusterd_svc_t *svc, int flags)
     cmdline = dict_new();
     if (!cmdline) {
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
-        goto error_return;
+        return ret;
     }
 
     for (i = 0; options[i]; i++) {
         ret = snprintf(key, sizeof(key), "arg%d", i);
         ret = dict_set_strn(cmdline, key, ret, options[i]);
         if (ret)
-            goto dealloc_dict;
+            goto out;
     }
 
     ret = dict_set_str(cmdline, "cmdarg0", "--global-timer-wheel");
     if (ret)
-        goto dealloc_dict;
+        goto out;
 
     ret = glusterd_svc_start(svc, flags, cmdline);
 
-dealloc_dict:
+out:
     dict_unref(cmdline);
-error_return:
     return ret;
 }
