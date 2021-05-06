@@ -56,7 +56,7 @@ TEST rm $B0/${V0}1/.glusterfs/${gfid_str_f2:0:2}/${gfid_str_f2:2:2}/$gfid_str_f2
 
 #Now simulate setting of pending entry xattr on parent dir of 1st brick.
 TEST setfattr -n trusted.afr.$V0-client-1 -v 0x000000000000000000000001 $B0/${V0}0/dir
-create_brick_xattrop_entry $B0/${V0}0 dir
+TEST create_brick_xattrop_entry $B0/${V0}0 dir
 
 # storage/posix considers that a file without gfid changed less than a second
 # before doesn't exist, so we need to wait for a second to force posix to
