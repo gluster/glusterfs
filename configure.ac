@@ -1351,7 +1351,7 @@ AC_ARG_ENABLE([lto],
 
 LTO_BUILD=no
 AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
-    CC_VER=`"$CC" -dumpversion 2>/dev/null`
+    CC_VER=`"$CC" -dumpversion 2>/dev/null | cut -f 1 -d '.'`
     AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
         GF_LDFLAGS="${GF_LDFLAGS} -flto"
