@@ -25,7 +25,9 @@ EXPECT "10485760" echo `ls -la $M0 | grep foo | awk '{print $5}'`
 TEST $CLI volume set $V0 performance.read-ahead on
 TEST $CLI volume set $V0 performance.parallel-readdir on
 
-sleep 5
+EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
+
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0
 
 # Size of the file should be the aggregated size, not the shard-block-size
 EXPECT "10485760" echo `ls -la $M0 | grep foo | awk '{print $5}'`
