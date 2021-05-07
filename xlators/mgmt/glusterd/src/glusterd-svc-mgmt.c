@@ -534,3 +534,42 @@ out:
     }
     return ret;
 }
+
+/*
+ * A generic function replacing two functions,
+ * glusterd_bitdsvc_start and glusterd_scrubsvc_start
+ * wherein both do the same set of operations.
+ */
+
+int
+glusterd_genericsvc_start(glusterd_svc_t *svc, int flags)
+{
+    int i = 0;
+    int ret = -1;
+    dict_t *cmdline = NULL;
+    char key[16] = {0};
+    char *options[] = {svc->name, "--process-name", NULL};
+
+    cmdline = dict_new();
+    if (!cmdline) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        return ret;
+    }
+
+    for (i = 0; options[i]; i++) {
+        ret = snprintf(key, sizeof(key), "arg%d", i);
+        ret = dict_set_strn(cmdline, key, ret, options[i]);
+        if (ret)
+            goto out;
+    }
+
+    ret = dict_set_str(cmdline, "cmdarg0", "--global-timer-wheel");
+    if (ret)
+        goto out;
+
+    ret = glusterd_svc_start(svc, flags, cmdline);
+
+out:
+    dict_unref(cmdline);
+    return ret;
+}
