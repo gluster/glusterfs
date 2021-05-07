@@ -25,9 +25,6 @@ int
 glusterd_bitdsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_bitdsvc_start(glusterd_svc_t *svc, int flags);
-
-int
 glusterd_bitdsvc_stop(glusterd_svc_t *svc, int sig);
 
 int

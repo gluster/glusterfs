@@ -30,9 +30,6 @@ int
 glusterd_scrubsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_scrubsvc_start(glusterd_svc_t *svc, int flags);
-
-int
 glusterd_scrubsvc_stop(glusterd_svc_t *svc, int sig);
 
 int
