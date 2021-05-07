@@ -996,10 +996,17 @@ AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
 fi
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
-AC_CHECK_FUNC([mallinfo], [have_mallinfo=yes])
-if test "x${have_mallinfo}" = "xyes"; then
-   AC_DEFINE(HAVE_MALLINFO, 1, [define if found mallinfo])
+dnl try mallinfo2 first, fallback to mallinfo if not available
+AC_CHECK_FUNC([mallinfo2], [have_mallinfo2=yes])
+if test "x${have_mallinfo2}" = "xyes"; then
+   AC_DEFINE(HAVE_MALLINFO2, 1, [define if found mallinfo2])
+else
+   AC_CHECK_FUNC([mallinfo], [have_mallinfo=yes])
+   if test "x${have_mallinfo}" = "xyes"; then
+      AC_DEFINE(HAVE_MALLINFO, 1, [define if found mallinfo])
+   fi
 fi
+AC_SUBST(HAVE_MALLINFO2)
 AC_SUBST(HAVE_MALLINFO)
 
 dnl Linux, Solaris, Cygwin
