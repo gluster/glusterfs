@@ -2640,6 +2640,22 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 
         cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
         brick_count++;
+        if (gf_store_iter_destroy(iter)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                   "Failed to destroy store iter");
+            ret = -1;
+            iter = NULL;
+            goto out;
+        }
+        iter = NULL;
+    }
+
+    if (gf_store_iter_destroy(tmpiter)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+               "Failed to destroy store iter");
+        ret = -1;
+        tmpiter = NULL;
+        goto out;
     }
 
     ret = gf_store_iter_new(volinfo->shandle, &tmpiter);
@@ -2809,6 +2825,14 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 
             cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
             ta_brick_count++;
+            if (gf_store_iter_destroy(iter)) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                       "Failed to destroy store iter");
+                ret = -1;
+                iter = NULL;
+                goto out;
+            }
+            iter = NULL;
         }
     }
 
