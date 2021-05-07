@@ -300,28 +300,51 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
     return;
 }
 
-/* Currently this dumps only mallinfo. More can be built on here */
+/* Currently this dumps only mallinfo. More can be built on here. */
+
+#if defined(HAVE_MALLINFO2)
+
+#define GF_MALLINFO()               \
+    struct mallinfo2 info;          \
+    memset(&info, 0, sizeof(info)); \
+    info = mallinfo2()              \
+
+#define GF_DICT_MINFO_VALUE(dict, option, value) \
+    dict_set_uint64((dict), (option), (value))
+
+#define M_FMT "%zd"
+
+#elif defined(HAVE_MALLINFO)
+
+#define GF_MALLINFO()               \
+    struct mallinfo info;           \
+    memset(&info, 0, sizeof(info)); \
+    info = mallinfo()               \
+
+#define GF_DICT_MINFO_VALUE(dict, option, value) \
+    dict_set_int32((dict), (option), (value))
+
+#define M_FMT "%d"
+
+#endif /* HAVE_MALLINFO2 */
+
 void
 gf_proc_dump_mem_info()
 {
-#ifdef HAVE_MALLINFO
-    struct mallinfo info;
-
-    memset(&info, 0, sizeof(struct mallinfo));
-    info = mallinfo();
-
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
+    GF_MALLINFO();
     gf_proc_dump_add_section("mallinfo");
-    gf_proc_dump_write("mallinfo_arena", "%d", info.arena);
-    gf_proc_dump_write("mallinfo_ordblks", "%d", info.ordblks);
-    gf_proc_dump_write("mallinfo_smblks", "%d", info.smblks);
-    gf_proc_dump_write("mallinfo_hblks", "%d", info.hblks);
-    gf_proc_dump_write("mallinfo_hblkhd", "%d", info.hblkhd);
-    gf_proc_dump_write("mallinfo_usmblks", "%d", info.usmblks);
-    gf_proc_dump_write("mallinfo_fsmblks", "%d", info.fsmblks);
-    gf_proc_dump_write("mallinfo_uordblks", "%d", info.uordblks);
-    gf_proc_dump_write("mallinfo_fordblks", "%d", info.fordblks);
-    gf_proc_dump_write("mallinfo_keepcost", "%d", info.keepcost);
-#endif
+    gf_proc_dump_write("mallinfo_arena", M_FMT, info.arena);
+    gf_proc_dump_write("mallinfo_ordblks", M_FMT, info.ordblks);
+    gf_proc_dump_write("mallinfo_smblks", M_FMT, info.smblks);
+    gf_proc_dump_write("mallinfo_hblks", M_FMT, info.hblks);
+    gf_proc_dump_write("mallinfo_hblkhd", M_FMT, info.hblkhd);
+    gf_proc_dump_write("mallinfo_usmblks", M_FMT, info.usmblks);
+    gf_proc_dump_write("mallinfo_fsmblks", M_FMT, info.fsmblks);
+    gf_proc_dump_write("mallinfo_uordblks", M_FMT, info.uordblks);
+    gf_proc_dump_write("mallinfo_fordblks", M_FMT, info.fordblks);
+    gf_proc_dump_write("mallinfo_keepcost", M_FMT, info.keepcost);
+#endif /* MALLINFO2 || MALLINFO */
     gf_proc_dump_xlator_mem_info(&global_xlator);
 }
 
@@ -330,54 +353,51 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 {
     if (!dict)
         return;
-#ifdef HAVE_MALLINFO
-    struct mallinfo info;
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
     int ret = -1;
 
-    memset(&info, 0, sizeof(struct mallinfo));
-    info = mallinfo();
+    GF_MALLINFO();
 
-    ret = dict_set_int32(dict, "mallinfo.arena", info.arena);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.arena", info.arena);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.ordblks", info.ordblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.ordblks", info.ordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.smblks", info.smblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.smblks", info.smblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.hblks", info.hblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.hblks", info.hblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.hblkhd", info.hblkhd);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.hblkhd", info.hblkhd);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.usmblks", info.usmblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.usmblks", info.usmblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.fsmblks", info.fsmblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.fsmblks", info.fsmblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.uordblks", info.uordblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.uordblks", info.uordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.fordblks", info.fordblks);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.fordblks", info.fordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.keepcost", info.keepcost);
+    ret = GF_DICT_MINFO_VALUE(dict, "mallinfo.keepcost", info.keepcost);
     if (ret)
         return;
-#endif
-    return;
+#endif /* HAVE_MALLINFO2 || HAVE_MALLINFO */
 }
 
 void
