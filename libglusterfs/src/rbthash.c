@@ -426,6 +426,7 @@ rbthash_table_destroy(rbthash_table_t *tbl)
     if (tbl->pool_alloced)
         mem_pool_destroy(tbl->entrypool);
 
+    LOCK_DESTROY(&tbl->tablelock);
     GF_FREE(tbl->buckets);
     GF_FREE(tbl);
 }
