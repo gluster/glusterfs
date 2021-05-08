@@ -184,6 +184,7 @@ __event_slot_dealloc(struct event_pool *event_pool, int idx)
     slot->fd = -1;
     slot->handled_error = 0;
     slot->in_handler = 0;
+    LOCK_DESTROY(&slot->lock);
     list_del_init(&slot->poller_death);
     if (fd != -1)
         event_pool->slots_used[table_idx]--;
