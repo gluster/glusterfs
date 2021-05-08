@@ -340,11 +340,21 @@ sys_utimensat(int dirfd, const char *filename, const struct timespec times[2],
 }
 #endif
 
+#if defined(HAVE_FUTIMENS)
+int
+sys_futimens(int fd, const struct timespec times[2])
+{
+    return futimens(fd, times);
+}
+#endif
+
+#if defined(HAVE_FUTIMES)
 int
 sys_futimes(int fd, const struct timeval times[2])
 {
     return futimes(fd, times);
 }
+#endif
 
 int
 sys_creat(const char *pathname, mode_t mode)

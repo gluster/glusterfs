@@ -1046,6 +1046,7 @@ sys_fstat
 sys_fstatat
 sys_fsync
 sys_ftruncate
+sys_futimens
 sys_futimes
 sys_lchmod
 sys_lchown
