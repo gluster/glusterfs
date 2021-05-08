@@ -149,8 +149,15 @@ sys_utimensat(int dirfd, const char *filename, const struct timespec times[2],
               int flags);
 #endif
 
+#if defined(HAVE_FUTIMENS)
+int
+sys_futimens(int fd, const struct timespec times[2]);
+#endif
+
+#if defined(HAVE_FUTIMES)
 int
 sys_futimes(int fd, const struct timeval times[2]);
+#endif
 
 int
 sys_creat(const char *pathname, mode_t mode);

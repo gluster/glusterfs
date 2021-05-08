@@ -1017,6 +1017,21 @@ if test "x${have_linkat}" = "xyes"; then
 fi
 AC_SUBST(HAVE_LINKAT)
 
+dnl prefer futimens for nanosecond resolution
+AC_CHECK_FUNC([futimens], [have_futimens=yes])
+if test "x${have_futimens}" = "xyes"; then
+   AC_DEFINE(HAVE_FUTIMENS, 1, [define if found futimens])
+else
+   AC_CHECK_FUNC([futimes], [have_futimes=yes])
+   if test "x${have_futimes}" = "xyes"; then
+      AC_DEFINE(HAVE_FUTIMES, 1, [define if found futimes])
+   else
+      AC_MSG_ERROR([This system doesn't support neither futimens() nor futimes()])
+   fi
+fi
+AC_SUBST(HAVE_FUTIMENS)
+AC_SUBST(HAVE_FUTIMES)
+
 dnl check for Monotonic clock
 AC_CHECK_LIB([rt], [clock_gettime], ,
              AC_MSG_WARN([System doesn't have monotonic clock using contrib]))

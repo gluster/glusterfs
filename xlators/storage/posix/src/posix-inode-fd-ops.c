@@ -513,24 +513,40 @@ out:
     return ret;
 }
 
+static inline int
+gf_futime(int fd, struct timespec ts[2])
+{
+#if defined(HAVE_FUTIMENS)
+    return sys_futimens(fd, ts);
+#elif defined(HAVE_FUTIMES)
+    struct timeval tv[2] = {
+        {.tv_sec = ts[0].tv_sec, .tv_usec = ts[0].tv_nsec / 1000},
+        {.tv_sec = ts[1].tv_sec, .tv_usec = ts[1].tv_nsec / 1000}};
+    return sys_futimes(fd, tv);
+#else
+    /* This should be catched by configure early. */
+#error "This system doesn't support neither futimens() nor futimes()"
+#endif /* HAVE_FUTIMENS */
+}
+
 static int
 posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
 {
     int32_t ret = -1;
-    struct timeval tv[2] = {{
-                                0,
-                            },
-                            {
-                                0,
-                            }};
+    struct timespec ts[2] = {{
+                                 0,
+                             },
+                             {
+                                 0,
+                             }};
     struct stat stat = {
         0,
     };
     gf_boolean_t fstat_executed = _gf_false;
 
     if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
-        tv[0].tv_sec = stbuf->ia_atime;
-        tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        ts[0].tv_sec = stbuf->ia_atime;
+        ts[0].tv_nsec = stbuf->ia_atime_nsec;
     } else {
         ret = sys_fstat(fd, &stat);
         if (ret != 0) {
@@ -540,13 +556,13 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
         }
         fstat_executed = _gf_true;
         /* atime is not given, use current values */
-        tv[0].tv_sec = ST_ATIM_SEC(&stat);
-        tv[0].tv_usec = ST_ATIM_NSEC(&stat) / 1000;
+        ts[0].tv_sec = ST_ATIM_SEC(&stat);
+        ts[0].tv_nsec = ST_ATIM_NSEC(&stat);
     }
 
     if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
-        tv[1].tv_sec = stbuf->ia_mtime;
-        tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        ts[1].tv_sec = stbuf->ia_mtime;
+        ts[1].tv_nsec = stbuf->ia_mtime_nsec;
     } else {
         if (!fstat_executed) {
             ret = sys_fstat(fd, &stat);
@@ -557,11 +573,11 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
             }
         }
         /* mtime is not given, use current values */
-        tv[1].tv_sec = ST_MTIM_SEC(&stat);
-        tv[1].tv_usec = ST_MTIM_NSEC(&stat) / 1000;
+        ts[1].tv_sec = ST_MTIM_SEC(&stat);
+        ts[1].tv_nsec = ST_MTIM_NSEC(&stat);
     }
 
-    ret = sys_futimes(fd, tv);
+    ret = gf_futime(fd, ts);
     if (ret == -1)
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FUTIMES_FAILED, "%d", fd);
 
@@ -1095,7 +1111,7 @@ posix_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 #ifndef FALLOC_FL_KEEP_SIZE
     ret = EOPNOTSUPP;
 
-#else /* FALLOC_FL_KEEP_SIZE */
+#else  /* FALLOC_FL_KEEP_SIZE */
     int32_t flags = FALLOC_FL_KEEP_SIZE | FALLOC_FL_PUNCH_HOLE;
     struct iatt statpre = {
         0,
@@ -5588,7 +5604,8 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         if (this_size + filled > size) {
             seekdir(pfd->dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-            if ((u_long)telldir(pfd->dir) != in_case && in_case != pfd->dir_eof) {
+            if ((u_long)telldir(pfd->dir) != in_case &&
+                in_case != pfd->dir_eof) {
                 gf_msg(THIS->name, GF_LOG_ERROR, EINVAL,
                        P_MSG_DIR_OPERATION_FAILED,
                        "seekdir(0x%llx) failed on dir=%p: "
