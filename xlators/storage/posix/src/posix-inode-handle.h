@@ -23,7 +23,6 @@
 #define TRASH_DIR "landfill"
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"
-#define SLEN(str) (sizeof(str) - 1)
 
 #define LOC_HAS_ABSPATH(loc) (loc && (loc->path) && (loc->path[0] == '/'))
 #define LOC_IS_DIR(loc)                                                        \
