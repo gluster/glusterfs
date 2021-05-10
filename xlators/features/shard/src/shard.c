@@ -883,6 +883,8 @@ shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
         case GF_FOP_SEEK:
             SHARD_STACK_UNWIND(seek, frame, op_ret, op_errno, 0, NULL);
             break;
+        case GF_FOP_OPENDIR:
+            SHARD_STACK_UNWIND(opendir, frame, op_ret, op_errno, 0, NULL);
         default:
             gf_msg(THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                    "Invalid fop id = %d", fop);
@@ -4843,7 +4845,7 @@ int
 shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
               dict_t *xdata)
 {
-    int ret = 0;
+    int ret;
 
     xdata = xdata ? dict_ref(xdata) : dict_new();
     if (!xdata) {
@@ -4865,10 +4867,14 @@ shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
 
+    return 0;
+
 err:
     if (xdata)
         dict_unref(xdata);
-    return ret;
+
+    shard_common_failure_unwind(GF_FOP_OPENDIR, frame, -1, ENOMEM);
+    return 0;
 }
 
 int
