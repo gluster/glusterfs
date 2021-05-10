@@ -163,7 +163,7 @@ usage(char *prog)
     return EXIT_FAILURE;
 }
 
-int
+static int
 sanitize_args(int argc, char **argv)
 {
     int ret = 0;
