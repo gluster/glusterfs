@@ -1453,20 +1453,6 @@ if test "x$enable_mempool" = "xno"; then
         AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
 fi
 
-# syslog section
-AC_ARG_ENABLE([syslog],
-              AC_HELP_STRING([--disable-syslog],
-                             [Disable syslog for logging]))
-
-USE_SYSLOG="yes"
-if test "x$enable_syslog" != "xno"; then
-  AC_DEFINE(GF_USE_SYSLOG, 1, [Use syslog for logging])
-else
-  USE_SYSLOG="no"
-fi
-AM_CONDITIONAL([ENABLE_SYSLOG], [test x$USE_SYSLOG = xyes])
-#end syslog section
-
 BUILD_READLINE=no
 AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
@@ -1774,7 +1760,6 @@ echo "Linux-io_uring       : $BUILD_LIBURING"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"
-echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "Track priv ports     : $TRACK_PRIVPORTS"
