@@ -4232,17 +4232,7 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         ret = 0;
         goto respond;
     }
-    if (flags == GF_CLI_GET_VOLUME_ALL) {
-        cds_list_for_each_entry(entry, &priv->volumes, vol_list)
-        {
-            ret = glusterd_add_volume_detail_to_dict(entry, volumes, count);
-            if (ret)
-                goto respond;
-
-            count++;
-        }
-
-    } else if (flags == GF_CLI_GET_NEXT_VOLUME) {
+    if (flags == GF_CLI_GET_NEXT_VOLUME) {
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
 
         if (ret) {
