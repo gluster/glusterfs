@@ -2041,46 +2041,6 @@ afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
 }
 
 int
-afr_post_blocking_rename_cbk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    if (int_lock->lock_op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INTERNAL_LKS_FAILED,
-               "Blocking entrylks failed.");
-
-        afr_transaction_done(frame, this);
-    } else {
-        gf_msg_debug(this->name, 0,
-                     "Blocking entrylks done. Proceeding to FOP");
-
-        afr_internal_lock_finish(frame, this);
-    }
-    return 0;
-}
-
-int
-afr_post_lower_unlock_cbk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    GF_ASSERT(!int_lock->higher_locked);
-
-    int_lock->lock_cbk = afr_post_blocking_rename_cbk;
-    afr_blocking_lock(frame, this);
-
-    return 0;
-}
-
-int
 afr_set_transaction_flock(xlator_t *this, afr_local_t *local,
                           afr_lockee_t *lockee)
 {
