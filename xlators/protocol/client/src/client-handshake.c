@@ -1370,7 +1370,7 @@ client_handshake(xlator_t *this, struct rpc_clnt *rpc)
     if (!frame)
         goto out;
 
-    req.gfs_id = 0xbabe;
+    req.gfs_id = 0xcaed;
     ret = client_submit_request(this, &req, frame, conf->dump, GF_DUMP_DUMP,
                                 client_dump_version_cbk, NULL,
                                 (xdrproc_t)xdr_gf_dump_req);
