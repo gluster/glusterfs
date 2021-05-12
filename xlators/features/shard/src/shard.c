@@ -123,6 +123,9 @@ __shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
     if (ret)
         return ret;
 
+    if (ctx->i_ctx_refresh_protect)
+        return 0;
+
     if (valid & SHARD_MASK_BLOCK_SIZE)
         ctx->block_size = block_size;
 
@@ -251,6 +254,7 @@ __shard_inode_ctx_mark_write_locked(inode_t *inode, xlator_t *this,
         return ret;
 
     ctx->i_ctx_refresh_protect = value;
+
     return 0;
 }
 
@@ -370,9 +374,8 @@ __shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
     if (ret)
         return ret;
 
-    if (((stbuf->ia_size != ctx->stat.ia_size) ||
-         (stbuf->ia_blocks != ctx->stat.ia_blocks)) &&
-        (!ctx->i_ctx_refresh_protect))
+    if ((stbuf->ia_size != ctx->stat.ia_size) ||
+        (stbuf->ia_blocks != ctx->stat.ia_blocks))
         ctx->refresh = _gf_true;
 
     return 0;
@@ -5639,6 +5642,13 @@ shard_common_inode_write_do(call_frame_t *frame, xlator_t *this)
     if ((fd->flags & O_DIRECT) && (local->fop == GF_FOP_WRITE))
         odirect = _gf_true;
 
+    /* when there is a write operation on sharded file from a client,
+     * it is always true that file size value in the client cache is
+     * the correct one and not required to bring the size from server.
+     * Below call will set "i_ctx_refresh_protect" to true and protects
+     * client cache to be updated from the value got from server.
+     * This flag is reset in shard_flush().
+     */
     shard_inode_ctx_mark_write_locked(fd->inode, this, _gf_true);
 
     while (cur_block <= last_block) {
@@ -5980,6 +5990,10 @@ shard_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int
 shard_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
+    /* Mark "i_ctx_refresh_protect" to false that was set in
+     * shard_common_inode_write_do() */
+    shard_inode_ctx_mark_write_locked(fd->inode, this, _gf_false);
+
     STACK_WIND(frame, shard_flush_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->flush, fd, xdata);
     return 0;

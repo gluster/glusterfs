@@ -337,6 +337,7 @@ typedef struct shard_inode_ctx {
                             sharded */
     struct iatt stat;
     gf_boolean_t refresh;
+    gf_boolean_t i_ctx_refresh_protect;
     /* The following members of inode ctx will be applicable only to the
      * individual shards' ctx and never the base file ctx.
      */
@@ -349,7 +350,6 @@ typedef struct shard_inode_ctx {
     inode_t *inode;
     int fsync_count;
     inode_t *base_inode;
-    gf_boolean_t i_ctx_refresh_protect;
 } shard_inode_ctx_t;
 
 typedef enum {
