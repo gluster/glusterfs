@@ -4867,6 +4867,7 @@ shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
 
+    dict_unref(xdata);
     return 0;
 
 err:
