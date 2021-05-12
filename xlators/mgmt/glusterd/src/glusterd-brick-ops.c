@@ -1047,7 +1047,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
                 goto out;
             }
             strncpy(brickinfo->mount_dir, brick_mount_dir,
-                    SLEN(brickinfo->mount_dir));
+                    sizeof(brickinfo->mount_dir) - 1);
         }
 
         ret = glusterd_resolve_brick(brickinfo);

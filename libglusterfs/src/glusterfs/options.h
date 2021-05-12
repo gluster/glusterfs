@@ -320,7 +320,7 @@ DECLARE_RECONF_OPT(uint32_t, time);
 
 #define GF_OPTION_RECONF(key, val, opt, type, err_label)                       \
     do {                                                                       \
-        if (xlator_option_reconf_##type(THIS, opt, key, SLEN(key), &(val)))    \
+        if (xlator_option_reconf_##type(THIS, opt, key, strlen(key), &(val)))  \
             goto err_label;                                                    \
     } while (0)
 

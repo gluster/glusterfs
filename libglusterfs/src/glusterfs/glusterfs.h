@@ -81,7 +81,8 @@
 #define GLUSTERD_MAX_SNAP_NAME 255
 #define GLUSTERFS_SOCKET_LISTEN_BACKLOG 1024
 #define GLUSTERD_BRICK_SERVERS "cluster.brick-vol-servers"
-#define SLEN(str) (sizeof(str) - 1)
+#define GLUSTER_STR_MUST_BE_LITERAL(__x) "" __x
+#define SLEN(str) (sizeof(GLUSTER_STR_MUST_BE_LITERAL(str)) - 1)
 
 #define ZR_MOUNTPOINT_OPT "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT "attribute-timeout"
