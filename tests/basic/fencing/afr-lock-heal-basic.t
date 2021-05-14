@@ -79,8 +79,9 @@ TEST [ "$c1_lock_on_b1" == "$c1_lock_on_b2" ]
 # Restart brick-3 and check that the lock has healed on it.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
-TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
 
+# Note: We need to wait for client to re-open the fd. Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
+# So we may need to check the statedump for locks multiple times.
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c1_lock_on_b3 $B0/${V0}2 
 TEST [ "$c1_lock_on_b1" == "$c1_lock_on_b3" ]
 
@@ -93,9 +94,10 @@ EXPECT "Y" is_gfapi_program_alive $client2_pid
 # Restart brick-1 and let lock healing complete.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
-TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
 
 # Check that all bricks now have locks from client 2 only.
+# Note: We need to wait for client to re-open the fd. Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
+# So we may need to check the statedump for locks multiple times.
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b1 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b2 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b3 $B0/${V0}2
