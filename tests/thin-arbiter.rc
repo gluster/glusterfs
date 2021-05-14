@@ -530,7 +530,6 @@ volume ${V0}-replicate-0
     option inodelk-trace off
     option pre-op-compat on
     option eager-lock on
-    option self-heal-readdir-size 1KB
     option ensure-durability on
     option locking-scheme full
     option halo-enabled False
