@@ -46,36 +46,20 @@
 #define SSL_CRL_PATH_OPT "transport.socket.ssl-crl-path"
 #define OWN_THREAD_OPT "transport.socket.own-thread"
 
-/* TBD: do automake substitutions etc. (ick) to set these. */
-#if !defined(DEFAULT_ETC_SSL)
-#ifdef GF_LINUX_HOST_OS
-#define DEFAULT_ETC_SSL "/etc/ssl"
-#endif
-#ifdef GF_BSD_HOST_OS
-#define DEFAULT_ETC_SSL "/etc/openssl"
-#endif
-#ifdef GF_DARWIN_HOST_OS
-#define DEFAULT_ETC_SSL "/usr/local/etc/openssl"
-#endif
-#if !defined(DEFAULT_ETC_SSL)
-#define DEFAULT_ETC_SSL "/etc/ssl"
-#endif
-#endif
-
 #if !defined(DEFAULT_CERT_PATH)
-#define DEFAULT_CERT_PATH DEFAULT_ETC_SSL "/glusterfs.pem"
+#define DEFAULT_CERT_PATH SSL_CERT_PATH "/glusterfs.pem"
 #endif
 #if !defined(DEFAULT_KEY_PATH)
-#define DEFAULT_KEY_PATH DEFAULT_ETC_SSL "/glusterfs.key"
+#define DEFAULT_KEY_PATH SSL_CERT_PATH "/glusterfs.key"
 #endif
 #if !defined(DEFAULT_CA_PATH)
-#define DEFAULT_CA_PATH DEFAULT_ETC_SSL "/glusterfs.ca"
+#define DEFAULT_CA_PATH SSL_CERT_PATH "/glusterfs.ca"
 #endif
 #if !defined(DEFAULT_VERIFY_DEPTH)
 #define DEFAULT_VERIFY_DEPTH 1
 #endif
 #define DEFAULT_CIPHER_LIST "EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
-#define DEFAULT_DH_PARAM DEFAULT_ETC_SSL "/dhparam.pem"
+#define DEFAULT_DH_PARAM SSL_CERT_PATH "/dhparam.pem"
 #define DEFAULT_EC_CURVE "prime256v1"
 
 #define POLL_MASK_INPUT (POLLIN | POLLPRI)

@@ -734,6 +734,16 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 
 # end FUSE section
 
+dnl Find out OpenSSL trusted certificates path
+AC_MSG_CHECKING([for OpenSSL trusted certificates path])
+SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
+if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+   AC_MSG_RESULT([$SSL_CERT_PATH])
+   AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
+   AC_SUBST(SSL_CERT_PATH)
+else
+   AC_MSG_ERROR([Unable to detect path to OpenSSL trusted certificates])
+fi
 
 AC_CHECK_LIB([ssl], TLS_method, [HAVE_OPENSSL_1_1="yes"], [HAVE_OPENSSL_1_1="no"])
 if test "x$HAVE_OPENSSL_1_1" = "xyes"; then
