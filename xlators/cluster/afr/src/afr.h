@@ -24,7 +24,6 @@
 
 #define SHD_INODE_LRU_LIMIT 1
 #define AFR_PATHINFO_HEADER "REPLICATE:"
-#define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 #define AFR_SH_DATA_DOMAIN_FMT "%s:self-heal"
 #define AFR_DIRTY_DEFAULT AFR_XATTR_PREFIX ".dirty"
 #define AFR_DIRTY (((afr_private_t *)(THIS->private))->afr_dirty)
@@ -258,7 +257,6 @@ typedef struct _afr_private {
     gf_boolean_t consistent_metadata;
     gf_boolean_t need_heal;
     gf_boolean_t granular_locks;
-    uint64_t sh_readdir_size;
     char *sh_domain;
     char *afr_dirty;
 
