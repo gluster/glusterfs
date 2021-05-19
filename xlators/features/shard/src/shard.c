@@ -5642,15 +5642,6 @@ shard_common_inode_write_do(call_frame_t *frame, xlator_t *this)
     if ((fd->flags & O_DIRECT) && (local->fop == GF_FOP_WRITE))
         odirect = _gf_true;
 
-    /* when there is a write operation on sharded file from a client,
-     * it is always true that file size value in the client cache is
-     * the correct one and not required to bring the size from server.
-     * Below call will set "i_ctx_refresh_protect" to true and protects
-     * client cache to be updated from the value got from server.
-     * This flag is reset in shard_flush().
-     */
-    shard_inode_ctx_mark_write_locked(fd->inode, this, _gf_true);
-
     while (cur_block <= last_block) {
         if (wind_failed) {
             shard_common_inode_write_do_cbk(frame, (void *)(long)0, this, -1,
@@ -5827,6 +5818,16 @@ shard_common_inode_write_post_lookup_handler(call_frame_t *frame,
         shard_common_failure_unwind(local->fop, frame, -1, ENOMEM);
         return 0;
     }
+
+    /* when there is a write operation on sharded file from a client,
+     * it is always true that file size value in the client cache is
+     * the correct one and not required to bring the size from server.
+     * Below call will set "i_ctx_refresh_protect" to true and protects
+     * client cache to be updated from the value got from server.
+     * This flag is reset in shard_flush().
+     */
+    shard_inode_ctx_mark_write_locked(local->resolver_base_inode, this,
+                                      _gf_true);
 
     gf_msg_trace(this->name, 0,
                  "%s: gfid=%s first_block=%" PRIu64
