@@ -275,8 +275,6 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("post-op-delay-secs", priv->post_op_delay_secs, options,
                      uint32, out);
 
-    GF_OPTION_RECONF(AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, options,
-                     size_uint64, out);
     /* Reset this so we re-discover in case the topology changed.  */
     GF_OPTION_RECONF("ensure-durability", priv->ensure_durability, options,
                      bool, out);
@@ -552,8 +550,6 @@ init(xlator_t *this)
     GF_OPTION_INIT("eager-lock", priv->eager_lock, bool, out);
     GF_OPTION_INIT("quorum-type", qtype, str, out);
     GF_OPTION_INIT("quorum-count", priv->quorum_count, uint32, out);
-    GF_OPTION_INIT(AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
-                   out);
     fix_quorum_options(this, priv, qtype, this->options);
 
     GF_OPTION_INIT("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
@@ -1166,9 +1162,10 @@ struct volume_options options[] = {
                        "enhance overlap of adjacent write operations.",
     },
     {
-        .key = {AFR_SH_READDIR_SIZE_KEY},
+        .key = {"self-heal-readdir-size"},
         .type = GF_OPTION_TYPE_SIZET,
-        .description = "readdirp size for performing entry self-heal",
+        .description = "This option exists only for backward compatibility "
+                       "and configuring it doesn't have any effect",
         .min = 1024,
         .max = 131072,
         .op_version = {2},
