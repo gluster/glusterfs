@@ -71,6 +71,7 @@
 #include "netgroups.h"
 #include "exports.h"
 #include <glusterfs/monitoring.h>
+#include <glusterfs/gf-io.h>
 
 #include <glusterfs/daemon.h>
 
@@ -281,6 +282,8 @@ static struct argp_option gf_options[] = {
      "Filesystem display name, shown with mount point (as source). Used with "
      "commands like 'mount', 'df', etc."},
     {"brick-mux", ARGP_BRICK_MUX_KEY, 0, 0, "Enable brick mux. "},
+    {"io-engine", ARGP_IO_ENGINE_KEY, "ENGINE", OPTION_ARG_OPTIONAL,
+     "force utilization of the given I/O ENGINE"},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
         0,
@@ -547,6 +550,11 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     if (cmd_args->fs_display_name) {
         DICT_SET_VAL(dict_set_dynstr, options, "fs-display-name",
                      cmd_args->fs_display_name, glusterfsd_msg_3);
+    }
+
+    if (cmd_args->io_engine != NULL) {
+        DICT_SET_VAL(dict_set_static_ptr, options, "io-engine",
+                     cmd_args->io_engine, glusterfsd_msg_3);
     }
 
     ret = 0;
@@ -1387,8 +1395,17 @@ parse_opts(int key, char *arg, struct argp_state *state)
             }
 
             break;
+
         case ARGP_FUSE_DISPLAY_NAME_KEY:
             cmd_args->fs_display_name = gf_strdup(arg);
+            break;
+
+        case ARGP_IO_ENGINE_KEY:
+            cmd_args->io_engine = gf_strdup(arg);
+            if (cmd_args->io_engine == NULL) {
+                argp_failure(state, -1, 0, "Failed to allocate memory for "
+                             "io-engine");
+            }
             break;
     }
     return 0;
@@ -2596,9 +2613,67 @@ out:
 /* This is the only legal global pointer  */
 glusterfs_ctx_t *glusterfsd_ctx;
 
+GF_IO_ASYNC(main_terminate, op, static)
+{
+    //    glusterfs_ctx_destroy (ctx);
+    gf_async_fini();
+
+    return 0;
+}
+
+GF_IO_ASYNC(main_start, op, static)
+{
+    int32_t res;
+
+    mem_pools_init();
+
+    /* TODO: gf_async support should be removed once the I/O framework
+     *       supports multithreaded I/O without io_uring. */
+    res = gf_async_init(global_ctx);
+    if (res < 0) {
+        goto out;
+    }
+
+#ifdef GF_LINUX_HOST_OS
+    res = set_oom_score_adj(global_ctx);
+    if (res)
+        goto out;
+#endif
+
+    global_ctx->env = syncenv_new(0, 0, 0);
+    if (!global_ctx->env) {
+        gf_smsg("", GF_LOG_ERROR, 0, glusterfsd_msg_31, NULL);
+        res = -1;
+        goto out;
+    }
+
+    if (!glusterfs_ctx_tw_get(global_ctx)) {
+        res = -1;
+        goto out;
+    }
+
+    res = glusterfs_volumes_init(global_ctx);
+    if (res)
+        goto out;
+
+    return 0;
+
+out:
+    //    glusterfs_ctx_destroy (global_ctx);
+    gf_async_fini();
+
+    /* TODO: 'res' should be a negative error code instead of -1. */
+
+    return res;
+}
+
 int
 main(int argc, char *argv[])
 {
+    gf_io_handlers_t main_handlers = {
+        .setup = main_start,
+        .cleanup = main_terminate
+    };
     glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     char cmdlinestr[PATH_MAX] = {
@@ -2711,44 +2786,14 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
-    /*
-     * If we do this before daemonize, the pool-sweeper thread dies with
-     * the parent, but we want to do it as soon as possible after that in
-     * case something else depends on pool allocations.
-     */
-    mem_pools_init();
-
-    ret = gf_async_init(ctx);
-    if (ret < 0) {
-        goto out;
-    }
-
-#ifdef GF_LINUX_HOST_OS
-    ret = set_oom_score_adj(ctx);
-    if (ret)
-        goto out;
-#endif
-
-    ctx->env = syncenv_new(0, 0, 0);
-    if (!ctx->env) {
-        gf_smsg("", GF_LOG_ERROR, 0, glusterfsd_msg_31, NULL);
-        goto out;
-    }
-
-    /* do this _after_ daemonize() */
-    if (!glusterfs_ctx_tw_get(ctx)) {
-        ret = -1;
-        goto out;
-    }
-
-    ret = glusterfs_volumes_init(ctx);
-    if (ret)
-        goto out;
-
-    ret = gf_event_dispatch(ctx->event_pool);
+    /* Before 'daemonize()' there are no threads started because they would
+     * not be cloned into the child process and would die with the parent.
+     * After this point, there are several initialization functions that
+     * can start additional threads. Let's call them from inside the I/O
+     * framework context so that they can decide if a new thread is needed
+     * or use the I/O framework for the functionalities they need. */
+    ret = gf_io_run(cmd->io_engine, &main_handlers, NULL);
 
 out:
-    //    glusterfs_ctx_destroy (ctx);
-    gf_async_fini();
     return ret;
 }

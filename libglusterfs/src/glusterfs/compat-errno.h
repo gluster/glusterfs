@@ -222,6 +222,10 @@
 #define EBADFD EBADRPC
 #endif /* EBADFD */
 
+#ifndef ETIME
+#define ETIME ETIMEDOUT
+#endif
+
 #if !defined(ENODATA)
 /* This happens on FreeBSD.  Value borrowed from Linux. */
 #define ENODATA 61
