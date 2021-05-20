@@ -99,6 +99,7 @@ add_locks(client_posix_lock_t *l1, client_posix_lock_t *l2)
     sum = GF_CALLOC(1, sizeof(*sum), gf_client_mt_clnt_lock_t);
     if (!sum)
         return NULL;
+    INIT_LIST_HEAD(&sum->list);
 
     sum->fl_start = min(l1->fl_start, l2->fl_start);
     sum->fl_end = max(l1->fl_end, l2->fl_end);
