@@ -205,7 +205,6 @@ typedef struct {
     /* need for proper handshake_t */
     int op_version; /* Starts with 1 for 3.3.0 */
     gf_boolean_t pending_quorum_action;
-    gf_boolean_t verify_volfile_checksum;
     gf_boolean_t trace;
     gf_boolean_t restart_done;
     dict_t *opts;

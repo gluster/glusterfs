@@ -153,8 +153,6 @@ GLFS_MSGID(
 #define PS_MSG_MAPPING_ERROR_STR "could not map to group list"
 #define PS_MSG_FD_CLEANUP_STR "fd cleanup"
 #define PS_MSG_FDENTRY_NULL_STR "no fdentry to clean"
-#define PS_MSG_WRONG_VALUE_STR                                                 \
-    "wrong value for 'verify-volfile-checksum', Neglecting option"
 #define PS_MSG_DIR_NOT_FOUND_STR "Directory doesnot exist"
 #define PS_MSG_CONF_DIR_INVALID_STR "invalid conf_dir"
 #define PS_MSG_SERVER_MSG_STR "server msg"
