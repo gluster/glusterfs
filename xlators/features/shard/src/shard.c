@@ -709,6 +709,18 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
             lru_inode_ctx = list_first_entry(&priv->ilist_head,
                                              shard_inode_ctx_t, ilist);
             GF_ASSERT(lru_inode_ctx->block_num > 0);
+
+            if (base_inode)
+                gf_uuid_copy(ctx->base_gfid, base_inode->gfid);
+            else
+                gf_uuid_copy(ctx->base_gfid, gfid);
+
+            if (gf_uuid_compare(lru_inode_ctx->base_gfid, ctx->base_gfid) ==
+                0) {
+                priv->inode_count++;
+                goto skip_eviction;
+            }
+
             lru_base_inode = lru_inode_ctx->base_inode;
             list_del_init(&lru_inode_ctx->ilist);
             lru_inode = inode_find(linked_inode->table,
@@ -766,14 +778,11 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
             if (lru_base_inode)
                 inode_unref(lru_base_inode);
 
+        skip_eviction:
             /* For as long as an inode is in lru list, we try to
              * keep it alive by holding a ref on it.
              */
             inode_ref(linked_inode);
-            if (base_inode)
-                gf_uuid_copy(ctx->base_gfid, base_inode->gfid);
-            else
-                gf_uuid_copy(ctx->base_gfid, gfid);
             ctx->block_num = block_num;
             ctx->base_inode = inode_ref(base_inode);
             list_add_tail(&ctx->ilist, &priv->ilist_head);
@@ -963,8 +972,8 @@ shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         __shard_inode_ctx_get(shard_inode, this, &ctx);
         if ((list_empty(&ctx->to_fsync_list)) && (list_empty(&ctx->ilist))) {
-            shard_make_block_bname(ctx->block_num, shard_inode->gfid,
-                                   block_bname, sizeof(block_bname));
+            shard_make_block_bname(ctx->block_num, ctx->base_gfid, block_bname,
+                                   sizeof(block_bname));
             inode_unlink(shard_inode, priv->dot_shard_inode, block_bname);
             /* The following unref corresponds to the ref held by
              * inode_link() at the time the shard was created or

@@ -45,6 +45,22 @@ sleep 1
 EXPECT "30" echo $(grep "lru-max-limit" $statedump | cut -f2 -d'=' | tail -1)
 rm -f $statedump
 
+# Test to verify shard inodes of same base file will be saved beyond shard-lru-limit
+TEST dd if=/dev/zero of=$M0/foo bs=1M count=200
+statedump=$(generate_mount_statedump $V0)
+sleep 1
+# Base shard is never added to this list. So all other shards should make up for 49 inodes in lru list
+EXPECT "49" echo $(grep "inode-count" $statedump | cut -f2 -d'=' | tail -1)
+rm -f $statedump
+
+# Test to verify shard inodes of different file will trigger lru_inode eviction
+TEST dd if=/dev/zero of=$M0/bar bs=1M count=100
+statedump=$(generate_mount_statedump $V0)
+sleep 1
+# The list contains 49 shard inodes now. The new shard inodes are saved by evicting the old shard inodes
+EXPECT "49" echo $(grep "inode-count" $statedump | cut -f2 -d'=' | tail -1)
+rm -f $statedump
+
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $CLI volume stop $V0
 TEST $CLI volume delete $V0
