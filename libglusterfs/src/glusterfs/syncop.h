@@ -208,7 +208,8 @@ struct syncargs {
     struct synctask *task;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    int done;
+    gf_boolean_t init;
+    gf_boolean_t done;
 
     gf_dirent_t entries;
     off_t offset;
@@ -234,7 +235,7 @@ struct syncopctx {
             break;                                                             \
         pthread_mutex_init(&args->mutex, NULL);                                \
         pthread_cond_init(&args->cond, NULL);                                  \
-        args->done = 0;                                                        \
+        args->done = _gf_false;                                                \
     } while (0)
 
 #define __wake(args)                                                           \
@@ -244,7 +245,7 @@ struct syncopctx {
         } else {                                                               \
             pthread_mutex_lock(&args->mutex);                                  \
             {                                                                  \
-                args->done = 1;                                                \
+                args->done = _gf_true;                                         \
                 pthread_cond_signal(&args->cond);                              \
             }                                                                  \
             pthread_mutex_unlock(&args->mutex);                                \

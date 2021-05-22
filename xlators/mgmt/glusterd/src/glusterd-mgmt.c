@@ -697,8 +697,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     *is_acquired = _gf_true;
 
     /* Sending mgmt_v3 lock req to other nodes in the cluster */
-    gd_syncargs_init(&args, NULL);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, NULL);
     if (ret)
         goto out;
 
@@ -757,6 +756,7 @@ out:
         ret = -1;
     }
 
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1045,8 +1045,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     }
 
     /* Sending Pre Validation req to other nodes in the cluster */
-    gd_syncargs_init(&args, req_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, req_dict);
     if (ret)
         goto out;
 
@@ -1096,6 +1095,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1390,8 +1390,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending brick op req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
 
@@ -1440,6 +1439,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1669,8 +1669,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending commit req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -1720,6 +1719,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  gd_op_list[op], peer_cnt, ret);
 out:
     glusterd_op_modify_op_ctx(op, op_ctx);
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1931,8 +1931,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending post commit req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -1982,6 +1981,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  gd_op_list[op], peer_cnt, ret);
 out:
     glusterd_op_modify_op_ctx(op, op_ctx);
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -2152,8 +2152,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     rsp_dict = NULL;
 
     /* Sending Post Validation req to other nodes in the cluster */
-    gd_syncargs_init(&args, req_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, req_dict);
     if (ret)
         goto out;
 
@@ -2202,6 +2201,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -2337,8 +2337,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
         goto out;
 
     /* Sending mgmt_v3 unlock req to other nodes in the cluster */
-    gd_syncargs_init(&args, NULL);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, NULL);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -2385,6 +2384,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
                  gd_op_list[op], peer_cnt, ret);
 
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
