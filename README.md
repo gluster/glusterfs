@@ -38,7 +38,7 @@
 
 
 ## Maintainers
-  The list of Gluster maintainers is available in [MAINTAINERS](MAINTAINERS) file.
+  The list of Gluster maintainers is available in [MAINTAINERS](MAINTAINERS.md) file.
 
 ## License
   Gluster is dual licensed under [GPLV2](COPYING-GPLV2) and [LGPLV3+](COPYING-LGPLV3).
