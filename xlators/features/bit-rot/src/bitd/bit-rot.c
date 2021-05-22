@@ -607,6 +607,7 @@ br_sign_object(br_object_t *object)
     gf_msg_debug(this->name, 0, "Signing object [%s]",
                  uuid_utoa(linked_inode->gfid));
 
+    GF_WARNING(this,"XXX: Signing object [%s]", uuid_utoa(linked_inode->gfid));
     ret = br_object_read_sign(linked_inode, fd, object, &iatt);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_READ_AND_SIGN_FAILED,
@@ -831,6 +832,7 @@ br_brick_callback(void *xl, char *brick, void *data, changelog_event_t *ev)
     sign_info = ntohl(object->sign_info);
     GF_ASSERT(sign_info != BR_SIGN_NORMAL);
 
+    GF_WARNING(this, "XXX: got br_brick_callback [%d] on %s", sign_info, uuid_utoa(gfid));
     if (sign_info == BR_SIGN_REOPEN_WAIT)
         ret = br_schedule_object_reopen(this, object, child, ev);
     else

@@ -1858,6 +1858,7 @@ changelog_ipc(call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
     if (op != GF_IPC_TARGET_CHANGELOG)
         goto wind;
 
+    GF_WARNING(this, "XXX: got IPC EVENTS.");
     /* it's for us, do the job */
     if (xdata)
         (void)dict_foreach(xdata, _changelog_generic_dispatcher, this);

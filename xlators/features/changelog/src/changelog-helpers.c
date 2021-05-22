@@ -180,6 +180,11 @@ changelog_dispatch_event(xlator_t *this, changelog_priv_t *priv,
 
     selection = &priv->ev_selection;
     if (changelog_ev_selected(this, selection, ev->ev_type)) {
+        if (ev->ev_type == CHANGELOG_OP_TYPE_BR_RELEASE)
+            GF_WARNING(this, "XXX: dispatch event sign[%d] gfid[%s].",
+                       ntohl(ev->u.releasebr.sign_info),
+                       uuid_utoa(ev->u.releasebr.gfid));
+
         changelog_perform_dispatch(this, priv, ev, CHANGELOG_EV_SIZE);
     }
 }

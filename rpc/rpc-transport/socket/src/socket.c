@@ -3322,10 +3322,15 @@ connect_loop(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if (ret >= 0) {
             break;
         }
-        if ((errno != ENOENT) || (++connect_fails >= 5)) {
+        if ((errno != ENOENT) || (++connect_fails >= 50)) {
             break;
         }
-        sleep(1);
+
+        if (connect_fails <= 3) {
+            usleep(10000);
+        } else {
+            usleep(100000);
+        }
     }
 
     return ret;
@@ -3507,8 +3512,10 @@ socket_connect(rpc_transport_t *this, int port)
                          "connecting to");
 
         if (ign_enoent) {
+            gf_log(this->name, GF_LOG_WARNING, "XXX: connect_loop ...");
             ret = connect_loop(priv->sock, SA(&this->peerinfo.sockaddr),
                                this->peerinfo.sockaddr_len);
+            gf_log(this->name, GF_LOG_WARNING, "XXX: ret[%d].", ret);
         } else {
             ret = connect(priv->sock, SA(&this->peerinfo.sockaddr),
                           this->peerinfo.sockaddr_len);

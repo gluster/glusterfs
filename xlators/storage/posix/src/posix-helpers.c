@@ -1303,6 +1303,7 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
     }
 
     sys_ret = sys_fsetxattr(fd, key, value->data, value->len, flags);
+    GF_WARNING(this, "XXX: fsetxattr key:%s for fd=%d. (%d)", key, fd, sys_ret);
 
     if (sys_ret < 0) {
         ret = -errno;

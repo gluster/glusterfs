@@ -163,6 +163,10 @@ gf_changelog_invoke_callback(gf_changelog_t *entry, struct iovec **vec,
 
         for (; evsize > 0; evsize--, event++) {
             if (gf_changelog_filter_check(entry, event)) {
+                if (event->ev_type == CHANGELOG_OP_TYPE_BR_RELEASE)
+                    gf_log("changelog-cbk", GF_LOG_WARNING, "XXX: got BR_RELEASE sign[%d] gfid[%s].",
+                           ntohl(event->u.releasebr.sign_info), uuid_utoa(event->u.releasebr.gfid));
+
                 GF_CHANGELOG_INVOKE_CBK(this, entry->callback, entry->brick,
                                         entry->ptr, event);
             }

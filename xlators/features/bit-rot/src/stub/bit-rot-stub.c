@@ -1414,8 +1414,10 @@ br_stub_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
         goto wind;
 
     /* object signature request */
+    GF_WARNING(this, "XXX: got br_stub_fsetxattr on %s", uuid_utoa(fd->inode->gfid));
     ret = dict_get_bin(dict, GLUSTERFS_SET_OBJECT_SIGNATURE, (void **)&sign);
     if (!ret) {
+        GF_WARNING(this, "XXX: got SIGNATURE request on %s", uuid_utoa(fd->inode->gfid));
         gf_msg_debug(this->name, 0, "got SIGNATURE request on %s",
                      uuid_utoa(fd->inode->gfid));
         br_stub_handle_object_signature(frame, this, fd, dict, sign, xdata);
@@ -1445,6 +1447,7 @@ br_stub_fsetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
     /* object reopen request */
     ret = dict_get_uint32(dict, BR_REOPEN_SIGN_HINT_KEY, &val);
     if (!ret) {
+	GF_WARNING(this, "XXX: got REOPEN_SIGN_HINT on %s", uuid_utoa(fd->inode->gfid));
         br_stub_handle_object_reopen(frame, this, fd, val);
         goto done;
     }
@@ -3443,6 +3446,10 @@ br_stub_release(xlator_t *this, fd_t *fd)
 unblock:
     UNLOCK(&inode->lock);
 
+    GF_WARNING(this, "XXX: stub_release ret:%d [releaseversion: %lu | flags: %d "
+                     "| signinfo: %d]", ret,
+                     (unsigned long)ntohl(releaseversion), flags,
+                     ntohl(signinfo));
     if (ret) {
         gf_msg_debug(this->name, 0,
                      "releaseversion: %lu | flags: %d "
