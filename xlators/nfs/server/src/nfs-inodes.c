@@ -339,8 +339,7 @@ nfs_inode_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == -1)
         goto do_not_unlink;
 
-    inode_unlink(nfl->inode, nfl->parent, nfl->path);
-    inode_forget(nfl->inode, 0);
+    inode_unlink2(nfl->inode, nfl->parent, nfl->path, false, true, 0, false);
 
 do_not_unlink:
     inodes_nfl_to_prog_data(nfl, progcbk, frame);
@@ -385,8 +384,7 @@ nfs_inode_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == -1)
         goto do_not_unlink;
 
-    inode_unlink(nfl->inode, nfl->parent, nfl->path);
-    inode_forget(nfl->inode, 0);
+    inode_unlink2(nfl->inode, nfl->parent, nfl->path, false, true, 0, false);
 
 do_not_unlink:
     inodes_nfl_to_prog_data(nfl, progcbk, frame);

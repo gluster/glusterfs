@@ -405,12 +405,9 @@ glfsflags_from_gfapiflags(struct glfs_stat *stat, int *glvalid)
 int
 glfs_loc_unlink(loc_t *loc)
 {
-    inode_unlink(loc->inode, loc->parent, loc->name);
-
     /* since glfs_h_* objects hold a reference to inode
      * it is safe to keep lookup count to '0' */
-    if (!inode_has_dentry(loc->inode))
-        inode_forget(loc->inode, 0);
+    inode_unlink2(loc->inode, loc->parent, loc->name, false, true, 0, true);
 
     return 0;
 }

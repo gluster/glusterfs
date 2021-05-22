@@ -828,6 +828,7 @@ inode_table_with_invalidator
 __inode_table_set_lru_limit
 inode_table_set_lru_limit
 inode_unlink
+inode_unlink2
 inode_unref
 int_to_data
 iobref_add
