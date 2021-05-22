@@ -40,6 +40,7 @@ dht_layout_new(xlator_t *this, int cnt)
     if (conf) {
         layout->spread_cnt = conf->dir_spread_cnt;
         layout->gen = conf->gen;
+        layout->version = conf->global_layout_version;
     }
 
     GF_ATOMIC_INIT(layout->ref, 1);
@@ -71,7 +72,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
     dht_conf_t *conf = NULL;
     int oldret = -1;
     int ret = -1;
-    dht_layout_t *old_layout;
+    dht_layout_t *old_layout = NULL;
 
     conf = this->private;
     if (!conf || !layout)
