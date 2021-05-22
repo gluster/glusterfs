@@ -88,6 +88,10 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
 int
 glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp);
 
-void
+int
 gd_syncargs_init(struct syncargs *args, dict_t *op_ctx);
+
+void
+gd_syncargs_fini(struct syncargs *args);
+
 #endif /* __RPC_SYNCOP_H */

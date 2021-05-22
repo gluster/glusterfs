@@ -34,8 +34,6 @@ gd_synctask_barrier_wait(struct syncargs *args, int count)
     synclock_unlock(&conf->big_lock);
     synctask_barrier_wait(args, count);
     synclock_lock(&conf->big_lock);
-
-    syncbarrier_destroy(&args->barrier);
 }
 
 static void
@@ -110,11 +108,34 @@ gd_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     return;
 }
 
-void
+int
 gd_syncargs_init(struct syncargs *args, dict_t *op_ctx)
 {
+    int ret = 0;
+
+    ret = pthread_mutex_init(&args->lock_dict, NULL);
+    if (ret)
+        return ret;
+
+    ret = synctask_barrier_init(args);
+    if (ret) {
+        pthread_mutex_destroy(&args->lock_dict);
+        return ret;
+    }
+
     args->dict = op_ctx;
-    pthread_mutex_init(&args->lock_dict, NULL);
+    args->init = _gf_true;
+
+    return 0;
+}
+
+void
+gd_syncargs_fini(struct syncargs *args)
+{
+    if (args->init) {
+        pthread_mutex_destroy(&args->lock_dict);
+        syncbarrier_destroy(&args->barrier);
+    }
 }
 
 static void
@@ -1314,8 +1335,7 @@ stage_done:
         goto out;
     }
 
-    gd_syncargs_init(&args, aggr_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, aggr_dict);
     if (ret)
         goto out;
 
@@ -1371,6 +1391,8 @@ out:
 
     if (rsp_dict)
         dict_unref(rsp_dict);
+
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1444,8 +1466,7 @@ commit_done:
         goto out;
     }
 
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
 
@@ -1515,6 +1536,7 @@ out:
     GF_FREE(args.errstr);
     args.errstr = NULL;
 
+    gd_syncargs_fini(&args);
     return ret;
 }
 
