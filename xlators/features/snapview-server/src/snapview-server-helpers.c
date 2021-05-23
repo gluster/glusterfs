@@ -396,7 +396,7 @@ out:
 void
 svs_iatt_fill(uuid_t gfid, struct iatt *buf)
 {
-    struct timeval tv = {
+    struct timespec ts = {
         0,
     };
     xlator_t *this = NULL;
@@ -419,12 +419,9 @@ svs_iatt_fill(uuid_t gfid, struct iatt *buf)
 
     buf->ia_prot = ia_prot_from_st_mode(0755);
 
-    gettimeofday(&tv, 0);
-
-    buf->ia_mtime = buf->ia_atime = buf->ia_ctime = tv.tv_sec;
-    buf->ia_mtime_nsec = buf->ia_atime_nsec = buf->ia_ctime_nsec = (tv.tv_usec *
-                                                                    1000);
-
+    timespec_now_realtime(&ts);
+    buf->ia_mtime = buf->ia_atime = buf->ia_ctime = ts.tv_sec;
+    buf->ia_mtime_nsec = buf->ia_atime_nsec = buf->ia_ctime_nsec = ts.tv_nsec;
 out:
     return;
 }

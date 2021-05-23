@@ -185,7 +185,9 @@ static void
 default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type,
                        gf_boolean_t is_tunable)
 {
-    struct timeval tv = {};
+    struct timespec ts = {
+        0,
+    };
 
     iatt->ia_type = type;
     switch (type) {
@@ -209,11 +211,10 @@ default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type,
     meta_uuid_copy(iatt->ia_gfid, inode->gfid);
     iatt->ia_ino = gfid_to_ino(iatt->ia_gfid);
 
-    gettimeofday(&tv, 0);
-    iatt->ia_mtime = iatt->ia_ctime = iatt->ia_atime = tv.tv_sec;
+    timespec_now_realtime(&ts);
+    iatt->ia_mtime = iatt->ia_ctime = iatt->ia_atime = ts.tv_sec;
     iatt->ia_mtime_nsec = iatt->ia_ctime_nsec = iatt->ia_atime_nsec =
-        (tv.tv_usec * 1000);
-    return;
+        ts.tv_nsec;
 }
 
 void
