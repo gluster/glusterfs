@@ -1,6 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../include.rc
+. $(dirname $0)/../volume.rc
 
 cleanup;
 
@@ -83,6 +84,7 @@ TEST ! $CLI system:: copy file
 # volume status statistics
 TEST $CLI volume create ${V0}_1 replica 3 $H0:$B0/v{1..3}
 TEST $CLI volume start ${V0}_1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" glustershd_up_status
 TEST $CLI volume heal ${V0}_1 statistics
 
 # xml options
