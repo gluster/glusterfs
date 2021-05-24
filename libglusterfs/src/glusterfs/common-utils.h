@@ -1041,8 +1041,6 @@ uuid_utoa_r(uuid_t uuid, char *dst);
 char *
 lkowner_utoa(gf_lkowner_t *lkowner);
 char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len);
-char *
 leaseid_utoa(const char *lease_id);
 gf_boolean_t
 is_valid_lease_id(const char *lease_id);
