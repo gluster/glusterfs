@@ -139,10 +139,6 @@ typedef struct {
     struct list_head list;
 } rpcsvc_listener_t;
 
-struct rpcsvc_config {
-    int max_block_size;
-};
-
 #define rpcsvc_auth_flavour(au) ((au).flavour)
 
 typedef struct drc_client drc_client_t;

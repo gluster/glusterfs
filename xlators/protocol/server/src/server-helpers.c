@@ -184,11 +184,6 @@ free_state(server_state_t *state)
         state->iobref = NULL;
     }
 
-    if (state->iobuf) {
-        iobuf_unref(state->iobuf);
-        state->iobuf = NULL;
-    }
-
     if (state->dict) {
         dict_unref(state->dict);
         state->dict = NULL;
@@ -608,17 +603,6 @@ server_build_config(xlator_t *this, server_conf_t *conf)
         }
     }
 
-    /* TODO: build_rpc_config (); */
-    ret = dict_get_int32(this->options, "limits.transaction-size",
-                         &conf->rpc_conf.max_block_size);
-    if (ret < 0) {
-        gf_msg_trace(this->name, 0,
-                     "defaulting limits.transaction-"
-                     "size to %d",
-                     DEFAULT_BLOCK_SIZE);
-        conf->rpc_conf.max_block_size = DEFAULT_BLOCK_SIZE;
-    }
-
     data = dict_get(this->options, "config-directory");
     if (data) {
         /* Check whether the specified directory exists,
@@ -735,9 +719,6 @@ server_print_params(char *str, int size, server_state_t *state)
     if (state->flags)
         filled += snprintf(str + filled, size - filled, "flags=%d,",
                            state->flags);
-    if (state->wbflags)
-        filled += snprintf(str + filled, size - filled, "wbflags=%d,",
-                           state->wbflags);
     if (state->size)
         filled += snprintf(str + filled, size - filled, "size=%zu,",
                            state->size);
