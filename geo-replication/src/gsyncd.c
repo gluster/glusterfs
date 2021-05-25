@@ -388,7 +388,11 @@ main(int argc, char **argv)
         goto out;
     }
 
-    b = basename(argv[0]);
+    if ( argc >= 1 )
+        b = basename(argv[0]);
+    else
+        goto out;
+
     for (i = invocables; i->name; i++) {
         if (strcmp(b, i->name) == 0)
             return i->invoker(argc, argv);
