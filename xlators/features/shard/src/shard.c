@@ -963,8 +963,8 @@ shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         __shard_inode_ctx_get(shard_inode, this, &ctx);
         if ((list_empty(&ctx->to_fsync_list)) && (list_empty(&ctx->ilist))) {
-            shard_make_block_bname(ctx->block_num, shard_inode->gfid,
-                                   block_bname, sizeof(block_bname));
+            shard_make_block_bname(ctx->block_num, ctx->base_gfid, block_bname,
+                                   sizeof(block_bname));
             inode_unlink(shard_inode, priv->dot_shard_inode, block_bname);
             /* The following unref corresponds to the ref held by
              * inode_link() at the time the shard was created or
