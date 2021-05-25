@@ -57,7 +57,6 @@ struct server_conf {
     rpcsvc_t *rpc;
     struct rpcsvc_config rpc_conf;
     int inode_lru_limit;
-    gf_boolean_t verify_volfile;
     gf_boolean_t trace;
     char *conf_dir;
     struct _volfile_ctx *volfile;

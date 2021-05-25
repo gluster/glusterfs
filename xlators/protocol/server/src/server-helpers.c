@@ -589,16 +589,6 @@ server_build_config(xlator_t *this, server_conf_t *conf)
         conf->inode_lru_limit = 16384;
     }
 
-    conf->verify_volfile = 1;
-    data = dict_get(this->options, "verify-volfile-checksum");
-    if (data) {
-        ret = gf_string2boolean(data->data, &conf->verify_volfile);
-        if (ret != 0) {
-            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_WRONG_VALUE,
-                    NULL);
-        }
-    }
-
     data = dict_get(this->options, "trace");
     if (data) {
         ret = gf_string2boolean(data->data, &conf->trace);
