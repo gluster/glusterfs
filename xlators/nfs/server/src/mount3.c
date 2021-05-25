@@ -1101,8 +1101,13 @@ __mnt3_fresh_lookup(mnt3_resolve_t *mres)
 {
     inode_unlink(mres->resolveloc.inode, mres->resolveloc.parent,
                  mres->resolveloc.name);
-    strncpy(mres->remainingdir, mres->resolveloc.path,
-            strlen(mres->resolveloc.path));
+    if (snprintf(mres->remainingdir, sizeof(mres->remainingdir), "%s",
+                 mres->resolveloc.path) >= sizeof(mres->remainingdir)) {
+        gf_msg(GF_MNT, GF_LOG_ERROR, EFAULT, NFS_MSG_RESOLVE_INODE_FAIL,
+               "Failed to copy resolve path: %s", mres->resolveloc.path);
+        nfs_loc_wipe(&mres->resolveloc);
+        return -EFAULT;
+    }
     nfs_loc_wipe(&mres->resolveloc);
     return __mnt3_resolve_subdir(mres);
 }
