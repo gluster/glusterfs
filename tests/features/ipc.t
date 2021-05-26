@@ -26,7 +26,7 @@ EOPNOTSUPP=$( echo '#include <errno.h>\\EOPNOTSUPP\\' | tr '\\' '\n' | \
 # use libglusterfs's version, and dlopen() does not make any guarantee
 # on this. By preloading libglusterfs.so before launching python, we
 # ensure libglusterfs's UUID functions will be used.
-LD_PRELOAD=${prefix}/lib/libglusterfs.so
+LD_PRELOAD=${libdir}/libglusterfs.so
 export LD_PRELOAD
 
 # This is a pretty lame test.  Basically we just want to make sure that we
