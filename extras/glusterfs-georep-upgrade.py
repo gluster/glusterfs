@@ -49,13 +49,7 @@ def modify_htime_file(brick_path):
                     path = os.path.join(changelog_path, date)
 
                 if changelog.startswith("CHANGELOG."):
-                    try:
-                        os.makedirs(path, mode = 0o600);
-                    except OSError as exc:
-                        if exc.errno == errno.EEXIST:
-                            pass
-                        else:
-                            raise
+                    os.makedirs(path, mode = 0o600, exist_ok = True)
 
                     #copy existing changelogs to new directory structure, delete old changelog files
                     shutil.copyfile(pth, os.path.join(path, changelog))
