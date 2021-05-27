@@ -423,6 +423,14 @@ function gf_check_file_opened_in_brick {
         fi
 }
 
+function gf_open_file_count_in_brick {
+        vol=$1
+        host=$2
+        brick=$3
+        realpath=$4
+        ls -l /proc/$(get_brick_pid $vol $host $brick)/fd | grep "${realpath}$" | wc -l
+}
+
 function gf_get_gfid_backend_file_path {
         brickpath=$1
         filepath_in_brick=$2
@@ -850,6 +858,19 @@ function check_brick_multiplex() {
         else
            echo "N"
         fi
+}
+
+function get_value_from_brick_statedump {
+    local vol="$1"
+    local host="$2"
+    local brick="$3"
+    local key="$4"
+
+    local statedump="$(generate_brick_statedump $vol $host $brick)"
+    value="$(grep "$key" $statedump | cut -f2 -d'=' | tail -1)"
+
+    rm -f "$statedump"
+    echo "$value"
 }
 
 function get_fd_count {

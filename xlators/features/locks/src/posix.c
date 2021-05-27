@@ -2574,18 +2574,21 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     posix_locks_private_t *priv = this->private;
     pl_local_t *local = NULL;
     short lock_type = 0;
+    int ret = 0;
 
-    int ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
-    if (ret == 0) {
-        if (priv->mandatory_mode == MLK_NONE)
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "Lock flags received "
-                   "in a non-mandatory locking environment, "
-                   "continuing");
-        else
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "Lock flags received, "
-                   "continuing");
+    if (xdata) {
+        ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
+        if (ret == 0) {
+            if (priv->mandatory_mode == MLK_NONE)
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "Lock flags received "
+                       "in a non-mandatory locking environment, "
+                       "continuing");
+            else
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "Lock flags received, "
+                       "continuing");
+        }
     }
 
     if ((flock->l_start < 0) || ((flock->l_start + flock->l_len) < 0)) {
@@ -4962,6 +4965,7 @@ struct xlator_fops fops = {
     .rchecksum = pl_rchecksum,
     .statfs = pl_statfs,
     .fsyncdir = pl_fsyncdir,
+    .fsync = pl_fsync,
     .readdir = pl_readdir,
     .symlink = pl_symlink,
     .link = pl_link,

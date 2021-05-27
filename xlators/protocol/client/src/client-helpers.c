@@ -849,11 +849,14 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     int32_t ret = -1;
     char parent_down = 0;
     fd_lk_ctx_t *lk_ctx = NULL;
+    gf_lkowner_t null_owner = {0};
+    struct list_head deleted_list;
 
     GF_VALIDATE_OR_GOTO("client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fdctx, out);
 
     conf = (clnt_conf_t *)this->private;
+    INIT_LIST_HEAD(&deleted_list);
 
     if (fdctx->remote_fd == -1) {
         gf_msg_debug(this->name, 0, "not a valid fd");
@@ -867,6 +870,13 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     pthread_mutex_unlock(&conf->lock);
     lk_ctx = fdctx->lk_ctx;
     fdctx->lk_ctx = NULL;
+    pthread_spin_lock(&conf->fd_lock);
+    {
+        __delete_granted_locks_owner_from_fdctx(fdctx, &null_owner,
+                                                &deleted_list);
+    }
+    pthread_spin_unlock(&conf->fd_lock);
+    destroy_client_locks_from_list(&deleted_list);
 
     if (lk_ctx)
         fd_lk_ctx_unref(lk_ctx);
