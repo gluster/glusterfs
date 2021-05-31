@@ -770,7 +770,6 @@ glusterfs_is_local_pathinfo
 glusterfs_leaf_position
 glusterfs_reachable_leaves
 __glusterfs_this_location
-glusterfs_this_set
 glusterfs_volfile_reconfigure
 glusterfs_xlator_link
 graph_reconf_validateopt
