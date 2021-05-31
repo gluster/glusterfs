@@ -137,10 +137,6 @@
 
 xlator_t **
 __glusterfs_this_location(void);
-xlator_t *
-glusterfs_this_get(void);
-void
-glusterfs_this_set(xlator_t *);
 
 extern xlator_t global_xlator;
 extern struct volume_options global_xl_options[];

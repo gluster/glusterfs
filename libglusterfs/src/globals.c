@@ -233,18 +233,6 @@ __glusterfs_this_location()
     return this_location;
 }
 
-xlator_t *
-glusterfs_this_get()
-{
-    return *__glusterfs_this_location();
-}
-
-void
-glusterfs_this_set(xlator_t *this)
-{
-    thread_xlator = this;
-}
-
 /* SYNCOPCTX */
 
 void *
