@@ -3911,8 +3911,9 @@ out:
 }
 
 static int
-set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                      int clusters)
+set_volfile_id_and_use_anonymous_inode_option(volgen_graph_t *graph,
+                                              glusterd_volinfo_t *volinfo,
+                                              int clusters)
 {
     xlator_t *xlator = NULL;
     int i = 0;
@@ -3932,6 +3933,12 @@ set_volfile_id_option(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                                       uuid_utoa(volinfo->volume_id));
         if (ret)
             goto out;
+
+        if (!dict_get_sizen(volinfo->dict, "cluster.use-anonymous-inode")) {
+            ret = xlator_set_fixed_option(xlator, "use-anonymous-inode", "yes");
+            if (ret)
+                goto out;
+        }
 
         xlator = xlator->next;
     }
@@ -3983,7 +3990,8 @@ volgen_graph_build_afr_clusters(volgen_graph_t *graph,
         goto out;
     }
 
-    ret = set_volfile_id_option(graph, volinfo, clusters);
+    ret = set_volfile_id_and_use_anonymous_inode_option(graph, volinfo,
+                                                        clusters);
     if (ret) {
         clusters = -1;
         goto out;
