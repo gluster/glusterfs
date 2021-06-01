@@ -483,8 +483,8 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
 
     fdctx = this_fd_get_ctx(fd, this);
     if (!fdctx) {
-        destroy_client_lock(lock);
         pthread_spin_unlock(&conf->fd_lock);
+        destroy_client_lock(lock);
 
         gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL, NULL);
         ret = -EBADFD;
