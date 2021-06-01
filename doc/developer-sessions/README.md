@@ -16,3 +16,5 @@ This session covers programming model used in glusterfs along with the data stru
 This session covers lifecycles of inode_t and fd_t data structures. Debugging ref leaks for these structures is also briefly covered.  
 6. Understanding Gluster's communication layer - [video](https://youtu.be/MkQSWvvNj-c) - [slides](https://www.slideshare.net/PranithKarampuri/gluster-dev-session-6-understanding-glusters-network-communication-layer)  
 This session covers Gluster's communication layer. How XDR is used to serialize/deserize data in rpc calls from pov of both client and server xlators.  
+7. Client-Server interactions - [video](https://youtu.be/jlQUPZYX3NE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-7-client-server-interactions)  
+Client, server interactions for connecting/disconnecting/reconnecting are covered in this session  
