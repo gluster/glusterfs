@@ -135,8 +135,9 @@ posix_handle_georep_xattrs(call_frame_t *frame, const char *name, int *op_errno,
     int pid = 1;
     gf_boolean_t filter_xattr = _gf_true;
     static const char *georep_xattr[] = {
-        "*.glusterfs.*.stime", "*.glusterfs.*.xtime",
-        "*.glusterfs.*.entry_stime", "*.glusterfs.volume-mark.*", NULL};
+        "*.glusterfs.*.stime",       "*.glusterfs.*.xtime",
+        "*.glusterfs.lockinfo",      "*.glusterfs.*.entry_stime",
+        "*.glusterfs.volume-mark.*", NULL};
 
     if (!name) {
         /* No need to do anything here */
