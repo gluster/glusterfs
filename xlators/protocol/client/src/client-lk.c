@@ -473,22 +473,21 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
     this = THIS;
     conf = this->private;
 
+    lock = new_client_lock(flock, owner, cmd, fd);
+    if (!lock) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
     pthread_spin_lock(&conf->fd_lock);
 
     fdctx = this_fd_get_ctx(fd, this);
     if (!fdctx) {
         pthread_spin_unlock(&conf->fd_lock);
+        destroy_client_lock(lock);
 
         gf_smsg(this->name, GF_LOG_WARNING, 0, PC_MSG_FD_GET_FAIL, NULL);
         ret = -EBADFD;
-        goto out;
-    }
-
-    lock = new_client_lock(flock, owner, cmd, fd);
-    if (!lock) {
-        pthread_spin_unlock(&conf->fd_lock);
-
-        ret = -ENOMEM;
         goto out;
     }
 
