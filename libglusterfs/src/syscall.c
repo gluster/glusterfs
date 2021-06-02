@@ -290,6 +290,12 @@ sys_fchmod(int fd, mode_t mode)
 }
 
 int
+sys_lchmod(const char *path, mode_t mode)
+{
+    return FS_RET_CHECK0(lchmod(path, mode), errno);
+}
+
+int
 sys_chown(const char *path, uid_t owner, gid_t group)
 {
     return FS_RET_CHECK0(chown(path, owner, group), errno);
@@ -334,11 +340,21 @@ sys_utimensat(int dirfd, const char *filename, const struct timespec times[2],
 }
 #endif
 
+#if defined(HAVE_FUTIMENS)
+int
+sys_futimens(int fd, const struct timespec times[2])
+{
+    return futimens(fd, times);
+}
+#endif
+
+#if defined(HAVE_FUTIMES)
 int
 sys_futimes(int fd, const struct timeval times[2])
 {
     return futimes(fd, times);
 }
+#endif
 
 int
 sys_creat(const char *pathname, mode_t mode)

@@ -637,7 +637,6 @@ server_graph_janitor_threads(void *data)
     xlator_list_t **trav_p = NULL;
     xlator_t *top = NULL;
     uint32_t parent_down = 0;
-    uint32_t totchildcount = 1;
     struct rpc_clnt *rpc = NULL;
 
     GF_ASSERT(data);
@@ -684,12 +683,7 @@ server_graph_janitor_threads(void *data)
         xlator_mem_cleanup(victim);
         LOCK(&ctx->volfile_lock);
         {
-            totchildcount = 0;
-            for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-                totchildcount++;
-                break;
-            }
-            if (!totchildcount && !ctx->destroy_ctx) {
+            if (!top->children && !ctx->destroy_ctx) {
                 ctx->destroy_ctx = _gf_true;
                 destroy_ctx = _gf_true;
             }
@@ -701,7 +695,7 @@ server_graph_janitor_threads(void *data)
 out:
     free(arg->victim_name);
     free(arg);
-    if (!totchildcount && destroy_ctx) {
+    if (destroy_ctx) {
         gf_log(THIS->name, GF_LOG_INFO,
                "Going to Cleanup ctx pool memory and exit the process %s",
                ctx->cmdlinestr);
@@ -1124,21 +1118,21 @@ server_init(xlator_t *this)
     char *statedump_path = NULL;
     int total_transport = 0;
 
-    GF_VALIDATE_OR_GOTO("init", this, out);
+    GF_VALIDATE_OR_GOTO("init", this, err);
 
     if (this->children == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_SUBVOL_NULL, NULL);
-        goto out;
+        goto err;
     }
 
     if (this->parents != NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_PARENT_VOL_ERROR, NULL);
-        goto out;
+        goto err;
     }
 
     conf = GF_CALLOC(1, sizeof(server_conf_t), gf_server_mt_server_conf_t);
 
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+    GF_VALIDATE_OR_GOTO(this->name, conf, err);
 
     INIT_LIST_HEAD(&conf->xprt_list);
     pthread_mutex_init(&conf->mutex, NULL);
@@ -1146,14 +1140,14 @@ server_init(xlator_t *this)
     LOCK_INIT(&conf->itable_lock);
 
     /* Set event threads to the configured default */
-    GF_OPTION_INIT("event-threads", conf->event_threads, int32, out);
+    GF_OPTION_INIT("event-threads", conf->event_threads, int32, err);
     ret = server_check_event_threads(this, conf, conf->event_threads);
     if (ret)
-        goto out;
+        goto err;
 
     ret = server_build_config(this, conf);
     if (ret)
-        goto out;
+        goto err;
 
     ret = dict_get_str_sizen(this->options, "config-directory",
                              &conf->conf_dir);
@@ -1164,7 +1158,7 @@ server_init(xlator_t *this)
                                    gf_server_mt_child_status);
     INIT_LIST_HEAD(&conf->child_status->status_list);
 
-    GF_OPTION_INIT("statedump-path", statedump_path, path, out);
+    GF_OPTION_INIT("statedump-path", statedump_path, path, err);
     if (statedump_path) {
         gf_path_strip_trailing_slashes(statedump_path);
         this->ctx->statedump_path = gf_strdup(statedump_path);
@@ -1172,37 +1166,37 @@ server_init(xlator_t *this)
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_SET_STATEDUMP_PATH_ERROR,
                 NULL);
         ret = -1;
-        goto out;
+        goto err;
     }
 
     /* Authentication modules */
     conf->auth_modules = dict_new();
-    GF_VALIDATE_OR_GOTO(this->name, conf->auth_modules, out);
+    GF_VALIDATE_OR_GOTO(this->name, conf->auth_modules, err);
 
     dict_foreach(this->options, get_auth_types, conf->auth_modules);
     ret = validate_auth_options(this, this->options);
     if (ret == -1) {
         /* logging already done in validate_auth_options function. */
-        goto out;
+        goto err;
     }
 
     ret = gf_auth_init(this, conf->auth_modules);
     if (ret) {
         dict_unref(conf->auth_modules);
         conf->auth_modules = NULL;
-        goto out;
+        goto err;
     }
 
     ret = dict_get_str_boolean(this->options, "manage-gids", _gf_false);
-    if (ret == -1)
+    if (ret == -1) {
         conf->server_manage_gids = _gf_false;
-    else
+    } else {
         conf->server_manage_gids = ret;
-
-    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, out);
+    }
+    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, err);
     if (gid_cache_init(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_INIT_GRP_CACHE_ERROR, NULL);
-        goto out;
+        goto err;
     }
 
     ret = dict_get_str_boolean(this->options, "strict-auth-accept", _gf_false);
@@ -1222,14 +1216,14 @@ server_init(xlator_t *this)
     if (conf->rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED, NULL);
         ret = -1;
-        goto out;
+        goto err;
     }
 
     ret = rpcsvc_set_outstanding_rpc_limit(
         conf->rpc, this->options, RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT);
     if (ret < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPC_CONFIGURE_FAILED, NULL);
-        goto out;
+        goto err;
     }
 
     /*
@@ -1243,14 +1237,14 @@ server_init(xlator_t *this)
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_TRANSPORT_TYPE_NOT_SET,
                 NULL);
         ret = -1;
-        goto out;
+        goto err;
     }
     total_transport = rpc_transport_count(transport_type);
     if (total_transport <= 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0,
                 PS_MSG_GET_TOTAL_AVAIL_TRANSPORT_FAILED, NULL);
         ret = -1;
-        goto out;
+        goto err;
     }
 
     ret = dict_set_int32_sizen(this->options, "notify-poller-death", 1);
@@ -1261,7 +1255,7 @@ server_init(xlator_t *this)
                 PS_MSG_RPCSVC_LISTENER_CREATE_FAILED, NULL);
         if (ret != -EADDRINUSE)
             ret = -1;
-        goto out;
+        goto err;
     } else if (ret < total_transport) {
         gf_smsg(this->name, GF_LOG_ERROR, 0,
                 PS_MSG_RPCSVC_LISTENER_CREATE_FAILED, "number=%d",
@@ -1272,7 +1266,7 @@ server_init(xlator_t *this)
     ret = rpcsvc_register_notify(conf->rpc, server_rpc_notify, this);
     if (ret) {
         gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_RPCSVC_NOTIFY, NULL);
-        goto out;
+        goto err;
     }
 
     glusterfs3_3_fop_prog.options = this->options;
@@ -1285,7 +1279,7 @@ server_init(xlator_t *this)
                 glusterfs3_3_fop_prog.progname, "prognum=%d",
                 glusterfs3_3_fop_prog.prognum, "progver=%d",
                 glusterfs3_3_fop_prog.progver, NULL);
-        goto out;
+        goto err;
     }
 
     glusterfs4_0_fop_prog.options = this->options;
@@ -1297,7 +1291,7 @@ server_init(xlator_t *this)
                glusterfs4_0_fop_prog.progname, glusterfs4_0_fop_prog.prognum,
                glusterfs4_0_fop_prog.progver);
         rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
-        goto out;
+        goto err;
     }
 
     gluster_handshake_prog.options = this->options;
@@ -1310,7 +1304,7 @@ server_init(xlator_t *this)
                 gluster_handshake_prog.progver, NULL);
         rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         rpcsvc_program_unregister(conf->rpc, &glusterfs4_0_fop_prog);
-        goto out;
+        goto err;
     }
 
 #ifndef GF_DARWIN_HOST_OS
@@ -1347,17 +1341,14 @@ server_init(xlator_t *this)
     FIRST_CHILD(this)->volfile_id = gf_strdup(this->ctx->cmd_args.volfile_id);
 
     this->private = conf;
-    ret = 0;
+    return 0;
 
-out:
-    if (ret) {
-        if (this != NULL) {
-            this->fini(this);
-        }
-        server_cleanup(this, conf);
+err:
+    if (this != NULL) {
+        this->fini(this);
     }
-
-    return ret;
+    server_cleanup(this, conf);
+    return -1;
 }
 
 void

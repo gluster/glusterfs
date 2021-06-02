@@ -994,6 +994,46 @@ out:
     return ret;
 }
 
+static int32_t
+dht_rebalance_sparse_segment(xlator_t *subvol, fd_t *fd, off_t *offset,
+                             size_t *size)
+{
+    off_t hole;
+    int32_t ret;
+
+    do {
+        ret = syncop_seek(subvol, fd, *offset, GF_SEEK_DATA, NULL, offset);
+        if (ret >= 0) {
+            /* Starting at the offset of the last data segment, find the
+             * next hole. After a data segment there should always be a
+             * hole, since EOF is considered a hole. */
+            ret = syncop_seek(subvol, fd, *offset, GF_SEEK_HOLE, NULL, &hole);
+        }
+
+        if (ret < 0) {
+            if (ret == -ENXIO) {
+                /* This can happen if there are no more data segments (i.e.
+                 * the offset is at EOF), or there was a data segment but the
+                 * file has been truncated to a smaller size between both
+                 * seek requests. In both cases we are done. The file doesn't
+                 * contain more data. */
+                ret = 0;
+            }
+            return ret;
+        }
+
+        /* It could happen that at the same offset we detected data in the
+         * first seek, there could be a hole in the second seek if user is
+         * modifying the file concurrently. In this case we need to find a
+         * new data segment to migrate. */
+    } while (hole <= *offset);
+
+    /* Calculate the total size of the current data block */
+    *size = hole - *offset;
+
+    return 1;
+}
+
 static int
 __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
                              fd_t *src, fd_t *dst, uint64_t ia_size,
@@ -1002,8 +1042,6 @@ __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
     int ret = 0;
     int count = 0;
     off_t offset = 0;
-    off_t data_offset = 0;
-    off_t hole_offset = 0;
     struct iovec *vector = NULL;
     struct iobref *iobref = NULL;
     uint64_t total = 0;
@@ -1018,70 +1056,35 @@ __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
     while (total < ia_size) {
         /* This is a regular file - read it sequentially */
         if (!hole_exists) {
-            read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE)
-                             ? DHT_REBALANCE_BLKSIZE
-                             : (ia_size - total));
+            data_block_size = ia_size - total;
         } else {
             /* This is a sparse file - read only the data segments in the file
              */
 
             /* If the previous data block is fully copied, find the next data
-             * segment
-             * starting at the offset of the last read and written byte,  */
+             * segment starting at the offset of the last read and written
+             * byte. */
             if (data_block_size <= 0) {
-                ret = syncop_seek(from, src, offset, GF_SEEK_DATA, NULL,
-                                  &data_offset);
-                if (ret) {
-                    if (ret == -ENXIO)
-                        ret = 0; /* No more data segments */
-                    else
-                        *fop_errno = -ret; /* Error occurred */
-
+                ret = dht_rebalance_sparse_segment(from, src, &offset,
+                                                   &data_block_size);
+                if (ret <= 0) {
+                    *fop_errno = -ret;
                     break;
                 }
-
-                /* If the position of the current data segment is greater than
-                 * the position of the next hole, find the next hole in order to
-                 * calculate the length of the new data segment */
-                if (data_offset > hole_offset) {
-                    /* Starting at the offset of the last data segment, find the
-                     * next hole */
-                    ret = syncop_seek(from, src, data_offset, GF_SEEK_HOLE,
-                                      NULL, &hole_offset);
-                    if (ret) {
-                        /* If an error occurred here it's a real error because
-                         * if the seek for a data segment was successful then
-                         * necessarily another hole must exist (EOF is a hole)
-                         */
-                        *fop_errno = -ret;
-                        break;
-                    }
-
-                    /* Calculate the total size of the current data block */
-                    data_block_size = hole_offset - data_offset;
-                }
-            } else {
-                /* There is still data in the current segment, move the
-                 * data_offset to the position of the last written byte */
-                data_offset = offset;
             }
-
-            /* Calculate how much data needs to be read and written. If the data
-             * segment's length is bigger than DHT_REBALANCE_BLKSIZE, read and
-             * write DHT_REBALANCE_BLKSIZE data length and the rest in the
-             * next iteration(s) */
-            read_size = ((data_block_size > DHT_REBALANCE_BLKSIZE)
-                             ? DHT_REBALANCE_BLKSIZE
-                             : data_block_size);
-
-            /* Calculate the remaining size of the data block - maybe there's no
-             * need to seek for data in the next iteration */
-            data_block_size -= read_size;
-
-            /* Set offset to the offset of the data segment so read and write
-             * will have the correct position */
-            offset = data_offset;
         }
+
+        /* Calculate how much data needs to be read and written. If the data
+         * segment's length is bigger than DHT_REBALANCE_BLKSIZE, read and
+         * write DHT_REBALANCE_BLKSIZE data length and the rest in the
+         * next iteration(s) */
+        read_size = ((data_block_size > DHT_REBALANCE_BLKSIZE)
+                         ? DHT_REBALANCE_BLKSIZE
+                         : data_block_size);
+
+        /* Calculate the remaining size of the data block - maybe there's no
+         * need to seek for data in the next iteration */
+        data_block_size -= read_size;
 
         ret = syncop_readv(from, src, read_size, offset, 0, &vector, &count,
                            &iobref, NULL, NULL, NULL);
@@ -1145,6 +1148,7 @@ __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
         iobref = NULL;
         vector = NULL;
     }
+
     if (iobref)
         iobref_unref(iobref);
     GF_FREE(vector);
@@ -1818,19 +1822,23 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
 
     /* TODO: Sync the locks */
 
-    xdata = dict_new();
-    if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "%s: failed to set last-fsync flag on "
-               "%s (%s)",
-               loc->path, hashed_subvol->name, strerror(ENOMEM));
-    }
+    if (conf->ensure_durability) {
+        xdata = dict_new();
+        if (!xdata || dict_set_int8(xdata, "last-fsync", 1)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "%s: failed to set last-fsync flag on "
+                   "%s (%s)",
+                   loc->path, hashed_subvol->name, strerror(ENOMEM));
+        }
 
-    ret = syncop_fsync(hashed_subvol, dst_fd, 0, NULL, NULL, xdata, NULL);
-    if (ret) {
-        gf_log(this->name, GF_LOG_WARNING, "%s: failed to fsync on %s (%s)",
-               loc->path, hashed_subvol->name, strerror(-ret));
-        *fop_errno = -ret;
+        ret = syncop_fsync(hashed_subvol, dst_fd, 0, NULL, NULL, xdata, NULL);
+        if (ret) {
+            gf_log(this->name, GF_LOG_WARNING, "%s: failed to fsync on %s (%s)",
+                   loc->path, hashed_subvol->name, strerror(-ret));
+            *fop_errno = -ret;
+            ret = -1;
+            goto out;
+        }
     }
 
     /* Phase 2 - Data-Migration Complete, Housekeeping updates pending */
@@ -3604,6 +3612,9 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     struct iatt iatt = {
         0,
     };
+    struct iatt entry_iatt = {
+        0,
+    };
     inode_t *linked_inode = NULL, *inode = NULL;
     dht_conf_t *conf = NULL;
     int perrno = 0;
@@ -3639,6 +3650,12 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         goto out;
     }
 
+    linked_inode = inode_link(loc->inode, loc->parent, loc->name, &iatt);
+
+    inode = loc->inode;
+    loc->inode = linked_inode;
+    inode_unref(inode);
+
     fd = fd_create(loc->inode, defrag->pid);
     if (!fd) {
         gf_log(this->name, GF_LOG_ERROR, "Failed to create fd");
@@ -3671,8 +3688,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     fd_bind(fd);
     INIT_LIST_HEAD(&entries.list);
 
-    while ((ret = syncop_readdirp(this, fd, 131072, offset, &entries, NULL,
-                                  NULL)) != 0) {
+    while ((ret = syncop_readdir(this, fd, 131072, offset, &entries, NULL,
+                                 NULL)) != 0) {
         if (ret < 0) {
             if (-ret == ENOENT || -ret == ESTALE) {
                 if (conf->decommission_subvols_cnt) {
@@ -3707,9 +3724,11 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
 
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
-            if (!IA_ISDIR(entry->d_stat.ia_type)) {
+
+            if ((DT_DIR != entry->d_type) && (DT_UNKNOWN != entry->d_type)) {
                 continue;
             }
+
             loc_wipe(&entry_loc);
 
             ret = dht_build_child_loc(this, &entry_loc, loc, entry->d_name);
@@ -3730,39 +3749,17 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                 }
             }
 
-            if (gf_uuid_is_null(entry->d_stat.ia_gfid)) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "%s/%s"
-                       " gfid not present",
-                       loc->path, entry->d_name);
-                continue;
+            if (DT_UNKNOWN == entry->d_type) {
+                ret = syncop_lookup(this, &entry_loc, &entry_iatt, NULL, NULL,
+                                    NULL);
+                if ((ret == 0) && (entry_iatt.ia_type != IA_IFDIR)) {
+                    continue;
+                }
+                /*If it is directory, gf_defrag_fix_layout() call will again do
+                 * one more lookup. Not optimizing this part as all modern
+                 * filesystems populate entry->d_type. We can optimize it when
+                 * such a filesystem is found.*/
             }
-
-            gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
-
-            /*In case the gfid stored in the inode by inode_link
-             * and the gfid obtained in the lookup differs, then
-             * client3_3_lookup_cbk will return ESTALE and proper
-             * error will be captured
-             */
-
-            linked_inode = inode_link(entry_loc.inode, loc->inode,
-                                      entry->d_name, &entry->d_stat);
-
-            inode = entry_loc.inode;
-            entry_loc.inode = linked_inode;
-            inode_unref(inode);
-
-            if (gf_uuid_is_null(loc->gfid)) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "%s/%s"
-                       " gfid not present",
-                       loc->path, entry->d_name);
-                defrag->total_failures++;
-                continue;
-            }
-
-            gf_uuid_copy(entry_loc.pargfid, loc->gfid);
 
             /* A return value of 2 means, either process_dir or
              * lookup of a dir failed. Hence, don't commit hash

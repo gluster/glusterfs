@@ -627,4 +627,8 @@ client_pre_copy_file_range_v2(xlator_t *this, gfx_copy_file_range_req *req,
                               off64_t off_out, size_t size, int32_t flags,
                               dict_t **xdata);
 
+void
+set_fd_reopen_status(xlator_t *this, dict_t *xdata,
+                     enum gf_fd_reopen_status fd_reopen_allowed);
+
 #endif /* __CLIENT_COMMON_H__ */

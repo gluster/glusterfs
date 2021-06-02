@@ -2738,6 +2738,8 @@ afr_local_cleanup(afr_local_t *local, xlator_t *this)
             dict_unref(local->cont.entrylk.xdata);
     }
 
+    GF_FREE(local->need_open);
+
     if (local->xdata_req)
         dict_unref(local->xdata_req);
 
@@ -3874,9 +3876,6 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     }
 
     if (__is_root_gfid(loc->inode->gfid)) {
-        if (!priv->root_inode)
-            priv->root_inode = inode_ref(loc->inode);
-
         if (priv->choose_local && !priv->did_discovery) {
             /* Logic to detect which subvolumes of AFR are
                local, in order to prefer them for reads
@@ -6529,6 +6528,14 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
         local->fop_state = TA_SUCCESS;
     }
     local->is_new_entry = _gf_false;
+
+    local->need_open = GF_CALLOC(priv->child_count, sizeof(*local->need_open),
+                                 gf_afr_mt_char);
+    if (!local->need_open) {
+        if (op_errno)
+            *op_errno = ENOMEM;
+        goto out;
+    }
 
     INIT_LIST_HEAD(&local->healer);
     return 0;

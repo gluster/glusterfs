@@ -46,36 +46,20 @@
 #define SSL_CRL_PATH_OPT "transport.socket.ssl-crl-path"
 #define OWN_THREAD_OPT "transport.socket.own-thread"
 
-/* TBD: do automake substitutions etc. (ick) to set these. */
-#if !defined(DEFAULT_ETC_SSL)
-#ifdef GF_LINUX_HOST_OS
-#define DEFAULT_ETC_SSL "/etc/ssl"
-#endif
-#ifdef GF_BSD_HOST_OS
-#define DEFAULT_ETC_SSL "/etc/openssl"
-#endif
-#ifdef GF_DARWIN_HOST_OS
-#define DEFAULT_ETC_SSL "/usr/local/etc/openssl"
-#endif
-#if !defined(DEFAULT_ETC_SSL)
-#define DEFAULT_ETC_SSL "/etc/ssl"
-#endif
-#endif
-
 #if !defined(DEFAULT_CERT_PATH)
-#define DEFAULT_CERT_PATH DEFAULT_ETC_SSL "/glusterfs.pem"
+#define DEFAULT_CERT_PATH SSL_CERT_PATH "/glusterfs.pem"
 #endif
 #if !defined(DEFAULT_KEY_PATH)
-#define DEFAULT_KEY_PATH DEFAULT_ETC_SSL "/glusterfs.key"
+#define DEFAULT_KEY_PATH SSL_CERT_PATH "/glusterfs.key"
 #endif
 #if !defined(DEFAULT_CA_PATH)
-#define DEFAULT_CA_PATH DEFAULT_ETC_SSL "/glusterfs.ca"
+#define DEFAULT_CA_PATH SSL_CERT_PATH "/glusterfs.ca"
 #endif
 #if !defined(DEFAULT_VERIFY_DEPTH)
 #define DEFAULT_VERIFY_DEPTH 1
 #endif
 #define DEFAULT_CIPHER_LIST "EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
-#define DEFAULT_DH_PARAM DEFAULT_ETC_SSL "/dhparam.pem"
+#define DEFAULT_DH_PARAM SSL_CERT_PATH "/dhparam.pem"
 #define DEFAULT_EC_CURVE "prime256v1"
 
 #define POLL_MASK_INPUT (POLLIN | POLLPRI)
@@ -902,6 +886,7 @@ __socket_server_bind(rpc_transport_t *this)
     int reuse_check_sock = -1;
     uint16_t sin_port = 0;
     int retries = 0;
+    int tmp_errno = 0;
 
     priv = this->private;
     ctx = this->ctx;
@@ -939,15 +924,26 @@ __socket_server_bind(rpc_transport_t *this)
             ((struct sockaddr_in *)&this->myinfo.sockaddr)->sin_port = htons(
                 sin_port);
         }
-        retries = 10;
+#ifdef DEBUG
+        retries = 5;
+#else
+        retries = 2;
+#endif
         while (retries) {
             ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
                        this->myinfo.sockaddr_len);
             if (ret != 0) {
+                tmp_errno = errno;
                 gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
                        this->myinfo.identifier, strerror(errno));
-                if (errno == EADDRINUSE) {
-                    gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+                if (tmp_errno == EADDRINUSE) {
+                    ret = -EADDRINUSE;
+                    /* Sleep is added only to address failures
+                     * in the regression test suite, In a real situation,
+                     * if a port is in use when the process starts, it is most
+                     * likely will remain in use during 5 seconds as well
+                     */
+                    /* coverity[SLEEP] */
                     sleep(1);
                     retries--;
                 } else {
@@ -957,19 +953,9 @@ __socket_server_bind(rpc_transport_t *this)
                 break;
             }
         }
-    } else {
-        ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
-                   this->myinfo.sockaddr_len);
+        if (ret < 0)
+            goto out;
 
-        if (ret != 0) {
-            gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
-                   this->myinfo.identifier, strerror(errno));
-            if (errno == EADDRINUSE) {
-                gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
-            }
-        }
-    }
-    if (AF_UNIX != SA(&this->myinfo.sockaddr)->sa_family) {
         if (getsockname(priv->sock, SA(&this->myinfo.sockaddr),
                         &this->myinfo.sockaddr_len) != 0) {
             gf_log(this->name, GF_LOG_WARNING,
@@ -984,6 +970,17 @@ __socket_server_bind(rpc_transport_t *this)
             gf_log(this->name, GF_LOG_INFO,
                    "process started listening on port (%d)",
                    cmd_args->brick_port);
+        }
+    } else {
+        ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
+                   this->myinfo.sockaddr_len);
+
+        if (ret != 0) {
+            gf_log(this->name, GF_LOG_ERROR, "binding to %s failed: %s",
+                   this->myinfo.identifier, strerror(errno));
+            if (errno == EADDRINUSE) {
+                gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+            }
         }
     }
 
@@ -3317,6 +3314,7 @@ connect_loop(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if ((errno != ENOENT) || (++connect_fails >= 5)) {
             break;
         }
+        /* coverity[SLEEP] */
         sleep(1);
     }
 
@@ -3717,7 +3715,6 @@ socket_listen(rpc_transport_t *this)
             }
         }
 
-        /* coverity[SLEEP] */
         ret = __socket_server_bind(this);
 
         if (ret < 0) {
@@ -4095,7 +4092,7 @@ threadid_func(CRYPTO_THREADID *id)
      */
     CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
 }
-#else  /* older openssl */
+#else /* older openssl */
 static unsigned long
 legacy_threadid_func(void)
 {
@@ -4351,7 +4348,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "DH ciphers are disabled.",
                        dh_param, ERR_error_string(err, NULL));
             }
-#else  /* HAVE_OPENSSL_DH_H */
+#else /* HAVE_OPENSSL_DH_H */
             BIO_free(bio);
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no DH support");
 #endif /* HAVE_OPENSSL_DH_H */
@@ -4378,7 +4375,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "ECDH ciphers are disabled.",
                        ec_curve, ERR_error_string(err, NULL));
             }
-#else  /* HAVE_OPENSSL_ECDH_H */
+#else /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }

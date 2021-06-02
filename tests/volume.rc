@@ -83,6 +83,10 @@ function rebalanced_files_field {
         $CLI volume rebalance $1 status | awk '{print $2}' | sed -n 3p
 }
 
+function rebalance_failed_field {
+        $CLI volume rebalance $1 status | awk '{print $5}' | sed -n 3p
+}
+
 function fix-layout_status_field {
         #The fix-layout status can be up to 3 words, (ex:'fix-layout in progress'), hence the awk-print $2 thru $4.
         #But if the status is less than 3 words, it also prints the next field i.e the run_time_in_secs.(ex:'completed 3.00').
@@ -166,24 +170,6 @@ function snap_client_connected_status {
          up=$(grep -a -A1 xlator.protocol.client.$vol-snapd-client.priv $fpath | tail -1 | cut -f 2 -d'=')
          rm -f $fpath
          echo "$up"
-}
-
-function _jbrc_child_up_status {
-        local vol=$1
-        #brick_id is (brick-num in volume info - 1)
-        local brick_id=$2
-        local gen_state_dump=$3
-        local fpath=$($gen_state_dump $vol)
-        up=$(grep -a -B1 child_$brick_id=$vol-client-$brick_id $fpath | head -1 | cut -f2 -d'=')
-        rm -f $fpath
-        echo "$up"
-}
-
-function jbrc_child_up_status {
-        local vol=$1
-        #brick_id is (brick-num in volume info - 1)
-        local brick_id=$2
-        _jbrc_child_up_status $vol $brick_id generate_mount_statedump
 }
 
 function _afr_child_up_status {
@@ -425,6 +411,14 @@ function gf_check_file_opened_in_brick {
         else
                 echo "N"
         fi
+}
+
+function gf_open_file_count_in_brick {
+        vol=$1
+        host=$2
+        brick=$3
+        realpath=$4
+        ls -l /proc/$(get_brick_pid $vol $host $brick)/fd | grep "${realpath}$" | wc -l
 }
 
 function gf_get_gfid_backend_file_path {
@@ -854,6 +848,19 @@ function check_brick_multiplex() {
         else
            echo "N"
         fi
+}
+
+function get_value_from_brick_statedump {
+    local vol="$1"
+    local host="$2"
+    local brick="$3"
+    local key="$4"
+
+    local statedump="$(generate_brick_statedump $vol $host $brick)"
+    value="$(grep "$key" $statedump | cut -f2 -d'=' | tail -1)"
+
+    rm -f "$statedump"
+    echo "$value"
 }
 
 function get_fd_count {

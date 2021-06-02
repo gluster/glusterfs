@@ -333,6 +333,11 @@ struct dht_local {
 
     dht_dir_transaction_t lock[2], *current;
 
+    /* for nested readdirs */
+    xlator_t *queue_xl;
+    off_t queue_offset;
+    int32_t queue;
+
     /* inodelks during filerename for backward compatibility */
     dht_lock_t **rename_inodelk_backward_compatible;
 
@@ -610,6 +615,8 @@ struct dht_conf {
     gf_boolean_t do_weighting;
 
     gf_boolean_t randomize_by_gfid;
+
+    gf_boolean_t ensure_durability;
 };
 typedef struct dht_conf dht_conf_t;
 
@@ -704,25 +711,21 @@ typedef struct dht_fd_ctx {
 #define DHT_STACK_UNWIND(fop, frame, params...)                                \
     do {                                                                       \
         dht_local_t *__local = NULL;                                           \
-        xlator_t *__xl = NULL;                                                 \
         if (frame) {                                                           \
-            __xl = frame->this;                                                \
             __local = frame->local;                                            \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
-        dht_local_wipe(__xl, __local);                                         \
+        dht_local_wipe(__local);                                               \
     } while (0)
 
 #define DHT_STACK_DESTROY(frame)                                               \
     do {                                                                       \
         dht_local_t *__local = NULL;                                           \
-        xlator_t *__xl = NULL;                                                 \
-        __xl = frame->this;                                                    \
         __local = frame->local;                                                \
         frame->local = NULL;                                                   \
         STACK_DESTROY(frame->root);                                            \
-        dht_local_wipe(__xl, __local);                                         \
+        dht_local_wipe(__local);                                               \
     } while (0)
 
 #define DHT_UPDATE_TIME(ctx_sec, ctx_nsec, new_sec, new_nsec, post)            \
@@ -784,9 +787,6 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 xlator_t *
 dht_linkfile_subvol(xlator_t *this, inode_t *inode, struct iatt *buf,
                     dict_t *xattr);
-int
-dht_linkfile_unlink(call_frame_t *frame, xlator_t *this, xlator_t *subvol,
-                    loc_t *loc);
 
 int
 dht_layouts_init(xlator_t *this, dht_conf_t *conf);
@@ -808,7 +808,7 @@ int
 dht_deitransform(xlator_t *this, uint64_t y, xlator_t **subvol);
 
 void
-dht_local_wipe(xlator_t *this, dht_local_t *local);
+dht_local_wipe(dht_local_t *local);
 dht_local_t *
 dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop);
 int
@@ -863,7 +863,7 @@ int
 dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 ;
 void
-dht_layout_unref(xlator_t *this, dht_layout_t *layout);
+dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
 dht_layout_ref(xlator_t *this, dht_layout_t *layout);
 int

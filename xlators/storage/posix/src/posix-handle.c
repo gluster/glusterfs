@@ -844,33 +844,6 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
                    "symlink %s -> %s failed", oldpath, newstr);
             return -1;
         }
-
-        ret = sys_fstatat(dfd, newstr, &newbuf, AT_SYMLINK_NOFOLLOW);
-
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-                   "stat on %s failed ", newstr);
-            return -1;
-        }
-    }
-
-    ret = sys_stat(real_path, &newbuf);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_CREATE,
-               "stat on %s failed ", real_path);
-        return -1;
-    }
-
-    if (!oldbuf)
-        return ret;
-
-    if (newbuf.st_ino != oldbuf->st_ino || newbuf.st_dev != oldbuf->st_dev) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
-               "mismatching ino/dev between file %s (%lld/%lld) "
-               "and handle %s (%lld/%lld)",
-               oldpath, (long long)oldbuf->st_ino, (long long)oldbuf->st_dev,
-               newpath, (long long)newbuf.st_ino, (long long)newbuf.st_dev);
-        ret = -1;
     }
 
     return ret;
@@ -880,7 +853,6 @@ int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     int ret = 0;
-    struct stat stat;
     int index = 0;
     int dfd = 0;
     char newstr[POSIX_GFID_HASH2_LEN] = {
@@ -892,23 +864,12 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
     dfd = priv->arrdfd[index];
 
     snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_utoa(gfid));
-    ret = sys_fstatat(dfd, newstr, &stat, AT_SYMLINK_NOFOLLOW);
-
-    if (ret == -1) {
-        if (errno != ENOENT) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
-                   newstr);
-        }
-        goto out;
-    }
-
     ret = sys_unlinkat(dfd, newstr);
-    if (ret) {
+    if (ret && (errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
-               "unlink %s is failed", newstr);
+               "unlink %s failed", newstr);
     }
 
-out:
     return ret;
 }
 

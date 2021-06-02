@@ -4232,17 +4232,7 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         ret = 0;
         goto respond;
     }
-    if (flags == GF_CLI_GET_VOLUME_ALL) {
-        cds_list_for_each_entry(entry, &priv->volumes, vol_list)
-        {
-            ret = glusterd_add_volume_detail_to_dict(entry, volumes, count);
-            if (ret)
-                goto respond;
-
-            count++;
-        }
-
-    } else if (flags == GF_CLI_GET_NEXT_VOLUME) {
+    if (flags == GF_CLI_GET_NEXT_VOLUME) {
         ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
 
         if (ret) {
@@ -5848,7 +5838,6 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     fprintf(fp, "\n[Misc]\n");
     if (priv->pmap) {
         fprintf(fp, "Base port: %d\n", priv->pmap->base_port);
-        fprintf(fp, "Last allocated port: %d\n", priv->pmap->last_alloc);
     }
 out:
 
@@ -6109,9 +6098,8 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                     brickpath = search_brick_path_from_proc(pid,
                                                             brickinfo->path);
                 if (!is_service_running || !brickpath) {
-                    ret = pmap_registry_remove(
-                        THIS, brickinfo->port, brickinfo->path,
-                        GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
+                    ret = pmap_port_remove(this, brickinfo->port,
+                                           brickinfo->path, NULL, _gf_true);
                     if (ret) {
                         gf_msg(this->name, GF_LOG_WARNING,
                                GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0,
@@ -6139,9 +6127,8 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                     /* When bricks are stopped, ports also need to
                      * be cleaned up
                      */
-                    pmap_registry_remove(
-                        THIS, brickinfo_tmp->port, brickinfo_tmp->path,
-                        GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
+                    pmap_port_remove(this, brickinfo_tmp->port,
+                                     brickinfo_tmp->path, NULL, _gf_true);
                 }
             } else {
                 glusterd_set_brick_status(brickinfo, GF_BRICK_STOPPED);

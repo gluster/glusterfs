@@ -251,11 +251,15 @@ posix_do_chmod(xlator_t *this, const char *path, struct iatt *stbuf)
         mode_bit = (mode & priv->create_mask) | priv->force_create_mode;
         mode = posix_override_umask(mode, mode_bit);
     }
-    ret = lchmod(path, mode);
-    if ((ret == -1) && (errno == ENOSYS)) {
-        /* in Linux symlinks are always in mode 0777 and no
-           such call as lchmod exists.
-        */
+    ret = sys_lchmod(path, mode);
+    /* Before glibc 2.32, lchmod() was not implemented and calling it
+     * always returned ENOSYS. Starting with glibc 2.32 this request
+     * is using fchmodat() system call to implement it. However, linux
+     * doesn't support setting the mode for symlinks, so the system
+     * call returns EOPNOTSUPP (or ENOTSUP based on man page). We need
+     * to handle all cases. */
+    if ((ret < 0) &&
+        ((errno == ENOSYS) || (errno == EOPNOTSUPP) || (errno == ENOTSUP))) {
         gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
         if (is_symlink) {
             ret = 0;
@@ -509,24 +513,40 @@ out:
     return ret;
 }
 
+static inline int
+gf_futime(int fd, struct timespec ts[2])
+{
+#if defined(HAVE_FUTIMENS)
+    return sys_futimens(fd, ts);
+#elif defined(HAVE_FUTIMES)
+    struct timeval tv[2] = {
+        {.tv_sec = ts[0].tv_sec, .tv_usec = ts[0].tv_nsec / 1000},
+        {.tv_sec = ts[1].tv_sec, .tv_usec = ts[1].tv_nsec / 1000}};
+    return sys_futimes(fd, tv);
+#else
+    /* This should be catched by configure early. */
+#error "This system doesn't support neither futimens() nor futimes()"
+#endif /* HAVE_FUTIMENS */
+}
+
 static int
 posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
 {
     int32_t ret = -1;
-    struct timeval tv[2] = {{
-                                0,
-                            },
-                            {
-                                0,
-                            }};
+    struct timespec ts[2] = {{
+                                 0,
+                             },
+                             {
+                                 0,
+                             }};
     struct stat stat = {
         0,
     };
     gf_boolean_t fstat_executed = _gf_false;
 
     if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
-        tv[0].tv_sec = stbuf->ia_atime;
-        tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        ts[0].tv_sec = stbuf->ia_atime;
+        ts[0].tv_nsec = stbuf->ia_atime_nsec;
     } else {
         ret = sys_fstat(fd, &stat);
         if (ret != 0) {
@@ -536,13 +556,13 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
         }
         fstat_executed = _gf_true;
         /* atime is not given, use current values */
-        tv[0].tv_sec = ST_ATIM_SEC(&stat);
-        tv[0].tv_usec = ST_ATIM_NSEC(&stat) / 1000;
+        ts[0].tv_sec = ST_ATIM_SEC(&stat);
+        ts[0].tv_nsec = ST_ATIM_NSEC(&stat);
     }
 
     if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
-        tv[1].tv_sec = stbuf->ia_mtime;
-        tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        ts[1].tv_sec = stbuf->ia_mtime;
+        ts[1].tv_nsec = stbuf->ia_mtime_nsec;
     } else {
         if (!fstat_executed) {
             ret = sys_fstat(fd, &stat);
@@ -553,11 +573,11 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
             }
         }
         /* mtime is not given, use current values */
-        tv[1].tv_sec = ST_MTIM_SEC(&stat);
-        tv[1].tv_usec = ST_MTIM_NSEC(&stat) / 1000;
+        ts[1].tv_sec = ST_MTIM_SEC(&stat);
+        ts[1].tv_nsec = ST_MTIM_NSEC(&stat);
     }
 
-    ret = sys_futimes(fd, tv);
+    ret = gf_futime(fd, ts);
     if (ret == -1)
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FUTIMES_FAILED, "%d", fd);
 
@@ -5484,8 +5504,8 @@ posix_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     return 0;
 }
 
-int
-posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
+static int
+posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
                    gf_dirent_t *entries, xlator_t *this, int32_t skip_dirs)
 {
     off_t in_case = -1;
@@ -5494,14 +5514,10 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
     int count = 0;
     int32_t this_size = -1;
     gf_dirent_t *this_entry = NULL;
-    struct posix_fd *pfd = NULL;
     struct stat stbuf = {
         0,
     };
-    char *hpath = NULL;
-    int len = 0;
-    int ret = 0;
-    int op_errno = 0;
+    int stat_ret = 1;
     struct dirent *entry = NULL;
     struct dirent scratch[2] = {
         {
@@ -5509,38 +5525,17 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         },
     };
 
-    ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
-               "pfd is NULL, fd=%p", fd);
-        count = -1;
-        errno = op_errno;
-        goto out;
-    }
-
-    if (skip_dirs) {
-        hpath = alloca(PATH_MAX);
-        len = posix_handle_path(this, fd->inode->gfid, NULL, hpath, PATH_MAX);
-        if (len <= 0) {
-            errno = ESTALE;
-            count = -1;
-            goto out;
-        }
-        len = strlen(hpath);
-        hpath[len] = '/';
-    }
-
     if (!off) {
-        rewinddir(dir);
+        rewinddir(pfd->dir);
     } else {
-        seekdir(dir, off);
+        seekdir(pfd->dir, off);
 #ifndef GF_LINUX_HOST_OS
-        if ((u_long)telldir(dir) != off && off != pfd->dir_eof) {
+        if ((u_long)telldir(pfd->dir) != off && off != pfd->dir_eof) {
             gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, P_MSG_DIR_OPERATION_FAILED,
                    "seekdir(0x%llx) failed on dir=%p: "
                    "Invalid argument (offset reused from "
                    "another DIR * structure?)",
-                   off, dir);
+                   off, pfd->dir);
             errno = EINVAL;
             count = -1;
             goto out;
@@ -5549,27 +5544,28 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
     }
 
     while (filled <= size) {
-        in_case = (u_long)telldir(dir);
+        in_case = (u_long)telldir(pfd->dir);
 
         if (in_case == -1) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno, P_MSG_DIR_OPERATION_FAILED,
-                   "telldir failed on dir=%p", dir);
+                   "telldir failed on dir=%p", pfd->dir);
             goto out;
         }
 
         errno = 0;
 
-        entry = sys_readdir(dir, scratch);
+        entry = sys_readdir(pfd->dir, scratch);
 
         if (!entry || errno != 0) {
             if (errno == EBADF) {
                 gf_msg(THIS->name, GF_LOG_WARNING, errno,
                        P_MSG_DIR_OPERATION_FAILED, "readdir failed on dir=%p",
-                       dir);
+                       pfd->dir);
                 goto out;
             }
             break;
         }
+        stat_ret = 1;
 
 #ifdef __NetBSD__
         /*
@@ -5593,10 +5589,11 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         if (skip_dirs) {
             if (DT_ISDIR(entry->d_type)) {
                 continue;
-            } else if (hpath) {
-                strcpy(&hpath[len + 1], entry->d_name);
-                ret = sys_lstat(hpath, &stbuf);
-                if (!ret && S_ISDIR(stbuf.st_mode))
+            } else if (DT_UNKNOWN == entry->d_type) {
+                memset(&stbuf, 0, sizeof(stbuf));
+                stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
+                                       AT_SYMLINK_NOFOLLOW);
+                if ((stat_ret == 0) && S_ISDIR(stbuf.st_mode))
                     continue;
             }
         }
@@ -5605,15 +5602,16 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {
-            seekdir(dir, in_case);
+            seekdir(pfd->dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-            if ((u_long)telldir(dir) != in_case && in_case != pfd->dir_eof) {
+            if ((u_long)telldir(pfd->dir) != in_case &&
+                in_case != pfd->dir_eof) {
                 gf_msg(THIS->name, GF_LOG_ERROR, EINVAL,
                        P_MSG_DIR_OPERATION_FAILED,
                        "seekdir(0x%llx) failed on dir=%p: "
                        "Invalid argument (offset reused from "
                        "another DIR * structure?)",
-                       in_case, dir);
+                       in_case, pfd->dir);
                 errno = EINVAL;
                 count = -1;
                 goto out;
@@ -5632,13 +5630,31 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
                    entry->d_name);
             goto out;
         }
+
+        if (DT_UNKNOWN == entry->d_type) {
+            if (stat_ret == 1) {
+                memset(&stbuf, 0, sizeof(stbuf));
+                stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
+                                       AT_SYMLINK_NOFOLLOW);
+            }
+
+            if (stat_ret == 0) {
+                entry->d_type = gf_d_type_from_st_mode(stbuf.st_mode);
+            } else {
+                gf_msg_debug(THIS->name, errno,
+                             "fstatat failed on"
+                             " %s/%s",
+                             uuid_utoa(fd->inode->gfid), entry->d_name);
+            }
+        }
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
          * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
          * for directory read resumption.
          */
-        last_off = (u_long)telldir(dir);
+
+        last_off = (u_long)telldir(pfd->dir);
         this_entry->d_off = last_off;
         this_entry->d_ino = entry->d_ino;
         this_entry->d_type = entry->d_type;
@@ -5649,7 +5665,7 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         count++;
     }
 
-    if ((!sys_readdir(dir, scratch) && (errno == 0))) {
+    if ((!sys_readdir(pfd->dir, scratch) && (errno == 0))) {
         /* Indicate EOF */
         errno = ENOENT;
         /* Remember EOF offset for later detection */
@@ -5759,7 +5775,6 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t off, int whichop, dict_t *dict)
 {
     struct posix_fd *pfd = NULL;
-    DIR *dir = NULL;
     int ret = -1;
     int count = 0;
     int32_t op_ret = -1;
@@ -5780,11 +5795,10 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto out;
     }
 
-    dir = pfd->dir;
-
-    if (!dir) {
+    if ((!pfd->dir) || (pfd->fd < 0)) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, P_MSG_PFD_NULL,
-               "dir is NULL for fd=%p", fd);
+               "posix ctx(%p, %d) is invalid for %s", pfd->dir, pfd->fd,
+               uuid_utoa(fd->inode->gfid));
         op_errno = EINVAL;
         goto out;
     }
@@ -5807,7 +5821,7 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            It would also help, in the future, to replace the loop
            around readdir() with a single large getdents() call.
         */
-        count = posix_fill_readdir(fd, dir, off, size, &entries, this,
+        count = posix_fill_readdir(fd, pfd, off, size, &entries, this,
                                    skip_dirs);
     }
     UNLOCK(&fd->lock);

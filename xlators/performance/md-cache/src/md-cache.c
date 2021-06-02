@@ -323,7 +323,7 @@ mdc_inode_wipe(xlator_t *this, inode_t *inode)
         dict_unref(mdc->xattr);
 
     GF_FREE(mdc->linkname);
-
+    LOCK_DESTROY(&mdc->lock);
     GF_FREE(mdc);
 
     ret = 0;
@@ -356,6 +356,7 @@ mdc_inode_prep(xlator_t *this, inode_t *inode)
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, MD_CACHE_MSG_NO_MEMORY,
                    "out of memory");
+            LOCK_DESTROY(&mdc->lock);
             GF_FREE(mdc);
             mdc = NULL;
         }
@@ -3804,7 +3805,11 @@ mdc_notify(xlator_t *this, int event, void *data, ...)
 void
 mdc_fini(xlator_t *this)
 {
-    GF_FREE(this->private);
+    struct mdc_conf *conf = this->private;
+
+    pthread_mutex_destroy(&conf->statfs_cache.lock);
+    LOCK_DESTROY(&conf->lock);
+    GF_FREE(conf);
 }
 
 struct xlator_fops mdc_fops = {

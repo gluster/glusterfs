@@ -1320,88 +1320,6 @@ out:
 }
 
 int
-afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
-                      struct timeval *tv)
-{
-    int ret = -1;
-    uint64_t count = 0;
-    char key[64] = {0};
-    int keylen = 0;
-    char xl_id_child_str[32] = {0};
-    int xl_id = 0;
-
-    ret = dict_get_int32(output, this->name, &xl_id);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
-               "xl does not have id");
-        goto out;
-    }
-
-    snprintf(xl_id_child_str, sizeof(xl_id_child_str), "%d-%d", xl_id, child);
-    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
-    ret = dict_get_uint64(output, key, &count);
-
-    keylen = snprintf(key, sizeof(key), "%s-%" PRIu64, xl_id_child_str, count);
-    ret = dict_set_dynstrn(output, key, keylen, path);
-
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-               "%s: Could not add to output", path);
-        goto out;
-    }
-
-    if (tv) {
-        snprintf(key, sizeof(key), "%s-%" PRIu64 "-time", xl_id_child_str,
-                 count);
-        ret = dict_set_uint32(output, key, tv->tv_sec);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-                   "%s: Could not set time", path);
-            goto out;
-        }
-    }
-
-    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
-
-    ret = dict_set_uint64(output, key, count + 1);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-               "Could not increment count");
-        goto out;
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
-
-int
-afr_add_shd_event(circular_buffer_t *cb, void *data)
-{
-    dict_t *output = NULL;
-    xlator_t *this = THIS;
-    afr_private_t *priv = NULL;
-    afr_self_heald_t *shd = NULL;
-    shd_event_t *shd_event = NULL;
-    char *path = NULL;
-
-    output = data;
-    priv = this->private;
-    shd = &priv->shd;
-    shd_event = cb->data;
-
-    if (!shd->index_healers[shd_event->child].local)
-        return 0;
-
-    path = gf_strdup(shd_event->path);
-    if (!path)
-        return -ENOMEM;
-
-    afr_shd_dict_add_path(this, output, shd_event->child, path, &cb->tv);
-    return 0;
-}
-
-int
 afr_add_crawl_event(circular_buffer_t *cb, void *data)
 {
     dict_t *output = NULL;
@@ -1655,10 +1573,8 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
             }
             break;
         case GF_SHD_OP_INDEX_SUMMARY:
-            /* this case has been handled in glfs-heal.c */
-            break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            eh_dump(shd->split_brain, output, afr_add_shd_event);
+            /* this case has been handled in glfs-heal.c */
             break;
         case GF_SHD_OP_STATISTICS:
             for (i = 0; i < priv->child_count; i++) {

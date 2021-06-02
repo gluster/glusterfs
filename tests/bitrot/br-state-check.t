@@ -5,6 +5,15 @@
 . $(dirname $0)/../nfs.rc
 
 cleanup;
+
+function gluster_client_list_bitd_status () {
+	gluster volume status $V0 client-list | sed -n '/bitd/'p | wc -l
+}
+
+function gluster_client_list_scrub_status () {
+	gluster volume status $V0 client-list | sed -n '/scrub/'p | wc -l
+}
+
 SCRIPT_TIMEOUT=350
 
 TEST glusterd
@@ -19,6 +28,10 @@ TEST $CLI volume bitrot $V0 enable
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_bitd_count
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" get_scrubd_count
+
+## Check status client-list to verify that bitd and scrubd figure in it
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" gluster_client_list_bitd_status
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" gluster_client_list_scrub_status
 
 ## perform a series of scrub related state change tests. As of now, there'
 ## no way to check if a given change has been correctly acknowledged by

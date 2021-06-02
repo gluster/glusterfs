@@ -20,7 +20,7 @@ void
 glusterd_bitdsvc_build(glusterd_svc_t *svc)
 {
     svc->manager = glusterd_bitdsvc_manager;
-    svc->start = glusterd_bitdsvc_start;
+    svc->start = glusterd_genericsvc_start;
     svc->stop = glusterd_bitdsvc_stop;
 }
 
@@ -103,28 +103,6 @@ out:
 
     gf_msg_debug(this->name, 0, "Returning %d", ret);
 
-    return ret;
-}
-
-int
-glusterd_bitdsvc_start(glusterd_svc_t *svc, int flags)
-{
-    int ret = -1;
-    dict_t *cmdict = NULL;
-
-    cmdict = dict_new();
-    if (!cmdict)
-        goto error_return;
-
-    ret = dict_set_str(cmdict, "cmdarg0", "--global-timer-wheel");
-    if (ret)
-        goto dealloc_dict;
-
-    ret = glusterd_svc_start(svc, flags, cmdict);
-
-dealloc_dict:
-    dict_unref(cmdict);
-error_return:
     return ret;
 }
 

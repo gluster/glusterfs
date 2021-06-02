@@ -329,7 +329,7 @@ glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags)
             runner_add_arg(&runner, "--localtime-logging");
     }
 
-    snapd_port = pmap_assign_port(THIS, volinfo->snapd.port, snapd_id);
+    snapd_port = pmap_assign_port(this, volinfo->snapd.port, snapd_id);
     if (!snapd_port) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                "All the ports in the range are exhausted, can't start "

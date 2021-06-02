@@ -32,6 +32,7 @@ TEST $CLI volume heal $V0 info summary --xml
 TEST $CLI volume heal $V0 info split-brain
 TEST $CLI volume heal $V0 info split-brain --xml
 
+TEST $CLI volume heal $V0 statistics
 TEST $CLI volume heal $V0 statistics heal-count
 
 # It may fail as the file is not in splitbrain

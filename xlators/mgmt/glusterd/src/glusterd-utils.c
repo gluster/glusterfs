@@ -120,6 +120,43 @@
         }                                                                      \
     } while (0)
 
+int
+glusterd_defrag_ref(glusterd_defrag_info_t *defrag)
+{
+    int refcnt = 0;
+
+    if (!defrag)
+        goto out;
+
+    LOCK(&defrag->lock);
+    {
+        refcnt = ++defrag->refcnt;
+    }
+    UNLOCK(&defrag->lock);
+
+out:
+    return refcnt;
+}
+
+int
+glusterd_defrag_unref(glusterd_defrag_info_t *defrag)
+{
+    int refcnt = -1;
+
+    if (!defrag)
+        goto out;
+
+    LOCK(&defrag->lock);
+    {
+        refcnt = --defrag->refcnt;
+    }
+    UNLOCK(&defrag->lock);
+    if (refcnt <= 0)
+        GF_FREE(defrag);
+out:
+    return refcnt;
+}
+
 gf_boolean_t
 is_brick_mx_enabled(void)
 {
@@ -2103,7 +2140,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         rpc_clnt_unref(rpc);
     }
 
-    port = pmap_assign_port(THIS, brickinfo->port, brickinfo->path);
+    port = pmap_assign_port(this, brickinfo->port, brickinfo->path);
     if (!port) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
                "All the ports in the range are exhausted, can't start "
@@ -2112,6 +2149,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
         ret = -1;
         goto out;
     }
+
     /* Build the exp_path, before starting the glusterfsd even in
        valgrind mode. Otherwise all the glusterfsd processes start
        writing the valgrind log to the same file.
@@ -2200,7 +2238,7 @@ retry:
             ret = -1;
             goto out;
         }
-        rdma_port = pmap_assign_port(THIS, brickinfo->rdma_port,
+        rdma_port = pmap_assign_port(this, brickinfo->rdma_port,
                                      rdma_brick_path);
         if (!rdma_port) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORTS_EXHAUSTED,
@@ -2268,19 +2306,16 @@ retry:
 
     if (wait) {
         synclock_unlock(&priv->big_lock);
-        errno = 0;
         ret = runner_run(&runner);
-        if (errno != 0)
-            ret = errno;
         synclock_lock(&priv->big_lock);
 
-        if (ret == EADDRINUSE) {
+        if (ret == -EADDRINUSE) {
             /* retry after getting a new port */
             gf_msg(this->name, GF_LOG_WARNING, -ret,
                    GD_MSG_SRC_BRICK_PORT_UNAVAIL,
                    "Port %d is used by other process", port);
 
-            port = pmap_registry_alloc(this);
+            port = pmap_port_alloc(this);
             if (!port) {
                 gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_NO_FREE_PORTS,
                        "Couldn't allocate a port");
@@ -2638,8 +2673,8 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
                  * RPC connection may not have been originated
                  * for the same brick instance
                  */
-                pmap_registry_remove(THIS, brickinfo->port, brickinfo->path,
-                                     GF_PMAP_PORT_BRICKSERVER, NULL, _gf_true);
+                pmap_port_remove(this, brickinfo->port, brickinfo->path, NULL,
+                                 _gf_true);
             }
         }
 
@@ -6170,10 +6205,11 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
                                   GLUSTERD_BRICK_ATTACH, _gf_false);
             rpc_clnt_unref(rpc);
             if (!ret) {
-                ret = pmap_registry_extend(this, other_brick->port,
-                                           brickinfo->path);
-                if (ret != 0) {
-                    gf_log(this->name, GF_LOG_ERROR,
+                ret = port_brick_bind(this, other_brick->port, brickinfo->path,
+                                      NULL, true);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, errno,
+                           GD_PMAP_PORT_BIND_FAILED,
                            "adding brick to process failed");
                     goto out;
                 }
@@ -6759,8 +6795,8 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
             brickinfo->status != GF_BRICK_STARTED) {
             gf_log(this->name, GF_LOG_INFO,
                    "discovered already-running brick %s", brickinfo->path);
-            (void)pmap_registry_bind(this, brickinfo->port, brickinfo->path,
-                                     GF_PMAP_PORT_BRICKSERVER, NULL);
+            (void)port_brick_bind(this, brickinfo->port, brickinfo->path, NULL,
+                                  false);
             brickinfo->port_registered = _gf_true;
             /*
              * This will unfortunately result in a separate RPC
@@ -7252,8 +7288,8 @@ glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
         {
             if (gf_uuid_compare(tmpbrkinfo->uuid, MY_UUID))
                 continue;
-            if (!strcmp(tmpbrkinfo->path, brickname) &&
-                (tmpbrkinfo->port == port)) {
+            if ((tmpbrkinfo->port == port) &&
+                !strcmp(tmpbrkinfo->path, brickname)) {
                 *brickinfo = tmpbrkinfo;
                 return 0;
             }
@@ -9499,6 +9535,7 @@ glusterd_volume_defrag_restart(glusterd_volinfo_t *volinfo, char *op_errstr,
     char pidfile[PATH_MAX] = "";
     int ret = -1;
     pid_t pid = 0;
+    int refcnt = 0;
 
     priv = this->private;
     if (!priv)
@@ -9530,7 +9567,25 @@ glusterd_volume_defrag_restart(glusterd_volinfo_t *volinfo, char *op_errstr,
                              volinfo->volname);
                     goto out;
                 }
-                ret = glusterd_rebalance_rpc_create(volinfo);
+                refcnt = glusterd_defrag_ref(volinfo->rebal.defrag);
+                /* If refcnt value is 1 it means either defrag object is
+                   poulated by glusterd_rebalance_defrag_init or previous
+                   rpc creation was failed.If it is not 1 it means it(defrag)
+                   was populated at the time of start a rebalance daemon.
+                   We need to create a rpc object only while a previous
+                   rpc connection was not established successfully at the
+                   time of restart a rebalance daemon by
+                   glusterd_handle_defrag_start otherwise rebalance cli
+                   does not show correct status after just reboot a node and try
+                   to print the rebalance status because defrag object has been
+                   destroyed during handling of rpc disconnect.
+                */
+                if (refcnt == 1) {
+                    ret = glusterd_rebalance_rpc_create(volinfo);
+                } else {
+                    ret = 0;
+                    glusterd_defrag_unref(volinfo->rebal.defrag);
+                }
                 break;
             }
         case GF_DEFRAG_STATUS_NOT_STARTED:

@@ -27,7 +27,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c \
 	iobuf.c globals.c statedump.c stack.c checksum.c daemon.c timespec.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
-	graph.c syncop.c graph-print.c trie.c run.c options.c fd-lk.c \
+	graph.c syncop.c graph-print.c trie.c options.c fd-lk.c \
 	circ-buff.c event-history.c gidcache.c ctx.c client_t.c event-poll.c \
 	event-epoll.c syncop-utils.c cluster-syncop.c refcount.c \
 	$(CONTRIBDIR)/libgen/basename_r.c \
@@ -41,6 +41,12 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 nodist_libglusterfs_la_HEADERS = y.tab.h
+
+if USE_POSIX_SPAWN
+libglusterfs_la_SOURCES += run.c
+else
+libglusterfs_la_SOURCES += run_fork.c
+endif
 
 BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h
 

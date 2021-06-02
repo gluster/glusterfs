@@ -2,20 +2,15 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
-
-SSL_BASE=/etc/ssl
-SSL_KEY=$SSL_BASE/glusterfs.key
-SSL_CERT=$SSL_BASE/glusterfs.pem
-SSL_CA=$SSL_BASE/glusterfs.ca
+. $(dirname $0)/../../traps.rc
+. $(dirname $0)/../../ssl.rc
 
 cleanup;
-rm -f $SSL_BASE/glusterfs.*
+
 mkdir -p $B0/1
 mkdir -p $M0
 
-TEST openssl genrsa -out $SSL_KEY 2048
-TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
-ln $SSL_CERT $SSL_CA
+TEST create_self_signed_certs
 
 TEST glusterd
 TEST pidof glusterd

@@ -101,8 +101,8 @@ posix_aio_cb_fini(struct posix_aio_cb *paiocb)
     }
 }
 
-int
-posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res, int res2)
+static int
+posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res)
 {
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
@@ -256,8 +256,8 @@ err:
     return 0;
 }
 
-int
-posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res, int res2)
+static int
+posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res)
 {
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
@@ -393,8 +393,8 @@ err:
     return 0;
 }
 
-int
-posix_aio_fsync_complete(struct posix_aio_cb *paiocb, int res, int res2)
+static int
+posix_aio_fsync_complete(struct posix_aio_cb *paiocb, int res)
 {
     call_frame_t *frame = NULL;
     xlator_t *this = NULL;
@@ -548,13 +548,13 @@ posix_aio_thread(void *data)
 
             switch (paiocb->op) {
                 case GF_FOP_READ:
-                    posix_aio_readv_complete(paiocb, event->res, event->res2);
+                    posix_aio_readv_complete(paiocb, event->res);
                     break;
                 case GF_FOP_WRITE:
-                    posix_aio_writev_complete(paiocb, event->res, event->res2);
+                    posix_aio_writev_complete(paiocb, event->res);
                     break;
                 case GF_FOP_FSYNC:
-                    posix_aio_fsync_complete(paiocb, event->res, event->res2);
+                    posix_aio_fsync_complete(paiocb, event->res);
                     break;
                 default:
                     gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_UNKNOWN_OP,

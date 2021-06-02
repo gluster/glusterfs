@@ -572,63 +572,6 @@ out:
 }
 
 int
-cli_cmd_volume_rename_cbk(struct cli_state *state, struct cli_cmd_word *word,
-                          const char **words, int wordcount)
-{
-    int ret = -1;
-    rpc_clnt_procedure_t *proc = NULL;
-    call_frame_t *frame = NULL;
-    dict_t *dict = NULL;
-    int sent = 0;
-    int parse_error = 0;
-
-    if (wordcount != 4) {
-        cli_usage_out(word->pattern);
-        parse_error = 1;
-        goto out;
-    }
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    ret = dict_set_str(dict, "old-volname", (char *)words[2]);
-
-    if (ret)
-        goto out;
-
-    ret = dict_set_str(dict, "new-volname", (char *)words[3]);
-
-    if (ret)
-        goto out;
-
-    proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RENAME_VOLUME];
-
-    if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
-        if (!frame) {
-            ret = -1;
-            goto out;
-        }
-        ret = proc->fn(frame, THIS, dict);
-    }
-
-out:
-    if (dict)
-        dict_unref(dict);
-
-    if (ret) {
-        cli_cmd_sent_status_get(&sent);
-        if ((sent == 0) && (parse_error == 0))
-            cli_out("Volume rename on '%s' failed", (char *)words[2]);
-    }
-
-    CLI_STACK_DESTROY(frame);
-
-    return ret;
-}
-
-int
 cli_cmd_volume_defrag_cbk(struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
 {
@@ -1958,15 +1901,6 @@ out:
 }
 
 int
-cli_cmd_volume_set_transport_cbk(struct cli_state *state,
-                                 struct cli_cmd_word *word, const char **words,
-                                 int wordcount)
-{
-    cli_cmd_broadcast_response(0);
-    return 0;
-}
-
-int
 cli_cmd_volume_top_cbk(struct cli_state *state, struct cli_cmd_word *word,
                        const char **words, int wordcount)
 {
@@ -3038,10 +2972,6 @@ struct cli_cmd volume_cmds[] = {
     {"volume stop <VOLNAME> [force]", cli_cmd_volume_stop_cbk,
      "stop volume specified by <VOLNAME>"},
 
-    /*{ "volume rename <VOLNAME> <NEW-VOLNAME>",
-      cli_cmd_volume_rename_cbk,
-      "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
-
     {"volume add-brick <VOLNAME> [<replica> <COUNT> "
      "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
      cli_cmd_volume_add_brick_cbk, "add brick to volume <VOLNAME>"},
@@ -3057,10 +2987,6 @@ struct cli_cmd volume_cmds[] = {
     {"volume replace-brick <VOLNAME> <SOURCE-BRICK> <NEW-BRICK> "
      "{commit force}",
      cli_cmd_volume_replace_brick_cbk, "replace-brick operations"},
-
-    /*{ "volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>]
-      ...", cli_cmd_volume_set_transport_cbk, "set transport type for volume
-      <VOLNAME>"},*/
 
     {"volume set <VOLNAME> <KEY> <VALUE>", cli_cmd_volume_set_cbk,
      "set options for volume <VOLNAME>"},
@@ -3253,7 +3179,7 @@ gf_asprintf_append(char **string_ptr, const char *format, ...)
     rv = gf_vasprintf(string_ptr, format, arg);
     va_end(arg);
 
-    if (tmp)
+    if (rv >= 0)
         GF_FREE(tmp);
 
     return rv;

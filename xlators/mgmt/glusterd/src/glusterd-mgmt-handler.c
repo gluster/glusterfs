@@ -1084,9 +1084,6 @@ static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
                                    GLUSTERD_MGMT_V3_BRICK_OP, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_COMMIT] = {"COMMIT", glusterd_handle_commit, NULL,
                                  GLUSTERD_MGMT_V3_COMMIT, DRC_NA, 0},
-    [GLUSTERD_MGMT_V3_POST_COMMIT] = {"POST_COMMIT",
-                                      glusterd_handle_post_commit, NULL,
-                                      GLUSTERD_MGMT_V3_POST_COMMIT, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_POST_VALIDATE] = {"POST_VAL",
                                         glusterd_handle_post_validate, NULL,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE, DRC_NA,
@@ -1094,6 +1091,10 @@ static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
     [GLUSTERD_MGMT_V3_UNLOCK] = {"MGMT_V3_UNLOCK",
                                  glusterd_handle_mgmt_v3_unlock, NULL,
                                  GLUSTERD_MGMT_V3_UNLOCK, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_POST_COMMIT] = {"POST_COMMIT",
+                                      glusterd_handle_post_commit, NULL,
+                                      GLUSTERD_MGMT_V3_POST_COMMIT, DRC_NA, 0},
+
 };
 
 struct rpcsvc_program gd_svc_mgmt_v3_prog = {

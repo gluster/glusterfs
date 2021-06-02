@@ -248,14 +248,8 @@ cli_cmd_unlock()
 static void
 seconds_from_now(unsigned secs, struct timespec *ts)
 {
-    struct timeval tv = {
-        0,
-    };
-
-    gettimeofday(&tv, NULL);
-
-    ts->tv_sec = tv.tv_sec + secs;
-    ts->tv_nsec = tv.tv_usec * 1000;
+    timespec_now_realtime(ts);
+    ts->tv_sec += secs;
 }
 
 int

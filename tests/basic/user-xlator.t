@@ -36,8 +36,17 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}4
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}5
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}6
 
-TEST $CLI volume set $V0 user.xlator.hoge trash
-TEST grep -q 'user/hoge' ${SERVER_VOLFILE}
+# Test that the insertion at all positions between server and posix is successful.
+# It is not guaranteed that the brick process will start/work in all positions though.
+TESTS_EXPECTED_IN_LOOP=32
+declare -a brick_side_xlators=("io-stats" "quota" "index" "barrier" "marker" "selinux" \
+                               "io-threads" "upcall" "leases" "read-only" "worm" "locks" \
+                               "access-control" "bitrot-stub" "changelog" "trash")
+for xlator in "${brick_side_xlators[@]}"
+  do
+    TEST_IN_LOOP $CLI volume set $V0 user.xlator.hoge $xlator
+    TEST_IN_LOOP grep -q 'user/hoge' ${SERVER_VOLFILE}
+  done
 
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0
@@ -50,6 +59,8 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}6
 
 TEST ! $CLI volume set $V0 user.xlator.hoge unknown
 TEST grep -q 'user/hoge' ${SERVER_VOLFILE} # When the CLI fails, the volfile is not modified.
+# User xlator insert failures must not prevent setting other volume options.
+TEST $CLI volume set $V0 storage.reserve 10%
 
 TEST $CLI volume stop $V0
 TEST $CLI volume start $V0

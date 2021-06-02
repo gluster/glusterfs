@@ -476,6 +476,9 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("force-migration", conf->force_migration, options, bool,
                      out);
 
+    GF_OPTION_RECONF("ensure-durability", conf->ensure_durability, options,
+                     bool, out);
+
     if (conf->defrag) {
         if (dict_get_str(options, "rebal-throttle", &temp_str) == 0) {
             ret = dht_configure_throttle(this, conf, temp_str);
@@ -747,6 +750,8 @@ dht_init(xlator_t *this)
     GF_OPTION_INIT("lock-migration", conf->lock_migration_enabled, bool, err);
 
     GF_OPTION_INIT("force-migration", conf->force_migration, bool, err);
+
+    GF_OPTION_INIT("ensure-durability", conf->ensure_durability, bool, err);
 
     if (defrag) {
         defrag->lock_migration_enabled = conf->lock_migration_enabled;
@@ -1095,6 +1100,17 @@ struct volume_options dht_options[] = {
      .description = "If disabled, rebalance will not migrate files that "
                     "are being written to by an application",
      .op_version = {GD_OP_VERSION_4_0_0},
+     .level = OPT_STATUS_ADVANCED,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+
+    {.key = {"ensure-durability"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "on",
+     .description = "If disabled, rebalance will not fsync files after "
+                    "migration. Please note that this can lead to bad data if "
+                    "the data couldn't be synced by the brick machine's "
+                    "kernel, because of hardware failure etc.",
+     .op_version = {GD_OP_VERSION_10_0},
      .level = OPT_STATUS_ADVANCED,
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 

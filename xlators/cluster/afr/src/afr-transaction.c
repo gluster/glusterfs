@@ -1034,7 +1034,7 @@ afr_fill_ta_loc(xlator_t *this, loc_t *loc, gf_boolean_t is_gfid_based_fop)
     afr_private_t *priv = NULL;
 
     priv = this->private;
-    loc->parent = inode_ref(priv->root_inode);
+    loc->parent = inode_ref(this->itable->root);
     gf_uuid_copy(loc->pargfid, loc->parent->gfid);
     loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
     if (is_gfid_based_fop && gf_uuid_is_null(priv->ta_gfid)) {
@@ -2036,46 +2036,6 @@ afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
 
         afr_internal_lock_finish(frame, this);
     }
-
-    return 0;
-}
-
-int
-afr_post_blocking_rename_cbk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    if (int_lock->lock_op_ret < 0) {
-        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_INTERNAL_LKS_FAILED,
-               "Blocking entrylks failed.");
-
-        afr_transaction_done(frame, this);
-    } else {
-        gf_msg_debug(this->name, 0,
-                     "Blocking entrylks done. Proceeding to FOP");
-
-        afr_internal_lock_finish(frame, this);
-    }
-    return 0;
-}
-
-int
-afr_post_lower_unlock_cbk(call_frame_t *frame, xlator_t *this)
-{
-    afr_internal_lock_t *int_lock = NULL;
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-    int_lock = &local->internal_lock;
-
-    GF_ASSERT(!int_lock->higher_locked);
-
-    int_lock->lock_cbk = afr_post_blocking_rename_cbk;
-    afr_blocking_lock(frame, this);
 
     return 0;
 }

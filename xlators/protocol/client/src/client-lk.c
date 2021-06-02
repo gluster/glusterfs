@@ -99,6 +99,7 @@ add_locks(client_posix_lock_t *l1, client_posix_lock_t *l2)
     sum = GF_CALLOC(1, sizeof(*sum), gf_client_mt_clnt_lock_t);
     if (!sum)
         return NULL;
+    INIT_LIST_HEAD(&sum->list);
 
     sum->fl_start = min(l1->fl_start, l2->fl_start);
     sum->fl_end = max(l1->fl_end, l2->fl_end);
@@ -249,6 +250,7 @@ __insert_and_merge(clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock)
                 sum = add_locks(lock, conf);
 
                 sum->fd = lock->fd;
+                sum->owner = conf->owner;
 
                 __delete_client_lock(conf);
                 __destroy_client_lock(conf);
@@ -316,57 +318,77 @@ destroy_client_lock(client_posix_lock_t *lock)
     GF_FREE(lock);
 }
 
-int32_t
-delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner)
+void
+destroy_client_locks_from_list(struct list_head *deleted)
 {
-    clnt_fd_ctx_t *fdctx = NULL;
     client_posix_lock_t *lock = NULL;
     client_posix_lock_t *tmp = NULL;
-    xlator_t *this = NULL;
-    clnt_conf_t *conf = NULL;
-
-    struct list_head delete_list;
-    int ret = 0;
+    xlator_t *this = THIS;
     int count = 0;
 
-    INIT_LIST_HEAD(&delete_list);
-    this = THIS;
-    conf = this->private;
-
-    pthread_spin_lock(&conf->fd_lock);
-
-    fdctx = this_fd_get_ctx(fd, this);
-    if (!fdctx) {
-        pthread_spin_unlock(&conf->fd_lock);
-
-        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_FD_CTX_INVALID,
-                NULL);
-        ret = -1;
-        goto out;
-    }
-
-    list_for_each_entry_safe(lock, tmp, &fdctx->lock_list, list)
+    list_for_each_entry_safe(lock, tmp, deleted, list)
     {
-        if (is_same_lkowner(&lock->owner, owner)) {
-            list_del_init(&lock->list);
-            list_add_tail(&lock->list, &delete_list);
-            count++;
-        }
-    }
-
-    pthread_spin_unlock(&conf->fd_lock);
-
-    if (!list_empty(&delete_list)) {
-        list_for_each_entry_safe(lock, tmp, &delete_list, list)
-        {
-            list_del_init(&lock->list);
-            destroy_client_lock(lock);
-        }
+        list_del_init(&lock->list);
+        destroy_client_lock(lock);
+        count++;
     }
 
     /* FIXME: Need to actually print the locks instead of count */
     gf_msg_trace(this->name, 0, "Number of locks cleared=%d", count);
+}
 
+void
+__delete_granted_locks_owner_from_fdctx(clnt_fd_ctx_t *fdctx,
+                                        gf_lkowner_t *owner,
+                                        struct list_head *deleted)
+{
+    client_posix_lock_t *lock = NULL;
+    client_posix_lock_t *tmp = NULL;
+
+    gf_boolean_t is_null_lkowner = _gf_false;
+
+    if (is_lk_owner_null(owner)) {
+        is_null_lkowner = _gf_true;
+    }
+
+    list_for_each_entry_safe(lock, tmp, &fdctx->lock_list, list)
+    {
+        if (is_null_lkowner || is_same_lkowner(&lock->owner, owner)) {
+            list_del_init(&lock->list);
+            list_add_tail(&lock->list, deleted);
+        }
+    }
+}
+
+int32_t
+delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner)
+{
+    clnt_fd_ctx_t *fdctx = NULL;
+    xlator_t *this = NULL;
+    clnt_conf_t *conf = NULL;
+    int ret = 0;
+    struct list_head deleted_locks;
+
+    this = THIS;
+    conf = this->private;
+    INIT_LIST_HEAD(&deleted_locks);
+
+    pthread_spin_lock(&conf->fd_lock);
+    {
+        fdctx = this_fd_get_ctx(fd, this);
+        if (!fdctx) {
+            pthread_spin_unlock(&conf->fd_lock);
+
+            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_FD_CTX_INVALID,
+                    NULL);
+            ret = -1;
+            goto out;
+        }
+        __delete_granted_locks_owner_from_fdctx(fdctx, owner, &deleted_locks);
+    }
+    pthread_spin_unlock(&conf->fd_lock);
+
+    destroy_client_locks_from_list(&deleted_locks);
 out:
     return ret;
 }

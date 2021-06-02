@@ -32,7 +32,7 @@ do
         echo hi > $M0/a
 done
 #Test if the MAX INODELK fop latency is of the order of seconds.
-inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
+inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{10,}")
 
 TEST [ -z $inodelk_max_latency ]
 

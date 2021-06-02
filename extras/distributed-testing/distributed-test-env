@@ -14,8 +14,6 @@ KNOWN_FLAKY_TESTS="\
 BROKEN_TESTS="\
   tests/features/lock_revocation.t\
   tests/features/recon.t\
-  tests/features/fdl-overflow.t\
-  tests/features/fdl.t\
   tests/features/ipc.t\
   tests/bugs/distribute/bug-1247563.t\
   tests/bugs/distribute/bug-1543279.t\
@@ -36,8 +34,6 @@ BROKEN_TESTS="\
   tests/basic/distribute/force-migration.t\
   tests/basic/ec/heal-info.t\
   tests/basic/ec/ec-seek.t\
-  tests/basic/jbr/jbr-volgen.t\
-  tests/basic/jbr/jbr.t\
   tests/basic/afr/tarissue.t\
   tests/basic/tier/tierd_check.t\
   tests/basic/gfapi/bug1291259.t\

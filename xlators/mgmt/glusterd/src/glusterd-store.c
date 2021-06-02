@@ -2332,7 +2332,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     gf_store_iter_t *tmpiter = NULL;
     char *tmpvalue = NULL;
     char abspath[PATH_MAX] = {0};
-    struct pmap_registry *pmap = NULL;
     xlator_t *this = THIS;
     int brickid = 0;
     /* ta_brick_id initialization with 2 since ta-brick id starts with
@@ -2431,12 +2430,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     /* This is required to adhere to the
                        IANA standards */
                     brickinfo->port = 0;
-                } else {
-                    /* This is required to have proper ports
-                       assigned to bricks after restart */
-                    pmap = pmap_registry_get(THIS);
-                    if (pmap->last_alloc <= brickinfo->port)
-                        pmap->last_alloc = brickinfo->port + 1;
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_RDMA_PORT,
                                 SLEN(GLUSTERD_STORE_KEY_BRICK_RDMA_PORT))) {
@@ -2452,12 +2445,6 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     /* This is required to adhere to the
                        IANA standards */
                     brickinfo->rdma_port = 0;
-                } else {
-                    /* This is required to have proper ports
-                       assigned to bricks after restart */
-                    pmap = pmap_registry_get(THIS);
-                    if (pmap->last_alloc <= brickinfo->rdma_port)
-                        pmap->last_alloc = brickinfo->rdma_port + 1;
                 }
 
             } else if (!strncmp(
@@ -2629,6 +2616,12 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 
         cds_list_add_tail(&brickinfo->brick_list, &volinfo->bricks);
         brick_count++;
+        if (gf_store_iter_destroy(&iter)) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                   "Failed to destroy store iter");
+            ret = -1;
+            goto out;
+        }
     }
 
     if (gf_store_iter_destroy(&tmpiter)) {
@@ -2805,6 +2798,12 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 
             cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
             ta_brick_count++;
+            if (gf_store_iter_destroy(&iter)) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                       "Failed to destroy store iter");
+                ret = -1;
+                goto out;
+            }
         }
     }
 

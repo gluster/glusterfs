@@ -400,11 +400,12 @@ clnt_readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp)
 }
 
 int
-client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
+client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd,
+                     enum gf_fop_procnum fop)
 {
     clnt_fd_ctx_t *fdctx = NULL;
     clnt_conf_t *conf = NULL;
-    gf_boolean_t locks_held = _gf_false;
+    gf_boolean_t locks_involved = _gf_false;
 
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
     GF_VALIDATE_OR_GOTO(this->name, remote_fd, out);
@@ -417,23 +418,32 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd)
             if (fd->anonymous) {
                 *remote_fd = GF_ANON_FD_NO;
             } else {
+                if (conf->strict_locks &&
+                    (fop == GFS3_OP_WRITE || fop == GFS3_OP_FTRUNCATE ||
+                     fop == GFS3_OP_FALLOCATE || fop == GFS3_OP_ZEROFILL ||
+                     fop == GFS3_OP_DISCARD)) {
+                    locks_involved = _gf_true;
+                }
                 *remote_fd = -1;
                 gf_msg_debug(this->name, EBADF, "not a valid fd for gfid: %s",
                              uuid_utoa(fd->inode->gfid));
             }
         } else {
-            if (__is_fd_reopen_in_progress(fdctx))
+            if (__is_fd_reopen_in_progress(fdctx)) {
                 *remote_fd = -1;
-            else
+            } else {
                 *remote_fd = fdctx->remote_fd;
+            }
 
-            locks_held = !list_empty(&fdctx->lock_list);
+            locks_involved = !list_empty(&fdctx->lock_list);
         }
     }
     pthread_spin_unlock(&conf->fd_lock);
 
-    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1) && (!locks_held))
+    if ((flags & FALLBACK_TO_ANON_FD) && (*remote_fd == -1) &&
+        (!locks_involved)) {
         *remote_fd = GF_ANON_FD_NO;
+    }
 
     return 0;
 out:
@@ -849,11 +859,14 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     int32_t ret = -1;
     char parent_down = 0;
     fd_lk_ctx_t *lk_ctx = NULL;
+    gf_lkowner_t null_owner = {0};
+    struct list_head deleted_list;
 
     GF_VALIDATE_OR_GOTO("client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fdctx, out);
 
     conf = (clnt_conf_t *)this->private;
+    INIT_LIST_HEAD(&deleted_list);
 
     if (fdctx->remote_fd == -1) {
         gf_msg_debug(this->name, 0, "not a valid fd");
@@ -867,6 +880,13 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     pthread_mutex_unlock(&conf->lock);
     lk_ctx = fdctx->lk_ctx;
     fdctx->lk_ctx = NULL;
+    pthread_spin_lock(&conf->fd_lock);
+    {
+        __delete_granted_locks_owner_from_fdctx(fdctx, &null_owner,
+                                                &deleted_list);
+    }
+    pthread_spin_unlock(&conf->fd_lock);
+    destroy_client_locks_from_list(&deleted_list);
 
     if (lk_ctx)
         fd_lk_ctx_unref(lk_ctx);

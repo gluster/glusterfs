@@ -1224,9 +1224,11 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
 
             if gconf.get("gfid-conflict-resolution"):
                 count = 0
+                num_entries = len(entries)
+                num_failures = len(failures)
                 if failures:
                     logging.info(lf('Entry ops failed with gfid mismatch',
-                                count=len(failures)))
+                                    count=num_failures))
                 while failures and count < self.MAX_OE_RETRIES:
                     count += 1
                     self.handle_entry_failures(failures, entries)
@@ -1236,6 +1238,20 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                         logging.info("Successfully fixed all entry ops with "
                                      "gfid mismatch")
                         break
+
+                    # If this iteration has not removed any entry or reduced
+                    # the number of failures compared to the previous one, we
+                    # don't need to keep iterating because we'll get the same
+                    # result in all other attempts.
+                    if ((num_entries == len(entries)) and
+                        (num_failures == len(failures))):
+                        logging.info(lf("No more gfid mismatches can be fixed",
+                                        entries=num_entries,
+                                        failures=num_failures))
+                        break
+
+                    num_entries = len(entries)
+                    num_failures = len(failures)
 
             self.log_failures(failures, 'gfid', gauxpfx(), 'ENTRY')
             self.status.dec_value("entry", len(entries))

@@ -54,10 +54,10 @@ typedef enum {
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
     } while (0)
 
-#define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, label)        \
+#define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, fop, label)   \
     do {                                                                       \
         int _ret = 0;                                                          \
-        _ret = client_get_remote_fd(xl, fd, flags, &remote_fd);                \
+        _ret = client_get_remote_fd(xl, fd, flags, &remote_fd, fop);           \
         if (_ret < 0) {                                                        \
             op_errno = errno;                                                  \
             goto label;                                                        \
@@ -201,6 +201,7 @@ typedef struct client_local {
     client_posix_lock_t *client_lock;
     gf_lkowner_t owner;
     int32_t cmd;
+    int32_t check_reopen;
     struct list_head lock_list;
     pthread_mutex_t mutex;
     char *name;
@@ -306,8 +307,12 @@ int
 client_attempt_lock_recovery(xlator_t *this, clnt_fd_ctx_t *fdctx);
 int32_t
 delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner);
-int32_t
-delete_granted_locks_fd(clnt_fd_ctx_t *fdctx);
+void
+__delete_granted_locks_owner_from_fdctx(clnt_fd_ctx_t *fdctx,
+                                        gf_lkowner_t *owner,
+                                        struct list_head *deleted);
+void
+destroy_client_locks_from_list(struct list_head *deleted);
 int32_t
 client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
 void
@@ -328,7 +333,8 @@ client_default_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this);
 void
 client_attempt_reopen(fd_t *fd, xlator_t *this);
 int
-client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd);
+client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd,
+                     enum gf_fop_procnum fop);
 int
 client_fd_fop_prepare_local(call_frame_t *frame, fd_t *fd, int64_t remote_fd);
 gf_boolean_t

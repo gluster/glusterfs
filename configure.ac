@@ -734,6 +734,16 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 
 # end FUSE section
 
+dnl Find out OpenSSL trusted certificates path
+AC_MSG_CHECKING([for OpenSSL trusted certificates path])
+SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
+if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+   AC_MSG_RESULT([$SSL_CERT_PATH])
+   AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
+   AC_SUBST(SSL_CERT_PATH)
+else
+   AC_MSG_ERROR([Unable to detect path to OpenSSL trusted certificates])
+fi
 
 AC_CHECK_LIB([ssl], TLS_method, [HAVE_OPENSSL_1_1="yes"], [HAVE_OPENSSL_1_1="no"])
 if test "x$HAVE_OPENSSL_1_1" = "xyes"; then
@@ -996,10 +1006,17 @@ AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
 fi
 
 dnl glusterfs prints memory usage to stderr by sending it SIGUSR1
-AC_CHECK_FUNC([mallinfo], [have_mallinfo=yes])
-if test "x${have_mallinfo}" = "xyes"; then
-   AC_DEFINE(HAVE_MALLINFO, 1, [define if found mallinfo])
+dnl try mallinfo2 first, fallback to mallinfo if not available
+AC_CHECK_FUNC([mallinfo2], [have_mallinfo2=yes])
+if test "x${have_mallinfo2}" = "xyes"; then
+   AC_DEFINE(HAVE_MALLINFO2, 1, [define if found mallinfo2])
+else
+   AC_CHECK_FUNC([mallinfo], [have_mallinfo=yes])
+   if test "x${have_mallinfo}" = "xyes"; then
+      AC_DEFINE(HAVE_MALLINFO, 1, [define if found mallinfo])
+   fi
 fi
+AC_SUBST(HAVE_MALLINFO2)
 AC_SUBST(HAVE_MALLINFO)
 
 dnl Linux, Solaris, Cygwin
@@ -1016,6 +1033,21 @@ if test "x${have_linkat}" = "xyes"; then
    AC_DEFINE(HAVE_LINKAT, 1, [define if found linkat])
 fi
 AC_SUBST(HAVE_LINKAT)
+
+dnl prefer futimens for nanosecond resolution
+AC_CHECK_FUNC([futimens], [have_futimens=yes])
+if test "x${have_futimens}" = "xyes"; then
+   AC_DEFINE(HAVE_FUTIMENS, 1, [define if found futimens])
+else
+   AC_CHECK_FUNC([futimes], [have_futimes=yes])
+   if test "x${have_futimes}" = "xyes"; then
+      AC_DEFINE(HAVE_FUTIMES, 1, [define if found futimes])
+   else
+      AC_MSG_ERROR([This system doesn't support neither futimens() nor futimes()])
+   fi
+fi
+AC_SUBST(HAVE_FUTIMENS)
+AC_SUBST(HAVE_FUTIMES)
 
 dnl check for Monotonic clock
 AC_CHECK_LIB([rt], [clock_gettime], ,
@@ -1351,7 +1383,7 @@ AC_ARG_ENABLE([lto],
 
 LTO_BUILD=no
 AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
-    CC_VER=`"$CC" -dumpversion 2>/dev/null`
+    CC_VER=`"$CC" -dumpversion 2>/dev/null | cut -f 1 -d '.'`
     AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
         GF_LDFLAGS="${GF_LDFLAGS} -flto"
@@ -1361,6 +1393,53 @@ AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
     ], [
     AC_MSG_NOTICE([LTO is disabled])
 ])
+
+dnl ------------------------------
+dnl Checking posix_spawn(3) sanity
+dnl ------------------------------
+
+AC_ARG_ENABLE(posix_spawn,
+              AS_HELP_STRING([--disable-posix_spawn],
+                             [Disable usage of posix_spawn when calling out]),
+              AC_MSG_CHECKING([if posix_spawn returns properly on failure])
+              [ case "$enableval" in
+                no)
+                     AC_MSG_RESULT(no)
+                     posix_spawn=no
+                     ;;
+                *)   AC_MSG_RESULT(yes)
+                    posix_spawn=yes
+                     ;;
+                esac ],
+              AC_MSG_CHECKING([if posix_spawn returns properly on failure])
+              AC_RUN_IFELSE([AC_LANG_SOURCE([[
+/*
+ * Test posix_spawn(3) return value on failure,
+ * adapted from and because of
+ * https://sourceware.org/bugzilla/show_bug.cgi?id=18433
+ */
+#include <stdio.h>
+#include <spawn.h>
+#include <errno.h>
+
+int main()
+{
+  extern char **environ;
+  char *argv[[]] = { "3a7e588d3bdc4a069dbef540886ecf78", 0 };
+  pid_t pid = -1;
+  int ret = ret = posix_spawn(&pid, argv[[0]], 0, 0, argv, environ);
+  return ret == ENOENT ? 0 : 1;
+}
+]])
+],
+    AC_MSG_RESULT(yes)
+    posix_spawn=yes,
+    AC_MSG_RESULT(no)
+    posix_spawn=no,
+    AC_MSG_RESULT(yes)
+    posix_spawn=yes
+))
+AM_CONDITIONAL([USE_POSIX_SPAWN], [test x$posix_spawn = xyes])
 
 # Default value for sbindir
 prefix_temp=$prefix
@@ -1406,20 +1485,6 @@ if test "x$enable_mempool" = "xno"; then
         AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
 fi
 
-# syslog section
-AC_ARG_ENABLE([syslog],
-              AC_HELP_STRING([--disable-syslog],
-                             [Disable syslog for logging]))
-
-USE_SYSLOG="yes"
-if test "x$enable_syslog" != "xno"; then
-  AC_DEFINE(GF_USE_SYSLOG, 1, [Use syslog for logging])
-else
-  USE_SYSLOG="no"
-fi
-AM_CONDITIONAL([ENABLE_SYSLOG], [test x$USE_SYSLOG = xyes])
-#end syslog section
-
 BUILD_READLINE=no
 AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
 AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
@@ -1444,13 +1509,21 @@ if test -n "$LIBAIO"; then
 fi
 
 BUILD_LIBURING=no
-AC_CHECK_HEADERS([liburing.h])
-AC_CHECK_LIB([uring],[io_uring_queue_init],[LIBURING="-luring"])
+case $host_os in
+    linux*)
+        AC_ARG_ENABLE([linux_io_uring],
+                      AC_HELP_STRING([--disable-linux-io_uring],
+                      [Disable io-uring in POSIX xlator.]))
 
-if test -n "$LIBURING"; then
-   AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled])
-   BUILD_LIBURING=yes
-fi
+        if test "x$enable_linux_io_uring" != "xno" ; then
+            AC_CHECK_HEADERS([liburing.h],
+                             [AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled]) LIBURING="-luring"],
+                             AC_MSG_ERROR([Install liburing library and headers or use --disable-linux-io_uring]))
+            BUILD_LIBURING=yes
+        fi
+        ;;
+esac
+
 dnl gnfs section
 BUILD_GNFS="no"
 RPCBIND_SERVICE=""
@@ -1719,7 +1792,6 @@ echo "Linux-io_uring       : $BUILD_LIBURING"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"
-echo "Use syslog           : $USE_SYSLOG"
 echo "XML output           : $BUILD_XML_OUTPUT"
 echo "Unit Tests           : $BUILD_UNITTEST"
 echo "Track priv ports     : $TRACK_PRIVPORTS"

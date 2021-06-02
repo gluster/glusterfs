@@ -26,7 +26,6 @@
 #include <glusterfs/defaults.h>
 #include "authenticate.h"
 
-#define DEFAULT_BLOCK_SIZE 4194304 /* 4MB */
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
 #define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE (0)
@@ -55,16 +54,13 @@ struct _child_status {
 };
 struct server_conf {
     rpcsvc_t *rpc;
-    struct rpcsvc_config rpc_conf;
     int inode_lru_limit;
-    gf_boolean_t verify_volfile;
     gf_boolean_t trace;
     char *conf_dir;
     struct _volfile_ctx *volfile;
     dict_t *auth_modules;
     pthread_mutex_t mutex;
     struct list_head xprt_list;
-    pthread_t barrier_th;
 
     gf_boolean_t server_manage_gids; /* resolve gids on brick */
     gid_cache_t gid_cache;
@@ -140,10 +136,8 @@ struct _server_state {
     fd_t *fd_out; /* destination fd in copy_file_range */
     dict_t *params;
     int32_t flags;
-    int wbflags;
     struct iovec payload_vector[MAX_IOVEC];
     int payload_count;
-    struct iobuf *iobuf;
     struct iobref *iobref;
 
     size_t size;
@@ -159,18 +153,15 @@ struct _server_state {
     off64_t off_out; /* destination offset in copy_file_range */
     mode_t mode;
     dev_t dev;
-    size_t nr_count;
     int cmd;
     int type;
     char *name;
-    int name_len;
 
     int mask;
     char is_revalidate;
     dict_t *dict;
     struct gf_flock flock;
     const char *volume;
-    dir_entry_t *entry;
     gf_seek_what_t what;
 
     dict_t *xdata;
@@ -180,8 +171,6 @@ struct _server_state {
 
     struct iovec rsp_vector[MAX_IOVEC];
     int rsp_count;
-    struct iobuf *rsp_iobuf;
-    struct iobref *rsp_iobref;
 
     /* subdir mount */
     client_t *client;

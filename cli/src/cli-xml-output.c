@@ -560,16 +560,16 @@ cli_xml_output_vol_status_mem(xmlTextWriterPtr writer, dict_t *dict,
                               int brick_index)
 {
     int ret = -1;
-    int arena = 0;
-    int ordblks = 0;
-    int smblks = 0;
-    int hblks = 0;
-    int hblkhd = 0;
-    int usmblks = 0;
-    int fsmblks = 0;
-    int uordblks = 0;
-    int fordblks = 0;
-    int keepcost = 0;
+    uint64_t arena = 0;
+    uint64_t ordblks = 0;
+    uint64_t smblks = 0;
+    uint64_t hblks = 0;
+    uint64_t hblkhd = 0;
+    uint64_t usmblks = 0;
+    uint64_t fsmblks = 0;
+    uint64_t uordblks = 0;
+    uint64_t fordblks = 0;
+    uint64_t keepcost = 0;
     char key[1024] = {
         0,
     };
@@ -583,83 +583,83 @@ cli_xml_output_vol_status_mem(xmlTextWriterPtr writer, dict_t *dict,
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.arena", brick_index);
-    ret = dict_get_int32(dict, key, &arena);
+    ret = dict_get_uint64(dict, key, &arena);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"arena", "%d",
-                                          arena);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"arena",
+                                          "%" PRIu64, arena);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.ordblks", brick_index);
-    ret = dict_get_int32(dict, key, &ordblks);
+    ret = dict_get_uint64(dict, key, &ordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"ordblks", "%d",
-                                          ordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"ordblks",
+                                          "%" PRIu64, ordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.smblks", brick_index);
-    ret = dict_get_int32(dict, key, &smblks);
+    ret = dict_get_uint64(dict, key, &smblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"smblks", "%d",
-                                          smblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"smblks",
+                                          "%" PRIu64, smblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.hblks", brick_index);
-    ret = dict_get_int32(dict, key, &hblks);
+    ret = dict_get_uint64(dict, key, &hblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblks", "%d",
-                                          hblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblks",
+                                          "%" PRIu64, hblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.hblkhd", brick_index);
-    ret = dict_get_int32(dict, key, &hblkhd);
+    ret = dict_get_uint64(dict, key, &hblkhd);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblkhd", "%d",
-                                          hblkhd);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblkhd",
+                                          "%" PRIu64, hblkhd);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.usmblks", brick_index);
-    ret = dict_get_int32(dict, key, &usmblks);
+    ret = dict_get_uint64(dict, key, &usmblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"usmblks", "%d",
-                                          usmblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"usmblks",
+                                          "%" PRIu64, usmblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.fsmblks", brick_index);
-    ret = dict_get_int32(dict, key, &fsmblks);
+    ret = dict_get_uint64(dict, key, &fsmblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fsmblks", "%d",
-                                          fsmblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fsmblks",
+                                          "%" PRIu64, fsmblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.uordblks", brick_index);
-    ret = dict_get_int32(dict, key, &uordblks);
+    ret = dict_get_uint64(dict, key, &uordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uordblks", "%d",
-                                          uordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uordblks",
+                                          "%" PRIu64, uordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.fordblks", brick_index);
-    ret = dict_get_int32(dict, key, &fordblks);
+    ret = dict_get_uint64(dict, key, &fordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fordblks", "%d",
-                                          fordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fordblks",
+                                          "%" PRIu64, fordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.keepcost", brick_index);
-    ret = dict_get_int32(dict, key, &keepcost);
+    ret = dict_get_uint64(dict, key, &keepcost);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"keepcost", "%d",
-                                          keepcost);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"keepcost",
+                                          "%" PRIu64, keepcost);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     /* </mallinfo> */

@@ -349,6 +349,8 @@ synctask_yield(struct synctask *task, struct timespec *delta);
 void
 synctask_sleep(int32_t secs);
 void
+synctask_usleep(int32_t usecs);
+void
 synctask_waitfor(struct synctask *task, int count);
 
 #define synctask_barrier_init(args) syncbarrier_init(&args->barrier)

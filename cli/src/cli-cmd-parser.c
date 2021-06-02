@@ -652,7 +652,8 @@ cli_cmd_volume_create_parse(struct cli_state *state, const char **words,
             if (words[index]) {
                 if (!strcmp(words[index], "arbiter")) {
                     ret = gf_string2int(words[index + 1], &arbiter_count);
-                    if ((ret == -1) || (arbiter_count != 1)) {
+                    if ((ret == -1) || (arbiter_count != 1) ||
+                        ((replica_count < 2) || (replica_count > 3))) {
                         cli_err(
                             "For arbiter "
                             "configuration, "
@@ -2380,177 +2381,6 @@ out:
 }
 
 int32_t
-cli_cmd_log_filename_parse(const char **words, int wordcount, dict_t **options)
-{
-    dict_t *dict = NULL;
-    char *volname = NULL;
-    char *str = NULL;
-    int ret = -1;
-    char *delimiter = NULL;
-
-    GF_ASSERT(words);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    volname = (char *)words[3];
-    GF_ASSERT(volname);
-
-    ret = dict_set_str(dict, "volname", volname);
-    if (ret)
-        goto out;
-
-    str = (char *)words[4];
-    if (strchr(str, ':')) {
-        delimiter = strchr(words[4], ':');
-        if (!delimiter || delimiter == words[4] || *(delimiter + 1) != '/') {
-            cli_err(
-                "wrong brick type: %s, use <HOSTNAME>:"
-                "<export-dir-abs-path>",
-                words[4]);
-            ret = -1;
-            goto out;
-        } else {
-            ret = gf_canonicalize_path(delimiter + 1);
-            if (ret)
-                goto out;
-        }
-        ret = dict_set_str(dict, "brick", str);
-        if (ret)
-            goto out;
-        /* Path */
-        str = (char *)words[5];
-        ret = dict_set_str(dict, "path", str);
-        if (ret)
-            goto out;
-    } else {
-        ret = dict_set_str(dict, "path", str);
-        if (ret)
-            goto out;
-    }
-
-    *options = dict;
-
-out:
-    if (ret && dict)
-        dict_unref(dict);
-
-    return ret;
-}
-
-int32_t
-cli_cmd_log_level_parse(const char **words, int worcount, dict_t **options)
-{
-    dict_t *dict = NULL;
-    int ret = -1;
-
-    GF_ASSERT(words);
-    GF_ASSERT(options);
-
-    /*
-     * loglevel command format:
-     *  > volume log level <VOL> <XLATOR[*]> <LOGLEVEL>
-     *  > volume log level colon-o posix WARNING
-     *  > volume log level colon-o replicate* DEBUG
-     *  > volume log level coon-o * TRACE
-     */
-
-    GF_ASSERT((strncmp(words[0], "volume", 6) == 0));
-    GF_ASSERT((strncmp(words[1], "log", 3) == 0));
-    GF_ASSERT((strncmp(words[2], "level", 5) == 0));
-
-    ret = glusterd_check_log_level(words[5]);
-    if (ret == -1) {
-        cli_err("Invalid log level [%s] specified", words[5]);
-        cli_err(
-            "Valid values for loglevel: (DEBUG|WARNING|ERROR"
-            "|CRITICAL|NONE|TRACE)");
-        goto out;
-    }
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    GF_ASSERT(words[3]);
-    GF_ASSERT(words[4]);
-
-    ret = dict_set_str(dict, "volname", (char *)words[3]);
-    if (ret)
-        goto out;
-
-    ret = dict_set_str(dict, "xlator", (char *)words[4]);
-    if (ret)
-        goto out;
-
-    ret = dict_set_str(dict, "loglevel", (char *)words[5]);
-    if (ret)
-        goto out;
-
-    *options = dict;
-
-out:
-    if (ret && dict)
-        dict_unref(dict);
-
-    return ret;
-}
-
-int32_t
-cli_cmd_log_locate_parse(const char **words, int wordcount, dict_t **options)
-{
-    dict_t *dict = NULL;
-    char *volname = NULL;
-    char *str = NULL;
-    int ret = -1;
-    char *delimiter = NULL;
-
-    GF_ASSERT(words);
-    GF_ASSERT(options);
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    volname = (char *)words[3];
-    GF_ASSERT(volname);
-
-    ret = dict_set_str(dict, "volname", volname);
-    if (ret)
-        goto out;
-
-    if (words[4]) {
-        delimiter = strchr(words[4], ':');
-        if (!delimiter || delimiter == words[4] || *(delimiter + 1) != '/') {
-            cli_err(
-                "wrong brick type: %s, use <HOSTNAME>:"
-                "<export-dir-abs-path>",
-                words[4]);
-            ret = -1;
-            goto out;
-        } else {
-            ret = gf_canonicalize_path(delimiter + 1);
-            if (ret)
-                goto out;
-        }
-        str = (char *)words[4];
-        ret = dict_set_str(dict, "brick", str);
-        if (ret)
-            goto out;
-    }
-
-    *options = dict;
-
-out:
-    if (ret && dict)
-        dict_unref(dict);
-
-    return ret;
-}
-
-int32_t
 cli_cmd_log_rotate_parse(const char **words, int wordcount, dict_t **options)
 {
     dict_t *dict = NULL;
@@ -4198,26 +4028,6 @@ out:
     return ret;
 }
 
-/* Function to check whether the Volume name is repeated */
-int
-cli_check_if_volname_repeated(const char **words, unsigned int start_index,
-                              uint64_t cur_index)
-{
-    uint64_t i = -1;
-    int ret = 0;
-
-    GF_ASSERT(words);
-
-    for (i = start_index; i < cur_index; i++) {
-        if (strcmp(words[i], words[cur_index]) == 0) {
-            ret = -1;
-            goto out;
-        }
-    }
-out:
-    return ret;
-}
-
 /* snapshot clone <clonename> <snapname>
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
@@ -4299,7 +4109,6 @@ out:
 }
 
 /* snapshot create <snapname> <vol-name(s)> [description <description>]
- *                                           [force]
  * @arg-0, dict     : Request Dictionary to be sent to server side.
  * @arg-1, words    : Contains individual words of CLI command.
  * @arg-2, wordcount: Contains number of words present in the CLI command.
@@ -4447,14 +4256,20 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
             goto out;
         i++;
         /* point the index to next word.
-         * As description might be follwed by force option.
+         * As description might be follwed by force option which is deprecated.
          * Before that, check if wordcount limit is reached
          */
     }
 
+    /*TODO: the below force option should be completely removed after a
+            couple of releases as it is deprecated.*/
     if (strcmp(words[i], "force") == 0) {
-        flags = GF_CLI_FLAG_OP_FORCE;
-
+        cli_out(
+            "Warning: \'force\' option is deprecated and "
+            "should not be used in the future while "
+            "creating snapshot. Snapshot create command will "
+            "only execute if all the bricks used in creating "
+            "the snapshot are online.");
     } else {
         ret = -1;
         cli_err("Invalid Syntax.");
@@ -4462,7 +4277,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
         goto out;
     }
 
-    /* Check if the command has anything after "force" keyword */
+    /* Check if the command has anything after the force */
     if (++i < wordcount) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Invalid Syntax");

@@ -2,28 +2,16 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../traps.rc
+. $(dirname $0)/../../ssl.rc
 
 # This test enables management ssl and then test the
 # heal info command.
 
-for d in /etc/ssl /etc/openssl /usr/local/etc/openssl ; do
-        if test -d $d ; then
-                SSL_BASE=$d
-                break
-        fi
-done
-
-SSL_KEY=$SSL_BASE/glusterfs.key
-SSL_CERT=$SSL_BASE/glusterfs.pem
-SSL_CA=$SSL_BASE/glusterfs.ca
-
 cleanup;
-rm -f $SSL_BASE/glusterfs.*
 touch "$GLUSTERD_WORKDIR"/secure-access
 
-TEST openssl genrsa -out $SSL_KEY 2048
-TEST openssl req -new -x509 -key $SSL_KEY -subj /CN=Anyone -out $SSL_CERT
-ln $SSL_CERT $SSL_CA
+TEST create_self_signed_certs
 
 TEST glusterd
 TEST pidof glusterd

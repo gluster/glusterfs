@@ -1576,7 +1576,7 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
         sec = ((uint64_t)elapsed % 3600) % 60;
 
         if (fix_layout) {
-            cli_out("%35s %50s %8d:%d:%d", node_name, status_str, hrs, min,
+            cli_out("%35s %50s %8d:%02d:%02d", node_name, status_str, hrs, min,
                     sec);
         } else {
             if (size_str) {
@@ -1794,56 +1794,6 @@ out:
     if (dict)
         dict_unref(dict);
     cli_cmd_broadcast_response(ret);
-    return ret;
-}
-
-static int
-gf_cli_rename_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                         void *myframe)
-{
-    gf_cli_rsp rsp = {
-        0,
-    };
-    int ret = -1;
-    char msg[1024] = {
-        0,
-    };
-
-    GF_ASSERT(myframe);
-
-    if (-1 == req->rpc_status) {
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
-    if (ret < 0) {
-        gf_log(((call_frame_t *)myframe)->this->name, GF_LOG_ERROR,
-               XDR_DECODE_FAIL);
-        goto out;
-    }
-
-    gf_log("cli", GF_LOG_INFO, "Received resp to probe");
-    snprintf(msg, sizeof(msg), "Rename volume %s",
-             (rsp.op_ret) ? "unsuccessful" : "successful");
-
-    if (global_state->mode & GLUSTER_MODE_XML) {
-        ret = cli_xml_output_str("volRename", msg, rsp.op_ret, rsp.op_errno,
-                                 rsp.op_errstr);
-        if (ret)
-            gf_log("cli", GF_LOG_ERROR, XML_ERROR);
-        goto out;
-    }
-
-    if (rsp.op_ret)
-        cli_err("volume rename: failed");
-    else
-        cli_out("volume rename: success");
-
-    ret = rsp.op_ret;
-
-out:
-    cli_cmd_broadcast_response(ret);
-    gf_free_xdr_cli_rsp(rsp);
     return ret;
 }
 
@@ -4124,39 +4074,14 @@ gf_cli_defrag_volume(call_frame_t *frame, xlator_t *this, void *data)
     return ret;
 }
 
+/* This function is obsolete and not used anymore, keeping it as a dummy
+ * function */
+
 static int32_t
 gf_cli_rename_volume(call_frame_t *frame, xlator_t *this, void *data)
 {
-    gf_cli_req req = {{
-        0,
-    }};
-    int ret = 0;
-    dict_t *dict = NULL;
-
-    if (!frame || !this || !data) {
-        ret = -1;
-        goto out;
-    }
-
-    dict = data;
-
-    ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
-                                      &req.dict.dict_len);
-    if (ret < 0) {
-        gf_log(this->name, GF_LOG_ERROR, DICT_SERIALIZE_FAIL);
-
-        goto out;
-    }
-
-    ret = cli_cmd_submit(NULL, &req, frame, cli_rpc_prog,
-                         GLUSTER_CLI_RENAME_VOLUME, NULL, this,
-                         gf_cli_rename_volume_cbk, (xdrproc_t)xdr_gf_cli_req);
-
-out:
-    GF_FREE(req.dict.dict_val);
-    gf_log("cli", GF_LOG_DEBUG, RETURNING, ret);
-
-    return ret;
+    gf_log("cli", GF_LOG_WARNING, "This option is depreciated");
+    return -1;
 }
 
 static int32_t
@@ -6197,7 +6122,7 @@ cli_print_volume_status_mem(dict_t *dict, gf_boolean_t notbrick)
     int brick_index_max = -1;
     int other_count = 0;
     int index_max = 0;
-    int val = 0;
+    uint64_t val = 0;
     int i = 0;
 
     GF_ASSERT(dict);
@@ -6247,64 +6172,64 @@ cli_print_volume_status_mem(dict_t *dict, gf_boolean_t notbrick)
         cli_out("Mallinfo\n--------");
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.arena", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Arena", val);
+        cli_out("%-8s : %" PRIu64, "Arena", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.ordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Ordblks", val);
+        cli_out("%-8s : %" PRIu64, "Ordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.smblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Smblks", val);
+        cli_out("%-8s : %" PRIu64, "Smblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.hblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Hblks", val);
+        cli_out("%-8s : %" PRIu64, "Hblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.hblkhd", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Hblkhd", val);
+        cli_out("%-8s : %" PRIu64, "Hblkhd", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.usmblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Usmblks", val);
+        cli_out("%-8s : %" PRIu64, "Usmblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.fsmblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Fsmblks", val);
+        cli_out("%-8s : %" PRIu64, "Fsmblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.uordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Uordblks", val);
+        cli_out("%-8s : %" PRIu64, "Uordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.fordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Fordblks", val);
+        cli_out("%-8s : %" PRIu64, "Fordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.keepcost", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Keepcost", val);
+        cli_out("%-8s : %" PRIu64, "Keepcost", val);
 
         cli_out(" ");
         snprintf(key, sizeof(key), "brick%d", i);
@@ -7894,68 +7819,6 @@ out:
 }
 
 static void
-cmd_heal_volume_brick_out(dict_t *dict, int brick)
-{
-    uint64_t num_entries = 0;
-    int ret = 0;
-    char key[64] = {0};
-    char *hostname = NULL;
-    char *path = NULL;
-    char *status = NULL;
-    uint64_t i = 0;
-    uint32_t time = 0;
-    char timestr[GF_TIMESTR_SIZE] = {0};
-    char *shd_status = NULL;
-
-    snprintf(key, sizeof key, "%d-hostname", brick);
-    ret = dict_get_str(dict, key, &hostname);
-    if (ret)
-        goto out;
-    snprintf(key, sizeof key, "%d-path", brick);
-    ret = dict_get_str(dict, key, &path);
-    if (ret)
-        goto out;
-    cli_out("\nBrick %s:%s", hostname, path);
-
-    snprintf(key, sizeof key, "%d-status", brick);
-    ret = dict_get_str(dict, key, &status);
-    if (status && status[0] != '\0')
-        cli_out("Status: %s", status);
-
-    snprintf(key, sizeof key, "%d-shd-status", brick);
-    ret = dict_get_str(dict, key, &shd_status);
-
-    if (!shd_status) {
-        snprintf(key, sizeof key, "%d-count", brick);
-        ret = dict_get_uint64(dict, key, &num_entries);
-        cli_out("Number of entries: %" PRIu64, num_entries);
-
-        for (i = 0; i < num_entries; i++) {
-            snprintf(key, sizeof key, "%d-%" PRIu64, brick, i);
-            ret = dict_get_str(dict, key, &path);
-            if (ret)
-                continue;
-            time = 0;
-            snprintf(key, sizeof key, "%d-%" PRIu64 "-time", brick, i);
-            ret = dict_get_uint32(dict, key, &time);
-            if (ret || !time) {
-                cli_out("%s", path);
-            } else {
-                gf_time_fmt(timestr, sizeof timestr, time, gf_timefmt_FT);
-                if (i == 0) {
-                    cli_out("at                    path on brick");
-                    cli_out("-----------------------------------");
-                }
-                cli_out("%s %s", timestr, path);
-            }
-        }
-    }
-
-out:
-    return;
-}
-
-static void
 cmd_heal_volume_statistics_heal_count_out(dict_t *dict, int brick)
 {
     uint64_t num_entries = 0;
@@ -8090,12 +7953,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             heal_op_str = "to perform full self heal";
             substr = "\nUse heal info commands to check status.";
             break;
-        case GF_SHD_OP_INDEX_SUMMARY:
-            heal_op_str = "list of entries to be healed";
-            break;
-        case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            heal_op_str = "list of split brain entries";
-            break;
         case GF_SHD_OP_STATISTICS:
             heal_op_str = "crawl statistics";
             break;
@@ -8111,6 +7968,8 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         case GF_SHD_OP_HEAL_SUMMARY:
         case GF_SHD_OP_HEALED_FILES:
         case GF_SHD_OP_HEAL_FAILED_FILES:
+        case GF_SHD_OP_INDEX_SUMMARY:
+        case GF_SHD_OP_SPLIT_BRAIN_FILES:
             /* These cases are never hit; they're coded just to silence the
              * compiler warnings.*/
             break;
@@ -8188,8 +8047,6 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
             break;
         case GF_SHD_OP_INDEX_SUMMARY:
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            for (i = 0; i < brick_count; i++)
-                cmd_heal_volume_brick_out(dict, i);
             break;
         default:
             break;
@@ -10478,8 +10335,8 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    cli_out("%-40s%-40s", "Option", "Value");
-    cli_out("%-40s%-40s", "------", "-----");
+    cli_out("%-40s %-39s", "Option", "Value");
+    cli_out("%-40s %-39s", "------", "-----");
     for (i = 1; i <= count; i++) {
         ret = snprintf(dict_key, sizeof dict_key, "key%d", i);
         ret = dict_get_strn(dict, dict_key, ret, &key);
@@ -10496,7 +10353,7 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
                    dict_key);
             goto out;
         }
-        cli_out("%-40s%-40s", key, value);
+        cli_out("%-40s %-39s", key, value);
     }
 
 out:
