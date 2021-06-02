@@ -693,7 +693,7 @@ gf_log_init(void *data, const char *file, const char *ident)
         if (tmp_index) {
             tmp_index[0] = '\0';
         }
-        if (mkdir_p(logdir, 0755, true)) {
+        if (mkdir_p(logdir, 0640, true)) {
             /* EEXIST is handled in mkdir_p() itself */
             gf_smsg("logging", GF_LOG_ERROR, 0, LG_MSG_STRDUP_ERROR,
                     "logdir=%s", logdir, "errno=%s", strerror(errno), NULL);

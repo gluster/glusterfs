@@ -512,7 +512,7 @@ glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
     }
 
     GLUSTERD_GET_QUOTA_CRAWL_PIDDIR(pid_dir, volinfo, type);
-    ret = mkdir_p(pid_dir, 0755, _gf_true);
+    ret = mkdir_p(pid_dir, 0640, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_GLUSTERD_OP_FAILED,
                "failed to create dir %s: %s", pid_dir, strerror(errno));

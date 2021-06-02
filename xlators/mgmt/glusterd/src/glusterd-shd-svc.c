@@ -101,7 +101,7 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         if (ret < 0)
             goto out;
     } else {
-        ret = mkdir_p(priv->logdir, 0755, _gf_true);
+        ret = mkdir_p(priv->logdir, 0640, _gf_true);
         if ((ret == -1) && (EEXIST != errno)) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                    "Unable to create logdir %s", logdir);

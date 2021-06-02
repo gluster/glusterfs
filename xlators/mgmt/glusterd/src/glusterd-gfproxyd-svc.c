@@ -102,7 +102,7 @@ glusterd_gfproxydsvc_init(glusterd_volinfo_t *volinfo)
     glusterd_svc_build_gfproxyd_volfile_path(volinfo, volfile, sizeof(volfile));
     glusterd_svc_build_gfproxyd_logdir(logdir, volinfo->volname,
                                        sizeof(logdir));
-    ret = mkdir_p(logdir, 0755, _gf_true);
+    ret = mkdir_p(logdir, 0640, _gf_true);
     if ((ret == -1) && (EEXIST != errno)) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create logdir %s", logdir);

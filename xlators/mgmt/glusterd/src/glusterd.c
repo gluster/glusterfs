@@ -610,7 +610,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         ret = -1;
         goto out;
     }
-    ret = mkdir_p(logdir, 0755, _gf_true);
+    ret = mkdir_p(logdir, 0640, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create " GEOREP " log directory");
@@ -635,7 +635,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         ret = -1;
         goto out;
     }
-    ret = mkdir_p(logdir, 0755, _gf_true);
+    ret = mkdir_p(logdir, 0640, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create " GEOREP " secondary log directory");
@@ -665,7 +665,7 @@ glusterd_crt_georep_folders(char *georepdir, glusterd_conf_t *conf)
         goto out;
     }
 
-    ret = mkdir_p(logdir, 0755, _gf_true);
+    ret = mkdir_p(logdir, 0640, _gf_true);
     if (-1 == ret) {
         gf_msg("glusterd", GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create " GEOREP
@@ -1695,7 +1695,7 @@ init(xlator_t *this)
         exit(1);
     }
 
-    ret = sys_mkdir(storedir, 0755);
+    ret = sys_mkdir(storedir, 0640);
     if ((-1 == ret) && (errno != EEXIST)) {
         gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
                "Unable to create logs directory %s"
