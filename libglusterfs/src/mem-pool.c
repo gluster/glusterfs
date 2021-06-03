@@ -395,17 +395,7 @@ typedef struct {
     unsigned int n_cold_lists;
 } sweep_state_t;
 
-enum init_state {
-    GF_MEMPOOL_INIT_NONE = 0,
-    GF_MEMPOOL_INIT_EARLY,
-    GF_MEMPOOL_INIT_LATE,
-    GF_MEMPOOL_INIT_DESTROY
-};
-
-static enum init_state init_done = GF_MEMPOOL_INIT_NONE;
-static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
-static unsigned int init_count = 0;
-static pthread_t sweeper_tid;
+static gf_ext_thread_t sweeper;
 
 static bool
 collect_garbage(sweep_state_t *state, per_thread_pool_list_t *pool_list)
@@ -465,27 +455,27 @@ pool_sweeper(void *arg)
     for (;;) {
         /* If we know there's pending work to do (or it's the first run), we
          * do collect garbage more often. */
-        sleep(pending ? POOL_SWEEP_SECS / 5 : POOL_SWEEP_SECS);
+        if (gf_ext_thread_wait(
+                &sweeper, (pending ? POOL_SWEEP_SECS / 5 : POOL_SWEEP_SECS)))
+            break;
 
-        (void)pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         state.n_cold_lists = 0;
         pending = false;
 
         /* First pass: collect stuff that needs our attention. */
-        (void)pthread_mutex_lock(&pool_lock);
+        pthread_mutex_lock(&pool_lock);
         list_for_each_entry(pool_list, &pool_threads, thr_list)
         {
             if (collect_garbage(&state, pool_list)) {
                 pending = true;
             }
         }
-        (void)pthread_mutex_unlock(&pool_lock);
+        pthread_mutex_unlock(&pool_lock);
 
         /* Second pass: free cold objects from live pools. */
         for (i = 0; i < state.n_cold_lists; ++i) {
             free_obj_list(state.cold_lists[i]);
         }
-        (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
 
     return NULL;
@@ -558,8 +548,6 @@ mem_pools_preinit(void)
 
     pool_list_size = sizeof(per_thread_pool_list_t) +
                      sizeof(per_thread_pool_t) * (NPOOLS - 1);
-
-    init_done = GF_MEMPOOL_INIT_EARLY;
 }
 
 static __attribute__((destructor)) void
@@ -578,58 +566,24 @@ mem_pools_postfini(void)
      *       so the memory will be released anyway by the system. */
 }
 
-/* Call mem_pools_init() once threading has been configured completely. This
- * prevent the pool_sweeper thread from getting killed once the main() thread
- * exits during deamonizing. */
 void
 mem_pools_init(void)
 {
-    pthread_mutex_lock(&init_mutex);
-    if ((init_count++) == 0) {
-        (void)gf_thread_create(&sweeper_tid, NULL, pool_sweeper, NULL,
-                               "memsweep");
-
-        init_done = GF_MEMPOOL_INIT_LATE;
-    }
-    pthread_mutex_unlock(&init_mutex);
+    if (gf_ext_thread_create(&sweeper, NULL, pool_sweeper, NULL, "memsweep"))
+        GF_ABORT("can't create memsweep thread");
 }
 
 void
 mem_pools_fini(void)
 {
-    pthread_mutex_lock(&init_mutex);
-    switch (init_count) {
-        case 0:
-            /*
-             * If init_count is already zero (as e.g. if somebody called this
-             * before mem_pools_init) then the sweeper was probably never even
-             * started so we don't need to stop it. Even if there's some crazy
-             * circumstance where there is a sweeper but init_count is still
-             * zero, that just means we'll leave it running. Not perfect, but
-             * far better than any known alternative.
-             */
-            break;
-        case 1: {
-            /* if mem_pools_init() was not called, sweeper_tid will be invalid
-             * and the functions will error out. That is not critical. In all
-             * other cases, the sweeper_tid will be valid and the thread gets
-             * stopped. */
-            (void)pthread_cancel(sweeper_tid);
-            (void)pthread_join(sweeper_tid, NULL);
+    /* Terminate sweeper thread. */
+    gf_ext_thread_stop(&sweeper);
 
-            /* There could be threads still running in some cases, so we can't
-             * destroy pool_lists in use. We can also not destroy unused
-             * pool_lists because some allocated objects may still be pointing
-             * to them. */
-            mem_pool_thread_destructor(NULL);
-
-            init_done = GF_MEMPOOL_INIT_DESTROY;
-            /* Fall through. */
-        }
-        default:
-            --init_count;
-    }
-    pthread_mutex_unlock(&init_mutex);
+    /* There could be threads still running in some cases, so we can't
+     * destroy pool_lists in use. We can also not destroy unused
+     * pool_lists because some allocated objects may still be pointing
+     * to them. */
+    mem_pool_thread_destructor(NULL);
 }
 
 void

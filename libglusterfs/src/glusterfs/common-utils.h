@@ -1082,6 +1082,25 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key);
 int
 gf_set_timestamp(const char *src, const char *dest);
 
+typedef struct gf_ext_thread {
+    pthread_t thread;
+    gf_boolean_t quit;
+    pthread_cond_t cond;
+    pthread_mutex_t lock;
+} gf_ext_thread_t;
+
+int
+gf_ext_thread_create(gf_ext_thread_t *ctrl, const pthread_attr_t *attr,
+                     void *(*start_routine)(void *), void *arg,
+                     const char *name, ...)
+    __attribute__((__format__(__printf__, 5, 6)));
+
+void
+gf_ext_thread_stop(gf_ext_thread_t *ctrl);
+
+gf_boolean_t
+gf_ext_thread_wait(gf_ext_thread_t *ctrl, time_t secs);
+
 int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
                  void *(*start_routine)(void *), void *arg, const char *name,

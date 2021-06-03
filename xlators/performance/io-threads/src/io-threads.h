@@ -76,7 +76,7 @@ struct iot_conf {
 
     int32_t watchdog_secs;
     gf_boolean_t watchdog_running;
-    pthread_t watchdog_thread;
+    gf_ext_thread_t watchdog_thread;
     gf_boolean_t queue_marked[GF_FOP_PRI_MAX];
     gf_boolean_t cleanup_disconnected_reqs;
 };

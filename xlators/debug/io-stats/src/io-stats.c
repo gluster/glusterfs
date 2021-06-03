@@ -162,9 +162,7 @@ struct ios_conf {
     struct ios_stat_head list[IOS_STATS_TYPE_MAX];
     struct ios_stat_head thru_list[IOS_STATS_THRU_MAX];
     int32_t ios_dump_interval;
-    pthread_t dump_thread;
-    gf_boolean_t dump_thread_should_die;
-    gf_boolean_t dump_thread_running;
+    gf_ext_thread_t dump_thread;
     gf_lock_t ios_sampling_lock;
     int32_t ios_sample_interval;
     int32_t ios_sample_buf_size;
@@ -3014,17 +3012,6 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     return 0;
 }
 
-int
-_ios_destroy_dump_thread(struct ios_conf *conf)
-{
-    conf->dump_thread_should_die = _gf_true;
-    if (conf->dump_thread_running) {
-        (void)pthread_cancel(conf->dump_thread);
-        (void)pthread_join(conf->dump_thread, NULL);
-    }
-    return 0;
-}
-
 void *
 _ios_dump_thread(xlator_t *this)
 {
@@ -3041,7 +3028,6 @@ _ios_dump_thread(xlator_t *this)
     char *instance_name;
     gf_boolean_t log_stats_fopen_failure = _gf_true;
     gf_boolean_t log_samples_fopen_failure = _gf_true;
-    int old_cancel_type;
 
     conf = this->private;
     gf_log(this->name, GF_LOG_INFO,
@@ -3098,12 +3084,8 @@ _ios_dump_thread(xlator_t *this)
         goto out;
     }
     while (1) {
-        if (conf->dump_thread_should_die)
+        if (gf_ext_thread_wait(&conf->dump_thread, conf->ios_dump_interval))
             break;
-        (void)pthread_setcanceltype(PTHREAD_CANCEL_ASYNCHRONOUS,
-                                    &old_cancel_type);
-        sleep(conf->ios_dump_interval);
-        (void)pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, &old_cancel_type);
         /*
          * It's not clear whether we should reopen this each time, or
          * just hold it open and rewind/truncate on each iteration.
@@ -3134,7 +3116,6 @@ _ios_dump_thread(xlator_t *this)
         }
     }
 out:
-    conf->dump_thread_running = _gf_false;
     gf_log(this->name, GF_LOG_INFO, "IO stats dump thread terminated");
     return NULL;
 }
@@ -3743,12 +3724,10 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("ios-dump-interval", conf->ios_dump_interval, options,
                      int32, out);
     if ((old_dump_interval <= 0) && (conf->ios_dump_interval > 0)) {
-        conf->dump_thread_running = _gf_true;
-        conf->dump_thread_should_die = _gf_false;
-        ret = gf_thread_create(&conf->dump_thread, NULL,
-                               (void *)&_ios_dump_thread, this, "iosdump");
+        gf_ext_thread_stop(&conf->dump_thread);
+        ret = gf_ext_thread_create(&conf->dump_thread, NULL,
+                                   (void *)&_ios_dump_thread, this, "iosdump");
         if (ret) {
-            conf->dump_thread_running = _gf_false;
             gf_log(this ? this->name : "io-stats", GF_LOG_ERROR,
                    "Failed to start thread"
                    "while reconfigure. Returning %d",
@@ -3756,7 +3735,7 @@ reconfigure(xlator_t *this, dict_t *options)
             goto out;
         }
     } else if ((old_dump_interval > 0) && (conf->ios_dump_interval == 0)) {
-        _ios_destroy_dump_thread(conf);
+        gf_ext_thread_stop(&conf->dump_thread);
     }
 
     GF_OPTION_RECONF("ios-sample-interval", conf->ios_sample_interval, options,
@@ -3839,7 +3818,7 @@ ios_conf_destroy(struct ios_conf *conf)
         return;
 
     ios_destroy_top_stats(conf);
-    _ios_destroy_dump_thread(conf);
+    gf_ext_thread_stop(&conf->dump_thread);
     ios_destroy_sample_buf(conf->ios_sample_buf);
     LOCK_DESTROY(&conf->lock);
     gf_dnscache_deinit(conf->dnscache);
@@ -4003,12 +3982,9 @@ init(xlator_t *this)
 
     this->private = conf;
     if (conf->ios_dump_interval > 0) {
-        conf->dump_thread_running = _gf_true;
-        conf->dump_thread_should_die = _gf_false;
-        ret = gf_thread_create(&conf->dump_thread, NULL,
-                               (void *)&_ios_dump_thread, this, "iosdump");
+        ret = gf_ext_thread_create(&conf->dump_thread, NULL,
+                                   (void *)&_ios_dump_thread, this, "iosdump");
         if (ret) {
-            conf->dump_thread_running = _gf_false;
             gf_log(this ? this->name : "io-stats", GF_LOG_ERROR,
                    "Failed to start thread"
                    "in init. Returning %d",
