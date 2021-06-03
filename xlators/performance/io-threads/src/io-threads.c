@@ -1060,8 +1060,9 @@ iot_watchdog(void *arg)
     }};
 
     for (;;) {
-        sleep(max(priv->watchdog_secs / 5, 1));
-        pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
+        if (gf_ext_thread_wait(&priv->watchdog_thread,
+                               max(priv->watchdog_secs / 5, 1)))
+            break;
         pthread_mutex_lock(&priv->mutex);
         for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
             if (priv->queue_marked[i]) {
@@ -1081,10 +1082,8 @@ iot_watchdog(void *arg)
             priv->queue_marked[i] = (priv->queue_sizes[i] > 0);
         }
         pthread_mutex_unlock(&priv->mutex);
-        pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     }
 
-    /* NOTREACHED */
     return NULL;
 }
 
@@ -1092,18 +1091,14 @@ static void
 start_iot_watchdog(xlator_t *this)
 {
     iot_conf_t *priv = this->private;
-    int ret;
 
-    if (priv->watchdog_running) {
-        return;
-    }
-
-    ret = pthread_create(&priv->watchdog_thread, NULL, iot_watchdog, this);
-    if (ret == 0) {
-        priv->watchdog_running = _gf_true;
-    } else {
-        gf_log(this->name, GF_LOG_WARNING,
-               "pthread_create(iot_watchdog) failed");
+    if (!priv->watchdog_running) {
+        if (gf_ext_thread_create(&priv->watchdog_thread, NULL, iot_watchdog,
+                                 this, "iotwdog"))
+            gf_log(this->name, GF_LOG_WARNING,
+                   "can't create iot watchdog thread");
+        else
+            priv->watchdog_running = _gf_true;
     }
 }
 
@@ -1112,21 +1107,10 @@ stop_iot_watchdog(xlator_t *this)
 {
     iot_conf_t *priv = this->private;
 
-    if (!priv->watchdog_running) {
-        return;
+    if (priv->watchdog_running) {
+        gf_ext_thread_stop(&priv->watchdog_thread);
+        priv->watchdog_running = _gf_false;
     }
-
-    if (pthread_cancel(priv->watchdog_thread) != 0) {
-        gf_log(this->name, GF_LOG_WARNING,
-               "pthread_cancel(iot_watchdog) failed");
-    }
-
-    if (pthread_join(priv->watchdog_thread, NULL) != 0) {
-        gf_log(this->name, GF_LOG_WARNING, "pthread_join(iot_watchdog) failed");
-    }
-
-    /* Failure probably means it's already dead. */
-    priv->watchdog_running = _gf_false;
 }
 
 int

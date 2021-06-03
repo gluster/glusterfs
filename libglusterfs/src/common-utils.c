@@ -4084,6 +4084,60 @@ gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
 }
 
 int
+gf_ext_thread_create(gf_ext_thread_t *ctrl, const pthread_attr_t *attr,
+                     void *(*start_routine)(void *), void *arg,
+                     const char *name, ...)
+{
+    int ret;
+    va_list args;
+
+    ctrl->quit = _gf_false;
+    pthread_mutex_init(&ctrl->lock, NULL);
+    pthread_cond_init(&ctrl->cond, NULL);
+
+    va_start(args, name);
+    ret = gf_thread_vcreate(&ctrl->thread, attr, start_routine, arg, name,
+                            args);
+    va_end(args);
+
+    if (ret) {
+        pthread_mutex_destroy(&ctrl->lock);
+        pthread_cond_destroy(&ctrl->cond);
+    }
+    return ret;
+}
+
+void
+gf_ext_thread_stop(gf_ext_thread_t *ctrl)
+{
+    pthread_mutex_lock(&ctrl->lock);
+    pthread_cond_signal(&ctrl->cond);
+    ctrl->quit = _gf_true;
+    pthread_mutex_unlock(&ctrl->lock);
+
+    pthread_join(ctrl->thread, NULL);
+    pthread_mutex_destroy(&ctrl->lock);
+    pthread_cond_destroy(&ctrl->cond);
+}
+
+gf_boolean_t
+gf_ext_thread_wait(gf_ext_thread_t *ctrl, time_t secs)
+{
+    gf_boolean_t quit;
+    struct timespec ts;
+
+    timespec_now_realtime(&ts);
+    ts.tv_sec += secs;
+
+    pthread_mutex_lock(&ctrl->lock);
+    pthread_cond_timedwait(&ctrl->cond, &ctrl->lock, &ts);
+    quit = ctrl->quit;
+    pthread_mutex_unlock(&ctrl->lock);
+
+    return quit;
+}
+
+int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
                  void *(*start_routine)(void *), void *arg, const char *name,
                  ...)

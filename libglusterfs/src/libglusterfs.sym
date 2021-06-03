@@ -714,6 +714,9 @@ gf_strip_whitespace
 gf_strncpy
 gf_strTrim
 gf_strstr
+gf_ext_thread_create
+gf_ext_thread_stop
+gf_ext_thread_wait
 gf_thread_cleanup_xint
 gf_thread_create
 gf_thread_vcreate
