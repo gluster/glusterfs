@@ -2654,6 +2654,23 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
             }
             server = ctx->cmd_args.curr_server;
+
+            if (ctx->cmd_args.brick_port && ctx->cmd_args.brick_name) {
+                /* This process requires a portmap signin with glusterd.
+                 * Currently the glusterd portmaps are local to each glusterd.
+                 * Hence connecting the process to a different volfile server
+                 * won't work well with such process, so don't try to connect
+                 * to backup volfile server here.
+                 */
+                if (!ctx->active) {
+                    need_term = 1;
+                }
+                emval = ENOTCONN;
+                GF_LOG_OCCASIONALLY(log_ctr2, "glusterfsd-mgmt", GF_LOG_INFO,
+                                    "Port-mapper is active, Giving up on the "
+                                    "backup volfile servers");
+                break;
+            }
             if (server->list.next == &ctx->cmd_args.volfile_servers) {
                 if (!ctx->active) {
                     need_term = 1;
