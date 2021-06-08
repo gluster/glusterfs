@@ -13,6 +13,7 @@
 
 #include <stdint.h>                    // for int32_t
 #include <sys/types.h>                 // for off_t, mode_t, off64_t, dev_t
+#include <urcu/arch.h>                 // CAA_CACHE_LINE_SIZE
 #include "glusterfs/glusterfs-fops.h"  // for GF_FOP_MAXVALUE, entrylk_cmd
 #include "glusterfs/atomic.h"          // for gf_atomic_t
 #include "glusterfs/glusterfs.h"       // for gf_boolean_t, glusterfs_ctx_t
@@ -41,10 +42,6 @@
 #define gf_attr_size_set(mode) ((mode)&GF_SET_ATTR_SIZE)
 #define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
 #define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
-
-#ifndef CAA_CACHE_LINE_SIZE
-#define CAA_CACHE_LINE_SIZE 128
-#endif
 
 struct _xlator;
 typedef struct _xlator xlator_t;
