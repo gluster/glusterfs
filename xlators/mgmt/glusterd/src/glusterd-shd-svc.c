@@ -171,28 +171,28 @@ glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo)
 
     ret = dict_set_uint32(mod_dict, "cluster.background-self-heal-count", 0);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.background-self-heal-count", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.data-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.data-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.metadata-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.metadata-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.entry-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.entry-self-heal", NULL);
         goto out;
     }
@@ -376,7 +376,7 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
 
     ret = dict_set_str(cmdline, "arg", client_pid);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg", NULL);
         goto out;
     }
@@ -386,28 +386,28 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
      * should be put in reverse order*/
     ret = dict_set_str(cmdline, "arg4", svc->name);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg4", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg3", GD_SHD_PROCESS_NAME);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg3", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg2", glusterd_uuid_option);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg2", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg1", "--xlator-option");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg1", NULL);
         goto out;
     }
@@ -574,35 +574,35 @@ glusterd_shdsvc_reconfigure(glusterd_volinfo_t *volinfo)
 
     ret = dict_set_uint32(mod_dict, "cluster.background-self-heal-count", 0);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.background-self-heal-count", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.data-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.data-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.metadata-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.metadata-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_int32(mod_dict, "graph-check", 1);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=graph-check", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.entry-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.entry-self-heal", NULL);
         goto out;
     }

@@ -266,7 +266,7 @@ glusterd_set_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo)
         ret = dict_set_bin(priv->glusterd_txn_opinfo, uuid_utoa(*txn_id),
                            opinfo_obj, sizeof(glusterd_txn_opinfo_obj));
         if (ret) {
-            gf_msg_callingfn(this->name, GF_LOG_ERROR, ret,
+            gf_msg_callingfn(this->name, GF_LOG_ERROR, -ret,
                              GD_MSG_DICT_SET_FAILED,
                              "Unable to set opinfo for transaction"
                              " ID : %s",
@@ -566,13 +566,13 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
             ret = dict_get_int32n(dict, "heal-op", SLEN("heal-op"),
                                   (int32_t *)&heal_op);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                         "Key=heal-op", NULL);
                 goto out;
             }
             ret = dict_set_int32n(dict, "xl-op", SLEN("xl-op"), heal_op);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                         "Key=xl-op", NULL);
                 goto out;
             }
@@ -590,7 +590,7 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
             ret = dict_set_strn(dict, "brick-name", SLEN("brick-name"),
                                 brickinfo->path);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                         "Key=brick-name", NULL);
                 goto out;
             }
@@ -608,7 +608,7 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
             brick_req->op = GLUSTERD_BRICK_XLATOR_DEFRAG;
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                         "Key=volname", NULL);
                 goto out;
             }
@@ -715,7 +715,7 @@ glusterd_node_op_build_payload(glusterd_op_t op, gd1_mgmt_brick_op_req **req,
 
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                         "Key=volname", NULL);
                 goto out;
             }
@@ -1109,7 +1109,7 @@ glusterd_op_stage_set_volume(dict_t *dict, char **op_errstr)
         keystr_len = sprintf(keystr, "key%d", count);
         ret = dict_get_strn(dict, keystr, keystr_len, &key);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                     "Key=%s", keystr, NULL);
             break;
         }
@@ -1669,7 +1669,7 @@ glusterd_op_stage_sync_volume(dict_t *dict, char **op_errstr)
         snprintf(msg, sizeof(msg),
                  "hostname couldn't be "
                  "retrieved from msg");
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=hostname", NULL);
         *op_errstr = gf_strdup(msg);
         goto out;
@@ -1752,7 +1752,7 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
 
     ret = dict_get_uint32(dict, "cmd", &cmd);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=cmd", NULL);
         goto out;
     }
@@ -2213,8 +2213,8 @@ glusterd_op_reset_all_volume_options(xlator_t *this, dict_t *dict)
     ret = dict_set_strn(dup_opt, GLUSTERD_GLOBAL_OPT_VERSION,
                         SLEN(GLUSTERD_GLOBAL_OPT_VERSION), next_version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                GLUSTERD_GLOBAL_OPT_VERSION, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", GLUSTERD_GLOBAL_OPT_VERSION, NULL);
         goto out;
     }
 
@@ -2228,8 +2228,8 @@ glusterd_op_reset_all_volume_options(xlator_t *this, dict_t *dict)
     ret = dict_set_dynstrn(conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
                            SLEN(GLUSTERD_GLOBAL_OPT_VERSION), next_version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                GLUSTERD_GLOBAL_OPT_VERSION, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", GLUSTERD_GLOBAL_OPT_VERSION, NULL);
         goto out;
     } else
         next_version = NULL;
@@ -2421,7 +2421,7 @@ glusterd_update_volumes_dict(glusterd_volinfo_t *volinfo)
             ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
                                              "on");
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                        "Failed to set "
                        "option ' NFS_DISABLE_MAP_KEY ' on "
                        "volume %s",
@@ -2437,7 +2437,7 @@ glusterd_update_volumes_dict(glusterd_volinfo_t *volinfo)
                 ret = dict_set_dynstr_with_alloc(
                     volinfo->dict, "transport.address-family", "inet");
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ret,
+                    gf_msg(this->name, GF_LOG_ERROR, -ret,
                            GD_MSG_DICT_SET_FAILED,
                            "failed to set transport."
                            "address-family on %s",
@@ -2533,7 +2533,7 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     conf = this->private;
     ret = dict_get_strn(dict, "key1", SLEN("key1"), &key);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=key1", NULL);
         goto out;
     }
@@ -2669,8 +2669,8 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     dict_copy(conf->opts, dup_opt);
     ret = dict_set_str(dup_opt, key, value);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -2681,8 +2681,8 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     ret = dict_set_strn(dup_opt, GLUSTERD_GLOBAL_OPT_VERSION,
                         SLEN(GLUSTERD_GLOBAL_OPT_VERSION), next_version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                GLUSTERD_GLOBAL_OPT_VERSION, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", GLUSTERD_GLOBAL_OPT_VERSION, NULL);
         goto out;
     }
 
@@ -2696,8 +2696,8 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
     ret = dict_set_dynstrn(conf->opts, GLUSTERD_GLOBAL_OPT_VERSION,
                            SLEN(GLUSTERD_GLOBAL_OPT_VERSION), next_version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                GLUSTERD_GLOBAL_OPT_VERSION, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", GLUSTERD_GLOBAL_OPT_VERSION, NULL);
         goto out;
     } else
         next_version = NULL;
@@ -2708,8 +2708,8 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
 
     ret = dict_set_dynstr(conf->opts, key, dup_value);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     } else
         dup_value = NULL; /* Protect the allocation from GF_FREE */
@@ -2816,7 +2816,7 @@ glusterd_set_shared_storage(dict_t *dict, char *key, char *value,
 
     ret = dict_set_dynstr_with_alloc(dict, "hooks_args", hooks_args);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Failed to set"
                " hooks_args in dict.");
         goto out;
@@ -3155,7 +3155,7 @@ glusterd_op_sync_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         snprintf(msg, sizeof(msg),
                  "hostname couldn't be "
                  "retrieved from msg");
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=hostname", NULL);
         *op_errstr = gf_strdup(msg);
         goto out;
@@ -3728,7 +3728,7 @@ glusterd_op_status_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     ret = dict_set_int32n(rsp_dict, "type", SLEN("type"), volinfo->type);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=type", NULL);
         goto out;
     }

@@ -3001,7 +3001,7 @@ glusterd_add_bricks_hname_path_to_dict(dict_t *dict,
         ret = snprintf(key, sizeof(key), "%d-hostname", index);
         ret = dict_set_strn(dict, key, ret, brickinfo->hostname);
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -3009,7 +3009,7 @@ glusterd_add_bricks_hname_path_to_dict(dict_t *dict,
         ret = snprintf(key, sizeof(key), "%d-path", index);
         ret = dict_set_strn(dict, key, ret, brickinfo->path);
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -3134,7 +3134,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     ret = gd_add_vol_snap_details_to_dict(dict, pfx, volinfo);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "vol snap details", NULL);
         goto out;
     }
@@ -3329,8 +3329,8 @@ out:
     GF_FREE(rb_id_str);
 
     if (key[0] != '\0' && ret != 0)
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
     gf_msg_debug(this->name, 0, "Returning with %d", ret);
     return ret;
 }
@@ -3388,7 +3388,7 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
         snprintf(key, sizeof(key) - 1, "%s.gfid%d", key_prefix, gfid_idx);
         ret = dict_set_dynstr_with_alloc(load, key, uuid_utoa(buf));
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -3396,7 +3396,7 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
         snprintf(key, sizeof(key) - 1, "%s.gfid-type%d", key_prefix, gfid_idx);
         ret = dict_set_int8(load, key, type);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -3405,24 +3405,24 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
     ret = snprintf(key, sizeof(key), "%s.gfid-count", key_prefix);
     ret = dict_set_int32n(load, key, ret, gfid_idx);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     snprintf(key, sizeof(key), "%s.quota-cksum", key_prefix);
     ret = dict_set_uint32(load, key, volinfo->quota_conf_cksum);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     snprintf(key, sizeof(key), "%s.quota-version", key_prefix);
     ret = dict_set_uint32(load, key, volinfo->quota_conf_version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -3755,7 +3755,7 @@ glusterd_compare_friend_volume(dict_t *peer_data,
     keylen = snprintf(key, sizeof(key), "%s.name", key_prefix);
     ret = dict_get_strn(arg->peer_ver_data, key, keylen, &volname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
@@ -3776,7 +3776,7 @@ glusterd_compare_friend_volume(dict_t *peer_data,
     keylen = snprintf(key, sizeof(key), "%s.version", key_prefix);
     ret = dict_get_int32n(arg->peer_ver_data, key, keylen, &version);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
@@ -3800,7 +3800,7 @@ glusterd_compare_friend_volume(dict_t *peer_data,
     snprintf(key, sizeof(key), "%s.ckusm", key_prefix);
     ret = dict_get_uint32(arg->peer_ver_data, key, &cksum);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s is NULL in peer_ver_data", key, NULL);
         goto out;
     }
@@ -4329,8 +4329,8 @@ glusterd_import_quota_conf(dict_t *peer_data, int vol_idx,
     keylen = snprintf(key, sizeof(key), "%s.gfid-count", key_prefix);
     ret = dict_get_int32n(peer_data, key, keylen, &gfid_count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -4343,7 +4343,7 @@ glusterd_import_quota_conf(dict_t *peer_data, int vol_idx,
                           gfid_idx);
         ret = dict_get_strn(peer_data, key, keylen, &gfid_str);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -4414,7 +4414,7 @@ gd_import_friend_volume_rebal_dict(dict_t *dict, int count,
     ret = dict_get_int32n(dict, key, ret, &dict_count);
     if (ret) {
         /* Older peers will not have this dict */
-        gf_smsg(this->name, GF_LOG_INFO, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
+        gf_smsg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
                 key, NULL);
         ret = 0;
         goto out;
@@ -5082,7 +5082,7 @@ glusterd_import_friend_volume(dict_t *peer_data, int count,
         ret = snprintf(key, sizeof(key), "volume%d.update", count);
         ret = dict_get_int32n(peer_data, key, ret, &update);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -5199,7 +5199,7 @@ glusterd_import_friend_volumes_synctask(void *opaque)
     peer_data = arg->peer_data;
     ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -5256,7 +5256,7 @@ glusterd_import_friend_volumes(dict_t *peer_data)
 
     ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -5282,8 +5282,8 @@ glusterd_get_global_server_quorum_ratio(dict_t *opts, double *quorum)
     ret = dict_get_strn(opts, GLUSTERD_QUORUM_RATIO_KEY,
                         SLEN(GLUSTERD_QUORUM_RATIO_KEY), &quorum_str);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
-                GLUSTERD_QUORUM_RATIO_KEY, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GLUSTERD_QUORUM_RATIO_KEY, NULL);
     } else {
         ret = gf_string2percent(quorum_str, quorum);
     }
@@ -5299,8 +5299,8 @@ glusterd_get_global_opt_version(dict_t *opts, uint32_t *version)
     ret = dict_get_strn(opts, GLUSTERD_GLOBAL_OPT_VERSION,
                         SLEN(GLUSTERD_GLOBAL_OPT_VERSION), &version_str);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
-                GLUSTERD_GLOBAL_OPT_VERSION, NULL);
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", GLUSTERD_GLOBAL_OPT_VERSION, NULL);
     } else {
         ret = gf_string2uint(version_str, version);
     }
@@ -5345,7 +5345,7 @@ glusterd_import_global_opts(dict_t *friend_data)
                           SLEN("global-opt-count"), &count);
     if (ret) {
         // old version peer
-        gf_smsg(this->name, GF_LOG_INFO, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=global-opt-count", NULL);
         ret = 0;
         goto out;
@@ -5426,7 +5426,7 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
 
     ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -5698,16 +5698,16 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
         ret = dict_set_nstrn(dict, key, keylen, "Scrubber Daemon",
                              SLEN("Scrubber Daemon"));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     keylen = snprintf(key, sizeof(key), "brick%d.path", count);
     ret = dict_set_dynstrn(dict, key, keylen, gf_strdup(uuid_utoa(MY_UUID)));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -5721,7 +5721,7 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
             ret = dict_get_int32n(vol_opts, "nfs.port", SLEN("nfs.port"),
                                   &port);
             if (ret) {
-                gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                         "Key=nfs.port", NULL);
                 goto out;
             }
@@ -5732,24 +5732,24 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     keylen = snprintf(key, sizeof(key), "brick%d.port", count);
     ret = dict_set_int32n(dict, key, keylen, port);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     keylen = snprintf(key, sizeof(key), "brick%d.pid", count);
     ret = dict_set_int32n(dict, key, keylen, pid);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     keylen = snprintf(key, sizeof(key), "brick%d.status", count);
     ret = dict_set_int32n(dict, key, keylen, running);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -6077,7 +6077,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
         ret = dict_set_strn(dict, GLUSTER_BRICK_GRACEFUL_CLEANUP,
                             SLEN(GLUSTER_BRICK_GRACEFUL_CLEANUP), "enable");
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set cluster.brick-graceful-cleanup key");
             goto err;
         }
@@ -7486,8 +7486,8 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
     ret = snprintf(key, sizeof(key), "brick%d.device", count);
     ret = dict_get_strn(dict, key, ret, &device);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7502,8 +7502,8 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
     ret = snprintf(key, sizeof(key), "brick%d.fs_name", count);
     ret = dict_get_strn(dict, key, ret, &fs_name);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7675,8 +7675,8 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
 
     ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_fsname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7685,8 +7685,8 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
 
     ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_type);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7779,8 +7779,8 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
     snprintf(key, sizeof(key), "%s.block_size", base_key);
     ret = dict_set_uint64(dict, key, block_size);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7789,8 +7789,8 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
     snprintf(key, sizeof(key), "%s.free", base_key);
     ret = dict_set_uint64(dict, key, memfree);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7799,8 +7799,8 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
     snprintf(key, sizeof(key), "%s.total", base_key);
     ret = dict_set_uint64(dict, key, memtotal);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -7810,7 +7810,7 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
         snprintf(key, sizeof(key), "%s.total_inodes", base_key);
         ret = dict_set_uint64(dict, key, inodes_total);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -7821,7 +7821,7 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
         snprintf(key, sizeof(key), "%s.free_inodes", base_key);
         ret = dict_set_uint64(dict, key, inodes_free);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
             goto out;
         }
@@ -7936,8 +7936,8 @@ glusterd_add_brick_to_dict(glusterd_volinfo_t *volinfo,
 
 out:
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         gf_msg_debug(this->name, 0, "Returning %d", ret);
     }
 
@@ -8409,8 +8409,8 @@ glusterd_sm_tr_log_transition_add_to_dict(dict_t *dict,
 
 out:
     if (key[0] != '\0' && ret != 0)
-        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
     gf_msg_debug("glusterd", 0, "returning %d", ret);
     return ret;
 }
@@ -10077,7 +10077,7 @@ glusterd_append_gsync_status(dict_t *dst, dict_t *src)
 
     ret = dict_get_strn(src, "gsync-status", SLEN("gsync-status"), &stop_msg);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=gsync-status", NULL);
         ret = 0;
         goto out;
@@ -10374,7 +10374,7 @@ glusterd_profile_volume_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
 
     ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &brick_count);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         ret = 0;  // no bricks in the rsp
         goto out;
@@ -10789,14 +10789,14 @@ glusterd_volume_status_copy_to_op_ctx_dict(dict_t *aggr, dict_t *rsp_dict)
     ret = dict_set_int32n(ctx_dict, "hot_brick_count", SLEN("hot_brick_count"),
                           hot_brick_count);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=hot_brick_count", NULL);
         goto out;
     }
 
     ret = dict_set_int32n(ctx_dict, "type", SLEN("type"), type);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=type", NULL);
         goto out;
     }
@@ -12251,7 +12251,7 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
     ret = dict_get_int32n(req_dict, "rebalance-command",
                           SLEN("rebalance-command"), &cmd);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Unable to get the cmd");
         goto out;
     }
@@ -12287,7 +12287,7 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
     snprintf(key, sizeof(key), "time-left-%d", i);
     ret = dict_set_uint64(op_ctx, key, volinfo->rebal.time_left);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "failed to set time left");
 
 out:
@@ -12983,7 +12983,7 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
                                              "on");
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                        "Failed to set option '" NFS_DISABLE_MAP_KEY
                        "' on volume "
                        "%s",
@@ -13015,7 +13015,7 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
                 ret = dict_set_dynstr_with_alloc(
                     volinfo->dict, "features.quota-deem-statfs", "on");
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ret,
+                    gf_msg(this->name, GF_LOG_ERROR, -ret,
                            GD_MSG_DICT_SET_FAILED,
                            "Failed to set option "
                            "'features.quota-deem-statfs' "
@@ -13033,7 +13033,7 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
                 ret = dict_set_dynstr_with_alloc(
                     volinfo->dict, "transport.address-family", addr_family);
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, ret,
+                    gf_msg(this->name, GF_LOG_ERROR, -ret,
                            GD_MSG_DICT_SET_FAILED,
                            "failed to set transport."
                            "address-family on %s",
@@ -13048,7 +13048,7 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
         ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                          "storage.fips-mode-rchecksum", "on");
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Failed to set option 'storage.fips-mode-rchecksum' "
                    "on volume %s",
                    volinfo->volname);
@@ -13062,7 +13062,7 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
         ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                          "cluster.granular-entry-heal", "on");
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Failed to set option 'cluster.granular-entry-heal' "
                    "on volume %s",
                    volinfo->volname);
@@ -14952,7 +14952,7 @@ glusterd_add_peers_to_auth_list(char *volname)
 
     ret = dict_get_str_sizen(volinfo->dict, "auth.allow", &auth_allow_list);
     if (ret) {
-        gf_msg(this->name, GF_LOG_INFO, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
                "auth allow list is not set");
         goto out;
     }
@@ -14990,14 +14990,14 @@ glusterd_add_peers_to_auth_list(char *volname)
         ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
                             new_auth_allow_list);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set new auth.allow list");
             goto out;
         }
         ret = dict_set_strn(volinfo->dict, "old.auth.allow",
                             SLEN("old.auth.allow"), auth_allow_list);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set old auth.allow list");
             goto out;
         }
@@ -15033,7 +15033,7 @@ glusterd_replace_old_auth_allow_list(char *volname)
     ret = dict_get_str_sizen(volinfo->dict, "old.auth.allow",
                              &old_auth_allow_list);
     if (ret) {
-        gf_msg(this->name, GF_LOG_INFO, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
                "old auth allow list is not set, no need to replace the list");
         ret = 0;
         goto out;
@@ -15043,7 +15043,7 @@ glusterd_replace_old_auth_allow_list(char *volname)
     ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
                         old_auth_allow_list);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Unable to replace auth.allow list");
         goto out;
     }

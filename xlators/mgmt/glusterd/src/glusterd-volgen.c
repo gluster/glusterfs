@@ -1490,14 +1490,14 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
 
     ret = dict_get_str_sizen(dict, "xlator", &xlator);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=xlator", NULL);
         goto out;
     }
 
     ret = dict_get_str_sizen(dict, "loglevel", &loglevel);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=loglevel", NULL);
         goto out;
     }
@@ -1603,14 +1603,14 @@ gfproxy_server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     /* We are a trusted client */
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret != 0) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto out;
     }
 
     ret = dict_set_int32_sizen(set_dict, "gfproxy-server", 1);
     if (ret != 0) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=gfproxy-server", NULL);
         goto out;
     }
@@ -2516,7 +2516,7 @@ brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     ret = dict_get_int32(volinfo->dict, "enable-pump", &pump);
     if (ret == -ENOENT) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=enable-pump", NULL);
         ret = pump = 0;
     }
@@ -2898,7 +2898,7 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (!ret) {
         ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
                    " translator name and loglevel for log level request");
             goto out;
@@ -4525,7 +4525,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         ret = dict_set_str_sizen(set_dict, "client.send-gids",
                                  ret ? "false" : "true");
         if (ret)
-            gf_msg(THIS->name, GF_LOG_WARNING, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(THIS->name, GF_LOG_WARNING, -ret, GD_MSG_DICT_SET_FAILED,
                    "changing client"
                    " protocol option failed");
     }
@@ -4832,7 +4832,7 @@ prepare_shd_volume_options(glusterd_volinfo_t *volinfo, dict_t *mod_dict,
 
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto out;
     }
@@ -5153,7 +5153,7 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         ret = dict_set_sizen_str_sizen(set_dict, "performance.stat-prefetch",
                                        "off");
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=performance.stat-prefetch", NULL);
             goto out;
         }
@@ -5161,28 +5161,28 @@ build_nfs_graph(volgen_graph_t *graph, dict_t *mod_dict)
         ret = dict_set_sizen_str_sizen(set_dict,
                                        "performance.client-io-threads", "off");
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=performance.client-io-threads", NULL);
             goto out;
         }
 
         ret = dict_set_str_sizen(set_dict, "client-transport-type", nfs_xprt);
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=client-transport-type", NULL);
             goto out;
         }
 
         ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
 
         ret = dict_set_sizen_str_sizen(set_dict, "nfs-volume-file", "yes");
         if (ret) {
-            gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=nfs-volume-file", NULL);
             goto out;
         }
@@ -5418,7 +5418,7 @@ build_quotad_graph(volgen_graph_t *graph, dict_t *mod_dict)
 
         ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
@@ -5617,7 +5617,7 @@ glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo)
 
     ret = dict_set_uint32(dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto free_dict;
     }
@@ -5706,7 +5706,7 @@ generate_dummy_client_volfiles(glusterd_volinfo_t *volinfo)
     for (i = 0; types[i]; i++) {
         ret = dict_set_str(dict, "client-transport-type", types[i]);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=client-transport-type", NULL);
             goto out;
         }
@@ -5714,7 +5714,7 @@ generate_dummy_client_volfiles(glusterd_volinfo_t *volinfo)
 
         ret = dict_set_uint32(dict, "trusted-client", GF_CLIENT_OTHER);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
@@ -5782,7 +5782,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
     for (i = 0; types[i]; i++) {
         ret = dict_set_str(dict, "client-transport-type", types[i]);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=client-transport-type", NULL);
             goto out;
         }
@@ -5790,7 +5790,7 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
 
         ret = dict_set_uint32(dict, "trusted-client", client_type);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=trusted-client", NULL);
             goto out;
         }
@@ -5857,7 +5857,7 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (!ret) {
         ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
                    " translator name and loglevel for log level "
                    "request");
@@ -5946,7 +5946,7 @@ prepare_bitrot_scrub_volume_options(glusterd_volinfo_t *volinfo,
 
     ret = dict_set_uint32(set_dict, "trusted-client", GF_CLIENT_TRUSTED);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=trusted-client", NULL);
         goto out;
     }
@@ -6408,7 +6408,7 @@ validate_shdopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
     }
     ret = dict_set_int32_sizen(val_dict, "graph-check", 1);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=graph-check", NULL);
         goto out;
     }
@@ -6473,7 +6473,7 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
 
     ret = dict_set_str_sizen(val_dict, "volume-name", volinfo->volname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Failed to set volume name");
         goto out;
     }

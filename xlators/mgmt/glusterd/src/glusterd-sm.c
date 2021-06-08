@@ -155,23 +155,23 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
     keylen = snprintf(key, sizeof(key), "op");
     ret = dict_set_int32n(friends, key, keylen, ctx.op);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     keylen = snprintf(key, sizeof(key), "hostname");
     ret = dict_set_strn(friends, key, keylen, hostname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto out;
     }
 
@@ -405,14 +405,14 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
         ret = dict_set_strn(dict, "hostname", SLEN("hostname"),
                             probe_ctx->hostname);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=hostname", NULL);
             goto unlock;
         }
 
         ret = dict_set_int32n(dict, "port", SLEN("port"), probe_ctx->port);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=port", NULL);
             goto unlock;
         }
@@ -589,8 +589,8 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
     ev_ctx.op = GD_FRIEND_UPDATE_ADD;
     ret = dict_set_int32n(friends, key, keylen, ev_ctx.op);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto unlock;
     }
 
@@ -609,7 +609,7 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto unlock;
     }
@@ -705,8 +705,8 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
     ev_ctx.op = GD_FRIEND_UPDATE_ADD;
     ret = dict_set_int32n(friends, key, keylen, ev_ctx.op);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
         goto unlock;
     }
 
@@ -725,7 +725,7 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
 
     ret = dict_set_int32n(friends, "count", SLEN("count"), count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto unlock;
     }

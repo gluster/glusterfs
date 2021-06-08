@@ -46,7 +46,7 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
     ret = dict_set_int32n(options, "transport.socket.ignore-enoent",
                           SLEN("transport.socket.ignore-enoent"), 1);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=transport.socket.ignore-enoent", NULL);
         goto out;
     }

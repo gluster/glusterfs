@@ -1474,7 +1474,7 @@ commit_done:
     if (op == GD_OP_STATUS_VOLUME) {
         ret = dict_get_uint32(req_dict, "cmd", &cmd);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                     "Key=cmd", NULL);
             goto out;
         }

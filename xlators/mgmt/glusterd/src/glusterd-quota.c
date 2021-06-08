@@ -616,7 +616,7 @@ glusterd_inode_quota_enable(glusterd_volinfo_t *volinfo, char **op_errstr,
     ret = dict_set_dynstr_with_alloc(volinfo->dict, VKEY_FEATURES_INODE_QUOTA,
                                      "on");
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "dict set failed");
         goto out;
     }
@@ -664,7 +664,7 @@ glusterd_quota_enable(glusterd_volinfo_t *volinfo, char **op_errstr,
 
     ret = dict_set_dynstr_with_alloc(volinfo->dict, VKEY_FEATURES_QUOTA, "on");
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "dict set failed");
         goto out;
     }
@@ -680,7 +680,7 @@ glusterd_quota_enable(glusterd_volinfo_t *volinfo, char **op_errstr,
     ret = dict_set_dynstr_with_alloc(volinfo->dict,
                                      "features.quota-deem-statfs", "on");
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "setting quota-deem-statfs"
                "in volinfo failed");
         goto out;
@@ -732,7 +732,7 @@ glusterd_quota_disable(glusterd_volinfo_t *volinfo, char **op_errstr,
 
     ret = dict_set_dynstr_with_alloc(volinfo->dict, VKEY_FEATURES_QUOTA, "off");
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "dict set failed");
         goto out;
     }

@@ -228,7 +228,7 @@ glusterd_check_ganesha_cmd(char *key, char *value, char **errstr, dict_t *dict)
         } else if (is_origin_glusterd(dict)) {
             ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
-                gf_msg("glusterd-ganesha", GF_LOG_ERROR, ret,
+                gf_msg("glusterd-ganesha", GF_LOG_ERROR, -ret,
                        GD_MSG_DICT_GET_FAILED, "Unable to get volume name");
                 goto out;
             }
@@ -260,7 +260,7 @@ glusterd_op_stage_set_ganesha(dict_t *dict, char **op_errstr)
 
     ret = dict_get_str(dict, "value", &value);
     if (value == NULL) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "value not present.");
         goto out;
     }
@@ -318,14 +318,14 @@ glusterd_op_set_ganesha(dict_t *dict, char **errstr)
 
     ret = dict_get_str(dict, "key", &key);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Couldn't get key in global option set");
         goto out;
     }
 
     ret = dict_get_str(dict, "value", &value);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Couldn't get value in global option set");
         goto out;
     }
@@ -340,7 +340,7 @@ glusterd_op_set_ganesha(dict_t *dict, char **errstr)
     ret = dict_set_dynstr_with_alloc(priv->opts,
                                      GLUSTERD_STORE_KEY_GANESHA_GLOBAL, value);
     if (ret) {
-        gf_msg(this->name, GF_LOG_WARNING, ret, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_WARNING, -ret, GD_MSG_DICT_SET_FAILED,
                "Failed to set"
                " nfs-ganesha in dict.");
         goto out;
@@ -485,7 +485,7 @@ ganesha_manage_export(dict_t *dict, char *value,
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
         goto out;
     }
@@ -731,14 +731,14 @@ teardown(gf_boolean_t run_teardown, char **op_errstr)
         unexported, hence setting the appropriate keys */
         ret = dict_set_str(vol_opts, "features.cache-invalidation", "off");
         if (ret)
-            gf_msg(this->name, GF_LOG_WARNING, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_WARNING, -ret, GD_MSG_DICT_SET_FAILED,
                    "Could not set features.cache-invalidation "
                    "to off for %s",
                    volinfo->volname);
 
         ret = dict_set_str(vol_opts, "ganesha.enable", "off");
         if (ret)
-            gf_msg(this->name, GF_LOG_WARNING, ret, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_WARNING, -ret, GD_MSG_DICT_SET_FAILED,
                    "Could not set ganesha.enable to off for %s",
                    volinfo->volname);
 
