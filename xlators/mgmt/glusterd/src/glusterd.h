@@ -805,7 +805,7 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
 struct opval_dep;
 typedef struct opval_dep opval_dep_t;
 
-typedef enum { OP_OFF = 0, OP_ON, CLAUSE_LABEL } optn_value;
+typedef enum { OP_OFF = 0, OP_ON, OP_CLAUSE_LABEL } optn_value;
 
 // Defines the structure of the prohibited_clause list
 
@@ -849,42 +849,42 @@ static const opval_dep_t prohibited_clauses[][5] = {
      {"performance.parallel-readdir depends on performance.readdir-ahead and "
       "either of (dht.force-readdirp, performance.readdirp). Please check the "
       "values of the dependencies",
-      2},  // Here, 2 represents the CLAUSE_LABEL
+      OP_CLAUSE_LABEL},
      {
          0,
      }},
-    {{"performance.parallel-readdir", 1},
-     {"dht.force-readdirp", 0},
-     {"performance.force-readdirp", 0},
-     {"performance.readdir-ahead", 0},
+    {{"performance.parallel-readdir", OP_ON},
+     {"dht.force-readdirp", OP_OFF},
+     {"performance.force-readdirp", OP_OFF},
+     {"performance.readdir-ahead", OP_OFF},
      {
          0,
      }},
-    {{"performance.parallel-readdir", 1},
-     {"dht.force-readdirp", 1},
-     {"performance.force-readdirp", 0},
-     {"performance.readdir-ahead", 0},
+    {{"performance.parallel-readdir", OP_ON},
+     {"dht.force-readdirp", OP_ON},
+     {"performance.force-readdirp", OP_OFF},
+     {"performance.readdir-ahead", OP_OFF},
      {
          0,
      }},
-    {{"performance.parallel-readdir", 1},
-     {"dht.force-readdirp", 0},
-     {"performance.force-readdirp", 1},
-     {"performance.readdir-ahead", 0},
+    {{"performance.parallel-readdir", OP_ON},
+     {"dht.force-readdirp", OP_OFF},
+     {"performance.force-readdirp", OP_ON},
+     {"performance.readdir-ahead", OP_OFF},
      {
          0,
      }},
-    {{"performance.parallel-readdir", 1},
-     {"dht.force-readdirp", 1},
-     {"performance.force-readdirp", 1},
-     {"performance.readdir-ahead", 0},
+    {{"performance.parallel-readdir", OP_ON},
+     {"dht.force-readdirp", OP_ON},
+     {"performance.force-readdirp", OP_ON},
+     {"performance.readdir-ahead", OP_OFF},
      {
          0,
      }},
-    {{"performance.parallel-readdir", 1},
-     {"dht.force-readdirp", 0},
-     {"performance.force-readdirp", 0},
-     {"performance.readdir-ahead", 1},
+    {{"performance.parallel-readdir", OP_ON},
+     {"dht.force-readdirp", OP_OFF},
+     {"performance.force-readdirp", OP_OFF},
+     {"performance.readdir-ahead", OP_ON},
      {
          0,
      }},

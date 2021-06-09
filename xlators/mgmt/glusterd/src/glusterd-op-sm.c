@@ -2832,62 +2832,36 @@ out:
     return ret;
 }
 
-// Compare 2 strings for boolean value
+// Fetch the value of glusterd option passed as arg
 
-int
-glusterd_compare_bool_value(char *value_1, int value_2)
-{
-    int ret = -1;
-    gf_boolean_t bool_val_1 = _gf_false;
-
-    ret = gf_string2boolean(value_1, &bool_val_1);
-    if (ret == -1) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
-               "Invalid value entry");
-    }
-
-    if (!ret)
-        return bool_val_1 == value_2;
-    else
-        return ret;
-}
-
-// Compare values in the set in the volume/cluster with that of the predicate
-
-int
-glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
-                              int input_value)
+void
+glusterd_option_fetch(glusterd_volinfo_t *volinfo, char *input_key,
+                      char **deflt_val)
 {
     struct volopt_map_entry *vme = NULL;
     int ret = -1;
-    char *deflt_val = NULL;
     int keylen;
-    glusterd_conf_t *priv = NULL;
-    xlator_t *this = THIS;
-
-    priv = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, priv, out);
+    glusterd_conf_t *priv = THIS->private;
 
     for (vme = &glusterd_volopt_map[0]; vme->key; vme++) {
         if (!strcmp(vme->key, input_key)) {
             // First look for the key in the priv->opts for global option
             keylen = strlen(vme->key);
-            ret = dict_get_strn(priv->opts, vme->key, keylen, &deflt_val);
-            if (!deflt_val) {
+            ret = dict_get_strn(priv->opts, vme->key, keylen, deflt_val);
+            if (!(*deflt_val)) {
                 // Check for the option in the volinfo dict
-                ret = dict_get_strn(volinfo->dict, vme->key, keylen,
-                                    &deflt_val);
+                ret = dict_get_strn(volinfo->dict, vme->key, keylen, deflt_val);
                 if (ret == -ENOENT)
                     // Check for glusterd default values
-                    deflt_val = glusterd_get_option_value(volinfo, vme->key);
-                if (!deflt_val) {
+                    *deflt_val = glusterd_get_option_value(volinfo, vme->key);
+                if (!(*deflt_val)) {
                     if (vme->value) {
-                        deflt_val = vme->value;
+                        *deflt_val = vme->value;
                     } else {
                         // Check the option for tranlator default value
-                        ret = glusterd_get_value_for_vme_entry(vme, &deflt_val);
+                        ret = glusterd_get_value_for_vme_entry(vme, deflt_val);
                         if (ret)
-                            goto out;
+                            break;
                         else if (ret == -2)
                             continue;
                     }
@@ -2895,15 +2869,33 @@ glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
             }
         }
     }
+}
 
-    ret = glusterd_compare_bool_value(deflt_val, input_value);
-    deflt_val = NULL;
+// Fetch the value of glusterd option passed as arg, and convert the value to a
+// boolean and return it
 
-out:
-    if (deflt_val)
-        GF_FREE(deflt_val);
+int
+glusterd_option_fetch_bool(glusterd_volinfo_t *volinfo, char *input_key)
+{
+    int ret = -1;
+    char *default_value = NULL;
+    gf_boolean_t default_val_bool = _gf_false;
 
-    return ret;
+    glusterd_option_fetch(volinfo, input_key, &default_value);
+    if (!default_value) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+               "Invalid value entry");
+        return -1;
+    }
+
+    ret = gf_string2boolean(default_value, &default_val_bool);
+    if (ret == -1) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+               "Invalid value entry");
+        return -1;
+    }
+
+    return default_val_bool ? 1 : 0;
 }
 
 // Check the options set in the cluster/per-volume satisfy the dependency chain
@@ -2914,45 +2906,50 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
 {
     int ind = 0;
     int j = 0;
+    int clause_ind = 0;
     int match_cnt = 0;
     int ret = -1;
-    char *err_s = NULL;
+    int value_cmp = 0;
+    gf_boolean_t value_bool = _gf_false;
+
+    // Convert the value arg to a boolean value
+    ret = gf_string2boolean(value, &value_bool);
+    if (ret == -1) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+               "Invalid value entry");
+        goto out;
+    }
 
     // Going through each of the predicates in the prohibhited_clauses list and
     // comparing the values for each of the options for a volume
-    while (prohibited_clauses[ind]) {
-        // Check if there are any predicates left in the list
-        if (!prohibited_clauses[ind][0].op)
-            break;
-
+    while (prohibited_clauses[ind] && !prohibited_clauses[ind][0].op) {
         // Copy the predicate clause, which should be logged in case of failure
-        if (prohibited_clauses[ind][0].val == CLAUSE_LABEL) {
-            err_s = gf_strdup(prohibited_clauses[ind][0].op);
+        if (prohibited_clauses[ind][0].val == OP_CLAUSE_LABEL) {
+            clause_ind = ind;
         } else {
             match_cnt = 0;
             j = 0;
-            while (j >= 0) {
-                // Check the end of a list of options for single predicate
-                if (!prohibited_clauses[ind][j].op)
-                    break;
-
+            while (!prohibited_clauses[ind][j].op) {
                 // If the option being set now, is present in the
                 // prohibhited_clauses list
-                if (key && strcmp(key, prohibited_clauses[ind][j].op) == 0) {
-                    ret = glusterd_compare_bool_value(
-                        value, prohibited_clauses[ind][j].val);
+                if (strcmp(key, prohibited_clauses[ind][j].op) == 0) {
+                    value_cmp = value_bool ? 1 : 0;
                 } else {
                     // Else, compare the value of an option in the predicate
                     // with the value set for the volume
-                    ret = glusterd_compare_option_value(
-                        volinfo, prohibited_clauses[ind][j].op,
-                        prohibited_clauses[ind][j].val);
+                    value_cmp = glusterd_option_fetch_bool(
+                        volinfo, prohibited_clauses[ind][j].op);
+                    if (value_cmp == -1) {
+                        ret = -1;
+                        goto out;
+                    }
                 }
 
                 // If the value set in volume matches, the value listed in the
                 // predicate
-                if (ret == 1)
+                if (value_cmp == prohibited_clauses[ind][j].val) {
                     match_cnt++;
+                }
 
                 j++;
             }
@@ -2960,7 +2957,7 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
             // If all the options in a predicate is satisfied, log the error
             // along with the clause_label as the justification
             if (match_cnt == j) {
-                *errstr = gf_strdup(err_s);
+                *errstr = gf_strdup(prohibited_clauses[clause_ind][0].op);
                 ret = -1;
                 goto out;
             }
@@ -2972,8 +2969,8 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
     ret = 0;
 
 out:
-    if (err_s)
-        GF_FREE(err_s);
+    gf_msg(THIS->name, GF_LOG_DEBUG, 0, GD_MSG_DEPNDCY_CHECK_FAIL,
+           "Dependency check failed for the option being set");
     return ret;
 }
 
@@ -3166,6 +3163,22 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
             key_fixed = NULL;
         }
     }
+
+    // // Check if the options set above satisfy the option dependency chain
+    // if (global_opt) {
+    //     cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
+    //     {
+    //         ret = glusterd_dependency_chain_check(voliter, key, value,
+    //                                               errstr);
+    //         if (ret)
+    //             goto out;
+    //     }
+    // } else {
+    //     /* Check dependency of per-volume option before setting them */
+    //     ret = glusterd_dependency_chain_check(volinfo, key, value, errstr);
+    //     if (ret)
+    //         goto out;
+    // }
 
     if (count == 1) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_OPTIONS_GIVEN,

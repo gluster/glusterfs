@@ -311,14 +311,14 @@ glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr);
 int
 gd_set_commit_hash(dict_t *dict);
 
-int
-glusterd_compare_option_value(glusterd_volinfo_t *volinfo, char *input_key,
-                              int input_value);
+void
+glusterd_option_fetch(glusterd_volinfo_t *volinfo, char *input_key,
+                      char **deflt_val);
 
 int
 glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
                                 char *value, char **errstr);
 
 int
-glusterd_compare_bool_value(char *value_1, int value_2);
+glusterd_option_fetch_bool(glusterd_volinfo_t *volinfo, char *key);
 #endif
