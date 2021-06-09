@@ -363,7 +363,7 @@ afr_is_reopen_allowed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local->replies[i].op_ret = op_ret;
     local->replies[i].op_errno = op_errno;
     if (op_ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_LK_HEAL_DOM,
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_DICT_GET_FAILED,
                "Failed getlk for %s", uuid_utoa(local->fd->inode->gfid));
     }
 
