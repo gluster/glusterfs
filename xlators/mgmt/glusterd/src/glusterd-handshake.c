@@ -1586,7 +1586,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = dict_get_int32(dict, "flags", &flags);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=flags", NULL);
         op_errno = -ret;
         ret = -1;
@@ -1602,7 +1602,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=volname", NULL);
         op_errno = EINVAL;
         ret = -1;
@@ -1639,7 +1639,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
         }
         ret = dict_set_dynstr(dict_rsp, "volume_id", volume_id_str);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=volume_id", NULL);
             op_errno = -ret;
             ret = -1;
@@ -1740,7 +1740,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg("glusterd", GF_LOG_ERROR, EINVAL, GD_MSG_DICT_GET_FAILED,
+        gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Failed to retrieve volname");
         ret = -1;
         goto out;
@@ -1957,21 +1957,21 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
     ret = dict_get_int32(dict, GD_OP_VERSION_KEY, &peer_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_OP_VERSION_KEY, NULL);
         goto out;
     }
 
     ret = dict_get_int32(dict, GD_MAX_OP_VERSION_KEY, &peer_max_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_MAX_OP_VERSION_KEY, NULL);
         goto out;
     }
 
     ret = dict_get_int32(dict, GD_MIN_OP_VERSION_KEY, &peer_min_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_MIN_OP_VERSION_KEY, NULL);
         goto out;
     }
@@ -2256,7 +2256,7 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
     ret = dict_set_dynstr(req_dict, GD_PEER_ID_KEY,
                           gf_strdup(uuid_utoa(MY_UUID)));
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "failed to set peer ID in dict");
         goto out;
     }

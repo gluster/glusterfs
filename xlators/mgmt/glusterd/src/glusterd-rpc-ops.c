@@ -1456,20 +1456,20 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=hostname", NULL);
         goto out;
     }
     ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_DEBUG, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=port", NULL);
         port = GF_DEFAULT_BASE_PORT;
     }
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1541,7 +1541,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     ret = dict_set_dynstr_with_alloc(peer_data, "hostname_in_cluster",
                                      peerinfo->hostname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Unable to add hostname of the peer");
         goto out;
     }
@@ -1752,7 +1752,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1828,7 +1828,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1941,7 +1941,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -2016,7 +2016,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }

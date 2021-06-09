@@ -137,7 +137,7 @@ glusterd_op_stage_log_rotate(dict_t *dict, char **op_errstr)
     /* If no brick is specified, do log-rotate for
        all the bricks in the volume */
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=brick", NULL);
         ret = 0;
         goto out;
@@ -203,7 +203,7 @@ glusterd_op_log_rotate(dict_t *dict)
     /* If no brick is specified, do log-rotate for
        all the bricks in the volume */
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=brick", NULL);
         goto cont;
     }

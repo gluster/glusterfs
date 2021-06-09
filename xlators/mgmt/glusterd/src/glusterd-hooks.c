@@ -213,7 +213,7 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
 
     ret = dict_get_int32(dict, "count", &count);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -364,7 +364,7 @@ glusterd_hooks_run_hooks(char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
 
     ret = dict_get_str(op_ctx, "volname", &volname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_CRITICAL, -ret, GD_MSG_DICT_GET_FAILED,
                "Failed to get volname "
                "from operation context");
         goto out;
