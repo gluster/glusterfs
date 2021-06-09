@@ -27,7 +27,6 @@
 #include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
-#include "glusterd-shd-svc.h"
 #include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
 #include "protocol-common.h"
@@ -171,6 +170,7 @@ typedef struct {
     struct cds_list_head peers;
     uuid_t uuid;
     rpcsvc_t *rpc;
+    glusterd_svc_t shd_svc;
     glusterd_svc_t nfs_svc;
     glusterd_svc_t bitd_svc;
     glusterd_svc_t scrub_svc;
@@ -179,7 +179,6 @@ typedef struct {
     struct cds_list_head volumes;
     struct cds_list_head snapshots;   /*List of snap volumes */
     struct cds_list_head brick_procs; /* List of brick processes */
-    struct cds_list_head shd_procs;   /* List of shd processes */
     pthread_mutex_t xprt_lock;
     struct list_head xprt_list;
     pthread_mutex_t import_volumes;
@@ -210,7 +209,6 @@ typedef struct {
     dict_t *opts;
     synclock_t big_lock;
     synccond_t cond_restart_bricks;
-    synccond_t cond_restart_shd;
     synccond_t cond_blockers;
     rpcsvc_t *uds_rpc; /* RPCSVC for the unix domain socket */
     uint32_t base_port;
@@ -223,16 +221,8 @@ typedef struct {
     int32_t workers;
     uint32_t mgmt_v3_lock_timeout;
     gf_atomic_t blockers;
-    pthread_mutex_t attach_lock; /* Lock can be per process or a common one */
-    pthread_mutex_t volume_lock; /* We release the big_lock from lot of places
-                                    which might lead the modification of volinfo
-                                    list.
-                                 */
     gf_atomic_t thread_count;
     gf_boolean_t restart_bricks;
-    gf_boolean_t restart_shd; /* This flag prevents running two shd manager
-                                 simultaneously
-                              */
     char workdir[VALID_GLUSTERD_PATHMAX];
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
@@ -491,7 +481,6 @@ struct glusterd_volinfo_ {
     gd_quorum_status_t quorum_status;
 
     glusterd_snapdsvc_t snapd;
-    glusterd_shdsvc_t shd;
     glusterd_gfproxydsvc_t gfproxyd;
     pthread_mutex_t store_volinfo_lock; /* acquire lock for
                                          * updating the volinfo
@@ -640,6 +629,7 @@ typedef enum {
 #define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR "/gluster/snaps"
 #define GLUSTERD_BITD_RUN_DIR "/bitd"
 #define GLUSTERD_SCRUB_RUN_DIR "/scrub"
+#define GLUSTERD_GLUSTERSHD_RUN_DIR "/glustershd"
 #define GLUSTERD_NFS_RUN_DIR "/nfs"
 #define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
 #define GLUSTER_SHARED_STORAGE_BRICK_DIR GLUSTERD_DEFAULT_WORKDIR "/ss_brick"
@@ -693,16 +683,6 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
         _defrag_pidfile_len = snprintf(path, PATH_MAX, "%s/%s.pid",            \
                                        defrag_path, uuid_utoa(MY_UUID));       \
         if ((_defrag_pidfile_len < 0) || (_defrag_pidfile_len >= PATH_MAX)) {  \
-            path[0] = 0;                                                       \
-        }                                                                      \
-    } while (0)
-
-#define GLUSTERD_GET_SHD_RUNDIR(path, volinfo, priv)                           \
-    do {                                                                       \
-        int32_t _shd_dir_len;                                                  \
-        _shd_dir_len = snprintf(path, PATH_MAX, "%s/shd/%s", priv->rundir,     \
-                                volinfo->volname);                             \
-        if ((_shd_dir_len < 0) || (_shd_dir_len >= PATH_MAX)) {                \
             path[0] = 0;                                                       \
         }                                                                      \
     } while (0)

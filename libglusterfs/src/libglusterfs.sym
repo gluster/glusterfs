@@ -1181,11 +1181,6 @@ gf_gfid_generate_from_xxh64
 find_xlator_option_in_cmd_args_t
 gf_d_type_from_ia_type
 gf_d_type_from_st_mode
-glusterfs_graph_fini
-glusterfs_process_svc_attach_volfp
-glusterfs_mux_volfile_reconfigure
-glusterfs_process_svc_detach
-mgmt_is_multiplexed_daemon
 xlator_is_cleanup_starting
 gf_nanosleep
 gf_syncfs

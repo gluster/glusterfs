@@ -30,6 +30,7 @@ TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST mv $M0/d2/a $M0/d1
 TEST mv $M0/d1/b $M0/d2
 TEST $CLI volume start $V0 force
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 anon_inode_name=$(ls -a $B0/${V0}0 | grep glusterfs-anonymous-inode)
 TEST [[ -d $B0/${V0}1/$anon_inode_name ]]

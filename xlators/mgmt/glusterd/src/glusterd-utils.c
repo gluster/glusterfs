@@ -60,7 +60,6 @@
 #include "glusterd-server-quorum.h"
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/common-utils.h>
-#include "glusterd-shd-svc-helper.h"
 
 #include "xdr-generic.h"
 #include <sys/resource.h>
@@ -715,17 +714,13 @@ glusterd_volinfo_t *
 glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
 {
     int refcnt = -1;
-    glusterd_conf_t *conf = THIS->private;
 
-    pthread_mutex_lock(&conf->volume_lock);
+    pthread_mutex_lock(&volinfo->reflock);
     {
-        pthread_mutex_lock(&volinfo->reflock);
-        {
-            refcnt = --volinfo->refcnt;
-        }
-        pthread_mutex_unlock(&volinfo->reflock);
+        refcnt = --volinfo->refcnt;
     }
-    pthread_mutex_unlock(&conf->volume_lock);
+    pthread_mutex_unlock(&volinfo->reflock);
+
     if (!refcnt) {
         glusterd_volinfo_delete(volinfo);
         return NULL;
@@ -800,7 +795,6 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
 
     glusterd_snapdsvc_build(&new_volinfo->snapd.svc);
     glusterd_gfproxydsvc_build(&new_volinfo->gfproxyd.svc);
-    glusterd_shdsvc_build(&new_volinfo->shd.svc);
 
     pthread_mutex_init(&new_volinfo->store_volinfo_lock, NULL);
     pthread_mutex_init(&new_volinfo->reflock, NULL);
@@ -1079,7 +1073,6 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
     gf_store_handle_destroy(volinfo->snapd.handle);
 
     glusterd_auth_cleanup(volinfo);
-    glusterd_shd_svcproc_cleanup(&volinfo->shd);
 
     pthread_mutex_destroy(&volinfo->store_volinfo_lock);
     pthread_mutex_destroy(&volinfo->reflock);
@@ -1087,6 +1080,7 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
 
     GF_FREE(volinfo);
     ret = 0;
+
 out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
@@ -3958,7 +3952,6 @@ glusterd_spawn_daemons(void *opaque)
     glusterd_restart_rebalance(conf);
     ret = glusterd_snapdsvc_restart();
     ret = glusterd_gfproxydsvc_restart();
-    ret = glusterd_shdsvc_restart();
     return ret;
 }
 
@@ -5006,9 +4999,6 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
         svc = &(stale_volinfo->snapd.svc);
         (void)svc->manager(svc, stale_volinfo, PROC_START_NO_WAIT);
     }
-    svc = &(stale_volinfo->shd.svc);
-    (void)svc->manager(svc, stale_volinfo, PROC_START_NO_WAIT);
-
     (void)glusterd_volinfo_remove(stale_volinfo);
 
     return 0;
@@ -5162,10 +5152,6 @@ glusterd_import_friend_volume(dict_t *peer_data, int count,
             if (svc->manager(svc, new_volinfo, PROC_START_NO_WAIT)) {
                 gf_event(EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
             }
-        }
-        svc = &(new_volinfo->shd.svc);
-        if (svc->manager(svc, new_volinfo, PROC_START_NO_WAIT)) {
-            gf_event(EVENT_SVC_MANAGER_FAILED, "svc_name=%s", svc->name);
         }
     }
 
@@ -5661,7 +5647,9 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     glusterd_svc_build_pidfile_path(server, priv->rundir, pidfile,
                                     sizeof(pidfile));
 
-    if (strcmp(server, priv->quotad_svc.name) == 0)
+    if (strcmp(server, priv->shd_svc.name) == 0)
+        svc = &(priv->shd_svc);
+    else if (strcmp(server, priv->quotad_svc.name) == 0)
         svc = &(priv->quotad_svc);
 #ifdef BUILD_GNFS
     else if (strcmp(server, priv->nfs_svc.name) == 0)
@@ -5694,6 +5682,9 @@ glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
     if (!strcmp(server, priv->quotad_svc.name))
         ret = dict_set_nstrn(dict, key, keylen, "Quota Daemon",
                              SLEN("Quota Daemon"));
+    else if (!strcmp(server, priv->shd_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "Self-heal Daemon",
+                             SLEN("Self-heal Daemon"));
 #ifdef BUILD_GNFS
     else if (!strcmp(server, priv->nfs_svc.name))
         ret = dict_set_nstrn(dict, key, keylen, "NFS Server",
@@ -6164,7 +6155,7 @@ err:
 
 extern size_t
 build_volfile_path(char *volume_id, char *path, size_t path_len,
-                   char *trusted_str, dict_t *dict);
+                   char *trusted_str);
 
 static int
 attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
@@ -6204,7 +6195,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    (void)build_volfile_path(full_id, path, sizeof(path), NULL, NULL);
+    (void)build_volfile_path(full_id, path, sizeof(path), NULL);
 
     for (tries = 15; tries > 0; --tries) {
         rpc = rpc_clnt_ref(other_brick->rpc);
@@ -9377,20 +9368,6 @@ glusterd_friend_remove_cleanup_vols(uuid_t uuid)
                            "to stop snapd daemon service");
                 }
             }
-
-            if (glusterd_is_shd_compatible_volume(volinfo)) {
-                /*
-                 * Sending stop request for all volumes. So it is fine
-                 * to send stop for mux shd
-                 */
-                svc = &(volinfo->shd.svc);
-                ret = svc->stop(svc, SIGTERM);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
-                           "Failed "
-                           "to stop shd daemon service");
-                }
-            }
         }
 
         if (glusterd_friend_contains_vol_bricks(volinfo, uuid) == 2) {
@@ -9407,7 +9384,7 @@ glusterd_friend_remove_cleanup_vols(uuid_t uuid)
     }
 
     /* Reconfigure all daemon services upon peer detach */
-    ret = glusterd_svcs_reconfigure(NULL);
+    ret = glusterd_svcs_reconfigure();
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
                "Failed to reconfigure all daemon services.");
@@ -14535,85 +14512,6 @@ glusterd_is_profile_on(glusterd_volinfo_t *volinfo)
     if ((_gf_true == is_latency_on) && (_gf_true == is_fd_stats_on))
         return _gf_true;
     return _gf_false;
-}
-
-int32_t
-glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
-                         int32_t count)
-{
-    int ret = -1;
-    int32_t pid = -1;
-    int32_t brick_online = -1;
-    char key[64] = {0};
-    int keylen;
-    char *pidfile = NULL;
-    xlator_t *this = THIS;
-    char *uuid_str = NULL;
-
-    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
-    GF_VALIDATE_OR_GOTO(this->name, dict, out);
-
-    keylen = snprintf(key, sizeof(key), "brick%d.hostname", count);
-    ret = dict_set_nstrn(dict, key, keylen, "Self-heal Daemon",
-                         SLEN("Self-heal Daemon"));
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
-        goto out;
-    }
-
-    keylen = snprintf(key, sizeof(key), "brick%d.path", count);
-    uuid_str = gf_strdup(uuid_utoa(MY_UUID));
-    if (!uuid_str) {
-        ret = -1;
-        goto out;
-    }
-    ret = dict_set_dynstrn(dict, key, keylen, uuid_str);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
-        goto out;
-    }
-    uuid_str = NULL;
-
-    /* shd doesn't have a port. but the cli needs a port key with
-     * a zero value to parse.
-     * */
-
-    keylen = snprintf(key, sizeof(key), "brick%d.port", count);
-    ret = dict_set_int32n(dict, key, keylen, 0);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
-        goto out;
-    }
-
-    pidfile = volinfo->shd.svc.proc.pidfile;
-
-    brick_online = gf_is_service_running(pidfile, &pid);
-
-    /* If shd is not running, then don't print the pid */
-    if (!brick_online)
-        pid = -1;
-    keylen = snprintf(key, sizeof(key), "brick%d.pid", count);
-    ret = dict_set_int32n(dict, key, keylen, pid);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
-                key, NULL);
-        goto out;
-    }
-
-    keylen = snprintf(key, sizeof(key), "brick%d.status", count);
-    ret = dict_set_int32n(dict, key, keylen, brick_online);
-
-out:
-    if (uuid_str)
-        GF_FREE(uuid_str);
-    if (ret)
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-               "Returning %d. adding values to dict failed", ret);
-
-    return ret;
 }
 
 static gf_ai_compare_t

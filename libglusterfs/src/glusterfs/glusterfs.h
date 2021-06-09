@@ -609,8 +609,6 @@ struct _glusterfs_graph {
                         first CHILD_UP */
     uint32_t volfile_checksum;
     uint32_t leaf_count;
-    void *last_xl; /* Stores the last xl of the graph, as of now only populated
-                      in client multiplexed code path */
     pthread_mutex_t mutex;
     pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
     int parent_down;
@@ -770,8 +768,7 @@ typedef struct {
     char volfile_checksum[SHA256_DIGEST_LENGTH];
     char vol_id[NAME_MAX + 1];
     struct list_head volfile_list;
-    glusterfs_graph_t *graph;
-    FILE *pidfp;
+
 } gf_volfile_t;
 
 glusterfs_ctx_t *
@@ -854,6 +851,4 @@ gf_free_mig_locks(lock_migration_info_t *locks);
 
 int
 glusterfs_read_secure_access_file(void);
-int
-glusterfs_graph_fini(glusterfs_graph_t *graph);
 #endif /* _GLUSTERFS_H */

@@ -790,16 +790,6 @@ glusterd_peer_detach_cleanup(glusterd_conf_t *priv)
                 }
             }
 
-            if (glusterd_is_shd_compatible_volume(volinfo)) {
-                svc = &(volinfo->shd.svc);
-                ret = svc->stop(svc, SIGTERM);
-                if (ret) {
-                    gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
-                           "Failed "
-                           "to stop shd daemon service");
-                }
-            }
-
             if (glusterd_is_gfproxyd_enabled(volinfo)) {
                 svc = &(volinfo->gfproxyd.svc);
                 ret = svc->stop(svc, SIGTERM);
@@ -827,7 +817,7 @@ glusterd_peer_detach_cleanup(glusterd_conf_t *priv)
     }
 
     /*Reconfigure all daemon services upon peer detach*/
-    ret = glusterd_svcs_reconfigure(NULL);
+    ret = glusterd_svcs_reconfigure();
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
                "Failed to reconfigure all daemon services.");

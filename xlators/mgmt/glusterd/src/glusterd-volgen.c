@@ -36,7 +36,6 @@
 #include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
 #include "glusterd-snapd-svc-helper.h"
-#include "glusterd-shd-svc-helper.h"
 #include "glusterd-gfproxyd-svc-helper.h"
 
 struct gd_validate_reconf_opts {
@@ -4775,7 +4774,7 @@ volgen_get_shd_key(int type)
 static int
 volgen_set_shd_key_enable(dict_t *set_dict, const int type)
 {
-    int ret = 0;
+    int ret = -1;
 
     switch (type) {
         case GF_CLUSTER_TYPE_REPLICATE:
@@ -4968,14 +4967,23 @@ out:
 static int
 build_shd_volume_graph(xlator_t *this, volgen_graph_t *graph,
                        glusterd_volinfo_t *volinfo, dict_t *mod_dict,
-                       dict_t *set_dict, gf_boolean_t graph_check)
+                       dict_t *set_dict, gf_boolean_t graph_check,
+                       gf_boolean_t *valid_config)
 {
     volgen_graph_t cgraph = {0};
     int ret = 0;
     int clusters = -1;
 
+    if (!graph_check && (volinfo->status != GLUSTERD_STATUS_STARTED))
+        goto out;
+
     if (!glusterd_is_shd_compatible_volume(volinfo))
         goto out;
+
+    /* Shd graph is valid only when there is at least one
+     * replica/disperse volume is present
+     */
+    *valid_config = _gf_true;
 
     ret = prepare_shd_volume_options(volinfo, mod_dict, set_dict);
     if (ret)
@@ -5006,13 +5014,19 @@ out:
 }
 
 int
-build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
-                dict_t *mod_dict)
+build_shd_graph(volgen_graph_t *graph, dict_t *mod_dict)
 {
+    glusterd_volinfo_t *voliter = NULL;
+    xlator_t *this = NULL;
+    glusterd_conf_t *priv = NULL;
     dict_t *set_dict = NULL;
     int ret = 0;
+    gf_boolean_t valid_config = _gf_false;
     xlator_t *iostxl = NULL;
     gf_boolean_t graph_check = _gf_false;
+
+    this = THIS;
+    priv = this->private;
 
     set_dict = dict_new();
     if (!set_dict) {
@@ -5023,18 +5037,26 @@ build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
 
     if (mod_dict)
         graph_check = dict_get_str_boolean(mod_dict, "graph-check", 0);
-    iostxl = volgen_graph_add_as(graph, "debug/io-stats", volinfo->volname);
+    iostxl = volgen_graph_add_as(graph, "debug/io-stats", "glustershd");
     if (!iostxl) {
         ret = -1;
         goto out;
     }
 
-    ret = build_shd_volume_graph(THIS, graph, volinfo, mod_dict, set_dict,
-                                 graph_check);
+    cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
+    {
+        ret = build_shd_volume_graph(this, graph, voliter, mod_dict, set_dict,
+                                     graph_check, &valid_config);
+        ret = dict_reset(set_dict);
+        if (ret)
+            goto out;
+    }
 
 out:
     if (set_dict)
         dict_unref(set_dict);
+    if (!valid_config)
+        ret = -EINVAL;
     return ret;
 }
 
@@ -6328,10 +6350,6 @@ glusterd_create_volfiles(glusterd_volinfo_t *volinfo)
     if (ret)
         gf_log(THIS->name, GF_LOG_ERROR, "Could not generate gfproxy volfiles");
 
-    ret = glusterd_shdsvc_create_volfile(volinfo);
-    if (ret)
-        gf_log(THIS->name, GF_LOG_ERROR, "Could not generate shd volfiles");
-
     dict_del_sizen(volinfo->dict, "skip-CLIOT");
 
 out:
@@ -6412,7 +6430,7 @@ validate_shdopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
                 "Key=graph-check", NULL);
         goto out;
     }
-    ret = build_shd_graph(volinfo, &graph, val_dict);
+    ret = build_shd_graph(&graph, val_dict);
     if (!ret)
         ret = graph_reconf_validateopt(&graph.graph, op_errstr);
 
@@ -6773,23 +6791,4 @@ gd_is_boolean_option(struct volopt_map_entry *vmep)
         return _gf_true;
 
     return _gf_false;
-}
-
-int
-glusterd_shdsvc_generate_volfile(glusterd_volinfo_t *volinfo, char *filename,
-                                 dict_t *mode_dict)
-{
-    int ret = -1;
-    volgen_graph_t graph = {
-        0,
-    };
-
-    graph.type = GF_SHD;
-    ret = build_shd_graph(volinfo, &graph, mode_dict);
-    if (!ret)
-        ret = volgen_write_volfile(&graph, filename);
-
-    volgen_graph_free(&graph);
-
-    return ret;
 }

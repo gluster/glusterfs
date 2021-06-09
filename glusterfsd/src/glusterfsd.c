@@ -1399,7 +1399,8 @@ parse_opts(int key, char *arg, struct argp_state *state)
         case ARGP_IO_ENGINE_KEY:
             cmd_args->io_engine = gf_strdup(arg);
             if (cmd_args->io_engine == NULL) {
-                argp_failure(state, -1, 0, "Failed to allocate memory for "
+                argp_failure(state, -1, 0,
+                             "Failed to allocate memory for "
                              "io-engine");
             }
             break;
@@ -2494,6 +2495,24 @@ out:
 #endif
 
 int
+glusterfs_graph_fini(glusterfs_graph_t *graph)
+{
+    xlator_t *trav = NULL;
+
+    trav = graph->first;
+
+    while (trav) {
+        if (trav->init_succeeded) {
+            trav->fini(trav);
+            trav->init_succeeded = 0;
+        }
+        trav = trav->next;
+    }
+
+    return 0;
+}
+
+int
 glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp)
 {
     glusterfs_graph_t *graph = NULL;
@@ -2666,10 +2685,8 @@ out:
 int
 main(int argc, char *argv[])
 {
-    gf_io_handlers_t main_handlers = {
-        .setup = main_start,
-        .cleanup = main_terminate
-    };
+    gf_io_handlers_t main_handlers = {.setup = main_start,
+                                      .cleanup = main_terminate};
     glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     char cmdlinestr[PATH_MAX] = {

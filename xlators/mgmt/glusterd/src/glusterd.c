@@ -935,7 +935,7 @@ out:
     return ret ? -1 : 0;
 }
 #undef RUN_GSYNCD_CMD
-#else /* SYNCDAEMON_COMPILE */
+#else  /* SYNCDAEMON_COMPILE */
 static int
 configure_syncdaemon(glusterd_conf_t *conf)
 {
@@ -1612,6 +1612,14 @@ init(xlator_t *this)
     }
 #endif
 
+    ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_GLUSTERSHD_RUN_DIR);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CREATE_DIR_FAILED,
+               "Unable to create "
+               "glustershd running directory");
+        exit(1);
+    }
+
     ret = glusterd_init_var_run_dirs(this, rundir, GLUSTERD_QUOTAD_RUN_DIR);
     if (ret) {
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_CREATE_DIR_FAILED,
@@ -1877,16 +1885,12 @@ init(xlator_t *this)
     CDS_INIT_LIST_HEAD(&conf->snapshots);
     CDS_INIT_LIST_HEAD(&conf->missed_snaps_list);
     CDS_INIT_LIST_HEAD(&conf->brick_procs);
-    CDS_INIT_LIST_HEAD(&conf->shd_procs);
     CDS_INIT_LIST_HEAD(&conf->hostnames);
-    pthread_mutex_init(&conf->attach_lock, NULL);
-    pthread_mutex_init(&conf->volume_lock, NULL);
 
     pthread_mutex_init(&conf->mutex, NULL);
     conf->rpc = rpc;
     conf->uds_rpc = uds_rpc;
     conf->gfs_mgmt = &gd_brick_prog;
-    conf->restart_shd = _gf_false;
     this->private = conf;
     /* conf->workdir and conf->rundir are smaller than PATH_MAX; gcc's
      * snprintf checking will throw an error here if sprintf is used.
@@ -1912,7 +1916,6 @@ init(xlator_t *this)
 
     synclock_init(&conf->big_lock, SYNC_LOCK_RECURSIVE);
     synccond_init(&conf->cond_restart_bricks);
-    synccond_init(&conf->cond_restart_shd);
     synccond_init(&conf->cond_blockers);
     pthread_mutex_init(&conf->xprt_lock, NULL);
     INIT_LIST_HEAD(&conf->xprt_list);
@@ -1977,6 +1980,7 @@ init(xlator_t *this)
 #ifdef BUILD_GNFS
     glusterd_nfssvc_build(&conf->nfs_svc);
 #endif
+    glusterd_shdsvc_build(&conf->shd_svc);
     glusterd_quotadsvc_build(&conf->quotad_svc);
     glusterd_bitdsvc_build(&conf->bitd_svc);
     glusterd_scrubsvc_build(&conf->scrub_svc);
