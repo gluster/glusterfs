@@ -774,7 +774,6 @@ parse_opts(int key, char *arg, struct argp_state *state)
 #endif
     double d = 0.0;
     gf_boolean_t b = _gf_false;
-    char *pwd = NULL;
     char *tmp_str = NULL;
     char *port_str = NULL;
     struct passwd *pw = NULL;
@@ -860,16 +859,13 @@ parse_opts(int key, char *arg, struct argp_state *state)
             GF_FREE(cmd_args->volfile);
 
             if (arg[0] != '/') {
-                pwd = getcwd(NULL, PATH_MAX);
-                if (!pwd) {
+                char pwd[PATH_MAX];
+                if (!getcwd(pwd, PATH_MAX)) {
                     argp_failure(state, -1, errno,
                                  "getcwd failed with error no %d", errno);
                     break;
                 }
-                char tmp_buf[1024];
-                snprintf(tmp_buf, sizeof(tmp_buf), "%s/%s", pwd, arg);
-                cmd_args->volfile = gf_strdup(tmp_buf);
-                free(pwd);
+                gf_asprintf(&cmd_args->volfile, "%s/%s", pwd, arg);
             } else {
                 cmd_args->volfile = gf_strdup(arg);
             }
