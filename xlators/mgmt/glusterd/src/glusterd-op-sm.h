@@ -316,8 +316,8 @@ glusterd_option_fetch(glusterd_volinfo_t *volinfo, char *input_key,
                       char **deflt_val);
 
 int
-glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
-                                char *value, char **errstr);
+glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, dict_t *dict,
+                                char **errstr);
 
 int
 glusterd_option_fetch_bool(glusterd_volinfo_t *volinfo, char *key);

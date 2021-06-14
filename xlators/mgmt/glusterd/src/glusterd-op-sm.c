@@ -2832,6 +2832,55 @@ out:
     return ret;
 }
 
+// Check if the respective option key is being set currently
+
+static int
+glusterd_find_key_value_in_options_dict(dict_t *dict, char *comp_key,
+                                        gf_boolean_t *value)
+{
+    int count = 1;
+    int ret = 0;
+    char *key = NULL;
+    char *opt_value = NULL;
+    char keystr[50] = {
+        0,
+    };
+    int keylen;
+
+    for (count = 1; ret != -1; count++) {
+        keylen = snprintf(keystr, sizeof(keystr), "key%d", count);
+        ret = dict_get_strn(dict, keystr, keylen, &key);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Failed to get key from dict");
+            break;
+        }
+
+        if (strcmp(key, comp_key) == 0) {
+            keylen = snprintf(keystr, sizeof(keystr), "value%d", count);
+            ret = dict_get_strn(dict, keystr, keylen, &opt_value);
+            if (ret) {
+                gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                       "invalid key,value pair in 'volume set'");
+                break;
+            }
+        }
+    }
+
+    if (ret)
+        return 0;
+    else {
+        // Convert the value for the key to a boolean value
+        ret = gf_string2boolean(opt_value, value);
+        if (ret == -1) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
+                   "Invalid value entry");
+            return 0;
+        }
+        return 1;
+    }
+}
+
 // Fetch the value of glusterd option passed as arg
 
 void
@@ -2901,8 +2950,8 @@ glusterd_option_fetch_bool(glusterd_volinfo_t *volinfo, char *input_key)
 // Check the options set in the cluster/per-volume satisfy the dependency chain
 
 int
-glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
-                                char *value, char **errstr)
+glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, dict_t *dict,
+                                char **errstr)
 {
     int ind = 0;
     int j = 0;
@@ -2910,15 +2959,8 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
     int match_cnt = 0;
     int ret = -1;
     int value_cmp = 0;
-    gf_boolean_t value_bool = _gf_false;
-
-    // Convert the value arg to a boolean value
-    ret = gf_string2boolean(value, &value_bool);
-    if (ret == -1) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY,
-               "Invalid value entry");
-        goto out;
-    }
+    int option_found = 0;
+    gf_boolean_t value = _gf_false;
 
     // Going through each of the predicates in the prohibhited_clauses list and
     // comparing the values for each of the options for a volume
@@ -2932,9 +2974,15 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, char *key,
             while (!prohibited_clauses[ind][j].op) {
                 // If the option being set now, is present in the
                 // prohibhited_clauses list
-                if (strcmp(key, prohibited_clauses[ind][j].op) == 0) {
-                    value_cmp = value_bool ? 1 : 0;
-                } else {
+                if (dict) {
+                    option_found = glusterd_find_key_value_in_options_dict(
+                        dict, prohibited_clauses[ind][j].op, &value);
+                    if (option_found) {
+                        value_cmp = value ? 1 : 0;
+                    }
+                }
+
+                if (!dict || !option_found) {
                     // Else, compare the value of an option in the predicate
                     // with the value set for the volume
                     value_cmp = glusterd_option_fetch_bool(
@@ -3136,23 +3184,12 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
         if (global_opt) {
             cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
             {
-                /* Check dependency of a global option before setting them */
-                ret = glusterd_dependency_chain_check(voliter, key, value,
-                                                      errstr);
-                if (ret)
-                    goto out;
-
                 value = gf_strdup(value);
                 ret = dict_set_dynstr(voliter->dict, key, value);
                 if (ret)
                     goto out;
             }
         } else {
-            /* Check dependency of per-volume option before setting them */
-            ret = glusterd_dependency_chain_check(volinfo, key, value, errstr);
-            if (ret)
-                goto out;
-
             ret = dict_set_dynstr(volinfo->dict, key, value);
             if (ret)
                 goto out;
@@ -3164,27 +3201,26 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
         }
     }
 
-    // // Check if the options set above satisfy the option dependency chain
-    // if (global_opt) {
-    //     cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
-    //     {
-    //         ret = glusterd_dependency_chain_check(voliter, key, value,
-    //                                               errstr);
-    //         if (ret)
-    //             goto out;
-    //     }
-    // } else {
-    //     /* Check dependency of per-volume option before setting them */
-    //     ret = glusterd_dependency_chain_check(volinfo, key, value, errstr);
-    //     if (ret)
-    //         goto out;
-    // }
-
     if (count == 1) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_NO_OPTIONS_GIVEN,
                "No options received ");
         ret = -1;
         goto out;
+    }
+
+    // Check if the options set above satisfy the option dependency chain
+    if (global_opt) {
+        cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
+        {
+            ret = glusterd_dependency_chain_check(voliter, dict, errstr);
+            if (ret)
+                goto out;
+        }
+    } else {
+        /* Check dependency of per-volume option before setting them */
+        ret = glusterd_dependency_chain_check(volinfo, dict, errstr);
+        if (ret)
+            goto out;
     }
 
     /* Update the cluster op-version before regenerating volfiles so that
