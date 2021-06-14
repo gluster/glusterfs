@@ -2964,14 +2964,14 @@ glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, dict_t *dict,
 
     // Going through each of the predicates in the prohibhited_clauses list and
     // comparing the values for each of the options for a volume
-    while (prohibited_clauses[ind] && !prohibited_clauses[ind][0].op) {
+    while (prohibited_clauses[ind] && prohibited_clauses[ind][0].op) {
         // Copy the predicate clause, which should be logged in case of failure
         if (prohibited_clauses[ind][0].val == OP_CLAUSE_LABEL) {
             clause_ind = ind;
         } else {
             match_cnt = 0;
             j = 0;
-            while (!prohibited_clauses[ind][j].op) {
+            while (prohibited_clauses[ind][j].op) {
                 // If the option being set now, is present in the
                 // prohibhited_clauses list
                 if (dict) {
