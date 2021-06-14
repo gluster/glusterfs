@@ -23,6 +23,7 @@ TEST dd if=/dev/zero of=$M0/foo bs=1048576 count=10 oflag=direct
 EXPECT "10485760" echo `ls -la $M0 | grep foo | awk '{print $5}'`
 
 TEST $CLI volume set $V0 performance.read-ahead on
+TEST $CLI volume set $V0 performance.readdir-ahead on
 TEST $CLI volume set $V0 performance.parallel-readdir on
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0

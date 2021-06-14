@@ -847,8 +847,8 @@ static const opval_dep_t prohibited_clauses[][5] = {
     {// Clause: performance.parallel-readdir => (performance.readdir-ahead &&
      // (dht.force-readdirp || performance.readdirp))
      {"performance.parallel-readdir depends on performance.readdir-ahead and "
-      "either of (dht.force-readdirp, performance.readdirp). Please check the "
-      "values of the dependencies",
+      "either of (dht.force-readdirp, performance.force-readdirp). Please "
+      "check the values of the dependencies",
       OP_CLAUSE_LABEL},
      {
          0,
