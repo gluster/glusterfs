@@ -85,12 +85,11 @@ resolve_gfid_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    link_inode = inode_link(inode, resolve_loc->parent, resolve_loc->name, buf);
+    link_inode = inode_link_lookup(inode, resolve_loc->parent,
+                                   resolve_loc->name, buf);
 
     if (!link_inode)
         goto out;
-
-    inode_lookup(link_inode);
 
     inode_unref(link_inode);
 

@@ -49,8 +49,8 @@ server_post_mknod(server_state_t *state, gfs3_mknod_rsp *rsp,
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc.parent, state->loc.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
 
@@ -65,8 +65,8 @@ server_post_mkdir(server_state_t *state, gfs3_mkdir_rsp *rsp, inode_t *inode,
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc.parent, state->loc.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
 
@@ -108,8 +108,8 @@ server_post_symlink(server_state_t *state, gfs3_symlink_rsp *rsp,
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc.parent, state->loc.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
 
@@ -124,8 +124,8 @@ server_post_link(server_state_t *state, gfs3_link_rsp *rsp, inode_t *inode,
     gf_stat_from_iatt(&rsp->preparent, preparent);
     gf_stat_from_iatt(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc2.parent, state->loc2.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc2.parent, state->loc2.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
 
@@ -453,10 +453,9 @@ server_post_lookup(gfs3_lookup_rsp *rsp, call_frame_t *frame,
     root_inode = frame->root->client->bound_xl->itable->root;
 
     if (!__is_root_gfid(inode->gfid)) {
-        link_inode = inode_link(inode, state->loc.parent, state->loc.name,
-                                stbuf);
+        link_inode = inode_link_lookup(inode, state->loc.parent,
+                                       state->loc.name, stbuf);
         if (link_inode) {
-            inode_lookup(link_inode);
             inode_unref(link_inode);
         }
     }
@@ -523,8 +522,8 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
     gfx_stat_from_iattx(&rsp->preparent, preparent);
     gfx_stat_from_iattx(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc.parent, state->loc.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc.parent, state->loc.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
 
@@ -792,10 +791,9 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
     root_inode = frame->root->client->bound_xl->itable->root;
 
     if (!__is_root_gfid(inode->gfid)) {
-        link_inode = inode_link(inode, state->loc.parent, state->loc.name,
-                                stbuf);
+        link_inode = inode_link_lookup(inode, state->loc.parent,
+                                       state->loc.name, stbuf);
         if (link_inode) {
-            inode_lookup(link_inode);
             inode_unref(link_inode);
         }
     }
@@ -836,7 +834,7 @@ server4_post_link(server_state_t *state, gfx_common_3iatt_rsp *rsp,
     gfx_stat_from_iattx(&rsp->preparent, preparent);
     gfx_stat_from_iattx(&rsp->postparent, postparent);
 
-    link_inode = inode_link(inode, state->loc2.parent, state->loc2.name, stbuf);
-    inode_lookup(link_inode);
+    link_inode = inode_link_lookup(inode, state->loc2.parent, state->loc2.name,
+                                   stbuf);
     inode_unref(link_inode);
 }
