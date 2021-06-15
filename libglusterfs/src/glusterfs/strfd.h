@@ -11,15 +11,22 @@
 #ifndef _STRFD_H
 #define _STRFD_H
 
+/* This is a stack-allocated object used to collect
+   (mostly by concatenation) strings with all usual
+   C burden like strlen(), realloc() etc. hidden. */
+
 typedef struct {
-    void *data;
-    size_t alloc_size;
+    char *data;
     size_t size;
-    off_t pos;
+#ifdef HAVE_OPEN_MEMSTREAM
+    FILE *fp;
+#else
+    size_t alloc_size;
+#endif /* HAVE_OPEN_MEMSTREAM */
 } strfd_t;
 
-strfd_t *
-strfd_open();
+int
+strfd_open(strfd_t *strfd);
 
 int
 strprintf(strfd_t *strfd, const char *fmt, ...)
@@ -28,7 +35,7 @@ strprintf(strfd_t *strfd, const char *fmt, ...)
 int
 strvprintf(strfd_t *strfd, const char *fmt, va_list ap);
 
-int
+void
 strfd_close(strfd_t *strfd);
 
 #endif

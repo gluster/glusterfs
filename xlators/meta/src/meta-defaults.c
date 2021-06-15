@@ -239,8 +239,8 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
                       size_t size, dict_t *xdata)
 {
     struct meta_ops *ops = NULL;
-    strfd_t *strfd = NULL;
     struct iatt iatt = {};
+    strfd_t strfd;
     int len = -1;
 
     ops = meta_ops_get(loc->inode, this);
@@ -249,23 +249,22 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
     }
 
-    strfd = strfd_open();
-    if (!strfd) {
+    if (strfd_open(&strfd)) {
         META_STACK_UNWIND(readlink, frame, -1, ENOMEM, 0, 0, 0);
         return 0;
     }
 
-    ops->link_fill(this, loc->inode, strfd);
+    ops->link_fill(this, loc->inode, &strfd);
 
     meta_iatt_fill(&iatt, loc->inode, IA_IFLNK);
 
-    if (strfd->data) {
-        len = strlen(strfd->data);
-        META_STACK_UNWIND(readlink, frame, len, 0, strfd->data, &iatt, xdata);
+    if (strfd.data) {
+        len = strfd.size;
+        META_STACK_UNWIND(readlink, frame, len, 0, strfd.data, &iatt, xdata);
     } else
         META_STACK_UNWIND(readlink, frame, -1, ENODATA, 0, 0, 0);
 
-    strfd_close(strfd);
+    strfd_close(&strfd);
 
     return 0;
 }

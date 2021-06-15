@@ -1112,6 +1112,11 @@ if test "x${have_posix_fallocate}" = "xyes"; then
    AC_DEFINE(HAVE_POSIX_FALLOCATE, 1, [define if posix_fallocate exists])
 fi
 
+AC_CHECK_FUNC([open_memstream], [have_open_memstream=yes])
+if test "x${have_open_memstream}" = "xyes"; then
+   AC_DEFINE(HAVE_OPEN_MEMSTREAM, 1, [define if open_memstream exists])
+fi
+
 # On fedora-29, copy_file_range syscall and the libc API both are present.
 # Whereas, on some machines such as centos-7, RHEL-7, the API is not there.
 # Only the system call is present. So, this change is to determine whether
