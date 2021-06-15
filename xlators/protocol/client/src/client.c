@@ -2679,6 +2679,9 @@ init(xlator_t *this)
 
     ret = client_init_rpc(this);
 out:
+    if (ret == -1 && conf) {
+        GF_FREE(conf);
+    }
     if (ret)
         this->fini(this);
 
