@@ -172,3 +172,15 @@ function dht_first_filename_with_hashsubvol()
         done
         return 1
 }
+
+function has_phase1_attrs()
+{
+    local file="$1"
+#-g checks SGID bit. -k checks for sticky bit
+    if [ -g "$file" ] && [ -k "$file" ]
+    then
+        echo "Y"
+    else
+        echo "N"
+    fi
+}

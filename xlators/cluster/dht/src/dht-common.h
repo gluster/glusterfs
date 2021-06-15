@@ -1253,38 +1253,8 @@ dht_check_and_open_fd_on_subvol(xlator_t *this, call_frame_t *frame);
 /* FD fop callbacks */
 
 int
-dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-               int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-               dict_t *xdata);
-
-int
 dht_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
               int op_errno, dict_t *xdata);
-
-int
-dht_file_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                     int op_ret, int op_errno, struct iatt *prebuf,
-                     struct iatt *postbuf, dict_t *xdata);
-
-int
-dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                 dict_t *xdata);
-
-int
-dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                dict_t *xdata);
-
-int
-dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                  int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                  dict_t *xdata);
-
-int
-dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
-                 int op_errno, struct iatt *prebuf, struct iatt *postbuf,
-                 dict_t *xdata);
 
 int
 dht_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -1379,4 +1349,12 @@ dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
 
 int
 dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol);
+
+void
+dht_inode_write_unwind(glusterfs_fop_t fop, call_frame_t *frame, int32_t op_ret,
+                       int32_t op_errno, struct iatt *prestat,
+                       struct iatt *poststat, dict_t *xdata);
+
+void
+dht_inode_write_wind(call_frame_t *frame, xlator_t *wind_subvol);
 #endif /* _DHT_H */

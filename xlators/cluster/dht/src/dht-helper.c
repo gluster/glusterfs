@@ -286,51 +286,17 @@ dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
 
     switch (fop) {
         case GF_FOP_WRITE:
-            STACK_WIND_COOKIE(frame, dht_writev_cbk, subvol, subvol,
-                              subvol->fops->writev, fd, local->rebalance.vector,
-                              local->rebalance.count, local->rebalance.offset,
-                              local->rebalance.flags, local->rebalance.iobref,
-                              local->xattr_req);
+        case GF_FOP_FSETATTR:
+        case GF_FOP_ZEROFILL:
+        case GF_FOP_DISCARD:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_FTRUNCATE:
+            dht_inode_write_wind(frame, subvol);
             break;
 
         case GF_FOP_FLUSH:
             STACK_WIND(frame, dht_flush_cbk, subvol, subvol->fops->flush, fd,
                        local->xattr_req);
-            break;
-
-        case GF_FOP_FSETATTR:
-            STACK_WIND_COOKIE(frame, dht_file_setattr_cbk, subvol, subvol,
-                              subvol->fops->fsetattr, fd,
-                              &local->rebalance.stbuf, local->rebalance.flags,
-                              local->xattr_req);
-            break;
-
-        case GF_FOP_ZEROFILL:
-            STACK_WIND_COOKIE(frame, dht_zerofill_cbk, subvol, subvol,
-                              subvol->fops->zerofill, fd,
-                              local->rebalance.offset, local->rebalance.size,
-                              local->xattr_req);
-
-            break;
-
-        case GF_FOP_DISCARD:
-            STACK_WIND_COOKIE(frame, dht_discard_cbk, subvol, subvol,
-                              subvol->fops->discard, local->fd,
-                              local->rebalance.offset, local->rebalance.size,
-                              local->xattr_req);
-            break;
-
-        case GF_FOP_FALLOCATE:
-            STACK_WIND_COOKIE(frame, dht_fallocate_cbk, subvol, subvol,
-                              subvol->fops->fallocate, fd,
-                              local->rebalance.flags, local->rebalance.offset,
-                              local->rebalance.size, local->xattr_req);
-            break;
-
-        case GF_FOP_FTRUNCATE:
-            STACK_WIND_COOKIE(frame, dht_truncate_cbk, subvol, subvol,
-                              subvol->fops->ftruncate, fd,
-                              local->rebalance.offset, local->xattr_req);
             break;
 
         case GF_FOP_FSYNC:
@@ -397,31 +363,16 @@ handle_err:
 
     switch (fop) {
         case GF_FOP_WRITE:
-            DHT_STACK_UNWIND(writev, frame, -1, op_errno, NULL, NULL, NULL);
+        case GF_FOP_FSETATTR:
+        case GF_FOP_ZEROFILL:
+        case GF_FOP_DISCARD:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_FTRUNCATE:
+            dht_inode_write_unwind(fop, frame, -1, op_errno, NULL, NULL, NULL);
             break;
 
         case GF_FOP_FLUSH:
             DHT_STACK_UNWIND(flush, frame, -1, op_errno, NULL);
-            break;
-
-        case GF_FOP_FSETATTR:
-            DHT_STACK_UNWIND(fsetattr, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_ZEROFILL:
-            DHT_STACK_UNWIND(zerofill, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_DISCARD:
-            DHT_STACK_UNWIND(discard, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FALLOCATE:
-            DHT_STACK_UNWIND(fallocate, frame, -1, op_errno, NULL, NULL, NULL);
-            break;
-
-        case GF_FOP_FTRUNCATE:
-            DHT_STACK_UNWIND(ftruncate, frame, -1, op_errno, NULL, NULL, NULL);
             break;
 
         case GF_FOP_FSYNC:

@@ -10,9 +10,9 @@
 
 /* TODO: add NS locking */
 
-#include "libxlator.h"
 #include "dht-common.h"
 #include "dht-lock.h"
+#include "libxlator.h"
 #include <glusterfs/byte-order.h>
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>

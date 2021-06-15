@@ -21,7 +21,7 @@ typedef struct {
     int enable[GF_FOP_MAXVALUE];
     int op_count;
     int delay_ppm;
-    int delay_duration;
+    uint64_t delay_duration;
 } dg_t;
 
 #endif /* __DELAY_GEN_H__ */
