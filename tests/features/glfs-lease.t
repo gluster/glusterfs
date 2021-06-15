@@ -28,4 +28,5 @@ TEST $(dirname $0)/glfs-lease-recall $V0 $logdir/glfs-lease-recall.log $logdir/l
 TEST $CLI volume set $V0 leases off
 
 cleanup_tester $(dirname $0)/glfs-lease
+cleanup_tester $(dirname $0)/glfs-lease-recall
 cleanup;
