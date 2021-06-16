@@ -50,11 +50,8 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
     if (!table)
         return NULL;
 
-    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
+    for (i = 0; i < EVENT_EPOLL_SLOTS; i++)
         table[i].fd = -1;
-        LOCK_INIT(&table[i].lock);
-        INIT_LIST_HEAD(&table[i].poller_death);
-    }
 
     event_pool->ereg[table_idx] = table;
     event_pool->slots_used[table_idx] = 0;
