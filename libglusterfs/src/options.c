@@ -751,6 +751,7 @@ validate_list_elements(const char *string, volume_option_t *opt,
     char *key = NULL;
     char *value = NULL;
     int ret = 0;
+    xlator_t *this = THIS;
 
     GF_ASSERT(string);
 
@@ -767,7 +768,7 @@ validate_list_elements(const char *string, volume_option_t *opt,
         key = strtok_r(str_ptr, ":", &substr_sav);
         if (!key || (key_validator && key_validator(key))) {
             ret = -1;
-            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
+            gf_smsg(this->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
                     "list=%s", string, "key=%s", key ? key : "", NULL);
             goto out;
         }
@@ -775,7 +776,7 @@ validate_list_elements(const char *string, volume_option_t *opt,
         value = strtok_r(NULL, ":", &substr_sav);
         if (!value || (value_validator && value_validator(value, opt))) {
             ret = -1;
-            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
+            gf_smsg(this->name, GF_LOG_WARNING, 0, LG_MSG_INVALID_ENTRY,
                     "list=%s", string, "value=%s", key, NULL);
             goto out;
         }
@@ -786,7 +787,7 @@ validate_list_elements(const char *string, volume_option_t *opt,
 
 out:
     GF_FREE(dup_string);
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 

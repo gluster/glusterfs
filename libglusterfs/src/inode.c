@@ -222,24 +222,25 @@ __foreach_ancestor_dentry(dentry_t *dentry,
 {
     inode_t *parent = NULL;
     dentry_t *each = NULL;
+    xlator_t *this = THIS;
     int ret = 0;
 
     if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
+        gf_msg_callingfn(this->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
                          "dentry not found");
         return 0;
     }
 
     ret = per_dentry_fn(dentry, data);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED,
+        gf_smsg(this->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED,
                 "ret=%d", ret, NULL);
         goto out;
     }
 
     parent = dentry->parent;
     if (!parent) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
+        gf_smsg(this->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
                 NULL);
         goto out;
     }
