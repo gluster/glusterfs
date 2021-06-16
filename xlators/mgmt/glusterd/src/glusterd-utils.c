@@ -383,15 +383,16 @@ gd_set_shared_brick_count(glusterd_volinfo_t *volinfo)
 {
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_brickinfo_t *trav = NULL;
+    unsigned char *uuid = MY_UUID;
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (gf_uuid_compare(brickinfo->uuid, uuid))
             continue;
         brickinfo->fs_share_count = 0;
         cds_list_for_each_entry(trav, &volinfo->bricks, brick_list)
         {
-            if (!gf_uuid_compare(trav->uuid, MY_UUID) &&
+            if (!gf_uuid_compare(trav->uuid, uuid) &&
                 (trav->statfs_fsid == brickinfo->statfs_fsid)) {
                 brickinfo->fs_share_count++;
             }
@@ -7286,7 +7287,7 @@ glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
     {
         cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
         {
-            if (gf_uuid_compare(tmpbrkinfo->uuid, MY_UUID))
+            if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
                 continue;
             if ((tmpbrkinfo->port == port) &&
                 !strcmp(tmpbrkinfo->path, brickname)) {
@@ -7302,7 +7303,7 @@ glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
         {
             cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
             {
-                if (gf_uuid_compare(tmpbrkinfo->uuid, MY_UUID))
+                if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
                     continue;
                 if (!strcmp(tmpbrkinfo->path, brickname)) {
                     *brickinfo = tmpbrkinfo;
@@ -8632,6 +8633,7 @@ glusterd_get_local_brickpaths(glusterd_volinfo_t *volinfo, char **pathlist)
     int32_t ret = 0;
     int i = 0;
     glusterd_brickinfo_t *brickinfo = NULL;
+    unsigned char *uuid;
 
     if ((!volinfo) || (!pathlist)) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
@@ -8647,9 +8649,10 @@ glusterd_get_local_brickpaths(glusterd_volinfo_t *volinfo, char **pathlist)
         goto out;
     }
 
+    uuid = MY_UUID;
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (gf_uuid_compare(brickinfo->uuid, uuid))
             continue;
 
         pathlen = snprintf(path, sizeof(path), "--path=%s ", brickinfo->path);
@@ -12620,12 +12623,13 @@ gd_should_i_start_rebalance(glusterd_volinfo_t *volinfo)
     char key[64] = "";
     int keylen;
     char *brickname = NULL;
+    unsigned char *uuid = MY_UUID;
 
     switch (volinfo->rebal.op) {
         case GD_OP_REBALANCE:
             cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
             {
-                if (gf_uuid_compare(MY_UUID, brick->uuid) == 0) {
+                if (gf_uuid_compare(uuid, brick->uuid) == 0) {
                     retval = _gf_true;
                     break;
                 }
@@ -12647,7 +12651,7 @@ gd_should_i_start_rebalance(glusterd_volinfo_t *volinfo)
                                                              &brick, _gf_false);
                 if (ret)
                     goto out;
-                if (gf_uuid_compare(MY_UUID, brick->uuid) == 0) {
+                if (gf_uuid_compare(uuid, brick->uuid) == 0) {
                     retval = _gf_true;
                     break;
                 }
@@ -14449,7 +14453,7 @@ glusterd_get_volinfo_from_brick(char *brick, glusterd_volinfo_t **volinfo)
     {
         cds_list_for_each_entry(brickiter, &voliter->bricks, brick_list)
         {
-            if (gf_uuid_compare(brickiter->uuid, MY_UUID))
+            if (gf_uuid_compare(brickiter->uuid, conf->uuid))
                 continue;
             if (!strcmp(brickiter->path, brick)) {
                 *volinfo = voliter;
@@ -14464,7 +14468,7 @@ glusterd_get_volinfo_from_brick(char *brick, glusterd_volinfo_t **volinfo)
         {
             cds_list_for_each_entry(brickiter, &voliter->bricks, brick_list)
             {
-                if (gf_uuid_compare(brickiter->uuid, MY_UUID))
+                if (gf_uuid_compare(brickiter->uuid, conf->uuid))
                     continue;
                 if (!strcmp(brickiter->path, brick)) {
                     *volinfo = voliter;
