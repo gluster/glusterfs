@@ -83,6 +83,10 @@ struct synctask {
     } tsan;
 #endif
 
+#ifdef HAVE_VALGRIND_API
+    unsigned stackid;
+#endif
+
     ucontext_t ctx;
     struct syncproc *proc;
 
@@ -101,6 +105,10 @@ struct syncproc {
         void *fiber;
         char name[TSAN_THREAD_NAMELEN];
     } tsan;
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    unsigned stackid;
 #endif
 
     ucontext_t sched;
