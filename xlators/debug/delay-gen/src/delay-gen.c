@@ -27,7 +27,7 @@ delay_gen(xlator_t *this, int fop)
         return 0;
 
     if ((rand() % DELAY_GRANULARITY) < dg->delay_ppm)
-        gf_nanosleep(dg->delay_duration * GF_US_IN_NS);
+        gf_nanosleep((uint64_t)dg->delay_duration * GF_US_IN_NS);
 
     return 0;
 }
@@ -530,7 +530,7 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("delay-percentage", delay_percent, percent, out);
     GF_OPTION_INIT("enable", delay_enable_fops, str, out);
-    GF_OPTION_INIT("delay-duration", dg->delay_duration, int32, out);
+    GF_OPTION_INIT("delay-duration", dg->delay_duration, uint32, out);
 
     delay_gen_set_delay_ppm(dg, delay_percent);
 
