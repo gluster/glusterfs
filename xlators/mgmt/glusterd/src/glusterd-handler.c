@@ -76,7 +76,11 @@ glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
     int ret = -1;
 
     synclock_lock(&priv->big_lock);
+    /* If flag is set it means got terminate signal */
+    if (priv->call_fini)
+        goto out;
     ret = actor_fn(req);
+out:
     synclock_unlock(&priv->big_lock);
 
     return ret;
