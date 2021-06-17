@@ -808,8 +808,9 @@ unlock:
             goto unwind;
         }
 
-        ret = afr_serialize_xattrs_with_delimiter(frame, this, xattr_serz,
-                                                  UUID0_STR, &tlen, ' ');
+        ret = afr_serialize_xattrs_with_delimiter(
+            frame, this, xattr_serz, local->cont.getxattr.xattr_len, UUID0_STR,
+            &tlen, ' ');
         if (ret) {
             local->op_ret = -1;
             local->op_errno = ENOMEM;
