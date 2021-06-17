@@ -676,8 +676,7 @@ out:
         /* Revert the changes in case of failure */
         ret = sys_rmdir(pathname);
         if (ret) {
-            gf_msg_debug(this->name, 0, "Failed to rmdir: %s,err: %s", pathname,
-                         strerror(errno));
+            gf_msg_debug(this->name, errno, "Failed to rmdir: %s", pathname);
         }
 
         ret = sys_rename(delete_path, pathname);
@@ -689,8 +688,7 @@ out:
 
         ret = sys_rmdir(trashdir);
         if (ret) {
-            gf_msg_debug(this->name, 0, "Failed to rmdir: %s, Reason: %s",
-                         trashdir, strerror(errno));
+            gf_msg_debug(this->name, errno, "Failed to rmdir: %s", trashdir);
         }
     }
 
@@ -2607,10 +2605,9 @@ glusterd_do_lvm_snapshot_remove(glusterd_volinfo_t *snap_vol,
         if (!ret)
             break;
 
-        gf_msg_debug(this->name, 0,
-                     "umount failed for "
-                     "path %s (brick: %s): %s. Retry(%d)",
-                     mount_pt, brickinfo->path, strerror(errno), retry_count);
+        gf_msg_debug(this->name, errno,
+                     "umount failed for path %s (brick: %s). Retry(%d)",
+                     mount_pt, brickinfo->path, retry_count);
 
         /*
          * This used to be one second, but that wasn't long enough

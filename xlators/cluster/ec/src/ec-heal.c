@@ -303,11 +303,8 @@ ec_heal_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     ec_trace("WRITE_CBK", cookie, "ret=%d, errno=%d", op_ret, op_errno);
 
-    gf_msg_debug(fop->xl->name, 0,
-                 "%s: write op_ret %d, op_errno %s"
-                 " at %" PRIu64,
-                 uuid_utoa(heal->fd->inode->gfid), op_ret, strerror(op_errno),
-                 heal->offset);
+    gf_msg_debug(fop->xl->name, op_errno, "%s: write op_ret %d at %" PRIu64,
+                 uuid_utoa(heal->fd->inode->gfid), op_ret, heal->offset);
 
     ec_heal_update(cookie, 0);
 
@@ -337,11 +334,10 @@ ec_heal_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   heal->offset, 0, iobref, NULL);
     } else {
         if (op_ret < 0) {
-            gf_msg_debug(fop->xl->name, 0,
-                         "%s: read failed %s, failing "
+            gf_msg_debug(fop->xl->name, op_errno,
+                         "%s: read failed, failing "
                          "to heal block at %" PRIu64,
-                         uuid_utoa(heal->fd->inode->gfid), strerror(op_errno),
-                         heal->offset);
+                         uuid_utoa(heal->fd->inode->gfid), heal->offset);
             heal->bad = 0;
         }
         heal->done = 1;
@@ -1118,9 +1114,8 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     dict_del(gfid_db, key);
 out:
     if (ret < 0) {
-        gf_msg_debug(ec->xl->name, 0, "%s/%s: heal failed %s",
-                     uuid_utoa(name_data->parent->gfid), name_data->name,
-                     strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s/%s: heal failed",
+                     uuid_utoa(name_data->parent->gfid), name_data->name);
     }
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
@@ -1310,8 +1305,8 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     ret = 0;
 out:
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, 0, "%s/%s: heal failed %s",
-                     uuid_utoa(parent->gfid), name, strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s/%s: heal failed",
+                     uuid_utoa(parent->gfid), name);
     cluster_replies_wipe(replies, ec->nodes);
     loc_wipe(&loc);
     loc_wipe(&srcloc);
@@ -1866,8 +1861,8 @@ out:
     cluster_replies_wipe(replies, ec->nodes);
     cluster_replies_wipe(fstat_replies, ec->nodes);
     if (ret < 0) {
-        gf_msg_debug(ec->xl->name, 0, "%s: heal failed %s",
-                     uuid_utoa(fd->inode->gfid), strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
+                     uuid_utoa(fd->inode->gfid));
     } else {
         gf_msg_debug(ec->xl->name, 0,
                      "%s: sources: %d, sinks: "
@@ -1939,8 +1934,8 @@ out:
     if (xattrs)
         dict_unref(xattrs);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, 0, "%s: heal failed %s",
-                     uuid_utoa(fd->inode->gfid), strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
+                     uuid_utoa(fd->inode->gfid));
     return ret;
 }
 
@@ -2113,8 +2108,8 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     LOCK_DESTROY(&heal->lock);
     syncbarrier_destroy(heal->data);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, 0, "%s: heal failed %s",
-                     uuid_utoa(fd->inode->gfid), strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
+                     uuid_utoa(fd->inode->gfid));
     return ret;
 }
 
@@ -2153,8 +2148,8 @@ __ec_heal_trim_sinks(call_frame_t *frame, ec_t *ec, fd_t *fd,
 out:
     cluster_replies_wipe(replies, ec->nodes);
     if (ret < 0)
-        gf_msg_debug(ec->xl->name, 0, "%s: heal failed %s",
-                     uuid_utoa(fd->inode->gfid), strerror(-ret));
+        gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
+                     uuid_utoa(fd->inode->gfid));
     return ret;
 }
 

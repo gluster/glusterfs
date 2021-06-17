@@ -185,11 +185,9 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (op_ret == -1) {
         op_errno = errno;
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "lstat on gfid-handle %s (path: %s)"
-                         "failed: %s",
-                         real_path ? real_path : "<null>", loc->path,
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno,
+                         "lstat on gfid-handle %s (path: %s) failed",
+                         real_path ? real_path : "<null>", loc->path);
         } else {
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_LSTAT_FAILED,
                    "lstat on gfid-handle %s (path: %s) failed",
@@ -260,7 +258,7 @@ posix_do_chmod(xlator_t *this, const char *path, struct iatt *stbuf)
      * to handle all cases. */
     if ((ret < 0) &&
         ((errno == ENOSYS) || (errno == EOPNOTSUPP) || (errno == ENOTSUP))) {
-        gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -343,7 +341,7 @@ posix_do_utimes(xlator_t *this, const char *path, struct iatt *stbuf, int valid)
 
     ret = PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv);
     if ((ret == -1) && (errno == ENOSYS)) {
-        gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -4209,10 +4207,10 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             if (size == -1) {
                 op_errno = errno;
                 if (errno == ENODATA || errno == ENOATTR) {
-                    gf_msg_debug(this->name, 0,
+                    gf_msg_debug(this->name, op_errno,
                                  "fgetxattr"
-                                 " failed on key %s (%s)",
-                                 key, strerror(op_errno));
+                                 " failed on key %s",
+                                 key);
                 } else {
                     gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                            "fgetxattr"
@@ -5069,16 +5067,13 @@ unlock:
         op_ret = dict_set_bin(filler->xattr, k, array, count);
         if (op_ret) {
             if (filler->real_path)
-                gf_msg_debug(this->name, 0,
-                             "dict_set_bin failed (path=%s): "
-                             "key=%s (%s)",
-                             filler->real_path, k, strerror(-size));
+                gf_msg_debug(this->name, -size,
+                             "dict_set_bin failed (path=%s): key=%s",
+                             filler->real_path, k);
             else
-                gf_msg_debug(this->name, 0,
-                             "dict_set_bin failed (gfid=%s): "
-                             "key=%s (%s)",
-                             uuid_utoa(filler->inode->gfid), k,
-                             strerror(-size));
+                gf_msg_debug(this->name, -size,
+                             "dict_set_bin failed (gfid=%s): key=%s",
+                             uuid_utoa(filler->inode->gfid), k);
 
             op_ret = -1;
             op_errno = EINVAL;

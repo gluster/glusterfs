@@ -59,8 +59,8 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (op_ret == -1 && !dht_inode_missing(op_errno)) {
         local->op_errno = op_errno;
         local->op_ret = -1;
-        gf_msg_debug(this->name, 0, "subvolume %s returned -1 (%s)", prev->name,
-                     strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
+                     prev->name);
         goto out;
     }
 

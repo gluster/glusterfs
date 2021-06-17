@@ -1210,8 +1210,8 @@ dht_rename_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     prev = cookie;
 
     if (op_ret == -1) {
-        gf_msg_debug(this->name, 0, "link/file on %s failed (%s)", prev->name,
-                     strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "link/file on %s failed",
+                     prev->name);
         local->op_ret = -1;
         local->op_errno = op_errno;
         local->added_link = _gf_false;
@@ -1248,8 +1248,8 @@ dht_rename_linkto_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     src_cached = local->src_cached;
 
     if (op_ret == -1) {
-        gf_msg_debug(this->name, 0, "link/file on %s failed (%s)", prev->name,
-                     strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "link/file on %s failed",
+                     prev->name);
         local->op_ret = -1;
         local->op_errno = op_errno;
     }
@@ -1298,8 +1298,8 @@ dht_rename_unlink_links_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     prev = cookie;
 
     if ((op_ret == -1) && (op_errno != ENOENT)) {
-        gf_msg_debug(this->name, 0, "unlink of %s on %s failed (%s)",
-                     local->loc2.path, prev->name, strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "unlink of %s on %s failed ",
+                     local->loc2.path, prev->name);
         local->op_ret = -1;
         local->op_errno = op_errno;
     }

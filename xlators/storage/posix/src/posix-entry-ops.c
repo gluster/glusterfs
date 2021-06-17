@@ -1937,10 +1937,10 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         if (op_ret == -1) {
             op_errno = errno;
             if (op_errno == ENOTEMPTY) {
-                gf_msg_debug(this->name, 0,
+                gf_msg_debug(this->name, op_errno,
                              "rename of %s to"
-                             " %s failed: %s",
-                             real_oldpath, real_newpath, strerror(op_errno));
+                             " %s failed",
+                             real_oldpath, real_newpath);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_RENAME_FAILED,
                        "rename of %s to %s failed", real_oldpath, real_newpath);

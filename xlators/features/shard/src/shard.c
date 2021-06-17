@@ -5084,10 +5084,8 @@ shard_common_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             local->op_ret = op_ret;
             local->op_errno = op_errno;
         }
-        gf_msg_debug(this->name, 0,
-                     "mknod of shard %d "
-                     "failed: %s",
-                     shard_block_num, strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "mknod of shard %d failed",
+                     shard_block_num);
         goto done;
     }
 

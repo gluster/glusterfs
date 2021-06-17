@@ -452,10 +452,8 @@ br_log_object(xlator_t *this, char *op, uuid_t gfid, int32_t op_errno)
 {
     int softerror = br_object_sign_softerror(op_errno);
     if (softerror) {
-        gf_msg_debug(this->name, 0,
-                     "%s() failed on object %s "
-                     "[reason: %s]",
-                     op, uuid_utoa(gfid), strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "%s() failed on object %s", op,
+                     uuid_utoa(gfid));
     } else {
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
                 op, "gfid=%s", uuid_utoa(gfid), NULL);
@@ -467,10 +465,8 @@ br_log_object_path(xlator_t *this, char *op, const char *path, int32_t op_errno)
 {
     int softerror = br_object_sign_softerror(op_errno);
     if (softerror) {
-        gf_msg_debug(this->name, 0,
-                     "%s() failed on object %s "
-                     "[reason: %s]",
-                     op, path, strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "%s() failed on object %s", op,
+                     path);
     } else {
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
                 op, "path=%s", path, NULL);

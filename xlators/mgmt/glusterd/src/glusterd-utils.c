@@ -1897,8 +1897,8 @@ glusterd_service_stop_nolock(const char *service, char *pidfile, int sig,
 
     if (kill(pid, 0) < 0) {
         ret = 0;
-        gf_msg_debug(this->name, 0, "%s process not running: (%d) %s", service,
-                     pid, strerror(errno));
+        gf_msg_debug(this->name, errno, "%s process not running: (%d)", service,
+                     pid);
         goto out;
     }
     gf_msg_debug(this->name, 0,
@@ -7838,10 +7838,7 @@ glusterd_add_brick_detail_to_dict(glusterd_volinfo_t *volinfo,
     ret = glusterd_add_inode_size_to_dict(dict, count);
 out:
     if (ret)
-        gf_msg_debug(this->name, 0,
-                     "Error adding brick"
-                     " detail to dict: %s",
-                     strerror(errno));
+        gf_msg_debug(this->name, errno, "Error adding brick detail to dict");
     return ret;
 }
 

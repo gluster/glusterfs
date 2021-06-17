@@ -417,8 +417,8 @@ out:
         /* stale filehandles are possible during normal operations, no
          * need to spam the logs with these */
         if (rsp.op_errno == ESTALE) {
-            gf_msg_debug(this->name, 0, "remote operation failed: %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -474,10 +474,8 @@ client3_3_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -541,10 +539,8 @@ client3_3_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -945,10 +941,7 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -1011,11 +1004,10 @@ out:
     if (rsp.op_ret == -1) {
         if ((op_errno == ENOTSUP) || (op_errno == ENODATA) ||
             (op_errno == ESTALE) || (op_errno == ENOENT)) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed: %s. Path: %s "
+            gf_msg_debug(this->name, op_errno,
+                         "remote operation failed. Path: %s "
                          "(%s). Key: %s",
-                         strerror(op_errno), local->loc.path,
-                         loc_gfid_utoa(&local->loc),
+                         local->loc.path, loc_gfid_utoa(&local->loc),
                          (local->name) ? local->name : "(null)");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
@@ -1083,8 +1075,7 @@ out:
     if (rsp.op_ret == -1) {
         if ((op_errno == ENOTSUP) || (op_errno == ERANGE) ||
             (op_errno == ENODATA) || (op_errno == ENOENT)) {
-            gf_msg_debug(this->name, 0, "remote operation failed: %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -1781,10 +1772,7 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, rsp.op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
