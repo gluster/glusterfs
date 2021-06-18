@@ -2067,7 +2067,8 @@ do_blocked_rw(pl_inode_t *pl_inode)
     Note: There is no IO blocking with mandatory lock enforced as it may be
     a stale data from an old client.
  */
-gf_boolean_t static within_range(posix_lock_t *existing, posix_lock_t *new)
+static gf_boolean_t
+within_range(posix_lock_t *existing, posix_lock_t *new)
 {
     if (existing->fl_start <= new->fl_start && existing->fl_end >= new->fl_end)
         return _gf_true;
