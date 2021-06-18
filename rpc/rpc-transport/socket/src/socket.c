@@ -4458,8 +4458,6 @@ socket_init(rpc_transport_t *this)
 
     this->private = priv;
     pthread_mutex_init(&priv->out_lock, NULL);
-    pthread_mutex_init(&priv->cond_lock, NULL);
-    pthread_cond_init(&priv->cond, NULL);
 
     /*GF_REF_INIT (priv, socket_poller_mayday);*/
 
@@ -4632,8 +4630,6 @@ fini(rpc_transport_t *this)
         gf_log(this->name, GF_LOG_TRACE, "transport %p destroyed", this);
 
         pthread_mutex_destroy(&priv->out_lock);
-        pthread_mutex_destroy(&priv->cond_lock);
-        pthread_cond_destroy(&priv->cond);
 
         GF_ASSERT(priv->notify.in_progress == 0);
         pthread_mutex_destroy(&priv->notify.lock);
