@@ -255,15 +255,15 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         };
 
         if (!iobref) {
-            iobref = iobref_new();
+            iobref = add_iobuf_to_new_iobref(iobuf);
             if (!iobref) {
                 goto out;
             }
 
             new_iobref = 1;
+        } else {
+            iobref_add(iobref, iobuf);
         }
-
-        iobref_add(iobref, iobuf);
 
         iov.iov_base = iobuf->ptr;
         iov.iov_len = iobuf_size(iobuf);

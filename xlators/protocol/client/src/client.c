@@ -213,11 +213,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
             goto out;
         }
 
-        new_iobref = iobref_new();
-        if (!new_iobref) {
-            goto out;
-        }
-
         if (cp && cp->iobref != NULL) {
             ret = iobref_merge(new_iobref, cp->iobref);
             if (ret != 0) {
@@ -226,8 +221,8 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
             }
         }
 
-        ret = iobref_add(new_iobref, iobuf);
-        if (ret != 0) {
+        new_iobref = add_iobuf_to_new_iobref(iobuf);
+        if (!new_iobref) {
             gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, PC_MSG_ADD_IOBUF_FAILED,
                     NULL);
             goto out;

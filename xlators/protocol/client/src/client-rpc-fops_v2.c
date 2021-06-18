@@ -3014,11 +3014,6 @@ client4_0_lookup(call_frame_t *frame, xlator_t *this, void *data)
     if (args->xdata) {
         content = dict_get_sizen(args->xdata, GF_CONTENT_KEY);
         if (content != NULL) {
-            rsp_iobref = iobref_new();
-            if (rsp_iobref == NULL) {
-                goto unwind;
-            }
-
             /* TODO: what is the size we should send ? */
             /* This change very much depends on quick-read
                changes */
@@ -3027,7 +3022,11 @@ client4_0_lookup(call_frame_t *frame, xlator_t *this, void *data)
                 goto unwind;
             }
 
-            iobref_add(rsp_iobref, rsp_iobuf);
+            rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+            if (rsp_iobref == NULL) {
+                goto unwind;
+            }
+
             memset(vector, 0, sizeof(vector));
             rsphdr = &vector[0];
             rsphdr->iov_base = iobuf_ptr(rsp_iobuf);
@@ -3826,13 +3825,12 @@ client4_0_readv(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    rsp_iobref = iobref_new();
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
     if (rsp_iobref == NULL) {
         op_errno = ENOMEM;
         goto unwind;
     }
 
-    iobref_add(rsp_iobref, rsp_iobuf);
     rsp_vec.iov_base = iobuf_ptr(rsp_iobuf);
     rsp_vec.iov_len = iobuf_pagesize(rsp_iobuf);
     local->iobref = rsp_iobref;
@@ -4998,11 +4996,6 @@ client4_0_readdir(call_frame_t *frame, xlator_t *this, void *data)
 
     if ((readdir_rsp_size + GLUSTERFS_RPC_REPLY_SIZE +
          GLUSTERFS_RDMA_MAX_HEADER_SIZE) > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-        rsp_iobref = iobref_new();
-        if (rsp_iobref == NULL) {
-            goto unwind;
-        }
-
         /* TODO: what is the size we should send ? */
         /* This iobuf will live for only receiving the response,
            so not harmful */
@@ -5011,7 +5004,10 @@ client4_0_readdir(call_frame_t *frame, xlator_t *this, void *data)
             goto unwind;
         }
 
-        iobref_add(rsp_iobref, rsp_iobuf);
+        rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+        if (rsp_iobref == NULL) {
+            goto unwind;
+        }
 
         rsphdr = &vector[0];
         rsphdr->iov_base = iobuf_ptr(rsp_iobuf);
@@ -5109,11 +5105,6 @@ client4_0_readdirp(call_frame_t *frame, xlator_t *this, void *data)
 
     if ((readdirp_rsp_size + GLUSTERFS_RPC_REPLY_SIZE +
          GLUSTERFS_RDMA_MAX_HEADER_SIZE) > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-        rsp_iobref = iobref_new();
-        if (rsp_iobref == NULL) {
-            goto unwind;
-        }
-
         /* TODO: what is the size we should send ? */
         /* This iobuf will live for only receiving the response,
            so not harmful */
@@ -5127,7 +5118,10 @@ client4_0_readdirp(call_frame_t *frame, xlator_t *this, void *data)
         rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
         count = 1;
         local->iobref = rsp_iobref;
-        iobref_add(rsp_iobref, rsp_iobuf);
+        rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+        if (rsp_iobref == NULL) {
+            goto unwind;
+        }
         iobuf_unref(rsp_iobuf);
         rsp_iobuf = NULL;
         rsp_iobref = NULL;

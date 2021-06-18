@@ -158,6 +158,8 @@ struct iobref {
 };
 
 struct iobref *
+add_iobuf_to_new_iobref(struct iobuf *iobuf);
+struct iobref *
 iobref_new(void);
 struct iobref *
 iobref_ref(struct iobref *iobref);

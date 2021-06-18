@@ -110,10 +110,6 @@ rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
     /* mgmt_submit_request is not available in libglusterfs.
      * Need to serialize and submit manually.
      */
-    iobref = iobref_new();
-    if (!iobref) {
-        goto out;
-    }
 
     xdr_size = xdr_sizeof((xdrproc_t)xdr_pmap_signout_req, &req);
     iobuf = iobuf_get2(ctx->iobuf_pool, xdr_size);
@@ -121,7 +117,10 @@ rpc_clnt_mgmt_pmap_signout(glusterfs_ctx_t *ctx, char *brickname)
         goto out;
     };
 
-    iobref_add(iobref, iobuf);
+    iobref = add_iobuf_to_new_iobref(iobuf);
+    if (!iobref) {
+        goto out;
+    }
 
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);

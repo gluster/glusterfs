@@ -82,11 +82,9 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     if (!iobuf)
         goto out;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iobuf);
     if (!iobref)
         goto out;
-
-    iobref_add(iobref, iobuf);
 
     iov.iov_base = iobuf->ptr;
     iov.iov_len = iobuf_pagesize(iobuf);

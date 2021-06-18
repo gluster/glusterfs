@@ -187,17 +187,10 @@ acl3svc_submit_reply(rpcsvc_request_t *req, void *arg, acl3_serializer sfunc)
     }
     outmsg.iov_len = msglen;
 
-    iobref = iobref_new();
-    if (iobref == NULL) {
+    iobref = add_iobuf_to_new_iobref(iob);
+    if (!iobref) {
         gf_msg(GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to get iobref");
-        goto ret;
-    }
-
-    ret = iobref_add(iobref, iob);
-    if (ret) {
-        gf_msg(GF_ACL, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to add iob to iobref");
+               "Failed to get and add iob to iobref");
         goto ret;
     }
 

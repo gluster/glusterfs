@@ -121,17 +121,10 @@ mnt3svc_submit_reply(rpcsvc_request_t *req, void *arg, mnt3_serializer sfunc)
     }
     outmsg.iov_len = msglen;
 
-    iobref = iobref_new();
+    iobref = add_iobuf_to_new_iobref(iob);
     if (iobref == NULL) {
         gf_msg(GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to get iobref");
-        goto ret;
-    }
-
-    ret = iobref_add(iobref, iob);
-    if (ret) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
-               "Failed to add iob to iobref");
+               "Failed to get and add iob to iobref");
         goto ret;
     }
 

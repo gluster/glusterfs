@@ -748,13 +748,11 @@ qr_readv_cached(call_frame_t *frame, qr_inode_t *qr_inode, size_t size,
             goto unlock;
         }
 
-        iobref = iobref_new();
+        iobref = add_iobuf_to_new_iobref(iobuf);
         if (!iobref) {
             op_ret = -1;
             goto unlock;
         }
-
-        iobref_add(iobref, iobuf);
 
         memcpy(iobuf->ptr, qr_inode->data + offset, op_ret);
 

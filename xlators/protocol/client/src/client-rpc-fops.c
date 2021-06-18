@@ -3174,11 +3174,6 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
     if (args->xdata) {
         content = dict_get_sizen(args->xdata, GF_CONTENT_KEY);
         if (content != NULL) {
-            rsp_iobref = iobref_new();
-            if (rsp_iobref == NULL) {
-                goto unwind;
-            }
-
             /* TODO: what is the size we should send ? */
             /* This change very much depends on quick-read
                changes */
@@ -3187,7 +3182,11 @@ client3_3_lookup(call_frame_t *frame, xlator_t *this, void *data)
                 goto unwind;
             }
 
-            iobref_add(rsp_iobref, rsp_iobuf);
+            rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+            if (rsp_iobref == NULL) {
+                goto unwind;
+            }
+
             memset(vector, 0, sizeof(vector));
             rsphdr = &vector[0];
             rsphdr->iov_base = iobuf_ptr(rsp_iobuf);
@@ -3443,11 +3442,6 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    rsp_iobref = iobref_new();
-    if (rsp_iobref == NULL) {
-        goto unwind;
-    }
-
     rsp_iobuf = iobuf_get(this->ctx->iobuf_pool);
     if (rsp_iobuf == NULL) {
         goto unwind;
@@ -3458,7 +3452,11 @@ client3_3_readlink(call_frame_t *frame, xlator_t *this, void *data)
     rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
     count = 1;
     local->iobref = rsp_iobref;
-    iobref_add(rsp_iobref, rsp_iobuf);
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+    if (rsp_iobref == NULL) {
+        op_errno = ENOMEM;
+        goto unwind;
+    }
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
@@ -4016,7 +4014,7 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    rsp_iobref = iobref_new();
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
     if (rsp_iobref == NULL) {
         op_errno = ENOMEM;
         goto unwind;
@@ -4025,7 +4023,6 @@ client3_3_readv(call_frame_t *frame, xlator_t *this, void *data)
     rsp_vec.iov_base = iobuf_ptr(rsp_iobuf);
     rsp_vec.iov_len = iobuf_pagesize(rsp_iobuf);
 
-    iobref_add(rsp_iobref, rsp_iobuf);
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
 
@@ -4542,12 +4539,6 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->local = local;
 
-    rsp_iobref = iobref_new();
-    if (rsp_iobref == NULL) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-
     /* TODO: what is the size we should send ? */
     rsp_iobuf = iobuf_get2(this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
     if (rsp_iobuf == NULL) {
@@ -4561,7 +4552,11 @@ client3_3_fgetxattr(call_frame_t *frame, xlator_t *this, void *data)
     ;
     count = 1;
     local->iobref = rsp_iobref;
-    iobref_add(rsp_iobref, rsp_iobuf);
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+    if (rsp_iobref == NULL) {
+        op_errno = ENOMEM;
+        goto unwind;
+    }
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
@@ -4642,12 +4637,6 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
     if (args->name)
         local->name = gf_strdup(args->name);
 
-    rsp_iobref = iobref_new();
-    if (rsp_iobref == NULL) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-
     /* TODO: what is the size we should send ? */
     rsp_iobuf = iobuf_get2(this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
     if (rsp_iobuf == NULL) {
@@ -4660,7 +4649,11 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
     rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
     count = 1;
     local->iobref = rsp_iobref;
-    iobref_add(rsp_iobref, rsp_iobuf);
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+    if (rsp_iobref == NULL) {
+        op_errno = ENOMEM;
+        goto unwind;
+    }
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
@@ -4763,12 +4756,6 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
     }
     frame->local = local;
 
-    rsp_iobref = iobref_new();
-    if (rsp_iobref == NULL) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-
     /* TODO: what is the size we should send ? */
     rsp_iobuf = iobuf_get2(this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
     if (rsp_iobuf == NULL) {
@@ -4781,7 +4768,11 @@ client3_3_xattrop(call_frame_t *frame, xlator_t *this, void *data)
     rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
     count = 1;
     local->iobref = rsp_iobref;
-    iobref_add(rsp_iobref, rsp_iobuf);
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+    if (rsp_iobref == NULL) {
+        op_errno = ENOMEM;
+        goto unwind;
+    }
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
@@ -4868,12 +4859,6 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
 
     local = frame->local;
 
-    rsp_iobref = iobref_new();
-    if (rsp_iobref == NULL) {
-        op_errno = ENOMEM;
-        goto unwind;
-    }
-
     /* TODO: what is the size we should send ? */
     rsp_iobuf = iobuf_get2(this->ctx->iobuf_pool, 8 * GF_UNIT_KB);
     if (rsp_iobuf == NULL) {
@@ -4886,7 +4871,11 @@ client3_3_fxattrop(call_frame_t *frame, xlator_t *this, void *data)
     rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
     count = 1;
     local->iobref = rsp_iobref;
-    iobref_add(rsp_iobref, rsp_iobuf);
+    rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+    if (rsp_iobref == NULL) {
+        op_errno = ENOMEM;
+        goto unwind;
+    }
     iobuf_unref(rsp_iobuf);
     rsp_iobuf = NULL;
     rsp_iobref = NULL;
@@ -5506,11 +5495,6 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
 
     if ((readdirp_rsp_size + GLUSTERFS_RPC_REPLY_SIZE +
          GLUSTERFS_RDMA_MAX_HEADER_SIZE) > (GLUSTERFS_RDMA_INLINE_THRESHOLD)) {
-        rsp_iobref = iobref_new();
-        if (rsp_iobref == NULL) {
-            goto unwind;
-        }
-
         /* TODO: what is the size we should send ? */
         /* This iobuf will live for only receiving the response,
            so not harmful */
@@ -5524,7 +5508,10 @@ client3_3_readdirp(call_frame_t *frame, xlator_t *this, void *data)
         rsphdr->iov_len = iobuf_pagesize(rsp_iobuf);
         count = 1;
         local->iobref = rsp_iobref;
-        iobref_add(rsp_iobref, rsp_iobuf);
+        rsp_iobref = add_iobuf_to_new_iobref(rsp_iobuf);
+        if (rsp_iobref == NULL) {
+            goto unwind;
+        }
         iobuf_unref(rsp_iobuf);
         rsp_iobuf = NULL;
         rsp_iobref = NULL;

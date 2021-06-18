@@ -420,14 +420,13 @@ cvlt_readv_complete(archstore_desc_t *desc, app_callback_info_t *cbkinfo,
         goto out;
     }
 
-    req->iobref = iobref_new();
+    req->iobref = add_iobuf_to_new_iobref(req->iobuf);
     if (!req->iobref) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto out;
     }
 
-    iobref_add(req->iobref, req->iobuf);
     iov.iov_base = iobuf_ptr(req->iobuf);
     iov.iov_len = op_ret;
 
