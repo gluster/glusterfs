@@ -2521,8 +2521,8 @@ dht_dfreaddirp_done(dht_dfoffset_ctx_t *offset_var, int cnt)
     return result;
 }
 
-int static gf_defrag_ctx_subvols_init(dht_dfoffset_ctx_t *offset_var,
-                                      xlator_t *this)
+static int
+gf_defrag_ctx_subvols_init(dht_dfoffset_ctx_t *offset_var, xlator_t *this)
 {
     int i;
     dht_conf_t *conf = NULL;
@@ -3084,12 +3084,12 @@ out:
     return NULL;
 }
 
-int static gf_defrag_get_entry(xlator_t *this, int i,
-                               struct dht_container **container, loc_t *loc,
-                               dht_conf_t *conf, gf_defrag_info_t *defrag,
-                               fd_t *fd, dict_t *migrate_data,
-                               struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
-                               int *perrno)
+static int
+gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
+                    loc_t *loc, dht_conf_t *conf, gf_defrag_info_t *defrag,
+                    fd_t *fd, dict_t *migrate_data,
+                    struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
+                    int *perrno)
 {
     int ret = 0;
     char is_linkfile = 0;
