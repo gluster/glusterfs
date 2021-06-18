@@ -102,20 +102,16 @@ glfd_set_state_bind(struct glfs_fd *glfd)
  * data received into an entry which is stored in the upcall list
  * maintained by gfapi.
  */
-int
+static int
 glfs_get_upcall_cache_invalidation(struct gf_upcall *to_up_data,
-                                   struct gf_upcall *from_up_data)
+                                   struct gf_upcall *from_up_data,
+                                   xlator_t *this)
 {
     struct gf_upcall_cache_invalidation *ca_data = NULL;
     struct gf_upcall_cache_invalidation *f_ca_data = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
-
-    GF_VALIDATE_OR_GOTO(this->name, to_up_data, out);
-    GF_VALIDATE_OR_GOTO(this->name, from_up_data, out);
 
     f_ca_data = from_up_data->data;
-    GF_VALIDATE_OR_GOTO(this->name, f_ca_data, out);
 
     ca_data = GF_CALLOC(1, sizeof(*ca_data), glfs_mt_upcall_entry_t);
 
@@ -138,21 +134,15 @@ out:
     return ret;
 }
 
-int
+static int
 glfs_get_upcall_lease(struct gf_upcall *to_up_data,
-                      struct gf_upcall *from_up_data)
+                      struct gf_upcall *from_up_data, xlator_t *this)
 {
     struct gf_upcall_recall_lease *ca_data = NULL;
     struct gf_upcall_recall_lease *f_ca_data = NULL;
     int ret = -1;
 
-    xlator_t *this = THIS;
-
-    GF_VALIDATE_OR_GOTO(this->name, to_up_data, out);
-    GF_VALIDATE_OR_GOTO(this->name, from_up_data, out);
-
     f_ca_data = from_up_data->data;
-    GF_VALIDATE_OR_GOTO(this->name, f_ca_data, out);
 
     ca_data = GF_CALLOC(1, sizeof(*ca_data), glfs_mt_upcall_entry_t);
 
@@ -1516,7 +1506,6 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
                     struct glfs_stat *poststat)
 {
     xlator_t *subvol = NULL;
-    xlator_t *this = THIS;
     int ret = -1;
     struct iobref *iobref = NULL;
     struct iobuf *iobuf = NULL;
@@ -1541,7 +1530,7 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (iovec->iov_len >= GF_UNIT_GB) {
         ret = -1;
         errno = EINVAL;
-        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
                 "Data size too large", "size = %llu", GF_UNIT_GB, NULL);
         goto out;
     }
@@ -5401,8 +5390,6 @@ pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
         goto invalid_fs;
     }
 
-    GF_VALIDATE_OR_GOTO(this->name, data, out);
-
     if ((len <= 0) || (len > GFAPI_MAX_LOCK_OWNER_LEN)) {
         errno = EINVAL;
         gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
@@ -5477,10 +5464,10 @@ invalid_fs:
 }
 
 static void
-glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
+glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data,
+                         xlator_t *this)
 {
     int ret = -1;
-    xlator_t *this = THIS;
     upcall_entry *u_list = NULL;
 
     if (!fs || !upcall_data)
@@ -5502,10 +5489,11 @@ glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
     switch (upcall_data->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
             ret = glfs_get_upcall_cache_invalidation(&u_list->upcall_data,
-                                                     upcall_data);
+                                                     upcall_data, this);
             break;
         case GF_UPCALL_RECALL_LEASE:
-            ret = glfs_get_upcall_lease(&u_list->upcall_data, upcall_data);
+            ret = glfs_get_upcall_lease(&u_list->upcall_data, upcall_data,
+                                        this);
             break;
         default:
             break;
@@ -6023,7 +6011,7 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
     if (fs->up_cbk) { /* upcall cbk registered */
         (void)glfs_cbk_upcall_data(fs, upcall_data);
     } else {
-        (void)glfs_enqueue_upcall_data(fs, upcall_data);
+        (void)glfs_enqueue_upcall_data(fs, upcall_data, this);
     }
 
     pthread_mutex_lock(&fs->mutex);
@@ -6238,9 +6226,6 @@ pub_glfs_xreaddirplus_r(struct glfs_fd *glfd, uint32_t flags,
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
     GF_REF_GET(glfd);
-
-    GF_VALIDATE_OR_GOTO(this->name, xstat_p, out);
-    GF_VALIDATE_OR_GOTO(this->name, res, out);
 
     errno = 0;
 
