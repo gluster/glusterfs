@@ -5390,6 +5390,8 @@ pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
         goto invalid_fs;
     }
 
+    GF_VALIDATE_OR_GOTO(THIS->name, data, out);
+
     if ((len <= 0) || (len > GFAPI_MAX_LOCK_OWNER_LEN)) {
         errno = EINVAL;
         gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
@@ -6226,6 +6228,9 @@ pub_glfs_xreaddirplus_r(struct glfs_fd *glfd, uint32_t flags,
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
     GF_REF_GET(glfd);
+
+    GF_VALIDATE_OR_GOTO(THIS->name, xstat_p, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, res, out);
 
     errno = 0;
 
