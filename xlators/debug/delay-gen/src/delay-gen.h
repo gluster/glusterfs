@@ -18,10 +18,9 @@
 #include <glusterfs/defaults.h>
 
 typedef struct {
-    int enable[GF_FOP_MAXVALUE];
-    int op_count;
-    int delay_ppm;
-    int delay_duration;
+    uint32_t delay_ppm;
+    uint32_t delay_duration;
+    bool enable[GF_FOP_MAXVALUE];
 } dg_t;
 
 #endif /* __DELAY_GEN_H__ */
