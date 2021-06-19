@@ -177,6 +177,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/mgmt/Makefile
                 xlators/mgmt/glusterd/Makefile
                 xlators/mgmt/glusterd/src/Makefile
+                xlators/mgmt/volfile-server/Makefile
+                xlators/mgmt/volfile-server/src/Makefile
                 cli/Makefile
                 cli/src/Makefile
                 doc/Makefile

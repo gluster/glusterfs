@@ -1,0 +1,4 @@
+volume a
+    type mgmt/volfile-server
+    option transport-type socket
+end-volume

@@ -1,3 +1,3 @@
-SUBDIRS = glusterd
+SUBDIRS = glusterd volfile-server
 
 CLEANFILES = 
