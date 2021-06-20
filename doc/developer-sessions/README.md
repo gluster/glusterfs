@@ -18,3 +18,4 @@ This session covers lifecycles of inode_t and fd_t data structures. Debugging re
 This session covers Gluster's communication layer. How XDR is used to serialize/deserize data in rpc calls from pov of both client and server xlators.  
 7. Client-Server interactions - [video](https://youtu.be/jlQUPZYX3NE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-7-client-server-interactions)  
 Client, server interactions for connecting/disconnecting/reconnecting are covered in this session  
+8. Memory tracking in glusterfs, io-threads xlator - [video](https://youtu.be/0Ymz1ZYK4tc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-8-memory-tracking-infra-iothreads)  
