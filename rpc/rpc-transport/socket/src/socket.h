@@ -197,8 +197,6 @@ typedef struct {
         };
     };
     pthread_mutex_t out_lock;
-    pthread_mutex_t cond_lock;
-    pthread_cond_t cond;
     int windowsize;
     int keepalive;
     int keepaliveidle;
