@@ -783,9 +783,7 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
     gf_msg_debug(this->name, 0, "Received LOCK from uuid: %s",
                  uuid_utoa(lock_req.uuid));
 
-    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find_by_uuid(lock_req.uuid) == NULL);
-    RCU_READ_UNLOCK;
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_PEER_NOT_FOUND,
                "%s doesn't "
@@ -944,9 +942,7 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     ret = dict_get_bin(req_ctx->dict, "transaction_id", (void **)&txn_id);
     gf_msg_debug(this->name, 0, "transaction ID = %s", uuid_utoa(*txn_id));
 
-    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find_by_uuid(op_req.uuid) == NULL);
-    RCU_READ_UNLOCK;
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_PEER_NOT_FOUND,
                "%s doesn't "
@@ -1028,9 +1024,7 @@ __glusterd_handle_commit_op(rpcsvc_request_t *req)
         goto out;
     }
 
-    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find_by_uuid(op_req.uuid) == NULL);
-    RCU_READ_UNLOCK;
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_PEER_NOT_FOUND,
                "%s doesn't "
@@ -2408,9 +2402,7 @@ __glusterd_handle_cluster_unlock(rpcsvc_request_t *req)
     gf_msg_debug(this->name, 0, "Received UNLOCK from uuid: %s",
                  uuid_utoa(unlock_req.uuid));
 
-    RCU_READ_LOCK;
     ret = (glusterd_peerinfo_find_by_uuid(unlock_req.uuid) == NULL);
-    RCU_READ_LOCK;
     if (ret) {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_PEER_NOT_FOUND,
                "%s doesn't "
