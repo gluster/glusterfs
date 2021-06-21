@@ -878,6 +878,7 @@ shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
             break;
         case GF_FOP_OPENDIR:
             SHARD_STACK_UNWIND(opendir, frame, op_ret, op_errno, 0, NULL);
+            break;
         default:
             gf_msg(THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                    "Invalid fop id = %d", fop);
