@@ -123,6 +123,9 @@ __shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
     if (ret)
         return ret;
 
+    if (ctx->i_ctx_refresh_protect)
+        return 0;
+
     if (valid & SHARD_MASK_BLOCK_SIZE)
         ctx->block_size = block_size;
 
@@ -233,6 +236,37 @@ shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
     LOCK(&inode->lock);
     {
         ret = __shard_inode_ctx_mark_dir_refreshed(inode, this);
+    }
+    UNLOCK(&inode->lock);
+
+    return ret;
+}
+
+static int
+__shard_inode_ctx_mark_write_locked(inode_t *inode, xlator_t *this,
+                                    gf_boolean_t value)
+{
+    int ret = -1;
+    shard_inode_ctx_t *ctx = NULL;
+
+    ret = __shard_inode_ctx_get(inode, this, &ctx);
+    if (ret)
+        return ret;
+
+    ctx->i_ctx_refresh_protect = value;
+
+    return 0;
+}
+
+static int
+shard_inode_ctx_mark_write_locked(inode_t *inode, xlator_t *this,
+                                  gf_boolean_t value)
+{
+    int ret = -1;
+
+    LOCK(&inode->lock);
+    {
+        ret = __shard_inode_ctx_mark_write_locked(inode, this, value);
     }
     UNLOCK(&inode->lock);
 
@@ -1498,12 +1532,13 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
          * set 0.
          */
 
-        shard_inode_ctx_set(inode, this, buf, size, SHARD_MASK_BLOCK_SIZE);
-    }
-    /* If the file is sharded, also set the remaining attributes,
-     * except for ia_size and ia_blocks.
-     */
-    if (size) {
+        shard_inode_ctx_set(inode, this, buf, size,
+                            SHARD_LOOKUP_MASK | SHARD_MASK_BLOCK_SIZE);
+        (void)shard_inode_ctx_invalidate(inode, this, buf);
+    } else if (size) {
+        /* If the file is sharded, also set the remaining attributes,
+         * except for ia_size and ia_blocks.
+         */
         shard_inode_ctx_set(inode, this, buf, 0, SHARD_LOOKUP_MASK);
         (void)shard_inode_ctx_invalidate(inode, this, buf);
     }
@@ -5859,6 +5894,16 @@ shard_common_inode_write_post_lookup_handler(call_frame_t *frame,
         return 0;
     }
 
+    /* when there is a write operation on sharded file from a client,
+     * it is always true that file size value in the client cache is
+     * the correct one and not required to bring the size from server.
+     * Below call will set "i_ctx_refresh_protect" to true and protects
+     * client cache to be updated from the value got from server.
+     * This flag is reset in shard_flush().
+     */
+    shard_inode_ctx_mark_write_locked(local->resolver_base_inode, this,
+                                      _gf_true);
+
     gf_msg_trace(this->name, 0,
                  "%s: gfid=%s first_block=%" PRIu64
                  " "
@@ -6021,6 +6066,10 @@ shard_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 int
 shard_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
+    /* Mark "i_ctx_refresh_protect" to false that was set in
+     * shard_common_inode_write_do() */
+    shard_inode_ctx_mark_write_locked(fd->inode, this, _gf_false);
+
     STACK_WIND(frame, shard_flush_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->flush, fd, xdata);
     return 0;
