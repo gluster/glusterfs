@@ -5085,7 +5085,6 @@ glfs_realpath_common(struct glfs *fs, const char *path, char *resolved_path,
                      gf_boolean_t warn_deprecated)
 {
     int ret = -1;
-    xlator_t *this = THIS;
     char *retpath = NULL;
     char *allocpath = NULL;
     xlator_t *subvol = NULL;
@@ -5106,7 +5105,7 @@ glfs_realpath_common(struct glfs *fs, const char *path, char *resolved_path,
         retpath = allocpath = malloc(PATH_MAX + 1);
         if (warn_realpath) {
             warn_realpath = _gf_false;
-            gf_log(this->name, GF_LOG_WARNING,
+            gf_log(THIS->name, GF_LOG_WARNING,
                    "this application "
                    "is compiled against an old version of "
                    "libgfapi, it should use glfs_free() to "
@@ -5249,7 +5248,6 @@ glfs_lock_common(struct glfs_fd *glfd, int cmd, struct flock *flock,
                  dict_t *xdata)
 {
     int ret = -1;
-    xlator_t *this = THIS;
     xlator_t *subvol = NULL;
     struct gf_flock gf_flock = {
         0,
@@ -5310,7 +5308,7 @@ glfs_lock_common(struct glfs_fd *glfd, int cmd, struct flock *flock,
     if (ret == 0 && (cmd == F_SETLK || cmd == F_SETLKW)) {
         ret = fd_lk_insert_and_merge(fd, cmd, &saved_flock);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, 0,
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0,
                     API_MSG_LOCK_INSERT_MERGE_FAILED, "gfid=%s",
                     uuid_utoa(fd->inode->gfid), NULL);
             ret = 0;
@@ -5381,10 +5379,11 @@ int
 pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
 {
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
+    this = THIS;
 
     if (!GF_REF_GET(glfd)) {
         goto invalid_fs;
@@ -5964,11 +5963,10 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
 {
     glusterfs_ctx_t *ctx = NULL;
     struct gf_upcall *upcall_data = NULL;
-    xlator_t *this = THIS;
 
     DECLARE_OLD_THIS;
 
-    gf_msg_debug(this->name, 0, "Upcall gfapi callback is called");
+    gf_msg_debug(THIS->name, 0, "Upcall gfapi callback is called");
 
     __GLFS_ENTRY_VALIDATE_FS(fs, err);
 
@@ -5995,7 +5993,7 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
 
     upcall_data = (struct gf_upcall *)data;
 
-    gf_msg_trace(this->name, 0, "Upcall gfapi gfid = %s",
+    gf_msg_trace(THIS->name, 0, "Upcall gfapi gfid = %s",
                  (char *)(upcall_data->gfid));
 
     /* *
@@ -6013,7 +6011,7 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
     if (fs->up_cbk) { /* upcall cbk registered */
         (void)glfs_cbk_upcall_data(fs, upcall_data);
     } else {
-        (void)glfs_enqueue_upcall_data(fs, upcall_data, this);
+        (void)glfs_enqueue_upcall_data(fs, upcall_data, THIS);
     }
 
     pthread_mutex_lock(&fs->mutex);
@@ -6219,13 +6217,14 @@ pub_glfs_xreaddirplus_r(struct glfs_fd *glfd, uint32_t flags,
                         struct dirent *ext, struct dirent **res)
 {
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this;
     gf_dirent_t *entry = NULL;
     struct dirent *buf = NULL;
     struct glfs_xreaddirp_stat *xstat = NULL;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
+    this = THIS;
 
     GF_REF_GET(glfd);
 
