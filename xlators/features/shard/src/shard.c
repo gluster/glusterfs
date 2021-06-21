@@ -4766,7 +4766,7 @@ shard_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
