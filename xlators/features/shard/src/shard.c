@@ -4783,7 +4783,7 @@ shard_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     return 0;
 }
 
-int
+static int
 shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
               dict_t *xdata)
 {
