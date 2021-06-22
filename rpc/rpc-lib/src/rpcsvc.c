@@ -2308,7 +2308,6 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     }
 
     pthread_mutex_init(&newprog->thr_lock, &attr);
-    pthread_cond_init(&newprog->thr_cond, NULL);
     pthread_mutexattr_destroy(&attr);
 
     newprog->alive = _gf_true;
