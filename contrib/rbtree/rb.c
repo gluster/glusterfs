@@ -202,34 +202,7 @@ rb_probe (struct rb_table *tree, void *item)
   return &n->rb_data;
 }
 
-/* Inserts |item| into |table|.
-   Returns |NULL| if |item| was successfully inserted
-   or if a memory allocation error occurred.
-   Otherwise, returns the duplicate item. */
-void *
-rb_insert (struct rb_table *table, void *item)
-{
-  void **p = rb_probe (table, item);
-  return p == NULL || *p == item ? NULL : *p;
-}
 
-/* Inserts |item| into |table|, replacing any duplicate item.
-   Returns |NULL| if |item| was inserted without replacing a duplicate,
-   or if a memory allocation error occurred.
-   Otherwise, returns the item that was replaced. */
-void *
-rb_replace (struct rb_table *table, void *item)
-{
-  void **p = rb_probe (table, item);
-  if (p == NULL || *p == item)
-    return NULL;
-  else
-    {
-      void *r = *p;
-      *p = item;
-      return r;
-    }
-}
 
 /* Deletes from |tree| and returns an item matching |item|.
    Returns a null pointer if no matching item found. */
@@ -561,36 +534,7 @@ rb_t_find (struct rb_traverser *trav, struct rb_table *tree, void *item)
   return NULL;
 }
 
-/* Attempts to insert |item| into |tree|.
-   If |item| is inserted successfully, it is returned and |trav| is
-   initialized to its location.
-   If a duplicate is found, it is returned and |trav| is initialized to
-   its location.  No replacement of the item occurs.
-   If a memory allocation failure occurs, |NULL| is returned and |trav|
-   is initialized to the null item. */
-void *
-rb_t_insert (struct rb_traverser *trav, struct rb_table *tree, void *item)
-{
-  void **p;
 
-  assert (trav != NULL && tree != NULL && item != NULL);
-
-  p = rb_probe (tree, item);
-  if (p != NULL)
-    {
-      trav->rb_table = tree;
-      trav->rb_node =
-        ((struct rb_node *)
-         ((char *) p - offsetof (struct rb_node, rb_data)));
-      trav->rb_generation = tree->rb_generation - 1;
-      return *p;
-    }
-  else
-    {
-      rb_t_init (trav, tree);
-      return NULL;
-    }
-}
 
 /* Initializes |trav| to have the same current node as |src|. */
 void *
