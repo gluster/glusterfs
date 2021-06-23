@@ -92,4 +92,27 @@ TEST $CLI volume replace-brick ${V0}_1 $H0:$B0/v1 $H0:$B0/v4 commit force --xml
 TEST $CLI volume create ${V0}_2 $H0:$B0/v{5..6} --xml
 TEST $CLI volume delete ${V0}_2 --xml
 
+# volume commands
+TEST ! $CLI volume start
+TEST ! $CLI volume start ${V0}_1 frc
+TEST ! $CLI volume info ${V0}_1 info
+TEST ! $CLI volume info ${V0}_2
+TEST ! $CLI volume delete
+TEST ! $CLI volume stop
+TEST ! $CLI volume stop ${V0}_1 frc
+TEST ! $CLI volume rebalance ${V0}_1
+TEST ! $CLI volume reset
+TEST ! $CLI volume profile ${V0}_1
+TEST ! $CLI volume quota all
+TEST ! $CLI volume reset-brick ${V0}_1
+TEST ! $CLI volume top ${V0}_1
+TEST ! $CLI volume log rotate
+TEST ! $CLI volume status all all
+TEST ! $CLI volume heal
+TEST ! $CLI volume statedump
+TEST ! $CLI volume clear-locks ${V0}_1 / kid granted entry dir1
+TEST ! $CLI volume clear-locks ${V0}_1 / kind grant entry dir1
+TEST ! $CLI volume clear-locks ${V0}_1 / kind granted ent dir1
+TEST ! $CLI volume barrier ${V0}_1
+
 cleanup;
