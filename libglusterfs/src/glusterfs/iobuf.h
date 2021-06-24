@@ -20,8 +20,6 @@
 
 #define GF_VARIABLE_IOBUF_COUNT 32
 
-#define GF_RDMA_DEVICE_COUNT 8
-
 /* Lets try to define the new anonymous mapping
  * flag, in case the system is still using the
  * now deprecated MAP_ANON flag.
@@ -123,11 +121,6 @@ struct iobuf_pool {
     uint64_t request_misses; /* mostly the requests for higher
                                value of iobufs */
     int arena_cnt;
-    int rdma_device_count;
-    struct list_head *mr_list[GF_RDMA_DEVICE_COUNT];
-    void *device[GF_RDMA_DEVICE_COUNT];
-    int (*rdma_registration)(void **, void *);
-    int (*rdma_deregistration)(struct list_head **, struct iobuf_arena *);
 };
 
 struct iobuf_pool *
