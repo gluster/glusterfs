@@ -15065,11 +15065,17 @@ glusterd_add_peers_to_auth_list(char *volname)
                "auth allow list is not set");
         goto out;
     }
+
+    /* Here calculates length of the new buffer.
+     * It is prepared for the worst-case scenario where every peeers
+     * were not in the original auth.allow list and needed to be added
+     */
+    len = strlen(auth_allow_list) + 1;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
-        len += strlen(peerinfo->hostname);
+        /* Each additional peer needs a comma and the name of it */
+        len += 1 + strlen(peerinfo->hostname);
     }
-    len += strlen(auth_allow_list) + 1;
 
     new_auth_allow_list = GF_CALLOC(1, len, gf_common_mt_char);
 

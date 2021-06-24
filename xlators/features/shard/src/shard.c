@@ -876,6 +876,9 @@ shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
         case GF_FOP_SEEK:
             SHARD_STACK_UNWIND(seek, frame, op_ret, op_errno, 0, NULL);
             break;
+        case GF_FOP_OPENDIR:
+            SHARD_STACK_UNWIND(opendir, frame, op_ret, op_errno, 0, NULL);
+            break;
         default:
             gf_msg(THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                    "Invalid fop id = %d", fop);
@@ -953,8 +956,8 @@ shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         __shard_inode_ctx_get(shard_inode, this, &ctx);
         if ((list_empty(&ctx->to_fsync_list)) && (list_empty(&ctx->ilist))) {
-            shard_make_block_bname(ctx->block_num, shard_inode->gfid,
-                                   block_bname, sizeof(block_bname));
+            shard_make_block_bname(ctx->block_num, ctx->base_gfid, block_bname,
+                                   sizeof(block_bname));
             inode_unlink(shard_inode, priv->dot_shard_inode, block_bname);
             /* The following unref corresponds to the ref held by
              * inode_link() at the time the shard was created or
@@ -4763,12 +4766,57 @@ shard_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
+static int
+shard_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+{
+    SHARD_STACK_UNWIND(open, frame, op_ret, op_errno, fd, xdata);
+    return 0;
+}
+
 int
 shard_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
     STACK_WIND(frame, shard_open_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+    return 0;
+}
+
+static int
+shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+              dict_t *xdata)
+{
+    int ret;
+
+    xdata = xdata ? dict_ref(xdata) : dict_new();
+    if (!xdata) {
+        ret = -1;
+        goto err;
+    }
+
+    /* if the file is sharded then server will return the below
+     * xattr as part of dict that is used to update the ia_size
+     * in d_stat. This is helpful incase readdir-ahead is enabled
+     */
+    ret = dict_set_uint64(xdata, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
+    if (ret) {
+        gf_msg_debug(this->name, -ret,
+                     "Unable to set GF_XATTR_SHARD_FILE_SIZE in the dict ");
+        goto err;
+    }
+
+    STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+
+    dict_unref(xdata);
+    return 0;
+
+err:
+    if (xdata)
+        dict_unref(xdata);
+
+    shard_common_failure_unwind(GF_FOP_OPENDIR, frame, -1, ENOMEM);
     return 0;
 }
 
@@ -7276,6 +7324,7 @@ shard_releasedir(xlator_t *this, fd_t *fd)
 struct xlator_fops fops = {
     .lookup = shard_lookup,
     .open = shard_open,
+    .opendir = shard_opendir,
     .flush = shard_flush,
     .fsync = shard_fsync,
     .stat = shard_stat,
