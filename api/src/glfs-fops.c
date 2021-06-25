@@ -102,24 +102,21 @@ glfd_set_state_bind(struct glfs_fd *glfd)
  * data received into an entry which is stored in the upcall list
  * maintained by gfapi.
  */
-int
+static int
 glfs_get_upcall_cache_invalidation(struct gf_upcall *to_up_data,
-                                   struct gf_upcall *from_up_data)
+                                   struct gf_upcall *from_up_data,
+                                   xlator_t *this)
 {
     struct gf_upcall_cache_invalidation *ca_data = NULL;
     struct gf_upcall_cache_invalidation *f_ca_data = NULL;
     int ret = -1;
 
-    GF_VALIDATE_OR_GOTO(THIS->name, to_up_data, out);
-    GF_VALIDATE_OR_GOTO(THIS->name, from_up_data, out);
-
     f_ca_data = from_up_data->data;
-    GF_VALIDATE_OR_GOTO(THIS->name, f_ca_data, out);
 
     ca_data = GF_CALLOC(1, sizeof(*ca_data), glfs_mt_upcall_entry_t);
 
     if (!ca_data) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -137,24 +134,20 @@ out:
     return ret;
 }
 
-int
+static int
 glfs_get_upcall_lease(struct gf_upcall *to_up_data,
-                      struct gf_upcall *from_up_data)
+                      struct gf_upcall *from_up_data, xlator_t *this)
 {
     struct gf_upcall_recall_lease *ca_data = NULL;
     struct gf_upcall_recall_lease *f_ca_data = NULL;
     int ret = -1;
 
-    GF_VALIDATE_OR_GOTO(THIS->name, to_up_data, out);
-    GF_VALIDATE_OR_GOTO(THIS->name, from_up_data, out);
-
     f_ca_data = from_up_data->data;
-    GF_VALIDATE_OR_GOTO(THIS->name, f_ca_data, out);
 
     ca_data = GF_CALLOC(1, sizeof(*ca_data), glfs_mt_upcall_entry_t);
 
     if (!ca_data) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -5342,6 +5335,7 @@ pub_glfs_file_lock(struct glfs_fd *glfd, int cmd, struct flock *flock,
                    glfs_lock_mode_t lk_mode)
 {
     int ret = -1;
+    xlator_t *this = THIS;
     dict_t *xdata_in = NULL;
 
     if (lk_mode == GLFS_LK_MANDATORY) {
@@ -5357,7 +5351,7 @@ pub_glfs_file_lock(struct glfs_fd *glfd, int cmd, struct flock *flock,
          * GLFS_LK_MANDATORY */
         ret = dict_set_uint32(xdata_in, GF_LOCK_MODE, GF_LK_MANDATORY);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, 0,
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
                     API_MSG_SETTING_LOCK_TYPE_FAILED, NULL);
             ret = -1;
             errno = ENOMEM;
@@ -5385,9 +5379,11 @@ int
 pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
 {
     int ret = -1;
+    xlator_t *this;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
+    this = THIS;
 
     if (!GF_REF_GET(glfd)) {
         goto invalid_fs;
@@ -5397,7 +5393,7 @@ pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
 
     if ((len <= 0) || (len > GFAPI_MAX_LOCK_OWNER_LEN)) {
         errno = EINVAL;
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ARG,
                 "lk_owner len=%d", len, NULL);
         goto out;
     }
@@ -5469,7 +5465,8 @@ invalid_fs:
 }
 
 static void
-glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
+glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data,
+                         xlator_t *this)
 {
     int ret = -1;
     upcall_entry *u_list = NULL;
@@ -5480,7 +5477,7 @@ glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
     u_list = GF_CALLOC(1, sizeof(*u_list), glfs_mt_upcall_entry_t);
 
     if (!u_list) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -5493,17 +5490,18 @@ glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
     switch (upcall_data->event_type) {
         case GF_UPCALL_CACHE_INVALIDATION:
             ret = glfs_get_upcall_cache_invalidation(&u_list->upcall_data,
-                                                     upcall_data);
+                                                     upcall_data, this);
             break;
         case GF_UPCALL_RECALL_LEASE:
-            ret = glfs_get_upcall_lease(&u_list->upcall_data, upcall_data);
+            ret = glfs_get_upcall_lease(&u_list->upcall_data, upcall_data,
+                                        this);
             break;
         default:
             break;
     }
 
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY, NULL);
         goto out;
     }
 
@@ -5548,6 +5546,7 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
     struct list_head glfd_list;
     fd_t *fd = NULL;
     uint64_t value = 0;
+    xlator_t *this = THIS;
     struct glfs_lease lease = {
         0,
     };
@@ -5567,13 +5566,13 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
         goto out;
     }
 
-    gf_msg_debug(THIS->name, 0, "Recall lease received for gfid:%s",
+    gf_msg_debug(this->name, 0, "Recall lease received for gfid:%s",
                  uuid_utoa(up_data->gfid));
 
     inode = inode_find(subvol->itable, up_data->gfid);
     if (!inode) {
         ret = -1;
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INODE_FIND_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INODE_FIND_FAILED,
                 "gfid=%s", uuid_utoa(up_data->gfid), "graph_id=%d",
                 subvol->graph->id, NULL);
         goto out;
@@ -5586,7 +5585,7 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
             ret = fd_ctx_get(fd, subvol, &value);
             glfd = (struct glfs_fd *)(uintptr_t)value;
             if (glfd) {
-                gf_msg_trace(THIS->name, 0, "glfd (%p) has held lease", glfd);
+                gf_msg_trace(this->name, 0, "glfd (%p) has held lease", glfd);
                 GF_REF_GET(glfd);
                 list_add_tail(&glfd->list, &glfd_list);
             }
@@ -5600,7 +5599,7 @@ glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data)
             LOCK(&glfd->lock);
             {
                 if (glfd->state != GLFD_CLOSE) {
-                    gf_msg_trace(THIS->name, 0,
+                    gf_msg_trace(this->name, 0,
                                  "glfd (%p) has held lease, "
                                  "calling recall cbk",
                                  glfd);
@@ -5626,6 +5625,7 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
     struct glfs_object *object = NULL;
     xlator_t *subvol = NULL;
     int ret = -1;
+    xlator_t *this = THIS;
     struct glfs_upcall_lease *up_lease_arg = NULL;
 
     GF_VALIDATE_OR_GOTO("gfapi", up_data, out);
@@ -5640,7 +5640,7 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
         goto out;
     }
 
-    gf_msg_debug(THIS->name, 0, "Recall lease received for gfid:%s",
+    gf_msg_debug(this->name, 0, "Recall lease received for gfid:%s",
                  uuid_utoa(up_data->gfid));
 
     object = glfs_h_find_handle(fs, up_data->gfid, GFAPI_HANDLE_LENGTH);
@@ -5653,7 +5653,7 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
          * the handle and hence will no more be interested in
          * the upcall for this particular gfid.
          */
-        gf_smsg(THIS->name, GF_LOG_DEBUG, errno, API_MSG_CREATE_HANDLE_FAILED,
+        gf_smsg(this->name, GF_LOG_DEBUG, errno, API_MSG_CREATE_HANDLE_FAILED,
                 "gfid=%s", uuid_utoa(up_data->gfid), NULL);
         errno = ESTALE;
         goto out;
@@ -5732,6 +5732,7 @@ glfs_cbk_upcall_syncop(void *opaque)
     struct glfs_upcall *up_arg = NULL;
     struct glfs *fs;
     int ret = -1;
+    xlator_t *this = THIS;
 
     fs = args->fs;
     upcall_data = &args->upcall_data;
@@ -5743,7 +5744,7 @@ glfs_cbk_upcall_syncop(void *opaque)
     up_arg = GLFS_CALLOC(1, sizeof(struct gf_upcall), glfs_release_upcall,
                          glfs_mt_upcall_entry_t);
     if (!up_arg) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -5766,13 +5767,13 @@ glfs_cbk_upcall_syncop(void *opaque)
      * send upcall then
      */
     if (up_arg->reason == GLFS_UPCALL_EVENT_NULL) {
-        gf_smsg(THIS->name, GF_LOG_DEBUG, errno,
+        gf_smsg(this->name, GF_LOG_DEBUG, errno,
                 API_MSG_UPCALL_EVENT_NULL_RECEIVED, NULL);
         ret = 0;
         GLFS_FREE(up_arg);
         goto out;
     } else if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_INVALID_ENTRY, NULL);
         GLFS_FREE(up_arg);
         goto out;
     }
@@ -5791,6 +5792,7 @@ static struct gf_upcall_cache_invalidation *
 gf_copy_cache_invalidation(struct gf_upcall_cache_invalidation *src)
 {
     struct gf_upcall_cache_invalidation *dst = NULL;
+    xlator_t *this = THIS;
 
     if (!src)
         goto out;
@@ -5799,7 +5801,7 @@ gf_copy_cache_invalidation(struct gf_upcall_cache_invalidation *src)
                     glfs_mt_upcall_entry_t);
 
     if (!dst) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -5822,6 +5824,7 @@ static struct gf_upcall_recall_lease *
 gf_copy_recall_lease(struct gf_upcall_recall_lease *src)
 {
     struct gf_upcall_recall_lease *dst = NULL;
+    xlator_t *this = THIS;
 
     if (!src)
         goto out;
@@ -5830,7 +5833,7 @@ gf_copy_recall_lease(struct gf_upcall_recall_lease *src)
                     glfs_mt_upcall_entry_t);
 
     if (!dst) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED, "entry",
                 NULL);
         goto out;
     }
@@ -5851,6 +5854,7 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
 {
     struct upcall_syncop_args *args = NULL;
     int ret = -1;
+    xlator_t *this = THIS;
     struct gf_upcall *t_data = NULL;
 
     if (!fs || !upcall_data)
@@ -5859,7 +5863,7 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
     args = GF_CALLOC(1, sizeof(struct upcall_syncop_args),
                      glfs_mt_upcall_entry_t);
     if (!args) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_ALLOC_FAILED,
                 "syncop args", NULL);
         goto out;
     }
@@ -5910,6 +5914,7 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
 {
     struct upcall_syncop_args *args = NULL;
     int ret = -1;
+    xlator_t *this = THIS;
 
     if (!fs || !upcall_data)
         goto out;
@@ -5924,11 +5929,11 @@ glfs_cbk_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
     if (!args)
         goto out;
 
-    ret = synctask_new(THIS->ctx->env, glfs_cbk_upcall_syncop,
+    ret = synctask_new(this->ctx->env, glfs_cbk_upcall_syncop,
                        glfs_upcall_syncop_cbk, NULL, args);
     /* should we retry incase of failure? */
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_UPCALL_SYNCOP_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_UPCALL_SYNCOP_FAILED,
                 "event_type=%d", upcall_data->event_type, "gfid=%s",
                 (char *)(upcall_data->gfid), NULL);
         upcall_syncop_args_free(args);
@@ -6006,7 +6011,7 @@ priv_glfs_process_upcall_event(struct glfs *fs, void *data)
     if (fs->up_cbk) { /* upcall cbk registered */
         (void)glfs_cbk_upcall_data(fs, upcall_data);
     } else {
-        (void)glfs_enqueue_upcall_data(fs, upcall_data);
+        (void)glfs_enqueue_upcall_data(fs, upcall_data, THIS);
     }
 
     pthread_mutex_lock(&fs->mutex);
@@ -6212,12 +6217,14 @@ pub_glfs_xreaddirplus_r(struct glfs_fd *glfd, uint32_t flags,
                         struct dirent *ext, struct dirent **res)
 {
     int ret = -1;
+    xlator_t *this;
     gf_dirent_t *entry = NULL;
     struct dirent *buf = NULL;
     struct glfs_xreaddirp_stat *xstat = NULL;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
+    this = THIS;
 
     GF_REF_GET(glfd);
 
@@ -6292,7 +6299,7 @@ pub_glfs_xreaddirplus_r(struct glfs_fd *glfd, uint32_t flags,
     ret = xstat->flags_handled;
     *xstat_p = xstat;
 
-    gf_msg_debug(THIS->name, 0,
+    gf_msg_debug(this->name, 0,
                  "xreaddirp- requested_flags (%x) , processed_flags (%x)",
                  flags, xstat->flags_handled);
 
@@ -6300,7 +6307,7 @@ out:
     GF_REF_PUT(glfd);
 
     if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, errno, API_MSG_XREADDIRP_R_FAILED,
+        gf_smsg(this->name, GF_LOG_WARNING, errno, API_MSG_XREADDIRP_R_FAILED,
                 "reason=%s", strerror(errno), NULL);
 
         if (xstat)
@@ -6319,10 +6326,11 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_xreaddirplus_get_stat, 3.11.0)
 struct stat *
 pub_glfs_xreaddirplus_get_stat(struct glfs_xreaddirp_stat *xstat)
 {
+    xlator_t *this = THIS;
     GF_VALIDATE_OR_GOTO("glfs_xreaddirplus_get_stat", xstat, out);
 
     if (!xstat->flags_handled & GFAPI_XREADDIRP_STAT)
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_FLAGS_HANDLE,
+        gf_smsg(this->name, GF_LOG_ERROR, errno, API_MSG_FLAGS_HANDLE,
                 "GFAPI_XREADDIRP_STAT"
                 "xstat=%p",
                 xstat, "handles=%x", xstat->flags_handled, NULL);
