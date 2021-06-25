@@ -206,18 +206,13 @@ struct ios_dump_args {
 typedef int (*block_dump_func)(xlator_t *, struct ios_dump_args *, int, int,
                                uint64_t);
 
-struct ios_local {
-    struct timeval wind_at;
-    struct timeval unwind_at;
-};
-
 struct volume_options options[];
 
 static int
 is_fop_latency_started(call_frame_t *frame)
 {
     GF_ASSERT(frame);
-    struct timeval epoch = {
+    struct timespec epoch = {
         0,
     };
     return memcmp(&frame->begin, &epoch, sizeof(epoch));
