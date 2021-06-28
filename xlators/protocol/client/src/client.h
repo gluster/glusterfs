@@ -397,4 +397,7 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
 int
 client_is_setlk(int32_t cmd);
 
+gf_boolean_t
+fdctx_lock_lists_empty(clnt_fd_ctx_t *fdctx);
+
 #endif /* !_CLIENT_H */
