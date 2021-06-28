@@ -901,6 +901,7 @@ glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
     strcpy(dup_brickinfo->real_path, brickinfo->real_path);
     strcpy(dup_brickinfo->device_path, brickinfo->device_path);
     strcpy(dup_brickinfo->fstype, brickinfo->fstype);
+    strcpy(dup_brickinfo->snap_type, brickinfo->snap_type);
     strcpy(dup_brickinfo->mnt_opts, brickinfo->mnt_opts);
     ret = gf_canonicalize_path(dup_brickinfo->path);
     if (ret) {
@@ -924,6 +925,7 @@ glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
     strcpy(dup_brickinfo->mount_dir, brickinfo->mount_dir);
     dup_brickinfo->status = brickinfo->status;
     dup_brickinfo->snap_status = brickinfo->snap_status;
+    dup_brickinfo->snap = brickinfo->snap;
 out:
     return ret;
 }
@@ -1449,8 +1451,8 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
                                        gf_boolean_t ignore_partition)
 {
     int ret = -1;
-    char parentdir[PATH_MAX] = "";
-    struct stat parent_st = {
+    struct mntent *mnt_ent = NULL;
+    struct mntent save_entry = {
         0,
     };
     struct stat brick_st = {
@@ -1460,6 +1462,7 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         0,
     };
     char msg[2048] = "";
+    char buff[PATH_MAX] = "";
     gf_boolean_t is_created = _gf_false;
     char glusterfs_dir_path[PATH_MAX] = "";
     int32_t len = 0;
@@ -1506,12 +1509,6 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    len = snprintf(parentdir, sizeof(parentdir), "%s/..", brickinfo->path);
-    if ((len < 0) || (len >= sizeof(parentdir))) {
-        ret = -1;
-        goto out;
-    }
-
     ret = sys_lstat("/", &root_st);
     if (ret) {
         len = snprintf(msg, sizeof(msg),
@@ -1523,17 +1520,6 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    ret = sys_lstat(parentdir, &parent_st);
-    if (ret) {
-        len = snprintf(msg, sizeof(msg),
-                       "lstat failed on %s. "
-                       "Reason : %s",
-                       parentdir, strerror(errno));
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_LSTAT_FAIL,
-                "Failed on parentdir=%s, Reason=%s", parentdir, strerror(errno),
-                NULL);
-        goto out;
-    }
     if (strncmp(volname, GLUSTER_SHARED_STORAGE,
                 SLEN(GLUSTER_SHARED_STORAGE)) &&
         sizeof(GLUSTERD_DEFAULT_WORKDIR) <= (strlen(brickinfo->path) + 1) &&
@@ -1549,7 +1535,9 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
     }
 
     if (!is_force) {
-        if (brick_st.st_dev != parent_st.st_dev) {
+        mnt_ent = glusterd_get_mnt_entry_info(brickinfo->path, buff,
+                                              sizeof(buff), &save_entry);
+        if (mnt_ent) {
             len = snprintf(msg, sizeof(msg),
                            "The brick %s:%s "
                            "is a mount point. Please create a "
@@ -1565,7 +1553,7 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
                     brickinfo->hostname, brickinfo->path, NULL);
             ret = -1;
             goto out;
-        } else if (parent_st.st_dev == root_st.st_dev) {
+        } else if (brick_st.st_dev == root_st.st_dev) {
             len = snprintf(msg, sizeof(msg),
                            "The brick %s:%s "
                            "is being created in the root "
@@ -4954,7 +4942,7 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
     if ((!gf_uuid_is_null(stale_volinfo->restored_from_snap)) &&
         (gf_uuid_compare(stale_volinfo->restored_from_snap,
                          valid_volinfo->restored_from_snap))) {
-        ret = glusterd_lvm_snapshot_remove(NULL, stale_volinfo);
+        ret = glusterd_snapshot_remove(NULL, stale_volinfo);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
                    "Failed to remove lvm snapshot for "
@@ -13164,6 +13152,8 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
 
     gf_strncpy(brickinfo->mnt_opts, entry->mnt_opts,
                sizeof(brickinfo->mnt_opts));
+
+    (void)glusterd_snapshot_probe(mnt_pt, brickinfo);
 
     ret = 0;
 out:

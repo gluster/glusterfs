@@ -65,6 +65,10 @@
         }                                                                      \
     } while (0)
 
+int32_t
+glusterd_snapshot_mount(glusterd_brickinfo_t *brickinfo,
+                        char *brick_mount_path);
+
 void
 glusterd_replace_slash_with_hyphen(char *str)
 {
@@ -364,6 +368,19 @@ gd_store_brick_snap_details_write(int fd, glusterd_brickinfo_t *brickinfo)
             goto err;
         }
         total_len += ret;
+    }
+
+    if (strlen(brickinfo->snap_type) > 0) {
+        ret = snprintf(value, sizeof(value), "%s", brickinfo->snap_type);
+        if (ret < 0 || ret >= sizeof(value) - total_len) {
+            ret = -1;
+            goto err;
+        }
+        ret = gf_store_save_value(fd, GLUSTERD_STORE_KEY_BRICK_SNAPTYPE, value);
+        if (ret < 0 || ret >= sizeof(value) - total_len) {
+            ret = -1;
+            goto err;
+        }
     }
 
     if (brickinfo->mnt_opts[0] != '\0') {
@@ -2496,6 +2513,15 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                            brickinfo->fstype);
                     goto out;
                 }
+            } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_SNAPTYPE,
+                                strlen(GLUSTERD_STORE_KEY_BRICK_SNAPTYPE))) {
+                if (snprintf(brickinfo->snap_type, sizeof(brickinfo->snap_type),
+                             "%s", value) >= sizeof(brickinfo->snap_type)) {
+                    gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                           GD_MSG_PARSE_BRICKINFO_FAIL,
+                           "snap_type truncated: %s", brickinfo->snap_type);
+                    goto out;
+                }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_MNTOPTS,
                                 SLEN(GLUSTERD_STORE_KEY_BRICK_MNTOPTS))) {
                 if (snprintf(brickinfo->mnt_opts, sizeof(brickinfo->mnt_opts),
@@ -2799,7 +2825,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
             cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
             ta_brick_count++;
             if (gf_store_iter_destroy(&iter)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_STORE_ITER_DESTROY_FAIL,
                        "Failed to destroy store iter");
                 ret = -1;
                 goto out;
@@ -3646,10 +3673,10 @@ glusterd_mount_brick_paths(char *brick_mount_path,
                      brickinfo->device_path);
 
     /* Mount the snapshot */
-    ret = glusterd_mount_lvm_snapshot(brickinfo, brick_mount_path);
+    ret = glusterd_snapshot_mount(brickinfo, brick_mount_path);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_MOUNT_FAIL,
-               "Failed to mount lvm snapshot.");
+               "Failed to mount snapshot.");
         goto out;
     }
 

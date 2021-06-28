@@ -91,6 +91,32 @@ typedef struct glusterd_hostname_ {
     struct list_head hostname_list;
 } glusterd_hostname_t;
 
+struct glusterd_snap_ops {
+    const char *name;
+
+    gf_boolean_t (*const probe)(char *brick_path);
+    int (*const details)(dict_t *rsp_dict, glusterd_brickinfo_t *brickinfo,
+                         char *volname, char *device, const char *key_prefix);
+    char *(*const device)(char *device, char *snapname, int32_t brickcount);
+    int32_t (*const create)(glusterd_brickinfo_t *brickinfo,
+                            char *origin_brick_path);
+    int32_t (*const clone)(glusterd_brickinfo_t *brickinfo,
+                           char *origin_brick_path);
+    int32_t (*const missed)(char *volname, char *snapname,
+                            glusterd_brickinfo_t *brickinfo,
+                            glusterd_snap_op_t *snap_opinfo);
+    int32_t (*const remove)(glusterd_volinfo_t *snap_vol,
+                            glusterd_brickinfo_t *brickinfo,
+                            const char *mount_pt, const char *snap_device);
+    int32_t (*const mount)(glusterd_brickinfo_t *brickinfo,
+                           char *brick_mount_path);
+};
+
+extern struct glusterd_snap_ops lvm_snap_ops;
+
+gf_boolean_t
+glusterd_mntopts_exists(const char *str, const char *opts);
+
 gf_boolean_t
 is_brick_mx_enabled(void);
 
@@ -653,8 +679,9 @@ glusterd_get_mnt_entry_info(char *mnt_pt, char *buff, int buflen,
 int
 glusterd_get_brick_root(char *path, char **mount_point);
 
-int32_t
-glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+/* int32_t */
+/* glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+ */
 
 gf_boolean_t
 gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo);
@@ -666,8 +693,11 @@ int32_t
 glusterd_aggr_brick_mount_dirs(dict_t *aggr, dict_t *rsp_dict);
 
 int32_t
-glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
-                           char *origin_brick_path);
+glusterd_lvm_snapshot_create(glusterd_brickinfo_t *brickinfo,
+                             char *origin_brick_path);
+
+char *
+glusterd_lvm_snapshot_device(char *device, char *snapname, int32_t brickcount);
 
 void
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque);

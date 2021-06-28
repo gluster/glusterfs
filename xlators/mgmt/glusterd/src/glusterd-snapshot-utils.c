@@ -31,6 +31,9 @@
 #include "glusterd-messages.h"
 #include "glusterd-errno.h"
 
+int32_t
+glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+
 /*
  *  glusterd_snap_geo_rep_restore:
  *      This function restores the atime and mtime of marker.tstamp
@@ -256,6 +259,13 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
         if (!ret)
             gf_strncpy(new_brickinfo->fstype, value,
                        sizeof(new_brickinfo->fstype));
+
+        snprintf(key, sizeof(key), "snap%d.brick%d.snap_type", volcount,
+                 brick_count);
+        ret = dict_get_str(dict, key, &value);
+        if (!ret)
+            gf_strncpy(new_brickinfo->snap_type, value,
+                       sizeof(new_brickinfo->snap_type));
 
         snprintf(key, sizeof(key), "snap%d.brick%d.mnt_opts", volcount,
                  brick_count);
@@ -484,6 +494,15 @@ gd_add_brick_snap_details_to_dict(dict_t *dict, char *prefix,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set fstype for %s:%s", brickinfo->hostname,
+               brickinfo->path);
+        goto out;
+    }
+
+    snprintf(key, sizeof(key), "%s.snap_type", prefix);
+    ret = dict_set_str(dict, key, brickinfo->snap_type);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Failed to set snap_type for %s:%s", brickinfo->hostname,
                brickinfo->path);
         goto out;
     }
@@ -812,6 +831,7 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
     };
     char *snap_device = NULL;
     char *fs_type = NULL;
+    char *snap_type = NULL;
     char *mnt_opts = NULL;
     char *mount_dir = NULL;
 
@@ -852,6 +872,15 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
         goto out;
     }
     gf_strncpy(brickinfo->fstype, fs_type, sizeof(brickinfo->fstype));
+
+    snprintf(key, sizeof(key), "%s.snap_type", prefix);
+    ret = dict_get_str(dict, key, &snap_type);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "%s missing in payload", key);
+        goto out;
+    }
+    gf_strncpy(brickinfo->snap_type, snap_type, sizeof(brickinfo->snap_type));
 
     snprintf(key, sizeof(key), "%s.mnt_opts", prefix);
     ret = dict_get_str(dict, key, &mnt_opts);
@@ -1017,7 +1046,7 @@ glusterd_perform_missed_op(glusterd_snap_t *snap, int32_t op)
                  * volume's volinfo. If the volinfo is already restored
                  * then we should delete the backend LVMs */
                 if (!gf_uuid_is_null(volinfo->restored_from_snap)) {
-                    ret = glusterd_lvm_snapshot_remove(dict, volinfo);
+                    ret = glusterd_snapshot_remove(dict, volinfo);
                     if (ret) {
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                GD_MSG_SNAP_REMOVE_FAIL,
@@ -2667,7 +2696,7 @@ out:
 }
 
 gf_boolean_t
-mntopts_exists(const char *str, const char *opts)
+glusterd_mntopts_exists(const char *str, const char *opts)
 {
     char *dup_val = NULL;
     char *savetok = NULL;
@@ -2698,29 +2727,45 @@ out:
 }
 
 int32_t
-glusterd_mount_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
-                            char *brick_mount_path)
+glusterd_snapshot_mount(glusterd_brickinfo_t *brickinfo, char *brick_mount_path)
 {
-    char msg[NAME_MAX] = "";
+    char msg[4096] = "";
     char mnt_opts[1024] = "";
+    char buff[PATH_MAX] = {0};
     int32_t ret = -1;
     runner_t runner = {
         0,
     };
-    xlator_t *this = THIS;
-    int32_t len = 0;
+    xlator_t *this = NULL;
+    struct mntent *entry = NULL;
+    struct mntent save_entry = {0};
 
+    this = THIS;
+    GF_ASSERT(this);
     GF_ASSERT(brick_mount_path);
     GF_ASSERT(brickinfo);
 
-    runinit(&runner);
-    len = snprintf(msg, sizeof(msg), "mount %s %s", brickinfo->device_path,
+    /* Check to see if the brick is already mounted */
+    entry = glusterd_get_mnt_entry_info(brick_mount_path, buff, sizeof(buff),
+                                        &save_entry);
+    gf_log(this->name, GF_LOG_DEBUG,
+           "Checking to see if %s (%s) "
+           "is already mounted @ %s",
+           brickinfo->device_path, brickinfo->path, brick_mount_path);
+    if (entry) {
+        if (0 == strcmp(brickinfo->path, brick_mount_path)) {
+            gf_log(this->name, GF_LOG_INFO, "Snapshot already mounted at %s",
                    brick_mount_path);
-    if (len < 0) {
-        strcpy(msg, "<error>");
+            ret = 0;
+            goto out;
+        }
     }
 
-    gf_strncpy(mnt_opts, brickinfo->mnt_opts, sizeof(mnt_opts));
+    runinit(&runner);
+    snprintf(msg, sizeof(msg), "mount %s %s", brickinfo->device_path,
+             brick_mount_path);
+
+    strcpy(mnt_opts, brickinfo->mnt_opts);
 
     /* XFS file-system does not allow to mount file-system with duplicate
      * UUID. File-system UUID of snapshot and its origin volume is same.
@@ -2728,7 +2773,7 @@ glusterd_mount_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
      * option
      */
     if (!strcmp(brickinfo->fstype, "xfs") &&
-        !mntopts_exists(mnt_opts, "nouuid")) {
+        !glusterd_mntopts_exists(mnt_opts, "nouuid")) {
         if (strlen(mnt_opts) > 0)
             strcat(mnt_opts, ",");
         strcat(mnt_opts, "nouuid");
@@ -3230,7 +3275,7 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
             /* umount2 system call doesn't cleanup mtab entry
              * after un-mount, using external umount command.
              */
-            ret = glusterd_umount(brick_mount_path);
+            ret = glusterd_umount(brick_mount_path, _gf_false);
             if (!ret)
                 break;
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_UMOUNT_FAIL,
@@ -3250,7 +3295,7 @@ out:
 }
 
 int32_t
-glusterd_umount(const char *path)
+glusterd_umount(const char *path, gf_boolean_t remove)
 {
     char msg[NAME_MAX] = "";
     int32_t ret = -1;
@@ -3270,10 +3315,21 @@ glusterd_umount(const char *path)
     runner_add_args(&runner, _PATH_UMOUNT, "-f", path, NULL);
     runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
     ret = runner_run(&runner);
-    if (ret)
+    if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_GLUSTERD_UMOUNT_FAIL,
                "umounting %s failed (%s)", path, strerror(errno));
+        goto out;
+    }
 
+    if (remove != _gf_true)
+        goto out;
+
+    ret = recursive_rmdir(path);
+    if (ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DIR_OP_FAILED,
+               "removing %s failed", path);
+
+out:
     gf_msg_trace(this->name, 0, "Returning with %d", ret);
     return ret;
 }
@@ -4053,4 +4109,35 @@ glusterd_get_snap_status_str(glusterd_snap_t *snapinfo, char *snap_status_str)
     ret = 0;
 out:
     return ret;
+}
+
+gf_boolean_t
+glusterd_snapshot_probe(char *brick_path, glusterd_brickinfo_t *brickinfo)
+{
+    struct glusterd_snap_ops *glusterd_snap_backend[] = {
+        &lvm_snap_ops,
+        0,
+    };
+    xlator_t *this = NULL;
+    int i = 0;
+
+    this = THIS;
+
+    if (brickinfo->snap)
+        return _gf_true;
+
+    gf_log(this->name, GF_LOG_INFO, "Probing brick %s for snapshot support",
+           brick_path);
+    for (i = 0; glusterd_snap_backend[i]; i++) {
+        if (glusterd_snap_backend[i]->probe(brick_path)) {
+            gf_log(this->name, GF_LOG_INFO, "%s backend detected",
+                   glusterd_snap_backend[i]->name);
+            brickinfo->snap = glusterd_snap_backend[i];
+            return _gf_true;
+        }
+        gf_log(this->name, GF_LOG_INFO, "not a %s backend",
+               glusterd_snap_backend[i]->name);
+    }
+
+    return _gf_false;
 }

@@ -29,6 +29,31 @@ glusterd_snap_volinfo_find_from_parent_volname(char *origin_volname,
                                                glusterd_snap_t *snap,
                                                glusterd_volinfo_t **volinfo);
 
+gf_boolean_t
+glusterd_is_cmd_available(char *cmd);
+
+int32_t
+glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+
+gf_boolean_t
+glusterd_snapshot_probe(char *path, glusterd_brickinfo_t *brickinfo);
+
+int32_t
+glusterd_snapshot_mount(glusterd_brickinfo_t *brickinfo,
+                        char *brick_mount_path);
+
+int
+glusterd_snapshot_umount(glusterd_volinfo_t *snap_vol,
+                         glusterd_brickinfo_t *brickinfo, const char *mount_pt);
+
+int32_t
+glusterd_lvm_snapshot_missed(char *volname, char *snapname,
+                             glusterd_brickinfo_t *brickinfo,
+                             glusterd_snap_op_t *snap_opinfo);
+
+int
+glusterd_remove_trashpath(char *volname);
+
 int
 glusterd_snap_volinfo_find_by_volume_id(uuid_t volume_id,
                                         glusterd_volinfo_t **volinfo);
@@ -82,7 +107,7 @@ glusterd_mount_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
                             char *brick_mount_path);
 
 int32_t
-glusterd_umount(const char *path);
+glusterd_umount(const char *path, gf_boolean_t remove);
 
 int32_t
 glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo);
