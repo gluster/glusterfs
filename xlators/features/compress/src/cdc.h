@@ -17,10 +17,6 @@
 
 #include <glusterfs/xlator.h>
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif
-
 typedef struct cdc_priv {
     int window_size;
     int mem_level;
