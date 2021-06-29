@@ -24,10 +24,6 @@
 
 #include "rpc-transport.h"
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif /* MAX_IOVEC */
-
 #define GF_DEFAULT_SOCKET_LISTEN_PORT GF_DEFAULT_BASE_PORT
 
 #define RPC_MAX_FRAGMENT_SIZE 0x7fffffff

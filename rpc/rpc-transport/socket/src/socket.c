@@ -66,6 +66,8 @@
 #define POLL_MASK_OUTPUT (POLLOUT)
 #define POLL_MASK_ERROR (POLLERR | POLLHUP | POLLNVAL)
 
+#define IOV_MIN(n) min(IOV_MAX, n)
+
 typedef int
 SSL_unary_func(SSL *);
 typedef int

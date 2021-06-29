@@ -24,10 +24,6 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/client_t.h>
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif
-
 /* TODO: we should store prognums at a centralized location to avoid conflict
          or use a robust random number generator to avoid conflicts
 */
