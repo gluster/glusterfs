@@ -68,7 +68,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
 	glusterfs/glusterfs-acl.h glusterfs/glfs-message-id.h \
 	glusterfs/template-component-messages.h glusterfs/strfd.h \
 	glusterfs/syncop-utils.h glusterfs/parse-utils.h \
-	glusterfs/libglusterfs-messages.h glusterfs/lvm-defaults.h \
+	glusterfs/libglusterfs-messages.h \
 	glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
 	glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
 	glusterfs/events.h glusterfs/atomic.h glusterfs/monitoring.h \

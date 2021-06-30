@@ -270,6 +270,23 @@ if test "x$RPCGEN" = "xno"; then
    AC_MSG_ERROR([`rpcgen` not found, glusterfs needs `rpcgen` exiting..])
 fi
 
+# Check for lvm2 tools
+
+AC_CHECK_PROG([LVM_CREATE], [lvcreate], ["$(type -p lvcreate)"], [no])
+if test "x$LVM_CREATE" != "xno"; then
+   AC_DEFINE_UNQUOTED(LVM_CREATE, ["$LVM_CREATE"], [Path to lvcreate.])
+fi
+
+AC_CHECK_PROG([LVM_REMOVE], [lvremove], ["$(type -p lvremove)"], [no])
+if test "x$LVM_REMOVE" != "xno"; then
+   AC_DEFINE_UNQUOTED(LVM_REMOVE, ["$LVM_REMOVE"], [Path to lvremove.])
+fi
+
+AC_CHECK_PROG([LVS], [lvs], ["$(type -p lvs)"], [no])
+if test "x$LVS" != "xno"; then
+   AC_DEFINE_UNQUOTED(LVS, ["$LVS"], [Path to lvs.])
+fi
+
 # Initialize CFLAGS before usage
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
