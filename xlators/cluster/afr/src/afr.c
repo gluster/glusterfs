@@ -1105,7 +1105,7 @@ struct volume_options options[] = {
         .key = {"quorum-type"},
         .type = GF_OPTION_TYPE_STR,
         .value = {"none", "auto", "fixed"},
-        .default_value = "none",
+        .default_value = "auto",
         .op_version = {1},
         .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
         .tags = {"replicate"},
@@ -1114,7 +1114,9 @@ struct volume_options options[] = {
                        "quorum-count bricks are present.  If value is "
                        "\"auto\" only allow writes if more than half of "
                        "bricks, or exactly half including the first, are "
-                       "present.",
+                       "present. A value \"none\" will remove the requirement "
+                       "of first brick to be up in case of reads with half of "
+                       "the bricks down.",
     },
     {
         .key = {"quorum-count"},
