@@ -19,3 +19,7 @@ This session covers Gluster's communication layer. How XDR is used to serialize/
 7. Client-Server interactions - [video](https://youtu.be/jlQUPZYX3NE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-7-client-server-interactions)  
 Client, server interactions for connecting/disconnecting/reconnecting are covered in this session  
 8. Memory tracking in glusterfs, io-threads xlator - [video](https://youtu.be/0Ymz1ZYK4tc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-8-memory-tracking-infra-iothreads)  
+    - Memory tracking infra and how statedumps are used to debug memory leaks is covered  
+    - io-threads xlator implementation is covered.  
+9. Index xlator - [video](https://youtu.be/WYQKsNYXmrM) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-9-index-xlator)  
+Index xlator design and implementation are covered in this session.  
