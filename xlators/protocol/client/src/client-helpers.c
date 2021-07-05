@@ -15,6 +15,15 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/common-utils.h>
 
+gf_boolean_t
+fdctx_lock_lists_empty(clnt_fd_ctx_t *fdctx)
+{
+    if (list_empty(&fdctx->lock_list) && fd_lk_ctx_empty(fdctx->lk_ctx))
+        return _gf_true;
+
+    return _gf_false;
+}
+
 int
 client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
 {
@@ -435,7 +444,7 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd,
                 *remote_fd = fdctx->remote_fd;
             }
 
-            locks_involved = !list_empty(&fdctx->lock_list);
+            locks_involved = !fdctx_lock_lists_empty(fdctx);
         }
     }
     pthread_spin_unlock(&conf->fd_lock);
