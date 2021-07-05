@@ -123,6 +123,7 @@
 #define GD_OP_VERSION_8_0 80000 /* Op-version for GlusterFS 8.0 */
 
 #define GD_OP_VERSION_9_0 90000 /* Op-version for GlusterFS 9.0 */
+#define GD_OP_VERSION_9_1 90100 /* Op-version for GlusterFS 9.1 */
 
 #define GD_OP_VERSION_10_0 100000 /* Op-version for GlusterFS 10.0 */
 

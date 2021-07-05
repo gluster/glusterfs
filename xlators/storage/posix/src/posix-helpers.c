@@ -2302,21 +2302,16 @@ posix_ctx_disk_thread_proc(void *data)
 {
     struct posix_private *priv = NULL;
     glusterfs_ctx_t *ctx = NULL;
-    uint32_t interval = 0;
     struct posix_diskxl *pthis = NULL;
     xlator_t *this = NULL;
     struct timespec sleep_till = {
         0,
     };
-
     ctx = data;
-    interval = 5;
-
     gf_msg_debug("glusterfs_ctx", 0,
                  "Ctx disk-space thread started, "
                  "interval = %d seconds",
-                 interval);
-
+                 ctx->disk_reserve_check_interval);
     pthread_mutex_lock(&ctx->xl_lock);
     {
         while (ctx->diskxl_count > 0) {
@@ -2338,7 +2333,7 @@ posix_ctx_disk_thread_proc(void *data)
             }
 
             timespec_now_realtime(&sleep_till);
-            sleep_till.tv_sec += 5;
+            sleep_till.tv_sec += ctx->disk_reserve_check_interval;
             (void)pthread_cond_timedwait(&ctx->xl_cond, &ctx->xl_lock,
                                          &sleep_till);
         }
