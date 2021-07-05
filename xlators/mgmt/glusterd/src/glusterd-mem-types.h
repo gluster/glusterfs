@@ -52,7 +52,6 @@ typedef enum gf_gld_mem_types_ {
     gf_gld_mt_missed_snapinfo_t,
     gf_gld_mt_snap_create_args_t,
     gf_gld_mt_glusterd_brick_proc_t,
-    gf_gld_mt_glusterd_svc_proc_t,
     gf_gld_mt_hostname_t,
     gf_gld_mt_pmap_reg_t,
     gf_gld_mt_pmap_port_t,

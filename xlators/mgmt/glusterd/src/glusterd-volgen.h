@@ -69,7 +69,6 @@ typedef enum {
     GF_REBALANCED = 1,
     GF_QUOTAD,
     GF_SNAPD,
-    GF_SHD,
 } glusterd_graph_type_t;
 
 struct volgen_graph {
@@ -81,8 +80,6 @@ typedef struct volgen_graph volgen_graph_t;
 
 typedef int (*glusterd_graph_builder_t)(volgen_graph_t *graph,
                                         dict_t *mod_dict);
-typedef int (*glusterd_vol_graph_builder_t)(glusterd_volinfo_t *,
-                                            char *filename, dict_t *mod_dict);
 
 #define COMPLETE_OPTION(key, completion, ret)                                  \
     do {                                                                       \
@@ -213,8 +210,7 @@ void
 glusterd_get_shd_filepath(char *filename);
 
 int
-build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
-                dict_t *mod_dict);
+build_shd_graph(volgen_graph_t *graph, dict_t *mod_dict);
 
 #ifdef BUILD_GNFS
 int
@@ -330,9 +326,4 @@ glusterd_generate_gfproxyd_volfile(glusterd_volinfo_t *volinfo);
 
 int
 glusterd_build_gfproxyd_volfile(glusterd_volinfo_t *volinfo, char *filename);
-
-int
-glusterd_shdsvc_generate_volfile(glusterd_volinfo_t *volinfo, char *filename,
-                                 dict_t *mode_dict);
-
 #endif

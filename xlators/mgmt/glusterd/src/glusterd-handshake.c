@@ -29,7 +29,6 @@
 #include "rpcsvc.h"
 #include "rpc-common-xdr.h"
 #include "glusterd-gfproxyd-svc-helper.h"
-#include "glusterd-shd-svc-helper.h"
 
 extern struct rpc_clnt_program gd_peer_prog;
 extern struct rpc_clnt_program gd_mgmt_prog;
@@ -201,7 +200,7 @@ out:
 
 size_t
 build_volfile_path(char *volume_id, char *path, size_t path_len,
-                   char *trusted_str, dict_t *dict)
+                   char *trusted_str)
 {
     struct stat stbuf = {
         0,
@@ -305,35 +304,6 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
         }
 
         glusterd_svc_build_gfproxyd_volfile_path(volinfo, path, path_len);
-        ret = 0;
-        goto out;
-    }
-
-    volid_ptr = strstr(volume_id, "shd/");
-    if (volid_ptr) {
-        volid_ptr = strchr(volid_ptr, '/');
-        if (!volid_ptr) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRCHR_FAIL, NULL);
-            ret = -1;
-            goto out;
-        }
-        volid_ptr++;
-
-        ret = glusterd_volinfo_find(volid_ptr, &volinfo);
-        if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
-                   "Couldn't find volinfo for volid=%s", volid_ptr);
-            goto out;
-        }
-
-        glusterd_svc_build_shd_volfile_path(volinfo, path, path_len);
-
-        ret = glusterd_svc_set_shd_pidfile(volinfo, dict);
-        if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                   "Couldn't set pidfile in dict for volid=%s", volid_ptr);
-            goto out;
-        }
         ret = 0;
         goto out;
     }
@@ -1013,10 +983,9 @@ __server_getspec(rpcsvc_request_t *req)
      */
     if (strlen(addrstr) == 0 || glusterd_gf_is_local_addr(addrstr)) {
         ret = build_volfile_path(volume, filename, sizeof(filename),
-                                 TRUSTED_PREFIX, dict);
+                                 TRUSTED_PREFIX);
     } else {
-        ret = build_volfile_path(volume, filename, sizeof(filename), NULL,
-                                 dict);
+        ret = build_volfile_path(volume, filename, sizeof(filename), NULL);
     }
 
     RCU_READ_LOCK;
@@ -1111,6 +1080,7 @@ __server_getspec(rpcsvc_request_t *req)
             goto fail;
         }
     }
+
     /* convert to XDR */
 fail:
     if (spec_fd >= 0)

@@ -849,16 +849,9 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     if (!ctx)
         goto out;
 
-    /*
-     * Multiplexed daemons can change the active graph when attach/detach
-     * is called. So this has to be protected with the cleanup lock.
-     */
-    if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name))
-        pthread_mutex_lock(&ctx->cleanup_lock);
     gf_proc_dump_lock();
 
-    if (!mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name) &&
-        (ctx && ctx->active)) {
+    if (ctx && ctx->active) {
         top = ctx->active->first;
         for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
             brick_count++;
@@ -966,8 +959,6 @@ out:
     dump_options.dump_path = NULL;
     if (ctx) {
         gf_proc_dump_unlock();
-        if (mgmt_is_multiplexed_daemon(ctx->cmd_args.process_name))
-            pthread_mutex_unlock(&ctx->cleanup_lock);
     }
 
     return;

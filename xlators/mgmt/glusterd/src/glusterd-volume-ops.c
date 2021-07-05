@@ -1544,7 +1544,7 @@ static int
 glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
                          dict_t *dict, char **op_errstr)
 {
-    glusterd_svc_t *svc = NULL;
+    glusterd_conf_t *priv = NULL;
     gf_xl_afr_op_t heal_op = GF_SHD_OP_INVALID;
     int ret = 0;
     char msg[2408] = {
@@ -1554,6 +1554,7 @@ glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
         "Self-heal daemon is not running. "
         "Check self-heal daemon log file.";
 
+    priv = this->private;
     ret = dict_get_int32n(dict, "heal-op", SLEN("heal-op"),
                           (int32_t *)&heal_op);
     if (ret) {
@@ -1562,7 +1563,6 @@ glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    svc = &(volinfo->shd.svc);
     switch (heal_op) {
         case GF_SHD_OP_INVALID:
         case GF_SHD_OP_HEAL_ENABLE: /* This op should be handled in volume-set*/
@@ -1592,7 +1592,7 @@ glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
                 goto out;
             }
 
-            if (!svc->online) {
+            if (!priv->shd_svc.online) {
                 ret = -1;
                 *op_errstr = gf_strdup(offline_msg);
                 goto out;
@@ -1615,7 +1615,7 @@ glusterd_handle_heal_cmd(xlator_t *this, glusterd_volinfo_t *volinfo,
                 goto out;
             }
 
-            if (!svc->online) {
+            if (!priv->shd_svc.online) {
                 ret = -1;
                 *op_errstr = gf_strdup(offline_msg);
                 goto out;

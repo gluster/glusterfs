@@ -244,13 +244,11 @@ function ec_child_up_count_shd {
 }
 
 function get_shd_process_pid {
-        local vol=$1
         ps auxww | grep "process-name\ glustershd" | awk '{print $2}' | head -1
 }
 
 function generate_shd_statedump {
-        local vol=$1
-        generate_statedump $(get_shd_process_pid $vol)
+        generate_statedump $(get_shd_process_pid)
 }
 
 function generate_nfs_statedump {
@@ -956,21 +954,6 @@ function volgen_check_ancestry {
         else
                 echo "N"
         fi
-}
-
-function get_shd_mux_pid {
-   local volume=$1
-   pid=`$CLI volume status $volume shd | awk '/Self-heal/{print $8}'`
-   echo $pid
-}
-
-function shd_count {
-   ps aux | grep "glustershd" | grep -v grep | wc -l
-}
-
-function number_healer_threads_shd {
-   local pid=$(get_shd_mux_pid $1)
-   pstack $pid | grep $2 | wc -l
 }
 
 function get_mtime {

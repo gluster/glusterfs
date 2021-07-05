@@ -1133,7 +1133,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         if (replica_count && conf->op_version >= GD_OP_VERSION_3_7_10) {
             is_valid_add_brick = _gf_true;
             if (volinfo->status == GLUSTERD_STATUS_STARTED) {
-                ret = volinfo->shd.svc.stop(&(volinfo->shd.svc), SIGTERM);
+                ret = conf->shd_svc.stop(&(conf->shd_svc), SIGTERM);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0,
                            GD_MSG_GLUSTER_SERVICES_STOP_FAIL,
@@ -1216,8 +1216,8 @@ out:
     GF_FREE(free_ptr1);
     GF_FREE(free_ptr2);
     if (restart_shd) {
-        if (volinfo->shd.svc.manager(&(volinfo->shd.svc), volinfo,
-                                     PROC_START_NO_WAIT)) {
+        if (conf->shd_svc.manager(&(conf->shd_svc), volinfo,
+                                  PROC_START_NO_WAIT)) {
             gf_msg(this->name, GF_LOG_CRITICAL, 0,
                    GD_MSG_GLUSTER_SERVICE_START_FAIL,
                    "Failed to start shd for %s.", volinfo->volname);
@@ -2539,7 +2539,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     }
 
     if (start_remove && volinfo->status == GLUSTERD_STATUS_STARTED) {
-        ret = glusterd_svcs_reconfigure(volinfo);
+        ret = glusterd_svcs_reconfigure();
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_NFS_RECONF_FAIL,
                    "Unable to reconfigure NFS-Server");
