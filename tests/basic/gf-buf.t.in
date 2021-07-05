@@ -1,0 +1,9 @@
+#!/bin/bash
+
+. $(dirname $0)/../include.rc
+
+TEST build_tester $(dirname $0)/gf-buf.c \
+     -DGF_BUF_STACK_THRESHOLD=16 -DGF_BUF_ROUNDUP=8 \
+     -include @abs_top_builddir@/config.h -lglusterfs -Wall -O2
+TEST $(dirname $0)/gf-buf
+rm -f $(dirname $0)/gf-buf
