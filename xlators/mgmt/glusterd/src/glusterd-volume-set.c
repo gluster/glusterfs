@@ -1057,7 +1057,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "cluster.ensure-durability",
      .voltype = "cluster/replicate",
      .op_version = 3,
-    .type = NO_DOC,
+     .type = NO_DOC,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "cluster.consistent-metadata",
      .voltype = "cluster/replicate",
@@ -3107,7 +3107,13 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 
     {.key = "rebalance.ensure-durability",
      .voltype = "cluster/distribute",
-    .type = NO_DOC,
+     .type = NO_DOC,
      .op_version = GD_OP_VERSION_10_0,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
+
+    {.key = "cluster.gfid-mismatch-heal",
+     .voltype = "cluster/replicate",
+     .op_version = GD_OP_VERSION_10_0,
+     .value = "no",
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};
