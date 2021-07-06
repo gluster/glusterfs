@@ -32,6 +32,9 @@ TEST $CLI_1 volume rebalance $V0 start force
 TEST ! $CLI_1 volume set $V0 parallel-readdir on
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" cluster_rebalance_status_field 1 $V0
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" cluster_rebalance_status_field 2 $V0
+
+# Setting readdir-ahead to ON, in order to satisfy the dependency chain
+TEST $CLI_1 volume set $V0 readdir-ahead on
 TEST $CLI_1 volume set $V0 parallel-readdir on
 TEST mv $M0/dir1/bar $M0/dir1/foo
 

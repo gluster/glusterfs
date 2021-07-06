@@ -310,4 +310,15 @@ glusterd_op_stage_stats_volume(dict_t *dict, char **op_errstr);
 
 int
 gd_set_commit_hash(dict_t *dict);
+
+void
+glusterd_option_fetch(glusterd_volinfo_t *volinfo, char *input_key,
+                      char **deflt_val);
+
+int
+glusterd_dependency_chain_check(glusterd_volinfo_t *volinfo, dict_t *dict,
+                                char **errstr);
+
+int
+glusterd_option_fetch_bool(glusterd_volinfo_t *volinfo, char *key);
 #endif
