@@ -223,4 +223,8 @@ posix_disk_space_check(struct posix_private *priv);
 
 dict_t *
 _fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append);
+
+int
+posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
+                     char *buf, size_t buflen);
 #endif /* !_POSIX_HANDLE_H */
