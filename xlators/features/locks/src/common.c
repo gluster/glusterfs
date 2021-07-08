@@ -968,11 +968,7 @@ grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
     pl_local_t *local = NULL;
     INIT_LIST_HEAD(&granted_list);
 
-    pthread_mutex_lock(&pl_inode->mutex);
-    {
-        __grant_blocked_locks(this, pl_inode, &granted_list);
-    }
-    pthread_mutex_unlock(&pl_inode->mutex);
+    __grant_blocked_locks(this, pl_inode, &granted_list);
 
     list_for_each_entry_safe(lock, tmp, &granted_list, list)
     {
@@ -1108,11 +1104,11 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
             ret = -1;
         }
     }
-    pthread_mutex_unlock(&pl_inode->mutex);
 
     grant_blocked_locks(this, pl_inode);
-
     do_blocked_rw(pl_inode);
+
+    pthread_mutex_unlock(&pl_inode->mutex);
 
 out:
     return ret;

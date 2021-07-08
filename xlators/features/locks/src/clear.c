@@ -192,8 +192,8 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
             __destroy_lock(plock);
         }
     }
-    pthread_mutex_unlock(&pl_inode->mutex);
     grant_blocked_locks(this, pl_inode);
+    pthread_mutex_unlock(&pl_inode->mutex);
     ret = 0;
 out:
     *blkd = bcount;

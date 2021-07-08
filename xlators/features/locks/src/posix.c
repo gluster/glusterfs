@@ -1176,6 +1176,10 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
             }
         }
     }
+
+    grant_blocked_locks(this, pl_inode);
+    do_blocked_rw(pl_inode);
+
     pthread_mutex_unlock(&pl_inode->mutex);
 
     list_for_each_entry_safe(l, tmp, &blocked_list, list)
@@ -1184,10 +1188,6 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
         STACK_UNWIND_STRICT(lk, l->frame, -1, EAGAIN, &l->user_flock, NULL);
         __destroy_lock(l);
     }
-
-    grant_blocked_locks(this, pl_inode);
-
-    do_blocked_rw(pl_inode);
 }
 
 static void
@@ -1858,15 +1858,13 @@ pl_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         goto wind;
     }
     pthread_mutex_lock(&pl_inode->mutex);
-    {
-        __delete_locks_of_owner(pl_inode, frame->root->client,
-                                &frame->root->lk_owner);
-    }
-    pthread_mutex_unlock(&pl_inode->mutex);
 
+    __delete_locks_of_owner(pl_inode, frame->root->client,
+                            &frame->root->lk_owner);
     grant_blocked_locks(this, pl_inode);
-
     do_blocked_rw(pl_inode);
+
+    pthread_mutex_unlock(&pl_inode->mutex);
 
 wind:
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, fd, NULL, NULL);
@@ -2034,21 +2032,16 @@ do_blocked_rw(pl_inode_t *pl_inode)
 
     INIT_LIST_HEAD(&wind_list);
 
-    pthread_mutex_lock(&pl_inode->mutex);
+    list_for_each_entry_safe(rw, tmp, &pl_inode->rw_list, list)
     {
-        list_for_each_entry_safe(rw, tmp, &pl_inode->rw_list, list)
-        {
-            if (__rw_allowable(pl_inode, &rw->region, rw->stub->fop)) {
-                list_del_init(&rw->list);
-                list_add_tail(&rw->list, &wind_list);
-                if (pl_inode->mlock_enforced &&
-                    pl_inode->track_fop_wind_count) {
-                    pl_inode->fop_wind_count++;
-                }
+        if (__rw_allowable(pl_inode, &rw->region, rw->stub->fop)) {
+            list_del_init(&rw->list);
+            list_add_tail(&rw->list, &wind_list);
+            if (pl_inode->mlock_enforced && pl_inode->track_fop_wind_count) {
+                pl_inode->fop_wind_count++;
             }
         }
     }
-    pthread_mutex_unlock(&pl_inode->mutex);
 
     list_for_each_entry_safe(rw, tmp, &wind_list, list)
     {
