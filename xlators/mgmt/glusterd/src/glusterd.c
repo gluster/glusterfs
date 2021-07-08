@@ -935,7 +935,7 @@ out:
     return ret ? -1 : 0;
 }
 #undef RUN_GSYNCD_CMD
-#else  /* SYNCDAEMON_COMPILE */
+#else /* SYNCDAEMON_COMPILE */
 static int
 configure_syncdaemon(glusterd_conf_t *conf)
 {

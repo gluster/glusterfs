@@ -5450,6 +5450,7 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
 
         if (GLUSTERD_VOL_COMP_RJT == *status) {
             ret = 0;
+            update = _gf_false;
             goto out;
         }
         if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status) {
@@ -5464,11 +5465,12 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
          * first brick to come up before attaching the subsequent bricks
          * in case brick multiplexing is enabled
          */
-        glusterd_launch_synctask(glusterd_import_friend_volumes_synctask, arg);
+        ret = glusterd_launch_synctask(glusterd_import_friend_volumes_synctask,
+                                       arg);
     }
 
 out:
-    if (ret && arg) {
+    if ((ret || !update) && arg) {
         dict_unref(arg->peer_data);
         dict_unref(arg->peer_ver_data);
         GF_FREE(arg);
@@ -12922,7 +12924,7 @@ gd_default_synctask_cbk(int ret, call_frame_t *frame, void *opaque)
     return ret;
 }
 
-void
+int
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque)
 {
     xlator_t *this = THIS;
@@ -12936,6 +12938,8 @@ glusterd_launch_synctask(synctask_fn_t fn, void *opaque)
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_SPAWN_SVCS_FAIL,
                "Failed to spawn bricks"
                " and other volume related services");
+
+    return ret;
 }
 
 /*
