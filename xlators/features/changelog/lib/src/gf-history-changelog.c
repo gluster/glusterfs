@@ -439,6 +439,10 @@ gf_history_b_search(int fd, unsigned long value, unsigned long from,
         goto out;
     if (cur_value == value) {
         return m_index;
+    } else if (cur_value == 0) {
+        // 0 is returned if the timestamp isn't found in the htime file
+        // In this case we need to search backward
+        return gf_history_b_search(fd, value, from, m_index - 1, len);
     } else if (value > cur_value) {
         ret = gf_history_get_timestamp(fd, m_index + 1, len, &cur_value);
         if (ret == -1)
