@@ -1185,7 +1185,7 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
         __destroy_lock(l);
     }
 
-    grant_blocked_locks(this, pl_inode);
+    grant_blocked_locks(this, pl_inode, _gf_false);
 
     do_blocked_rw(pl_inode);
 }
@@ -1862,9 +1862,7 @@ pl_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         __delete_locks_of_owner(pl_inode, frame->root->client,
                                 &frame->root->lk_owner);
     }
-    pthread_mutex_unlock(&pl_inode->mutex);
-
-    grant_blocked_locks(this, pl_inode);
+    grant_blocked_locks(this, pl_inode, _gf_true);
 
     do_blocked_rw(pl_inode);
 

@@ -70,7 +70,7 @@ int
 pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock);
 
 void
-grant_blocked_locks(xlator_t *this, pl_inode_t *inode);
+grant_blocked_locks(xlator_t *this, pl_inode_t *inode, gf_boolean_t lock_flag);
 
 void
 posix_lock_to_flock(posix_lock_t *lock, struct gf_flock *flock);

@@ -960,7 +960,8 @@ __grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode,
 }
 
 void
-grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
+grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode,
+                    gf_boolean_t lock_flag)
 {
     struct list_head granted_list;
     posix_lock_t *tmp = NULL;
@@ -968,7 +969,11 @@ grant_blocked_locks(xlator_t *this, pl_inode_t *pl_inode)
     pl_local_t *local = NULL;
     INIT_LIST_HEAD(&granted_list);
 
-    pthread_mutex_lock(&pl_inode->mutex);
+    /* Need to call lock only while lock has not been taken
+       by parent function
+    */
+    if (!lock_flag)
+        pthread_mutex_lock(&pl_inode->mutex);
     {
         __grant_blocked_locks(this, pl_inode, &granted_list);
     }
@@ -1108,9 +1113,7 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
             ret = -1;
         }
     }
-    pthread_mutex_unlock(&pl_inode->mutex);
-
-    grant_blocked_locks(this, pl_inode);
+    grant_blocked_locks(this, pl_inode, _gf_true);
 
     do_blocked_rw(pl_inode);
 
