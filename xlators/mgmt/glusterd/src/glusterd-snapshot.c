@@ -59,7 +59,6 @@
 #include "cli1-xdr.h"
 #include "xdr-generic.h"
 
-#include <glusterfs/lvm-defaults.h>
 #include <glusterfs/events.h>
 
 #define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid)                           \
@@ -2539,6 +2538,7 @@ glusterd_do_lvm_snapshot_remove(glusterd_volinfo_t *snap_vol,
                                 const char *mount_pt, const char *snap_device)
 {
     int ret = -1;
+#if defined(LVM_REMOVE)
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     runner_t runner = {
@@ -2657,7 +2657,7 @@ glusterd_do_lvm_snapshot_remove(glusterd_volinfo_t *snap_vol,
 out:
     if (mnt_pt)
         GF_FREE(mnt_pt);
-
+#endif /* LVM_REMOVE */
     return ret;
 }
 
@@ -4462,11 +4462,12 @@ int32_t
 glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
                            char *origin_brick_path)
 {
+    int ret = -1;
+#if defined(LVM_CREATE)
     char msg[NAME_MAX] = "";
     char buf[PATH_MAX] = "";
     char *ptr = NULL;
     char *origin_device = NULL;
-    int ret = -1;
     gf_boolean_t match = _gf_false;
     runner_t runner = {
         0,
@@ -4534,7 +4535,7 @@ glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
 out:
     if (origin_device)
         GF_FREE(origin_device);
-
+#endif /* LVM_CREATE */
     return ret;
 }
 
@@ -7094,6 +7095,7 @@ glusterd_get_brick_lvm_details(dict_t *rsp_dict,
                                char *device, const char *key_prefix)
 {
     int ret = -1;
+#if defined(LVS)
     glusterd_conf_t *priv = NULL;
     runner_t runner = {
         0,
@@ -7233,7 +7235,7 @@ out:
 
     if (device)
         GF_FREE(device);
-
+#endif /* LVS */
     return ret;
 }
 
@@ -9052,20 +9054,17 @@ out:
     return ret;
 }
 
-/*
-  Verify availability of lvm commands
-*/
+/* Check whether 'lvcreate' executable is found. */
 
 static gf_boolean_t
-glusterd_is_lvm_cmd_available(char *lvm_cmd)
+glusterd_is_lvm_cmd_available(void)
 {
+#if defined(LVM_CREATE)
     int32_t ret = 0;
     struct stat buf = {
         0,
     };
-
-    if (!lvm_cmd)
-        return _gf_false;
+    const char *lvm_cmd = LVM_CREATE;
 
     ret = sys_stat(lvm_cmd, &buf);
     if (ret != 0) {
@@ -9092,6 +9091,9 @@ glusterd_is_lvm_cmd_available(char *lvm_cmd)
     }
 
     return _gf_true;
+#else /* !defined(LVM_CREATE) */
+    return _gf_false;
+#endif /* LVM_CREATE */
 }
 
 int
@@ -9181,7 +9183,7 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (!glusterd_is_lvm_cmd_available(LVM_CREATE)) {
+    if (!glusterd_is_lvm_cmd_available()) {
         snprintf(err_str, sizeof(err_str),
                  "LVM commands not found,"
                  " snapshot functionality is disabled");
