@@ -14781,7 +14781,7 @@ glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
         if (tmpptr == NULL)
             goto check_failed;
         addrlen = strlen(brick) - strlen(tmpptr);
-        strncpy(brick_addr, brick, addrlen);
+        memcpy(brick_addr, brick, addrlen);
         brick_addr[addrlen] = '\0';
         ret = getaddrinfo(brick_addr, NULL, NULL, &ai_info);
         if (ret != 0) {
