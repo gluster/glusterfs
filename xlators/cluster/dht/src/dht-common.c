@@ -23,6 +23,8 @@
 #include <libgen.h>
 #include <signal.h>
 
+#include <urcu/uatomic.h>
+
 static int
 dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, gf_dirent_t *entries,
@@ -6627,6 +6629,94 @@ out:
     return;
 }
 
+/* Execute a READDIR request if no other request is in progress. Otherwise
+ * queue it to be executed when the current one finishes.
+ *
+ * When parallel-readdir is enabled and directory contents are cached, the
+ * callback of a readdirp will be called before returning from STACK_WIND.
+ * If the returned contents are not useful for DHT, and the buffer is not
+ * yet full, a nested readdirp request will be sent. This means that there
+ * will be many recursive calls. In the worst case there might be a stack
+ * overflow.
+ *
+ * To avoid this, we only wind a request if no other request is being wound.
+ * If there's another request, we simple store the values for the next call.
+ * When the thread processing the current wind completes it, it will take
+ * the new arguments and send the request from the top level stack. */
+static void
+dht_queue_readdir(call_frame_t *frame, xlator_t *xl, off_t offset,
+                  fop_readdir_cbk_t cbk)
+{
+    dht_local_t *local;
+    int32_t queue;
+    xlator_t *this = NULL;
+
+    local = frame->local;
+    this = frame->this;
+
+    local->queue_xl = xl;
+    local->queue_offset = offset;
+
+    if (uatomic_add_return(&local->queue, 1) == 1) {
+        /* If we are here it means that we are the first one to send a
+         * readdir request. Any attempt to send more readdir requests will
+         * find local->queue > 1, so it won't do anything. The needed data
+         * to send the request has been stored into local->queue_*.
+         *
+         * Note: this works because we will only have 1 additional request
+         *       at most (the one called by the cbk function) while we are
+         *       processing another readdir. */
+        do {
+            STACK_WIND_COOKIE(frame, cbk, local->queue_xl, local->queue_xl,
+                              local->queue_xl->fops->readdir, local->fd,
+                              local->size, local->queue_offset, local->xattr);
+
+            /* If a new readdirp request has been added before returning
+             * from winding, we process it. */
+        } while ((queue = uatomic_sub_return(&local->queue, 1)) > 0);
+
+        if (queue < 0) {
+            /* A negative value means that an unwind has been called before
+             * returning from the previous wind. This means that 'local' is
+             * not needed anymore and must be destroyed. */
+            dht_local_wipe(this, local);
+        }
+    }
+}
+
+/* Execute a READDIRP request if no other request is in progress. Otherwise
+ * queue it to be executed when the current one finishes. */
+static void
+dht_queue_readdirp(call_frame_t *frame, xlator_t *xl, off_t offset,
+                   fop_readdirp_cbk_t cbk)
+{
+    dht_local_t *local;
+    int32_t queue;
+    xlator_t *this = NULL;
+
+    local = frame->local;
+    this = frame->this;
+
+    local->queue_xl = xl;
+    local->queue_offset = offset;
+
+    /* Check dht_queue_readdir() comments for an explanation of this. */
+    if (uatomic_add_return(&local->queue, 1) == 1) {
+        do {
+            STACK_WIND_COOKIE(frame, cbk, local->queue_xl, local->queue_xl,
+                              local->queue_xl->fops->readdirp, local->fd,
+                              local->size, local->queue_offset, local->xattr);
+        } while ((queue = uatomic_sub_return(&local->queue, 1)) > 0);
+
+        if (queue < 0) {
+            /* A negative value means that an unwind has been called before
+             * returning from the previous wind. This means that 'local' is
+             * not needed anymore and must be destroyed. */
+            dht_local_wipe(this, local);
+        }
+    }
+}
+
 /* Posix returns op_errno = ENOENT to indicate that there are no more
  * entries
  */
@@ -6894,9 +6984,8 @@ done:
             }
         }
 
-        STACK_WIND_COOKIE(frame, dht_readdirp_cbk, next_subvol, next_subvol,
-                          next_subvol->fops->readdirp, local->fd, local->size,
-                          next_offset, local->xattr);
+        dht_queue_readdirp(frame, next_subvol, next_offset, dht_readdirp_cbk);
+
         return 0;
     }
 
@@ -6913,6 +7002,17 @@ unwind:
 
     if (prev != dht_last_up_subvol(this))
         op_errno = 0;
+
+    /* If we are inside a recursive call (or not inside a recursive call but
+     * the cbk is completed before the wind returns), local->queue will be 1.
+     * In this case we cannot destroy 'local' because it will be needed by
+     * the caller of STACK_WIND. In this case, we decrease the value to let
+     * the caller know that the operation has terminated and it must destroy
+     * 'local'. If local->queue 0, we can destroy it here because there are
+     * no other users. */
+    if (uatomic_sub_return(&local->queue, 1) >= 0) {
+        frame->local = NULL;
+    }
 
     DHT_STACK_UNWIND(readdirp, frame, op_ret, op_errno, &entries, NULL);
 
@@ -7015,9 +7115,8 @@ done:
             goto unwind;
         }
 
-        STACK_WIND_COOKIE(frame, dht_readdir_cbk, next_subvol, next_subvol,
-                          next_subvol->fops->readdir, local->fd, local->size,
-                          next_offset, NULL);
+        dht_queue_readdir(frame, next_subvol, next_offset, dht_readdir_cbk);
+
         return 0;
     }
 
@@ -7033,6 +7132,17 @@ unwind:
     if (prev != dht_last_up_subvol(this))
         op_errno = 0;
 
+    /* If we are inside a recursive call (or not inside a recursive call but
+     * the cbk is completed before the wind returns), local->queue will be 1.
+     * In this case we cannot destroy 'local' because it will be needed by
+     * the caller of STACK_WIND. In this case, we decrease the value to let
+     * the caller know that the operation has terminated and it must destroy
+     * 'local'. If local->queue 0, we can destroy it here because there are
+     * no other users. */
+    if (uatomic_sub_return(&local->queue, 1) >= 0) {
+        frame->local = NULL;
+    }
+
     if (!skip_hashed_check) {
         DHT_STACK_UNWIND(readdir, frame, op_ret, op_errno, &entries, NULL);
         gf_dirent_free(&entries);
@@ -7040,6 +7150,7 @@ unwind:
     } else {
         DHT_STACK_UNWIND(readdir, frame, op_ret, op_errno, orig_entries, NULL);
     }
+
     return 0;
 }
 
@@ -7116,11 +7227,9 @@ dht_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             }
         }
 
-        STACK_WIND_COOKIE(frame, dht_readdirp_cbk, xvol, xvol,
-                          xvol->fops->readdirp, fd, size, yoff, local->xattr);
+        dht_queue_readdirp(frame, xvol, yoff, dht_readdirp_cbk);
     } else {
-        STACK_WIND_COOKIE(frame, dht_readdir_cbk, xvol, xvol,
-                          xvol->fops->readdir, fd, size, yoff, local->xattr);
+        dht_queue_readdir(frame, xvol, yoff, dht_readdir_cbk);
     }
 
     return 0;
