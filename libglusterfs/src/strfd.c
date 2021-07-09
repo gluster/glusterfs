@@ -15,14 +15,41 @@
 #include "glusterfs/strfd.h"
 #include "glusterfs/common-utils.h"
 
-strfd_t *
-strfd_open()
+#ifdef HAVE_OPEN_MEMSTREAM
+
+int
+strfd_open(strfd_t *strfd)
 {
-    strfd_t *strfd = NULL;
+    memset(strfd, 0, sizeof(strfd_t));
+    strfd->fp = open_memstream(&strfd->data, &strfd->size);
+    return strfd->fp ? 0 : -1;
+}
 
-    strfd = GF_CALLOC(1, sizeof(*strfd), gf_common_mt_strfd_t);
+int
+strvprintf(strfd_t *strfd, const char *fmt, va_list ap)
+{
+    int size = vfprintf(strfd->fp, fmt, ap);
+    /* According to the manual, flushing is required to update 'data'
+       and 'size' fields which are directly accessed by strfd users. */
+    fflush(strfd->fp);
+    return size;
+}
 
-    return strfd;
+void
+strfd_close(strfd_t *strfd)
+{
+    fclose(strfd->fp);
+    /* Not GF_FREE because was not GF_ALLOC'ed. */
+    free(strfd->data);
+}
+
+#else /* not HAVE_OPEN_MEMSTREAM */
+
+int
+strfd_open(strfd_t *strfd)
+{
+    memset(strfd, 0, sizeof(strfd_t));
+    return 0;
 }
 
 int
@@ -70,6 +97,14 @@ strvprintf(strfd_t *strfd, const char *fmt, va_list ap)
     return size;
 }
 
+void
+strfd_close(strfd_t *strfd)
+{
+    GF_FREE(strfd->data);
+}
+
+#endif /* HAVE_OPEN_MEMSTREAM */
+
 int
 strprintf(strfd_t *strfd, const char *fmt, ...)
 {
@@ -81,13 +116,4 @@ strprintf(strfd_t *strfd, const char *fmt, ...)
     va_end(ap);
 
     return ret;
-}
-
-int
-strfd_close(strfd_t *strfd)
-{
-    GF_FREE(strfd->data);
-    GF_FREE(strfd);
-
-    return 0;
 }

@@ -251,8 +251,8 @@ int
 meta_file_fill(xlator_t *this, fd_t *fd)
 {
     meta_fd_t *meta_fd = NULL;
-    strfd_t *strfd = NULL;
     struct meta_ops *ops = NULL;
+    strfd_t strfd;
     int ret = 0;
 
     meta_fd = meta_fd_get(fd, this);
@@ -262,27 +262,24 @@ meta_file_fill(xlator_t *this, fd_t *fd)
     if (meta_fd->data)
         return meta_fd->size;
 
-    strfd = strfd_open();
-    if (!strfd)
+    if (strfd_open(&strfd))
         return -1;
 
     ops = meta_ops_get(fd->inode, this);
     if (!ops) {
-        strfd_close(strfd);
+        strfd_close(&strfd);
         return -1;
     }
 
     if (ops->file_fill)
-        ret = ops->file_fill(this, fd->inode, strfd);
+        ret = ops->file_fill(this, fd->inode, &strfd);
 
-    if (ret >= 0) {
-        meta_fd->data = strfd->data;
-        meta_fd->size = strfd->size;
-
-        strfd->data = NULL;
+    if (ret > 0) {
+        meta_fd->data = gf_strdup(strfd.data);
+        meta_fd->size = strfd.size;
     }
 
-    strfd_close(strfd);
+    strfd_close(&strfd);
 
     return meta_fd->size;
 }
