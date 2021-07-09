@@ -241,7 +241,7 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
                                     u_int *length);
 
 int32_t
-glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
+glusterd_compare_friend_data(dict_t **peer_data, dict_t *cmp, int32_t *status,
                              char *hostname);
 
 int

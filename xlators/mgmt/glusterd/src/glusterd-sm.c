@@ -985,7 +985,7 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
     // Build comparison logic here.
     pthread_mutex_lock(&conf->import_volumes);
     {
-        ret = glusterd_compare_friend_data(ev_ctx->vols, ev_ctx->peer_ver,
+        ret = glusterd_compare_friend_data(&(ev_ctx->vols), ev_ctx->peer_ver,
                                            &status, event->peername);
         if (ret) {
             pthread_mutex_unlock(&conf->import_volumes);
@@ -1058,15 +1058,18 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
 
     new_event->ctx = new_ev_ctx;
 
-    ret = dict_get_strn(ev_ctx->vols, "hostname_in_cluster",
-                        SLEN("hostname_in_cluster"), &hostname);
-    if (ret || !hostname) {
-        gf_msg_debug(this->name, 0, "Unable to fetch local hostname from peer");
-    } else if (snprintf(local_node_hostname, sizeof(local_node_hostname), "%s",
-                        hostname) >= sizeof(local_node_hostname)) {
-        gf_msg_debug(this->name, 0, "local_node_hostname truncated");
-        ret = -1;
-        goto out;
+    if (ev_ctx->vols) {
+        ret = dict_get_strn(ev_ctx->vols, "hostname_in_cluster",
+                            SLEN("hostname_in_cluster"), &hostname);
+        if (ret || !hostname) {
+            gf_msg_debug(this->name, 0,
+                         "Unable to fetch local hostname from peer");
+        } else if (snprintf(local_node_hostname, sizeof(local_node_hostname),
+                            "%s", hostname) >= sizeof(local_node_hostname)) {
+            gf_msg_debug(this->name, 0, "local_node_hostname truncated");
+            ret = -1;
+            goto out;
+        }
     }
 
     glusterd_friend_sm_inject_event(new_event);

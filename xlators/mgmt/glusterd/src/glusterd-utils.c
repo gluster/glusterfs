@@ -5401,7 +5401,7 @@ out:
 }
 
 int32_t
-glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
+glusterd_compare_friend_data(dict_t **peer_data, dict_t *cmp, int32_t *status,
                              char *hostname)
 {
     int32_t ret = -1;
@@ -5412,12 +5412,12 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
     glusterd_conf_t *priv = NULL;
     glusterd_friend_synctask_args_t *arg = NULL;
 
-    GF_ASSERT(peer_data);
+    GF_ASSERT(*peer_data);
     GF_ASSERT(status);
 
     priv = this->private;
     GF_ASSERT(priv);
-    ret = glusterd_import_global_opts(peer_data);
+    ret = glusterd_import_global_opts(*peer_data);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLOBAL_OPT_IMPORT_FAIL,
                "Importing global "
@@ -5425,7 +5425,7 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
         goto out;
     }
 
-    ret = dict_get_int32n(peer_data, "count", SLEN("count"), &count);
+    ret = dict_get_int32n(*peer_data, "count", SLEN("count"), &count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
@@ -5440,10 +5440,10 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
                "Out Of Memory");
         goto out;
     }
-    arg->peer_data = dict_ref(peer_data);
+    arg->peer_data = dict_ref(*peer_data);
     arg->peer_ver_data = dict_ref(cmp);
     while (i <= count) {
-        ret = glusterd_compare_friend_volume(peer_data, arg, i, status,
+        ret = glusterd_compare_friend_volume(*peer_data, arg, i, status,
                                              hostname);
         if (ret)
             goto out;
@@ -5472,6 +5472,8 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
 out:
     if ((ret || !update) && arg) {
         dict_unref(arg->peer_data);
+        *peer_data = NULL;
+
         dict_unref(arg->peer_ver_data);
         GF_FREE(arg);
     }
