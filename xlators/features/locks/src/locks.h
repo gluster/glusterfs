@@ -203,10 +203,8 @@ struct __pl_inode {
 
     gf_boolean_t track_fop_wind_count;
 
-    int32_t links;           /* Number of hard links the inode has. */
     uint32_t remove_running; /* Number of remove operations running. */
     gf_boolean_t is_locked;  /* Regular locks will be blocked. */
-    gf_boolean_t removed;    /* The inode has been deleted. */
 };
 typedef struct __pl_inode pl_inode_t;
 
