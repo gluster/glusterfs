@@ -250,6 +250,7 @@ AC_CONFIG_FILES([Makefile
                 heal/Makefile
                 heal/src/Makefile
                 glusterfs.spec
+                tests/basic/gf-buf.t
                 tools/glusterfind/src/tool.conf
                 tools/glusterfind/glusterfind
                 tools/glusterfind/Makefile
@@ -999,6 +1000,32 @@ if test x$STATIC_ASSERT = "xyes"; then
    AC_DEFINE(HAVE_STATIC_ASSERT, 1, [Define if C11 _Static_assert is supported.])
 fi
 
+dnl Check for __attribute__((__cleanup__(f))). Since gcc
+dnl warns on unknown attribute, force -Werror=attributes.
+saved_CFLAGS=$CFLAGS
+CFLAGS="-Werror=attributes"
+AC_MSG_CHECKING([whether $CC supports __attribute__((__cleanup__))])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+   [[struct s { int x; }; void f(struct s *s) {}]],
+   [[struct s v __attribute__((__cleanup__(f)));]])],
+[CLEANUP=yes], [CLEANUP=no])
+AC_MSG_RESULT([$CLEANUP])
+CFLAGS="$saved_CFLAGS"
+if test x$CLEANUP != "xyes"; then
+   AC_MSG_ERROR([__attribute__((__cleanup__)) is not supported, exiting.])
+fi
+
+dnl Check for __builtin_alloca_with_align.
+AC_MSG_CHECKING([whether $CC supports __builtin_alloca_with_align])
+AC_TRY_LINK([], [void *p = __builtin_alloca_with_align(64, 64);],
+            [HAVE_BUILTIN_ALLOCA_WITH_ALIGN=yes],
+            [HAVE_BUILTIN_ALLOCA_WITH_ALIGN=no])
+AC_MSG_RESULT([$HAVE_BUILTIN_ALLOCA_WITH_ALIGN])
+if test x$HAVE_BUILTIN_ALLOCA_WITH_ALIGN = "xyes"; then
+   AC_DEFINE(HAVE_BUILTIN_ALLOCA_WITH_ALIGN, 1,
+      [Define if the compiler supports __builtin_alloca_with_align() function.])
+fi
+
 if test "x${have_backtrace}" != "xyes"; then
 AC_TRY_COMPILE([#include <math.h>], [double x=0.0; x=ceil(0.0);],
    [],
@@ -1722,7 +1749,7 @@ esac
 CONTRIBDIR='$(top_srcdir)/contrib'
 AC_SUBST(CONTRIBDIR)
 
-GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS)'
+GF_CPPDEFINES='-D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE'
 GF_CPPINCLUDES='-include $(top_builddir)/config.h -include $(top_builddir)/site.h -I$(top_srcdir)/libglusterfs/src -I$(top_builddir)/libglusterfs/src'
 if test "x${USE_CONTRIB_URCU}" = "xyes"; then
     GF_CPPINCLUDES="${GF_CPPINCLUDES} -I\$(CONTRIBDIR)/userspace-rcu"
@@ -1731,10 +1758,16 @@ GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
+if  test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS"; then
+    AC_DEFINE(GF_LINUX_HOST_OS, 1, [Configured on Linux OS.])
+fi
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
+if  test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS"; then
+    AC_DEFINE(GF_DARWIN_HOST_OS, 1, [Configured on Darwin OS.])
+fi
 AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
 if  test "${GF_HOST_OS}" = "GF_BSD_HOST_OS"; then
-    AC_DEFINE(GF_BSD_HOST_OS, 1, [This is a BSD compatible OS.])
+    AC_DEFINE(GF_BSD_HOST_OS, 1, [Configured on a BSD-compatible OS.])
 fi
 
 AC_SUBST(GLUSTERD_WORKDIR)

@@ -26,6 +26,7 @@ gitclean: distclean
 	find . -name Makefile.in -exec rm -f {} \;
 	find . -name mount.glusterfs -exec rm -f {} \;
 	find . -name .deps -o -name .libs | xargs rm -rf
+	rm -fv tests/basic/gf-buf.t
 	rm -fr autom4te.cache
 	rm -f missing aclocal.m4 config.h.in config.guess config.sub ltmain.sh install-sh configure depcomp
 
