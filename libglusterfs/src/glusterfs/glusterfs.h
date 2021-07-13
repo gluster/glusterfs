@@ -593,6 +593,8 @@ struct _cmd_args {
     bool brick_mux;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
+
+    char *io_engine;
 };
 typedef struct _cmd_args cmd_args_t;
 
