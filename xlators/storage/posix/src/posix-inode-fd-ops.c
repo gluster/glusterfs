@@ -1346,7 +1346,7 @@ posix_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     VALIDATE_OR_GOTO(fd, out);
 
     SET_FS_ID(frame->root->uid, frame->root->gid);
-    MAKE_INODE_HANDLE(real_path, this, loc, NULL);
+    MAKE_INODE_HANDLE_DIR(real_path, this, loc, NULL);
     if (!real_path) {
         op_errno = ESTALE;
         goto out;

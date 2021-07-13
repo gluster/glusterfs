@@ -780,14 +780,17 @@ posix_handle_hard(xlator_t *this, const char *oldpath, uuid_t gfid,
         }
     }
 
-    if (newbuf.st_ino != oldbuf->st_ino || newbuf.st_dev != oldbuf->st_dev) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
-               "mismatching ino/dev between file %s (%lld/%lld) "
-               "and handle %s (%lld/%lld)",
-               oldpath, (long long)oldbuf->st_ino, (long long)oldbuf->st_dev,
-               uuid_utoa(gfid), (long long)newbuf.st_ino,
-               (long long)newbuf.st_dev);
-        ret = -1;
+    if (oldbuf) {
+        if (newbuf.st_ino != oldbuf->st_ino ||
+            newbuf.st_dev != oldbuf->st_dev) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
+                   "mismatching ino/dev between file %s (%lld/%lld) "
+                   "and handle %s (%lld/%lld)",
+                   oldpath, (long long)oldbuf->st_ino,
+                   (long long)oldbuf->st_dev, uuid_utoa(gfid),
+                   (long long)newbuf.st_ino, (long long)newbuf.st_dev);
+            ret = -1;
+        }
     }
 
     return ret;

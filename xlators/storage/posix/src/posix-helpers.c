@@ -712,6 +712,11 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     };
     int ret = 0;
     struct posix_private *priv = NULL;
+    char *rpath = NULL;
+    inode_t *parent = NULL;
+    uuid_t null_gfid = {
+        0,
+    };
 
     priv = this->private;
 
@@ -725,13 +730,55 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
         goto out;
     }
 
+again:
     ret = sys_lstat(real_path, &lstatbuf);
 
     if (ret != 0) {
         if (ret == -1) {
-            if (errno != ENOENT && errno != ELOOP)
+            if (errno != ENOENT && errno != ELOOP) {
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
                        "lstat failed on %s", real_path);
+            } else {
+                /* Below code is trying to heal gfid path if inode is valid
+                 */
+                if (inode && inode->ia_type) {
+                    if (gf_uuid_is_null(inode->gfid))
+                        gf_uuid_copy(inode->gfid, gfid);
+                    (void)inode_path(inode, NULL, &rpath);
+                    if (inode->ia_type != IA_IFDIR) {
+                        rpath = rpath + 1;
+                        ret = posix_handle_hard(this, rpath, gfid, NULL);
+                        if (!ret)
+                            goto again;
+                        else
+                            gf_log(this->name, GF_LOG_ERROR,
+                                   "Failed to create"
+                                   " handle path for path %s gfid %s",
+                                   rpath, uuid_utoa(gfid));
+                    } else {
+                        parent = inode_parent(inode, null_gfid, NULL);
+                        if (loc && parent) {
+                            gf_uuid_copy(loc->pargfid, parent->gfid);
+                            loc->name = strrchr(loc->path, '/') + 1;
+                            ret = posix_handle_soft(this, NULL, loc, gfid,
+                                                    NULL);
+                            if (!ret)
+                                goto again;
+                            else
+                                gf_log(this->name, GF_LOG_ERROR,
+                                       "Failed to create"
+                                       " handle path for path %s gfid %s",
+                                       loc->name, uuid_utoa(gfid));
+                        }
+                    }
+                } else {
+                    gf_msg_debug(this->name, 0,
+                                 "Can not create handle path for path %s "
+                                 " because inode is NULL",
+                                 real_path);
+                    goto out;
+                }
+            }
         } else {
             // may be some backend filesystem issue
             gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_LSTAT_FAILED,
@@ -1686,33 +1733,9 @@ is_fresh_file(struct timespec *ts)
 }
 
 int
-posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
+posix_gfid_get_set(xlator_t *this, const char *path, loc_t *loc,
+                   dict_t *xattr_req)
 {
-    /* The purpose of this function is to prevent a race
-       where an inode creation FOP (like mkdir/mknod/create etc)
-       races with lookup in the following way:
-
-               {create thread}       |    {lookup thread}
-                                     |
-                                     t0
-                  mkdir ("name")     |
-                                     t1
-                                     |     posix_gfid_set ("name", 2);
-                                     t2
-         posix_gfid_set ("name", 1); |
-                                     t3
-                  lstat ("name");    |     lstat ("name");
-
-      In the above case mkdir FOP would have resulted with GFID 2 while
-      it should have been GFID 1. It matters in the case where GFID would
-      have gotten set to 1 on other subvolumes of replciate/distribute
-
-      The "solution" here is that, if we detect lookup is attempting to
-      set a GFID on a file which is created very recently, but does not
-      yet have a GFID (i.e, between t1 and t2), then "fake" it as though
-      posix_gfid_heal was called at t0 instead.
-    */
-
     uuid_t uuid_curr;
     int ret = 0;
     struct stat stat = {
@@ -1768,8 +1791,12 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
             }
         }
     }
+    /* It means gfid is not present on backend */
+    if (ret != 16) {
+        (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX,
+                             &ret);
+    }
 
-    (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
     return 0;
 }
 

@@ -385,8 +385,8 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
 void
 posix_janitor_timer_start(xlator_t *this);
 int
-posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc,
-                dict_t *xattr_req);
+posix_gfid_get_set(xlator_t *this, const char *path, loc_t *loc,
+                   dict_t *xattr_req);
 int
 posix_entry_create_xattr_set(xlator_t *this, loc_t *loc, const char *path,
                              dict_t *dict);

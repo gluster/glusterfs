@@ -94,6 +94,41 @@
         }                                                                      \
     } while (0)
 
+#define MAKE_INODE_HANDLE_DIR(rpath, this, loc, iatt_p)                        \
+    do {                                                                       \
+        if (!this->private) {                                                  \
+            op_ret = -1;                                                       \
+            gf_msg("make_inode_handle", GF_LOG_ERROR, 0,                       \
+                   P_MSG_INODE_HANDLE_CREATE,                                  \
+                   "private is NULL, fini is already called");                 \
+            break;                                                             \
+        }                                                                      \
+        if (gf_uuid_is_null(loc->gfid)) {                                      \
+            op_ret = -1;                                                       \
+            gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_INODE_HANDLE_CREATE,     \
+                   "null gfid for path %s", (loc)->path);                      \
+            break;                                                             \
+        }                                                                      \
+        errno = 0;                                                             \
+        op_ret = posix_istat(this, loc->inode, loc->gfid, NULL, iatt_p, loc);  \
+>>>>>>> posix: Resolved various reviewer comment
+        if (errno != ELOOP) {                                                  \
+            MAKE_HANDLE_PATH(rpath, this, (loc)->gfid, NULL);                  \
+            if (!rpath) {                                                      \
+                op_ret = -1;                                                   \
+                gf_msg(this->name, GF_LOG_ERROR, errno,                        \
+                       P_MSG_INODE_HANDLE_CREATE,                              \
+                       "Failed to create inode handle "                        \
+                       "for path %s",                                          \
+                       (loc)->path);                                           \
+            }                                                                  \
+            break;                                                             \
+        } /* __ret == -1 && errno == ELOOP */                                  \
+        else {                                                                 \
+            op_ret = -1;                                                       \
+        }                                                                      \
+    } while (0)
+
 #define POSIX_ANCESTRY_PATH (1 << 0)
 #define POSIX_ANCESTRY_DENTRY (1 << 1)
 

@@ -135,6 +135,7 @@
 #define VIRTUAL_GFID_XATTR_KEY "glusterfs.gfid"
 #define GF_XATTR_MDATA_KEY "trusted.glusterfs.mdata"
 #define UUID_CANONICAL_FORM_LEN 36
+#define UUID_CANONICAL_FORM_LEN_RENAME 43
 
 #define GET_ANCESTRY_PATH_KEY "glusterfs.ancestry.path"
 #define GET_ANCESTRY_DENTRY_KEY "glusterfs.ancestry.dentry"
