@@ -450,6 +450,18 @@ out:
 }
 
 int
+rename_two_path(xlator_t *this, const char *old, const char *new)
+{
+    if (sys_rename(old, new)) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "rename is failing old_path %s new_path %s", old, new);
+        return 1;
+    }
+
+    return 0;
+}
+
+int
 posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
             dev_t dev, mode_t umask, dict_t *xdata)
 {
@@ -528,8 +540,8 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     strcpy(orig_real_path, real_path);
     if (frame->root->pid != GF_SERVER_PID_TRASH) {
         uuid_str = uuid_utoa(uuid_req);
-        (void)snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s",
-                       priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
+        snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s/%s",
+                 priv->base_path, GF_HIDDEN_PATH, uuid_req[0], "tt", uuid_str);
         real_path = gfid_tmp_path;
         atomic_creation = _gf_true;
     }
@@ -679,13 +691,8 @@ post_op:
     posix_set_parent_ctime(frame, this, par_path, -1, loc->parent, &postparent);
 
     op_ret = 0;
-    if (atomic_creation) {
-        op_ret = sys_rename(real_path, orig_real_path);
-        if (op_ret)
-            gf_log(this->name, GF_LOG_ERROR,
-                   "rename is failing old_path %s new_path %s", real_path,
-                   orig_real_path);
-    }
+    if (atomic_creation)
+        op_ret = rename_two_path(this, real_path, orig_real_path);
 
 out:
     SET_TO_OLD_FS_ID();
@@ -743,6 +750,9 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     int index = 0;
     char *uuid_str = NULL;
     char gfid_tmp_path[PATH_MAX] = {
+        0,
+    };
+    char gfid_open_path[PATH_MAX] = {
         0,
     };
     char orig_real_path[PATH_MAX] = {
@@ -990,9 +1000,11 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     if (!was_present && (frame->root->pid != GF_SERVER_PID_TRASH)) {
         index = uuid_req[0];
         uuid_str = uuid_utoa(uuid_req);
-        (void)snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s",
-                       priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
-        op_ret = sys_mkdirat(priv->arrdfd[index], uuid_str, mode);
+        snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s/%s",
+                 priv->base_path, GF_HIDDEN_PATH, uuid_req[0], "tt", uuid_str);
+        snprintf(gfid_open_path, sizeof(gfid_open_path), "%s/%s", "tt",
+                 uuid_str);
+        op_ret = sys_mkdirat(priv->arrdfd[index], gfid_open_path, mode);
         real_path = gfid_tmp_path;
         atomic_creation = _gf_true;
     } else {
@@ -1061,13 +1073,8 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     posix_set_parent_ctime(frame, this, par_path, -1, loc->parent, &postparent);
 
     op_ret = 0;
-    if (atomic_creation) {
-        op_ret = sys_rename(real_path, orig_real_path);
-        if (op_ret)
-            gf_log(this->name, GF_LOG_ERROR,
-                   "rename is failing old_path %s new_path %s", real_path,
-                   orig_real_path);
-    }
+    if (atomic_creation)
+        op_ret = rename_two_path(this, real_path, orig_real_path);
 
 out:
     SET_TO_OLD_FS_ID();
@@ -1142,6 +1149,7 @@ posix_move_gfid_to_unlink(xlator_t *this, uuid_t gfid, loc_t *loc)
                "Creation of unlink entry failed for gfid: %s", unlink_path);
         goto out;
     }
+
     ret = posix_add_unlink_to_ctx(loc->inode, this, unlink_path);
     if (ret < 0)
         goto out;
@@ -1733,8 +1741,8 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
     }
 
     uuid_str = uuid_utoa(uuid_req);
-    (void)snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s",
-                   priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
+    snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s/%s",
+             priv->base_path, GF_HIDDEN_PATH, uuid_req[0], "tt", uuid_str);
     real_path = gfid_tmp_path;
 
     op_ret = sys_symlink(linkname, real_path);
@@ -1813,12 +1821,7 @@ ignore:
 
     posix_set_parent_ctime(frame, this, par_path, -1, loc->parent, &postparent);
 
-    op_ret = sys_rename(real_path, orig_real_path);
-    if (op_ret) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "rename is failing old_path %s new_path %s", real_path,
-               orig_real_path);
-    }
+    op_ret = rename_two_path(this, real_path, orig_real_path);
 
 out:
     SET_TO_OLD_FS_ID();
@@ -1886,10 +1889,6 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     char newgfidpath[PATH_MAX] = {
         0,
     };
-    char dummygfid[PATH_MAX] = {
-        0,
-    };
-    int index = 0;
     gf_boolean_t atomic_creation = _gf_false;
 
     DECLARE_OLD_FS_ID_VAR;
@@ -1992,25 +1991,16 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         frame->root->pid != GF_SERVER_PID_TRASH) {
         MAKE_HANDLE_ABSPATH(oldpath, this, oldloc->inode->gfid);
         MAKE_HANDLE_RELPATH(newpath, this, newloc->pargfid, newloc->name);
-        snprintf(tmpgfidpath, (PATH_MAX - 1), "%s_rename", oldpath);
-        snprintf(newgfidpath, (PATH_MAX - 1), "%s", oldpath);
-        index = oldloc->inode->gfid[0];
-        snprintf(dummygfid, (PATH_MAX - 1), "%s_rename",
+        snprintf(tmpgfidpath, sizeof(tmpgfidpath), "%s/%s/%02x/%s/%s_rename",
+                 priv->base_path, GF_HIDDEN_PATH, oldloc->inode->gfid[0], "tt",
                  uuid_utoa(oldloc->inode->gfid));
+        snprintf(newgfidpath, (PATH_MAX - 1), "%s", oldpath);
         op_ret = sys_symlink(newpath, tmpgfidpath);
         if (op_ret) {
             op_errno = errno;
             gf_log(this->name, GF_LOG_ERROR,
                    "Symlink creation is failed for path %s to %s error is %s",
                    newpath, tmpgfidpath, strerror(errno));
-            goto out;
-        }
-        op_ret = mkfifoat(priv->arrdfd[index], dummygfid, 0666);
-        if (op_ret) {
-            op_errno = errno;
-            gf_log(this->name, GF_LOG_ERROR,
-                   "Creation of dummy rename gfid path %s is failed",
-                   dummygfid);
             goto out;
         }
         atomic_creation = _gf_true;
@@ -2107,7 +2097,6 @@ unlock:
 
     if (was_dir) {
         posix_handle_unset(this, victim, NULL);
-        posix_handle_unset(this, oldloc->inode->gfid, NULL);
     }
 
     if (was_present && !was_dir && nlink == 1)
@@ -2115,19 +2104,7 @@ unlock:
 
     if (IA_ISDIR(oldloc->inode->ia_type) && atomic_creation) {
         posix_handle_unset(this, oldloc->inode->gfid, NULL);
-        op_ret = sys_rename(tmpgfidpath, newgfidpath);
-        if (op_ret) {
-            gf_log(this->name, GF_LOG_ERROR,
-                   "rename tmp_gfid %s to expected gfid %s", tmpgfidpath,
-                   newgfidpath);
-            op_errno = errno;
-            goto out;
-        }
-
-        op_ret = unlinkat(priv->arrdfd[index], dummygfid, 0);
-        if (op_ret && errno != EEXIST) {
-            gf_log(this->name, GF_LOG_ERROR, "unlink of gfid %s is failed",
-                   dummygfid);
+        if ((op_ret = rename_two_path(this, tmpgfidpath, newgfidpath))) {
             op_errno = errno;
             goto out;
         }
@@ -2386,6 +2363,9 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     char gfid_tmp_path[PATH_MAX] = {
         0,
     };
+    char gfid_open_path[PATH_MAX] = {
+        0,
+    };
     char orig_real_path[PATH_MAX] = {
         0,
     };
@@ -2471,9 +2451,11 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     } else {
         index = uuid_req[0];
         uuid_str = uuid_utoa(uuid_req);
-        (void)snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s",
-                       priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
-        _fd = sys_openat(priv->arrdfd[index], uuid_str, _flags, mode);
+        snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/%s/%s",
+                 priv->base_path, GF_HIDDEN_PATH, uuid_req[0], "tt", uuid_str);
+        snprintf(gfid_open_path, sizeof(gfid_open_path), "%s/%s", "tt",
+                 uuid_str);
+        _fd = sys_openat(priv->arrdfd[index], gfid_open_path, _flags, mode);
         real_path = gfid_tmp_path;
     }
 
@@ -2573,11 +2555,7 @@ fill_stat:
 
     op_ret = 0;
     if (!was_present) {
-        op_ret = sys_rename(real_path, orig_real_path);
-        if (op_ret)
-            gf_log(this->name, GF_LOG_ERROR,
-                   "rename is failing old_path %s new_path %s", real_path,
-                   orig_real_path);
+        op_ret = rename_two_path(this, real_path, orig_real_path);
     }
 out:
     SET_TO_OLD_FS_ID();
