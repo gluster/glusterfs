@@ -31,9 +31,10 @@ do I/O:
 
 - **threaded I/O**
   This mode is not yet implemented, but it should be a replacement for the
-  legacy mode but with the advantages of the thread pool of the io_uring
-  approach. This means that all I/O will be done in background without
-  blocking the worker threads.
+  legacy mode when io_uring is not present. It will have all the advantages
+  related to the thread pool, but it will use another set of system calls
+  for actual I/O operations instead of the io_uring system calls. Worker
+  threads won't be blocked during I/O.
 
 _io_uring_ is only present on latest linux kernels and it's dynamically
 detected and used if available. Otherwise it silently fails back to the
@@ -93,6 +94,11 @@ is active I/O during the shutdown, they can complete, fail or be cancelled,
 depending on what state the request was. To ensure consistent behavior, try
 to always stop I/O before terminating the I/O framework.
 
+> **Note**: This function is not yet implemented because even with the io_uring
+> engine we still rely on gf_event_dispatch() function to run the main program
+> loop. Once the events infrastructure is integrated into the I/O framework,
+> this function will be available.
+
 ### Normal operation
 
 After everything is ready, the normal operation of the I/O framework is
@@ -107,9 +113,6 @@ very simple:
 
    2.2. Requests can be sent one by one or submitted in a batch. In all
         cases they are added to the io_uring SQ ring.
-
-   2.3. The callback may (but it's not required to) explicitly flush all
-        queued requests to the kernel using `gf_io_flush()`.
 
 3. Once the callback finishes, any queued requests (from this worker or
    any other worker that has added requests to the queue) are automatically
@@ -218,6 +221,8 @@ gf_io_preadv(gf_io_callback_t cbk, void *data, int32_t fd,
              int32_t flags, uint64_t to, int32_t prio);
 ```
 
+> **Note**: Example I/O request. Not yet implemented.
+
 #### Write request
 
 ```c
@@ -226,6 +231,8 @@ gf_io_writev(gf_io_callback_t cbk, void *data, int32_t fd,
              const struct iovec *iov, uint32_t count, uint64_t offset,
              int32_t flags, uint64_t to, int32_t prio);
 ```
+
+> **Note**: Example I/O request. Not yet implemented.
 
 ## API Reference
 

@@ -36,7 +36,7 @@ __thread gf_io_worker_t gf_io_worker = {};
 
 static const gf_io_engine_t *gf_io_engines[] = {
 #ifdef HAVE_IO_URING
-//    &gf_io_engine_io_uring,
+    &gf_io_engine_io_uring,
 #endif
     &gf_io_engine_legacy,
     NULL
