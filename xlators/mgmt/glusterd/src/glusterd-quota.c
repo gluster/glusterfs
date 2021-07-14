@@ -27,15 +27,6 @@
 #include <sys/wait.h>
 #include <dlfcn.h>
 
-#ifndef _PATH_SETFATTR
-#ifdef GF_LINUX_HOST_OS
-#define _PATH_SETFATTR "setfattr"
-#endif
-#ifdef __NetBSD__
-#define _PATH_SETFATTR "/usr/pkg/bin/setfattr"
-#endif
-#endif
-
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 

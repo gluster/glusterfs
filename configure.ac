@@ -270,6 +270,27 @@ if test "x$RPCGEN" = "xno"; then
    AC_MSG_ERROR([`rpcgen` not found, glusterfs needs `rpcgen` exiting..])
 fi
 
+AC_CHECK_PROG([MOUNT], [mount], ["$(which mount)"], [no])
+if test "x$MOUNT" != "xno"; then
+   AC_DEFINE_UNQUOTED(_PATH_MOUNT, ["$MOUNT"], [Path to mount.])
+else
+   AC_MSG_ERROR(['mount' not found, exiting.])
+fi
+
+AC_CHECK_PROG([UMOUNT], [umount], ["$(which umount)"], [no])
+if test "x$UMOUNT" != "xno"; then
+   AC_DEFINE_UNQUOTED(_PATH_UMOUNT, ["$UMOUNT"], [Path to umount.])
+else
+   AC_MSG_ERROR(['umount' not found, exiting.])
+fi
+
+AC_CHECK_PROG([SETFATTR], [setfattr], ["$(which setfattr)"], [no])
+if test "x$SETFATTR" != "xno"; then
+   AC_DEFINE_UNQUOTED(_PATH_SETFATTR, ["$SETFATTR"], [Path to setfattr.])
+else
+   AC_MSG_ERROR(['setfattr' not found, exiting.])
+fi
+
 # Initialize CFLAGS before usage
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],

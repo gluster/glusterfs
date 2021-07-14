@@ -34,9 +34,6 @@
 #include <endian.h>
 #endif
 
-#ifndef _PATH_UMOUNT
-#define _PATH_UMOUNT "/bin/umount"
-#endif
 #define GF_XATTR_NAME_MAX XATTR_NAME_MAX
 #endif /* GF_LINUX_HOST_OS */
 
@@ -198,10 +195,6 @@ enum {
 #define FALLOC_FL_INSERT_RANGE 0x20   /* Expands the size */
 #define FALLOC_FL_COLLAPSE_RANGE 0x08 /* Reduces the size */
 
-#ifndef _PATH_UMOUNT
-#define _PATH_UMOUNT "/sbin/umount"
-#endif
-
 void
 gf_extattr_list_reshape(char *list, ssize_t size);
 
@@ -280,9 +273,6 @@ gf_extattr_list_reshape(char *list, ssize_t size);
 #define FTW_CONTINUE 0
 #endif
 
-#ifndef _PATH_UMOUNT
-#define _PATH_UMOUNT "/sbin/umount"
-#endif
 #endif /* GF_DARWIN_HOST_OS */
 
 #ifdef GF_SOLARIS_HOST_OS
@@ -362,9 +352,6 @@ enum {
 
 #ifndef _PATH_MOUNTED
 #define _PATH_MOUNTED "/etc/mtab"
-#endif
-#ifndef _PATH_UMOUNT
-#define _PATH_UMOUNT "/sbin/umount"
 #endif
 
 #ifndef O_ASYNC

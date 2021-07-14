@@ -85,12 +85,6 @@ typedef long long mount_flag_t;
 #endif
 #endif
 
-#ifdef GF_LINUX_HOST_OS
-#define _PATH_MOUNT "/bin/mount"
-#else /* FreeBSD, NetBSD, MacOS X */
-#define _PATH_MOUNT "/sbin/mount"
-#endif
-
 #ifdef FUSE_UTIL
 #define MALLOC(size) malloc (size)
 #define FREE(ptr) free (ptr)
