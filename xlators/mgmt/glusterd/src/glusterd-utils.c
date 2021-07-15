@@ -2265,6 +2265,11 @@ retry:
         }
     }
 
+    if (this->ctx->cmd_args.io_engine != NULL) {
+        runner_add_args(&runner, "--io-engine", this->ctx->cmd_args.io_engine,
+                        NULL);
+    }
+
     if (this->ctx->cmd_args.logger == gf_logger_syslog) {
         runner_argprintf(&runner, "--logger=syslog");
     }

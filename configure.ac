@@ -1389,7 +1389,7 @@ AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
         GF_LDFLAGS="${GF_LDFLAGS} -flto"
         LTO_BUILD=yes
         AC_MSG_NOTICE([building with LTO])],
-        [AC_MSG_NOTICE([not using LTO for gcc_ver=$CC_VER]) ]) 
+        [AC_MSG_NOTICE([not using LTO for gcc_ver=$CC_VER]) ])
     ], [
     AC_MSG_NOTICE([LTO is disabled])
 ])
@@ -1507,6 +1507,14 @@ if test -n "$LIBAIO"; then
    AC_DEFINE(HAVE_LIBAIO, 1, [libaio based POSIX enabled])
    BUILD_LIBAIO=yes
 fi
+
+BUILD_LINUX_IO_URING="no"
+AC_CHECK_HEADER([linux/io_uring.h],
+                [
+                    AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
+                    BUILD_LINUX_IO_URING="yes"
+                ])
+AM_CONDITIONAL([BUILD_LINUX_IO_URING], [test x$BUILD_LINUX_IO_URING = xyes])
 
 BUILD_LIBURING=no
 case $host_os in
@@ -1788,7 +1796,8 @@ echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"
 echo "Linux-AIO            : $BUILD_LIBAIO"
-echo "Linux-io_uring       : $BUILD_LIBURING"
+echo "Linux io_uring       : $BUILD_LINUX_IO_URING"
+echo "Use liburing         : $BUILD_LIBURING"
 echo "Enable Debug         : $BUILD_DEBUG"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"

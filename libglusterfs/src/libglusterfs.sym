@@ -609,6 +609,7 @@ gf_get_index_by_elem
 gf_global_mem_acct_enable_set
 gfid_to_ino
 gf_inode_type_to_str
+gf_io_run
 gf_is_ip_in_net
 gf_is_local_addr
 gf_is_same_address
