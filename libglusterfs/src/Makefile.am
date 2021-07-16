@@ -51,29 +51,30 @@ endif
 BUILT_SOURCES = graph.lex.c defaults.c eventtypes.h
 
 libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
-	glusterfs/default-args.h glusterfs/dict.h glusterfs/glusterfs.h \
-	glusterfs/hashfn.h glusterfs/timespec.h glusterfs/logging.h \
-	glusterfs/xlator.h glusterfs/stack.h glusterfs/timer.h glusterfs/list.h \
-	glusterfs/inode.h glusterfs/call-stub.h glusterfs/compat.h glusterfs/fd.h \
-	glusterfs/revision.h glusterfs/compat-errno.h glusterfs/gf-event.h \
-	glusterfs/mem-pool.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
-	glusterfs/locking.h glusterfs/syscall.h glusterfs/iobuf.h \
-	glusterfs/globals.h glusterfs/statedump.h glusterfs/checksum.h \
-	glusterfs/daemon.h glusterfs/store.h glusterfs/rbthash.h glusterfs/iatt.h \
-	glusterfs/latency.h glusterfs/mem-types.h glusterfs/syncop.h \
-	glusterfs/cluster-syncop.h glusterfs/graph-utils.h glusterfs/trie.h \
-	glusterfs/refcount.h glusterfs/run.h glusterfs/options.h \
-	glusterfs/lkowner.h glusterfs/fd-lk.h glusterfs/circ-buff.h \
-	glusterfs/event-history.h glusterfs/gidcache.h glusterfs/client_t.h \
-	glusterfs/glusterfs-acl.h glusterfs/glfs-message-id.h \
-	glusterfs/template-component-messages.h glusterfs/strfd.h \
-	glusterfs/syncop-utils.h glusterfs/parse-utils.h \
-	glusterfs/libglusterfs-messages.h glusterfs/lvm-defaults.h \
-	glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
-	glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
-	glusterfs/events.h glusterfs/atomic.h glusterfs/monitoring.h \
-	glusterfs/async.h glusterfs/glusterfs-fops.h glusterfs/gf-io.h \
-    glusterfs/gf-io-common.h glusterfs/gf-io-legacy.h
+    glusterfs/default-args.h glusterfs/dict.h glusterfs/glusterfs.h \
+    glusterfs/hashfn.h glusterfs/timespec.h glusterfs/logging.h \
+    glusterfs/xlator.h glusterfs/stack.h glusterfs/timer.h glusterfs/list.h \
+    glusterfs/inode.h glusterfs/call-stub.h glusterfs/compat.h glusterfs/fd.h \
+    glusterfs/revision.h glusterfs/compat-errno.h glusterfs/gf-event.h \
+    glusterfs/mem-pool.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
+    glusterfs/locking.h glusterfs/syscall.h glusterfs/iobuf.h \
+    glusterfs/globals.h glusterfs/statedump.h glusterfs/checksum.h \
+    glusterfs/daemon.h glusterfs/store.h glusterfs/rbthash.h glusterfs/iatt.h \
+    glusterfs/latency.h glusterfs/mem-types.h glusterfs/syncop.h \
+    glusterfs/cluster-syncop.h glusterfs/graph-utils.h glusterfs/trie.h \
+    glusterfs/refcount.h glusterfs/run.h glusterfs/options.h \
+    glusterfs/lkowner.h glusterfs/fd-lk.h glusterfs/circ-buff.h \
+    glusterfs/event-history.h glusterfs/gidcache.h glusterfs/client_t.h \
+    glusterfs/glusterfs-acl.h glusterfs/glfs-message-id.h \
+    glusterfs/template-component-messages.h glusterfs/strfd.h \
+    glusterfs/syncop-utils.h glusterfs/parse-utils.h \
+    glusterfs/libglusterfs-messages.h glusterfs/lvm-defaults.h \
+    glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
+    glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
+    glusterfs/events.h glusterfs/atomic.h glusterfs/monitoring.h \
+    glusterfs/async.h glusterfs/glusterfs-fops.h glusterfs/gf-io.h \
+    glusterfs/gf-io-common.h glusterfs/gf-io-legacy.h \
+    glusterfs/compat-io_uring.h
 
 if BUILD_LINUX_IO_URING
 libglusterfs_la_SOURCES += gf-io-uring.c
