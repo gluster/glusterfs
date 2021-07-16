@@ -12,9 +12,10 @@
 #include <sys/mman.h>
 #include <syscall.h>
 #include <sys/mount.h>
-#include <linux/io_uring.h>
 #include <urcu/uatomic.h>
 #include <poll.h>
+
+#include <glusterfs/compat-io_uring.h>
 
 #include <glusterfs/gf-io-uring.h>
 
@@ -75,7 +76,6 @@ typedef struct _gf_io_uring_cq {
     uint32_t *tail;
     uint32_t *overflow;
     struct io_uring_cqe *cqes;
-    uint32_t *flags;
     uint32_t mask;
     uint32_t entries;
 
@@ -181,6 +181,7 @@ gf_io_uring_dump_params(struct io_uring_params *params)
         GF_IO_BITNAME(IORING_FEAT, POLL_32BITS),
         GF_IO_BITNAME(IORING_FEAT, SQPOLL_NONFIXED),
         GF_IO_BITNAME(IORING_FEAT, EXT_ARG),
+        GF_IO_BITNAME(IORING_FEAT, NATIVE_WORKERS),
         {}
     };
 
@@ -328,7 +329,6 @@ gf_io_uring_cq_init(uint32_t fd, struct io_uring_params *params)
     gf_io_uring.cq.entries = *(uint32_t *)(ring + params->cq_off.ring_entries);
     gf_io_uring.cq.overflow = ring + params->cq_off.overflow;
     gf_io_uring.cq.cqes = ring + params->cq_off.cqes;
-    gf_io_uring.cq.flags = ring + params->cq_off.flags;
 
     return 0;
 }
