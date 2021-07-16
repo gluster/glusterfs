@@ -929,36 +929,7 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
                                    loc_t *parent, void *data)
 {
     int ret = 0;
-    loc_t loc = {
-        0,
-    };
-    struct iatt iatt = {
-        0,
-    };
     afr_granular_esh_args_t *args = data;
-
-    /* Look up the actual inode associated with entry. If the lookup returns
-     * ESTALE or ENOENT, then it means we have a stale index. Remove it.
-     * This is analogous to the check in afr_shd_index_heal() except that
-     * here it is achieved through LOOKUP and in afr_shd_index_heal() through
-     * a GETXATTR.
-     */
-
-    loc.inode = inode_new(args->xl->itable);
-    loc.parent = inode_ref(args->heal_fd->inode);
-    gf_uuid_copy(loc.pargfid, loc.parent->gfid);
-    loc.name = entry->d_name;
-
-    ret = syncop_lookup(args->xl, &loc, &iatt, NULL, NULL, NULL);
-    if ((ret == -ENOENT) || (ret == -ESTALE)) {
-        /* The name indices under the pgfid index dir are guaranteed
-         * to be regular files. Hence the hardcoding.
-         */
-        afr_shd_entry_purge(subvol, parent->inode, entry->d_name, IA_IFREG);
-        ret = 0;
-        goto out;
-    }
-    /* TBD: afr_shd_zero_xattrop? */
 
     ret = afr_selfheal_entry_dirent(args->frame, args->xl, args->heal_fd,
                                     entry->d_name, parent->inode, subvol,
@@ -970,8 +941,6 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
     if (ret == -1)
         args->mismatch = _gf_true;
 
-out:
-    loc_wipe(&loc);
     return ret;
 }
 
@@ -1046,7 +1015,9 @@ afr_selfheal_entry_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
     local = frame->local;
 
     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
-           "performing entry selfheal on %s", uuid_utoa(fd->inode->gfid));
+           "performing %s entry selfheal on %s",
+           (local->need_full_crawl ? "full" : "granular"),
+           uuid_utoa(fd->inode->gfid));
 
     for (i = 0; i < priv->child_count; i++) {
         /* Expunge */
@@ -1108,6 +1079,7 @@ __afr_selfheal_entry(call_frame_t *frame, xlator_t *this, fd_t *fd,
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     gf_boolean_t did_sh = _gf_true;
+    char *heal_type = "granular entry";
 
     priv = this->private;
     local = frame->local;
@@ -1190,11 +1162,15 @@ postop_unlock:
     afr_selfheal_unentrylk(frame, this, fd->inode, this->name, NULL,
                            postop_lock, NULL);
 out:
-    if (did_sh)
-        afr_log_selfheal(fd->inode->gfid, this, ret, "entry", source, sources,
+    if (did_sh) {
+        if (local->need_full_crawl) {
+            heal_type = "full entry";
+        }
+        afr_log_selfheal(fd->inode->gfid, this, ret, heal_type, source, sources,
                          healed_sinks);
-    else
+    } else {
         ret = 1;
+    }
 
     if (locked_replies)
         afr_replies_wipe(locked_replies, priv->child_count);
