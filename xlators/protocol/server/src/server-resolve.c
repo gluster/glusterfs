@@ -408,9 +408,14 @@ resolve_inode_simple(call_frame_t *frame)
     inode = inode_find(state->itable, resolve->gfid);
 
     if (!inode) {
-        resolve->op_ret = -1;
-        resolve->op_errno = ESTALE;
-        ret = 1;
+        if (resolve->type == RESOLVE_DONTCARE) {
+            gf_uuid_copy(state->loc_now->gfid, resolve->gfid);
+            ret = 0;
+        } else {
+            resolve->op_ret = -1;
+            resolve->op_errno = ESTALE;
+            ret = 1;
+        }
         goto out;
     }
 
