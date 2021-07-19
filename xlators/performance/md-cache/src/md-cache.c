@@ -77,7 +77,7 @@ struct mdc_conf {
     gf_boolean_t cache_statfs;
     struct mdc_statfs_cache statfs_cache;
     char *mdc_xattr_str;
-    gf_atomic_int32_t generation;
+    gf_atomic_uint32_t generation;
 };
 
 struct mdc_local;
@@ -552,7 +552,7 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
             (iatt->ia_ctime != mdc->md_ctime) ||
             (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)) {
-            if (conf->global_invalidation &&
+            if (conf->global_invalidation && mdc->valid &&
                 (!prebuf || (prebuf->ia_mtime != mdc->md_mtime) ||
                  (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec) ||
                  (prebuf->ia_ctime != mdc->md_ctime) ||
