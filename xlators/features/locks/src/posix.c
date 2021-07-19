@@ -2985,104 +2985,24 @@ out:
     return ret;
 }
 
-static int32_t
-pl_request_link_count(dict_t **pxdata)
-{
-    dict_t *xdata;
-
-    xdata = *pxdata;
-    if (xdata == NULL) {
-        xdata = dict_new();
-        if (xdata == NULL) {
-            return ENOMEM;
-        }
-    } else {
-        dict_ref(xdata);
-    }
-
-    if (dict_set_uint32(xdata, GET_LINK_COUNT, 0) != 0) {
-        dict_unref(xdata);
-        return ENOMEM;
-    }
-
-    *pxdata = xdata;
-
-    return 0;
-}
-
-static int32_t
-pl_check_link_count(dict_t *xdata)
-{
-    int32_t count;
-
-    /* In case we are unable to read the link count from xdata, we take a
-     * conservative approach and return -2, which will prevent the inode from
-     * being considered deleted. In fact it will cause link tracking for this
-     * inode to be disabled completely to avoid races. */
-
-    if (xdata == NULL) {
-        return -2;
-    }
-
-    if (dict_get_int32(xdata, GET_LINK_COUNT, &count) != 0) {
-        return -2;
-    }
-
-    return count;
-}
-
 int32_t
 pl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
               struct iatt *postparent)
 {
-    pl_inode_t *pl_inode;
-
-    if (op_ret >= 0) {
-        pl_inode = pl_inode_get(this, inode, NULL);
-        if (pl_inode == NULL) {
-            PL_STACK_UNWIND(lookup, xdata, frame, -1, ENOMEM, NULL, NULL, NULL,
-                            NULL);
-            return 0;
-        }
-
-        pthread_mutex_lock(&pl_inode->mutex);
-
-        /* We only update the link count if we previously didn't know it.
-         * Doing it always can lead to races since lookup is not executed
-         * atomically most of the times. */
-        if (pl_inode->links == -2) {
-            pl_inode->links = pl_check_link_count(xdata);
-            if (buf->ia_type == IA_IFDIR) {
-                /* Directories have at least 2 links. To avoid special handling
-                 * for directories, we simply decrement the value here to make
-                 * them equivalent to regular files. */
-                pl_inode->links--;
-            }
-        }
-
-        pthread_mutex_unlock(&pl_inode->mutex);
-    }
-
     PL_STACK_UNWIND(lookup, xdata, frame, op_ret, op_errno, inode, buf, xdata,
                     postparent);
+
     return 0;
 }
 
 int32_t
 pl_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int32_t error;
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
+    STACK_WIND(frame, pl_lookup_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->lookup, loc, xdata);
 
-    error = pl_request_link_count(&xdata);
-    if (error == 0) {
-        PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
-        STACK_WIND(frame, pl_lookup_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->lookup, loc, xdata);
-        dict_unref(xdata);
-    } else {
-        STACK_UNWIND_STRICT(lookup, frame, -1, error, NULL, NULL, NULL, NULL);
-    }
     return 0;
 }
 
@@ -3897,9 +3817,7 @@ unlock:
             __dump_posixlks(pl_inode);
         }
 
-        gf_proc_dump_write("links", "%d", pl_inode->links);
         gf_proc_dump_write("removes_pending", "%u", pl_inode->remove_running);
-        gf_proc_dump_write("removed", "%u", pl_inode->removed);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
@@ -4524,21 +4442,9 @@ pl_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno, inode_t *inode, struct iatt *buf,
             struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-    pl_inode_t *pl_inode = (pl_inode_t *)cookie;
-
-    if (op_ret >= 0) {
-        pthread_mutex_lock(&pl_inode->mutex);
-
-        /* TODO: can happen pl_inode->links == 0 ? */
-        if (pl_inode->links >= 0) {
-            pl_inode->links++;
-        }
-
-        pthread_mutex_unlock(&pl_inode->mutex);
-    }
-
     PL_STACK_UNWIND_FOR_CLIENT(link, xdata, frame, op_ret, op_errno, inode, buf,
                                preparent, postparent, xdata);
+
     return 0;
 }
 
@@ -4546,18 +4452,10 @@ int
 pl_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         dict_t *xdata)
 {
-    pl_inode_t *pl_inode;
-
-    pl_inode = pl_inode_get(this, oldloc->inode, NULL);
-    if (pl_inode == NULL) {
-        STACK_UNWIND_STRICT(link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
-                            NULL);
-        return 0;
-    }
-
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), oldloc, newloc);
-    STACK_WIND_COOKIE(frame, pl_link_cbk, pl_inode, FIRST_CHILD(this),
-                      FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+    STACK_WIND(frame, pl_link_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+
     return 0;
 }
 
