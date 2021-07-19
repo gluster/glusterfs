@@ -506,10 +506,10 @@ gf_io_thread_pool_start(gf_io_thread_pool_t *pool,
     /* Sync phase 0: Creation of all threads. */
 
     res = gf_io_thread_create(cfg, ids, &created, gf_io_thread_main, &sync);
+    pending = cfg->num_threads - created + 1;
     if (caa_unlikely(res < 0)) {
         goto done_sync;
     }
-    pending = cfg->num_threads - created + 1;
 
     res = gf_io_sync_wait(&sync, pending, res);
     if (caa_unlikely(res < 0)) {
