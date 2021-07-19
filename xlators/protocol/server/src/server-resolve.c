@@ -39,10 +39,10 @@ resolve_loc_touchup(call_frame_t *frame)
     return 0;
 }
 
-int
-resolve_gfid_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, inode_t *inode,
-                       struct iatt *buf, dict_t *xdata, struct iatt *postparent)
+static int
+resolve_name_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+                 int op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
+                 struct iatt *postparent)
 {
     server_state_t *state = NULL;
     server_resolve_t *resolve = NULL;
@@ -100,6 +100,44 @@ out:
     return 0;
 }
 
+static int
+resolve_name(call_frame_t *frame, inode_t *parent)
+{
+    server_state_t *state = NULL;
+    server_resolve_t *resolve = NULL;
+    loc_t *resolve_loc = NULL;
+    dict_t *dict = NULL;
+
+    state = CALL_STATE(frame);
+    resolve = state->resolve_now;
+    resolve_loc = &resolve->resolve_loc;
+    resolve_loc->parent = inode_ref(parent);
+    gf_uuid_copy(resolve_loc->pargfid, resolve_loc->parent->gfid);
+
+    resolve_loc->name = resolve->bname;
+
+    resolve_loc->inode = server_inode_new(state->itable, resolve_loc->gfid);
+
+    inode_path(resolve_loc->parent, resolve_loc->name,
+               (char **)&resolve_loc->path);
+
+    if (state->xdata) {
+        dict = dict_copy_with_ref(state->xdata, NULL);
+        if (!dict)
+            gf_msg(frame->this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+                   "BUG: dict allocation failed (pargfid: %s, name: %s), "
+                   "still continuing",
+                   uuid_utoa(resolve_loc->gfid), resolve_loc->name);
+    }
+
+    STACK_WIND(frame, resolve_name_cbk, frame->root->client->bound_xl,
+               frame->root->client->bound_xl->fops->lookup,
+               &resolve->resolve_loc, dict);
+    if (dict)
+        dict_unref(dict);
+    return 0;
+}
+
 int
 resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
@@ -109,7 +147,6 @@ resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     server_resolve_t *resolve = NULL;
     inode_t *link_inode = NULL;
     loc_t *resolve_loc = NULL;
-    dict_t *dict = NULL;
 
     state = CALL_STATE(frame);
     resolve = state->resolve_now;
@@ -156,30 +193,9 @@ resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         goto out;
     }
 
-    resolve_loc->parent = link_inode;
-    gf_uuid_copy(resolve_loc->pargfid, resolve_loc->parent->gfid);
+    resolve_name(frame, link_inode);
+    inode_unref(link_inode);
 
-    resolve_loc->name = resolve->bname;
-
-    resolve_loc->inode = server_inode_new(state->itable, resolve_loc->gfid);
-
-    inode_path(resolve_loc->parent, resolve_loc->name,
-               (char **)&resolve_loc->path);
-
-    if (state->xdata) {
-        dict = dict_copy_with_ref(state->xdata, NULL);
-        if (!dict)
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
-                   "BUG: dict allocation failed (pargfid: %s, name: %s), "
-                   "still continuing",
-                   uuid_utoa(resolve_loc->gfid), resolve_loc->name);
-    }
-
-    STACK_WIND(frame, resolve_gfid_entry_cbk, frame->root->client->bound_xl,
-               frame->root->client->bound_xl->fops->lookup,
-               &resolve->resolve_loc, dict);
-    if (dict)
-        dict_unref(dict);
     return 0;
 out:
     resolve_continue(frame);
@@ -329,12 +345,12 @@ resolve_entry_simple(call_frame_t *frame)
                 ret = 0;
                 break;
             case RESOLVE_MAY:
-                ret = 1;
+                ret = 2;
                 break;
             default:
                 resolve->op_ret = -1;
                 resolve->op_errno = ENOENT;
-                ret = 1;
+                ret = 2;
                 break;
         }
 
@@ -373,16 +389,24 @@ server_resolve_entry(call_frame_t *frame)
 {
     server_state_t *state = NULL;
     int ret = 0;
-    loc_t *loc = NULL;
+    inode_t *parent = NULL;
 
     state = CALL_STATE(frame);
-    loc = state->loc_now;
 
     ret = resolve_entry_simple(frame);
 
     if (ret > 0) {
-        loc_wipe(loc);
-        resolve_gfid(frame);
+        if (ret == 2) {
+            parent = inode_ref(state->loc_now->parent);
+        }
+        /*Wipe state->loc_now before calling resolve_xxxx()*/
+        loc_wipe(state->loc_now);
+        if (parent) {
+            resolve_name(frame, parent);
+            inode_unref(parent);
+        } else {
+            resolve_gfid(frame);
+        }
         return 0;
     }
 
