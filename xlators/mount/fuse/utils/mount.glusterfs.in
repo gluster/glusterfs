@@ -438,6 +438,11 @@ check_recursive_mount ()
         exit 2;
     fi
 
+    if [ $1 = "/tmp" ]; then
+        warn "Cannot mount over /tmp";
+        exit 2;
+    fi
+
     # GFID check first
     # remove trailing / from mount point
     mnt_dir=${1%/};
