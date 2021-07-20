@@ -137,14 +137,12 @@ glusterd_opinfo_init()
     return ret;
 }
 
-int
-glusterd_uuid_init()
+static int
+glusterd_uuid_init(xlator_t *this)
 {
     int ret = -1;
-    xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
+    glusterd_conf_t *priv = this->private;
 
-    priv = this->private;
     GF_ASSERT(priv);
 
     ret = glusterd_retrieve_uuid();
@@ -1921,6 +1919,7 @@ init(xlator_t *this)
     glusterd_friend_sm_init();
     glusterd_op_sm_init();
     glusterd_opinfo_init();
+
     ret = glusterd_sm_tr_log_init(
         &conf->op_sm_log, glusterd_op_sm_state_name_get,
         glusterd_op_sm_event_name_get, GLUSTERD_TR_LOG_SIZE);
@@ -2020,15 +2019,10 @@ init(xlator_t *this)
             goto out;
     }
 
-    /* Restoring op-version needs to be done before initializing the
-     * services as glusterd_svc_init_common () invokes
-     * glusterd_conn_build_socket_filepath () which uses MY_UUID macro.
-     * MY_UUID generates a new uuid if its not been generated and writes it
-     * in the info file, Since the op-version is not read yet
-     * the default value i.e. 0 will be written for op-version and restore
-     * will fail. This is why restoring op-version needs to happen before
-     * service initialization
-     * */
+    /* An attempt to restore op-version should be done before generating
+     * a new UUID because glusterd_uuid_init() overwrites glusterd.info
+     * which contains both UUID and op-version of current install.
+     */
     ret = glusterd_restore_op_version(this);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERS_RESTORE_FAIL,
@@ -2082,6 +2076,11 @@ init(xlator_t *this)
         if (ret)
             gf_log(this->name, GF_LOG_ERROR, "Failed to store max op-version");
     }
+
+    /* Now we can generate a new UUID but preserve op-version if any. */
+    ret = glusterd_uuid_init(this);
+    if (ret)
+        goto out;
 
     /* If the peer count is less than 2 then this would be the best time to
      * spawn process/bricks that may need (re)starting since last time

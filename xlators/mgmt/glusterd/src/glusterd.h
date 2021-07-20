@@ -803,9 +803,6 @@ typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
     } while (0)
 
 int
-glusterd_uuid_init();
-
-int
 glusterd_uuid_generate_save();
 
 #define MY_UUID (__glusterd_uuid())
@@ -815,8 +812,7 @@ __glusterd_uuid()
 {
     glusterd_conf_t *priv = THIS->private;
 
-    if (gf_uuid_is_null(priv->uuid))
-        glusterd_uuid_init();
+    GF_UUID_ASSERT(priv->uuid);
     return &priv->uuid[0];
 }
 
