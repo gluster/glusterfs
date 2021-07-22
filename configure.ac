@@ -630,6 +630,10 @@ esac
 AC_SUBST(ACL_LIBS)
 AC_SUBST(USE_POSIX_ACLS)
 
+dnl filesystem-specific headers used by glusterd
+AC_CHECK_HEADERS([ext2fs/ext2fs.h])
+AC_CHECK_HEADERS([xfs/xfs.h])
+
 # libglusterfs/checksum
 AC_CHECK_HEADERS([openssl/md5.h])
 AC_CHECK_LIB([z], [adler32], [ZLIB_LIBS="-lz"], AC_MSG_ERROR([zlib is required to build glusterfs]))

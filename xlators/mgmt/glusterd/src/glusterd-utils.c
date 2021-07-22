@@ -79,6 +79,13 @@
 #include <sys/sockio.h>
 #endif
 
+#ifdef HAVE_EXT2FS_EXT2FS_H
+#include <ext2fs/ext2fs.h>
+#endif
+#ifdef HAVE_XFS_XFS_H
+#include <xfs/xfs.h>
+#endif
+
 #ifdef __FreeBSD__
 #include <sys/sysctl.h>
 #include <sys/param.h>
@@ -7461,26 +7468,74 @@ out:
     return needle;
 }
 
+static uint32_t
+glusterd_xfs_inode_size_handler(char *device, char *mntdir)
+{
+#if defined(HAVE_XFS_XFS_H)
+    int fd;
+    uint32_t isize = 0;
+    struct xfs_fsop_geom geom;
+
+    /* Note XFS ioctl operates on the mount point, not on the device file. */
+    if ((fd = sys_open(mntdir, O_RDONLY, 0)) != -1) {
+        if (ioctl(fd, XFS_IOC_FSGEOMETRY, &geom) != -1)
+            isize = geom.inodesize;
+        sys_close(fd);
+    }
+    return isize;
+#else /* not HAVE_XFS_XFS_H */
+    return 0;
+#endif /* HAVE_XFS_XFS_H */
+}
+
+static uint32_t
+glusterd_ext_inode_size_handler(char *device, char *mntdir)
+{
+#if defined(HAVE_EXT2FS_EXT2FS_H)
+    int fd;
+    uint32_t isize = 0;
+    struct ext2_super_block super;
+
+    /* Using libext2fs API calls like ext2fs_open() etc. triggers runtime
+       dependency we want to avoid, so we just read the default superblock. */
+    if ((fd = sys_open(device, O_RDONLY, 0)) != -1) {
+        if (sys_pread(fd, &super, SUPERBLOCK_SIZE, SUPERBLOCK_OFFSET) ==
+            SUPERBLOCK_SIZE)
+            isize = super.s_inode_size;
+        sys_close(fd);
+    }
+    return isize;
+#else /* not HAVE_EXT2FS_EXT2FS_H */
+    return 0;
+#endif /* HAVE_EXT2FS_EXT2FS_H */
+}
+
 static struct fs_info {
     char *fs_type_name;
     char *fs_tool_name;
     char *fs_tool_arg;
     char *fs_tool_pattern;
     char *fs_tool_pkg;
-} glusterd_fs[] = {{"xfs", "xfs_info", NULL, "isize=", "xfsprogs"},
-                   {"ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs"},
-                   {"ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs"},
-                   {"btrfs", NULL, NULL, NULL, NULL},
-                   {"zfs", NULL, NULL, NULL, NULL},
-                   {NULL, NULL, NULL, NULL, NULL}};
+    uint32_t (*fs_handler)(char *, char *);
+} glusterd_fs[] = {{"xfs", "xfs_info", NULL, "isize=", "xfsprogs",
+                    glusterd_xfs_inode_size_handler},
+                   {"ext3", "tune2fs", "-l", "Inode size:", "e2fsprogs",
+                    glusterd_ext_inode_size_handler},
+                   {"ext4", "tune2fs", "-l", "Inode size:", "e2fsprogs",
+                    glusterd_ext_inode_size_handler},
+                   {"btrfs", NULL, NULL, NULL, NULL, NULL},
+                   {"zfs", NULL, NULL, NULL, NULL, NULL},
+                   {NULL, NULL, NULL, NULL, NULL, NULL}};
 
 static int
 glusterd_add_inode_size_to_dict(dict_t *dict, int count)
 {
     int ret = -1;
     char key[64];
+    uint32_t size;
     char buffer[4096] = "";
     char *device = NULL;
+    char *mntdir = NULL;
     char *fs_name = NULL;
     char *cur_word = NULL;
     char *trail = NULL;
@@ -7493,6 +7548,14 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
 
     ret = snprintf(key, sizeof(key), "brick%d.device", count);
     ret = dict_get_strn(dict, key, ret, &device);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+    ret = snprintf(key, sizeof(key), "brick%d.mnt_dir", count);
+    ret = dict_get_strn(dict, key, ret, &mntdir);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", key, NULL);
@@ -7520,6 +7583,14 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
 
     for (fs = glusterd_fs; fs->fs_type_name; fs++) {
         if (strcmp(fs_name, fs->fs_type_name) == 0) {
+            if (fs->fs_handler) {
+                size = fs->fs_handler(device, mntdir);
+                if (size) {
+                    snprintf(buffer, sizeof(buffer), "%u", size);
+                    cur_word = buffer;
+                    goto cached;
+                }
+            }
             if (!fs->fs_tool_name) {
                 /* dynamic inodes */
                 gf_smsg(this->name, GF_LOG_INFO, 0, GD_MSG_INODE_SIZE_GET_FAIL,
@@ -7692,6 +7763,16 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
     snprintf(key, sizeof(key), "%s.fs_name", base_key);
 
     ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_type);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+    /* mount point */
+    snprintf(key, sizeof(key), "%s.mnt_dir", base_key);
+
+    ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_dir);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=%s", key, NULL);
