@@ -3094,7 +3094,7 @@ rpcsvc_transport_privport_check(rpcsvc_t *svc, char *volname, uint16_t port)
     /* If the port is already a privileged one, don't bother with checking
      * options.
      */
-    if (port <= 1024) {
+    if (port < 1024) {
         ret = RPCSVC_AUTH_ACCEPT;
         goto err;
     }
