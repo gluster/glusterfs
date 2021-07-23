@@ -974,6 +974,8 @@ __socket_server_bind(rpc_transport_t *this)
                    cmd_args->brick_port);
         }
     } else {
+        retries = 3;
+    retry:
         ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
                    this->myinfo.sockaddr_len);
 
@@ -982,6 +984,11 @@ __socket_server_bind(rpc_transport_t *this)
                    this->myinfo.identifier, strerror(errno));
             if (errno == EADDRINUSE) {
                 gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+                retries--;
+                if (retries) {
+                    sleep(1);
+                    goto retry;
+                }
             }
         }
     }
