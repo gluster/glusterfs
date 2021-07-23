@@ -2495,102 +2495,6 @@ out:
     return ret;
 }
 
-static int
-brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
-{
-    int ret = -1;
-    int pump = 0;
-    xlator_t *xl = NULL;
-    xlator_t *txl = NULL;
-    xlator_t *rbxl = NULL;
-    char *username = NULL;
-    char *password = NULL;
-    char *ptranst = NULL;
-    char *address_family_data = NULL;
-
-    if (!graph || !volinfo || !set_dict) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
-        goto out;
-    }
-
-    ret = dict_get_int32(volinfo->dict, "enable-pump", &pump);
-    if (ret == -ENOENT) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
-                "Key=enable-pump", NULL);
-        ret = pump = 0;
-    }
-    if (ret)
-        return -1;
-
-    username = glusterd_auth_get_username(volinfo);
-    password = glusterd_auth_get_password(volinfo);
-
-    if (pump) {
-        txl = first_of(graph);
-
-        rbxl = volgen_graph_add_nolink(graph, "protocol/client",
-                                       "%s-replace-brick", volinfo->volname);
-        if (!rbxl)
-            return -1;
-
-        ptranst = glusterd_get_trans_type_rb(volinfo->transport_type);
-        if (NULL == ptranst)
-            return -1;
-
-        RPC_SET_OPT(rbxl, SSL_OWN_CERT_OPT, "ssl-own-cert", return -1);
-        RPC_SET_OPT(rbxl, SSL_PRIVATE_KEY_OPT, "ssl-private-key", return -1);
-        RPC_SET_OPT(rbxl, SSL_CA_LIST_OPT, "ssl-ca-list", return -1);
-        RPC_SET_OPT(rbxl, SSL_CRL_PATH_OPT, "ssl-crl-path", return -1);
-        RPC_SET_OPT(rbxl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth", return -1);
-        RPC_SET_OPT(rbxl, SSL_CIPHER_LIST_OPT, "ssl-cipher-list", return -1);
-        RPC_SET_OPT(rbxl, SSL_DH_PARAM_OPT, "ssl-dh-param", return -1);
-        RPC_SET_OPT(rbxl, SSL_EC_CURVE_OPT, "ssl-ec-curve", return -1);
-
-        if (username) {
-            ret = xlator_set_fixed_option(rbxl, "username", username);
-            if (ret)
-                return -1;
-        }
-
-        if (password) {
-            ret = xlator_set_fixed_option(rbxl, "password", password);
-            if (ret)
-                return -1;
-        }
-
-        ret = xlator_set_fixed_option(rbxl, "transport-type", ptranst);
-        GF_FREE(ptranst);
-        if (ret)
-            return -1;
-
-        if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
-                               &address_family_data) == 0) {
-            ret = xlator_set_fixed_option(rbxl, "transport.address-family",
-                                          address_family_data);
-            if (ret) {
-                gf_log("glusterd", GF_LOG_WARNING,
-                       "failed to set transport.address-family");
-                return -1;
-            }
-        }
-
-        xl = volgen_graph_add_nolink(graph, "cluster/pump", "%s-pump",
-                                     volinfo->volname);
-        if (!xl)
-            return -1;
-        ret = volgen_xlator_link(xl, txl);
-        if (ret)
-            return -1;
-        ret = volgen_xlator_link(xl, rbxl);
-        if (ret)
-            return -1;
-    }
-
-out:
-    return ret;
-}
-
 /* The order of xlator definition here determines
  * the topology of the brick graph */
 static volgen_brick_xlator_t server_graph_table[] = {
@@ -2607,7 +2511,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_iot, "io-threads"},
     {brick_graph_add_upcall, "upcall"},
     {brick_graph_add_leases, "leases"},
-    {brick_graph_add_pump, "pump"},
     {brick_graph_add_ro, "read-only"},
     {brick_graph_add_worm, "worm"},
     {brick_graph_add_locks, "locks"},

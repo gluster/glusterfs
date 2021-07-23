@@ -651,7 +651,6 @@ typedef enum {
 #define RB_CLIENTVOL_FILENAME "rb_client.vol"
 #define RB_DSTBRICK_PIDFILE "rb_dst_brick.pid"
 #define RB_DSTBRICKVOL_FILENAME "rb_dst_brick.vol"
-#define RB_PUMP_DEF_ARG "default"
 
 #define GLUSTERD_UUID_LEN 50
 
