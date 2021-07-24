@@ -731,61 +731,6 @@ out:
     return ret;
 }
 
-int32_t
-glusterd_lvm_snapshot_missed(char *volname, char *snapname,
-                             glusterd_brickinfo_t *brickinfo,
-                             glusterd_snap_op_t *snap_opinfo)
-{
-    int32_t ret = -1;
-    xlator_t *this = NULL;
-    char *device = NULL;
-    char *snap_device = NULL;
-
-    /* Fetch the device path */
-    device = glusterd_get_brick_mount_device(snap_opinfo->brick_path);
-    if (!device) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
-               "Getting device name for the"
-               "brick %s:%s failed",
-               brickinfo->hostname, snap_opinfo->brick_path);
-        ret = -1;
-        goto out;
-    }
-
-    snap_device = glusterd_lvm_snapshot_device(device, volname,
-                                               snap_opinfo->brick_num - 1);
-    if (!snap_device) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the snapshot "
-               "device name (volname: %s, snapname: %s)",
-               volname, snapname);
-        ret = -1;
-        goto out;
-    }
-
-    if (snprintf(brickinfo->device_path, sizeof(brickinfo->device_path), "%s",
-                 device) >= sizeof(brickinfo->device_path)) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the device_path "
-               "(device_path: %s)",
-               brickinfo->device_path);
-        ret = -1;
-        goto out;
-    }
-
-    ret = glusterd_lvm_snapshot_create(brickinfo, snap_opinfo->brick_path);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPSHOT_OP_FAILED,
-               "LVM snapshot failed for %s", snap_opinfo->brick_path);
-        goto out;
-    }
-
-out:
-    return ret;
-}
-
 /* Look into missed_snap_list, to see it the given brick_name,
  * has any missed snap creates for the local node */
 int32_t

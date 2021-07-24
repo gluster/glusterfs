@@ -20,6 +20,21 @@
         }                                                                      \
     } while (0)
 
+#define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid)                           \
+    do {                                                                       \
+        char *snap_volname_ptr = ret_string;                                   \
+        char tmp_uuid[64];                                                     \
+        char *snap_volid_ptr = uuid_utoa_r(uuid, tmp_uuid);                    \
+        while (*snap_volid_ptr) {                                              \
+            if (*snap_volid_ptr == '-') {                                      \
+                snap_volid_ptr++;                                              \
+            } else {                                                           \
+                (*snap_volname_ptr++) = (*snap_volid_ptr++);                   \
+            }                                                                  \
+        }                                                                      \
+        *snap_volname_ptr = '\0';                                              \
+    } while (0)
+
 int32_t
 glusterd_snap_volinfo_find(char *volname, glusterd_snap_t *snap,
                            glusterd_volinfo_t **volinfo);

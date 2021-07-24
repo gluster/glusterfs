@@ -15062,3 +15062,95 @@ glusterd_replace_old_auth_allow_list(char *volname)
 out:
     return ret;
 }
+
+/* This function will update the file-system label of the
+ * backend snapshot brick.
+ *
+ * @param brickinfo     brickinfo of the snap volume
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_update_fs_label(glusterd_brickinfo_t *brickinfo)
+{
+    int32_t ret = -1;
+    char msg[PATH_MAX] = "";
+    char label[NAME_MAX] = "";
+    uuid_t uuid = {
+        0,
+    };
+    runner_t runner = {
+        0,
+    };
+    xlator_t *this = THIS;
+    int32_t len = 0;
+
+    GF_ASSERT(brickinfo);
+
+    /* Generate a new UUID */
+    gf_uuid_generate(uuid);
+
+    GLUSTERD_GET_UUID_NOHYPHEN(label, uuid);
+
+    runinit(&runner);
+
+    /* Call the file-system specific tools to update the file-system
+     * label. Currently we are only supporting xfs and ext2/ext3/ext4
+     * file-system.
+     */
+    if (0 == strcmp(brickinfo->fstype, "xfs")) {
+        /* XFS label is of size 12. Therefore we should truncate the
+         * label to 12 bytes*/
+        label[12] = '\0';
+        len = snprintf(msg, sizeof(msg),
+                       "Changing filesystem label "
+                       "of %s brick to %s",
+                       brickinfo->path, label);
+        if (len < 0) {
+            strcpy(msg, "<error>");
+        }
+        /* Run the run xfs_admin tool to change the label
+         * of the file-system */
+        runner_add_args(&runner, "xfs_admin", "-L", label,
+                        brickinfo->device_path, NULL);
+    } else if (0 == strcmp(brickinfo->fstype, "ext4") ||
+               0 == strcmp(brickinfo->fstype, "ext3") ||
+               0 == strcmp(brickinfo->fstype, "ext2")) {
+        /* Ext2/Ext3/Ext4 label is of size 16. Therefore we should
+         * truncate the label to 16 bytes*/
+        label[16] = '\0';
+        len = snprintf(msg, sizeof(msg),
+                       "Changing filesystem label "
+                       "of %s brick to %s",
+                       brickinfo->path, label);
+        if (len < 0) {
+            strcpy(msg, "<error>");
+        }
+        /* For ext2/ext3/ext4 run tune2fs to change the
+         * file-system label */
+        runner_add_args(&runner, "tune2fs", "-L", label, brickinfo->device_path,
+                        NULL);
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, EOPNOTSUPP, GD_MSG_OP_UNSUPPORTED,
+               "Changing file-system "
+               "label of %s file-system is not supported as of now",
+               brickinfo->fstype);
+        runner_end(&runner);
+        ret = -1;
+        goto out;
+    }
+
+    runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
+    ret = runner_run(&runner);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FS_LABEL_UPDATE_FAIL,
+               "Failed to change "
+               "filesystem label of %s brick to %s",
+               brickinfo->path, label);
+        goto out;
+    }
+
+    ret = 0;
+out:
+    return ret;
+}
