@@ -23,3 +23,6 @@ Client, server interactions for connecting/disconnecting/reconnecting are covere
     - io-threads xlator implementation is covered.  
 9. Index xlator - [video](https://youtu.be/WYQKsNYXmrM) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-9-index-xlator)  
 Index xlator design and implementation are covered in this session.  
+10. Locks xlator inodelks - [video](https://youtu.be/1AIMbxmAKwc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-10-locks-xlator-inodelks)  
+    - Gives brief introduction about the purpose of this xlator  
+    - Introduces and code walkthrough of inodelk part of locks xlator  
