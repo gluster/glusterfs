@@ -565,7 +565,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
-         * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+         * (glfs-heal.c, afr-self-heald.c) rely on it
          * for directory read resumption.
          */
         last_off = (u_long)telldir(dir);
@@ -2343,7 +2343,8 @@ index_priv_dump(xlator_t *this)
 
     snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
     gf_proc_dump_add_section("%s", key_prefix);
-    gf_proc_dump_write("xattrop-pending-count", "%"PRId64, priv->pending_count);
+    gf_proc_dump_write("xattrop-pending-count", "%" PRId64,
+                       priv->pending_count);
 
     return 0;
 }

@@ -5645,7 +5645,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
-         * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+         * (glfs-heal.c, afr-self-heald.c) rely on it
          * for directory read resumption.
          */
 
