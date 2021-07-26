@@ -81,6 +81,15 @@ TEST getfattr -n "glusterfs.get_real_filename:file1" $M0;
 TEST getfattr -n "glusterfs.get_real_filename:FILE1" $M0;
 TEST ! getfattr -n "glusterfs.get_real_filename:FILE2" $M0;
 
+#Check symlink
+TEST ! ls -l $M0/dir1
+TEST mkdir $M0/dir1
+TEST ln -s $M0/dir1 $M0/dir2
+TEST ls -l $M1/dir1
+TEST ls -l $M1/dir2
+TEST rmdir $M0/dir1
+TEST rmdir $M0/dir2
+
 #Check statedump
 TEST generate_mount_statedump $V0 $M0
 TEST cleanup_mount_statedump $V0
