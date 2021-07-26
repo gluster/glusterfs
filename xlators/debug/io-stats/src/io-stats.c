@@ -22,7 +22,7 @@
  * per fd e) counts of all FOP types passing through it
  *
  *  Usage: setfattr -n trusted.io-stats-dump -v filename /mnt/gluster
- *      output is written to /run/gluster/filename.<iostats xlator instance
+ *      output is written to /var/run/gluster/filename.<iostats xlator instance
  * name>
  *
  */
