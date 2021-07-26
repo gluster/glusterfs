@@ -127,7 +127,7 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
 
             LOCK(&defrag->lock);
             {
-                defrag->connected = 1;
+                defrag->connected = _gf_true;
             }
             UNLOCK(&defrag->lock);
 
@@ -143,7 +143,7 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
                     UNLOCK(&defrag->lock);
                     return 0;
                 }
-                defrag->connected = 0;
+                defrag->connected = _gf_false;
             }
             UNLOCK(&defrag->lock);
 
@@ -236,8 +236,6 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         goto out;
 
     defrag = volinfo->rebal.defrag;
-
-    defrag->cmd = cmd;
 
     volinfo->rebal.defrag_cmd = cmd;
     volinfo->rebal.op = op;
@@ -367,7 +365,6 @@ glusterd_rebalance_defrag_init(glusterd_volinfo_t *volinfo, defrag_cbk_fn_t cbk)
         goto out;
     defrag = volinfo->rebal.defrag;
 
-    defrag->cmd = volinfo->rebal.defrag_cmd;
     LOCK_INIT(&defrag->lock);
     if (cbk)
         defrag->cbk_fn = cbk;

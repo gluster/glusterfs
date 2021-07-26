@@ -328,20 +328,11 @@ typedef int (*defrag_cbk_fn_t)(glusterd_volinfo_t *volinfo,
                                gf_defrag_status_t status);
 
 struct glusterd_defrag_info_ {
-    uint64_t total_files;
-    uint64_t total_data;
-    uint64_t num_files_lookedup;
-    uint64_t total_failures;
     int refcnt;
     gf_lock_t lock;
-    int cmd;
-    uint32_t connected;
-    pthread_t th;
+    gf_boolean_t connected;
     struct rpc_clnt *rpc;
-    struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
     defrag_cbk_fn_t cbk_fn;
-    gf_defrag_status_t defrag_status;
-    char mount[1024];
 };
 
 typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
