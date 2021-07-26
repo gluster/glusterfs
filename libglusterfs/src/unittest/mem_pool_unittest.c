@@ -30,11 +30,11 @@
 /*
  * memory header for gf_mem_set_acct_info
  */
-typedef struct __attribute__((packed)) {
+typedef struct {
     uint32_t type;
     size_t size;
     xlator_t *xl;
-    uint32_t header_magic;
+    gf_mem_magic_t header_magic;
     void *data[];
 } mem_header_t;
 
@@ -44,6 +44,12 @@ typedef struct __attribute__((packed)) {
 int
 gf_mem_set_acct_info(xlator_t *xl, char **alloc_ptr, size_t size, uint32_t type,
                      const char *typestr);
+size_t
+__gf_total_alloc_size(size_t req_size);
+void
+__gf_mem_trailer_write(uint8_t *trailer);
+gf_mem_magic_t
+__gf_mem_trailer_read(uint8_t *trailer);
 
 /*
  * Helper functions
@@ -102,8 +108,8 @@ helper_check_memory_headers(char *mem, xlator_t *xl, size_t size, uint32_t type)
     assert_int_equal(p->size, size);
     assert_true(p->xl == xl);
     assert_int_equal(p->header_magic, GF_MEM_HEADER_MAGIC);
-    assert_true(*(uint32_t *)(mem + sizeof(mem_header_t) + size) ==
-                GF_MEM_TRAILER_MAGIC);
+    assert_true(__gf_mem_trailer_read((uint8_t *)mem + sizeof(mem_header_t) +
+                                      size) == GF_MEM_TRAILER_MAGIC);
 }
 
 /*

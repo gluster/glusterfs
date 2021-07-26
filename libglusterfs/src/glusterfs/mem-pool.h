@@ -32,7 +32,8 @@
 #include <cmocka.h>
 #endif
 
-#define GF_MEM_TRAILER_SIZE 8
+typedef uint32_t gf_mem_magic_t;
+#define GF_MEM_TRAILER_SIZE sizeof(gf_mem_magic_t)
 #define GF_MEM_HEADER_MAGIC 0xCAFEBABE
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
 #define GF_MEM_INVALID_MAGIC 0xDEADC0DE
@@ -64,7 +65,7 @@ struct mem_header {
     uint32_t type;
     size_t size;
     struct mem_acct *mem_acct;
-    uint32_t magic;
+    gf_mem_magic_t magic;
 #ifdef DEBUG
     struct list_head acct_list;
 #endif
@@ -76,7 +77,7 @@ struct mem_header {
 
 #ifdef DEBUG
 struct mem_invalid {
-    uint32_t magic;
+    gf_mem_magic_t magic;
     void *mem_acct;
     uint32_t type;
     size_t size;
