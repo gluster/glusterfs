@@ -35,7 +35,7 @@ typedef struct __attribute__((packed)) {
     size_t size;
     xlator_t *xl;
     uint32_t header_magic;
-    uint8_t pad[8];
+    void *data[];
 } mem_header_t;
 
 /*

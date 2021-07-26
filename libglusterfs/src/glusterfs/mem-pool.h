@@ -68,7 +68,8 @@ struct mem_header {
 #ifdef DEBUG
     struct list_head acct_list;
 #endif
-    int padding[8];
+    /* ensures alignment */
+    void *data[];
 };
 
 #define GF_MEM_HEADER_SIZE (sizeof(struct mem_header))
