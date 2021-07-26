@@ -88,7 +88,7 @@ TEST ln -s $M0/dir1 $M0/dir2
 TEST ls -l $M1/dir1
 TEST ls -l $M1/dir2
 TEST rmdir $M0/dir1
-TEST rmdir $M0/dir2
+TEST unlink $M0/dir2
 
 #Check statedump
 TEST generate_mount_statedump $V0 $M0
