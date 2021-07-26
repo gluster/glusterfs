@@ -218,7 +218,6 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
     uint16_t remote_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     struct addrinfo *addr_info = NULL;
     int32_t ret = 0;
-    struct in6_addr serveraddr;
 
     remote_host_data = dict_get_sizen(options, "remote-host");
     if (remote_host_data == NULL) {
