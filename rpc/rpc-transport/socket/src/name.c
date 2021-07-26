@@ -252,17 +252,9 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
         }
     }
 
-    /* Need to update transport-address family if address-family is not provided
-       to command-line arguments
-    */
-    if (inet_pton(AF_INET6, remote_host, &serveraddr)) {
-        sockaddr->sa_family = AF_INET6;
-    }
-
     /* TODO: gf_resolve is a blocking call. kick in some
        non blocking dns techniques */
-    ret = gf_resolve_ip6(remote_host, remote_port, sockaddr->sa_family,
-                         &this->dnscache, &addr_info);
+    ret = gf_resolve_ip6(remote_host, remote_port, &this->dnscache, &addr_info);
     if (ret == -1) {
         gf_log(this->name, GF_LOG_ERROR, "DNS resolution failed on host %s",
                remote_host);

@@ -272,7 +272,7 @@ void
 gf_global_variable_init(void);
 
 int32_t
-gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
+gf_resolve_ip6(const char *hostname, uint16_t port, void **dnscache,
                struct addrinfo **addr_info);
 
 void

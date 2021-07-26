@@ -471,7 +471,7 @@ out:
 }
 
 int32_t
-gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
+gf_resolve_ip6(const char *hostname, uint16_t port, void **dnscache,
                struct addrinfo **addr_info)
 {
     int32_t ret = 0;
@@ -507,7 +507,7 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
                      hostname);
 
         memset(&hints, 0, sizeof(hints));
-        hints.ai_family = family;
+        hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
 
         ret = gf_asprintf(&port_str, "%d", port);
@@ -517,7 +517,7 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
         if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) !=
             0) {
             gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
-                    "family=%d", family, "ret=%s", gai_strerror(ret), NULL);
+                    "ret=%s", gai_strerror(ret), NULL);
 
             GF_FREE(*dnscache);
             *dnscache = NULL;
