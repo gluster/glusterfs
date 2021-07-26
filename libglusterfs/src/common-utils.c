@@ -3325,7 +3325,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else /* FIXME: Non Linux Host */
+#else  /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -5185,7 +5185,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else /* !GF_LINUX_HOST_OS */
+#else  /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 
