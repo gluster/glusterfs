@@ -1509,28 +1509,30 @@ if test -n "$LIBAIO"; then
 fi
 
 BUILD_LINUX_IO_URING="no"
-AC_CHECK_HEADER([linux/io_uring.h],
-                [
-                    AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
-                    BUILD_LINUX_IO_URING="yes"
-                ])
-AM_CONDITIONAL([BUILD_LINUX_IO_URING], [test x$BUILD_LINUX_IO_URING = xyes])
+BUILD_LIBURING="no"
 
-BUILD_LIBURING=no
 case $host_os in
     linux*)
         AC_ARG_ENABLE([linux_io_uring],
                       AC_HELP_STRING([--disable-linux-io_uring],
-                      [Disable io-uring in POSIX xlator.]))
+                      [Disable io-uring support.]))
 
         if test "x$enable_linux_io_uring" != "xno" ; then
             AC_CHECK_HEADERS([liburing.h],
                              [AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled]) LIBURING="-luring"],
                              AC_MSG_ERROR([Install liburing library and headers or use --disable-linux-io_uring]))
             BUILD_LIBURING=yes
+
+            AC_CHECK_HEADER([linux/io_uring.h],
+                            [
+                                AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
+                                BUILD_LINUX_IO_URING="yes"
+                            ])
         fi
         ;;
 esac
+
+AM_CONDITIONAL([BUILD_LINUX_IO_URING], [test x$BUILD_LINUX_IO_URING = xyes])
 
 dnl gnfs section
 BUILD_GNFS="no"
