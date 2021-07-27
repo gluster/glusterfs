@@ -3679,7 +3679,7 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
             }
             th_ret = gf_thread_create_detached(
                 &th_id, glusterd_add_bulk_volumes_create_thread, arg,
-                "bulkvoldict");
+                "bulkvoldict%d", i);
             if (th_ret) {
                 gf_log(this->name, GF_LOG_ERROR,
                        "glusterd_add_bulk_volume %s"

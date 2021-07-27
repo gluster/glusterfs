@@ -1759,7 +1759,7 @@ br_init_signer(xlator_t *this, br_private_t *priv)
 
     for (i = 0; i < priv->signer_th_count; i++) {
         ret = gf_thread_create(&priv->obj_queue->workers[i], NULL,
-                               br_process_object, this, "brpobj");
+                               br_process_object, this, "brpobj%d", i);
         if (ret != 0) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret,
                     BRB_MSG_THREAD_CREATION_FAILED, NULL);

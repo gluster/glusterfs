@@ -1307,7 +1307,7 @@ br_scrubber_scale_up(xlator_t *this, struct br_scrubber *fsscrub,
 
         INIT_LIST_HEAD(&scrub->list);
         ret = gf_thread_create(&scrub->scrubthread, NULL, br_scrubber_proc,
-                               fsscrub, "brsproc");
+                               fsscrub, "brsproc%d", i);
         if (ret)
             break;
 

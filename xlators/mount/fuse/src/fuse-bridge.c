@@ -6537,7 +6537,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                                           gf_fuse_mt_pthread_t);
                 for (i = 0; i < private->reader_thread_count; i++) {
                     ret = gf_thread_create(&private->fuse_thread[i], NULL,
-                                           fuse_thread_proc, this, "fuseproc");
+                                           fuse_thread_proc, this,
+                                           "fuseproc%d", i);
                     if (ret != 0) {
                         gf_log(this->name, GF_LOG_DEBUG,
                                "pthread_create() failed (%s)", strerror(errno));

@@ -802,7 +802,7 @@ event_dispatch_epoll(struct event_pool *event_pool)
             ev_data->event_index = i + 1;
 
             ret = gf_thread_create(&t_id, NULL, event_dispatch_epoll_worker,
-                                   ev_data, "epoll%03hx", i & 0x3ff);
+                                   ev_data, "epoll%d", i);
             if (!ret) {
                 event_pool->pollers[i] = t_id;
 
@@ -905,7 +905,7 @@ event_reconfigure_threads_epoll(struct event_pool *event_pool, int value)
 
                     ret = gf_thread_create(&t_id, NULL,
                                            event_dispatch_epoll_worker, ev_data,
-                                           "epoll%03hx", i & 0x3ff);
+                                           "epoll%d", i);
                     if (ret) {
                         gf_smsg("epoll", GF_LOG_WARNING, 0,
                                 LG_MSG_START_EPOLL_THREAD_FAILED, "index=%d", i,

@@ -611,7 +611,7 @@ gf_history_consume(void *data)
 
             ret = gf_thread_create(&th_id[iter], NULL,
                                    gf_changelog_consume_wrap, curr,
-                                   "clogc%03hx", (iter + 1) & 0x3ff);
+                                   "clogc%d", iter);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, ret,
                        CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED,

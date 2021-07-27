@@ -845,7 +845,7 @@ rpcsvc_handle_rpc_call(rpcsvc_t *svc, rpc_transport_t *trans,
             if (spawn_request_handler) {
                 ret = gf_thread_create(&queue->thread, NULL,
                                        rpcsvc_request_handler, queue,
-                                       "rpcrqhnd");
+                                       "rpcrqhnd%d", (int)num);
                 if (!ret) {
                     gf_log(GF_RPCSVC, GF_LOG_INFO,
                            "spawned a request handler thread for queue %d",

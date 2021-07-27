@@ -833,7 +833,7 @@ __iot_workers_scale(iot_conf_t *conf)
         diff--;
 
         ret = gf_thread_create(&thread, &conf->w_attr, iot_worker, conf,
-                               "iotwr%03hx", conf->curr_count & 0x3ff);
+                               "iotwr%d", conf->curr_count);
         if (ret == 0) {
             pthread_detach(thread);
             conf->curr_count++;
