@@ -122,8 +122,8 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
         }
     }
 
-    header->type = type;
     header->mem_acct = mem_acct;
+    header->type = type;
     header->magic = GF_MEM_HEADER_MAGIC;
 
     return gf_mem_header_prepare(header, size);

@@ -62,9 +62,9 @@ struct mem_acct {
 };
 
 struct mem_header {
-    uint32_t type;
-    size_t size;
     struct mem_acct *mem_acct;
+    size_t size;
+    uint32_t type;
     gf_mem_magic_t magic;
 #ifdef DEBUG
     struct list_head acct_list;
