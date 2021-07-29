@@ -27,6 +27,7 @@
 
 #include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
+#include "glusterfs/mem-types.h"
 
 #pragma generate
 

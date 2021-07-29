@@ -2621,8 +2621,6 @@ GF_IO_ASYNC(main_start, op, static)
 {
     int32_t res;
 
-    mem_pools_init();
-
     /* TODO: gf_async support should be removed once the I/O framework
      *       supports multithreaded I/O without io_uring. */
     res = gf_async_init(global_ctx);

@@ -319,7 +319,7 @@ __glfs_calloc(size_t nmemb, size_t size, glfs_mem_release_t release,
 {
     struct glfs_mem_header *header = NULL;
 
-    header = __gf_calloc(nmemb, (size + GLFS_MEM_HEADER_SIZE), type, typestr);
+    header = gf_calloc(nmemb, (size + GLFS_MEM_HEADER_SIZE));
     if (!header)
         return NULL;
 
@@ -337,7 +337,7 @@ __glfs_malloc(size_t size, glfs_mem_release_t release, uint32_t type,
 {
     struct glfs_mem_header *header = NULL;
 
-    header = __gf_malloc((size + GLFS_MEM_HEADER_SIZE), type, typestr);
+    header = gf_malloc(size + GLFS_MEM_HEADER_SIZE);
     if (!header)
         return NULL;
 
@@ -363,7 +363,7 @@ __glfs_realloc(void *ptr, size_t size)
     GF_ASSERT(old_header->magic == GLFS_MEM_HEADER_MAGIC);
     tmp_header = *old_header;
 
-    new_ptr = __gf_realloc(old_header, (size + GLFS_MEM_HEADER_SIZE));
+    new_ptr = gf_realloc(old_header, (size + GLFS_MEM_HEADER_SIZE));
     if (!new_ptr)
         return NULL;
 
@@ -395,7 +395,7 @@ __glfs_free(void *free_ptr)
         }
     }
 
-    __gf_free(header);
+    gf_free(header);
 }
 
 #define GLFS_CALLOC(nmemb, size, release, type)                                \

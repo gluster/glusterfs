@@ -19,7 +19,6 @@
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include "xdr-nfs3.h"
-#include <glusterfs/mem-pool.h>
 #include "nlm4.h"
 #include "acl3-xdr.h"
 #include "acl3.h"

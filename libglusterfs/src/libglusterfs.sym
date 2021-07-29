@@ -876,8 +876,6 @@ mem_get_malloc
 mem_get_calloc
 mem_pool_destroy
 mem_pool_new_fn
-mem_pools_fini
-mem_pools_init
 mem_put_pool
 mkdir_p
 next_token

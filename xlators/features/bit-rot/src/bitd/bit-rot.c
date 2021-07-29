@@ -119,7 +119,6 @@ br_prepare_signature(const unsigned char *sign, unsigned long hashlen,
 {
     br_isignature_t *signature = NULL;
 
-    /* TODO: use mem-pool */
     signature = GF_CALLOC(1, signature_size(hashlen + 1),
                           gf_br_stub_mt_signature_t);
     if (!signature)
@@ -781,8 +780,8 @@ br_object_quicksign(xlator_t *this, br_object_t *object)
  * add the object (or the gfid) on which the notification has come to
  * the timer-wheel with some expiry time.
  *
- * TODO: use mem-pool for allocations and maybe allocate timer and
- * object as a single alloc and bifurcate their respective pointers.
+ * TODO: maybe allocate timer and object as a single alloc and bifurcate
+ * their respective pointers.
  */
 void
 br_brick_callback(void *xl, char *brick, void *data, changelog_event_t *ev)

@@ -10,7 +10,8 @@
 
 #include "glusterfs/compat.h"
 #include "glusterfs/syscall.h"
-#include "glusterfs/mem-pool.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 #ifdef __FreeBSD__

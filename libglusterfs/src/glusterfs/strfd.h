@@ -11,6 +11,8 @@
 #ifndef _STRFD_H
 #define _STRFD_H
 
+#include <sys/types.h>
+
 typedef struct {
     void *data;
     size_t alloc_size;

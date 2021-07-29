@@ -98,6 +98,42 @@ gf_assert(void)
     }
 }
 
+int
+gf_vasprintf(char **strp, const char *format, va_list arg)
+{
+    int ret, size;
+    va_list save;
+    char *str;
+
+    if (!strp || !format)
+        return -1;
+
+    va_copy(save, arg);
+    size = vsnprintf(NULL, 0, format, arg) + 1;
+    str = gf_malloc(size);
+    if (str) {
+        ret = vsnprintf(str, size, format, save);
+        *strp = str;
+    } else
+        ret = -1;
+    va_end(save);
+
+    return ret;
+}
+
+int
+gf_asprintf(char **strp, const char *format, ...)
+{
+    va_list arg;
+    int ret;
+
+    va_start(arg, format);
+    ret = gf_vasprintf(strp, format, arg);
+    va_end(arg);
+
+    return ret;
+}
+
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
                  unsigned long long const seed, char *xxh64)

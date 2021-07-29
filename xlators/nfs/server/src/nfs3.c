@@ -16,7 +16,6 @@
 #include "msg-nfs3.h"
 #include <glusterfs/iobuf.h>
 #include "nfs3.h"
-#include <glusterfs/mem-pool.h>
 #include <glusterfs/logging.h>
 #include "nfs-common.h"
 #include "nfs-fops.h"

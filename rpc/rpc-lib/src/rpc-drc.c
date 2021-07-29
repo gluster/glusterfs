@@ -14,7 +14,6 @@
 #endif
 #include <glusterfs/locking.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/mem-pool.h>
 
 #include <netinet/in.h>
 #include <unistd.h>

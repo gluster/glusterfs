@@ -45,9 +45,10 @@ trap(void);
 /* To solve type punned error */
 #define VOID(ptr) ((void **)((void *)ptr))
 
-#include "glusterfs/mem-pool.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/iatt.h"
+#include "glusterfs/logging.h"
+#include "glusterfs/glusterfs.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 #define STRINGIFY(val) #val
@@ -157,6 +158,116 @@ trap(void);
 
 /* Advisory buffer size for formatted timestamps (see gf_time_fmt) */
 #define GF_TIMESTR_SIZE 256
+
+/* Common memory management functions. */
+
+static inline void *
+gf_malloc(size_t size)
+{
+    void *ptr = malloc(size);
+
+    if (!ptr)
+        gf_msg_nomem("", GF_LOG_ALERT, size);
+    return ptr;
+}
+
+static inline void *
+gf_calloc(size_t cnt, size_t size)
+{
+    void *ptr = calloc(cnt, size);
+
+    if (!ptr)
+        gf_msg_nomem("", GF_LOG_ALERT, (cnt * size));
+    return ptr;
+}
+
+static inline void *
+gf_realloc(void *oldptr, size_t size)
+{
+    void *ptr = realloc(oldptr, size);
+
+    if (!ptr)
+        gf_msg_nomem("", GF_LOG_ALERT, size);
+    return ptr;
+}
+
+static inline void
+gf_free(void *ptr)
+{
+    if (ptr)
+        free(ptr);
+}
+
+static inline char *
+gf_strndup(const char *src, size_t len)
+{
+    char *dup;
+
+    if (!src)
+        return NULL;
+    dup = gf_malloc(len + 1);
+    if (dup) {
+        memcpy(dup, src, len);
+        dup[len] = '\0';
+    }
+    return dup;
+}
+
+static inline char *
+gf_strdup(const char *src)
+{
+    return src ? gf_strndup(src, strlen(src)) : NULL;
+}
+
+static inline void *
+gf_memdup(const void *src, size_t size)
+{
+    void *dup = gf_malloc(size);
+
+    if (dup)
+        memcpy(dup, src, size);
+    return dup;
+}
+
+/* Legacy compatibility macros. */
+
+#define GF_MALLOC(size, type) gf_malloc(size)
+#define GF_CALLOC(nmemb, size, type) gf_calloc(nmemb, size)
+#define GF_REALLOC(ptr, size) gf_realloc(ptr, size)
+#define GF_FREE(ptr) gf_free(ptr)
+
+#define MALLOC(size) gf_malloc(size)
+#define CALLOC(nmemb, size) gf_calloc(nmemb, size)
+#define REALLOC(ptr, size) gf_realloc(ptr, size)
+#define FREE(ptr) gf_free(ptr)
+
+/* Old memory pools compatibility macros. */
+
+struct mem_pool {
+    size_t size;
+};
+
+static inline struct mem_pool *
+mem_pool_new_fn(glusterfs_ctx_t *ctx, size_t size,
+                size_t count, char *name)
+{
+    return (struct mem_pool *)(size);
+}
+
+static inline void
+mem_pool_destroy(struct mem_pool *pool)
+{
+}
+
+#define mem_pool_new(type, count)                                              \
+    mem_pool_new_fn(THIS->ctx, sizeof(type), count, #type)
+
+#define mem_pool_new_ctx(ctx, type, count)                                     \
+    mem_pool_new_fn(ctx, sizeof(type), count, #type)
+
+#define mem_get(pool) gf_malloc((size_t)pool)
+#define mem_get0(pool) gf_calloc(1, (size_t)pool)
+#define mem_put(ptr) gf_free(ptr)
 
 /*
  * we could have initialized these as +ve values and treated
@@ -1081,6 +1192,13 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key);
 
 int
 gf_set_timestamp(const char *src, const char *dest);
+
+int
+gf_vasprintf(char **strp, const char *format, va_list arg);
+
+int
+gf_asprintf(char **strp, const char *format, ...)
+    __attribute__((__format__(__printf__, 2, 3)));
 
 int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,

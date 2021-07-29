@@ -16,7 +16,6 @@
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
-#include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
 #include "rpc-common-xdr.h"
 
@@ -623,7 +622,6 @@ out:
     return;
 }
 
-/* TODO: use mem-pool for allocating requests */
 int
 rpc_clnt_reply_init(rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
                     struct rpc_req *req, struct saved_frame *saved_frame)

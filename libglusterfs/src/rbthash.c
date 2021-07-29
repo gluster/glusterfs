@@ -11,8 +11,8 @@
 #include "glusterfs/rbthash.h"
 #include "rb.h"
 #include "glusterfs/locking.h"
-#include "glusterfs/mem-pool.h"
 #include "glusterfs/logging.h"
+#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 #include <pthread.h>

@@ -33,6 +33,7 @@
 #include "glusterfs/compat-errno.h"
 #include "glusterfs/byte-order.h"
 #include "glusterfs/statedump.h"
+#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 

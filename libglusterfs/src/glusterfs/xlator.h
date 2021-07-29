@@ -811,7 +811,7 @@ struct _xlator {
     inode_table_t *itable;
     char init_succeeded;
     void *private;
-    struct mem_acct *mem_acct;
+    void *mem_acct;
     uint64_t winds;
     char switched;
 
@@ -1033,7 +1033,7 @@ loc_is_nameless(loc_t *loc);
 int
 xlator_mem_acct_init(xlator_t *xl, int num_types);
 void
-xlator_mem_acct_unref(struct mem_acct *mem_acct);
+xlator_mem_acct_unref(void *unused);
 int
 is_gf_log_command(xlator_t *trans, const char *name, char *value, size_t size);
 int

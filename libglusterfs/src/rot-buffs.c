@@ -11,8 +11,6 @@
 #include <math.h>
 
 #include "glusterfs/mem-types.h"
-#include "glusterfs/mem-pool.h"
-
 #include "glusterfs/rot-buffs.h"
 
 /**

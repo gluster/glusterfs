@@ -145,7 +145,6 @@ gf_dirent_for_name(const char *name)
 {
     gf_dirent_t *gf_dirent = NULL;
 
-    /* TODO: use mem-pool */
     gf_dirent = GF_CALLOC(gf_dirent_size(name), 1, gf_common_mt_gf_dirent_t);
     if (!gf_dirent)
         return NULL;

@@ -9,7 +9,6 @@
 */
 
 #include "glusterfs/gidcache.h"
-#include "glusterfs/mem-pool.h"
 #include "glusterfs/common-utils.h"
 
 /*

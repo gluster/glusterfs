@@ -236,68 +236,11 @@ gf_proc_dump_xl_latency_info(xlator_t *xl)
 static void
 gf_proc_dump_xlator_mem_info(xlator_t *xl)
 {
-    int i = 0;
-
-    if (!xl)
-        return;
-
-    if (!xl->mem_acct)
-        return;
-
-    gf_proc_dump_add_section("%s.%s - Memory usage", xl->type, xl->name);
-    gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
-
-    for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (xl->mem_acct->rec[i].num_allocs == 0)
-            continue;
-
-        gf_proc_dump_add_section("%s.%s - usage-type %s memusage", xl->type,
-                                 xl->name, xl->mem_acct->rec[i].typestr);
-        gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
-        gf_proc_dump_write("max_size", "%" PRIu64,
-                           xl->mem_acct->rec[i].max_size);
-        gf_proc_dump_write("max_num_allocs", "%u",
-                           xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
-    }
-
-    return;
 }
 
 static void
 gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
 {
-    int i = 0;
-
-    if (!xl)
-        return;
-
-    if (!xl->mem_acct)
-        return;
-
-    gf_proc_dump_add_section("%s.%s - Memory usage", xl->type, xl->name);
-    gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
-
-    for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (!xl->mem_acct->rec[i].size)
-            continue;
-
-        gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
-                                 i);
-
-        gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
-        gf_proc_dump_write("max_size", "%" PRIu64,
-                           xl->mem_acct->rec[i].max_size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
-        gf_proc_dump_write("max_num_allocs", "%u",
-                           xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
-    }
-
-    return;
 }
 
 /* Currently this dumps only mallinfo. More can be built on here. */
@@ -408,90 +351,12 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 void
 gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
 {
-#ifdef GF_DISABLE_MEMPOOL
-    gf_proc_dump_write("built with --disable-mempool", " so no memory pools");
-#else
-    struct mem_pool *pool = NULL;
-
-    gf_proc_dump_add_section("mempool");
-
-    LOCK(&ctx->lock);
-    {
-        list_for_each_entry(pool, &ctx->mempool_list, owner)
-        {
-            int64_t active = GF_ATOMIC_GET(pool->active);
-
-            gf_proc_dump_write("-----", "-----");
-            gf_proc_dump_write("pool-name", "%s", pool->name);
-            gf_proc_dump_write("xlator-name", "%s", pool->xl_name);
-            gf_proc_dump_write("active-count", "%" GF_PRI_ATOMIC, active);
-            gf_proc_dump_write("sizeof-type", "%lu", pool->sizeof_type);
-            gf_proc_dump_write("padded-sizeof", "%d",
-                               1 << pool->pool->power_of_two);
-            gf_proc_dump_write("size", "%" PRId64,
-                               (1 << pool->pool->power_of_two) * active);
-            gf_proc_dump_write("shared-pool", "%p", pool->pool);
-        }
-    }
-    UNLOCK(&ctx->lock);
-#endif /* GF_DISABLE_MEMPOOL */
+    gf_proc_dump_write("memory pools are", "no longer supported");
 }
 
 void
 gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
 {
-#ifndef GF_DISABLE_MEMPOOL
-    struct mem_pool *pool = NULL;
-    char key[GF_DUMP_MAX_BUF_LEN] = {
-        0,
-    };
-    int count = 0;
-    int ret = -1;
-
-    if (!ctx || !dict)
-        return;
-
-    LOCK(&ctx->lock);
-    {
-        list_for_each_entry(pool, &ctx->mempool_list, owner)
-        {
-            int64_t active = GF_ATOMIC_GET(pool->active);
-
-            snprintf(key, sizeof(key), "pool%d.name", count);
-            ret = dict_set_str(dict, key, pool->name);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.active-count", count);
-            ret = dict_set_uint64(dict, key, active);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.sizeof-type", count);
-            ret = dict_set_uint64(dict, key, pool->sizeof_type);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.padded-sizeof", count);
-            ret = dict_set_uint64(dict, key, 1 << pool->pool->power_of_two);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.size", count);
-            ret = dict_set_uint64(dict, key,
-                                  (1 << pool->pool->power_of_two) * active);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.shared-pool", count);
-            ret = dict_set_static_ptr(dict, key, pool->pool);
-            if (ret)
-                goto out;
-        }
-    }
-out:
-    UNLOCK(&ctx->lock);
-#endif /* !GF_DISABLE_MEMPOOL */
 }
 
 void

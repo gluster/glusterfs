@@ -1131,8 +1131,6 @@ __socket_reset(rpc_transport_t *this)
 
     priv = this->private;
 
-    /* TODO: use mem-pool on incoming data */
-
     if (priv->incoming.iobref) {
         iobref_unref(priv->incoming.iobref);
         priv->incoming.iobref = NULL;
@@ -1205,7 +1203,6 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
     int count = 0;
     uint32_t size = 0;
 
-    /* TODO: use mem-pool */
     entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
     if (!entry)
         return NULL;
@@ -1271,7 +1268,6 @@ __socket_ioq_entry_free(struct ioq *entry)
     if (entry->iobref)
         iobref_unref(entry->iobref);
 
-    /* TODO: use mem-pool */
     GF_FREE(entry);
 
 out:

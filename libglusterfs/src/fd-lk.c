@@ -135,7 +135,6 @@ fd_lk_ctx_node_new(int32_t cmd, struct gf_flock *flock)
 {
     fd_lk_ctx_node_t *new_lock = NULL;
 
-    /* TODO: get from mem-pool */
     new_lock = GF_CALLOC(1, sizeof(fd_lk_ctx_node_t),
                          gf_common_mt_fd_lk_ctx_node_t);
     if (!new_lock)
