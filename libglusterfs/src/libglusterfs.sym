@@ -639,6 +639,8 @@ gf_log_set_logger
 gf_log_set_loglevel
 gf_lstat_dir
 __gf_malloc
+gf_mem_acct_init
+gf_mem_acct_fini
 gf_mem_acct_enable_set
 gf_monitor_metrics
 _gf_msg
@@ -652,8 +654,6 @@ gf_proc_dump_init
 gf_proc_dump_mallinfo
 gf_proc_dump_mem_info
 gf_proc_dump_mem_info_to_dict
-gf_proc_dump_mempool_info
-gf_proc_dump_mempool_info_to_dict
 gf_proc_dump_pending_frames
 gf_proc_dump_pending_frames_to_dict
 gf_proc_dump_write
@@ -662,6 +662,8 @@ gf_proc_dump_xlator_meminfo
 gf_proc_dump_xlator_private
 gf_proc_dump_xlator_profile
 gf_process_getspec_servers_list
+gf_proc_dump_xlator_mem_info
+gf_proc_dump_xlator_mem_info_only_in_use
 gf_process_reserved_ports
 __gf_realloc
 _gf_ref_get
@@ -872,13 +874,6 @@ loc_wipe
 log_base2
 _mask_cancellation
 mask_match
-mem_get_malloc
-mem_get_calloc
-mem_pool_destroy
-mem_pool_new_fn
-mem_pools_fini
-mem_pools_init
-mem_put_pool
 mkdir_p
 next_token
 nwstrtail
@@ -1159,7 +1154,6 @@ xlator_tree_free_members
 xlator_volopt_dynload
 xlator_volume_option_get
 xlator_volume_option_get_list
-xlator_memrec_free
 xlator_mem_cleanup
 gluster_graph_take_reference
 default_fops

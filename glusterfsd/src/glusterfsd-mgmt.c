@@ -1395,7 +1395,6 @@ glusterfs_handle_brick_status(rpcsvc_request_t *req)
         case GF_CLI_STATUS_MEM:
             ret = 0;
             gf_proc_dump_mem_info_to_dict(output);
-            gf_proc_dump_mempool_info_to_dict(ctx, output);
             break;
 
         case GF_CLI_STATUS_CLIENTS:
@@ -1581,7 +1580,6 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         case GF_CLI_STATUS_MEM:
             ret = 0;
             gf_proc_dump_mem_info_to_dict(output);
-            gf_proc_dump_mempool_info_to_dict(ctx, output);
             break;
 
         case GF_CLI_STATUS_CLIENTS:

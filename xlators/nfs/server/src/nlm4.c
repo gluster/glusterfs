@@ -13,7 +13,7 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
 #include "nfs.h"
-#include <glusterfs/mem-pool.h>
+#include <glusterfs/memory.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/syscall.h>
 #include "nfs-fops.h"
