@@ -196,6 +196,9 @@ extern char *xattrs_to_heal[];
 char **
 get_xattrs_to_heal();
 
+char *
+gf_gethostname(void);
+
 /* The DHT file rename operation is not a straightforward rename.
  * It involves creating linkto and linkfiles, and can unlink or rename the
  * source file depending on the hashed and cached subvols for the source

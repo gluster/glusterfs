@@ -915,9 +915,6 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     clnt_conf_t *conf = this->private;
     dict_t *options = this->options;
     char counter_str[32] = {0};
-    char hostname[256] = {
-        0,
-    };
 
     if (conf->fops) {
         ret = dict_set_int32_sizen(options, "fops-version",
@@ -949,16 +946,9 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     snprintf(counter_str, sizeof(counter_str), "-%" PRIu64, conf->setvol_count);
     conf->setvol_count++;
 
-    if (gethostname(hostname, 256) == -1) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, PC_MSG_GETHOSTNAME_FAILED,
-                NULL);
-
-        goto fail;
-    }
-
     ret = gf_asprintf(&process_uuid_xl, GLUSTER_PROCESS_UUID_FMT,
                       this->ctx->process_uuid, this->graph->id, getpid(),
-                      hostname, this->name, counter_str);
+                      gf_gethostname(), this->name, counter_str);
     if (-1 == ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_PROCESS_UUID_SET_FAIL,
                 NULL);

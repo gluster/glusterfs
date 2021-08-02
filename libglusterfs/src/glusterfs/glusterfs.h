@@ -756,6 +756,7 @@ struct _glusterfs_ctx {
 
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
+    char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
@@ -850,4 +851,5 @@ int
 glusterfs_read_secure_access_file(void);
 int
 glusterfs_graph_fini(glusterfs_graph_t *graph);
+
 #endif /* _GLUSTERFS_H */
