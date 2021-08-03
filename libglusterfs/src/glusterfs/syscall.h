@@ -73,6 +73,8 @@ sys_openat(int dirfd, const char *pathname, int flags, int mode);
 
 DIR *
 sys_opendir(const char *name);
+DIR *
+sys_fdopendir(const int fd);
 
 struct dirent *
 sys_readdir(DIR *dir, struct dirent *de);

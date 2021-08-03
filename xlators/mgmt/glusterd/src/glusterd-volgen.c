@@ -1989,6 +1989,55 @@ out:
     return ret;
 }
 
+static int
+brick_graph_add_tier(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
+                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
+{
+    xlator_t *xl = NULL;
+    int ret = -1;
+    xlator_t *this = THIS;
+    char bmdir[PATH_MAX] = "";
+    char *value = NULL;
+    GF_ASSERT(this);
+
+    if (!graph || !volinfo || !brickinfo || !set_dict) {
+        goto out;
+    }
+
+    xl = volgen_graph_add(graph, "features/tier", volinfo->volname);
+    if (!xl) {
+        ret = -1;
+        goto out;
+    }
+
+    snprintf(bmdir, PATH_MAX, "%s/.glusterfs/tier", brickinfo->path);
+    ret = xlator_set_fixed_option(xl, "tier-bitmap-dir", bmdir);
+    if (ret)
+        goto out;
+
+    ret = dict_get_str_boolean(set_dict, "features.tier", _gf_false);
+    if (ret == -1) {
+        goto out;
+    }
+
+    /* Enable the feature only if 'tier' is enabled */
+    if (ret) {
+        ret = xlator_set_fixed_option(xl, "pass-through", "false");
+        if (ret)
+            goto out;
+    }
+
+    ret = dict_get_str(set_dict, "features.tier-stub-size", &value);
+    if (!ret && value) {
+        ret = xlator_set_fixed_option(xl, "tier-stub-size", value);
+        if (ret)
+            goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
 xlator_t *
 add_one_peer(volgen_graph_t *graph, glusterd_brickinfo_t *peer, char *volname,
              uint16_t index)
@@ -2531,6 +2580,7 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_acl, "acl"},
     {brick_graph_add_bitrot_stub, "bitrot-stub"},
     {brick_graph_add_changelog, "changelog"},
+    {brick_graph_add_tier, "tier"},
     {brick_graph_add_trash, "trash"},
     {brick_graph_add_arbiter, "arbiter"},
     {brick_graph_add_posix, "posix"},

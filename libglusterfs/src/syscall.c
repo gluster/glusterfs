@@ -145,6 +145,12 @@ sys_opendir(const char *name)
     return opendir(name);
 }
 
+DIR *
+sys_fdopendir(const int fd)
+{
+    return fdopendir(fd);
+}
+
 int
 sys_mkdirat(int dirfd, const char *pathname, mode_t mode)
 {

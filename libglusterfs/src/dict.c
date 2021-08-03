@@ -40,10 +40,13 @@ struct dict_cmp {
         /* Not of the asked type, or old version */                            \
         if ((data->data_type != type) &&                                       \
             (data->data_type != GF_DATA_TYPE_STR_OLD)) {                       \
-            gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG, \
-                             "key %s, %s type asked, has %s type", key,        \
-                             data_type_name[type],                             \
-                             data_type_name[data->data_type]);                 \
+            gf_msg_callingfn(                                                  \
+                "dict",                                                        \
+                (data->data_type != GF_DATA_TYPE_PTR) ? GF_LOG_DEBUG           \
+                                                      : GF_LOG_TRACE,          \
+                EINVAL, LG_MSG_INVALID_ARG,                                    \
+                "key %s, %s type asked, has %s type", key,                     \
+                data_type_name[type], data_type_name[data->data_type]);        \
         }                                                                      \
     } while (0)
 

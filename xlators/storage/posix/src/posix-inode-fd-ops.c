@@ -2718,7 +2718,6 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     struct iatt tmp_stbuf = {
         0,
     };
-    data_t *tdata = NULL;
     char *cs_var = NULL;
     gf_cs_obj_state state = -1;
     int i = 0;
@@ -2769,8 +2768,9 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     /* the io-stats-dump key should not reach disk */
     dict_del(dict, GF_XATTR_IOSTATS_DUMP_KEY);
 
-    tdata = dict_get(dict, GF_CS_OBJECT_UPLOAD_COMPLETE);
-    if (tdata) {
+    char *user_mtime = NULL;
+    ret = dict_get_str_sizen(dict, GF_CS_OBJECT_UPLOAD_COMPLETE, &user_mtime);
+    if (user_mtime) {
         /*TODO: move the following to a different function */
         LOCK(&loc->inode->lock);
         {
@@ -2791,20 +2791,21 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
+            /* using 4k to fit in PATH_MAX in one of the below operation */
             cs_var = alloca(4096);
-            sprintf(cs_var, "%" PRId64, tmp_stbuf.ia_mtime);
-
-            /*TODO: may be should consider nano-second also */
-            if (strncmp(cs_var, tdata->data, tdata->len) > 0) {
+            len = sprintf(cs_var, "%" PRId64 ".%09" PRIu32, tmp_stbuf.ia_mtime,
+                          tmp_stbuf.ia_mtime_nsec);
+            if (strncmp(cs_var, user_mtime, len)) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                       "mtime "
-                       "passed is different from seen by file now."
-                       " Will skip truncating the file");
+                       "mtime passed is different from seen by file now. Will "
+                       "skip truncating the file (%s on file vs %s passed)",
+                       cs_var, user_mtime);
                 ret = -1;
                 op_errno = EINVAL;
                 goto unlock;
             }
 
+            memset(cs_var, 0, 4096);
             len = sprintf(cs_var, "%" PRIu64, tmp_stbuf.ia_size);
 
             ret = sys_lsetxattr(real_path, GF_CS_OBJECT_SIZE, cs_var, len,
@@ -2817,6 +2818,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
+            memset(cs_var, 0, 4096);
             len = sprintf(cs_var, "%" PRIu64, tmp_stbuf.ia_blocks);
 
             ret = sys_lsetxattr(real_path, GF_CS_NUM_BLOCKS, cs_var, len,
@@ -2828,39 +2830,34 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             }
 
-            len = sprintf(cs_var, "%" PRIu32, tmp_stbuf.ia_blksize);
-
-            ret = sys_lsetxattr(real_path, GF_CS_BLOCK_SIZE, cs_var, len,
-                                flags);
-            if (ret) {
-                op_errno = errno;
-                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                       "setxattr failed. key %s err %d", GF_CS_BLOCK_SIZE, ret);
-                goto unlock;
-            }
-
+            char *remote_path = NULL;
             memset(cs_var, 0, 4096);
-            if (loc->path[0] == '/') {
-                for (i = 1; i < strlen(loc->path); i++) {
-                    cs_var[i - 1] = loc->path[i];
+            ret = dict_get_strn(dict, GF_CS_OBJECT_REMOTE,
+                                SLEN(GF_CS_OBJECT_REMOTE), &remote_path);
+            if (remote_path) {
+                memcpy(cs_var, remote_path, min(4096, strlen(remote_path)));
+                dict_deln(dict, GF_CS_OBJECT_REMOTE, SLEN(GF_CS_OBJECT_REMOTE));
+            } else {
+                if (loc->path[0] == '/') {
+                    for (i = 1; i < strlen(loc->path); i++) {
+                        cs_var[i - 1] = loc->path[i];
+                    }
+
+                    cs_var[i] = '\0';
+                    gf_msg_debug(this->name, GF_LOG_ERROR, "remotepath %s",
+                                 cs_var);
                 }
-
-                cs_var[i] = '\0';
-                gf_msg_debug(this->name, GF_LOG_ERROR, "remotepath %s", cs_var);
             }
-
             ret = sys_lsetxattr(real_path, GF_CS_OBJECT_REMOTE, cs_var,
                                 strlen(cs_var), flags);
             if (ret) {
                 op_errno = errno;
-                gf_log("POSIX", GF_LOG_ERROR,
-                       "setxattr failed - %s"
-                       " %d",
+                gf_log("POSIX", GF_LOG_ERROR, "setxattr failed - %s %d",
                        GF_CS_OBJECT_SIZE, ret);
                 goto unlock;
             }
 
-            ret = sys_truncate(real_path, 0);
+            ret = sys_truncate(real_path, priv->tier_stub_size);
             if (ret) {
                 op_errno = errno;
                 gf_log("POSIX", GF_LOG_ERROR,
@@ -2879,10 +2876,23 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                 goto unlock;
             } else {
                 state = GF_CS_REMOTE;
+                ret = sys_truncate(real_path, tmp_stbuf.ia_size);
+                if (ret) {
+                    op_errno = errno;
+                    gf_log("POSIX", GF_LOG_ERROR,
+                           "truncate(size) failed - %s %d", GF_CS_OBJECT_SIZE,
+                           ret);
+                    /* TODO: this is tricky, can't revert from here. Log for
+                     * now, and use fallocate() in future */
+                }
                 ret = posix_cs_set_state(this, &xattr, state, real_path, NULL);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, 0, "set state failed");
                 }
+            }
+            ret = dict_set_uint64(xattr, GF_CS_OBJECT_SIZE, tmp_stbuf.ia_size);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0, "set dict failed");
             }
         }
     unlock:

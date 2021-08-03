@@ -1036,6 +1036,7 @@ sys_fallocate
 sys_fchmod
 sys_fchown
 sys_fdatasync
+sys_fdopendir
 sys_fgetxattr
 sys_flistxattr
 sys_fremovexattr

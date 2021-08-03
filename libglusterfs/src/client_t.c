@@ -279,7 +279,7 @@ gf_client_ref(client_t *client)
     }
 
     GF_ATOMIC_INC(client->count);
-    gf_msg_callingfn("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT,
+    gf_msg_callingfn("client_t", GF_LOG_TRACE, 0, LG_MSG_REF_COUNT,
                      "%s: "
                      "ref-count %" GF_PRI_ATOMIC,
                      client->client_uid, GF_ATOMIC_GET(client->count));
@@ -388,7 +388,7 @@ gf_client_unref(client_t *client)
     }
 
     refcount = GF_ATOMIC_DEC(client->count);
-    gf_msg_callingfn("client_t", GF_LOG_DEBUG, 0, LG_MSG_REF_COUNT,
+    gf_msg_callingfn("client_t", GF_LOG_TRACE, 0, LG_MSG_REF_COUNT,
                      "%s: "
                      "ref-count %" GF_PRI_ATOMIC,
                      client->client_uid, refcount);

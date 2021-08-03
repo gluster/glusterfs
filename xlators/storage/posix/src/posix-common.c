@@ -438,6 +438,9 @@ posix_reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("ctime", priv->ctime, options, bool, out);
 
+    GF_OPTION_RECONF("tier-stub-size", priv->tier_stub_size, options, size,
+                     out);
+
     ret = 0;
 out:
     return ret;
@@ -931,6 +934,8 @@ posix_init(xlator_t *this)
 
     GF_OPTION_INIT("janitor-sleep-duration", _private->janitor_sleep_duration,
                    int32, out);
+
+    GF_OPTION_INIT("tier-stub-size", _private->tier_stub_size, size, out);
 
     /* performing open dir on brick dir locks the brick dir
      * and prevents it from being unmounted
@@ -1524,5 +1529,16 @@ struct volume_options posix_options[] = {
          "are stored in xattr to keep it consistent across replica and "
          "distribute set. The time attributes stored at the backend are "
          "not considered "},
+    {.key = {"tier-stub-size"},
+     .type = GF_OPTION_TYPE_SIZET,
+     .default_value = "0",
+     .flags = OPT_FLAG_SETTABLE,
+     .op_version = {GD_OP_VERSION_7_0},
+     .tags = {"tier"},
+     .description = "This option makes the stub to be left behind when "
+                    "tiering xlator sends the truncate call. "
+                    "(default: 0bytes, ie, no stub). Useful when the "
+                    "'archived' files are used for thumbnail or other tools, "
+                    "where only first few bytes (header) are read."},
     {.key = {NULL}},
 };

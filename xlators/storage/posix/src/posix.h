@@ -256,6 +256,10 @@ struct posix_private {
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
     uint32_t rel_fdcount;
+
+    /* Option to handle the cases of multiple bricks exported from
+       same backend. Very much usable in brick-splitting feature. */
+    size_t tier_stub_size;
 };
 
 typedef struct {

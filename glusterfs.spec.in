@@ -1190,6 +1190,7 @@ exit 0
 %dir %{_datadir}/glusterfs/scripts
      %{_datadir}/glusterfs/scripts/post-upgrade-script-for-quota.sh
      %{_datadir}/glusterfs/scripts/pre-upgrade-script-for-quota.sh
+     %{_datadir}/glusterfs/scripts/migrate-to-cold.sh
 %endif
 # xlators that are needed on the client- and on the server-side
 %dir %{_libdir}/glusterfs
@@ -1483,6 +1484,9 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/upcall.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/tier.so
+%dir %{_libdir}/glusterfs/%{version}%{?prereltag}/tier-plugins
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/tier-plugins/filesystem.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt/glusterd.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol

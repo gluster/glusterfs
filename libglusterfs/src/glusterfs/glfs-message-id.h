@@ -94,6 +94,8 @@ enum _msgid_comp {
     GLFS_MSGID_COMP(UTIME, 1),
     GLFS_MSGID_COMP(SNAPVIEW_SERVER, 1),
     GLFS_MSGID_COMP(CVLT, 1),
+    GLFS_MSGID_COMP(TIER, 1),
+    GLFS_MSGID_COMP(TIERFS, 1),
     /* --- new segments for messages goes above this line --- */
 
     GLFS_MSGID_END

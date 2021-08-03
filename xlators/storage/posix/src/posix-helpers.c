@@ -3125,61 +3125,15 @@ posix_cs_heal_state(xlator_t *this, const char *realpath, int *fd,
             goto out;
         }
 
-        if (buf->ia_size) {
-            if (fd) {
-                ret = sys_ftruncate(*fd, 0);
-            } else {
-                ret = sys_truncate(realpath, 0);
-            }
-
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                       "truncate failed. File is in inconsistent"
-                       " state");
-                state = GF_CS_ERROR;
-                goto out;
-            }
-        }
-
         state = GF_CS_REMOTE;
         goto out;
 
     } else if (remote) {
-        if (buf->ia_size) {
-            if (fd) {
-                ret = sys_ftruncate(*fd, 0);
-            } else {
-                ret = sys_truncate(realpath, 0);
-            }
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                       "truncate failed. File is in inconsistent"
-                       " state");
-                state = GF_CS_ERROR;
-                goto out;
-            }
-        }
-
         state = GF_CS_REMOTE;
         goto out;
     } else if (downloading) {
-        if (buf->ia_size) {
-            if (fd) {
-                ret = sys_fremovexattr(*fd, GF_CS_OBJECT_DOWNLOADING);
-            } else {
-                ret = sys_lremovexattr(realpath, GF_CS_OBJECT_DOWNLOADING);
-            }
-
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                       "failed to remove xattr, repair failed");
-                state = GF_CS_ERROR;
-                goto out;
-            }
-
-            state = GF_CS_LOCAL;
-            goto out;
-        }
+        state = GF_CS_LOCAL;
+        goto out;
     }
 
     state = GF_CS_LOCAL;
@@ -3274,7 +3228,7 @@ out:
         return state;
     }
 
-    if ((remote && downloading) || (remote && buf && buf->ia_size)) {
+    if ((remote && downloading)) {
         state = GF_CS_REPAIR;
         gf_msg_debug(this->name, 0, "status is REPAIR");
         return state;
@@ -3308,8 +3262,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
         *rsp = dict_new();
         if (!(*rsp)) {
             gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
-                   "failed to"
-                   " create dict");
+                   "failed to create dict");
             ret = -1;
             goto out;
         }
@@ -3317,9 +3270,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
 
     ret = dict_set_uint64(*rsp, GF_CS_OBJECT_STATUS, state);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
-               "failed to set "
-               "dict");
+        gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM, "failed to set dict");
         ret = -1;
         goto out;
     }
@@ -3337,15 +3288,19 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
             xattrsize = sys_fgetxattr(*fd, GF_CS_OBJECT_REMOTE, value,
                                       xattrsize + 1);
             if (xattrsize == -1) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                       " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+                if (errno != ENODATA) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0, errno,
+                           " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+                }
                 goto out;
             } else {
                 value[xattrsize] = '\0';
             }
         } else {
-            gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                   " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+            if (errno != ENODATA) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
+                       " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+            }
             goto out;
         }
     } else {
@@ -3367,8 +3322,10 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
                 value[xattrsize] = '\0';
             }
         } else {
-            gf_msg(this->name, GF_LOG_ERROR, 0, errno,
-                   " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+            if (errno != ENODATA) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, errno,
+                       " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
+            }
             goto out;
         }
     }
@@ -3376,9 +3333,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
     if (ret == 0) {
         ret = dict_set_str(*rsp, GF_CS_OBJECT_REMOTE, value);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "failed to set"
-                   "value");
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0, "failed to set value");
         }
     }
 
@@ -3544,6 +3499,7 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
         0,
     };
 
+    /* TODO: this should be read from inode_ctx, and not from disk everytime */
     if (!xattr_req)
         return;
 
@@ -3551,32 +3507,22 @@ posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
         return;
 
     if (fd != -1) {
-        ret = sys_fgetxattr(fd, GF_CS_OBJECT_SIZE, &val, sizeof(val));
-        if (ret > 0) {
-            buf->ia_size = atoll(val);
-        } else {
-            /* Safe to assume that the other 2 xattrs are also not set*/
-            return;
-        }
-        ret = sys_fgetxattr(fd, GF_CS_BLOCK_SIZE, &val, sizeof(val));
-        if (ret > 0) {
-            buf->ia_blksize = atoll(val);
+        if (!buf->ia_size) {
+            ret = sys_fgetxattr(fd, GF_CS_OBJECT_SIZE, &val, sizeof(val));
+            if (ret > 0) {
+                buf->ia_size = atoll(val);
+            }
         }
         ret = sys_fgetxattr(fd, GF_CS_NUM_BLOCKS, &val, sizeof(val));
         if (ret > 0) {
             buf->ia_blocks = atoll(val);
         }
     } else {
-        ret = sys_lgetxattr(loc, GF_CS_OBJECT_SIZE, &val, sizeof(val));
-        if (ret > 0) {
-            buf->ia_size = atoll(val);
-        } else {
-            /* Safe to assume that the other 2 xattrs are also not set*/
-            return;
-        }
-        ret = sys_lgetxattr(loc, GF_CS_BLOCK_SIZE, &val, sizeof(val));
-        if (ret > 0) {
-            buf->ia_blksize = atoll(val);
+        if (!buf->ia_size) {
+            ret = sys_lgetxattr(loc, GF_CS_OBJECT_SIZE, &val, sizeof(val));
+            if (ret > 0) {
+                buf->ia_size = atoll(val);
+            }
         }
         ret = sys_lgetxattr(loc, GF_CS_NUM_BLOCKS, &val, sizeof(val));
         if (ret > 0) {

@@ -4340,7 +4340,7 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
                    err_str);
             goto out;
         }
-        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_STATUS_VOL_REQ_RCVD,
+        gf_msg(this->name, GF_LOG_DEBUG, 0, GD_MSG_STATUS_VOL_REQ_RCVD,
                "Received status volume req for volume %s", volname);
     }
     if ((cmd & GF_CLI_STATUS_CLIENT_LIST) &&
