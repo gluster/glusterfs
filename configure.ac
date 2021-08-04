@@ -1740,12 +1740,10 @@ fi
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
+dnl Note GF_BSD_HOST_OS and GF_SOLARIS_HOST_OS are not used
+dnl through Makefile.am and so not defined as conditionals.
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
-AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
-if  test "${GF_HOST_OS}" = "GF_BSD_HOST_OS"; then
-    AC_DEFINE(GF_BSD_HOST_OS, 1, [This is a BSD compatible OS.])
-fi
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
