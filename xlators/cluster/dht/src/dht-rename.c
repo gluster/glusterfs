@@ -123,7 +123,9 @@ dht_rename_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     local = frame->local;
     prev = cookie;
     subvol_cnt = dht_subvol_cnt(this, prev);
-    local->ret_cache[subvol_cnt] = op_ret;
+
+    if (subvol_cnt >= 0)
+        local->ret_cache[subvol_cnt] = op_ret;
 
     if (op_ret == -1) {
         gf_uuid_unparse(local->loc.inode->gfid, gfid);
