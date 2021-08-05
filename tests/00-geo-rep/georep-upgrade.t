@@ -47,8 +47,7 @@ EXPECT '1' echo $(ls /bricks/brick1/.glusterfs/changelogs/htime/HTIME.$epoch2 | 
 ###############################################################################################
 #Upgrade
 ###############################################################################################
-TEST upgrade_script=$(find / -type f -name glusterfs-georep-upgrade.py)
-TEST python3 $upgrade_script $brick
+TEST python3 extras/glusterfs-georep-upgrade.py $brick
 
 ###############################################################################################
 #After upgrade
