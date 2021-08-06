@@ -1910,7 +1910,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                     "that tags every fop with a namespace hash for later "
                     "throttling, stats collection, logging, etc."},
 
-#ifdef HAVE_LIB_Z
     /* Compressor-decompressor xlator options
      * defaults used from xlator/features/compress/src/cdc.h
      */
@@ -1942,7 +1941,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .option = "debug",
      .type = NO_DOC,
      .op_version = 3},
-#endif
 
     /* Quota xlator options */
     {
