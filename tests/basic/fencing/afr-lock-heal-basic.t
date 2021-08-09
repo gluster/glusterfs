@@ -17,6 +17,23 @@ function is_gfapi_program_alive()
         fi
 }
 
+function fill_lock_info()
+{
+    local -n info=$1
+    local brick=$2
+    pattern="ACTIVE.*client-${brick: -1}"
+
+    brick_sdump=$(generate_brick_statedump $V0 $H0 $brick)
+    info="$(egrep "$inode" $brick_sdump -A3| egrep "$pattern" | uniq | awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
+
+    if [ -n "$info" ]
+    then
+        echo "success"
+    else
+        echo "failure"
+    fi
+}
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info;
@@ -55,19 +72,17 @@ TEST kill -SIGUSR1 $client1_pid
 EXPECT "Y" is_gfapi_program_alive $client1_pid
 
 # Check lock is present on brick-1 and brick-2
-b1_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}0)
-b2_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}1)
-c1_lock_on_b1="$(egrep "$inode" $b1_sdump -A3| egrep 'ACTIVE.*client-0'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
-c1_lock_on_b2="$(egrep "$inode" $b2_sdump -A3| egrep 'ACTIVE.*client-1'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c1_lock_on_b1 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c1_lock_on_b2 $B0/${V0}1
 TEST [ "$c1_lock_on_b1" == "$c1_lock_on_b2" ]
 
 # Restart brick-3 and check that the lock has healed on it.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}2
-TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
 
-b3_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}2)
-c1_lock_on_b3="$(egrep "$inode" $b3_sdump -A3| egrep 'ACTIVE.*client-2'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
+# Note: We need to wait for client to re-open the fd. Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
+# So we may need to check the statedump for locks multiple times.
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c1_lock_on_b3 $B0/${V0}2 
 TEST [ "$c1_lock_on_b1" == "$c1_lock_on_b3" ]
 
 # Kill brick-1 and let client-2 preempt the lock on bricks 2 and 3.
@@ -79,15 +94,13 @@ EXPECT "Y" is_gfapi_program_alive $client2_pid
 # Restart brick-1 and let lock healing complete.
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
-TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
 
 # Check that all bricks now have locks from client 2 only.
-b1_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}0)
-b2_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}1)
-b3_sdump=$(generate_brick_statedump $V0 $H0 $B0/${V0}2)
-c2_lock_on_b1="$(egrep "$inode" $b1_sdump -A3| egrep 'ACTIVE.*client-0'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
-c2_lock_on_b2="$(egrep "$inode" $b2_sdump -A3| egrep 'ACTIVE.*client-1'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
-c2_lock_on_b3="$(egrep "$inode" $b3_sdump -A3| egrep 'ACTIVE.*client-2'| uniq| awk '{print $1,$2,$3,S4,$5,$6,$7,$8}'|tr -d '(,), ,')"
+# Note: We need to wait for client to re-open the fd. Otherwise client_pre_lk_v2() fails with EBADFD for remote-fd. Also wait for lock heal.
+# So we may need to check the statedump for locks multiple times.
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b1 $B0/${V0}0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b2 $B0/${V0}1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "success" fill_lock_info c2_lock_on_b3 $B0/${V0}2
 TEST [ "$c2_lock_on_b1" == "$c2_lock_on_b2" ]
 TEST [ "$c2_lock_on_b1" == "$c2_lock_on_b3" ]
 TEST [ "$c2_lock_on_b1" != "$c1_lock_on_b1" ]
