@@ -15002,19 +15002,19 @@ glusterd_add_peers_to_auth_list(char *volname)
          * keep the copy of auth_allow_list as old_auth_allow_list in
          * volinfo->dict.
          */
+        ret = dict_set_dynstr_with_alloc(volinfo->dict, "old.auth.allow",
+                                         auth_allow_list);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set old.auth.allow list");
+            goto out;
+        }
         dict_del_sizen(volinfo->dict, "auth.allow");
-        ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
-                            new_auth_allow_list);
+        ret = dict_set_dynstr_with_alloc(volinfo->dict, "auth.allow",
+                                         new_auth_allow_list);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set new auth.allow list");
-            goto out;
-        }
-        ret = dict_set_strn(volinfo->dict, "old.auth.allow",
-                            SLEN("old.auth.allow"), auth_allow_list);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
-                   "Unable to set old auth.allow list");
             goto out;
         }
         ret = glusterd_create_volfiles_and_notify_services(volinfo);
@@ -15056,8 +15056,8 @@ glusterd_replace_old_auth_allow_list(char *volname)
     }
 
     dict_del_sizen(volinfo->dict, "auth.allow");
-    ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
-                        old_auth_allow_list);
+    ret = dict_set_dynstr_with_alloc(volinfo->dict, "auth.allow",
+                                     old_auth_allow_list);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Unable to replace auth.allow list");

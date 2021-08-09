@@ -17,6 +17,7 @@ $CLI_1 volume create $V0 $H1:$B1/$V0  $H2:$B2/$V0
 EXPECT 'Created' cluster_volinfo_field 1 $V0 'Status';
 $CLI_1 volume create $V1 $H1:$B1/$V1  $H2:$B2/$V1
 EXPECT 'Created' cluster_volinfo_field 1 $V1 'Status';
+$CLI_1 volume set $V0 auth.allow 1.2.3.4
 
 $CLI_1 volume start $V0
 EXPECT 'Started' cluster_volinfo_field 1 $V0 'Status';
