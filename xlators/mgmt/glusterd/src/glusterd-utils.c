@@ -15009,13 +15009,13 @@ glusterd_add_peers_to_auth_list(char *volname)
                    "Unable to set old.auth.allow list");
             goto out;
         }
-        dict_del_sizen(volinfo->dict, "auth.allow");
-        ret = dict_set_dynstr_with_alloc(volinfo->dict, "auth.allow",
-                                         new_auth_allow_list);
+        ret = dict_set_dynstr(volinfo->dict, "auth.allow", new_auth_allow_list);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set new auth.allow list");
             goto out;
+        } else {
+            new_auth_allow_list = NULL;
         }
         ret = glusterd_create_volfiles_and_notify_services(volinfo);
         if (ret) {
@@ -15055,7 +15055,6 @@ glusterd_replace_old_auth_allow_list(char *volname)
         goto out;
     }
 
-    dict_del_sizen(volinfo->dict, "auth.allow");
     ret = dict_set_dynstr_with_alloc(volinfo->dict, "auth.allow",
                                      old_auth_allow_list);
     if (ret) {
