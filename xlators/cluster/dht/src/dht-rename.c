@@ -20,6 +20,11 @@ dht_rename_unlock(call_frame_t *frame, xlator_t *this);
 int32_t
 dht_rename_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata);
+int
+dht_rename_unlink_stale_linkto_cbk(call_frame_t *frame, void *cookie,
+                                   xlator_t *this, int32_t op_ret,
+                                   int32_t op_errno, struct iatt *preparent,
+                                   struct iatt *postparent, dict_t *xdata);
 
 int
 dht_rename_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -1288,6 +1293,87 @@ cleanup:
 }
 
 int
+dht_rename_linkto_wrapper_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                              int32_t op_ret, int32_t op_errno, inode_t *inode,
+                              struct iatt *stbuf, struct iatt *preparent,
+                              struct iatt *postparent, dict_t *xdata)
+{
+    dht_local_t *local = NULL;
+    xlator_t *prev = NULL;
+    loc_t *loc = NULL;
+    dict_t *xattr = NULL;
+
+    if (op_errno != ESTALE) {
+        dht_rename_linkto_cbk(frame, cookie, this, op_ret, op_errno, inode,
+                              stbuf, preparent, postparent, xdata);
+        return 0;
+    }
+
+    local = frame->local;
+    loc = &local->loc;
+    prev = cookie;
+    DHT_MARK_FOP_INTERNAL(xattr);
+
+    /* If linkto creation failed with ESTALE unlink the stale linkto file and
+     * retry creation */
+    // not sure if needed
+    if (gf_uuid_compare(local->loc.pargfid, local->loc2.pargfid) == 0) {
+        DHT_MARKER_DONT_ACCOUNT(xattr);
+    }
+
+    gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_INFO,
+           "attempting deletion of stale linkfile "
+           "%s on %s (hashed subvol is %s)",
+           loc->path, prev->name,
+           (local->hashed_subvol ? local->hashed_subvol->name : "<null>"));
+    /* *
+     * These stale files may be created using root user.
+     * Hence deletion will work only with root.
+     */
+    FRAME_SU_DO(frame, dht_local_t);
+    STACK_WIND(frame, dht_rename_unlink_stale_linkto_cbk, prev,
+               prev->fops->unlink, &local->loc, 0, xattr);
+
+    if (xattr)
+        dict_unref(xattr);
+
+    return 0;
+}
+
+int
+dht_rename_unlink_stale_linkto_cbk(call_frame_t *frame, void *cookie,
+                                   xlator_t *this, int32_t op_ret,
+                                   int32_t op_errno, struct iatt *preparent,
+                                   struct iatt *postparent, dict_t *xdata)
+{
+    dht_local_t *local = NULL;
+    xlator_t *prev = NULL;
+
+    local = frame->local;
+    prev = cookie;
+
+    if ((op_ret == -1) && (op_errno != ENOENT)) {
+        gf_msg_debug(this->name, op_errno, "unlink of %s on %s failed ",
+                     local->loc2.path, prev->name);
+        local->op_ret = -1;
+        local->op_errno = op_errno;
+        goto failure;
+    }
+
+    gf_msg_trace(this->name, 0, "linkfile %s @ %s => %s", local->loc.path,
+                 prev->name, local->src_cached->name);
+    memcpy(local->gfid, local->loc.inode->gfid, 16);
+    dht_linkfile_create(frame, dht_rename_linkto_cbk, this, local->src_cached,
+                        prev, &local->loc);
+    return 0;
+
+failure:
+    dht_rename_linkto_cbk(frame, cookie, this, op_ret, op_errno, NULL, NULL,
+                          preparent, postparent, xdata);
+    return 0;
+}
+
+int
 dht_rename_unlink_links_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno,
                             struct iatt *preparent, struct iatt *postparent,
@@ -1389,8 +1475,8 @@ dht_rename_create_links(call_frame_t *frame)
                      dst_hashed->name, src_cached->name);
 
         memcpy(local->gfid, local->loc.inode->gfid, 16);
-        dht_linkfile_create(frame, dht_rename_linkto_cbk, this, src_cached,
-                            dst_hashed, &local->loc);
+        dht_linkfile_create(frame, dht_rename_linkto_wrapper_cbk, this,
+                            src_cached, dst_hashed, &local->loc);
     } else if (src_cached != dst_hashed) {
         dict_t *xattr_new = NULL;
 
