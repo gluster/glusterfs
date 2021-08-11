@@ -15014,9 +15014,8 @@ glusterd_add_peers_to_auth_list(char *volname)
             gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set new auth.allow list");
             goto out;
-        } else {
-            new_auth_allow_list = NULL;
         }
+        new_auth_allow_list = NULL;
         ret = glusterd_create_volfiles_and_notify_services(volinfo);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLFILE_CREATE_FAIL,
