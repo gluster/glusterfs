@@ -4,6 +4,13 @@
 . $(dirname $0)/../../cluster.rc
 . $(dirname $0)/../../volume.rc
 
+function volinfo_field()
+{
+    local vol=$1;
+    local field=$2;
+
+    $CLI_1 volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
 
 cleanup;
 V0="TestLongVolnamec363b7b536700ff06eedeae0dd9037fec363b7b536700ff06eedeae0dd9037fec363b7b536700ff06eedeae0dd9abcd"
@@ -17,6 +24,7 @@ $CLI_1 volume create $V0 $H1:$B1/$V0  $H2:$B2/$V0
 EXPECT 'Created' cluster_volinfo_field 1 $V0 'Status';
 $CLI_1 volume create $V1 $H1:$B1/$V1  $H2:$B2/$V1
 EXPECT 'Created' cluster_volinfo_field 1 $V1 'Status';
+$CLI_1 volume set $V0 auth.allow 1.2.3.4
 
 $CLI_1 volume start $V0
 EXPECT 'Started' cluster_volinfo_field 1 $V0 'Status';
@@ -40,7 +48,7 @@ TEST touch $M1/dir{1..4}/files{1..4};
 TEST $CLI_1 volume add-brick $V0 $H1:$B1/${V0}_1 $H2:$B2/${V0}_1
 TEST $CLI_1 volume add-brick $V1 $H1:$B1/${V1}_1 $H2:$B2/${V1}_1
 
-
+EXPECT '1.2.3.4' volinfo_field $V0 'auth.allow'
 TEST $CLI_1 volume rebalance $V0 start
 TEST $CLI_1 volume rebalance $V1  start
 
