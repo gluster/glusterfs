@@ -568,9 +568,15 @@ real_op:
             }
             sys_close(tmp_fd);
         } else {
-            if (op_errno == EEXIST)
+            if (op_errno == EEXIST) {
+                if (dict_get_sizen(xdata, DHT_RENAME_FOP_KEY)) {
+                    dict_del_sizen(xdata, DHT_RENAME_FOP_KEY);
+                    op_ret = posix_unlink_stale_linkto(this, real_path);
+                    if (op_ret == 0)
+                        goto real_op;
+                }
                 level = GF_LOG_DEBUG;
-            else
+            } else
                 level = GF_LOG_ERROR;
             gf_msg(this->name, level, errno, P_MSG_MKNOD_FAILED,
                    "mknod on %s failed", real_path);

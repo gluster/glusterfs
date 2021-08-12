@@ -315,6 +315,7 @@ enum gf_internal_fop_indicator {
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY "dht-get-iatt-in-xattr"
 #define DHT_MODE_IN_XDATA_KEY "dht-get-mode-in-xattr"
+#define DHT_RENAME_FOP_KEY "dht-rename-fop"
 #define GET_LINK_COUNT "get-link-count"
 #define GF_GET_SIZE "get-size"
 #define GF_PRESTAT "virt-gf-prestat"

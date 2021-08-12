@@ -1385,12 +1385,20 @@ dht_rename_create_links(call_frame_t *frame)
      * unlink the newname we created, we would have effectively lost the
      * file to rename operations. */
     if (dst_hashed != src_hashed && src_cached != dst_hashed) {
-        gf_msg_trace(this->name, 0, "linkfile %s @ %s => %s", local->loc.path,
-                     dst_hashed->name, src_cached->name);
+        dict_t *xattr_new = NULL;
+
+        xattr_new = dict_copy_with_ref(xattr, NULL);
+        DHT_MARK_RENAME_FOP(xattr_new);
+        local->params = dict_ref(xattr_new);
+
+        gf_msg_trace(this->name, 0, "linkto-file %s @ %s => %s",
+                     local->loc.path, dst_hashed->name, src_cached->name);
 
         memcpy(local->gfid, local->loc.inode->gfid, 16);
         dht_linkfile_create(frame, dht_rename_linkto_cbk, this, src_cached,
                             dst_hashed, &local->loc);
+
+        dict_unref(xattr_new);
     } else if (src_cached != dst_hashed) {
         dict_t *xattr_new = NULL;
 

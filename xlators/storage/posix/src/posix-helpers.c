@@ -1229,7 +1229,8 @@ posix_handle_pair(xlator_t *this, loc_t *loc, const char *real_path, char *key,
                         SLEN(POSIX_ACL_ACCESS_XATTR)) &&
                stbuf && IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
-    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY))) {
+    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY)) ||
+               !strncmp(key, DHT_RENAME_FOP_KEY, SLEN(DHT_RENAME_FOP_KEY))) {
         /* ignore this key value pair */
         ret = 0;
         goto out;
