@@ -720,17 +720,8 @@ posix_init(xlator_t *this)
         _private->arrdfd[i] = -1;
 
     ret = dict_get_str(this->options, "hostname", &_private->hostname);
-    if (ret) {
-        _private->hostname = GF_CALLOC(256, sizeof(char), gf_common_mt_char);
-        if (!_private->hostname) {
-            goto out;
-        }
-        ret = gethostname(_private->hostname, 256);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HOSTNAME_MISSING,
-                   "could not find hostname ");
-        }
-    }
+    if (ret)
+        _private->hostname = gf_gethostname();
 
     /* Check for Extended attribute support, if not present, log it */
     size = sys_lgetxattr(dir_data->data, "user.x", &value, sizeof(value));
@@ -1254,8 +1245,6 @@ out:
 
             GF_FREE(_private->base_path);
 
-            GF_FREE(_private->hostname);
-
             GF_FREE(_private->trash_path);
 
             GF_FREE(_private);
@@ -1356,7 +1345,6 @@ posix_fini(xlator_t *this)
     pthread_cond_destroy(&priv->fsync_cond);
     pthread_mutex_destroy(&priv->janitor_mutex);
     pthread_cond_destroy(&priv->janitor_cond);
-    GF_FREE(priv->hostname);
     GF_FREE(priv->trash_path);
     GF_FREE(priv);
     this->private = NULL;
