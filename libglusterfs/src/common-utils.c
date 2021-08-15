@@ -643,6 +643,123 @@ gf_dnscache_entry_deinit(struct dnscache_entry *entry)
 }
 
 /**
+ * gf_dns_addr_cache_deinit -- cleanup resources used by struct dnscache
+ */
+void
+gf_dns_addr_cache_deinit(struct dnscache *cache)
+{
+    struct dnscache_addr_entry *dnsentry = NULL;
+    data_pair_t *dns_addr_pairs = NULL;
+
+    if (!cache) {
+        gf_msg_plain(GF_LOG_WARNING, "dnscache is NULL");
+        return;
+    }
+
+    dns_addr_pairs = cache->cache_dict->members_list;
+    while (dns_addr_pairs) {
+        dnsentry = (struct dnscache_addr_entry *)dns_addr_pairs->value->data;
+        freeaddrinfo(dnsentry->addr);
+        dns_addr_pairs = dns_addr_pairs->next;
+    }
+    gf_dnscache_deinit(cache);
+}
+
+/**
+ * gf_dnscache_entry_init -- Initialize a dnscache entry
+ *
+ * @return: SUCCESS: Pointer to an allocated dnscache entry struct
+ *          FAILURE: NULL
+ */
+
+struct dnscache_addr_entry *
+gf_dnscache_addr_entry_init()
+{
+    struct dnscache_addr_entry *entry = GF_CALLOC(
+        1, sizeof(*entry), gf_common_mt_dnscache_addr_entry);
+    return entry;
+}
+
+/**
+ * gf_dnscache_addr_entry_deinit -- Free memory used by a dnscache addr entry
+ *
+ * @entry: Pointer to deallocate
+ */
+
+void
+gf_dnscache_addr_entry_deinit(struct dnscache_addr_entry *entry)
+{
+    freeaddrinfo(entry->addr);
+    GF_FREE(entry);
+}
+
+/* Peform a dns lookup for identifier(IP address or hostname) */
+
+struct addrinfo *
+gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
+{
+    struct addrinfo *addr = NULL;
+    dict_t *cache = NULL;
+    data_t *entrydata = NULL;
+    struct dnscache_addr_entry *dnsentry = NULL;
+    gf_boolean_t from_cache = _gf_false;
+    struct addrinfo hints;
+    int gai_err = 0;
+
+    if (!dnscache)
+        goto out;
+
+    cache = dnscache->cache_dict;
+
+    /* Quick cache lookup to see if we already hold it */
+    entrydata = dict_get(cache, identifier);
+    if (entrydata) {
+        dnsentry = (struct dnscache_addr_entry *)entrydata->data;
+        /* First check the TTL & timestamp */
+        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
+            gf_dnscache_addr_entry_deinit(dnsentry);
+            entrydata->data = NULL; /* Mark this as 'null' so
+                                     * dict_del () doesn't try free
+                                     * this after we've already
+                                     * freed it.
+                                     */
+
+            dict_del(cache, identifier); /* Remove this entry */
+        } else {
+            /* Cache entry is valid, get the addr and return */
+            addr = dnsentry->addr;
+            from_cache = _gf_true; /* Mark this as from cache */
+            goto out;
+        }
+    }
+
+    /* Get the addr */
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+
+    gai_err = getaddrinfo(identifier, NULL, &hints, &addr);
+    if (gai_err != 0) {
+        gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                "error=%s", gai_strerror(gai_err), NULL);
+        goto out;
+    }
+    from_cache = _gf_false;
+out:
+    /* Insert into the cache */
+    if (addr && !from_cache && identifier) {
+        struct dnscache_addr_entry *entry = gf_dnscache_addr_entry_init();
+
+        if (entry) {
+            entry->addr = addr;
+            entry->timestamp = gf_time();
+            entrydata = bin_to_data(entry, sizeof(*entry));
+            dict_set(cache, identifier, entrydata);
+        }
+    }
+    return addr;
+}
+
+/**
  * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
  *
  * @ip: The IP address to perform a reverse lookup on
@@ -3325,7 +3442,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else /* FIXME: Non Linux Host */
+#else  /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -3673,7 +3790,8 @@ out:
 }
 
 gf_boolean_t
-gf_is_same_address(char *name1, char *name2)
+gf_is_same_address(char *name1, char *name2, struct addrinfo *p1,
+                   struct addrinfo *p2)
 {
     struct addrinfo *addr1 = NULL;
     struct addrinfo *addr2 = NULL;
@@ -3686,18 +3804,26 @@ gf_is_same_address(char *name1, char *name2)
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
 
-    gai_err = getaddrinfo(name1, NULL, &hints, &addr1);
-    if (gai_err != 0) {
-        gf_smsg(name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED, "error=%s",
-                gai_strerror(gai_err), NULL);
-        goto out;
+    if (!p1) {
+        gai_err = getaddrinfo(name1, NULL, &hints, &addr1);
+        if (gai_err != 0) {
+            gf_smsg(name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                    "error=%s", gai_strerror(gai_err), NULL);
+            goto out;
+        }
+    } else {
+        addr1 = p1;
     }
 
-    gai_err = getaddrinfo(name2, NULL, &hints, &addr2);
-    if (gai_err != 0) {
-        gf_smsg(name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED, "error=%s",
-                gai_strerror(gai_err), NULL);
-        goto out;
+    if (!p2) {
+        gai_err = getaddrinfo(name2, NULL, &hints, &addr2);
+        if (gai_err != 0) {
+            gf_smsg(name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                    "error=%s", gai_strerror(gai_err), NULL);
+            goto out;
+        }
+    } else {
+        addr2 = p2;
     }
 
     for (p = addr1; p; p = p->ai_next) {
@@ -3714,10 +3840,10 @@ gf_is_same_address(char *name1, char *name2)
     }
 
 out:
-    if (addr1) {
+    if (addr1 && !p1) {
         freeaddrinfo(addr1);
     }
-    if (addr2) {
+    if (addr2 && !p2) {
         freeaddrinfo(addr2);
     }
     return ret;
@@ -5178,7 +5304,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else /* !GF_LINUX_HOST_OS */
+#else  /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 

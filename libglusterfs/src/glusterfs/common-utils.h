@@ -246,6 +246,11 @@ struct dnscache_entry {
     time_t timestamp;
 };
 
+struct dnscache_addr_entry {
+    struct addrinfo *addr;
+    time_t timestamp;
+};
+
 struct dnscache6 {
     struct addrinfo *first;
     struct addrinfo *next;
@@ -276,6 +281,12 @@ void
 gf_dnscache_entry_deinit(struct dnscache_entry *entry);
 char *
 gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache);
+
+void
+gf_dns_addr_cache_deinit(struct dnscache *cache);
+
+struct addrinfo *
+gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache);
 
 char *
 gf_resolve_path_parent(const char *path);
@@ -1084,7 +1095,8 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname);
 gf_boolean_t
 gf_is_local_addr(char *hostname);
 gf_boolean_t
-gf_is_same_address(char *host1, char *host2);
+gf_is_same_address(char *host1, char *host2, struct addrinfo *p1,
+                   struct addrinfo *p2);
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
                  unsigned long long const seed, char *xxh64);

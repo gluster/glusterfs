@@ -270,7 +270,7 @@ glusterd_client_statedump_submit_req(char *volname, char *target_ip, char *pid)
 
             strcpy(tmp, trans->peerinfo.identifier);
             ip_addr = strtok(tmp, ":");
-            if (gf_is_same_address(ip_addr, target_ip)) {
+            if (gf_is_same_address(ip_addr, target_ip, NULL, NULL)) {
                 /* Every gluster client would have
                  * connected to glusterd(volfile server). This
                  * connection is used to send the statedump

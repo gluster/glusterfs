@@ -79,6 +79,8 @@ struct server_conf {
                              * (say *.allow | *.reject) are
                              * tweeked */
     struct _child_status *child_status;
+    struct dnscache *dnscache;
+    int32_t dnscache_ttl_sec;
     gf_lock_t itable_lock;
     gf_boolean_t strict_auth_enabled;
 };
