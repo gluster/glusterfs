@@ -1191,7 +1191,7 @@ fuse_lookup_resume(fuse_state_t *state)
                state->finh->unique, state->loc.path);
         state->loc.inode = inode_new(state->loc.parent->table);
         if (gf_uuid_is_null(state->gfid)) {
-            /* this is when its all completely new lookup, send namespace key
+            /* this is when it's all completely new lookup, send namespace key
              * here */
             if (state->xdata) {
                 int ret = dict_set_int32(state->xdata, GF_NAMESPACE_KEY, 1);
