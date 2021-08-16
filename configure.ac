@@ -432,6 +432,19 @@ case x$enable_valgrind in
     ;;
 esac
 
+if test "x$VALGRIND_TOOL" != xno; then
+   AC_MSG_CHECKING([whether valgrind API can be used])
+   AC_COMPILE_IFELSE(
+   [AC_LANG_PROGRAM([
+      [#include <valgrind/valgrind.h>]],
+      [[VALGRIND_STACK_DEREGISTER(VALGRIND_STACK_REGISTER(0, 0))]])],
+      [HAVE_VALGRIND_API=yes], [HAVE_VALGRIND_API=no])
+   AC_MSG_RESULT([$HAVE_VALGRIND_API])
+   if test x$HAVE_VALGRIND_API = "xyes"; then
+      AC_DEFINE(HAVE_VALGRIND_API, 1, [Define if valgrind API can be used.])
+   fi
+fi
+
 AC_ARG_WITH([previous-options],
         [AS_HELP_STRING([--with-previous-options],
                         [read config.status for configure options])
