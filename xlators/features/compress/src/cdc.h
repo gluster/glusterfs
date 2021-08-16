@@ -11,11 +11,8 @@
 #ifndef __CDC_H
 #define __CDC_H
 
-#ifdef HAVE_LIB_Z
-#include "zlib.h"
-#endif
-
 #include <glusterfs/xlator.h>
+#include <zlib.h>
 
 typedef struct cdc_priv {
     int window_size;
@@ -42,9 +39,8 @@ typedef struct cdc_info {
     struct iobref *iobref;
 
     /* zlib bits */
-#ifdef HAVE_LIB_Z
     z_stream stream;
-#endif
+
     unsigned long crc;
 } cdc_info_t;
 
@@ -55,12 +51,6 @@ typedef struct cdc_info {
 /* Gzip defaults */
 #define GF_CDC_DEF_WINDOWSIZE -15 /* default value */
 #define GF_CDC_MAX_WINDOWSIZE -8  /* max value     */
-
-#ifdef HAVE_LIB_Z
-#define GF_CDC_DEF_COMPRESSION Z_DEFAULT_COMPRESSION
-#else
-#define GF_CDC_DEF_COMPRESSION -1
-#endif
 
 #define GF_CDC_DEF_MEMLEVEL 8
 #define GF_CDC_DEF_BUFFERSIZE 262144  // 256K - default compression buffer size

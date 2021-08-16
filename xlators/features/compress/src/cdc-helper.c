@@ -11,15 +11,11 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/syscall.h>
+#include <zlib.h>
 
 #include "cdc.h"
 #include "cdc-mem-types.h"
 
-#ifdef HAVE_LIB_Z
-#include "zlib.h"
-#endif
-
-#ifdef HAVE_LIB_Z
 /* gzip header looks something like this
  * (RFC 1950)
  *
@@ -523,5 +519,3 @@ inflate_cleanup_out:
 passthrough_out:
     return ret;
 }
-
-#endif
