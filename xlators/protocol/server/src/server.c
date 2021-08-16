@@ -1074,7 +1074,7 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
 
     LOCK_DESTROY(&conf->itable_lock);
     pthread_mutex_destroy(&conf->mutex);
-    gf_dns_addr_cache_deinit(conf->dnscache);
+    gf_dnscache_deinit(conf->dnscache);
 
     if (this->ctx->event_pool) {
         /* Free the event pool */

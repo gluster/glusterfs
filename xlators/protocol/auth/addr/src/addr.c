@@ -66,7 +66,6 @@ compare_addr_and_update(char *option_str, char *peer_addr, char *subvol,
 
         length = strlen(addr_str);
         if ((addr_str[0] != '*') && valid_host_name(addr_str, length)) {
-            addr2 = NULL;
             addr2 = gf_dns_lookup_address_cached(addr_str, conf->dnscache);
             match = gf_is_same_address(addr_str, peer_addr, addr1, addr2);
             if (match) {

@@ -241,12 +241,6 @@ struct dnscache {
 };
 
 struct dnscache_entry {
-    char *ip;
-    char *fqdn;
-    time_t timestamp;
-};
-
-struct dnscache_addr_entry {
     struct addrinfo *addr;
     time_t timestamp;
 };

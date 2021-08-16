@@ -602,10 +602,10 @@ gf_dnscache_init(time_t ttl)
 }
 
 /**
- * gf_dnscache_deinit -- cleanup resources used by struct dnscache
+ * gf_dnscache_dict_deinit -- cleanup dictionary use by dnscache
  */
 void
-gf_dnscache_deinit(struct dnscache *cache)
+gf_dnscache_dict_deinit(struct dnscache *cache)
 {
     if (!cache) {
         gf_msg_plain(GF_LOG_WARNING, "dnscache is NULL");
@@ -637,60 +637,34 @@ gf_dnscache_entry_init()
 void
 gf_dnscache_entry_deinit(struct dnscache_entry *entry)
 {
-    GF_FREE(entry->ip);
-    GF_FREE(entry->fqdn);
+    freeaddrinfo(entry->addr);
     GF_FREE(entry);
+}
+
+static int
+gf_cleanup_addrinfo(dict_t *this, char *key, data_t *value, void *d)
+{
+    struct dnscache_entry *dnsentry = NULL;
+
+    dnsentry = (struct dnscache_entry *)(value->data);
+    freeaddrinfo(dnsentry->addr);
+
+    return 0;
 }
 
 /**
  * gf_dns_addr_cache_deinit -- cleanup resources used by struct dnscache
  */
 void
-gf_dns_addr_cache_deinit(struct dnscache *cache)
+gf_dnscache_deinit(struct dnscache *cache)
 {
-    struct dnscache_addr_entry *dnsentry = NULL;
-    data_pair_t *dns_addr_pairs = NULL;
-
     if (!cache) {
         gf_msg_plain(GF_LOG_WARNING, "dnscache is NULL");
         return;
     }
 
-    dns_addr_pairs = cache->cache_dict->members_list;
-    while (dns_addr_pairs) {
-        dnsentry = (struct dnscache_addr_entry *)dns_addr_pairs->value->data;
-        freeaddrinfo(dnsentry->addr);
-        dns_addr_pairs = dns_addr_pairs->next;
-    }
-    gf_dnscache_deinit(cache);
-}
-
-/**
- * gf_dnscache_entry_init -- Initialize a dnscache entry
- *
- * @return: SUCCESS: Pointer to an allocated dnscache entry struct
- *          FAILURE: NULL
- */
-
-struct dnscache_addr_entry *
-gf_dnscache_addr_entry_init()
-{
-    struct dnscache_addr_entry *entry = GF_CALLOC(
-        1, sizeof(*entry), gf_common_mt_dnscache_addr_entry);
-    return entry;
-}
-
-/**
- * gf_dnscache_addr_entry_deinit -- Free memory used by a dnscache addr entry
- *
- * @entry: Pointer to deallocate
- */
-
-void
-gf_dnscache_addr_entry_deinit(struct dnscache_addr_entry *entry)
-{
-    freeaddrinfo(entry->addr);
-    GF_FREE(entry);
+    dict_foreach(cache->cache_dict, gf_cleanup_addrinfo, NULL);
+    gf_dnscache_dict_deinit(cache);
 }
 
 /* Peform a dns lookup for identifier(IP address or hostname) */
@@ -701,10 +675,10 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
     struct addrinfo *addr = NULL;
     dict_t *cache = NULL;
     data_t *entrydata = NULL;
-    struct dnscache_addr_entry *dnsentry = NULL;
+    struct dnscache_entry *dnsentry = NULL;
     gf_boolean_t from_cache = _gf_false;
     struct addrinfo hints;
-    int gai_err = 0;
+    int ret = 0;
 
     if (!dnscache)
         goto out;
@@ -714,10 +688,10 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
     /* Quick cache lookup to see if we already hold it */
     entrydata = dict_get(cache, identifier);
     if (entrydata) {
-        dnsentry = (struct dnscache_addr_entry *)entrydata->data;
+        dnsentry = (struct dnscache_entry *)entrydata->data;
         /* First check the TTL & timestamp */
         if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
-            gf_dnscache_addr_entry_deinit(dnsentry);
+            gf_dnscache_entry_deinit(dnsentry);
             entrydata->data = NULL; /* Mark this as 'null' so
                                      * dict_del () doesn't try free
                                      * this after we've already
@@ -737,99 +711,39 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
 
-    gai_err = getaddrinfo(identifier, NULL, &hints, &addr);
-    if (gai_err != 0) {
+    ret = getaddrinfo(identifier, NULL, &hints, &addr);
+    if (ret != 0) {
         gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
-                "error=%s", gai_strerror(gai_err), NULL);
+                "error=%s", gai_strerror(ret), NULL);
         goto out;
     }
     from_cache = _gf_false;
 out:
     /* Insert into the cache */
     if (addr && !from_cache && identifier) {
-        struct dnscache_addr_entry *entry = gf_dnscache_addr_entry_init();
+        struct dnscache_entry *entry = gf_dnscache_entry_init();
 
         if (entry) {
             entry->addr = addr;
             entry->timestamp = gf_time();
             entrydata = bin_to_data(entry, sizeof(*entry));
-            dict_set(cache, identifier, entrydata);
+            if (!entrydata) {
+                gf_dnscache_entry_deinit(entry);
+                return NULL;
+            }
+            ret = dict_set(cache, identifier, entrydata);
+            if (ret) {
+                gf_smsg(identifier, GF_LOG_ERROR, EINVAL,
+                        LG_MSG_DICT_SET_FAILED, "key=%s", identifier, NULL);
+                gf_dnscache_entry_deinit(entry);
+                addr = NULL;
+            }
+        } else {
+            freeaddrinfo(addr);
+            addr = NULL;
         }
     }
     return addr;
-}
-
-/**
- * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
- *
- * @ip: The IP address to perform a reverse lookup on
- *
- * @return: success: Allocated string containing the hostname
- *          failure: NULL
- */
-char *
-gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
-{
-    char *fqdn = NULL;
-    int ret = 0;
-    dict_t *cache = NULL;
-    data_t *entrydata = NULL;
-    struct dnscache_entry *dnsentry = NULL;
-    gf_boolean_t from_cache = _gf_false;
-
-    if (!dnscache)
-        goto out;
-
-    cache = dnscache->cache_dict;
-
-    /* Quick cache lookup to see if we already hold it */
-    entrydata = dict_get(cache, (char *)ip);
-    if (entrydata) {
-        dnsentry = (struct dnscache_entry *)entrydata->data;
-        /* First check the TTL & timestamp */
-        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
-            gf_dnscache_entry_deinit(dnsentry);
-            entrydata->data = NULL; /* Mark this as 'null' so
-                                     * dict_del () doesn't try free
-                                     * this after we've already
-                                     * freed it.
-                                     */
-
-            dict_del(cache, (char *)ip); /* Remove this entry */
-        } else {
-            /* Cache entry is valid, get the FQDN and return */
-            fqdn = dnsentry->fqdn;
-            from_cache = _gf_true; /* Mark this as from cache */
-            goto out;
-        }
-    }
-
-    /* Get the FQDN */
-    ret = gf_get_hostname_from_ip((char *)ip, &fqdn);
-    if (ret != 0)
-        goto out;
-
-    if (!fqdn) {
-        gf_log_callingfn("resolver", GF_LOG_CRITICAL,
-                         "Allocation failed for the host address");
-        goto out;
-    }
-
-    from_cache = _gf_false;
-out:
-    /* Insert into the cache */
-    if (fqdn && !from_cache && ip) {
-        struct dnscache_entry *entry = gf_dnscache_entry_init();
-
-        if (entry) {
-            entry->fqdn = fqdn;
-            entry->ip = gf_strdup(ip);
-            entry->timestamp = gf_time();
-            entrydata = bin_to_data(entry, sizeof(*entry));
-            dict_set(cache, (char *)ip, entrydata);
-        }
-    }
-    return fqdn;
 }
 
 struct xldump {

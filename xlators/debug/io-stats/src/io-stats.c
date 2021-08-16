@@ -1066,6 +1066,7 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
     char *group_name = NULL;
     char *username = NULL;
     struct ios_conf *conf = NULL;
+    struct addrinfo *addr = NULL;
 
     conf = this->private;
 
@@ -1081,9 +1082,11 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
         if (!port)
             goto err;
         *port_pos = '\0';
-        hostname = gf_rev_dns_lookup_cached(identifier, conf->dnscache);
-        if (!hostname)
+        addr = gf_dns_lookup_address_cached(identifier, conf->dnscache);
+        if (!addr)
             hostname = "Unknown";
+        else
+            hostname = addr->ai_canonname;
     }
 
     xlator_name = conf->unique_id;

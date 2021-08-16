@@ -81,16 +81,15 @@ enum gf_common_mem_types_ {
     gf_common_mt_iobrefs,       /* used only in one location */
     gf_common_mt_gsync_status_t,
     gf_common_mt_uuid_t,
-    gf_common_mt_mgmt_v3_lock_obj_t,  /* used only in one location */
-    gf_common_mt_txn_opinfo_obj_t,    /* used only in one location */
-    gf_common_mt_strfd_t,             /* used only in one location */
-    gf_common_mt_strfd_data_t,        /* used only in one location */
-    gf_common_mt_regex_t,             /* used only in one location */
-    gf_common_mt_ereg,                /* used only in one location */
-    gf_common_mt_dnscache,            /* used only in one location */
-    gf_common_mt_dnscache_entry,      /* used only in one location */
-    gf_common_mt_dnscache_addr_entry, /* used only in one location */
-    gf_common_mt_parser_t,            /* used only in one location */
+    gf_common_mt_mgmt_v3_lock_obj_t, /* used only in one location */
+    gf_common_mt_txn_opinfo_obj_t,   /* used only in one location */
+    gf_common_mt_strfd_t,            /* used only in one location */
+    gf_common_mt_strfd_data_t,       /* used only in one location */
+    gf_common_mt_regex_t,            /* used only in one location */
+    gf_common_mt_ereg,               /* used only in one location */
+    gf_common_mt_dnscache,           /* used only in one location */
+    gf_common_mt_dnscache_entry,     /* used only in one location */
+    gf_common_mt_parser_t,           /* used only in one location */
     gf_common_quota_meta_t,
     gf_common_mt_rbuf_t,  /* used only in one location */
     gf_common_mt_rlist_t, /* used only in one location */
