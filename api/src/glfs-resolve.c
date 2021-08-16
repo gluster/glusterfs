@@ -439,7 +439,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
 
-        ret = dict_set_int32(xattr_req, GF_NAMESPACE_KEY, 1);
+        ret = dict_set_int32_sizen(xattr_req, GF_NAMESPACE_KEY, 1);
         ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, &xattr_rsp);
     }
     DECODE_SYNCOP_ERR(ret);
