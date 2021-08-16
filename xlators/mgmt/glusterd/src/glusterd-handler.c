@@ -5768,7 +5768,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         fprintf(fp, "Volume%d.rebalance.files: %" PRIu64 "\n", count,
                 volinfo->rebal.rebalance_files);
         fprintf(fp, "Volume%d.rebalance.data: %s\n", count, rebal_data);
-        fprintf(fp, "Volume%d.time_left: %" PRIu64 "\n", count,
+        fprintf(fp, "Volume%d.time_left: %ld\n", count,
                 volinfo->rebal.time_left);
 
         GF_FREE(rebal_data);

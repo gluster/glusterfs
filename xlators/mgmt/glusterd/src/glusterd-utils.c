@@ -9801,7 +9801,7 @@ glusterd_defrag_volume_status_update(glusterd_volinfo_t *volinfo,
     double run_time = 0;
     uint64_t promoted = 0;
     uint64_t demoted = 0;
-    uint64_t time_left = 0;
+    time_t time_left = 0;
 
     ret = dict_get_uint64(rsp_dict, "files", &files);
     if (ret)
@@ -9840,7 +9840,7 @@ glusterd_defrag_volume_status_update(glusterd_volinfo_t *volinfo,
     if (ret)
         gf_msg_trace(this->name, 0, "failed to get run-time");
 
-    ret2 = dict_get_uint64(rsp_dict, "time-left", &time_left);
+    ret2 = dict_get_time(rsp_dict, "time-left", &time_left);
     if (ret2)
         gf_msg_trace(this->name, 0, "failed to get time left");
 
@@ -12292,7 +12292,7 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
     glusterd_rebalance_rsp(op_ctx, &volinfo->rebal, i);
 
     snprintf(key, sizeof(key), "time-left-%d", i);
-    ret = dict_set_uint64(op_ctx, key, volinfo->rebal.time_left);
+    ret = dict_set_time(op_ctx, key, volinfo->rebal.time_left);
     if (ret)
         gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "failed to set time left");

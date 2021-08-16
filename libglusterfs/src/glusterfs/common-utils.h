@@ -965,7 +965,7 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b);
 int
 gf_string2percent(const char *str, double *n);
 int
-gf_string2time(const char *str, uint32_t *n);
+gf_string2time(const char *str, time_t *n);
 
 int
 gf_lockfd(int fd);

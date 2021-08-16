@@ -73,11 +73,11 @@ out:
  * timeout value(in seconds) set as an option to this xlator.
  * -1 error case
  */
-static int32_t
+static time_t
 get_recall_lease_timeout(xlator_t *this)
 {
     leases_private_t *priv = NULL;
-    int32_t timeout = -1;
+    time_t timeout = (time_t)-1;
 
     GF_VALIDATE_OR_GOTO("leases", this, out);
 

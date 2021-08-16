@@ -218,10 +218,10 @@ typedef struct {
     char *snap_bricks_directory;
     gf_store_handle_t *missed_snaps_list_shandle;
     struct cds_list_head missed_snaps_list;
-    int ping_timeout;
+    time_t ping_timeout;
     uint32_t generation;
     int32_t workers;
-    uint32_t mgmt_v3_lock_timeout;
+    time_t mgmt_v3_lock_timeout;
     gf_atomic_t blockers;
     pthread_mutex_t attach_lock; /* Lock can be per process or a common one */
     pthread_mutex_t volume_lock; /* We release the big_lock from lot of places
@@ -378,7 +378,7 @@ struct glusterd_bitrot_scrub_ {
     char *scrub_freq;
     uint64_t scrubbed_files;
     uint64_t unsigned_files;
-    uint64_t last_scrub_time;
+    time_t last_scrub_time;
     uint64_t scrub_duration;
     uint64_t error_count;
 };
@@ -396,7 +396,7 @@ struct glusterd_rebalance_ {
     gf_defrag_status_t defrag_status;
     uuid_t rebalance_id;
     double rebalance_time;
-    uint64_t time_left;
+    time_t time_left;
     dict_t *dict; /* Dict to store misc information
                    * like list of bricks being removed */
     glusterd_op_t op;

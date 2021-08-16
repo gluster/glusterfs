@@ -47,7 +47,7 @@ is_upcall_enabled(xlator_t *this)
 /*
  * Get the cache_invalidation_timeout
  */
-static int32_t
+static time_t
 get_cache_invalidation_timeout(xlator_t *this)
 {
     upcall_private_t *priv = NULL;

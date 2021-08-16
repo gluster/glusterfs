@@ -169,7 +169,9 @@ call_bail(void *data)
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
-               "unique = %" PRIu64 ", sent = %s, timeout = %d for %s",
+               "unique = %" PRIu64
+               ", sent = %s, timeout = %ld "
+               "for %s",
                trav->rpcreq->prog->progname,
                (trav->rpcreq->prog->procnames)
                    ? trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
@@ -1004,9 +1006,9 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         goto out;
     }
 
-    ret = dict_get_int32(options, "frame-timeout", &conn->frame_timeout);
+    ret = dict_get_time(options, "frame-timeout", &conn->frame_timeout);
     if (ret >= 0) {
-        gf_log(name, GF_LOG_INFO, "setting frame-timeout to %d",
+        gf_log(name, GF_LOG_INFO, "setting frame-timeout to %ld",
                conn->frame_timeout);
     } else {
         gf_log(name, GF_LOG_DEBUG, "defaulting frame-timeout to 30mins");
@@ -1014,9 +1016,9 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
     }
     conn->rpc_clnt = clnt;
 
-    ret = dict_get_int32(options, "ping-timeout", &conn->ping_timeout);
+    ret = dict_get_time(options, "ping-timeout", &conn->ping_timeout);
     if (ret >= 0) {
-        gf_log(name, GF_LOG_DEBUG, "setting ping-timeout to %d",
+        gf_log(name, GF_LOG_DEBUG, "setting ping-timeout to %ld",
                conn->ping_timeout);
     } else {
         /*TODO: Once the epoll thread model is fixed,
@@ -1944,7 +1946,7 @@ rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config)
     if (config->ping_timeout) {
         if (config->ping_timeout != rpc->conn.ping_timeout)
             gf_log(rpc->conn.name, GF_LOG_INFO,
-                   "changing ping timeout to %d (from %d)",
+                   "changing ping timeout to %ld (from %ld)",
                    config->ping_timeout, rpc->conn.ping_timeout);
 
         pthread_mutex_lock(&rpc->conn.lock);
@@ -1957,7 +1959,7 @@ rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config)
     if (config->rpc_timeout) {
         if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
             gf_log(rpc->conn.name, GF_LOG_INFO,
-                   "changing timeout to %d (from %d)", config->rpc_timeout,
+                   "changing timeout to %ld (from %ld)", config->rpc_timeout,
                    rpc->conn.config.rpc_timeout);
         rpc->conn.config.rpc_timeout = config->rpc_timeout;
     }

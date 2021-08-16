@@ -64,7 +64,7 @@ struct server_conf {
 
     gf_boolean_t server_manage_gids; /* resolve gids on brick */
     gid_cache_t gid_cache;
-    int32_t gid_cache_timeout;
+    time_t gid_cache_timeout;
 
     int event_threads; /* # of event threads
                         * configured */

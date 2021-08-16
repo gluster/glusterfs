@@ -1428,9 +1428,9 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
     uint32_t min = 0;
     uint32_t sec = 0;
     gf_boolean_t fix_layout = _gf_false;
-    uint64_t max_time = 0;
-    uint64_t max_elapsed = 0;
-    uint64_t time_left = 0;
+    time_t max_time = 0;
+    time_t max_elapsed = 0;
+    time_t time_left = 0;
     gf_boolean_t show_estimates = _gf_false;
 
     ret = dict_get_int32_sizen(dict, "count", &count);
@@ -1555,7 +1555,7 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
             gf_log("cli", GF_LOG_TRACE, "failed to get run-time");
 
         snprintf(key, sizeof(key), "time-left-%d", i);
-        ret = dict_get_uint64(dict, key, &time_left);
+        ret = dict_get_time(dict, key, &time_left);
         if (ret)
             gf_log("cli", GF_LOG_TRACE, "failed to get time left");
 

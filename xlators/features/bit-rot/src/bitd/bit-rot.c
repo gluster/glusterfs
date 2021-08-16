@@ -1849,12 +1849,12 @@ static int32_t
 br_signer_handle_options(xlator_t *this, br_private_t *priv, dict_t *options)
 {
     if (options) {
-        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, uint32,
+        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, time,
                          error_return);
         GF_OPTION_RECONF("signer-threads", priv->signer_th_count, options,
                          uint32, error_return);
     } else {
-        GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+        GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
         GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                        error_return);
     }
@@ -1871,7 +1871,7 @@ br_signer_init(xlator_t *this, br_private_t *priv)
     int32_t ret = 0;
     int numbricks = 0;
 
-    GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+    GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
     GF_OPTION_INIT("brick-count", numbricks, int32, error_return);
     GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                    error_return);

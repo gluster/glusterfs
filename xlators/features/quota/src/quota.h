@@ -199,10 +199,9 @@ struct quota_local {
 typedef struct quota_local quota_local_t;
 
 struct quota_priv {
-    /* FIXME: consider time_t for timeouts. */
-    uint32_t soft_timeout;
-    uint32_t hard_timeout;
-    uint32_t log_timeout;
+    time_t soft_timeout;
+    time_t hard_timeout;
+    time_t log_timeout;
     double default_soft_lim;
     gf_boolean_t is_quota_on;
     gf_boolean_t consider_statfs;
