@@ -979,28 +979,3 @@ posix_create_link_if_gfid_exists(xlator_t *this, uuid_t gfid, char *real_path,
 
     return ret;
 }
-
-int
-posix_unlink_stale_linkto(xlator_t *this, const char *real_path)
-{
-    int ret;
-    struct stat stbuf;
-    struct iatt iatt;
-
-    ret = sys_stat(real_path, &stbuf);
-    if (ret)
-        return ret;
-
-    iatt_from_stat(&iatt, &stbuf);
-    if (IS_DHT_LINKFILE_MODE(&iatt)) {
-        gf_msg_debug(this->name, 0,
-                     "mknod %s failed due stale linkto file, unlink",
-                     real_path);
-        /*neex to stale file xattr bla*/
-        ret = sys_unlink(real_path);
-    }
-
-    // make handle path based on stale gfid and unlink it
-
-    return ret;
-}

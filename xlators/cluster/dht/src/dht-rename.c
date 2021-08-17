@@ -1191,8 +1191,15 @@ dht_do_rename(call_frame_t *frame)
     gf_msg_trace(this->name, 0, "renaming %s => %s (%s)", local->loc.path,
                  local->loc2.path, rename_subvol->name);
 
-    if (local->linked == _gf_true)
+    if (local->linked == _gf_true) {
         FRAME_SU_DO(frame, dht_local_t);
+        // TMP simulate failure:
+        /*  static int one=1;
+            if (one) {
+                    DHT_MARK_RENAME_FOP(local->xattr_req);
+                    one =0;
+            }*/
+    }
     STACK_WIND_COOKIE(frame, dht_rename_cbk, rename_subvol, rename_subvol,
                       rename_subvol->fops->rename, &local->loc, &local->loc2,
                       local->xattr_req);

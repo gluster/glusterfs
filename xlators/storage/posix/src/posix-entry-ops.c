@@ -86,6 +86,9 @@ extern char *marker_xattrs[];
 
 #endif
 
+static int
+posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
+                          const char *real_path, int32_t *op_errno, loc_t *loc);
 static gf_boolean_t
 posix_symlinks_match(xlator_t *this, loc_t *loc, uuid_t gfid)
 {
@@ -571,7 +574,8 @@ real_op:
             if (op_errno == EEXIST) {
                 if (dict_get_sizen(xdata, DHT_RENAME_FOP_KEY)) {
                     dict_del_sizen(xdata, DHT_RENAME_FOP_KEY);
-                    op_ret = posix_unlink_stale_linkto(this, real_path);
+                    op_ret = posix_unlink_stale_linkto(frame, this, real_path,
+                                                       &op_errno, loc);
                     if (op_ret == 0)
                         goto real_op;
                 }
@@ -1175,10 +1179,12 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
         posix_set_ctime(frame, this, NULL, -1, loc->inode, stbuf);
     }
 
-    ret = dict_set_uint32(rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
-    if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
-               "failed to set " GET_LINK_COUNT " for %s", real_path);
+    if (rsp_dict) {
+        ret = dict_set_uint32(rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
+                   "failed to set " GET_LINK_COUNT " for %s", real_path);
+    }
 
     return 0;
 
@@ -1188,6 +1194,42 @@ err:
         locked = _gf_false;
     }
     return -1;
+}
+
+static int
+posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
+                          const char *real_path, int32_t *op_errno, loc_t *loc)
+{
+    int ret = -1;
+    struct iatt stbuf = {
+        0,
+    };
+
+    /* get stale file gfid and stat-info */
+    ret = posix_pstat(this, NULL, NULL, real_path, &stbuf, _gf_false);
+    if (ret) {
+        if (errno == ENOENT)
+            ret = 0; /* retry creation if file was deleted */
+        gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_LSTAT_FAILED,
+               "lstat on %s failed", real_path);
+        goto out;
+    }
+    /* unlink only if linkto filw*/
+    if (IS_DHT_LINKFILE_MODE(&stbuf)) {
+        gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_HANDLE_CREATE,
+               "unlinking stale linkto: %s gfid: %s", real_path,
+               uuid_utoa(stbuf.ia_gfid));
+        ret = posix_unlink_gfid_handle_and_entry(
+            frame, this, real_path, &stbuf, op_errno, loc, _gf_false, NULL);
+
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
+               "skip unlinking stale data-file: %s gfid: %s", real_path,
+               uuid_utoa(stbuf.ia_gfid));
+    }
+
+out:
+    return ret;
 }
 
 static gf_boolean_t
@@ -1833,6 +1875,15 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         op_errno = ESTALE;
         goto out;
     }
+
+    // TMP simulate failure:
+    /*   if ((xdata) &&  dict_get_sizen(xdata, DHT_RENAME_FOP_KEY)) {
+                dict_del_sizen(xdata, DHT_RENAME_FOP_KEY);
+                //simulate error
+                op_ret = -1;
+                op_errno = ENONET;
+                goto out;
+    }*/
 
     MAKE_ENTRY_HANDLE(real_newpath, par_newpath, this, newloc, &stbuf);
     if (!real_newpath || !par_newpath) {
