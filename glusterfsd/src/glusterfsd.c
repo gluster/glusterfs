@@ -1745,7 +1745,6 @@ out:
         mem_pool_destroy(ctx->dict_data_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->logbuf_pool);
-        gf_dnscache_deinit(ctx->dnscache);
     }
 
     return ret;
@@ -2673,8 +2672,10 @@ out:
 int
 main(int argc, char *argv[])
 {
-    gf_io_handlers_t main_handlers = {.setup = main_start,
-                                      .cleanup = main_terminate};
+    gf_io_handlers_t main_handlers = {
+        .setup = main_start,
+        .cleanup = main_terminate,
+    };
     glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     char cmdlinestr[PATH_MAX] = {

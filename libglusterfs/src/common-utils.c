@@ -667,6 +667,28 @@ gf_dnscache_deinit(struct dnscache *cache)
     gf_dnscache_dict_deinit(cache);
 }
 
+struct addrinfo *
+gf_getaddrinfo(char *identifier)
+{
+    struct addrinfo *addr = NULL;
+    struct addrinfo hints;
+    int ret = 0;
+
+    if (!identifier)
+        return addr;
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = AF_UNSPEC;
+
+    ret = getaddrinfo(identifier, NULL, &hints, &addr);
+    if (ret != 0) {
+        gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                "error=%s", gai_strerror(ret), NULL);
+    }
+
+    return addr;
+}
+
 /* Peform a dns lookup for identifier(IP address or hostname) */
 
 struct addrinfo *
@@ -677,7 +699,6 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
     data_t *entrydata = NULL;
     struct dnscache_entry *dnsentry = NULL;
     gf_boolean_t from_cache = _gf_false;
-    struct addrinfo hints;
     int ret = 0;
 
     cache = dnscache->cache_dict;
@@ -698,16 +719,7 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
         }
     }
 
-    /* Get the addr */
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-
-    ret = getaddrinfo(identifier, NULL, &hints, &addr);
-    if (ret != 0) {
-        gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
-                "error=%s", gai_strerror(ret), NULL);
-        goto out;
-    }
+    addr = gf_getaddrinfo(identifier);
     from_cache = _gf_false;
 out:
     /* Insert into the cache */
@@ -3697,40 +3709,27 @@ gf_is_same_address(char *name1, char *name2)
     struct addrinfo *p = NULL;
     struct addrinfo *q = NULL;
     gf_boolean_t ret = _gf_false;
-    int gai_err = 0;
-    struct addrinfo hints;
     xlator_t *this = THIS;
     glusterfs_ctx_t *ctx = this->ctx;
-    gf_boolean_t flag = _gf_false;
+    gf_boolean_t have_cache = _gf_false;
 
     if (ctx && ctx->dnscache)
-        flag = _gf_true;
+        have_cache = _gf_true;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-
-    if (flag) {
+    if (have_cache) {
         addr1 = gf_dns_lookup_address_cached(name1, ctx->dnscache);
         if (!addr1)
-            return ret;
+            goto out;
 
         addr2 = gf_dns_lookup_address_cached(name2, ctx->dnscache);
         if (!addr2)
-            return ret;
+            goto out;
     } else {
-        gai_err = getaddrinfo(name1, NULL, &hints, &addr1);
-        if (gai_err != 0) {
-            gf_smsg(name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
-                    "error=%s", gai_strerror(gai_err), NULL);
-            goto out;
-        }
+        addr1 = gf_getaddrinfo(name1);
+        addr2 = gf_getaddrinfo(name2);
 
-        gai_err = getaddrinfo(name2, NULL, &hints, &addr2);
-        if (gai_err != 0) {
-            gf_smsg(name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
-                    "error=%s", gai_strerror(gai_err), NULL);
+        if (!addr1 || !addr2)
             goto out;
-        }
     }
 
     for (p = addr1; p; p = p->ai_next) {
@@ -3747,10 +3746,10 @@ gf_is_same_address(char *name1, char *name2)
     }
 
 out:
-    if (addr1 && !flag) {
+    if (addr1 && !have_cache) {
         freeaddrinfo(addr1);
     }
-    if (addr2 && !flag) {
+    if (addr2 && !have_cache) {
         freeaddrinfo(addr2);
     }
     return ret;

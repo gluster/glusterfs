@@ -3827,14 +3827,11 @@ mem_acct_init(xlator_t *this)
 }
 
 void
-ios_conf_destroy(xlator_t *this)
+ios_conf_destroy(struct ios_conf *conf)
 {
-    struct ios_conf *conf = NULL;
-
-    if (!this)
+    if (!conf)
         return;
 
-    conf = this->private;
     ios_destroy_top_stats(conf);
     _ios_destroy_dump_thread(conf);
     ios_destroy_sample_buf(conf->ios_sample_buf);
@@ -4006,17 +4003,21 @@ init(xlator_t *this)
     }
     return 0;
 out:
-    ios_conf_destroy(this);
+    ios_conf_destroy(conf);
     return ret;
 }
 
 void
 fini(xlator_t *this)
 {
+    struct ios_conf *conf = NULL;
+
     if (!this)
         return;
 
-    ios_conf_destroy(this);
+    conf = this->private;
+
+    ios_conf_destroy(conf);
     this->private = NULL;
     gf_log(this->name, GF_LOG_INFO, "io-stats translator unloaded");
     return;

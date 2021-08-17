@@ -1223,6 +1223,9 @@ glusterfs_compute_sha256(const unsigned char *content, size_t size,
 char *
 gf_strncpy(char *dest, const char *src, const size_t dest_size);
 
+struct addrinfo *
+gf_getaddrinfo(char *identifier);
+
 void
 gf_strTrim(char **s);
 

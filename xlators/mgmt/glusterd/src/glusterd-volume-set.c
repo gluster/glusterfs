@@ -1182,11 +1182,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "debug/io-stats",
      .option = "ios-sample-buf-size",
      .op_version = 1},
-    {.key = "diagnostics.stats-dnscache-ttl-sec",
-     .voltype = "debug/io-stats",
-     .option = "ios-dnscache-ttl-sec",
-     .op_version = 1},
-
     /* IO-cache xlator options */
     {.key = "performance.cache-max-file-size",
      .voltype = "performance/io-cache",
@@ -1683,11 +1678,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                        "defines the maximum length to which the queue of "
                        "pending connections for socket fd may grow.",
         .value = "1024",
-    },
-    {
-        .key = "server.dnscache-ttl-sec",
-        .voltype = "protocol/server",
-        .op_version = GD_OP_VERSION_10_0,
     },
     /* Generic transport options */
     {
