@@ -85,6 +85,7 @@ trap(void);
 
 #define GEOREP "geo-replication"
 #define GLUSTERD_NAME "glusterd"
+#define DNSCACHE_TTL_SEC 3600
 
 #define GF_SELINUX_XATTR_KEY "security.selinux"
 
@@ -1089,8 +1090,7 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname);
 gf_boolean_t
 gf_is_local_addr(char *hostname);
 gf_boolean_t
-gf_is_same_address(char *host1, char *host2, struct addrinfo *p1,
-                   struct addrinfo *p2);
+gf_is_same_address(char *host1, char *host2);
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
                  unsigned long long const seed, char *xxh64);

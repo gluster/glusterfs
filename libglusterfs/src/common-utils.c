@@ -680,9 +680,6 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
     struct addrinfo hints;
     int ret = 0;
 
-    if (!dnscache)
-        goto out;
-
     cache = dnscache->cache_dict;
 
     /* Quick cache lookup to see if we already hold it */
@@ -691,13 +688,7 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
         dnsentry = (struct dnscache_entry *)entrydata->data;
         /* First check the TTL & timestamp */
         if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
-            gf_dnscache_entry_deinit(dnsentry);
-            entrydata->data = NULL; /* Mark this as 'null' so
-                                     * dict_del () doesn't try free
-                                     * this after we've already
-                                     * freed it.
-                                     */
-
+            freeaddrinfo(dnsentry->addr);
             dict_del(cache, identifier); /* Remove this entry */
         } else {
             /* Cache entry is valid, get the addr and return */
@@ -726,12 +717,7 @@ out:
         if (entry) {
             entry->addr = addr;
             entry->timestamp = gf_time();
-            entrydata = bin_to_data(entry, sizeof(*entry));
-            if (!entrydata) {
-                gf_dnscache_entry_deinit(entry);
-                return NULL;
-            }
-            ret = dict_set(cache, identifier, entrydata);
+            ret = dict_set_bin(cache, identifier, entry, sizeof(*entry));
             if (ret) {
                 gf_smsg(identifier, GF_LOG_ERROR, EINVAL,
                         LG_MSG_DICT_SET_FAILED, "key=%s", identifier, NULL);
@@ -3704,8 +3690,7 @@ out:
 }
 
 gf_boolean_t
-gf_is_same_address(char *name1, char *name2, struct addrinfo *p1,
-                   struct addrinfo *p2)
+gf_is_same_address(char *name1, char *name2)
 {
     struct addrinfo *addr1 = NULL;
     struct addrinfo *addr2 = NULL;
@@ -3714,30 +3699,38 @@ gf_is_same_address(char *name1, char *name2, struct addrinfo *p1,
     gf_boolean_t ret = _gf_false;
     int gai_err = 0;
     struct addrinfo hints;
+    xlator_t *this = THIS;
+    glusterfs_ctx_t *ctx = this->ctx;
+    gf_boolean_t flag = _gf_false;
+
+    if (ctx && ctx->dnscache)
+        flag = _gf_true;
 
     memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_UNSPEC;
 
-    if (!p1) {
+    if (flag) {
+        addr1 = gf_dns_lookup_address_cached(name1, ctx->dnscache);
+        if (!addr1)
+            return ret;
+
+        addr2 = gf_dns_lookup_address_cached(name2, ctx->dnscache);
+        if (!addr2)
+            return ret;
+    } else {
         gai_err = getaddrinfo(name1, NULL, &hints, &addr1);
         if (gai_err != 0) {
             gf_smsg(name1, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
                     "error=%s", gai_strerror(gai_err), NULL);
             goto out;
         }
-    } else {
-        addr1 = p1;
-    }
 
-    if (!p2) {
         gai_err = getaddrinfo(name2, NULL, &hints, &addr2);
         if (gai_err != 0) {
             gf_smsg(name2, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
                     "error=%s", gai_strerror(gai_err), NULL);
             goto out;
         }
-    } else {
-        addr2 = p2;
     }
 
     for (p = addr1; p; p = p->ai_next) {
@@ -3754,10 +3747,10 @@ gf_is_same_address(char *name1, char *name2, struct addrinfo *p1,
     }
 
 out:
-    if (addr1 && !p1) {
+    if (addr1 && !flag) {
         freeaddrinfo(addr1);
     }
-    if (addr2 && !p2) {
+    if (addr2 && !flag) {
         freeaddrinfo(addr2);
     }
     return ret;

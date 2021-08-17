@@ -14,7 +14,6 @@
 #include "authenticate.h"
 #include <glusterfs/dict.h>
 #include "rpc-transport.h"
-#include "server.h"
 
 #define ENTRY_DELIMITER ","
 #define ADDR_DELIMITER "|"
@@ -46,13 +45,7 @@ compare_addr_and_update(char *option_str, char *peer_addr, char *subvol,
     char match = 0;
     int length = 0;
     int ret = 0;
-    glusterfs_ctx_t *ctx = THIS->ctx;
-    xlator_t *srv_xl = ctx->active->first;
-    server_conf_t *conf = srv_xl->private;
-    struct addrinfo *addr1 = NULL;
-    struct addrinfo *addr2 = NULL;
 
-    addr1 = gf_dns_lookup_address_cached(peer_addr, conf->dnscache);
     addr_str = strtok_r(option_str, delimiter, &tmp);
 
     while (addr_str) {
@@ -66,8 +59,7 @@ compare_addr_and_update(char *option_str, char *peer_addr, char *subvol,
 
         length = strlen(addr_str);
         if ((addr_str[0] != '*') && valid_host_name(addr_str, length)) {
-            addr2 = gf_dns_lookup_address_cached(addr_str, conf->dnscache);
-            match = gf_is_same_address(addr_str, peer_addr, addr1, addr2);
+            match = gf_is_same_address(addr_str, peer_addr);
             if (match) {
                 *result = status;
                 goto out;

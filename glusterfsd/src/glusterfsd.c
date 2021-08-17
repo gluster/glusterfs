@@ -1725,6 +1725,11 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
     setrlimit(RLIMIT_CORE, &lim);
+    ctx->dnscache = gf_dnscache_init(DNSCACHE_TTL_SEC);
+    if (!ctx->dnscache) {
+        ret = -1;
+        goto out;
+    }
 
     ret = 0;
 out:
@@ -1740,6 +1745,7 @@ out:
         mem_pool_destroy(ctx->dict_data_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->logbuf_pool);
+        gf_dnscache_deinit(ctx->dnscache);
     }
 
     return ret;

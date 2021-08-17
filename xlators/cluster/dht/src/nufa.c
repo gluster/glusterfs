@@ -487,9 +487,8 @@ nufa_find_local_brick(xlator_t *xl, void *data)
         return;
 
     ret = dict_get_str(xl->options, "remote-host", &brick_host);
-    if ((ret == 0) &&
-        (gf_is_same_address(local_volname, brick_host, NULL, NULL) ||
-         gf_is_local_addr(brick_host))) {
+    if ((ret == 0) && (gf_is_same_address(local_volname, brick_host) ||
+                       gf_is_local_addr(brick_host))) {
         conf->private = xl;
         gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_SUBVOL_INFO,
                "Using the first local "

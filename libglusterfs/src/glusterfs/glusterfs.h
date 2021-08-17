@@ -681,6 +681,7 @@ struct _glusterfs_ctx {
     struct mem_pool *dict_pool;
     struct mem_pool *dict_pair_pool;
     struct mem_pool *dict_data_pool;
+    struct dnscache *dnscache; /* Use for dns cache */
 
     glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make
                                                  call to fsd-mgmt */

@@ -1137,7 +1137,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
                       SLEN("transport.socket.bind-address"), &bind_name) == 0) {
         gf_msg_debug("glusterd", 0,
                      "only checking probe address vs. bind address");
-        ret = gf_is_same_address(bind_name, hostname, NULL, NULL);
+        ret = gf_is_same_address(bind_name, hostname);
     } else {
         ret = glusterd_gf_is_local_addr(hostname);
     }

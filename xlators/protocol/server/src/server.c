@@ -581,6 +581,8 @@ glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
     if (ctx == NULL)
         return 0;
 
+    /* Free the dns cache */
+    gf_dnscache_deinit(ctx->dnscache);
     /* Free the memory pool */
     if (ctx->stub_mem_pool)
         mem_pool_destroy(ctx->stub_mem_pool);
@@ -1074,7 +1076,6 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
 
     LOCK_DESTROY(&conf->itable_lock);
     pthread_mutex_destroy(&conf->mutex);
-    gf_dnscache_deinit(conf->dnscache);
 
     if (this->ctx->event_pool) {
         /* Free the event pool */
@@ -1340,12 +1341,6 @@ server_init(xlator_t *this)
         this->ctx->cmd_args.volfile_id = gf_strdup("gluster");
     }
     FIRST_CHILD(this)->volfile_id = gf_strdup(this->ctx->cmd_args.volfile_id);
-    GF_OPTION_INIT("dnscache-ttl-sec", conf->dnscache_ttl_sec, int32, err);
-    conf->dnscache = gf_dnscache_init(conf->dnscache_ttl_sec);
-    if (!conf->dnscache) {
-        ret = -1;
-        goto err;
-    }
 
     this->private = conf;
     return 0;
@@ -1958,15 +1953,6 @@ struct volume_options server_options[] = {
      .default_value = "off",
      .description = "strict-auth-accept reject connection with out"
                     "a valid username and password."},
-    {.key = {"dnscache-ttl-sec"},
-     .type = GF_OPTION_TYPE_INT,
-     .op_version = {GD_OP_VERSION_10_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
-     .min = 1,
-     .max = 3600 * 72,
-     .default_value = "86400",
-     .description = "The interval after wish a cached DNS entry will be "
-                    "re-validated.  Default: 24 hrs"},
     {.key = {NULL}},
 };
 

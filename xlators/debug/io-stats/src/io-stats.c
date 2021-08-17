@@ -170,8 +170,6 @@ struct ios_conf {
     int32_t ios_sample_interval;
     int32_t ios_sample_buf_size;
     ios_sample_buf_t *ios_sample_buf;
-    struct dnscache *dnscache;
-    int32_t ios_dnscache_ttl_sec;
     /*
      * What we really need here is just a unique value to keep files
      * created by this instance distinct from those created by any other.
@@ -1059,7 +1057,7 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
 {
     char *xlator_name = NULL;
     char *instance_name = NULL;
-    char *hostname = NULL;
+    char hostname[NI_MAXHOST] = "Unknown";
     char *identifier = NULL;
     char *port = NULL;
     char *port_pos = NULL;
@@ -1067,13 +1065,11 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
     char *username = NULL;
     struct ios_conf *conf = NULL;
     struct addrinfo *addr = NULL;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     conf = this->private;
 
-    if (strlen(sample->identifier) == 0) {
-        hostname = "Unknown";
-        port = "Unknown";
-    } else {
+    if (strlen(sample->identifier)) {
         identifier = strdupa(sample->identifier);
         port_pos = strrchr(identifier, ':');
         if (!port_pos || strlen(port_pos) < 2)
@@ -1082,11 +1078,10 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
         if (!port)
             goto err;
         *port_pos = '\0';
-        addr = gf_dns_lookup_address_cached(identifier, conf->dnscache);
-        if (!addr)
-            hostname = "Unknown";
-        else
-            hostname = addr->ai_canonname;
+        addr = gf_dns_lookup_address_cached(identifier, ctx->dnscache);
+        if (addr)
+            getnameinfo(addr->ai_addr, addr->ai_addrlen, hostname,
+                        sizeof(hostname), NULL, 0, 0);
     }
 
     xlator_name = conf->unique_id;
@@ -3832,16 +3827,18 @@ mem_acct_init(xlator_t *this)
 }
 
 void
-ios_conf_destroy(struct ios_conf *conf)
+ios_conf_destroy(xlator_t *this)
 {
-    if (!conf)
+    struct ios_conf *conf = NULL;
+
+    if (!this)
         return;
 
+    conf = this->private;
     ios_destroy_top_stats(conf);
     _ios_destroy_dump_thread(conf);
     ios_destroy_sample_buf(conf->ios_sample_buf);
     LOCK_DESTROY(&conf->lock);
-    gf_dnscache_deinit(conf->dnscache);
     GF_FREE(conf);
 }
 
@@ -3958,14 +3955,6 @@ init(xlator_t *this)
         goto out;
     }
 
-    GF_OPTION_INIT("ios-dnscache-ttl-sec", conf->ios_dnscache_ttl_sec, int32,
-                   out);
-    conf->dnscache = gf_dnscache_init(conf->ios_dnscache_ttl_sec);
-    if (!conf->dnscache) {
-        ret = -1;
-        goto out;
-    }
-
     GF_OPTION_INIT("sys-log-level", sys_log_str, str, out);
     if (sys_log_str) {
         sys_log_level = glusterd_check_log_level(sys_log_str);
@@ -4017,21 +4006,17 @@ init(xlator_t *this)
     }
     return 0;
 out:
-    ios_conf_destroy(conf);
+    ios_conf_destroy(this);
     return ret;
 }
 
 void
 fini(xlator_t *this)
 {
-    struct ios_conf *conf = NULL;
-
     if (!this)
         return;
 
-    conf = this->private;
-
-    ios_conf_destroy(conf);
+    ios_conf_destroy(this);
     this->private = NULL;
     gf_log(this->name, GF_LOG_INFO, "io-stats translator unloaded");
     return;
@@ -4283,16 +4268,6 @@ struct volume_options options[] = {
      .max = 1024 * 1024,
      .default_value = "65535",
      .description = "The maximum size of our FOP sampling ring buffer."},
-    {.key = {"ios-dnscache-ttl-sec"},
-     .type = GF_OPTION_TYPE_INT,
-     .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
-     .tags = {"io-stats"},
-     .min = 1,
-     .max = 3600 * 72,
-     .default_value = "86400",
-     .description = "The interval after wish a cached DNS entry will be "
-                    "re-validated.  Default: 24 hrs"},
     {.key = {"latency-measurement"},
      .type = GF_OPTION_TYPE_BOOL,
      .op_version = {1},
