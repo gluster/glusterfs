@@ -26,6 +26,10 @@
 #include <glusterfs/defaults.h>
 #include "authenticate.h"
 
+/* Threading limits for server event threads. */
+#define SERVER_MIN_EVENT_THREADS 1
+#define SERVER_MAX_EVENT_THREADS 1024
+
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
 #define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE (0)

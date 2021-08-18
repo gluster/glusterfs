@@ -1928,9 +1928,9 @@ struct volume_options server_options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 1024,
-     .default_value = "2",
+     .min = SERVER_MIN_EVENT_THREADS,
+     .max = SERVER_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

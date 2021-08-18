@@ -2954,7 +2954,7 @@ struct volume_options options[] = {
      .tags = {"journal"}},
     {.key = {"changelog-barrier-timeout"},
      .type = GF_OPTION_TYPE_TIME,
-     .default_value = BARRIER_TIMEOUT,
+     .default_value = TOSTRING(BARRIER_TIMEOUT),
      .description = "After 'timeout' seconds since the time 'barrier' "
                     "option was set to \"on\", unlink/rmdir/rename  "
                     "operations are no longer blocked and previously "

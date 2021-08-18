@@ -2154,7 +2154,7 @@ struct volume_options options[] = {
     {
         .key = {"expiry-time"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = SIGNING_TIMEOUT,
+        .default_value = TOSTRING(SIGNING_TIMEOUT),
         .op_version = {GD_OP_VERSION_3_7_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Waiting time for an object on which it waits "
@@ -2204,7 +2204,7 @@ struct volume_options options[] = {
     {
         .key = {"signer-threads"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = BR_WORKERS,
+        .default_value = TOSTRING(BR_DEFAULT_THREADS),
         .op_version = {GD_OP_VERSION_8_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Number of signing process threads. As a best "
