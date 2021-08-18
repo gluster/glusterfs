@@ -1064,7 +1064,7 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
     char *group_name = NULL;
     char *username = NULL;
     struct ios_conf *conf = NULL;
-    struct addrinfo *addr = NULL;
+    struct gf_addrinfo *addr = NULL;
     glusterfs_ctx_t *ctx = this->ctx;
 
     conf = this->private;
@@ -1080,8 +1080,7 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
         *port_pos = '\0';
         addr = gf_dns_lookup_address_cached(identifier, ctx->dnscache);
         if (addr)
-            getnameinfo(addr->ai_addr, addr->ai_addrlen, hostname,
-                        sizeof(hostname), NULL, 0, 0);
+            strncpy(hostname, addr->ai_canonname, strlen(addr->ai_canonname));
     }
 
     xlator_name = conf->unique_id;

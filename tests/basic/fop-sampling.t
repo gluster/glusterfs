@@ -45,7 +45,6 @@ TEST $CLI volume set $V0 diagnostics.count-fop-hits on
 TEST $CLI volume set $V0 diagnostics.stats-dump-interval 2
 TEST $CLI volume set $V0 diagnostics.fop-sample-buf-size 65535
 TEST $CLI volume set $V0 diagnostics.fop-sample-interval 1
-TEST $CLI volume set $V0 diagnostics.stats-dnscache-ttl-sec 3600
 
 TEST $CLI volume start $V0
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0

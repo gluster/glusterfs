@@ -241,8 +241,15 @@ struct dnscache {
     time_t ttl;
 };
 
+struct gf_addrinfo {
+    socklen_t ai_addrlen;
+    struct sockaddr *ai_addr;
+    char *ai_canonname;
+    struct list_head list;
+};
+
 struct dnscache_entry {
-    struct addrinfo *addr;
+    struct gf_addrinfo *addr;
     time_t timestamp;
 };
 
@@ -280,7 +287,7 @@ gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache);
 void
 gf_dns_addr_cache_deinit(struct dnscache *cache);
 
-struct addrinfo *
+struct gf_addrinfo *
 gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache);
 
 char *
@@ -1223,8 +1230,11 @@ glusterfs_compute_sha256(const unsigned char *content, size_t size,
 char *
 gf_strncpy(char *dest, const char *src, const size_t dest_size);
 
-struct addrinfo *
+struct gf_addrinfo *
 gf_getaddrinfo(char *identifier);
+
+void
+gf_freeaddrinfo(struct gf_addrinfo *);
 
 void
 gf_strTrim(char **s);

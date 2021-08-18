@@ -637,7 +637,7 @@ gf_dnscache_entry_init()
 void
 gf_dnscache_entry_deinit(struct dnscache_entry *entry)
 {
-    freeaddrinfo(entry->addr);
+    gf_freeaddrinfo(entry->addr);
     GF_FREE(entry);
 }
 
@@ -647,7 +647,7 @@ gf_cleanup_addrinfo(dict_t *this, char *key, data_t *value, void *d)
     struct dnscache_entry *dnsentry = NULL;
 
     dnsentry = (struct dnscache_entry *)(value->data);
-    freeaddrinfo(dnsentry->addr);
+    gf_freeaddrinfo(dnsentry->addr);
 
     return 0;
 }
@@ -667,34 +667,150 @@ gf_dnscache_deinit(struct dnscache *cache)
     gf_dnscache_dict_deinit(cache);
 }
 
-struct addrinfo *
+void
+gf_freeaddrinfo(struct gf_addrinfo *gf_addr)
+{
+    struct gf_addrinfo *tmp = NULL;
+
+    if (!gf_addr)
+        return;
+
+    if (list_empty(&gf_addr->list)) {
+        GF_FREE(gf_addr->ai_canonname);
+        GF_FREE(gf_addr->ai_addr);
+        GF_FREE(gf_addr);
+    } else {
+        list_for_each_entry(tmp, &gf_addr->list, list)
+        {
+            GF_FREE(tmp->ai_canonname);
+            GF_FREE(tmp->ai_addr);
+            GF_FREE(tmp);
+        }
+    }
+}
+
+struct gf_addrinfo *
 gf_getaddrinfo(char *identifier)
 {
     struct addrinfo *addr = NULL;
     struct addrinfo hints;
+    struct gf_addrinfo *gf_addr = NULL;
+    struct gf_addrinfo *tmp = NULL;
+    struct addrinfo *p = NULL;
     int ret = 0;
+    struct sockaddr *client_sockaddr = NULL;
+    struct sockaddr_in client_sock_in = {0};
+    struct sockaddr_in6 client_sock_in6 = {0};
+    gf_boolean_t valid_hostname = _gf_true;
+    socklen_t addr_sz = 0;
+    char client_hostname[NI_MAXHOST] = {0};
 
     if (!identifier)
-        return addr;
+        return gf_addr;
 
-    memset(&hints, 0, sizeof(hints));
-    hints.ai_family = AF_UNSPEC;
-
-    ret = getaddrinfo(identifier, NULL, &hints, &addr);
-    if (ret != 0) {
-        gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
-                "error=%s", gai_strerror(ret), NULL);
+    if (valid_ipv4_address(identifier, strlen(identifier), 0) == _gf_true) {
+        client_sockaddr = (struct sockaddr *)&client_sock_in;
+        addr_sz = sizeof(client_sock_in);
+        client_sock_in.sin_family = AF_INET;
+        ret = inet_pton(AF_INET, identifier,
+                        (void *)&client_sock_in.sin_addr.s_addr);
+        valid_hostname = _gf_false;
+    } else if (valid_ipv6_address(identifier, strlen(identifier), 0) ==
+               _gf_true) {
+        client_sockaddr = (struct sockaddr *)&client_sock_in6;
+        addr_sz = sizeof(client_sock_in6);
+        client_sock_in6.sin6_family = AF_INET6;
+        ret = inet_pton(AF_INET6, identifier,
+                        (void *)&client_sock_in6.sin6_addr);
+        valid_hostname = _gf_false;
     }
 
-    return addr;
+    if (!valid_hostname) {
+        ret = getnameinfo(client_sockaddr, addr_sz, client_hostname,
+                          sizeof(client_hostname), NULL, 0, 0);
+        if (ret) {
+            gf_smsg("common-utils", GF_LOG_ERROR, 0, LG_MSG_GETNAMEINFO_FAILED,
+                    "ip=%s", identifier, "ret=%s", gai_strerror(ret), NULL);
+            ret = -1;
+            goto out;
+        }
+        gf_addr = GF_CALLOC(1, sizeof(struct gf_addrinfo), gf_common_mt_char);
+        if (!gf_addr) {
+            goto out;
+        }
+        INIT_LIST_HEAD(&gf_addr->list);
+        gf_addr->ai_addr = GF_MALLOC(addr_sz, gf_common_mt_char);
+        if (!gf_addr->ai_addr) {
+            GF_FREE(gf_addr);
+            gf_addr = NULL;
+            goto out;
+        }
+        memcpy(gf_addr->ai_addr, client_sockaddr, addr_sz);
+        gf_addr->ai_addrlen = addr_sz;
+        gf_addr->ai_canonname = GF_MALLOC(sizeof(client_hostname),
+                                          gf_common_mt_char);
+        if (!gf_addr->ai_canonname) {
+            GF_FREE(gf_addr->ai_addr);
+            GF_FREE(gf_addr);
+            gf_addr = NULL;
+            goto out;
+        }
+        memcpy(gf_addr->ai_canonname, client_hostname, sizeof(client_hostname));
+    } else {
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = AF_UNSPEC;
+        hints.ai_flags = (AI_CANONNAME|AI_ADDRCONFIG);
+
+        ret = getaddrinfo(identifier, NULL, &hints, &addr);
+        if (ret != 0) {
+            gf_smsg(identifier, GF_LOG_WARNING, 0, LG_MSG_GETADDRINFO_FAILED,
+                    "error=%s", gai_strerror(ret), NULL);
+            goto out;
+        }
+
+        for (p = addr; p; p = p->ai_next) {
+            tmp = GF_CALLOC(1, sizeof(struct gf_addrinfo), gf_common_mt_char);
+            if (!tmp) {
+                goto out;
+            }
+            tmp->ai_addr = GF_MALLOC(addr->ai_addrlen, gf_common_mt_char);
+            if (!tmp->ai_addr) {
+                GF_FREE(tmp);
+                gf_freeaddrinfo(gf_addr);
+                freeaddrinfo(addr);
+                goto out;
+            }
+            tmp->ai_addrlen = addr->ai_addrlen;
+            memcpy(tmp->ai_addr, addr->ai_addr, addr->ai_addrlen);
+            if (!gf_addr) {
+                gf_addr = tmp;
+                INIT_LIST_HEAD(&gf_addr->list);
+                gf_addr->ai_canonname = GF_MALLOC(strlen(addr->ai_canonname),
+                                                  gf_common_mt_char);
+                if (!gf_addr->ai_canonname) {
+                    freeaddrinfo(addr);
+                    GF_FREE(tmp->ai_addr);
+                    GF_FREE(tmp);
+                    goto out;
+                }
+                memcpy(gf_addr->ai_canonname, addr->ai_canonname,
+                       strlen(addr->ai_canonname));
+            } else {
+                list_add_tail(&tmp->list, &gf_addr->list);
+            }
+        }
+    }
+
+out:
+    return gf_addr;
 }
 
 /* Peform a dns lookup for identifier(IP address or hostname) */
 
-struct addrinfo *
+struct gf_addrinfo *
 gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
 {
-    struct addrinfo *addr = NULL;
+    struct gf_addrinfo *addr = NULL;
     dict_t *cache = NULL;
     data_t *entrydata = NULL;
     struct dnscache_entry *dnsentry = NULL;
@@ -709,7 +825,7 @@ gf_dns_lookup_address_cached(char *identifier, struct dnscache *dnscache)
         dnsentry = (struct dnscache_entry *)entrydata->data;
         /* First check the TTL & timestamp */
         if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
-            freeaddrinfo(dnsentry->addr);
+            gf_freeaddrinfo(dnsentry->addr);
             dict_del(cache, identifier); /* Remove this entry */
         } else {
             /* Cache entry is valid, get the addr and return */
@@ -737,7 +853,7 @@ out:
                 addr = NULL;
             }
         } else {
-            freeaddrinfo(addr);
+            gf_freeaddrinfo(addr);
             addr = NULL;
         }
     }
@@ -3704,10 +3820,10 @@ out:
 gf_boolean_t
 gf_is_same_address(char *name1, char *name2)
 {
-    struct addrinfo *addr1 = NULL;
-    struct addrinfo *addr2 = NULL;
-    struct addrinfo *p = NULL;
-    struct addrinfo *q = NULL;
+    struct gf_addrinfo *addr1 = NULL;
+    struct gf_addrinfo *addr2 = NULL;
+    struct gf_addrinfo *p = NULL;
+    struct gf_addrinfo *q = NULL;
     gf_boolean_t ret = _gf_false;
     xlator_t *this = THIS;
     glusterfs_ctx_t *ctx = this->ctx;
@@ -3732,8 +3848,10 @@ gf_is_same_address(char *name1, char *name2)
             goto out;
     }
 
-    for (p = addr1; p; p = p->ai_next) {
-        for (q = addr2; q; q = q->ai_next) {
+    list_for_each_entry(p, &addr1->list, list)
+    {
+        list_for_each_entry(q, &addr2->list, list)
+        {
             if (p->ai_addrlen != q->ai_addrlen) {
                 continue;
             }
@@ -3747,10 +3865,10 @@ gf_is_same_address(char *name1, char *name2)
 
 out:
     if (addr1 && !have_cache) {
-        freeaddrinfo(addr1);
+        gf_freeaddrinfo(addr1);
     }
     if (addr2 && !have_cache) {
-        freeaddrinfo(addr2);
+        gf_freeaddrinfo(addr2);
     }
     return ret;
 }
