@@ -2972,12 +2972,11 @@ struct volume_options options[] = {
      .min = CLIENT_MIN_EVENT_THREADS,
      .max = CLIENT_MAX_EVENT_THREADS,
      .default_value = TOSTRING(STARTING_EVENT_THREADS),
-     .description = "Specifies the number of event threads to execute "
-                    "in parallel. Larger values would help process"
-                    " responses faster, depending on available processing"
-                    " power. Range 1-32 threads.",
+     .description = "Specifies the number of event threads to execute in "
+                    "parallel. Larger values would help process responses "
+                    "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
 
     /* This option is required for running code-coverage tests with
        old protocol */

@@ -4453,20 +4453,22 @@ struct volume_options options[] = {
      .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
      .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on bricks"},
+                    "maximum amount of threads that can be created on bricks."},
     {.key = {"client-threads"},
      .type = GF_OPTION_TYPE_INT,
      .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
      .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT |
+              OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
-     .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on clients"},
+     .description =
+         "When global threading is used, this value determines the "
+         "maximum amount of threads that can be created on clients."},
     {.key = {"volume-id"},
      .type = GF_OPTION_TYPE_STR,
      .op_version = {GD_OP_VERSION_7_1},

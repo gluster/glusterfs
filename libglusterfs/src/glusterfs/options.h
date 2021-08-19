@@ -46,13 +46,27 @@ typedef enum {
 
 typedef enum {
     OPT_FLAG_NONE = 0,
-    OPT_FLAG_SETTABLE = 1 << 0,   /* can be set using volume set */
-    OPT_FLAG_CLIENT_OPT = 1 << 1, /* affects clients */
-    OPT_FLAG_GLOBAL = 1
-                      << 2, /* affects all instances of the particular xlator */
-    OPT_FLAG_FORCE = 1 << 3,       /* needs force to be reset */
-    OPT_FLAG_NEVER_RESET = 1 << 4, /* which should not be reset */
-    OPT_FLAG_DOC = 1 << 5,         /* can be shown in volume set help */
+
+    /* Can be set using 'gluster volume set' command. */
+    OPT_FLAG_SETTABLE = 1 << 0,
+
+    /* Affects clients. */
+    OPT_FLAG_CLIENT_OPT = 1 << 1,
+
+    /* Affects all instances of the particular xlator. */
+    OPT_FLAG_GLOBAL = 1 << 2,
+
+    /* Needs to be forced for reset. */
+    OPT_FLAG_FORCE = 1 << 3,
+
+    /* Should be never reset. */
+    OPT_FLAG_NEVER_RESET = 1 << 4,
+
+    /* Documented to be shown in 'gluster volume set help'. */
+    OPT_FLAG_DOC = 1 << 5,
+
+    /* Numerical with specified mininum and maximum values. */
+    OPT_FLAG_RANGE = 1 << 6
 } opt_flags_t;
 
 typedef enum {
