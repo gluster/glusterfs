@@ -11588,7 +11588,7 @@ glusterd_volume_heal_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     dict_t *ctx_dict = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_op_t op = GD_OP_NONE;
 

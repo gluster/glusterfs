@@ -1275,7 +1275,7 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     call_frame_t *frame = NULL;
 

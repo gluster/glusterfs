@@ -606,7 +606,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
     char *volname = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
     uint32_t op_errno = 0;
@@ -701,12 +701,12 @@ local_locking_done:
     if (volname || (priv->op_version < GD_OP_VERSION_3_6_0))
         event_type = GD_OP_EVENT_START_LOCK;
     else {
-        txn_op_info.state.state = GD_OP_STATE_LOCK_SENT;
+        txn_op_info.state = GD_OP_STATE_LOCK_SENT;
         event_type = GD_OP_EVENT_ALL_ACC;
     }
 
-    /* Save opinfo for this transaction with the transaction id */
-    glusterd_txn_opinfo_init(&txn_op_info, NULL, &op, ctx, req);
+    /* Save opinfo for this transaction with the transaction id. */
+    glusterd_txn_opinfo_init(&txn_op_info, 0, (int *)&op, ctx, req);
 
     ret = glusterd_set_txn_opinfo(txn_id, &txn_op_info);
     if (ret) {
@@ -758,7 +758,7 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
     glusterd_op_lock_ctx_t *ctx = NULL;
     glusterd_op_sm_event_type_t op = GD_OP_EVENT_LOCK;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
@@ -814,7 +814,7 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
         goto out;
     }
 
-    glusterd_txn_opinfo_init(&txn_op_info, NULL, &op, op_ctx, req);
+    glusterd_txn_opinfo_init(&txn_op_info, 0, (int *)&op, op_ctx, req);
 
     ret = glusterd_set_txn_opinfo(txn_id, &txn_op_info);
     if (ret) {
@@ -909,11 +909,9 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
-    glusterd_op_sm_state_info_t state = {
-        0,
-    };
+    glusterd_op_sm_state_t state = GD_OP_STATE_DEFAULT;
     glusterd_conf_t *priv = NULL;
 
     priv = this->private;
@@ -967,8 +965,8 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     if (ret) {
         gf_msg_debug(this->name, 0, "No transaction's opinfo set");
 
-        state.state = GD_OP_STATE_LOCKED;
-        glusterd_txn_opinfo_init(&txn_op_info, &state, &op_req.op,
+        state = GD_OP_STATE_LOCKED;
+        glusterd_txn_opinfo_init(&txn_op_info, state, &op_req.op,
                                  req_ctx->dict, req);
 
         if (req_ctx->op != GD_OP_GSYNC_SET)

@@ -1057,10 +1057,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
 int
 glusterd_restart_bricks(void *opaque);
 
-int32_t
-glusterd_volume_txn(rpcsvc_request_t *req, char *volname, int flags,
-                    glusterd_op_t op);
-
 int
 glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
                            glusterd_peerctx_t *peerctx);
@@ -1275,15 +1271,6 @@ int32_t
 glusterd_op_begin_synctask(rpcsvc_request_t *req, glusterd_op_t op, void *dict);
 int32_t
 glusterd_defrag_event_notify_handle(dict_t *dict);
-
-int32_t
-glusterd_txn_opinfo_dict_init();
-
-void
-glusterd_txn_opinfo_dict_fini();
-
-void
-glusterd_txn_opinfo_init();
 
 /* snapshot */
 glusterd_snap_t *
