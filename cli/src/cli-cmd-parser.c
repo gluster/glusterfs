@@ -502,6 +502,7 @@ cli_validate_volname(const char *volname)
     int volname_len;
     static const char *const invalid_volnames[] = {"volume",
                                                    "type",
+                                                   "help",
                                                    "subvolumes",
                                                    "option",
                                                    "end-volume",
