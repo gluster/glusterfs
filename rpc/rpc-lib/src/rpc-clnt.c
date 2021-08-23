@@ -23,15 +23,15 @@
 void
 rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool);
 
-struct saved_frame *
-__saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
-                            struct timeval *current)
+static struct saved_frame *
+__saved_frames_get_timedout(struct saved_frames *frames, time_t timeout,
+                            time_t current)
 {
     struct saved_frame *bailout_frame = NULL, *tmp = NULL;
 
     if (!list_empty(&frames->sf.list)) {
         tmp = list_entry(frames->sf.list.next, typeof(*tmp), list);
-        if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
+        if ((tmp->saved_at.tv_sec + timeout) <= current) {
             bailout_frame = tmp;
             list_del_init(&bailout_frame->list);
             frames->count--;
@@ -92,7 +92,7 @@ call_bail(void *data)
     rpc_transport_t *trans = NULL;
     struct rpc_clnt *clnt = NULL;
     rpc_clnt_connection_t *conn = NULL;
-    struct timeval current;
+    time_t current = 0;
     struct list_head list;
     struct saved_frame *saved_frame = NULL;
     struct saved_frame *trav = NULL;
@@ -125,7 +125,7 @@ call_bail(void *data)
     if (!trans)
         goto out;
 
-    gettimeofday(&current, NULL);
+    current = gf_time();
     INIT_LIST_HEAD(&list);
 
     pthread_mutex_lock(&conn->lock);
@@ -133,7 +133,7 @@ call_bail(void *data)
         /* Chaining to get call-always functionality from
            call-once timer */
         if (conn->timer) {
-            timeout.tv_sec = 10;
+            timeout.tv_sec = conn->config.bailout_timeout;
             timeout.tv_nsec = 0;
 
             /* Ref rpc as it's added to timer event queue */
@@ -151,7 +151,7 @@ call_bail(void *data)
 
         do {
             saved_frame = __saved_frames_get_timedout(
-                conn->saved_frames, conn->frame_timeout, &current);
+                conn->saved_frames, conn->frame_timeout, current);
             if (saved_frame)
                 list_add(&saved_frame->list, &list);
 
@@ -212,9 +212,8 @@ __save_frame(struct rpc_clnt *rpc_clnt, call_frame_t *frame,
         goto out;
     }
 
-    /* TODO: make timeout configurable */
     if (conn->timer == NULL) {
-        timeout.tv_sec = 10;
+        timeout.tv_sec = conn->config.bailout_timeout;
         timeout.tv_nsec = 0;
         rpc_clnt_ref(rpc_clnt);
         conn->timer = gf_timer_call_after(rpc_clnt->ctx, timeout, call_bail,
@@ -386,7 +385,7 @@ rpc_clnt_reconnect(void *conn_ptr)
         conn->reconnect = 0;
 
         if ((conn->connected == 0) && !clnt->disabled) {
-            ts.tv_sec = 3;
+            ts.tv_sec = conn->config.reconnect_timeout;
             ts.tv_nsec = 0;
 
             gf_log(conn->name, GF_LOG_TRACE, "attempting reconnect");
@@ -836,7 +835,7 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
     pthread_mutex_lock(&conn->lock);
     {
         if (!conn->rpc_clnt->disabled && (conn->reconnect == NULL)) {
-            ts.tv_sec = 3;
+            ts.tv_sec = conn->config.reconnect_timeout;
             ts.tv_nsec = 0;
 
             rpc_clnt_ref(clnt);
@@ -1006,15 +1005,17 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         goto out;
     }
 
+    conn->rpc_clnt = clnt;
+
     ret = dict_get_time(options, "frame-timeout", &conn->frame_timeout);
     if (ret >= 0) {
         gf_log(name, GF_LOG_INFO, "setting frame-timeout to %ld",
                conn->frame_timeout);
     } else {
-        gf_log(name, GF_LOG_DEBUG, "defaulting frame-timeout to 30mins");
-        conn->frame_timeout = 1800;
+        gf_log(name, GF_LOG_DEBUG, "defaulting frame-timeout to %d mins",
+               GF_DEFAULT_FRAME_TIMEOUT / 60);
+        conn->frame_timeout = GF_DEFAULT_FRAME_TIMEOUT;
     }
-    conn->rpc_clnt = clnt;
 
     ret = dict_get_time(options, "ping-timeout", &conn->ping_timeout);
     if (ret >= 0) {
@@ -1956,12 +1957,12 @@ rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config)
         pthread_mutex_unlock(&rpc->conn.lock);
     }
 
-    if (config->rpc_timeout) {
-        if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
+    if (config->frame_timeout) {
+        if (config->frame_timeout != rpc->conn.config.frame_timeout)
             gf_log(rpc->conn.name, GF_LOG_INFO,
-                   "changing timeout to %ld (from %ld)", config->rpc_timeout,
-                   rpc->conn.config.rpc_timeout);
-        rpc->conn.config.rpc_timeout = config->rpc_timeout;
+                   "changing frame timeout to %ld (from %ld)",
+                   config->frame_timeout, rpc->conn.config.frame_timeout);
+        rpc->conn.config.frame_timeout = config->frame_timeout;
     }
 
     if (config->remote_port) {

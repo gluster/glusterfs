@@ -17,6 +17,11 @@
 #include "xdr-common.h"
 #include "glusterfs3.h"
 
+/* Default values for the RPC call timeouts. */
+#define GF_DEFAULT_FRAME_TIMEOUT 1800
+#define GF_DEFAULT_BAILOUT_TIMEOUT 10
+#define GF_DEFAULT_RECONNECT_TIMEOUT 3
+
 typedef enum {
     RPC_CLNT_CONNECT,
     RPC_CLNT_DISCONNECT,
@@ -117,10 +122,12 @@ typedef struct rpc_auth_data {
 } rpc_auth_data_t;
 
 struct rpc_clnt_config {
-    time_t rpc_timeout;
     int remote_port;
     char *remote_host;
     time_t ping_timeout;
+    time_t frame_timeout;
+    time_t bailout_timeout;
+    time_t reconnect_timeout;
 };
 
 #define rpc_auth_flavour(au) ((au).flavour)

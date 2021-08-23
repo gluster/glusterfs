@@ -2411,11 +2411,17 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 {
     int ret = -1;
 
-    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, time, out);
-
-    GF_OPTION_INIT("remote-port", conf->rpc_conf.remote_port, int32, out);
+    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.frame_timeout, time, out);
 
     GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, time, out);
+
+    GF_OPTION_INIT("bailout-timeout", conf->rpc_conf.bailout_timeout, time,
+                   out);
+
+    GF_OPTION_INIT("reconnect-timeout", conf->rpc_conf.reconnect_timeout, time,
+                   out);
+
+    GF_OPTION_INIT("remote-port", conf->rpc_conf.remote_port, int32, out);
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
     if (!conf->opt.remote_subvolume)
@@ -2555,11 +2561,17 @@ reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options, time,
-                     out);
+    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.frame_timeout, options,
+                     time, out);
 
     GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, time,
                      out);
+
+    GF_OPTION_RECONF("bailout-timeout", rpc_config.bailout_timeout, options,
+                     time, out);
+
+    GF_OPTION_RECONF("reconnect-timeout", rpc_config.ping_timeout, options,
+                     time, out);
 
     GF_OPTION_RECONF("event-threads", new_nthread, options, int32, out);
     ret = client_check_event_threads(this, conf, conf->event_threads,
@@ -2599,8 +2611,7 @@ reconfigure(xlator_t *this, dict_t *options)
         }
     }
 
-    /* Reconfiguring client xlator's @rpc with new frame-timeout
-     * and ping-timeout */
+    /* Reconfigure client xlator's @rpc with new timeout values. */
     rpc_clnt_reconfig(conf->rpc, &rpc_config);
 
     GF_OPTION_RECONF("filter-O_DIRECT", conf->filter_o_direct, options, bool,
@@ -2928,7 +2939,7 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_TIME,
      .min = 0,
      .max = 86400,
-     .default_value = "1800",
+     .default_value = TOSTRING(GF_DEFAULT_FRAME_TIMEOUT),
      .description = "Time frame after which the (file) operation would be "
                     "declared as dead, if the server does not respond for "
                     "a particular (file) operation.",
@@ -2942,6 +2953,25 @@ struct volume_options options[] = {
      .description = "Time duration for which the client waits to "
                     "check if the server is responsive.",
      .op_version = {1},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"bailout-timeout"},
+     .type = GF_OPTION_TYPE_TIME,
+     .min = 0,
+     .max = 60,
+     .default_value = TOSTRING(GF_DEFAULT_BAILOUT_TIMEOUT),
+     .description = "Time frame after which the successful RPC "
+                    "request shoud be bailed out, in seconds.",
+     .op_version = {GD_OP_VERSION_10_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"reconnect-timeout"},
+     .type = GF_OPTION_TYPE_TIME,
+     .min = 0,
+     .max = 60,
+     .default_value = TOSTRING(GF_DEFAULT_RECONNECT_TIMEOUT),
+     .description = "Time frame after which the reconnect attempt "
+                    "should be performed for the disconnected RPC "
+                    "connection, in seconds.",
+     .op_version = {GD_OP_VERSION_10_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"client-bind-insecure"}, .type = GF_OPTION_TYPE_BOOL},
     {.key = {"tcp-window-size"},
