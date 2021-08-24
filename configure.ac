@@ -375,11 +375,13 @@ AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
         [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
 
-AC_CHECK_FILE([/etc/centos-release])
-if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/centos-release])
+    if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
         if grep "release 6" /etc/centos-release; then
                 with_ipv6_default="no"
         fi
+    fi
 fi
 
 dnl On some distributions '-ldl' isn't automatically added to LIBS
@@ -1174,21 +1176,27 @@ if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
 fi
 
-# Check the distribution where you are compiling glusterfs on
+# Check the distribution where you are compiling glusterfs on.
+# For cross-compiling, you're advised to specify it manually.
 
 GF_DISTRIBUTION=
-AC_CHECK_FILE([/etc/debian_version])
-AC_CHECK_FILE([/etc/SuSE-release])
-AC_CHECK_FILE([/etc/redhat-release])
 
-if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
-   GF_DISTRIBUTION=Debian
-fi
-if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
-   GF_DISTRIBUTION=SuSE
-fi
-if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
-   GF_DISTRIBUTION=Redhat
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/debian_version])
+    AC_CHECK_FILE([/etc/SuSE-release])
+    AC_CHECK_FILE([/etc/redhat-release])
+
+    if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
+        GF_DISTRIBUTION=Debian
+    fi
+    if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
+        GF_DISTRIBUTION=SuSE
+    fi
+    if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
+        GF_DISTRIBUTION=Redhat
+    fi
+else
+    GF_DISTRIBUTION=Unspecified
 fi
 
 AC_SUBST(GF_DISTRIBUTION)
