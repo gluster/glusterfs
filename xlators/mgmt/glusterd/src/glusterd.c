@@ -2295,9 +2295,9 @@ struct volume_options options[] = {
     },
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
+     .min = GLUSTERD_MIN_EVENT_THREADS,
+     .max = GLUSTERD_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

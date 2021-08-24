@@ -783,7 +783,7 @@ struct volume_options options[] = {
                     "default."},
     {.key = {"barrier-timeout"},
      .type = GF_OPTION_TYPE_TIME,
-     .default_value = BARRIER_TIMEOUT,
+     .default_value = TOSTRING(BARRIER_TIMEOUT),
      .op_version = {GD_OP_VERSION_3_6_0},
      .flags = OPT_FLAG_SETTABLE,
      .description = "After 'timeout' seconds since the time 'barrier' "

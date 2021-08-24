@@ -125,12 +125,21 @@ trap(void);
 #define GF_MS_IN_NS 1000000
 #define GF_US_IN_NS 1000
 
-/* Default timeout for both barrier and changelog translator */
-#define BARRIER_TIMEOUT "120"
+/* Default timeout for both barrier and changelog translator, in seconds. */
+#define BARRIER_TIMEOUT 120
 
-/* Default value of signing waiting time to sign a file for bitrot */
-#define SIGNING_TIMEOUT "120"
-#define BR_WORKERS "4"
+/* Default signing waiting time to sign a file for bitrot, in seconds. */
+#define SIGNING_TIMEOUT 120
+
+/* Threading parameters for bitrot. */
+#define BR_MIN_THREADS 1
+#define BR_MAX_THREADS 16
+#define BR_DEFAULT_THREADS 4
+
+/* Threading parameters for parallel heal, both for AFR and EC xlators. */
+#define SHD_MIN_THREADS 1
+#define SHD_MAX_THREADS 64
+#define SHD_DEFAULT_THREADS SHD_MIN_THREADS
 
 /* xxhash */
 #define GF_XXH64_DIGEST_LENGTH 8
