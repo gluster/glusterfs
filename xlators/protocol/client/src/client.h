@@ -86,7 +86,7 @@ typedef enum {
 
 struct clnt_options {
     char *remote_subvolume;
-    int ping_timeout;
+    time_t ping_timeout;
 };
 
 typedef struct clnt_conf {

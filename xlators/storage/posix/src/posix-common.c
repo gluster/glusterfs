@@ -441,9 +441,9 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     }
 
     GF_OPTION_RECONF("health-check-interval", priv->health_check_interval,
-                     options, uint32, out);
+                     options, time, out);
     GF_OPTION_RECONF("health-check-timeout", priv->health_check_timeout,
-                     options, uint32, out);
+                     options, time, out);
     if (priv->health_check_interval) {
         ret = posix_spawn_health_check_thread(this);
         if (ret)
@@ -972,7 +972,7 @@ posix_init(xlator_t *this)
     ret = 0;
 
     GF_OPTION_INIT("janitor-sleep-duration", _private->janitor_sleep_duration,
-                   int32, out);
+                   time, out);
 
     /* performing open dir on brick dir locks the brick dir
      * and prevents it from being unmounted
@@ -1129,9 +1129,9 @@ posix_init(xlator_t *this)
 
     _private->health_check_active = _gf_false;
     GF_OPTION_INIT("health-check-interval", _private->health_check_interval,
-                   uint32, out);
-    GF_OPTION_INIT("health-check-timeout", _private->health_check_timeout,
-                   uint32, out);
+                   time, out);
+    GF_OPTION_INIT("health-check-timeout", _private->health_check_timeout, time,
+                   out);
     if (_private->health_check_interval) {
         ret = posix_spawn_health_check_thread(this);
         if (ret)

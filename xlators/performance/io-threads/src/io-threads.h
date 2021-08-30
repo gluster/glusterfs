@@ -49,7 +49,7 @@ struct iot_conf {
     int32_t curr_count; /* actual number of threads running */
     int32_t sleep_count;
 
-    int32_t idle_time; /* in seconds */
+    time_t idle_time; /* in seconds */
 
     struct list_head clients[GF_FOP_PRI_MAX];
     /*

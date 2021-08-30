@@ -942,7 +942,7 @@ iot_priv_dump(xlator_t *this)
     gf_proc_dump_write("maximum_threads_count", "%d", conf->max_count);
     gf_proc_dump_write("current_threads_count", "%d", conf->curr_count);
     gf_proc_dump_write("sleep_count", "%d", conf->sleep_count);
-    gf_proc_dump_write("idle_time", "%d", conf->idle_time);
+    gf_proc_dump_write("idle_time", "%ld", conf->idle_time);
     gf_proc_dump_write("stack_size", "%zd", conf->stack_size);
     gf_proc_dump_write("max_high_priority_threads", "%d",
                        conf->ac_iot_limit[GF_FOP_PRI_HI]);
@@ -1235,7 +1235,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("least-prio-threads", conf->ac_iot_limit[GF_FOP_PRI_LEAST],
                    int32, out);
 
-    GF_OPTION_INIT("idle-time", conf->idle_time, int32, out);
+    GF_OPTION_INIT("idle-time", conf->idle_time, time, out);
 
     GF_OPTION_INIT("enable-least-priority", conf->least_priority, bool, out);
 

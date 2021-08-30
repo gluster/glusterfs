@@ -24,7 +24,7 @@ BRICK_COUNT=3
 TEST $CLI volume create $V0 $H0:$B0/${V0}0 $H0:$B0/${V0}1 $H0:$B0/${V0}2
 TEST $CLI volume start $V0
 
-TEST glusterfs --attribute-timeout=0 --entry-timeout=0 --gid-timeout=-1 -s $H0 --volfile-id $V0 $M0;
+TEST glusterfs --attribute-timeout=0 --entry-timeout=0 --gid-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
 i=1
 # Write some data to a file and extend such that the file is sparse to a sector
