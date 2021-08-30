@@ -610,7 +610,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
     };
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
     uint32_t op_errno = 0;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
     GF_ASSERT(req);
     GF_ASSERT((op > GD_OP_NONE) && (op < GD_OP_MAX));
@@ -676,7 +676,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
          * mgmt_v3_lock_timeout should be set to default value or we
          * need to change the value according to timeout value
          * i.e, timeout + 120 seconds. */
-        ret = dict_get_uint32(dict, "timeout", &timeout);
+        ret = dict_get_time(dict, "timeout", &timeout);
         if (!ret)
             priv->mgmt_v3_lock_timeout = timeout + 120;
 

@@ -246,14 +246,14 @@ cli_cmd_unlock()
 }
 
 static void
-seconds_from_now(unsigned secs, struct timespec *ts)
+seconds_from_now(time_t secs, struct timespec *ts)
 {
     timespec_now_realtime(ts);
     ts->tv_sec += secs;
 }
 
 int
-cli_cmd_await_response(unsigned time)
+cli_cmd_await_response(time_t time)
 {
     struct timespec ts = {
         0,
@@ -354,7 +354,7 @@ cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
-    unsigned timeout = 0;
+    time_t timeout = 0;
 
     if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
         (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
