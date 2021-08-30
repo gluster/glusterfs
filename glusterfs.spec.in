@@ -442,9 +442,8 @@ Requires:         python%{_pythonver}-gluster = %{version}-%{release}
 
 Requires:         rsync
 Requires:         util-linux
-%if ( 0%{?rhel} && ( ( 0%{?rhel} == 8 && 0%{?rhel_minor_version} >= 3 ) || 0%{?rhel} >= 9 ) )
 Requires:         tar
-%endif
+
 # required for setting selinux bools
 %if ( 0%{?rhel} && 0%{?rhel} >= 8 )
 Requires(post):      policycoreutils-python-utils
