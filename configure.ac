@@ -366,6 +366,12 @@ AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
         [with_libtirpc="no"], [with_libtirpc="yes"])
 
+dnl For --without-libtirpc, check whether legacy glibc rpc is available.
+if test "x$with_libtirpc" = "xno"; then
+    AC_CHECK_HEADER([rpc/types.h], ,
+        AC_MSG_ERROR([Your C library lacks support for RPC. Please use libtirpc instead.]))
+fi
+
 dnl ipv6-default is off by default
 dnl
 dnl ipv6-default requires libtirpc. (glibc rpc does not support IPv6.)
