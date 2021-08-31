@@ -296,10 +296,13 @@ int
 cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                void *data)
 {
+    struct cli_state *state = NULL;
     xlator_t *this = NULL;
     int ret = 0;
 
     this = mydata;
+    state = this->private;
+    GF_ASSERT(state);
 
     switch (event) {
         case RPC_CLNT_CONNECT: {
@@ -311,7 +314,7 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_DISCONNECT: {
             cli_cmd_broadcast_connected(_gf_false);
             gf_log(this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
-            if (!global_state->prompt && global_state->await_connected) {
+            if (!state->prompt && state->await_connected) {
                 ret = 1;
                 cli_out(
                     "Connection failed. Please check if gluster "
@@ -587,7 +590,8 @@ _cli_err(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -613,7 +617,8 @@ _cli_out(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -787,8 +792,6 @@ cli_local_wipe(cli_local_t *local)
     return;
 }
 
-struct cli_state *global_state;
-
 int
 main(int argc, char *argv[])
 {
@@ -826,7 +829,7 @@ main(int argc, char *argv[])
         goto out;
 
     state.ctx = ctx;
-    global_state = &state;
+    THIS->private = &state;
 
     ret = parse_cmdline(argc, argv, &state);
     if (ret)

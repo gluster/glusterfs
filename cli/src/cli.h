@@ -188,9 +188,9 @@ typedef struct cli_volume_status cli_volume_status_t;
 
 typedef struct cli_local cli_local_t;
 
-typedef ssize_t (*cli_serialize_t)(struct iovec outmsg, void *args);
+typedef struct cli_state cli_state_t;
 
-extern struct cli_state *global_state; /* use only in readline callback */
+typedef ssize_t (*cli_serialize_t)(struct iovec outmsg, void *args);
 
 extern struct rpc_clnt *global_quotad_rpc;
 
