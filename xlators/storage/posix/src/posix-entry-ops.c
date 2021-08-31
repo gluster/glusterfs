@@ -572,14 +572,18 @@ real_op:
             sys_close(tmp_fd);
         } else {
             if (op_errno == EEXIST) {
-                if (dict_get_sizen(xdata, DHT_RENAME_FOP_KEY)) {
-                    dict_del_sizen(xdata, DHT_RENAME_FOP_KEY);
+                level = GF_LOG_DEBUG;
+
+                if (dict_get_sizen(xdata, GF_MKNOD_REPLACE_KEY)) {
+                    dict_del_sizen(xdata, GF_MKNOD_REPLACE_KEY);
                     op_ret = posix_unlink_stale_linkto(frame, this, real_path,
                                                        &op_errno, loc);
                     if (op_ret == 0)
                         goto real_op;
+
+                    level = GF_LOG_ERROR;
                 }
-                level = GF_LOG_DEBUG;
+
             } else
                 level = GF_LOG_ERROR;
             gf_msg(this->name, level, errno, P_MSG_MKNOD_FAILED,
@@ -1205,16 +1209,21 @@ posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
         0,
     };
 
-    /* get stale file gfid and stat-info */
+    /* get the stale file gfid and stat-info */
     ret = posix_pstat(this, NULL, NULL, real_path, &stbuf, _gf_false);
     if (ret) {
-        if (errno == ENOENT)
-            ret = 0; /* retry creation if file was deleted */
-        gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_LSTAT_FAILED,
-               "lstat on %s failed", real_path);
+        if (errno == ENOENT) {
+            ret = 0; /* retry creation if file doesn't exist */
+            gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_LSTAT_FAILED,
+                   "lstat on %s failed: file unlinked by another client",
+                   real_path);
+        } else {
+            gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_LSTAT_FAILED,
+                   "lstat on %s failed", real_path);
+        }
         goto out;
     }
-    /* unlink only if linkto filw*/
+    /* unlink only if linkto file*/
     if (IS_DHT_LINKFILE_MODE(&stbuf)) {
         gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_HANDLE_CREATE,
                "unlinking stale linkto: %s gfid: %s", real_path,
@@ -1223,7 +1232,7 @@ posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
             frame, this, real_path, &stbuf, op_errno, loc, _gf_false, NULL);
 
     } else {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_CREATE,
+        gf_msg(this->name, GF_LOG_DEBUG, 0, P_MSG_HANDLE_CREATE,
                "skip unlinking stale data-file: %s gfid: %s", real_path,
                uuid_utoa(stbuf.ia_gfid));
     }
@@ -1875,15 +1884,6 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         op_errno = ESTALE;
         goto out;
     }
-
-    // TMP simulate failure:
-    /*   if ((xdata) &&  dict_get_sizen(xdata, DHT_RENAME_FOP_KEY)) {
-                dict_del_sizen(xdata, DHT_RENAME_FOP_KEY);
-                //simulate error
-                op_ret = -1;
-                op_errno = ENONET;
-                goto out;
-    }*/
 
     MAKE_ENTRY_HANDLE(real_newpath, par_newpath, this, newloc, &stbuf);
     if (!real_newpath || !par_newpath) {
