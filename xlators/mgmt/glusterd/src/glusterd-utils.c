@@ -204,6 +204,17 @@ is_brick_graceful_cleanup_enabled(dict_t *opts)
 }
 
 static gf_boolean_t
+gd_has_remote_address(glusterd_conf_t *priv, const char *hostname) {
+    glusterd_remote_hostname_t *remote_hostname_obj = NULL;
+    list_for_each_entry(remote_hostname_obj, &priv->remote_hostnames, remote_hostname_list) {
+        if (strcmp(remote_hostname_obj->remote_hostname, hostname) == 0) {
+            return _gf_true;
+        }
+    }
+    return _gf_false;
+}
+
+static gf_boolean_t
 gd_has_local_address(glusterd_conf_t *priv, const char *hostname)
 {
     glusterd_hostname_t *hostname_obj = NULL;
@@ -216,6 +227,34 @@ gd_has_local_address(glusterd_conf_t *priv, const char *hostname)
     }
 
     return _gf_false;
+}
+
+static int
+glusterd_remote_hostname_new(xlator_t *this, const char *hostname,
+                            glusterd_remote_hostname_t **name) {
+
+    glusterd_remote_hostname_t *remote_hostname_obj = NULL;
+    int32_t ret = -1;
+
+    GF_ASSERT(hostname);
+    GF_ASSERT(name);
+
+    remote_hostname_obj = GF_MALLOC(sizeof(*remote_hostname_obj), gf_gld_mt_remote_hostname_t);
+    if (!remote_hostname_obj) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_NO_MEMORY,
+                "Memory allocation is failed for client_hostname");
+        goto out;
+    }
+
+    remote_hostname_obj->remote_hostname = gf_strdup(hostname);
+    CDS_INIT_LIST_HEAD(&remote_hostname_obj->remote_hostname_list);
+
+    *name = remote_hostname_obj;
+    ret = 0;
+
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
 }
 
 static int
@@ -252,6 +291,7 @@ glusterd_gf_is_local_addr(char *hostname)
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_hostname_t *hostname_obj = NULL;
+    glusterd_remote_hostname_t *remote_hostname_obj = NULL;
     gf_boolean_t found = _gf_false;
     int ret = 1;
 
@@ -259,6 +299,11 @@ glusterd_gf_is_local_addr(char *hostname)
 
     if (gd_has_local_address(priv, hostname)) {
         found = _gf_true;
+        goto out;
+    }
+
+    if(gd_has_remote_address(priv, hostname)) {
+        found = _gf_false;
         goto out;
     }
 
@@ -270,6 +315,14 @@ glusterd_gf_is_local_addr(char *hostname)
         }
         found = _gf_true;
         list_add_tail(&hostname_obj->hostname_list, &priv->hostnames);
+    } else {
+        ret = glusterd_remote_hostname_new(this, hostname, &remote_hostname_obj);
+        if (ret) {
+            goto out;
+        }
+
+        found = _gf_false;
+        list_add_tail(&remote_hostname_obj->remote_hostname_list, &priv->remote_hostnames);
     }
 
 out:

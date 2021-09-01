@@ -91,6 +91,11 @@ typedef struct glusterd_hostname_ {
     struct list_head hostname_list;
 } glusterd_hostname_t;
 
+typedef struct glusterd_remote_hostname_ {
+    char *remote_hostname;
+    struct list_head remote_hostname_list;
+} glusterd_remote_hostname_t;
+
 gf_boolean_t
 is_brick_mx_enabled(void);
 
