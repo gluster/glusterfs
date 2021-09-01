@@ -553,8 +553,6 @@ AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads libr
 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
-AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
-
 AC_CHECK_LIB([intl], [gettext])
 
 AC_CHECK_HEADERS([sys/xattr.h])
@@ -1496,19 +1494,11 @@ if test "x$enable_mempool" = "xno"; then
         AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
 fi
 
-BUILD_READLINE=no
-AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
-AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
-AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
-
-if test -n "$RLLIBS"; then
-   if test "x$RL_UNDO" = "xyes"; then
-      AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])
-      BUILD_READLINE=yes
-   else
-      BUILD_READLINE="no (present but missing undo)"
-   fi
-
+dnl Add readline support in CLI if available.
+PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
+                  [BUILD_READLINE="no"])
+if test x$BUILD_READLINE = xyes; then
+    AC_DEFINE(HAVE_READLINE, 1, [Enable CLI readline support.])
 fi
 
 BUILD_LIBAIO=no
