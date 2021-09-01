@@ -154,11 +154,11 @@ is_brick_mx_enabled(void)
 }
 
 static gf_boolean_t
-gd_has_local_address(glusterd_conf_t *priv, const char *hostname)
+gd_has_address(struct list_head *hostnames_list_head, const char *hostname)
 {
     glusterd_hostname_t *hostname_obj = NULL;
 
-    list_for_each_entry(hostname_obj, &priv->hostnames, hostname_list)
+    list_for_each_entry(hostname_obj, hostnames_list_head, hostname_list)
     {
         if (strcmp(hostname_obj->hostname, hostname) == 0) {
             return _gf_true;
@@ -208,19 +208,28 @@ glusterd_gf_is_local_addr(char *hostname)
     this = THIS;
     priv = this->private;
 
-    if (gd_has_local_address(priv, hostname)) {
+    if (gd_has_address(&priv->hostnames, hostname)) {
         found = _gf_true;
         goto out;
     }
 
+    if (gd_has_address(&priv->remote_hostnames, hostname)) {
+        found = _gf_false;
+        goto out;
+    }
+
+    ret = glusterd_hostname_new(this, hostname, &hostname_obj);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY, NULL);
+        goto out;
+    }
+
     if (gf_is_local_addr(hostname)) {
-        ret = glusterd_hostname_new(this, hostname, &hostname_obj);
-        if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY, NULL);
-            goto out;
-        }
         found = _gf_true;
         list_add_tail(&hostname_obj->hostname_list, &priv->hostnames);
+    } else {
+        found = _gf_false;
+        list_add_tail(&hostname_obj->hostname_list, &priv->remote_hostnames);
     }
 
 out:
