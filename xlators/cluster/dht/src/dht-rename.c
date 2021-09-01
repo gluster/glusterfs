@@ -1404,7 +1404,9 @@ dht_rename_create_links(call_frame_t *frame)
                    "Failed to set dictionary value: key = %s,"
                    " path = %s",
                    GF_MKNOD_REPLACE_KEY, local->loc.path);
-            ret = 0;
+            dict_unref(xattr_new);
+            ret = -1;
+            goto cleanup;
         }
 
         local->params = xattr_new;
