@@ -56,6 +56,7 @@ typedef enum gf_gld_mem_types_ {
     gf_gld_mt_hostname_t,
     gf_gld_mt_pmap_reg_t,
     gf_gld_mt_pmap_port_t,
+    gf_gld_mt_remote_hostname_t,
     gf_gld_mt_end,
 } gf_gld_mem_types_t;
 #endif

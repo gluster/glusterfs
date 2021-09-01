@@ -935,7 +935,7 @@ out:
     return ret ? -1 : 0;
 }
 #undef RUN_GSYNCD_CMD
-#else /* SYNCDAEMON_COMPILE */
+#else  /* SYNCDAEMON_COMPILE */
 static int
 configure_syncdaemon(glusterd_conf_t *conf)
 {
@@ -1384,6 +1384,20 @@ is_downgrade(dict_t *options, gf_boolean_t *downgrade)
     ret = 0;
 out:
     return ret;
+}
+
+void
+glusterd_destroy_remote_hostname_list(glusterd_conf_t *priv)
+{
+    glusterd_remote_hostname_t *remote_hostname_obj = NULL;
+    list_for_each_entry(remote_hostname_obj, &priv->remote_hostnames,
+                        remote_hostname_list)
+    {
+        list_del_init(&remote_hostname_obj->remote_hostname_list);
+        GF_FREE(remote_hostname_obj->remote_hostname);
+        GF_FREE(remote_hostname_obj);
+    }
+
 }
 
 void
@@ -1879,6 +1893,7 @@ init(xlator_t *this)
     CDS_INIT_LIST_HEAD(&conf->brick_procs);
     CDS_INIT_LIST_HEAD(&conf->shd_procs);
     CDS_INIT_LIST_HEAD(&conf->hostnames);
+    CDS_INIT_LIST_HEAD(&conf->remote_hostnames);
     pthread_mutex_init(&conf->attach_lock, NULL);
     pthread_mutex_init(&conf->volume_lock, NULL);
 
@@ -2129,6 +2144,8 @@ fini(xlator_t *this)
     glusterd_stop_uds_listener(this);              /*stop unix socket rpc*/
     glusterd_stop_listener(this);                  /*stop tcp/ip socket rpc*/
     glusterd_destroy_hostname_list(this->private); /*Destroy hostname list */
+    glusterd_destroy_remote_hostname_list(
+            this->private); /*Destroy client hostname list*/
 
 #if 0
        /* Running threads might be using these resourses, we have to cancel/stop
