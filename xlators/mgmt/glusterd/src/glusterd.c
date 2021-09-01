@@ -1370,11 +1370,12 @@ out:
 }
 
 void
-glusterd_destroy_hostname_list(glusterd_conf_t *priv)
+glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
 {
     glusterd_hostname_t *hostname_obj = NULL;
 
-    list_for_each_entry(hostname_obj, &priv->hostnames, hostname_list)
+    list_for_each_entry_safe(hostname_obj, tmp, hostname_list_head,
+                             hostname_list)
     {
         list_del_init(&hostname_obj->hostname_list);
         GF_FREE(hostname_obj->hostname);
@@ -1854,6 +1855,7 @@ init(xlator_t *this)
     CDS_INIT_LIST_HEAD(&conf->brick_procs);
     CDS_INIT_LIST_HEAD(&conf->shd_procs);
     CDS_INIT_LIST_HEAD(&conf->hostnames);
+    INIT_LIST_HEAD(&conf->remote_hostnames);
     pthread_mutex_init(&conf->attach_lock, NULL);
     pthread_mutex_init(&conf->volume_lock, NULL);
 
@@ -2095,9 +2097,14 @@ fini(xlator_t *this)
     if (!this || !this->private)
         goto out;
 
-    glusterd_stop_uds_listener(this); /*stop unix socket rpc*/
-    glusterd_stop_listener(this);     /*stop tcp/ip socket rpc*/
-    glusterd_destroy_hostname_list(this->private); /*Destroy hostname list */
+    glusterd_conf_t *priv = NULL;
+    priv = this->private;
+
+    glusterd_stop_uds_listener(this);                 /*stop unix socket rpc*/
+    glusterd_stop_listener(this);                     /*stop tcp/ip socket rpc*/
+    glusterd_destroy_hostname_list(&priv->hostnames); /*Destroy hostname list */
+    glusterd_destroy_hostname_list(
+        &priv->remote_hostnames); /*Destroy remote hostname list*/
 
 #if 0
        /* Running threads might be using these resourses, we have to cancel/stop
