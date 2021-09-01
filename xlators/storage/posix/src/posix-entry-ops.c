@@ -1204,7 +1204,7 @@ static int
 posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
                           const char *real_path, int32_t *op_errno, loc_t *loc)
 {
-    int ret = -1;
+    int ret = 0;
     struct iatt stbuf = {
         0,
     };
@@ -1235,6 +1235,7 @@ posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
         gf_msg(this->name, GF_LOG_DEBUG, 0, P_MSG_HANDLE_CREATE,
                "skip unlinking stale data-file: %s gfid: %s", real_path,
                uuid_utoa(stbuf.ia_gfid));
+        ret = -1;
     }
 
 out:
