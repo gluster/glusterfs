@@ -546,6 +546,7 @@ glusterd_hooks_stub_cleanup(glusterd_hooks_stub_t *stub)
 static void *
 hooks_worker(void *args)
 {
+
     glusterd_conf_t *conf = NULL;
     glusterd_hooks_private_t *hooks_priv = NULL;
     glusterd_hooks_stub_t *stub = NULL;
