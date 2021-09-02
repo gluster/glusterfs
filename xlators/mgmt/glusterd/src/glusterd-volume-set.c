@@ -1910,7 +1910,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                     "that tags every fop with a namespace hash for later "
                     "throttling, stats collection, logging, etc."},
 
-#ifdef HAVE_LIB_Z
     /* Compressor-decompressor xlator options
      * defaults used from xlator/features/compress/src/cdc.h
      */
@@ -1942,7 +1941,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .option = "debug",
      .type = NO_DOC,
      .op_version = 3},
-#endif
 
     /* Quota xlator options */
     {
@@ -2487,7 +2485,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "changelog.changelog-barrier-timeout",
         .voltype = "features/changelog",
-        .value = BARRIER_TIMEOUT,
+        .value = TOSTRING(BARRIER_TIMEOUT),
         .op_version = GD_OP_VERSION_3_6_0,
     },
     {.key = "changelog.capture-del-path",
@@ -2504,7 +2502,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "features.barrier-timeout",
         .voltype = "features/barrier",
-        .value = BARRIER_TIMEOUT,
+        .value = TOSTRING(BARRIER_TIMEOUT),
         .op_version = GD_OP_VERSION_3_6_0,
     },
     {
@@ -2648,7 +2646,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "features.expiry-time",
         .voltype = "features/bit-rot",
-        .value = SIGNING_TIMEOUT,
+        .value = TOSTRING(SIGNING_TIMEOUT),
         .option = "expiry-time",
         .op_version = GD_OP_VERSION_3_7_0,
         .type = NO_DOC,
@@ -2656,7 +2654,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {
         .key = "features.signer-threads",
         .voltype = "features/bit-rot",
-        .value = BR_WORKERS,
+        .value = TOSTRING(BR_DEFAULT_THREADS),
         .option = "signer-threads",
         .op_version = GD_OP_VERSION_8_0,
         .type = NO_DOC,

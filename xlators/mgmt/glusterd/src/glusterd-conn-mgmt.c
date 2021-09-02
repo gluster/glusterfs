@@ -17,7 +17,7 @@
 #include "glusterd-messages.h"
 
 int
-glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
+glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, time_t frame_timeout,
                    glusterd_conn_notify_t notify)
 {
     int ret = -1;

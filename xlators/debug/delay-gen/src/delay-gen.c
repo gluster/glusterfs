@@ -27,7 +27,7 @@ delay_gen(xlator_t *this, int fop)
         return 0;
 
     if ((rand() % DELAY_GRANULARITY) < dg->delay_ppm)
-        gf_nanosleep((uint64_t)dg->delay_duration * GF_US_IN_NS);
+        gf_nanosleep(((uint64_t)dg->delay_duration) * GF_US_IN_NS);
 
     return 0;
 }

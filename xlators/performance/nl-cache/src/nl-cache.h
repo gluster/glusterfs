@@ -110,7 +110,7 @@ struct nlc_statistics {
 };
 
 struct nlc_conf {
-    int32_t cache_timeout;
+    time_t cache_timeout;
     gf_boolean_t positive_entry_cache;
     gf_boolean_t negative_entry_cache;
     gf_boolean_t disable_cache;

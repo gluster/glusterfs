@@ -461,7 +461,7 @@ glusterd_muxsvc_common_rpc_notify(glusterd_svc_proc_t *mux_proc,
 
 int
 glusterd_muxsvc_conn_init(glusterd_conn_t *conn, glusterd_svc_proc_t *mux_proc,
-                          char *sockpath, int frame_timeout,
+                          char *sockpath, time_t frame_timeout,
                           glusterd_muxsvc_conn_notify_t notify)
 {
     int ret = -1;

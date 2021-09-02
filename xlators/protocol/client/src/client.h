@@ -26,6 +26,10 @@
 #include <glusterfs/default-args.h>
 #include "client-messages.h"
 
+/* Threading limits for client event threads. */
+#define CLIENT_MIN_EVENT_THREADS 1
+#define CLIENT_MAX_EVENT_THREADS 32
+
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
 #define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
@@ -82,7 +86,7 @@ typedef enum {
 
 struct clnt_options {
     char *remote_subvolume;
-    int ping_timeout;
+    time_t ping_timeout;
 };
 
 typedef struct clnt_conf {

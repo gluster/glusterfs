@@ -366,6 +366,12 @@ AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
         [with_libtirpc="no"], [with_libtirpc="yes"])
 
+dnl For --without-libtirpc, check whether legacy glibc rpc is available.
+if test "x$with_libtirpc" = "xno"; then
+    AC_CHECK_HEADER([rpc/types.h], ,
+        AC_MSG_ERROR([Your C library lacks support for RPC. Please use libtirpc instead.]))
+fi
+
 dnl ipv6-default is off by default
 dnl
 dnl ipv6-default requires libtirpc. (glibc rpc does not support IPv6.)
@@ -431,6 +437,19 @@ case x$enable_valgrind in
     AC_MSG_ERROR([Please specify --enable-valgrind@<:@=memcheck,drd@:>@])
     ;;
 esac
+
+if test "x$VALGRIND_TOOL" != xno; then
+   AC_MSG_CHECKING([whether valgrind API can be used])
+   AC_COMPILE_IFELSE(
+   [AC_LANG_PROGRAM([
+      [#include <valgrind/valgrind.h>]],
+      [[VALGRIND_STACK_DEREGISTER(VALGRIND_STACK_REGISTER(0, 0))]])],
+      [HAVE_VALGRIND_API=yes], [HAVE_VALGRIND_API=no])
+   AC_MSG_RESULT([$HAVE_VALGRIND_API])
+   if test x$HAVE_VALGRIND_API = "xyes"; then
+      AC_DEFINE(HAVE_VALGRIND_API, 1, [Define if valgrind API can be used.])
+   fi
+fi
 
 AC_ARG_WITH([previous-options],
         [AS_HELP_STRING([--with-previous-options],
@@ -632,8 +651,16 @@ AC_SUBST(USE_POSIX_ACLS)
 
 # libglusterfs/checksum
 AC_CHECK_HEADERS([openssl/md5.h])
-AC_CHECK_LIB([z], [adler32], [ZLIB_LIBS="-lz"], AC_MSG_ERROR([zlib is required to build glusterfs]))
-AC_SUBST(ZLIB_LIBS)
+
+# Zlib is used by libglusterfs checksum and cdc xlator.
+PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0], [have_zlib=yes], [have_zlib=no])
+if test x$have_zlib = xyes; then
+   AC_DEFINE(HAVE_ZLIB, 1, [Define if zlib is found.])
+   AC_SUBST([ZLIB_CFLAGS])
+   AC_SUBST([ZLIB_LIBS])
+else
+   AC_MSG_ERROR([zlib is required to build glusterfs])
+fi
 
 AC_CHECK_HEADERS([linux/falloc.h])
 
@@ -872,22 +899,6 @@ AC_SUBST(EVENTS_ENABLED)
 AC_SUBST(EVENTS_SUBDIR)
 AM_CONDITIONAL([BUILD_EVENTS], [test "x${BUILD_EVENTS}" = "xyes"])
 # end Events section
-
-# CDC xlator - check if libz is present if so enable HAVE_LIB_Z
-BUILD_CDC=yes
-PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
-                  [AC_CHECK_LIB([z], [deflate], [ZLIB_LIBS="-lz"],
-                                [BUILD_CDC=no])])
-echo -n "features requiring zlib enabled: "
-if test "x$BUILD_CDC" = "xyes" ; then
-  echo "yes"
-  AC_DEFINE(HAVE_LIB_Z, 1, [define if zlib is present])
-else
-  echo "no"
-fi
-AC_SUBST(ZLIB_CFLAGS)
-AC_SUBST(ZLIB_LIBS)
-# end CDC xlator secion
 
 #start firewalld section
 BUILD_FIREWALLD="no"
@@ -1742,12 +1753,10 @@ fi
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
+dnl Note GF_BSD_HOST_OS and GF_SOLARIS_HOST_OS are not used
+dnl through Makefile.am and so not defined as conditionals.
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
-AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
-if  test "${GF_HOST_OS}" = "GF_BSD_HOST_OS"; then
-    AC_DEFINE(GF_BSD_HOST_OS, 1, [This is a BSD compatible OS.])
-fi
 
 AC_SUBST(GLUSTERD_WORKDIR)
 AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )

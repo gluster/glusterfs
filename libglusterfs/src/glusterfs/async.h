@@ -43,7 +43,9 @@
  * be added to differentiate them. */
 #define GF_ASYNC_THREAD_NAME "tpw"
 
-/* This value determines the maximum number of threads that are allowed. */
+/* Threading parameters for async framework. */
+#define GF_ASYNC_MIN_THREADS 1
+#define GF_ASYNC_DEFAULT_THREADS 16
 #define GF_ASYNC_MAX_THREADS 128
 
 /* This value determines how many additional threads will be started but will

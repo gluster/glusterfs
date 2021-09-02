@@ -319,6 +319,19 @@ dict_get_uint64(dict_t *this, char *key, uint64_t *val);
 GF_MUST_CHECK int
 dict_set_uint64(dict_t *this, char *key, uint64_t val);
 
+/* POSIX-compliant systems requires the 'time_t' to be a signed integer. */
+#if __WORDSIZE == 64
+#define dict_get_time(dict, key, val) dict_get_int64((dict), (key), (val))
+#define dict_set_time(dict, key, val) dict_set_int64((dict), (key), (val))
+#elif __WORDSIZE == 32
+#define dict_get_time(dict, key, val)                   \
+    dict_get_int32((dict), (key), ((int32_t *)(val)))
+#define dict_set_time(dict, key, val)                   \
+    dict_set_int32((dict), (key), ((int32_t)(val)))
+#else
+#error "unknown word size"
+#endif /* WORDSIZE check */
+
 GF_MUST_CHECK int
 dict_check_flag(dict_t *this, char *key, int flag);
 GF_MUST_CHECK int

@@ -21,8 +21,9 @@
  * fd d) counts of write IO block size - since process start, last interval and
  * per fd e) counts of all FOP types passing through it
  *
- *  Usage: setfattr -n trusted.io-stats-dump /tmp/filename /mnt/gluster
- *      output is written to /tmp/filename.<iostats xlator instance name>
+ *  Usage: setfattr -n trusted.io-stats-dump -v filename /mnt/gluster
+ *      output is written to /var/run/gluster/filename.<iostats xlator instance
+ * name>
  *
  */
 
@@ -3717,7 +3718,7 @@ reconfigure(xlator_t *this, dict_t *options)
     int log_format = -1;
     int logger = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t old_dump_interval;
     int32_t threads;
 
@@ -3879,7 +3880,7 @@ init(xlator_t *this)
     int log_level = -1;
     int ret = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t threads;
 
     if (!this)
@@ -4448,8 +4449,8 @@ struct volume_options options[] = {
     {.key = {"threads"}, .type = GF_OPTION_TYPE_INT},
     {.key = {"brick-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
@@ -4458,8 +4459,8 @@ struct volume_options options[] = {
                     "maximum amount of threads that can be created on bricks"},
     {.key = {"client-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,

@@ -604,6 +604,7 @@ gf_fop_string
 __gf_free
 gf_free_mig_locks
 gf_getgrouplist
+gf_gethostname
 gf_get_hostname_from_ip
 gf_get_index_by_elem
 gf_global_mem_acct_enable_set

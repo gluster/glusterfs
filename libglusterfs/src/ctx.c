@@ -18,6 +18,7 @@ glusterfs_ctx_t *global_ctx = NULL;
 glusterfs_ctx_t *
 glusterfs_ctx_new()
 {
+    long namelen = 0;
     glusterfs_ctx_t *ctx = NULL;
 
     /* no GF_CALLOC here, gf_acct_mem_set_enable is not
@@ -56,6 +57,22 @@ glusterfs_ctx_new()
     GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, 0);
     GF_ATOMIC_INIT(ctx->stats.total_pairs_used, 0);
     GF_ATOMIC_INIT(ctx->stats.total_dicts_used, 0);
+
+    namelen = sysconf(_SC_HOST_NAME_MAX);
+    if (namelen < 0)
+        namelen = _POSIX_HOST_NAME_MAX;
+    ctx->hostname = MALLOC(namelen + 1);
+    if (!ctx->hostname) {
+        free(ctx);
+        ctx = NULL;
+        goto out;
+    }
+    if (gethostname(ctx->hostname, namelen + 1)) {
+        free(ctx->hostname);
+        free(ctx);
+        ctx = NULL;
+        goto out;
+    }
 
     if (!global_ctx)
         global_ctx = ctx;

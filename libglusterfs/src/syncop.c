@@ -15,6 +15,10 @@
 #include <sanitizer/tsan_interface.h>
 #endif
 
+#ifdef HAVE_VALGRIND_API
+#include <valgrind/valgrind.h>
+#endif
+
 int
 syncopctx_setfsuid(void *uid)
 {
@@ -388,6 +392,10 @@ synctask_destroy(struct synctask *task)
     __tsan_destroy_fiber(task->tsan.fiber);
 #endif
 
+#ifdef HAVE_VALGRIND_API
+    VALGRIND_STACK_DEREGISTER(task->stackid);
+#endif
+
     GF_FREE(task);
 }
 
@@ -503,6 +511,12 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     snprintf(newtask->tsan.name, TSAN_THREAD_NAMELEN, "<synctask of %s>",
              this->name);
     __tsan_set_fiber_name(newtask->tsan.fiber, newtask->tsan.name);
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    newtask->stackid = VALGRIND_STACK_REGISTER(
+        newtask->ctx.uc_stack.ss_sp,
+        newtask->ctx.uc_stack.ss_sp + newtask->ctx.uc_stack.ss_size);
 #endif
 
     newtask->state = SYNCTASK_INIT;
@@ -709,6 +723,27 @@ synctask_switchto(struct synctask *task)
     pthread_mutex_unlock(&env->mutex);
 }
 
+#ifdef HAVE_VALGRIND_API
+
+static unsigned
+__valgrind_register_current_stack(void)
+{
+    pthread_attr_t attr;
+    size_t stacksize;
+    void *stack;
+    int ret;
+
+    ret = pthread_getattr_np(pthread_self(), &attr);
+    GF_ASSERT(ret == 0);
+
+    ret = pthread_attr_getstack(&attr, &stack, &stacksize);
+    GF_ASSERT(ret == 0);
+
+    return VALGRIND_STACK_REGISTER(stack, stack + stacksize);
+}
+
+#endif /* HAVE_VALGRIND_API */
+
 void *
 syncenv_processor(void *thdata)
 {
@@ -724,12 +759,20 @@ syncenv_processor(void *thdata)
     __tsan_set_fiber_name(proc->tsan.fiber, proc->tsan.name);
 #endif
 
+#ifdef HAVE_VALGRIND_API
+    proc->stackid = __valgrind_register_current_stack();
+#endif
+
     while ((task = syncenv_task(proc)) != NULL) {
         synctask_switchto(task);
     }
 
 #ifdef HAVE_TSAN_API
     __tsan_destroy_fiber(proc->tsan.fiber);
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    VALGRIND_STACK_DEREGISTER(proc->stackid);
 #endif
 
     return NULL;

@@ -1046,7 +1046,7 @@ gf_volume_name_validate(const char *volume_name)
 }
 
 int
-gf_string2time(const char *str, uint32_t *n)
+gf_string2time(const char *str, time_t *n)
 {
     unsigned long value = 0;
     char *tail = NULL;
@@ -4818,20 +4818,13 @@ glusterfs_is_local_pathinfo(char *pathinfo, gf_boolean_t *is_local)
 {
     int ret = 0;
     char pathinfohost[1024] = {0};
-    char localhost[1024] = {0};
 
     *is_local = _gf_false;
     ret = get_pathinfo_host(pathinfo, pathinfohost, sizeof(pathinfohost));
-    if (ret)
-        goto out;
-
-    ret = gethostname(localhost, sizeof(localhost));
-    if (ret)
-        goto out;
-
-    if (!strcmp(localhost, pathinfohost))
-        *is_local = _gf_true;
-out:
+    if (ret == 0) {
+        if (!strcmp(gf_gethostname(), pathinfohost))
+            *is_local = _gf_true;
+    }
     return ret;
 }
 
@@ -5484,4 +5477,10 @@ char **
 get_xattrs_to_heal()
 {
     return xattrs_to_heal;
+}
+
+char *
+gf_gethostname(void)
+{
+    return global_ctx->hostname;
 }

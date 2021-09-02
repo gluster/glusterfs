@@ -129,7 +129,7 @@ struct mdc_local {
     char *linkname;
     char *key;
     dict_t *xattr;
-    uint64_t incident_time;
+    time_t incident_time;
     bool update_cache;
 };
 
@@ -3609,12 +3609,13 @@ int
 mdc_reconfigure(xlator_t *this, dict_t *options)
 {
     struct mdc_conf *conf = NULL;
-    int timeout = 0, ret = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
+    int ret = 0;
 
     conf = this->private;
 
-    GF_OPTION_RECONF("md-cache-timeout", timeout, options, int32, out);
+    GF_OPTION_RECONF("md-cache-timeout", timeout, options, time, out);
 
     GF_OPTION_RECONF("cache-selinux", conf->cache_selinux, options, bool, out);
 

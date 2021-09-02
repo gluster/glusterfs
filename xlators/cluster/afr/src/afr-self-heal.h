@@ -375,4 +375,7 @@ afr_selfheal_entry_delete(xlator_t *this, inode_t *dir, const char *name,
                           inode_t *inode, int child, struct afr_reply *replies);
 int
 afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode);
+void
+afr_selfheal_fill_cell(afr_private_t *priv, dict_t *src_xdata, int *cell,
+                       int sink, int idx);
 #endif /* !_AFR_SELFHEAL_H */

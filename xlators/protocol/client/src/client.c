@@ -2411,11 +2411,11 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 {
     int ret = -1;
 
-    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, int32, out);
+    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, time, out);
 
     GF_OPTION_INIT("remote-port", conf->rpc_conf.remote_port, int32, out);
 
-    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, int32, out);
+    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, time, out);
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
     if (!conf->opt.remote_subvolume)
@@ -2555,10 +2555,10 @@ reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options,
-                     int32, out);
+    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options, time,
+                     out);
 
-    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, int32,
+    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, time,
                      out);
 
     GF_OPTION_RECONF("event-threads", new_nthread, options, int32, out);
@@ -2812,7 +2812,7 @@ client_priv_dump(xlator_t *this)
         conn = &conf->rpc->conn;
         gf_proc_dump_write("total_bytes_read", "%" PRIu64,
                            conn->trans->total_bytes_read);
-        gf_proc_dump_write("ping_timeout", "%" PRIu32, conn->ping_timeout);
+        gf_proc_dump_write("ping_timeout", "%ld", conn->ping_timeout);
         gf_proc_dump_write("total_bytes_written", "%" PRIu64,
                            conn->trans->total_bytes_write);
         gf_proc_dump_write("ping_msgs_sent", "%" PRIu64, conn->pingcnt);
@@ -2969,9 +2969,9 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_SETTABLE},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
+     .min = CLIENT_MIN_EVENT_THREADS,
+     .max = CLIENT_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

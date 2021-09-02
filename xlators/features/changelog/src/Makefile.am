@@ -21,7 +21,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/rpc-transport/socket/src \
 	-I$(top_srcdir)/xlators/features/changelog/lib/src/ \
-	-fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE -D$(GF_HOST_OS) \
+	-fPIC -D_FILE_OFFSET_BITS=64 -D_GNU_SOURCE \
 	-DDATADIR=\"$(localstatedir)\"
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)

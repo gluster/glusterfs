@@ -13,6 +13,7 @@
 #include <glusterfs/byte-order.h>
 #include "afr-transaction.h"
 #include "afr-messages.h"
+#include <glusterfs/glusterfs.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 
@@ -179,6 +180,67 @@ out:
     return ret;
 }
 
+static int
+afr_new_entry_mark_status(call_frame_t *frame, loc_t *loc,
+                          struct afr_reply *lookup_replies,
+                          unsigned char *sources, int source, int dst)
+{
+    xlator_t *this = frame->this;
+    afr_private_t *priv = this->private;
+    int pending = 0;
+    int metadata_idx = 0;
+    int idx = -1;
+    int ret = 0;
+    int i = 0;
+
+    if (source == -1) {
+        goto lookup;
+    }
+
+    if (IA_ISDIR(lookup_replies[source].poststat.ia_type)) {
+        goto lookup;
+    }
+
+    metadata_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
+    if (IA_ISREG(lookup_replies[source].poststat.ia_type)) {
+        idx = afr_index_for_transaction_type(AFR_DATA_TRANSACTION);
+    }
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!sources[i]) {
+            continue;
+        }
+
+        if (uuid_compare(lookup_replies[i].poststat.ia_gfid, loc->gfid)) {
+            /*Future proofing this call's input arguments*/
+            GF_ASSERT(!"gfids don't match for call to new entry marking");
+            goto lookup;
+        }
+        afr_selfheal_fill_cell(frame->this->private, lookup_replies[i].xdata,
+                               &pending, dst, metadata_idx);
+        if (pending == 0) {
+            goto lookup;
+        }
+
+        if (idx == -1) {
+            continue;
+        }
+
+        afr_selfheal_fill_cell(frame->this->private, lookup_replies[i].xdata,
+                               &pending, dst, idx);
+        if (pending == 0) {
+            goto lookup;
+        }
+    }
+    /*Pending is marked on all source bricks, we definitely know that new entry
+     * marking is not needed*/
+    return 0;
+
+lookup:
+    ret = syncop_lookup(priv->children[dst], loc, 0, 0, 0, 0);
+    return ret;
+}
+
 int
 afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
                             unsigned char *sources, inode_t *dir,
@@ -241,7 +303,8 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
 
     srcloc.inode = inode_ref(inode);
     gf_uuid_copy(srcloc.gfid, iatt->ia_gfid);
-    ret = syncop_lookup(priv->children[dst], &srcloc, 0, 0, 0, 0);
+    ret = afr_new_entry_mark_status(frame, &srcloc, replies, sources, source,
+                                    dst);
     if (ret == -ENOENT || ret == -ESTALE) {
         newentry[dst] = 1;
         ret = afr_selfheal_newentry_mark(frame, this, inode, source, replies,

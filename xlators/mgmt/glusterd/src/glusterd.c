@@ -1939,10 +1939,10 @@ init(xlator_t *this)
     }
 
     conf->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
-    if (dict_get_uint32(this->options, "lock-timer",
-                        &conf->mgmt_v3_lock_timeout) == 0) {
+    if (dict_get_time(this->options, "lock-timer",
+                      &conf->mgmt_v3_lock_timeout) == 0) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_SET_FAILED,
-               "lock-timer override: %d", conf->mgmt_v3_lock_timeout);
+               "lock-timer override: %ld", conf->mgmt_v3_lock_timeout);
     }
 
     /* Set option to run bricks on valgrind if enabled in glusterd.vol */
@@ -1967,7 +1967,7 @@ init(xlator_t *this)
     }
 
     /* Store ping-timeout in conf */
-    ret = dict_get_int32(this->options, "ping-timeout", &conf->ping_timeout);
+    ret = dict_get_time(this->options, "ping-timeout", &conf->ping_timeout);
     /* Not failing here since ping-timeout can be optional as well */
 
     glusterd_mgmt_v3_lock_init();
@@ -2295,9 +2295,9 @@ struct volume_options options[] = {
     },
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
+     .min = GLUSTERD_MIN_EVENT_THREADS,
+     .max = GLUSTERD_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

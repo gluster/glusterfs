@@ -641,7 +641,7 @@ unwind:
 }
 
 static inline gf_boolean_t
-quota_timeout(time_t t, uint32_t timeout)
+quota_timeout(time_t t, time_t timeout)
 {
     return (gf_time() - t) >= timeout;
 }
@@ -5157,9 +5157,9 @@ quota_priv_dump(xlator_t *this)
     if (ret)
         goto out;
     else {
-        gf_proc_dump_write("soft-timeout", "%u", priv->soft_timeout);
-        gf_proc_dump_write("hard-timeout", "%u", priv->hard_timeout);
-        gf_proc_dump_write("alert-time", "%u", priv->log_timeout);
+        gf_proc_dump_write("soft-timeout", "%ld", priv->soft_timeout);
+        gf_proc_dump_write("hard-timeout", "%ld", priv->hard_timeout);
+        gf_proc_dump_write("alert-time", "%ld", priv->log_timeout);
         gf_proc_dump_write("quota-on", "%d", priv->is_quota_on);
         gf_proc_dump_write("statfs", "%d", priv->consider_statfs);
         gf_proc_dump_write("volume-uuid", "%s", priv->volume_uuid);

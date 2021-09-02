@@ -26,3 +26,6 @@ Index xlator design and implementation are covered in this session.
 10. Locks xlator inodelks - [video](https://youtu.be/1AIMbxmAKwc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-10-locks-xlator-inodelks)  
     - Gives brief introduction about the purpose of this xlator  
     - Introduces and code walkthrough of inodelk part of locks xlator  
+11. Locks xlator entrylks - [video](https://youtu.be/BCgm5hNWFbE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-11-locks-xlator-entrylks)  
+    - Introduces and code walkthrough of entrylk part of locks xlator  
+    - Explains the connection between entrylk and inodelk in deletion code paths  

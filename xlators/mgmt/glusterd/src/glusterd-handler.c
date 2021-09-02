@@ -5131,10 +5131,6 @@ glusterd_print_gsync_status_by_vol(FILE *fp, glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     dict_t *gsync_rsp_dict = NULL;
-    char my_hostname[256] = {
-        0,
-    };
-
     xlator_t *this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
@@ -5146,13 +5142,8 @@ glusterd_print_gsync_status_by_vol(FILE *fp, glusterd_volinfo_t *volinfo)
         goto out;
     }
 
-    ret = gethostname(my_hostname, sizeof(my_hostname));
-    if (ret) {
-        /* stick to N/A */
-        (void)strcpy(my_hostname, "N/A");
-    }
-
-    ret = glusterd_get_gsync_status_mst(volinfo, gsync_rsp_dict, my_hostname);
+    ret = glusterd_get_gsync_status_mst(volinfo, gsync_rsp_dict,
+                                        gf_gethostname());
     /* Ignoring ret as above function always returns ret = 0 */
 
     ret = glusterd_print_gsync_status(fp, gsync_rsp_dict);
@@ -5777,7 +5768,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         fprintf(fp, "Volume%d.rebalance.files: %" PRIu64 "\n", count,
                 volinfo->rebal.rebalance_files);
         fprintf(fp, "Volume%d.rebalance.data: %s\n", count, rebal_data);
-        fprintf(fp, "Volume%d.time_left: %" PRIu64 "\n", count,
+        fprintf(fp, "Volume%d.time_left: %ld\n", count,
                 volinfo->rebal.time_left);
 
         GF_FREE(rebal_data);
