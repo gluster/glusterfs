@@ -35,19 +35,55 @@ gf_mem_acct_enable_set(void *data)
     return;
 }
 
+/* Calculate the total allocation size required, taking alignment
+ * requirements into consideration.
+ */
+static size_t
+__gf_total_alloc_size(size_t req_size)
+{
+    return req_size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+}
+
+/* Byte by byte read/write of the trailer, because the trailer may not be
+ * placed on a naturally aligned address - some platforms require memory
+ * accesses to be aligned with the word size.
+ */
+static void
+__gf_mem_trailer_write(uint8_t *trailer)
+{
+    int i = 0;
+    for (i = GF_MEM_TRAILER_SIZE - 1; i > 0; i--) {
+        *trailer++ = (uint8_t)(GF_MEM_TRAILER_MAGIC >> (i * 8));
+    }
+    *trailer = (uint8_t)GF_MEM_TRAILER_MAGIC;
+}
+
+static gf_mem_magic_t
+__gf_mem_trailer_read(uint8_t *trailer)
+{
+    gf_mem_magic_t magic = 0;
+
+    int i;
+    for (i = GF_MEM_TRAILER_SIZE - 1; i > 0; i--) {
+        magic |= (gf_mem_magic_t)(*trailer++ << (i * 8));
+    }
+    magic |= (gf_mem_magic_t)*trailer;
+
+    return magic;
+}
+
 static void *
 gf_mem_header_prepare(struct mem_header *header, size_t size)
 {
-    void *ptr;
-
     header->size = size;
 
-    ptr = header + 1;
-
     /* data follows in this gap of 'size' bytes */
-    *(uint32_t *)(ptr + size) = GF_MEM_TRAILER_MAGIC;
+    uint8_t *end = ((uint8_t *)header) + __gf_total_alloc_size(header->size);
+    uint8_t *trailer = end - GF_MEM_TRAILER_SIZE;
 
-    return ptr;
+    __gf_mem_trailer_write(trailer);
+
+    return header->data;
 }
 
 static void *
@@ -86,8 +122,8 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
         }
     }
 
-    header->type = type;
     header->mem_acct = mem_acct;
+    header->type = type;
     header->magic = GF_MEM_HEADER_MAGIC;
 
     return gf_mem_header_prepare(header, size);
@@ -146,7 +182,7 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
     xl = THIS;
 
     req_size = nmemb * size;
-    tot_size = req_size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(req_size);
 
     ptr = calloc(1, tot_size);
 
@@ -170,7 +206,7 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
 
     xl = THIS;
 
-    tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(size);
 
     ptr = malloc(tot_size);
     if (!ptr) {
@@ -195,7 +231,7 @@ __gf_realloc(void *ptr, size_t size)
     header = (struct mem_header *)(ptr - GF_MEM_HEADER_SIZE);
     GF_ASSERT(header->magic == GF_MEM_HEADER_MAGIC);
 
-    tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(size);
     header = realloc(header, tot_size);
     if (!header) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
@@ -262,7 +298,7 @@ __gf_mem_invalidate(void *ptr)
     };
 
     /* calculate the last byte of the allocated area */
-    end = ptr + GF_MEM_HEADER_SIZE + inval.size + GF_MEM_TRAILER_SIZE;
+    end = ptr + __gf_total_alloc_size(inval.size);
 
     /* overwrite the old mem_header */
     memcpy(ptr, &inval, sizeof(inval));
@@ -331,8 +367,11 @@ __gf_free(void *free_ptr)
     }
 
     // This points to a memory overrun
-    GF_ASSERT(GF_MEM_TRAILER_MAGIC ==
-              *(uint32_t *)((char *)free_ptr + header->size));
+    {
+        void *end = ((char *)ptr) + __gf_total_alloc_size(header->size);
+        uint8_t *trailer = end - GF_MEM_TRAILER_SIZE;
+        GF_ASSERT(GF_MEM_TRAILER_MAGIC == __gf_mem_trailer_read(trailer));
+    }
 
     LOCK(&mem_acct->rec[header->type].lock);
     {
