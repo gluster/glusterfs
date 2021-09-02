@@ -574,8 +574,8 @@ real_op:
             if (op_errno == EEXIST) {
                 level = GF_LOG_DEBUG;
 
-                if (dict_get_sizen(xdata, GF_MKNOD_REPLACE_KEY)) {
-                    dict_del_sizen(xdata, GF_MKNOD_REPLACE_KEY);
+                if (dict_get_sizen(xdata, GF_FORCE_REPLACE_KEY)) {
+                    dict_del_sizen(xdata, GF_FORCE_REPLACE_KEY);
                     op_ret = posix_unlink_stale_linkto(frame, this, real_path,
                                                        &op_errno, loc);
                     if (op_ret == 0)

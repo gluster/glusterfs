@@ -1398,12 +1398,12 @@ dht_rename_create_links(call_frame_t *frame)
          * hashed, linkto creation fails with EEXIST.
          * handling: populate the MKNOD REPLACE key for "forcing" posix the
          * creation of the linkto with correct gfid. */
-        ret = dict_set_str(xattr_new, GF_MKNOD_REPLACE_KEY, "yes");
+        ret = dict_set_str(xattr_new, GF_FORCE_REPLACE_KEY, "yes");
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
                    "Failed to set dictionary value: key = %s,"
                    " path = %s",
-                   GF_MKNOD_REPLACE_KEY, local->loc.path);
+                   GF_FORCE_REPLACE_KEY, local->loc.path);
             dict_unref(xattr_new);
             ret = -1;
             goto cleanup;
