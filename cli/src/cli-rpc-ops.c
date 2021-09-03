@@ -3484,11 +3484,15 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
     }};
     int ret = 0;
     dict_t *dict = NULL;
+    struct rpc_clnt *rpc = NULL;
 
     if (!frame || !this || !data) {
         ret = -1;
         goto out;
     }
+
+    rpc = ((cli_state_t *)(frame->this->private))->quotad_rpc;
+    GF_ASSERT(rpc);
 
     dict = data;
     ret = add_cli_cmd_timeout_to_dict(dict);
@@ -3501,7 +3505,7 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    ret = cli_cmd_submit(global_quotad_rpc, &req, frame, &cli_quotad_clnt,
+    ret = cli_cmd_submit(rpc, &req, frame, &cli_quotad_clnt,
                          GF_AGGREGATOR_GETLIMIT, NULL, this,
                          cli_quotad_getlimit_cbk, (xdrproc_t)xdr_gf_cli_req);
 
