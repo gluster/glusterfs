@@ -504,15 +504,9 @@ struct glusterd_volinfo_ {
        the volume which is snapped. In
        case of a non-snap volume, this
        field will be initialized as N/A */
-    char volname[NAME_MAX + 1];
-    /* NAME_MAX + 1 will be equal to
-     * GD_VOLUME_NAME_MAX + 5.(also to
-     * GD_VOLUME_NAME_MAX_TIER). An extra 5
-     * bytes are added to GD_VOLUME_NAME_MAX
-     * because, as part of the tiering
-     * volfile generation code, we are
-     * temporarily appending either "-hot"
-     * or "-cold" */
+
+    char volname[GD_VOLUME_NAME_MAX];
+
     gf_atomic_t volpeerupdate;
     /* Flag to check about volume has received updates
        from peer
