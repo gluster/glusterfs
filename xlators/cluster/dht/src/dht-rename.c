@@ -1330,6 +1330,7 @@ dht_rename_create_links(call_frame_t *frame)
     xlator_t *dst_cached = NULL;
     int call_cnt = 0;
     dict_t *xattr = NULL;
+    int ret = 0;
 
     local = frame->local;
     this = frame->this;
@@ -1385,12 +1386,38 @@ dht_rename_create_links(call_frame_t *frame)
      * unlink the newname we created, we would have effectively lost the
      * file to rename operations. */
     if (dst_hashed != src_hashed && src_cached != dst_hashed) {
-        gf_msg_trace(this->name, 0, "linkfile %s @ %s => %s", local->loc.path,
-                     dst_hashed->name, src_cached->name);
+        dict_t *xattr_new = NULL;
+
+        xattr_new = dict_copy_with_ref(xattr, NULL);
+        if (!xattr_new) {
+            ret = -1;
+            goto cleanup;
+        }
+
+        /* rename(src,dst): if a stale linkto to src is present in the dst
+         * hashed, linkto creation fails with EEXIST.
+         * handling: populate the MKNOD REPLACE key for "forcing" posix the
+         * creation of the linkto with correct gfid. */
+        ret = dict_set_str(xattr_new, GF_FORCE_REPLACE_KEY, "yes");
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                   "Failed to set dictionary value: key = %s,"
+                   " path = %s",
+                   GF_FORCE_REPLACE_KEY, local->loc.path);
+            dict_unref(xattr_new);
+            ret = -1;
+            goto cleanup;
+        }
+
+        local->params = xattr_new;
+
+        gf_msg_trace(this->name, 0, "linkto-file %s @ %s => %s",
+                     local->loc.path, dst_hashed->name, src_cached->name);
 
         memcpy(local->gfid, local->loc.inode->gfid, 16);
         dht_linkfile_create(frame, dht_rename_linkto_cbk, this, src_cached,
                             dst_hashed, &local->loc);
+
     } else if (src_cached != dst_hashed) {
         dict_t *xattr_new = NULL;
 
@@ -1416,10 +1443,12 @@ nolinks:
         /* skip to next step */
         dht_do_rename(frame);
     }
+
+cleanup:
     if (xattr)
         dict_unref(xattr);
 
-    return 0;
+    return ret;
 }
 
 int
@@ -1552,7 +1581,11 @@ dht_rename_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto fail;
         }
 
-        dht_rename_create_links(frame);
+        local->op_ret = dht_rename_create_links(frame);
+        if (local->op_ret < 0) {
+            local->op_errno = ENOMEM;
+            goto fail;
+        }
     }
 
     return 0;
