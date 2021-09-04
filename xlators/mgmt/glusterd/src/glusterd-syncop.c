@@ -1812,7 +1812,7 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     };
     uint32_t op_errno = 0;
     gf_boolean_t cluster_lock = _gf_false;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -1872,7 +1872,7 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
          * mgmt_v3_lock_timeout should be set to default value or we
          * need to change the value according to timeout value
          * i.e, timeout + 120 seconds. */
-        ret = dict_get_uint32(op_ctx, "timeout", &timeout);
+        ret = dict_get_time(op_ctx, "timeout", &timeout);
         if (!ret)
             conf->mgmt_v3_lock_timeout = timeout + 120;
 

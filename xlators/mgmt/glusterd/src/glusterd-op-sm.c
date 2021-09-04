@@ -4045,7 +4045,7 @@ glusterd_op_ac_lock(glusterd_op_sm_event_t *event, void *ctx)
     xlator_t *this = THIS;
     uint32_t op_errno = 0;
     glusterd_conf_t *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
     GF_ASSERT(event);
     GF_ASSERT(ctx);
@@ -4067,7 +4067,7 @@ glusterd_op_ac_lock(glusterd_op_sm_event_t *event, void *ctx)
          * mgmt_v3_lock_timeout should be set to default value or we
          * need to change the value according to timeout value
          * i.e, timeout + 120 seconds. */
-        ret = dict_get_uint32(lock_ctx->dict, "timeout", &timeout);
+        ret = dict_get_time(lock_ctx->dict, "timeout", &timeout);
         if (!ret)
             conf->mgmt_v3_lock_timeout = timeout + 120;
 

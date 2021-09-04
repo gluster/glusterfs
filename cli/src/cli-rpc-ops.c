@@ -10397,7 +10397,7 @@ add_cli_cmd_timeout_to_dict(dict_t *dict)
     int ret = 0;
 
     if (cli_default_conn_timeout > 120) {
-        ret = dict_set_uint32(dict, "timeout", cli_default_conn_timeout);
+        ret = dict_set_time(dict, "timeout", cli_default_conn_timeout);
         if (ret) {
             gf_log("cli", GF_LOG_INFO, "Failed to save timeout to dict");
         }

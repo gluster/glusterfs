@@ -78,8 +78,8 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
 
-int cli_default_conn_timeout = 120;
-int cli_ten_minutes_timeout = 600;
+time_t cli_default_conn_timeout = 120;
+time_t cli_ten_minutes_timeout = 600;
 
 static int
 glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
@@ -331,26 +331,6 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     return ret;
 }
 
-static gf_boolean_t
-is_valid_int(char *str)
-{
-    if (*str == '-')
-        ++str;
-
-    /* Handle empty string or just "-".*/
-    if (!*str)
-        return _gf_false;
-
-    /* Check for non-digit chars in the rest of the string */
-    while (*str) {
-        if (!isdigit(*str))
-            return _gf_false;
-        else
-            ++str;
-    }
-    return _gf_true;
-}
-
 /*
  * ret: 0: option successfully processed
  *      1: signalling end of option list
@@ -449,12 +429,16 @@ cli_opt_parse(char *opt, struct cli_state *state)
     }
     oarg = strtail(opt, "timeout=");
     if (oarg) {
-        if (!is_valid_int(oarg) || atoi(oarg) <= 0) {
+        time_t val;
+        char *endptr = NULL;
+
+        val = strtol(oarg, &endptr, 10);
+        if (*endptr != '\0' || val <= 0) {
             cli_err("timeout value should be a positive integer");
-            return -2; /* -2 instead of -1 to avoid unknown option
-                          error */
+            /* Use -2 to not confuse with unknown option error. */
+            return -2;
         }
-        cli_default_conn_timeout = atoi(oarg);
+        cli_default_conn_timeout = val;
         return 0;
     }
 
