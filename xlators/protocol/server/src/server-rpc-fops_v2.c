@@ -870,6 +870,9 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
         /* This inode onwards we will set namespace */
+        gf_msg(THIS->name, GF_LOG_INFO, 0, PS_MSG_SETXATTR_INFO,
+	       "client=%s, path=%s", STACK_CLIENT_NAME(frame->root),
+	       state->loc.path);
         inode_set_namespace_inode(state->loc.inode, state->loc.inode);
     }
 
@@ -2362,7 +2365,7 @@ server4_rename_resume(call_frame_t *frame, xlator_t *bound_xl)
         goto err;
     }
 
-    if (state->loc.inode->ns_inode != state->loc2.parent->ns_inode) {
+    if (state->loc.parent->ns_inode != state->loc2.parent->ns_inode) {
         /* lets not allow rename across namespaces */
         op_ret = -1;
         op_errno = EXDEV;
@@ -4417,8 +4420,8 @@ server4_0_setxattr(rpcsvc_request_t *req)
         dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
         gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_SETXATTR_INFO, "path=%s",
                 state->loc.path, "key=%s", GF_NAMESPACE_KEY, NULL);
-        state->resolve.op_ret = -1;
-        state->resolve.op_errno = EPERM;
+        ret = -1;
+        SERVER_REQ_SET_ERROR(req, ret);
         goto out;
     }
 

@@ -985,14 +985,6 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             GF_ASSERT(!"link attempted b/w inodes of diff table");
         }
 
-        /* similarly, we should not link between an inode with different
-         * namespace to another */
-        if (inode->ns_inode && (inode->ns_inode != parent->ns_inode)) {
-            errno = EINVAL;
-            GF_ASSERT(!"link attempted b/w inodes of different namespaces");
-            return NULL;
-        }
-
         if (parent->ia_type != IA_IFDIR) {
             errno = EINVAL;
             GF_ASSERT(!"link attempted on non-directory parent");

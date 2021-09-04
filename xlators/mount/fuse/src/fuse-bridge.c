@@ -1194,7 +1194,8 @@ fuse_lookup_resume(fuse_state_t *state)
             /* this is when it's all completely new lookup, send namespace key
              * here */
             if (state->xdata) {
-                int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY, 1);
+                int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY,
+                                               1);
                 if (ret) {
                     gf_log(THIS->name, GF_LOG_DEBUG,
                            "BUG: dict set failed (path: %s), still continuing",
