@@ -1484,14 +1484,16 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-AC_ARG_ENABLE([mempool],
-              AC_HELP_STRING([--disable-mempool],
-                             [Disable the Gluster memory pooler.]))
+# whether we should use memory allocation type tracking
+AC_ARG_ENABLE([allocation-tracking],
+              AC_HELP_STRING([--disable-allocation-tracking],
+                             [Disable an internal memory allocation tracking.]))
 
-USE_MEMPOOL="yes"
-if test "x$enable_mempool" = "xno"; then
-        USE_MEMPOOL="no"
-        AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+USE_ALLOCATION_TRACKING="yes"
+if test "x$enable_allocation_tracking" = "xno"; then
+        USE_ALLOCATION_TRACKING="no"
+        AC_DEFINE(GF_DISABLE_ALLOCATION_TRACKING,
+                  1, [Disable an internal memory allocation tracking.])
 fi
 
 dnl Add readline support in CLI if available.
@@ -1810,7 +1812,7 @@ echo "SELinux features     : $USE_SELINUX"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
-echo "Use memory pools     : $USE_MEMPOOL"
+echo "Track memory types   : $USE_ALLOCATION_TRACKING"
 echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
 echo "Server components    : $with_server"
 echo "Legacy gNFS server   : $BUILD_GNFS"

@@ -798,8 +798,6 @@ main(int argc, char *argv[])
     int ret = -1;
     glusterfs_ctx_t *ctx = NULL;
 
-    mem_pools_init();
-
     ctx = glusterfs_ctx_new();
     if (!ctx)
         return ENOMEM;
@@ -867,9 +865,6 @@ main(int argc, char *argv[])
     ret = gf_event_dispatch(ctx->event_pool);
 
 out:
-    //        glusterfs_ctx_destroy (ctx);
-
-    mem_pools_fini();
 
     return ret;
 }
