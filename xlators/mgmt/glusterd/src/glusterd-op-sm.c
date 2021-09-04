@@ -90,7 +90,7 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
 static struct cds_list_head gd_op_sm_queue;
 synclock_t gd_op_sm_lock;
 glusterd_op_info_t opinfo = {
-    {0},
+    GD_OP_STATE_DEFAULT,
 };
 
 int32_t
@@ -131,7 +131,7 @@ glusterd_txn_opinfo_dict_fini()
 
 void
 glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
-                         glusterd_op_sm_state_info_t *state, int *op,
+                         glusterd_op_sm_state_t state, int *op,
                          dict_t *op_ctx, rpcsvc_request_t *req)
 {
     glusterd_conf_t *conf = NULL;
@@ -142,7 +142,7 @@ glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
     GF_ASSERT(conf);
 
     if (state)
-        opinfo->state = *state;
+        opinfo->state = state;
 
     if (op)
         opinfo->op = *op;
@@ -295,7 +295,7 @@ glusterd_clear_txn_opinfo(uuid_t *txn_id)
 {
     int32_t ret = -1;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
@@ -5576,7 +5576,7 @@ glusterd_op_ac_stage_op(glusterd_op_sm_event_t *event, void *ctx)
     xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_conf_t *priv = NULL;
 
@@ -5704,7 +5704,7 @@ glusterd_op_ac_commit_op(glusterd_op_sm_event_t *event, void *ctx)
     xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     gf_boolean_t need_cleanup = _gf_true;
 
@@ -5827,10 +5827,10 @@ glusterd_op_sm_transition_state(glusterd_op_info_t *opinfo,
     GF_ASSERT(conf);
 
     (void)glusterd_sm_tr_log_transition_add(
-        &conf->op_sm_log, opinfo->state.state, state[event_type].next_state,
+        &conf->op_sm_log, opinfo->state, state[event_type].next_state,
         event_type);
 
-    opinfo->state.state = state[event_type].next_state;
+    opinfo->state = state[event_type].next_state;
     return 0;
 }
 
@@ -7962,7 +7962,7 @@ glusterd_op_sm()
             } else
                 opinfo = txn_op_info;
 
-            state = glusterd_op_state_table[opinfo.state.state];
+            state = glusterd_op_state_table[opinfo.state];
 
             GF_ASSERT(state);
 
@@ -7986,7 +7986,7 @@ glusterd_op_sm()
                        GD_MSG_EVENT_STATE_TRANSITION_FAIL,
                        "Unable to transition"
                        "state from '%s' to '%s'",
-                       glusterd_op_sm_state_name_get(opinfo.state.state),
+                       glusterd_op_sm_state_name_get(opinfo.state),
                        glusterd_op_sm_state_name_get(
                            state[event_type].next_state));
                 (void)synclock_unlock(&gd_op_sm_lock);
@@ -8005,7 +8005,7 @@ glusterd_op_sm()
             } else {
                 if ((priv->op_version < GD_OP_VERSION_6_0) ||
                     !(event_type == GD_OP_EVENT_STAGE_OP &&
-                      opinfo.state.state == GD_OP_STATE_STAGED &&
+                      opinfo.state == GD_OP_STATE_STAGED &&
                       opinfo.skip_locking)) {
                     ret = glusterd_set_txn_opinfo(&event->txn_id, &opinfo);
                     if (ret)

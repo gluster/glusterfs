@@ -1808,7 +1808,7 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     gf_boolean_t is_global = _gf_false;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_opinfo = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     uint32_t op_errno = 0;
     gf_boolean_t cluster_lock = _gf_false;
@@ -1835,8 +1835,8 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
         goto out;
     }
 
-    /* Save opinfo for this transaction with the transaction id */
-    glusterd_txn_opinfo_init(&txn_opinfo, NULL, &op, NULL, NULL);
+    /* Save opinfo for this transaction with the transaction id. */
+    glusterd_txn_opinfo_init(&txn_opinfo, 0, (int *)&op, NULL, NULL);
     ret = glusterd_set_txn_opinfo(txn_id, &txn_opinfo);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,

@@ -85,12 +85,12 @@ glusterd_op_state_machine_mgmt_v3_lock(rpcsvc_request_t *req,
     int32_t ret = -1;
     xlator_t *this = THIS;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
 
     GF_ASSERT(req);
 
-    glusterd_txn_opinfo_init(&txn_op_info, NULL, &lock_req->op, ctx->dict, req);
+    glusterd_txn_opinfo_init(&txn_op_info, 0, &lock_req->op, ctx->dict, req);
 
     ret = glusterd_set_txn_opinfo(&lock_req->txn_id, &txn_op_info);
     if (ret) {
