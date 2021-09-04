@@ -397,6 +397,10 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
         ret = dict_set_int32_sizen(xattr_req, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            errno = ENOMEM;
+            goto out;
+        }
     }
 
     glret = priv_glfs_loc_touchup(&loc);
@@ -425,6 +429,16 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
 
+        if (xattr_rsp) {
+            /* It is possible that this is set in previous call */
+            dict_unref(xattr_rsp);
+            xattr_rsp = NULL;
+        }
+        if (xattr_req) {
+            /* It is possible that this is created earlier */
+            dict_unref(xattr_req);
+            xattr_req = NULL;
+        }
         xattr_req = dict_new();
         if (!xattr_req) {
             errno = ENOMEM;
@@ -440,6 +454,11 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         }
 
         ret = dict_set_int32_sizen(xattr_req, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            errno = ENOMEM;
+            goto out;
+        }
+
         ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, &xattr_rsp);
     }
     DECODE_SYNCOP_ERR(ret);
@@ -468,6 +487,8 @@ found:
 out:
     if (xattr_req)
         dict_unref(xattr_req);
+    if (xattr_rsp)
+        dict_unref(xattr_rsp);
     loc_wipe(&loc);
 
     return inode;

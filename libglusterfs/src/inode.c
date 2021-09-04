@@ -985,6 +985,14 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             GF_ASSERT(!"link attempted b/w inodes of diff table");
         }
 
+        /* similarly, we should not link between an inode with different
+         * namespace to another */
+        if (inode->ns_inode && (inode->ns_inode != parent->ns_inode)) {
+            errno = EINVAL;
+            GF_ASSERT(!"link attempted b/w inodes of different namespaces");
+            return NULL;
+        }
+
         if (parent->ia_type != IA_IFDIR) {
             errno = EINVAL;
             GF_ASSERT(!"link attempted on non-directory parent");
@@ -1300,6 +1308,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 {
     int hash = 0;
     dentry_t *dentry = NULL;
+    inode_t *linked_inode = NULL;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1320,9 +1329,11 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 
     pthread_mutex_lock(&table->lock);
     {
-        __inode_link(inode, dstdir, dstname, iatt, hash);
+        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
         /* pick the old dentry */
-        dentry = __inode_unlink(inode, srcdir, srcname);
+        if (linked_inode) {
+            dentry = __inode_unlink(inode, srcdir, srcname);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 

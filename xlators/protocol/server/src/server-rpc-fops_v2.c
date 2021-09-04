@@ -2362,6 +2362,16 @@ server4_rename_resume(call_frame_t *frame, xlator_t *bound_xl)
         goto err;
     }
 
+    if (state->loc.inode->ns_inode != state->loc2.parent->ns_inode) {
+        /* lets not allow rename across namespaces */
+        op_ret = -1;
+        op_errno = EXDEV;
+        gf_msg(THIS->name, GF_LOG_ERROR, EXDEV, 0,
+               "%s: rename across different namespaces not supported",
+               state->loc.path);
+        goto err;
+    }
+
     STACK_WIND(frame, server4_rename_cbk, bound_xl, bound_xl->fops->rename,
                &state->loc, &state->loc2, state->xdata);
     return 0;
@@ -2389,6 +2399,16 @@ server4_link_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve2.op_ret != 0) {
         op_ret = state->resolve2.op_ret;
         op_errno = state->resolve2.op_errno;
+        goto err;
+    }
+
+    if (state->loc.inode->ns_inode != state->loc2.parent->ns_inode) {
+        /* lets not allow linking across namespaces */
+        op_ret = -1;
+        op_errno = EXDEV;
+        gf_msg(THIS->name, GF_LOG_ERROR, EXDEV, 0,
+               "%s: linking across different namespaces not supported",
+               state->loc.path);
         goto err;
     }
 
@@ -2920,17 +2940,6 @@ server4_setxattr_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve.op_ret != 0)
         goto err;
 
-    /* Let the namespace setting can happen only from special mounts, this
-       should prevent all mounts creating fake namespace. */
-    if ((frame->root->pid >= 0) &&
-        dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
-        gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_SETXATTR_INFO, "path=%s",
-                state->loc.path, "key=%s", GF_NAMESPACE_KEY, NULL);
-        state->resolve.op_ret = -1;
-        state->resolve.op_errno = EPERM;
-        goto err;
-    }
-
     STACK_WIND(frame, server4_setxattr_cbk, bound_xl, bound_xl->fops->setxattr,
                &state->loc, state->dict, state->flags, state->xdata);
     return 0;
@@ -3216,17 +3225,19 @@ server4_lookup_resume(call_frame_t *frame, xlator_t *bound_xl)
         if (xdata) {
             int ret = dict_set_int32(xdata, GF_NAMESPACE_KEY, 1);
             if (ret) {
-                gf_log(THIS->name, GF_LOG_DEBUG,
-                       "dict set (namespace) failed (path: %s), continuing",
-                       state->loc.path);
+                gf_msg_debug(
+                    THIS->name, 0,
+                    "dict set (namespace) failed (path: %s), continuing",
+                    state->loc.path);
             }
             if (state->loc.path && (state->loc.path[0] == '<')) {
                 /* This is a lookup on gfid : get full-path */
                 ret = dict_set_int32(xdata, "get-full-path", 1);
                 if (ret) {
-                    gf_log(THIS->name, GF_LOG_DEBUG,
-                           "dict set (full-path) failed (path: %s), continuing",
-                           state->loc.path);
+                    gf_msg_debug(
+                        THIS->name, 0,
+                        "dict set (full-path) failed (path: %s), continuing",
+                        state->loc.path);
                 }
             }
         }
@@ -4397,6 +4408,17 @@ server4_0_setxattr(rpcsvc_request_t *req)
 
     if (xdr_to_dict(&args.xdata, &state->xdata)) {
         SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+
+    /* Let the namespace setting can happen only from special mounts, this
+       should prevent all mounts creating fake namespace. */
+    if ((frame->root->pid >= 0) &&
+        dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
+        gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_SETXATTR_INFO, "path=%s",
+                state->loc.path, "key=%s", GF_NAMESPACE_KEY, NULL);
+        state->resolve.op_ret = -1;
+        state->resolve.op_errno = EPERM;
         goto out;
     }
 
