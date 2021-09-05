@@ -871,8 +871,8 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
         /* This inode onwards we will set namespace */
         gf_msg(THIS->name, GF_LOG_INFO, 0, PS_MSG_SETXATTR_INFO,
-	       "client=%s, path=%s", STACK_CLIENT_NAME(frame->root),
-	       state->loc.path);
+               "client=%s, path=%s", STACK_CLIENT_NAME(frame->root),
+               state->loc.path);
         inode_set_namespace_inode(state->loc.inode, state->loc.inode);
     }
 
