@@ -28,6 +28,18 @@
 #define LG_MSG_IO_THREAD_NAME_INVALID_FMT                                      \
     "Tried to construct and invalid name for a thread."
 
+#define LG_MSG_IO_SYNC_TIMEOUT_LVL(_res) GF_LOG_WARNING
+#define LG_MSG_IO_SYNC_TIMEOUT_FMT                                             \
+    "Time out while waiting for synchronization (%u retries)."
+
+#define LG_MSG_IO_SYNC_ABORTED_LVL(_res) GF_LOG_ERROR
+#define LG_MSG_IO_SYNC_ABORTED_FMT                                             \
+    "Synchronization took too much time. Aborting after %u retries."
+
+#define LG_MSG_IO_SYNC_COMPLETED_LVL(_res) GF_LOG_INFO
+#define LG_MSG_IO_SYNC_COMPLETED_FMT                                           \
+    "Synchronization completed after %u retries."
+
 static __thread gf_io_thread_t gf_io_thread = {};
 
 /* Initialize a condition variable using a monotonic clock for timeouts. */
@@ -56,17 +68,19 @@ gf_io_cond_init(pthread_cond_t *cond)
  * delay of 'timeout' seconds. */
 int32_t
 gf_io_sync_start(gf_io_sync_t *sync, uint32_t count, uint32_t timeout,
-                 void *data)
+                 uint32_t retries, void *data)
 {
     int32_t res;
 
-    res = gf_io_call_errno0(clock_gettime, CLOCK_MONOTONIC, &sync->to);
+    res = gf_io_call_errno0(clock_gettime, CLOCK_MONOTONIC, &sync->abs_to);
     if (caa_unlikely(res < 0)) {
         return res;
     }
 
-    sync->to.tv_sec += timeout;
+    sync->abs_to.tv_sec += timeout;
     sync->data = data;
+    sync->timeout = timeout;
+    sync->retries = retries;
     sync->count = count;
     sync->phase = 0;
     sync->pending = count;
@@ -93,11 +107,48 @@ gf_io_sync_destroy(gf_io_sync_t *sync)
     gf_io_call_ret(pthread_mutex_destroy, &sync->mutex);
 }
 
+static int32_t
+gf_io_sync_wait_timeout(gf_io_sync_t *sync, int32_t retry, bool check)
+{
+    int32_t res;
+
+    if (check) {
+        if (retry > 0) {
+            gf_io_log(0, LG_MSG_IO_SYNC_COMPLETED, retry);
+        }
+        return -1;
+    }
+
+    res = gf_io_call_ret(pthread_cond_timedwait, &sync->cond, &sync->mutex,
+                         &sync->abs_to);
+    if (caa_unlikely(res != 0)) {
+        if (res != -ETIMEDOUT) {
+            GF_ABORT();
+        }
+
+        retry++;
+
+        gf_io_log(res, LG_MSG_IO_SYNC_TIMEOUT, retry);
+
+        if (sync->retries == 0) {
+            gf_io_log(res, LG_MSG_IO_SYNC_ABORTED, retry);
+            GF_ABORT();
+        }
+        sync->retries--;
+
+        sync->abs_to.tv_sec += sync->timeout;
+    }
+
+    return retry;
+}
+
 /* Notifies completion of 'count' entities. Optionally it can wait until
  * all other threads have also notified. Only one thread can wait. */
 int32_t
 gf_io_sync_done(gf_io_sync_t *sync, uint32_t count, int32_t res, bool wait)
 {
+    int32_t retry;
+
     gf_io_success(gf_io_call_ret(pthread_mutex_lock, &sync->mutex));
 
     sync->pending -= count;
@@ -115,10 +166,10 @@ gf_io_sync_done(gf_io_sync_t *sync, uint32_t count, int32_t res, bool wait)
         return 0;
     }
 
-    while (sync->pending > 0) {
-        gf_io_success(gf_io_call_ret(pthread_cond_timedwait, &sync->cond,
-                                     &sync->mutex, &sync->to));
-    }
+    retry = 0;
+    do {
+        retry = gf_io_sync_wait_timeout(sync, retry, sync->pending == 0);
+    } while (retry >= 0);
 
     res = sync->res;
 
@@ -138,6 +189,7 @@ int32_t
 gf_io_sync_wait(gf_io_sync_t *sync, uint32_t count, int32_t res)
 {
     uint32_t phase;
+    int32_t retry;
 
     gf_io_success(gf_io_call_ret(pthread_mutex_lock, &sync->mutex));
 
@@ -153,10 +205,11 @@ gf_io_sync_wait(gf_io_sync_t *sync, uint32_t count, int32_t res)
         gf_io_success(gf_io_call_ret(pthread_cond_broadcast, &sync->cond));
     } else {
         phase = sync->phase;
+
+        retry = 0;
         do {
-            gf_io_success(gf_io_call_ret(pthread_cond_timedwait, &sync->cond,
-                                         &sync->mutex, &sync->to));
-        } while (sync->phase == phase);
+            retry = gf_io_sync_wait_timeout(sync, retry, sync->phase != phase);
+        } while (retry >= 0);
     }
 
     res = sync->res;
@@ -452,8 +505,8 @@ gf_io_thread_join(pthread_t thread, struct timespec *timeout)
 {
 #ifdef GF_LINUX_HOST_OS
     if (timeout != NULL) {
-        gf_io_success(
-            gf_io_call_ret(pthread_timedjoin_np, thread, NULL, timeout));
+        gf_io_success(gf_io_call_ret(pthread_timedjoin_np, thread, NULL,
+                                     timeout));
 
         return;
     }
@@ -488,6 +541,7 @@ gf_io_thread_pool_start(gf_io_thread_pool_t *pool,
 {
     pthread_t ids[cfg->num_threads];
     gf_io_sync_t sync;
+    struct timespec to;
     uint32_t created, pending;
     int32_t res;
 
@@ -498,7 +552,8 @@ gf_io_thread_pool_start(gf_io_thread_pool_t *pool,
 
     created = 0;
 
-    res = gf_io_sync_start(&sync, cfg->num_threads + 1, cfg->timeout, cfg);
+    res = gf_io_sync_start(&sync, cfg->num_threads + 1, cfg->timeout,
+                           cfg->retries, cfg);
     if (caa_unlikely(res < 0)) {
         goto done;
     }
@@ -532,8 +587,11 @@ done_sync:
 
 done:
     if (caa_unlikely(res < 0)) {
+        gf_io_success(gf_io_call_ret(clock_gettime, CLOCK_REALTIME, &to));
+        to.tv_sec += sync.timeout;
+
         while (created > 0) {
-            gf_io_thread_join(ids[--created], &sync.to);
+            gf_io_thread_join(ids[--created], &to);
         }
 
         gf_io_thread_pool_destroy(pool);

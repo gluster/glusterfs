@@ -311,12 +311,12 @@ GF_IO_CBK(gf_io_sync_wake, op, res, static)
 
 /* Execute a function in the background and wait for completion. */
 static int32_t
-gf_io_sync(gf_io_async_t func, void *data, uint32_t timeout)
+gf_io_sync(gf_io_async_t func, void *data, uint32_t timeout, uint32_t retries)
 {
     gf_io_sync_t sync;
     int32_t res;
 
-    res = gf_io_sync_start(&sync, 2, timeout, NULL);
+    res = gf_io_sync_start(&sync, 2, timeout, retries, NULL);
     if (caa_unlikely(res < 0)) {
         return res;
     }
@@ -389,7 +389,8 @@ gf_io_main(uint32_t workers, gf_io_handlers_t *handlers, void *data)
         cfg.stack_size = GF_IO_STACK_SIZE;
         cfg.priority = 0;
         cfg.first_id = 1;
-        cfg.timeout = 5;
+        cfg.timeout = GF_IO_INIT_TIMEOUT;
+        cfg.retries = GF_IO_INIT_RETRIES;
         cfg.setup = gf_io_worker_setup;
         cfg.main = gf_io_worker_main;
 
@@ -430,16 +431,18 @@ gf_io_main(uint32_t workers, gf_io_handlers_t *handlers, void *data)
 
 #endif
 
-    res = gf_io_sync(handlers->setup, data, 5);
+    res = gf_io_sync(handlers->setup, data, GF_IO_HANDLER_TIMEOUT,
+                     GF_IO_HANDLER_RETRIES);
     if (caa_likely(res >= 0)) {
         res = gf_io.engine.wait();
 
-        gf_io_sync(handlers->cleanup, data, 5);
+        gf_io_sync(handlers->cleanup, data, GF_IO_HANDLER_TIMEOUT,
+                   GF_IO_HANDLER_RETRIES);
     }
 
     if (workers > 0) {
         gf_io_workers_stop();
-        gf_io_thread_pool_wait(&pool, 5);
+        gf_io_thread_pool_wait(&pool, GF_IO_INIT_TIMEOUT);
     }
 
     return res;
