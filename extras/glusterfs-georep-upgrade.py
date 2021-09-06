@@ -56,7 +56,8 @@ def modify_htime_file(brick_path):
                         shutil.copyfile(pth, os.path.join(path, changelog))
                     except shutil.SameFileError:
                         pass
-                    os.remove(pth)
+                    else:
+                        os.remove(pth)
 
         #rename temp_htime_file with htime file
         os.rename(htime_file_path, os.path.join('%s.bak'%htime_file_path))
