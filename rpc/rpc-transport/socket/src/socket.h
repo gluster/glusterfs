@@ -24,10 +24,6 @@
 
 #include "rpc-transport.h"
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif /* MAX_IOVEC */
-
 #define GF_DEFAULT_SOCKET_LISTEN_PORT GF_DEFAULT_BASE_PORT
 
 #define RPC_MAX_FRAGMENT_SIZE 0x7fffffff
@@ -197,8 +193,6 @@ typedef struct {
         };
     };
     pthread_mutex_t out_lock;
-    pthread_mutex_t cond_lock;
-    pthread_cond_t cond;
     int windowsize;
     int keepalive;
     int keepaliveidle;

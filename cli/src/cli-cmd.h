@@ -96,7 +96,7 @@ void
 cli_cmd_tokens_destroy(char **tokens);
 
 int
-cli_cmd_await_response(unsigned time);
+cli_cmd_await_response(time_t time);
 
 int
 cli_cmd_broadcast_response(int32_t status);

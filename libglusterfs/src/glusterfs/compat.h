@@ -440,31 +440,6 @@ strnlen(const char *string, size_t maxlen);
     }))
 #endif
 
-#define GF_DIR_ALIGN(x) (((x) + sizeof(uint64_t) - 1) & ~(sizeof(uint64_t) - 1))
-
-#include <sys/types.h>
-#include <dirent.h>
-
-static inline int32_t
-dirent_size(struct dirent *entry)
-{
-    int32_t size = -1;
-
-#ifdef GF_BSD_HOST_OS
-    size = GF_DIR_ALIGN(24 /* FIX MEEEE!!! */ + entry->d_namlen);
-#endif
-#ifdef GF_DARWIN_HOST_OS
-    size = GF_DIR_ALIGN(24 /* FIX MEEEE!!! */ + entry->d_namlen);
-#endif
-#ifdef GF_LINUX_HOST_OS
-    size = GF_DIR_ALIGN(24 /* FIX MEEEE!!! */ + entry->d_reclen);
-#endif
-#ifdef GF_SOLARIS_HOST_OS
-    size = GF_DIR_ALIGN(24 /* FIX MEEEE!!! */ + entry->d_reclen);
-#endif
-    return size;
-}
-
 #ifdef THREAD_UNSAFE_BASENAME
 char *
 basename_r(const char *);

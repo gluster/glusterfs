@@ -32,7 +32,7 @@ typedef struct {
     int queue_size;
     pthread_t thr;
     struct mem_pool *local_pool;
-    uint32_t timeout;
+    time_t timeout;
     char *failover_hosts;
     struct list_head failover_list;
 } quiesce_priv_t;

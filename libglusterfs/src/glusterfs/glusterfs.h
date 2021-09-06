@@ -259,12 +259,6 @@ enum gf_internal_fop_indicator {
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 #define GF_UNLINKED_LOOKUP "unlinked-lookup"
-/* replace-brick and pump related internal xattrs */
-#define RB_PUMP_CMD_START "glusterfs.pump.start"
-#define RB_PUMP_CMD_PAUSE "glusterfs.pump.pause"
-#define RB_PUMP_CMD_COMMIT "glusterfs.pump.commit"
-#define RB_PUMP_CMD_ABORT "glusterfs.pump.abort"
-#define RB_PUMP_CMD_STATUS "glusterfs.pump.status"
 
 #define GLUSTERFS_MARKER_DONT_ACCOUNT_KEY "glusters.marker.dont-account"
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD (2048)
@@ -321,6 +315,7 @@ enum gf_internal_fop_indicator {
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY "dht-get-iatt-in-xattr"
 #define DHT_MODE_IN_XDATA_KEY "dht-get-mode-in-xattr"
+#define GF_FORCE_REPLACE_KEY "force-replace"
 #define GET_LINK_COUNT "get-link-count"
 #define GF_GET_SIZE "get-size"
 #define GF_PRESTAT "virt-gf-prestat"
@@ -593,6 +588,8 @@ struct _cmd_args {
     bool brick_mux;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
+
+    char *io_engine;
 };
 typedef struct _cmd_args cmd_args_t;
 
@@ -760,6 +757,7 @@ struct _glusterfs_ctx {
 
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
+    char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
@@ -854,4 +852,5 @@ int
 glusterfs_read_secure_access_file(void);
 int
 glusterfs_graph_fini(glusterfs_graph_t *graph);
+
 #endif /* _GLUSTERFS_H */

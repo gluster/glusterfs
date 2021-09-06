@@ -911,7 +911,7 @@ afr_shd_anon_inode_cleaner(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     }
 
     /*Inode is deleted from subvol*/
-    if (count == 1 || (iatt->ia_type != IA_IFDIR && multiple_links)) {
+    if (count == 1 || (iatt && iatt->ia_type != IA_IFDIR && multiple_links)) {
         gf_msg(healer->this->name, GF_LOG_WARNING, 0,
                AFR_MSG_EXPUNGING_FILE_OR_DIR, "expunging %s %s/%s on %s", type,
                priv->anon_inode_name, entry->d_name, subvol->name);

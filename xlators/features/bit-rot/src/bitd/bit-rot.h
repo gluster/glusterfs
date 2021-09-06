@@ -201,7 +201,7 @@ struct br_private {
                                       signing and the workers which sign
                                       the objects */
 
-    uint32_t expiry_time; /* objects "wait" time */
+    time_t expiry_time; /* objects "wait" time */
 
     uint32_t signer_th_count; /* Number of signing process threads */
 

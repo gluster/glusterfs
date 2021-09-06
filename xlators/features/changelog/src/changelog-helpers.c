@@ -1968,7 +1968,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t pgfid, char **path,
     }
 
     if (bname)
-        strncat(result, bname, strlen(bname) + 1);
+        snprintf(result + len, sizeof(result) - len, "%s", bname);
 
     *path = gf_strdup(result);
 

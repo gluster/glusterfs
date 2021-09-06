@@ -893,7 +893,7 @@ do_auth:
     GF_OPTION_RECONF("manage-gids", conf->server_manage_gids, options, bool,
                      do_rpc);
 
-    GF_OPTION_RECONF("gid-timeout", conf->gid_cache_timeout, options, int32,
+    GF_OPTION_RECONF("gid-timeout", conf->gid_cache_timeout, options, time,
                      do_rpc);
     if (gid_cache_reconf(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR, NULL);
@@ -1193,7 +1193,7 @@ server_init(xlator_t *this)
     } else {
         conf->server_manage_gids = ret;
     }
-    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, err);
+    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, time, err);
     if (gid_cache_init(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_INIT_GRP_CACHE_ERROR, NULL);
         goto err;
@@ -1928,9 +1928,9 @@ struct volume_options server_options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 1024,
-     .default_value = "2",
+     .min = SERVER_MIN_EVENT_THREADS,
+     .max = SERVER_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

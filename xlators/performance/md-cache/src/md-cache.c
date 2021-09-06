@@ -59,7 +59,7 @@ struct mdc_statistics {
 };
 
 struct mdc_conf {
-    uint32_t timeout;
+    time_t timeout;
     gf_boolean_t cache_posix_acl;
     gf_boolean_t cache_glusterfs_acl;
     gf_boolean_t cache_selinux;
@@ -77,7 +77,7 @@ struct mdc_conf {
     gf_boolean_t cache_statfs;
     struct mdc_statfs_cache statfs_cache;
     char *mdc_xattr_str;
-    gf_atomic_int32_t generation;
+    gf_atomic_uint32_t generation;
 };
 
 struct mdc_local;
@@ -129,7 +129,7 @@ struct mdc_local {
     char *linkname;
     char *key;
     dict_t *xattr;
-    uint64_t incident_time;
+    time_t incident_time;
     bool update_cache;
 };
 
@@ -377,8 +377,7 @@ __is_cache_valid(xlator_t *this, time_t mdc_time)
 {
     gf_boolean_t ret = _gf_true;
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
-    time_t last_child_down = 0;
+    time_t timeout = 0, last_child_down = 0;
 
     conf = this->private;
 
@@ -553,7 +552,7 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
             (iatt->ia_mtime_nsec != mdc->md_mtime_nsec) ||
             (iatt->ia_ctime != mdc->md_ctime) ||
             (iatt->ia_ctime_nsec != mdc->md_ctime_nsec)) {
-            if (conf->global_invalidation &&
+            if (conf->global_invalidation && mdc->valid &&
                 (!prebuf || (prebuf->ia_mtime != mdc->md_mtime) ||
                  (prebuf->ia_mtime_nsec != mdc->md_mtime_nsec) ||
                  (prebuf->ia_ctime != mdc->md_ctime) ||
@@ -1067,7 +1066,7 @@ int
 mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 {
     struct mdc_conf *conf = this->private;
-    uint32_t cache_age = 0;
+    time_t cache_age = 0;
     int ret = 0;
 
     if (!buf || !conf) {
@@ -1087,12 +1086,12 @@ mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 
         cache_age = (gf_time() - conf->statfs_cache.last_refreshed);
 
-        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %u secs",
+        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %ld secs",
                cache_age);
         if (cache_age > conf->timeout) {
             /* Expire the cache. */
             gf_log(this->name, GF_LOG_DEBUG,
-                   "Cache age %u secs exceeded timeout %u secs", cache_age,
+                   "Cache age %ld secs exceeded timeout %ld secs", cache_age,
                    conf->timeout);
             ret = -1;
             goto unlock;
@@ -3609,12 +3608,13 @@ int
 mdc_reconfigure(xlator_t *this, dict_t *options)
 {
     struct mdc_conf *conf = NULL;
-    int timeout = 0, ret = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
+    int ret = 0;
 
     conf = this->private;
 
-    GF_OPTION_RECONF("md-cache-timeout", timeout, options, int32, out);
+    GF_OPTION_RECONF("md-cache-timeout", timeout, options, time, out);
 
     GF_OPTION_RECONF("cache-selinux", conf->cache_selinux, options, bool, out);
 
@@ -3680,7 +3680,7 @@ int
 mdc_init(xlator_t *this)
 {
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
 
     conf = GF_CALLOC(sizeof(*conf), 1, gf_mdc_mt_mdc_conf_t);
@@ -3692,7 +3692,7 @@ mdc_init(xlator_t *this)
 
     LOCK_INIT(&conf->lock);
 
-    GF_OPTION_INIT("md-cache-timeout", timeout, uint32, out);
+    GF_OPTION_INIT("md-cache-timeout", timeout, time, out);
 
     GF_OPTION_INIT("cache-selinux", conf->cache_selinux, bool, out);
 

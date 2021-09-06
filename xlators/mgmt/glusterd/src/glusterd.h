@@ -41,6 +41,10 @@
 
 #include "gd-common-utils.h"
 
+/* Threading limits for glusterd event threads. */
+#define GLUSTERD_MIN_EVENT_THREADS 1
+#define GLUSTERD_MAX_EVENT_THREADS 32
+
 #define GLUSTERD_TR_LOG_SIZE 50
 #define GLUSTERD_QUORUM_TYPE_KEY "cluster.server-quorum-type"
 #define GLUSTERD_QUORUM_RATIO_KEY "cluster.server-quorum-ratio"
@@ -218,10 +222,10 @@ typedef struct {
     char *snap_bricks_directory;
     gf_store_handle_t *missed_snaps_list_shandle;
     struct cds_list_head missed_snaps_list;
-    int ping_timeout;
+    time_t ping_timeout;
     uint32_t generation;
     int32_t workers;
-    uint32_t mgmt_v3_lock_timeout;
+    time_t mgmt_v3_lock_timeout;
     gf_atomic_t blockers;
     pthread_mutex_t attach_lock; /* Lock can be per process or a common one */
     pthread_mutex_t volume_lock; /* We release the big_lock from lot of places
@@ -328,20 +332,11 @@ typedef int (*defrag_cbk_fn_t)(glusterd_volinfo_t *volinfo,
                                gf_defrag_status_t status);
 
 struct glusterd_defrag_info_ {
-    uint64_t total_files;
-    uint64_t total_data;
-    uint64_t num_files_lookedup;
-    uint64_t total_failures;
     int refcnt;
     gf_lock_t lock;
-    int cmd;
-    uint32_t connected;
-    pthread_t th;
+    gf_boolean_t connected;
     struct rpc_clnt *rpc;
-    struct gf_defrag_brickinfo_ *bricks; /* volinfo->brick_count */
     defrag_cbk_fn_t cbk_fn;
-    gf_defrag_status_t defrag_status;
-    char mount[1024];
 };
 
 typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
@@ -378,7 +373,7 @@ struct glusterd_bitrot_scrub_ {
     char *scrub_freq;
     uint64_t scrubbed_files;
     uint64_t unsigned_files;
-    uint64_t last_scrub_time;
+    time_t last_scrub_time;
     uint64_t scrub_duration;
     uint64_t error_count;
 };
@@ -396,7 +391,7 @@ struct glusterd_rebalance_ {
     gf_defrag_status_t defrag_status;
     uuid_t rebalance_id;
     double rebalance_time;
-    uint64_t time_left;
+    time_t time_left;
     dict_t *dict; /* Dict to store misc information
                    * like list of bricks being removed */
     glusterd_op_t op;
@@ -509,15 +504,9 @@ struct glusterd_volinfo_ {
        the volume which is snapped. In
        case of a non-snap volume, this
        field will be initialized as N/A */
-    char volname[NAME_MAX + 1];
-    /* NAME_MAX + 1 will be equal to
-     * GD_VOLUME_NAME_MAX + 5.(also to
-     * GD_VOLUME_NAME_MAX_TIER). An extra 5
-     * bytes are added to GD_VOLUME_NAME_MAX
-     * because, as part of the tiering
-     * volfile generation code, we are
-     * temporarily appending either "-hot"
-     * or "-cold" */
+
+    char volname[GD_VOLUME_NAME_MAX];
+
     gf_atomic_t volpeerupdate;
     /* Flag to check about volume has received updates
        from peer
@@ -651,7 +640,6 @@ typedef enum {
 #define RB_CLIENTVOL_FILENAME "rb_client.vol"
 #define RB_DSTBRICK_PIDFILE "rb_dst_brick.pid"
 #define RB_DSTBRICKVOL_FILENAME "rb_dst_brick.vol"
-#define RB_PUMP_DEF_ARG "default"
 
 #define GLUSTERD_UUID_LEN 50
 
@@ -1067,10 +1055,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
 int
 glusterd_restart_bricks(void *opaque);
 
-int32_t
-glusterd_volume_txn(rpcsvc_request_t *req, char *volname, int flags,
-                    glusterd_op_t op);
-
 int
 glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
                            glusterd_peerctx_t *peerctx);
@@ -1285,15 +1269,6 @@ int32_t
 glusterd_op_begin_synctask(rpcsvc_request_t *req, glusterd_op_t op, void *dict);
 int32_t
 glusterd_defrag_event_notify_handle(dict_t *dict);
-
-int32_t
-glusterd_txn_opinfo_dict_init();
-
-void
-glusterd_txn_opinfo_dict_fini();
-
-void
-glusterd_txn_opinfo_init();
 
 /* snapshot */
 glusterd_snap_t *

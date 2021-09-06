@@ -455,8 +455,8 @@ afr_selfheal_metadata(call_frame_t *frame, xlator_t *this, inode_t *inode)
 
     locked_replies = alloca0(sizeof(*locked_replies) * priv->child_count);
 
-    ret = afr_selfheal_inodelk(frame, this, inode, this->name, LLONG_MAX - 1, 0,
-                               data_lock);
+    ret = afr_selfheal_tie_breaker_inodelk(frame, this, inode, this->name,
+                                           LLONG_MAX - 1, 0, data_lock);
     {
         if (ret < priv->child_count) {
             ret = -ENOTCONN;

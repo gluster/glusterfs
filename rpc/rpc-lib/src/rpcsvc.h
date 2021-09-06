@@ -24,10 +24,6 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/client_t.h>
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif
-
 /* TODO: we should store prognums at a centralized location to avoid conflict
          or use a robust random number generator to avoid conflicts
 */
@@ -439,7 +435,6 @@ struct rpcsvc_program {
     struct list_head program;
     rpcsvc_request_queue_t request_queue[EVENT_MAX_THREADS];
     pthread_mutex_t thr_lock;
-    pthread_cond_t thr_cond;
     int threadcount;
     int thr_queue;
     pthread_key_t req_queue_key;

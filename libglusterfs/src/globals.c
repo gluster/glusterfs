@@ -299,8 +299,6 @@ glusterfs_cleanup(void *ptr)
     if (thread_syncopctx.groups != NULL) {
         GF_FREE(thread_syncopctx.groups);
     }
-
-    mem_pool_thread_destructor(NULL);
 }
 
 void

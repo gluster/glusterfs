@@ -23,7 +23,7 @@
 #endif
 
 #include "xdr-nfs3.h"
-#include <glusterfs/mem-pool.h>
+#include <glusterfs/memory.h>
 #include "xdr-common.h"
 
 bool_t

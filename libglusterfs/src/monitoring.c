@@ -17,60 +17,10 @@
 static void
 dump_mem_acct_details(xlator_t *xl, int fd)
 {
-    struct mem_acct_rec *mem_rec;
-    int i = 0;
-
     if (!xl || !xl->mem_acct || (xl->ctx->active != xl->graph))
         return;
 
-    dprintf(fd, "# %s.%s.total.num_types %d\n", xl->type, xl->name,
-            xl->mem_acct->num_types);
-
-    dprintf(fd,
-            "# type, in-use-size, in-use-units, max-size, "
-            "max-units, total-allocs\n");
-
-    for (i = 0; i < xl->mem_acct->num_types; i++) {
-        mem_rec = &xl->mem_acct->rec[i];
-        if (mem_rec->num_allocs == 0)
-            continue;
-        dprintf(fd, "# %s, %" PRIu64 ", %u, %" PRIu64 ", %u, %" PRIu64 "\n",
-                mem_rec->typestr, mem_rec->size, mem_rec->num_allocs,
-                mem_rec->max_size, mem_rec->max_num_allocs,
-                mem_rec->total_allocs);
-    }
-}
-
-static void
-dump_global_memory_accounting(int fd)
-{
-#if MEMORY_ACCOUNTING_STATS
-    int i = 0;
-    uint64_t count = 0;
-
-    uint64_t tcalloc = GF_ATOMIC_GET(gf_memory_stat_counts.total_calloc);
-    uint64_t tmalloc = GF_ATOMIC_GET(gf_memory_stat_counts.total_malloc);
-    uint64_t tfree = GF_ATOMIC_GET(gf_memory_stat_counts.total_free);
-
-    dprintf(fd, "memory.total.calloc %lu\n", tcalloc);
-    dprintf(fd, "memory.total.malloc %lu\n", tmalloc);
-    dprintf(fd, "memory.total.realloc %lu\n",
-            GF_ATOMIC_GET(gf_memory_stat_counts.total_realloc));
-    dprintf(fd, "memory.total.free %lu\n", tfree);
-    dprintf(fd, "memory.total.in-use %lu\n", ((tcalloc + tmalloc) - tfree));
-
-    for (i = 0; i < GF_BLK_MAX_VALUE; i++) {
-        count = GF_ATOMIC_GET(gf_memory_stat_counts.blk_size[i]);
-        dprintf(fd, "memory.total.blk_size.%s %lu\n",
-                gf_mem_stats_blk[i].blk_size_str, count);
-    }
-
-    dprintf(fd, "#----\n");
-#endif
-
-    /* This is not a metric to be watched in admin guide,
-       but keeping it here till we resolve all leak-issues
-       would be great */
+    gf_mem_acct_dump_details(xl->type, xl->name, xl->mem_acct, fd);
 }
 
 static void
@@ -179,10 +129,6 @@ dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
     dprintf(fd, "### BrickName: %s\n", ctx->cmd_args.brick_name);
     dprintf(fd, "### MountName: %s\n", ctx->cmd_args.mount_point);
     dprintf(fd, "### VolumeName: %s\n", ctx->cmd_args.volume_name);
-
-    /* Dump memory accounting */
-    dump_global_memory_accounting(fd);
-    dprintf(fd, "# -----\n");
 
     dump_call_stack_details(ctx, fd);
     dump_dict_details(ctx, fd);

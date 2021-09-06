@@ -30,7 +30,7 @@
 #include "glusterfs/libglusterfs-messages.h"  // for LG_MSG_GRAPH_ERROR, LG_...
 #include "glusterfs/list.h"                   // for list_add, list_del_init
 #include "glusterfs/logging.h"                // for gf_msg, GF_LOG_ERROR
-#include "glusterfs/mem-pool.h"               // for GF_FREE, gf_strdup, GF_...
+#include "glusterfs/memory.h"                 // for GF_FREE, gf_strdup, GF_...
 #include "glusterfs/mem-types.h"              // for gf_common_mt_xlator_list_t
 #include "glusterfs/options.h"                // for xlator_tree_reconfigure
 #include "glusterfs/syscall.h"                // for sys_close, sys_stat
@@ -479,21 +479,10 @@ glusterfs_graph_unknown_options(glusterfs_graph_t *graph)
 static void
 fill_uuid(char *uuid, int size, struct timeval tv)
 {
-    char hostname[50] = {
-        0,
-    };
     char now_str[GF_TIMESTR_SIZE];
 
-    if (gethostname(hostname, sizeof(hostname) - 1) != 0) {
-        gf_msg("graph", GF_LOG_ERROR, errno, LG_MSG_GETHOSTNAME_FAILED,
-               "gethostname failed");
-        hostname[sizeof(hostname) - 1] = '\0';
-    }
-
     gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
-    snprintf(uuid, size, "%s-%d-%s", hostname, getpid(), now_str);
-
-    return;
+    snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
 }
 
 static int

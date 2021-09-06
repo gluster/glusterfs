@@ -466,9 +466,7 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
         pl_inode->check_mlock_info = _gf_true;
         pl_inode->mlock_enforced = _gf_false;
 
-        /* -2 means never looked up. -1 means something went wrong and link
-         * tracking is disabled. */
-        pl_inode->links = -2;
+        pl_inode->remove_running = 0;
 
         ret = __inode_ctx_put(inode, this, (uint64_t)(long)(pl_inode));
         if (ret) {
@@ -853,8 +851,6 @@ __insert_and_merge(pl_inode_t *pl_inode, posix_lock_t *lock)
                 __destroy_lock(conf);
 
                 __destroy_lock(lock);
-                INIT_LIST_HEAD(&sum->list);
-                posix_lock_to_flock(sum, &sum->user_flock);
                 __insert_and_merge(pl_inode, sum);
 
                 return;
@@ -1400,11 +1396,6 @@ pl_inode_remove_prepare(xlator_t *xl, call_frame_t *frame, loc_t *loc,
 
     pthread_mutex_lock(&pl_inode->mutex);
 
-    if (pl_inode->removed) {
-        error = ESTALE;
-        goto unlock;
-    }
-
     if (pl_inode_has_owners(xl, frame->root->client, pl_inode, &now, contend)) {
         error = -1;
         /* We skip the unlock here because the caller must create a stub when
@@ -1417,7 +1408,6 @@ pl_inode_remove_prepare(xlator_t *xl, call_frame_t *frame, loc_t *loc,
     pl_inode->is_locked = _gf_true;
     pl_inode->remove_running++;
 
-unlock:
     pthread_mutex_unlock(&pl_inode->mutex);
 
 done:
@@ -1487,19 +1477,17 @@ pl_inode_remove_cbk(xlator_t *xl, pl_inode_t *pl_inode, int32_t error)
 
     pthread_mutex_lock(&pl_inode->mutex);
 
-    if (error == 0) {
-        if (pl_inode->links >= 0) {
-            pl_inode->links--;
-        }
-        if (pl_inode->links == 0) {
-            pl_inode->removed = _gf_true;
-        }
-    }
-
     pl_inode->remove_running--;
 
     if ((pl_inode->remove_running == 0) && list_empty(&pl_inode->waiting)) {
         pl_inode->is_locked = _gf_false;
+
+        /* At this point it's possible that the inode has been deleted, but
+         * there could be open fd's still referencing it, so we can't prevent
+         * pending locks from being granted. If the file has really been
+         * deleted, whatever the client does once the lock is granted will
+         * fail with the appropriate error, so we don't need to worry about
+         * it here. */
 
         list_for_each_entry(dom, &pl_inode->dom_list, inode_list)
         {
@@ -1551,11 +1539,6 @@ pl_inode_remove_inodelk(pl_inode_t *pl_inode, pl_inode_lock_t *lock)
 {
     pl_dom_list_t *dom;
     pl_inode_lock_t *ilock;
-
-    /* If the inode has been deleted, we won't allow any lock. */
-    if (pl_inode->removed) {
-        return -ESTALE;
-    }
 
     /* We only synchronize with locks made for regular operations coming from
      * the user. Locks done for internal purposes are hard to control and could

@@ -6839,7 +6839,7 @@ init(xlator_t *this_xl)
         priv->fopen_keep_cache = fopen_keep_cache;
     }
 
-    GF_OPTION_INIT("gid-timeout", priv->gid_cache_timeout, int32, cleanup_exit);
+    GF_OPTION_INIT("gid-timeout", priv->gid_cache_timeout, time, cleanup_exit);
 
     GF_OPTION_INIT("fuse-mountopts", priv->fuse_mountopts, str, cleanup_exit);
 

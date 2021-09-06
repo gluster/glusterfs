@@ -51,7 +51,7 @@ typedef struct {
 
     eh_t *split_brain;
     eh_t **statistics;
-    int timeout;
+    time_t timeout;
     uint32_t max_threads;
     uint32_t wait_qlength;
     uint32_t halo_max_latency_msec;

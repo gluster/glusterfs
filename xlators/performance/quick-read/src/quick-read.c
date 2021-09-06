@@ -1074,7 +1074,7 @@ qr_priv_dump(xlator_t *this)
     gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("max_file_size", "%" PRIu64, conf->max_file_size);
-    gf_proc_dump_write("cache_timeout", "%d", conf->cache_timeout);
+    gf_proc_dump_write("cache_timeout", "%ld", conf->cache_timeout);
 
     if (!table) {
         goto out;
@@ -1199,7 +1199,7 @@ qr_reconfigure(xlator_t *this, dict_t *options)
         goto out;
     }
 
-    GF_OPTION_RECONF("cache-timeout", conf->cache_timeout, options, int32, out);
+    GF_OPTION_RECONF("cache-timeout", conf->cache_timeout, options, time, out);
 
     GF_OPTION_RECONF("quick-read-cache-invalidation", conf->qr_invalidation,
                      options, bool, out);
@@ -1350,7 +1350,7 @@ qr_init(xlator_t *this)
 
     GF_OPTION_INIT("max-file-size", conf->max_file_size, size_uint64, out);
 
-    GF_OPTION_INIT("cache-timeout", conf->cache_timeout, int32, out);
+    GF_OPTION_INIT("cache-timeout", conf->cache_timeout, time, out);
 
     GF_OPTION_INIT("quick-read-cache-invalidation", conf->qr_invalidation, bool,
                    out);

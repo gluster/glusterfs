@@ -1229,7 +1229,9 @@ posix_handle_pair(xlator_t *this, loc_t *loc, const char *real_path, char *key,
                         SLEN(POSIX_ACL_ACCESS_XATTR)) &&
                stbuf && IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
-    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY))) {
+    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY)) ||
+               !strncmp(key, GF_FORCE_REPLACE_KEY,
+                        SLEN(GF_FORCE_REPLACE_KEY))) {
         /* ignore this key value pair */
         ret = 0;
         goto out;
@@ -1976,7 +1978,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
     char *op = NULL;
     int op_errno = 0;
     int cnt;
-    int timeout = 0;
+    time_t timeout = 0;
     struct aiocb aiocb;
 
     priv = this->private;
@@ -2084,7 +2086,7 @@ out:
             ret = 0;
         } else {
             gf_event(EVENT_POSIX_HEALTH_CHECK_FAILED,
-                     "op=%s;path=%s;error=%s;brick=%s:%s timeout is %d", op,
+                     "op=%s;path=%s;error=%s;brick=%s:%s timeout is %ld", op,
                      file_path, strerror(op_errno), priv->hostname,
                      priv->base_path, timeout);
         }

@@ -2265,6 +2265,11 @@ retry:
         }
     }
 
+    if (this->ctx->cmd_args.io_engine != NULL) {
+        runner_add_args(&runner, "--io-engine", this->ctx->cmd_args.io_engine,
+                        NULL);
+    }
+
     if (this->ctx->cmd_args.logger == gf_logger_syslog) {
         runner_argprintf(&runner, "--logger=syslog");
     }
@@ -5450,6 +5455,7 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
 
         if (GLUSTERD_VOL_COMP_RJT == *status) {
             ret = 0;
+            update = _gf_false;
             goto out;
         }
         if (GLUSTERD_VOL_COMP_UPDATE_REQ == *status) {
@@ -5464,11 +5470,12 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
          * first brick to come up before attaching the subsequent bricks
          * in case brick multiplexing is enabled
          */
-        glusterd_launch_synctask(glusterd_import_friend_volumes_synctask, arg);
+        ret = glusterd_launch_synctask(glusterd_import_friend_volumes_synctask,
+                                       arg);
     }
 
 out:
-    if (ret && arg) {
+    if ((ret || !update) && arg) {
         dict_unref(arg->peer_data);
         dict_unref(arg->peer_ver_data);
         GF_FREE(arg);
@@ -9794,7 +9801,7 @@ glusterd_defrag_volume_status_update(glusterd_volinfo_t *volinfo,
     double run_time = 0;
     uint64_t promoted = 0;
     uint64_t demoted = 0;
-    uint64_t time_left = 0;
+    time_t time_left = 0;
 
     ret = dict_get_uint64(rsp_dict, "files", &files);
     if (ret)
@@ -9833,7 +9840,7 @@ glusterd_defrag_volume_status_update(glusterd_volinfo_t *volinfo,
     if (ret)
         gf_msg_trace(this->name, 0, "failed to get run-time");
 
-    ret2 = dict_get_uint64(rsp_dict, "time-left", &time_left);
+    ret2 = dict_get_time(rsp_dict, "time-left", &time_left);
     if (ret2)
         gf_msg_trace(this->name, 0, "failed to get time left");
 
@@ -11581,7 +11588,7 @@ glusterd_volume_heal_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     dict_t *ctx_dict = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     glusterd_op_t op = GD_OP_NONE;
 
@@ -12285,7 +12292,7 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
     glusterd_rebalance_rsp(op_ctx, &volinfo->rebal, i);
 
     snprintf(key, sizeof(key), "time-left-%d", i);
-    ret = dict_set_uint64(op_ctx, key, volinfo->rebal.time_left);
+    ret = dict_set_time(op_ctx, key, volinfo->rebal.time_left);
     if (ret)
         gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "failed to set time left");
@@ -12922,7 +12929,7 @@ gd_default_synctask_cbk(int ret, call_frame_t *frame, void *opaque)
     return ret;
 }
 
-void
+int
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque)
 {
     xlator_t *this = THIS;
@@ -12936,6 +12943,8 @@ glusterd_launch_synctask(synctask_fn_t fn, void *opaque)
         gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_SPAWN_SVCS_FAIL,
                "Failed to spawn bricks"
                " and other volume related services");
+
+    return ret;
 }
 
 /*
@@ -14957,11 +14966,17 @@ glusterd_add_peers_to_auth_list(char *volname)
                "auth allow list is not set");
         goto out;
     }
+
+    /* Here calculates length of the new buffer.
+     * It is prepared for the worst-case scenario where every peeers
+     * were not in the original auth.allow list and needed to be added
+     */
+    len = strlen(auth_allow_list) + 1;
     cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
     {
-        len += strlen(peerinfo->hostname);
+        /* Each additional peer needs a comma and the name of it */
+        len += 1 + strlen(peerinfo->hostname);
     }
-    len += strlen(auth_allow_list) + 1;
 
     new_auth_allow_list = GF_CALLOC(1, len, gf_common_mt_char);
 
@@ -14987,21 +15002,20 @@ glusterd_add_peers_to_auth_list(char *volname)
          * keep the copy of auth_allow_list as old_auth_allow_list in
          * volinfo->dict.
          */
-        dict_del_sizen(volinfo->dict, "auth.allow");
-        ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
-                            new_auth_allow_list);
+        ret = dict_set_dynstr_with_alloc(volinfo->dict, "old.auth.allow",
+                                         auth_allow_list);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set old.auth.allow list");
+            goto out;
+        }
+        ret = dict_set_dynstr(volinfo->dict, "auth.allow", new_auth_allow_list);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Unable to set new auth.allow list");
             goto out;
         }
-        ret = dict_set_strn(volinfo->dict, "old.auth.allow",
-                            SLEN("old.auth.allow"), auth_allow_list);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
-                   "Unable to set old auth.allow list");
-            goto out;
-        }
+        new_auth_allow_list = NULL;
         ret = glusterd_create_volfiles_and_notify_services(volinfo);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOLFILE_CREATE_FAIL,
@@ -15040,9 +15054,8 @@ glusterd_replace_old_auth_allow_list(char *volname)
         goto out;
     }
 
-    dict_del_sizen(volinfo->dict, "auth.allow");
-    ret = dict_set_strn(volinfo->dict, "auth.allow", SLEN("auth.allow"),
-                        old_auth_allow_list);
+    ret = dict_set_dynstr_with_alloc(volinfo->dict, "auth.allow",
+                                     old_auth_allow_list);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Unable to replace auth.allow list");

@@ -66,6 +66,8 @@
 #define POLL_MASK_OUTPUT (POLLOUT)
 #define POLL_MASK_ERROR (POLLERR | POLLHUP | POLLNVAL)
 
+#define IOV_MIN(n) min(IOV_MAX, n)
+
 typedef int
 SSL_unary_func(SSL *);
 typedef int
@@ -972,6 +974,8 @@ __socket_server_bind(rpc_transport_t *this)
                    cmd_args->brick_port);
         }
     } else {
+        retries = 3;
+    retry:
         ret = bind(priv->sock, (struct sockaddr *)&this->myinfo.sockaddr,
                    this->myinfo.sockaddr_len);
 
@@ -980,6 +984,11 @@ __socket_server_bind(rpc_transport_t *this)
                    this->myinfo.identifier, strerror(errno));
             if (errno == EADDRINUSE) {
                 gf_log(this->name, GF_LOG_ERROR, "Port is already in use");
+                retries--;
+                if (retries) {
+                    sleep(1);
+                    goto retry;
+                }
             }
         }
     }
@@ -4458,8 +4467,6 @@ socket_init(rpc_transport_t *this)
 
     this->private = priv;
     pthread_mutex_init(&priv->out_lock, NULL);
-    pthread_mutex_init(&priv->cond_lock, NULL);
-    pthread_cond_init(&priv->cond, NULL);
 
     /*GF_REF_INIT (priv, socket_poller_mayday);*/
 
@@ -4632,8 +4639,6 @@ fini(rpc_transport_t *this)
         gf_log(this->name, GF_LOG_TRACE, "transport %p destroyed", this);
 
         pthread_mutex_destroy(&priv->out_lock);
-        pthread_mutex_destroy(&priv->cond_lock);
-        pthread_cond_destroy(&priv->cond);
 
         GF_ASSERT(priv->notify.in_progress == 0);
         pthread_mutex_destroy(&priv->notify.lock);

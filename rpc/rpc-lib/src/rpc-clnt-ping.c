@@ -14,7 +14,7 @@
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
-#include <glusterfs/mem-pool.h>
+#include <glusterfs/memory.h>
 #include "xdr-rpc.h"
 #include "rpc-common-xdr.h"
 #include <glusterfs/timespec.h>
@@ -150,7 +150,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
 
     if (disconnect) {
         gf_log(trans->name, GF_LOG_CRITICAL,
-               "server %s has not responded in the last %d "
+               "server %s has not responded in the last %ld "
                "seconds, disconnecting.",
                trans->peerinfo.identifier, conn->ping_timeout);
 

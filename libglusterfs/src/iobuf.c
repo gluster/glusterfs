@@ -124,9 +124,6 @@ __iobuf_arena_destroy(struct iobuf_pool *iobuf_pool,
 {
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_arena, out);
 
-    if (iobuf_pool->rdma_deregistration)
-        iobuf_pool->rdma_deregistration(iobuf_pool->mr_list, iobuf_arena);
-
     __iobuf_arena_destroy_iobufs(iobuf_arena);
 
     if (iobuf_arena->mem_base && iobuf_arena->mem_base != MAP_FAILED)
@@ -170,10 +167,6 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
     if (iobuf_arena->mem_base == MAP_FAILED) {
         gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
         goto err;
-    }
-
-    if (iobuf_pool->rdma_registration) {
-        iobuf_pool->rdma_registration(iobuf_pool->device, iobuf_arena);
     }
 
     list_add_tail(&iobuf_arena->all_list, &iobuf_pool->all_arenas);
@@ -338,14 +331,6 @@ iobuf_pool_new(void)
     }
 
     iobuf_pool->default_page_size = 128 * GF_UNIT_KB;
-
-    iobuf_pool->rdma_registration = NULL;
-    iobuf_pool->rdma_deregistration = NULL;
-
-    for (i = 0; i < GF_RDMA_DEVICE_COUNT; i++) {
-        iobuf_pool->device[i] = NULL;
-        iobuf_pool->mr_list[i] = NULL;
-    }
 
     /* No locking required here
      * as no one else can use this pool yet

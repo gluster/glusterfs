@@ -23,8 +23,9 @@
 
 #define GF_NFS_INODE_LRU_MULT 6000
 
-#define GF_RPC_MIN_THREADS 1
-#define GF_RPC_MAX_THREADS 16
+/* Threading limits for nfs xlator event threads. */
+#define NFS_MIN_EVENT_THREADS 1
+#define NFS_MAX_EVENT_THREADS 32
 
 #define GF_NFS_DEFAULT_MEMFACTOR 15
 #define GF_NFS_MIN_MEMFACTOR 1

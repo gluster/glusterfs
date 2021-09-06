@@ -117,10 +117,10 @@ typedef struct rpc_auth_data {
 } rpc_auth_data_t;
 
 struct rpc_clnt_config {
-    int rpc_timeout;
+    time_t rpc_timeout;
     int remote_port;
     char *remote_host;
-    int ping_timeout;
+    time_t ping_timeout;
 };
 
 #define rpc_auth_flavour(au) ((au).flavour)
@@ -142,8 +142,8 @@ struct rpc_clnt_connection {
     uint64_t cleanup_gen;
     char *name;
     int32_t ping_started;
-    int32_t frame_timeout;
-    int32_t ping_timeout;
+    time_t frame_timeout;
+    time_t ping_timeout;
     gf_boolean_t disconnected;
     char connected;
 };

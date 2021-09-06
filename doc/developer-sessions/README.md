@@ -18,3 +18,14 @@ This session covers lifecycles of inode_t and fd_t data structures. Debugging re
 This session covers Gluster's communication layer. How XDR is used to serialize/deserize data in rpc calls from pov of both client and server xlators.  
 7. Client-Server interactions - [video](https://youtu.be/jlQUPZYX3NE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-7-client-server-interactions)  
 Client, server interactions for connecting/disconnecting/reconnecting are covered in this session  
+8. Memory tracking in glusterfs, io-threads xlator - [video](https://youtu.be/0Ymz1ZYK4tc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-8-memory-tracking-infra-iothreads)  
+    - Memory tracking infra and how statedumps are used to debug memory leaks is covered  
+    - io-threads xlator implementation is covered.  
+9. Index xlator - [video](https://youtu.be/WYQKsNYXmrM) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-9-index-xlator)  
+Index xlator design and implementation are covered in this session.  
+10. Locks xlator inodelks - [video](https://youtu.be/1AIMbxmAKwc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-10-locks-xlator-inodelks)  
+    - Gives brief introduction about the purpose of this xlator  
+    - Introduces and code walkthrough of inodelk part of locks xlator  
+11. Locks xlator entrylks - [video](https://youtu.be/BCgm5hNWFbE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-11-locks-xlator-entrylks)  
+    - Introduces and code walkthrough of entrylk part of locks xlator  
+    - Explains the connection between entrylk and inodelk in deletion code paths  

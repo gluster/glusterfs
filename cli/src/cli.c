@@ -78,8 +78,8 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
 
-int cli_default_conn_timeout = 120;
-int cli_ten_minutes_timeout = 600;
+time_t cli_default_conn_timeout = 120;
+time_t cli_ten_minutes_timeout = 600;
 
 static int
 glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
@@ -296,10 +296,13 @@ int
 cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                void *data)
 {
+    struct cli_state *state = NULL;
     xlator_t *this = NULL;
     int ret = 0;
 
     this = mydata;
+    state = this->private;
+    GF_ASSERT(state);
 
     switch (event) {
         case RPC_CLNT_CONNECT: {
@@ -311,7 +314,7 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_DISCONNECT: {
             cli_cmd_broadcast_connected(_gf_false);
             gf_log(this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
-            if (!global_state->prompt && global_state->await_connected) {
+            if (!state->prompt && state->await_connected) {
                 ret = 1;
                 cli_out(
                     "Connection failed. Please check if gluster "
@@ -329,26 +332,6 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     }
 
     return ret;
-}
-
-static gf_boolean_t
-is_valid_int(char *str)
-{
-    if (*str == '-')
-        ++str;
-
-    /* Handle empty string or just "-".*/
-    if (!*str)
-        return _gf_false;
-
-    /* Check for non-digit chars in the rest of the string */
-    while (*str) {
-        if (!isdigit(*str))
-            return _gf_false;
-        else
-            ++str;
-    }
-    return _gf_true;
 }
 
 /*
@@ -449,12 +432,16 @@ cli_opt_parse(char *opt, struct cli_state *state)
     }
     oarg = strtail(opt, "timeout=");
     if (oarg) {
-        if (!is_valid_int(oarg) || atoi(oarg) <= 0) {
+        time_t val;
+        char *endptr = NULL;
+
+        val = strtol(oarg, &endptr, 10);
+        if (*endptr != '\0' || val <= 0) {
             cli_err("timeout value should be a positive integer");
-            return -2; /* -2 instead of -1 to avoid unknown option
-                          error */
+            /* Use -2 to not confuse with unknown option error. */
+            return -2;
         }
-        cli_default_conn_timeout = atoi(oarg);
+        cli_default_conn_timeout = val;
         return 0;
     }
 
@@ -587,7 +574,8 @@ _cli_err(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -613,7 +601,8 @@ _cli_out(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -787,8 +776,6 @@ cli_local_wipe(cli_local_t *local)
     return;
 }
 
-struct cli_state *global_state;
-
 int
 main(int argc, char *argv[])
 {
@@ -797,8 +784,6 @@ main(int argc, char *argv[])
     };
     int ret = -1;
     glusterfs_ctx_t *ctx = NULL;
-
-    mem_pools_init();
 
     ctx = glusterfs_ctx_new();
     if (!ctx)
@@ -826,7 +811,7 @@ main(int argc, char *argv[])
         goto out;
 
     state.ctx = ctx;
-    global_state = &state;
+    THIS->private = &state;
 
     ret = parse_cmdline(argc, argv, &state);
     if (ret)
@@ -867,9 +852,6 @@ main(int argc, char *argv[])
     ret = gf_event_dispatch(ctx->event_pool);
 
 out:
-    //        glusterfs_ctx_destroy (ctx);
-
-    mem_pools_fini();
 
     return ret;
 }

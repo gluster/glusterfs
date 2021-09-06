@@ -324,6 +324,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --process-name fuse");
     fi
 
+    if [ -n "$io_engine" ]; then
+        cmd_line=$(echo "$cmd_line --io-engine=$io_engine");
+    fi
+
     # if trasnport type is specified, we have to append it to
     # volume name, so that it fetches the right client vol file
 
@@ -431,6 +435,11 @@ check_recursive_mount ()
 {
     if [ $1 = "/" ]; then
         warn "Cannot mount over root";
+        exit 2;
+    fi
+
+    if [ $1 = "/tmp" ]; then
+        warn "Cannot mount over /tmp";
         exit 2;
     fi
 
@@ -629,6 +638,9 @@ with_options()
         # Values that are optional
         "fopen-keep-cache")
             fopen_keep_cache="=$value"
+            ;;
+        "io-engine")
+            io_engine="${value}"
             ;;
         x-*)
             # comments or userspace application-specific options, drop them

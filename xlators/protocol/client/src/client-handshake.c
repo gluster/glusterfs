@@ -644,7 +644,7 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
         list_for_each_entry_safe(fdctx, tmp, &conf->saved_fds, sfd_pos)
         {
             if (fdctx->remote_fd != -1 ||
-                (!list_empty(&fdctx->lock_list) && conf->strict_locks))
+                (!fdctx_lock_lists_empty(fdctx) && conf->strict_locks))
                 continue;
 
             fdctx->reopen_done = client_child_up_reopen_done;
@@ -915,9 +915,6 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     clnt_conf_t *conf = this->private;
     dict_t *options = this->options;
     char counter_str[32] = {0};
-    char hostname[256] = {
-        0,
-    };
 
     if (conf->fops) {
         ret = dict_set_int32_sizen(options, "fops-version",
@@ -949,16 +946,9 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     snprintf(counter_str, sizeof(counter_str), "-%" PRIu64, conf->setvol_count);
     conf->setvol_count++;
 
-    if (gethostname(hostname, 256) == -1) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, PC_MSG_GETHOSTNAME_FAILED,
-                NULL);
-
-        goto fail;
-    }
-
     ret = gf_asprintf(&process_uuid_xl, GLUSTER_PROCESS_UUID_FMT,
                       this->ctx->process_uuid, this->graph->id, getpid(),
-                      hostname, this->name, counter_str);
+                      gf_gethostname(), this->name, counter_str);
     if (-1 == ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_PROCESS_UUID_SET_FAIL,
                 NULL);

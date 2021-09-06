@@ -528,9 +528,7 @@ reconfigure(xlator_t *this, dict_t *options)
     barrier_priv_t *priv = NULL;
     int ret = -1;
     gf_boolean_t barrier_enabled = _gf_false;
-    uint32_t timeout = {
-        0,
-    };
+    time_t timeout = 0;
     struct list_head queue = {
         0,
     };
@@ -589,9 +587,7 @@ init(xlator_t *this)
 {
     int ret = -1;
     barrier_priv_t *priv = NULL;
-    uint32_t timeout = {
-        0,
-    };
+    time_t timeout = 0;
 
     if (!this->children || this->children->next) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -783,7 +779,7 @@ struct volume_options options[] = {
                     "default."},
     {.key = {"barrier-timeout"},
      .type = GF_OPTION_TYPE_TIME,
-     .default_value = BARRIER_TIMEOUT,
+     .default_value = TOSTRING(BARRIER_TIMEOUT),
      .op_version = {GD_OP_VERSION_3_6_0},
      .flags = OPT_FLAG_SETTABLE,
      .description = "After 'timeout' seconds since the time 'barrier' "
