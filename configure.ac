@@ -366,6 +366,12 @@ AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
         [with_libtirpc="no"], [with_libtirpc="yes"])
 
+dnl For --without-libtirpc, check whether legacy glibc rpc is available.
+if test "x$with_libtirpc" = "xno"; then
+    AC_CHECK_HEADER([rpc/types.h], ,
+        AC_MSG_ERROR([Your C library lacks support for RPC. Please use libtirpc instead.]))
+fi
+
 dnl ipv6-default is off by default
 dnl
 dnl ipv6-default requires libtirpc. (glibc rpc does not support IPv6.)
@@ -375,11 +381,13 @@ AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
         [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
 
-AC_CHECK_FILE([/etc/centos-release])
-if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/centos-release])
+    if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
         if grep "release 6" /etc/centos-release; then
                 with_ipv6_default="no"
         fi
+    fi
 fi
 
 dnl On some distributions '-ldl' isn't automatically added to LIBS
@@ -546,8 +554,6 @@ AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required
 AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
-
-AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
 
 AC_CHECK_LIB([intl], [gettext])
 
@@ -1174,21 +1180,27 @@ if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
 fi
 
-# Check the distribution where you are compiling glusterfs on
+# Check the distribution where you are compiling glusterfs on.
+# For cross-compiling, you're advised to specify it manually.
 
 GF_DISTRIBUTION=
-AC_CHECK_FILE([/etc/debian_version])
-AC_CHECK_FILE([/etc/SuSE-release])
-AC_CHECK_FILE([/etc/redhat-release])
 
-if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
-   GF_DISTRIBUTION=Debian
-fi
-if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
-   GF_DISTRIBUTION=SuSE
-fi
-if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
-   GF_DISTRIBUTION=Redhat
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/debian_version])
+    AC_CHECK_FILE([/etc/SuSE-release])
+    AC_CHECK_FILE([/etc/redhat-release])
+
+    if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
+        GF_DISTRIBUTION=Debian
+    fi
+    if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
+        GF_DISTRIBUTION=SuSE
+    fi
+    if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
+        GF_DISTRIBUTION=Redhat
+    fi
+else
+    GF_DISTRIBUTION=Unspecified
 fi
 
 AC_SUBST(GF_DISTRIBUTION)
@@ -1480,29 +1492,23 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-AC_ARG_ENABLE([mempool],
-              AC_HELP_STRING([--disable-mempool],
-                             [Disable the Gluster memory pooler.]))
+# whether we should use memory allocation type tracking
+AC_ARG_ENABLE([allocation-tracking],
+              AC_HELP_STRING([--disable-allocation-tracking],
+                             [Disable an internal memory allocation tracking.]))
 
-USE_MEMPOOL="yes"
-if test "x$enable_mempool" = "xno"; then
-        USE_MEMPOOL="no"
-        AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+USE_ALLOCATION_TRACKING="yes"
+if test "x$enable_allocation_tracking" = "xno"; then
+        USE_ALLOCATION_TRACKING="no"
+        AC_DEFINE(GF_DISABLE_ALLOCATION_TRACKING,
+                  1, [Disable an internal memory allocation tracking.])
 fi
 
-BUILD_READLINE=no
-AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
-AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
-AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
-
-if test -n "$RLLIBS"; then
-   if test "x$RL_UNDO" = "xyes"; then
-      AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])
-      BUILD_READLINE=yes
-   else
-      BUILD_READLINE="no (present but missing undo)"
-   fi
-
+dnl Add readline support in CLI if available.
+PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
+                  [BUILD_READLINE="no"])
+if test x$BUILD_READLINE = xyes; then
+    AC_DEFINE(HAVE_READLINE, 1, [Enable CLI readline support.])
 fi
 
 BUILD_LIBAIO=no
@@ -1814,7 +1820,7 @@ echo "SELinux features     : $USE_SELINUX"
 echo "firewalld-config     : $BUILD_FIREWALLD"
 echo "Events               : $BUILD_EVENTS"
 echo "EC dynamic support   : $EC_DYNAMIC_SUPPORT"
-echo "Use memory pools     : $USE_MEMPOOL"
+echo "Track memory types   : $USE_ALLOCATION_TRACKING"
 echo "Nanosecond m/atimes  : $BUILD_NANOSECOND_TIMESTAMPS"
 echo "Server components    : $with_server"
 echo "Legacy gNFS server   : $BUILD_GNFS"

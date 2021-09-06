@@ -1924,7 +1924,7 @@ changelog_assign_encoding(changelog_priv_t *priv, char *enc)
 }
 
 static void
-changelog_assign_barrier_timeout(changelog_priv_t *priv, uint32_t timeout)
+changelog_assign_barrier_timeout(changelog_priv_t *priv, time_t timeout)
 {
     LOCK(&priv->lock);
     {
@@ -2456,7 +2456,7 @@ reconfigure(xlator_t *this, dict_t *options)
     char csnap_dir[PATH_MAX] = {
         0,
     };
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
     priv = this->private;
     if (!priv)
@@ -2537,8 +2537,8 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("encoding", tmp, options, str, out);
     changelog_assign_encoding(priv, tmp);
 
-    GF_OPTION_RECONF("rollover-time", priv->rollover_time, options, int32, out);
-    GF_OPTION_RECONF("fsync-interval", priv->fsync_interval, options, int32,
+    GF_OPTION_RECONF("rollover-time", priv->rollover_time, options, time, out);
+    GF_OPTION_RECONF("fsync-interval", priv->fsync_interval, options, time,
                      out);
     GF_OPTION_RECONF("changelog-barrier-timeout", timeout, options, time, out);
     changelog_assign_barrier_timeout(priv, timeout);
@@ -2601,7 +2601,7 @@ changelog_init_options(xlator_t *this, changelog_priv_t *priv)
 {
     int ret = 0;
     char *tmp = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
     char htime_dir[PATH_MAX] = {
         0,
     };
@@ -2655,9 +2655,9 @@ changelog_init_options(xlator_t *this, changelog_priv_t *priv)
     changelog_assign_encoding(priv, tmp);
     changelog_encode_change(priv);
 
-    GF_OPTION_INIT("rollover-time", priv->rollover_time, int32, dealloc_2);
+    GF_OPTION_INIT("rollover-time", priv->rollover_time, time, dealloc_2);
 
-    GF_OPTION_INIT("fsync-interval", priv->fsync_interval, int32, dealloc_2);
+    GF_OPTION_INIT("fsync-interval", priv->fsync_interval, time, dealloc_2);
 
     GF_OPTION_INIT("changelog-barrier-timeout", timeout, time, dealloc_2);
     changelog_assign_barrier_timeout(priv, timeout);

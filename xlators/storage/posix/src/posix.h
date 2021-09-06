@@ -182,7 +182,7 @@ struct posix_private {
     pthread_cond_t fd_cond;
     pthread_cond_t disk_cond;
     int fsync_queue_count;
-    int32_t janitor_sleep_duration;
+    time_t janitor_sleep_duration;
 
     enum {
         BATCH_NONE = 0,
@@ -196,9 +196,9 @@ struct posix_private {
     char gfid2path_sep[8];
 
     /* seconds to sleep between health checks */
-    uint32_t health_check_interval;
+    time_t health_check_interval;
     /* seconds to sleep to wait for aio write finish for health checks */
-    uint32_t health_check_timeout;
+    time_t health_check_timeout;
     pthread_t health_check;
 
     double disk_reserve;

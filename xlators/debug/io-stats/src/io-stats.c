@@ -3718,7 +3718,7 @@ reconfigure(xlator_t *this, dict_t *options)
     int log_format = -1;
     int logger = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t old_dump_interval;
     int32_t threads;
 
@@ -3880,7 +3880,7 @@ init(xlator_t *this)
     int log_level = -1;
     int ret = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t threads;
 
     if (!this)

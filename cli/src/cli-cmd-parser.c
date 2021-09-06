@@ -1196,7 +1196,7 @@ cli_cmd_quota_parse(const char **words, int wordcount, dict_t **options)
                               "remove-objects",
                               NULL};
     char *w = NULL;
-    uint32_t time = 0;
+    time_t time = 0;
     double percent = 0;
     char *end_ptr = NULL;
     int64_t limit = 0;

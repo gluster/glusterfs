@@ -1046,7 +1046,7 @@ gf_volume_name_validate(const char *volume_name)
 }
 
 int
-gf_string2time(const char *str, uint32_t *n)
+gf_string2time(const char *str, time_t *n)
 {
     unsigned long value = 0;
     char *tail = NULL;

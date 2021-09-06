@@ -748,12 +748,29 @@ afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
     return 0;
 }
 
+void
+afr_selfheal_fill_cell(afr_private_t *priv, dict_t *src_xdata, int *cell,
+                       int sink, int idx)
+{
+    void *pending_raw = NULL;
+
+    *cell = 0;
+    if (dict_get_ptr(src_xdata, priv->pending_key[sink], &pending_raw))
+        goto out;
+
+    if (!pending_raw)
+        goto out;
+
+    *cell = ntoh32(*((int *)pending_raw + idx));
+out:
+    return;
+}
+
 int
 afr_selfheal_fill_matrix(xlator_t *this, int **matrix, int subvol, int idx,
                          dict_t *xdata)
 {
     int i = 0;
-    void *pending_raw = NULL;
     afr_private_t *priv = NULL;
 
     priv = this->private;
@@ -762,13 +779,7 @@ afr_selfheal_fill_matrix(xlator_t *this, int **matrix, int subvol, int idx,
         return 0;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (dict_get_ptr(xdata, priv->pending_key[i], &pending_raw))
-            continue;
-
-        if (!pending_raw)
-            continue;
-
-        matrix[subvol][i] = ntoh32(*((int *)pending_raw + idx));
+        afr_selfheal_fill_cell(priv, xdata, &matrix[subvol][i], i, idx);
     }
 
     return 0;

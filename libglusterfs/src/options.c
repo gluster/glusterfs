@@ -452,7 +452,7 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
 {
     int ret = -1;
     char errstr[256];
-    uint32_t input_time = 0;
+    time_t input_time = 0;
 
     /* Check if the value is valid time */
     if (gf_string2time(value, &input_time) != 0) {
@@ -476,8 +476,7 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
 
     if ((input_time < opt->min) || (input_time > opt->max)) {
         snprintf(errstr, 256,
-                 "'%" PRIu32
-                 "' in 'option %s %s' is "
+                 "'%ld' in 'option %s %s' is "
                  "out of range [%.0f - %.0f]",
                  input_time, key, value, opt->min, opt->max);
         gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
@@ -1231,7 +1230,7 @@ DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_INIT_OPT(char *, path, pass);
 DEFINE_INIT_OPT(double, double, gf_string2double);
-DEFINE_INIT_OPT(uint32_t, time, gf_string2time);
+DEFINE_INIT_OPT(time_t, time, gf_string2time);
 
 DEFINE_RECONF_OPT(char *, str, pass);
 DEFINE_RECONF_OPT(uint64_t, uint64, gf_string2uint64);
@@ -1246,4 +1245,4 @@ DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_RECONF_OPT(char *, path, pass);
 DEFINE_RECONF_OPT(double, double, gf_string2double);
-DEFINE_RECONF_OPT(uint32_t, time, gf_string2time);
+DEFINE_RECONF_OPT(time_t, time, gf_string2time);

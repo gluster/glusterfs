@@ -601,7 +601,7 @@ struct subvol_healer {
 struct _ec_self_heald {
     gf_boolean_t iamshd;
     gf_boolean_t enabled;
-    int timeout;
+    time_t timeout;
     uint32_t max_threads;
     uint32_t wait_qlength;
     struct subvol_healer *index_healers;
@@ -671,8 +671,8 @@ struct _ec {
     uint32_t background_heals;
     uint32_t heal_wait_qlen;
     uint32_t self_heal_window_size; /* max size of read/writes */
-    uint32_t eager_lock_timeout;
-    uint32_t other_eager_lock_timeout;
+    time_t eager_lock_timeout;
+    time_t other_eager_lock_timeout;
     struct list_head pending_fops;
     struct list_head heal_waiting;
     struct list_head healing;

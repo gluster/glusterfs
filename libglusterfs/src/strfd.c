@@ -11,7 +11,7 @@
 #include <stdarg.h>
 
 #include "glusterfs/mem-types.h"
-#include "glusterfs/mem-pool.h"
+#include "glusterfs/memory.h"
 #include "glusterfs/strfd.h"
 #include "glusterfs/common-utils.h"
 

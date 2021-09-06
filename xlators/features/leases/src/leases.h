@@ -159,7 +159,7 @@ struct _leases_private {
     pthread_t recall_thr;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    int32_t recall_lease_timeout;
+    time_t recall_lease_timeout;
     gf_boolean_t inited_recall_thr;
     gf_boolean_t fini;
     gf_boolean_t leases_enabled;
