@@ -172,6 +172,10 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, size_t sizeof_type, size_t count,
 #define mem_pool_new_ctx(ctx, type, count)                                     \
     mem_pool_new_fn(ctx, sizeof(type), count, #type)
 
+/* Since memory pools are gone, COUNT is meaningless. */
+#define mem_pool_stub(type) \
+    mem_pool_new_fn(THIS->ctx, sizeof(type), 0, #type)
+
 static inline void
 mem_pool_destroy(struct mem_pool *pool)
 {

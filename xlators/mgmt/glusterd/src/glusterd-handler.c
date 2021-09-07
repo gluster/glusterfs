@@ -3349,8 +3349,7 @@ glusterd_rpc_create(struct rpc_clnt **rpc, dict_t *options,
         *rpc = NULL;
     }
 
-    /* TODO: is 32 enough? or more ? */
-    new_rpc = rpc_clnt_new(options, this, this->name, 16);
+    new_rpc = rpc_clnt_new(options, this, this->name);
     if (!new_rpc)
         goto out;
 

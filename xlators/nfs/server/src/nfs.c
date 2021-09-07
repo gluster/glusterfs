@@ -724,7 +724,6 @@ nfs_init_state(xlator_t *this)
 {
     struct nfs_state *nfs = NULL;
     int i = 0, ret = -1;
-    unsigned int fopspoolsize = 0;
     char *optstr = NULL;
     gf_boolean_t boolt = _gf_false;
     struct stat stbuf = {
@@ -765,9 +764,8 @@ nfs_init_state(xlator_t *this)
         }
     }
 
-    fopspoolsize = nfs->memfactor * GF_NFS_CONCURRENT_OPS_MULT;
     /* FIXME: Really saddens me to see this as xlator wide. */
-    nfs->foppool = mem_pool_new(struct nfs_fop_local, fopspoolsize);
+    nfs->foppool = mem_pool_stub(struct nfs_fop_local);
     if (!nfs->foppool) {
         gf_msg(GF_NFS, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to allocate fops local pool");
@@ -1088,7 +1086,7 @@ nfs_init_state(xlator_t *this)
         nfs->enable_nlm = _gf_false;
     }
 
-    nfs->rpcsvc = rpcsvc_init(this, this->ctx, this->options, fopspoolsize);
+    nfs->rpcsvc = rpcsvc_init(this, this->ctx, this->options);
     if (!nfs->rpcsvc) {
         ret = -1;
         gf_msg(GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_RPC_INIT_FAIL,

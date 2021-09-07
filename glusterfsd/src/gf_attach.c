@@ -274,7 +274,7 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    rpc = rpc_clnt_new(options, fs->ctx->root, "gf-attach-rpc", 0);
+    rpc = rpc_clnt_new(options, fs->ctx->root, "gf-attach-rpc");
     if (!rpc) {
         fprintf(stderr, "rpc_clnt_new failed\n");
         return EXIT_FAILURE;

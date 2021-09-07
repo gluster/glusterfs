@@ -8,8 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#define RPC_CLNT_DEFAULT_REQUEST_COUNT 512
-
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
 #include <glusterfs/byte-order.h>
@@ -1079,8 +1077,7 @@ out:
 }
 
 struct rpc_clnt *
-rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
-             uint32_t reqpool_size)
+rpc_clnt_new(dict_t *options, xlator_t *owner, char *name)
 {
     int ret = -1;
     struct rpc_clnt *rpc = NULL;
@@ -1096,25 +1093,8 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
     rpc->owner = owner;
     GF_ATOMIC_INIT(rpc->xid, 1);
 
-    if (!reqpool_size)
-        reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
-
-    rpc->reqpool = mem_pool_new(struct rpc_req, reqpool_size);
-    if (rpc->reqpool == NULL) {
-        pthread_mutex_destroy(&rpc->lock);
-        GF_FREE(rpc);
-        rpc = NULL;
-        goto out;
-    }
-
-    rpc->saved_frames_pool = mem_pool_new(struct saved_frame, reqpool_size);
-    if (rpc->saved_frames_pool == NULL) {
-        pthread_mutex_destroy(&rpc->lock);
-        mem_pool_destroy(rpc->reqpool);
-        GF_FREE(rpc);
-        rpc = NULL;
-        goto out;
-    }
+    rpc->reqpool = mem_pool_stub(struct rpc_req);
+    rpc->saved_frames_pool = mem_pool_stub(struct saved_frame);
 
     ret = rpc_clnt_connection_init(rpc, ctx, options, name);
     if (ret == -1) {

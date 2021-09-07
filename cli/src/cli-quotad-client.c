@@ -64,7 +64,7 @@ cli_quotad_clnt_init(xlator_t *this, dict_t *options)
     if (ret)
         goto out;
 
-    rpc = rpc_clnt_new(options, this, this->name, 16);
+    rpc = rpc_clnt_new(options, this, this->name);
     if (!rpc)
         goto out;
 

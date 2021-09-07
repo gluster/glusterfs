@@ -1108,8 +1108,7 @@ nlm4_establish_callback(nfs3_call_state_t *cs, call_frame_t *cbk_frame)
     ncf->frame = cbk_frame;
     ncf->frame->local = ncf;
 
-    /* TODO: is 32 frames in transit enough ? */
-    rpc_clnt = rpc_clnt_new(options, cs->nfsx, "NLM-client", 32);
+    rpc_clnt = rpc_clnt_new(options, cs->nfsx, "NLM-client");
     if (rpc_clnt == NULL) {
         gf_msg(GF_NLM, GF_LOG_ERROR, EINVAL, NFS_MSG_INVALID_ENTRY,
                "rpc_clnt NULL");

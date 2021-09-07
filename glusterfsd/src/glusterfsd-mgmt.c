@@ -2807,7 +2807,7 @@ glusterfs_listener_init(glusterfs_ctx_t *ctx)
     if (ret)
         goto out;
 
-    rpc = rpcsvc_init(THIS, ctx, options, 8);
+    rpc = rpcsvc_init(THIS, ctx, options);
     if (rpc == NULL) {
         goto out;
     }
@@ -2905,7 +2905,7 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
         ctx->ssl_cert_depth = glusterfs_read_secure_access_file();
     }
 
-    rpc = rpc_clnt_new(options, THIS, THIS->name, 8);
+    rpc = rpc_clnt_new(options, THIS, THIS->name);
     if (!rpc) {
         ret = -1;
         gf_log(THIS->name, GF_LOG_WARNING, "failed to create rpc clnt");

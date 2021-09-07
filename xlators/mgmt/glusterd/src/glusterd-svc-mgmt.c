@@ -492,7 +492,7 @@ glusterd_muxsvc_conn_init(glusterd_conn_t *conn, glusterd_svc_proc_t *mux_proc,
         goto out;
 
     /* @options is free'd by rpc_transport when destroyed */
-    rpc = rpc_clnt_new(options, this, (char *)svc->name, 16);
+    rpc = rpc_clnt_new(options, this, (char *)svc->name);
     if (!rpc) {
         ret = -1;
         goto out;

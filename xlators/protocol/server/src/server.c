@@ -1212,7 +1212,7 @@ server_init(xlator_t *this)
         conf->dync_auth = ret;
 
     /* RPC related */
-    conf->rpc = rpcsvc_init(this, this->ctx, this->options, 0);
+    conf->rpc = rpcsvc_init(this, this->ctx, this->options);
     if (conf->rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_RPCSVC_CREATE_FAILED, NULL);
         ret = -1;

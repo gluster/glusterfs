@@ -2784,8 +2784,7 @@ rpcsvc_destroy(rpcsvc_t *svc)
 /* The global RPC service initializer.
  */
 rpcsvc_t *
-rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
-            uint32_t poolcount)
+rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options)
 {
     rpcsvc_t *svc = NULL;
     int ret = -1;
@@ -2809,16 +2808,7 @@ rpcsvc_init(xlator_t *xl, glusterfs_ctx_t *ctx, dict_t *options,
         goto free_svc;
     }
 
-    if (!poolcount)
-        poolcount = RPCSVC_POOLCOUNT_MULT * svc->memfactor;
-
-    gf_log(GF_RPCSVC, GF_LOG_TRACE, "rx pool: %d", poolcount);
-    svc->rxpool = mem_pool_new(rpcsvc_request_t, poolcount);
-    /* TODO: leak */
-    if (!svc->rxpool) {
-        gf_log(GF_RPCSVC, GF_LOG_ERROR, "mem pool allocation failed");
-        goto free_svc;
-    }
+    svc->rxpool = mem_pool_stub(rpcsvc_request_t);
 
     ret = rpcsvc_auth_init(svc, options);
     if (ret == -1) {

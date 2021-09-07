@@ -1144,7 +1144,7 @@ glusterd_init_uds_listener(xlator_t *this)
     if (ret)
         goto out;
 
-    rpc = rpcsvc_init(this, this->ctx, options, 8);
+    rpc = rpcsvc_init(this, this->ctx, options);
     if (rpc == NULL) {
         ret = -1;
         goto out;
@@ -1783,7 +1783,7 @@ init(xlator_t *this)
     ret = glusterd_rpcsvc_options_build(this->options);
     if (ret)
         goto out;
-    rpc = rpcsvc_init(this, this->ctx, this->options, 64);
+    rpc = rpcsvc_init(this, this->ctx, this->options);
     if (rpc == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_INIT_FAIL,
                "failed to init rpc");

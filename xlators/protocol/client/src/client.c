@@ -2498,7 +2498,7 @@ client_init_rpc(xlator_t *this)
         goto out;
     }
 
-    conf->rpc = rpc_clnt_new(this->options, this, this->name, 0);
+    conf->rpc = rpc_clnt_new(this->options, this, this->name);
     if (!conf->rpc) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_RPC_INIT_FAILED, NULL);
         goto out;

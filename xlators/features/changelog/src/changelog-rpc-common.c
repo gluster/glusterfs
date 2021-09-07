@@ -54,7 +54,7 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
         goto dealloc_dict;
     }
 
-    rpc = rpc_clnt_new(options, this, this->name, 16);
+    rpc = rpc_clnt_new(options, this, this->name);
     if (!rpc)
         goto dealloc_dict;
 
@@ -314,7 +314,7 @@ changelog_rpc_server_init(xlator_t *this, char *sockfile, void *cbkdata,
     if (ret)
         goto dealloc_dict;
 
-    rpc = rpcsvc_init(this, this->ctx, options, 8);
+    rpc = rpcsvc_init(this, this->ctx, options);
     if (rpc == NULL) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, CHANGELOG_MSG_RPC_START_ERROR,
                 NULL);

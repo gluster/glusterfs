@@ -115,7 +115,7 @@ svs_mgmt_init(xlator_t *this)
         goto out;
     }
 
-    priv->rpc = rpc_clnt_new(options, this, this->name, 8);
+    priv->rpc = rpc_clnt_new(options, this, this->name);
     if (!priv->rpc) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SVS_MSG_RPC_INIT_FAILED,
                "failed to initialize RPC");
