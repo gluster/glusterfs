@@ -241,6 +241,7 @@ typedef struct {
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
     struct list_head hostnames;
+    struct list_head remote_hostnames;
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {
@@ -504,15 +505,9 @@ struct glusterd_volinfo_ {
        the volume which is snapped. In
        case of a non-snap volume, this
        field will be initialized as N/A */
-    char volname[NAME_MAX + 1];
-    /* NAME_MAX + 1 will be equal to
-     * GD_VOLUME_NAME_MAX + 5.(also to
-     * GD_VOLUME_NAME_MAX_TIER). An extra 5
-     * bytes are added to GD_VOLUME_NAME_MAX
-     * because, as part of the tiering
-     * volfile generation code, we are
-     * temporarily appending either "-hot"
-     * or "-cold" */
+
+    char volname[GD_VOLUME_NAME_MAX];
+
     gf_atomic_t volpeerupdate;
     /* Flag to check about volume has received updates
        from peer
@@ -1061,10 +1056,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
 int
 glusterd_restart_bricks(void *opaque);
 
-int32_t
-glusterd_volume_txn(rpcsvc_request_t *req, char *volname, int flags,
-                    glusterd_op_t op);
-
 int
 glusterd_peer_dump_version(xlator_t *this, struct rpc_clnt *rpc,
                            glusterd_peerctx_t *peerctx);
@@ -1279,15 +1270,6 @@ int32_t
 glusterd_op_begin_synctask(rpcsvc_request_t *req, glusterd_op_t op, void *dict);
 int32_t
 glusterd_defrag_event_notify_handle(dict_t *dict);
-
-int32_t
-glusterd_txn_opinfo_dict_init();
-
-void
-glusterd_txn_opinfo_dict_fini();
-
-void
-glusterd_txn_opinfo_init();
 
 /* snapshot */
 glusterd_snap_t *

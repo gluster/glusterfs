@@ -59,7 +59,7 @@ struct mdc_statistics {
 };
 
 struct mdc_conf {
-    uint32_t timeout;
+    time_t timeout;
     gf_boolean_t cache_posix_acl;
     gf_boolean_t cache_glusterfs_acl;
     gf_boolean_t cache_selinux;
@@ -377,8 +377,7 @@ __is_cache_valid(xlator_t *this, time_t mdc_time)
 {
     gf_boolean_t ret = _gf_true;
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
-    time_t last_child_down = 0;
+    time_t timeout = 0, last_child_down = 0;
 
     conf = this->private;
 
@@ -1067,7 +1066,7 @@ int
 mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 {
     struct mdc_conf *conf = this->private;
-    uint32_t cache_age = 0;
+    time_t cache_age = 0;
     int ret = 0;
 
     if (!buf || !conf) {
@@ -1087,12 +1086,12 @@ mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 
         cache_age = (gf_time() - conf->statfs_cache.last_refreshed);
 
-        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %u secs",
+        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %ld secs",
                cache_age);
         if (cache_age > conf->timeout) {
             /* Expire the cache. */
             gf_log(this->name, GF_LOG_DEBUG,
-                   "Cache age %u secs exceeded timeout %u secs", cache_age,
+                   "Cache age %ld secs exceeded timeout %ld secs", cache_age,
                    conf->timeout);
             ret = -1;
             goto unlock;
@@ -3681,7 +3680,7 @@ int
 mdc_init(xlator_t *this)
 {
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
 
     conf = GF_CALLOC(sizeof(*conf), 1, gf_mdc_mt_mdc_conf_t);
@@ -3693,7 +3692,7 @@ mdc_init(xlator_t *this)
 
     LOCK_INIT(&conf->lock);
 
-    GF_OPTION_INIT("md-cache-timeout", timeout, uint32, out);
+    GF_OPTION_INIT("md-cache-timeout", timeout, time, out);
 
     GF_OPTION_INIT("cache-selinux", conf->cache_selinux, bool, out);
 

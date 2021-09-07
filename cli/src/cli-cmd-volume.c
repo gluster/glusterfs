@@ -1156,7 +1156,8 @@ out:
 }
 
 int
-cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
+cli_cmd_quota_handle_list_all(cli_state_t *state, const char **words,
+                              dict_t *options)
 {
     int all_failed = 1;
     int count = 0;
@@ -1220,7 +1221,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
                  "No%s quota configured on"
                  " volume %s",
                  (type == GF_QUOTA_OPTION_TYPE_LIST) ? "" : " inode", volname);
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             xml_err_flag = _gf_true;
         } else {
             cli_out("quota: %s", err_str);
@@ -1342,7 +1343,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
         all_failed = all_failed && ret;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_quota_limit_list_end(local);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -1557,7 +1558,7 @@ cli_cmd_quota_cbk(struct cli_state *state, struct cli_cmd_word *word,
         case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
             if (wordcount != 4)
                 break;
-            ret = cli_cmd_quota_handle_list_all(words, options);
+            ret = cli_cmd_quota_handle_list_all(state, words, options);
             goto out;
         default:
             break;
@@ -2461,7 +2462,7 @@ cli_print_brick_status(cli_volume_status_t *status)
      (op == GF_SHD_OP_HEAL_SUMMARY))
 
 int
-cli_launch_glfs_heal(int heal_op, dict_t *options)
+cli_launch_glfs_heal(cli_state_t *state, int heal_op, dict_t *options)
 {
     char buff[PATH_MAX] = {0};
     runner_t runner = {0};
@@ -2479,7 +2480,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
 
     switch (heal_op) {
         case GF_SHD_OP_INDEX_SUMMARY:
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2501,7 +2502,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             runner_add_args(&runner, "split-brain-info", NULL);
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2511,7 +2512,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             break;
         case GF_SHD_OP_HEAL_SUMMARY:
             runner_add_args(&runner, "info-summary", NULL);
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2519,7 +2520,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             ret = -1;
             goto out;
     }
-    if (global_state->mode & GLUSTER_MODE_GLFSHEAL_NOLOG)
+    if (state->mode & GLUSTER_MODE_GLFSHEAL_NOLOG)
         runner_add_args(&runner, "--nolog", NULL);
     ret = runner_start(&runner);
     if (ret == -1)
@@ -2566,7 +2567,7 @@ cli_cmd_volume_heal_cbk(struct cli_state *state, struct cli_cmd_word *word,
     if (ret < 0)
         goto out;
     if (NEEDS_GLFS_HEAL(heal_op)) {
-        ret = cli_launch_glfs_heal(heal_op, options);
+        ret = cli_launch_glfs_heal(state, heal_op, options);
         if (ret < 0)
             goto out;
         if (heal_op != GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE)
@@ -2590,7 +2591,7 @@ out:
     if (ret) {
         cli_cmd_sent_status_get(&sent);
         if ((sent == 0) && (parse_error == 0) &&
-            !(global_state->mode & GLUSTER_MODE_XML)) {
+            !(state->mode & GLUSTER_MODE_XML)) {
             cli_out("Volume heal failed.");
         }
     }

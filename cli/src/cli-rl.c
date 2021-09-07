@@ -86,10 +86,10 @@ cli_rl_err(struct cli_state *state, const char *fmt, va_list ap)
 void
 cli_rl_process_line(char *line)
 {
-    struct cli_state *state = NULL;
+    cli_state_t *state = THIS->private;
     int ret = 0;
 
-    state = global_state;
+    GF_ASSERT(state);
 
     state->rl_processing = 1;
     {
@@ -106,9 +106,9 @@ void
 cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
              int poll_err, char event_thread_died)
 {
-    struct cli_state *state = NULL;
+    struct cli_state *state = data;
 
-    state = data;
+    GF_ASSERT(state);
 
     rl_callback_read_char();
 
@@ -120,10 +120,10 @@ cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
 char *
 cli_rl_autocomplete_entry(const char *text, int times)
 {
-    struct cli_state *state = NULL;
+    cli_state_t *state = THIS->private;
     char *retp = NULL;
 
-    state = global_state;
+    GF_ASSERT(state);
 
     if (!state->matchesp)
         return NULL;
@@ -309,11 +309,11 @@ cli_rl_autocomplete_cleanup(struct cli_state *state)
 char **
 cli_rl_autocomplete(const char *text, int start, int end)
 {
-    struct cli_state *state = NULL;
+    cli_state_t *state = THIS->private;
     char **matches = NULL;
     char save = 0;
 
-    state = global_state;
+    GF_ASSERT(state);
 
     /* hack to make the autocompletion code neater */
     /* fake it as though the cursor is at the end of line */
@@ -341,10 +341,10 @@ complete_none(const char *txt, int times)
 void *
 cli_rl_input(void *_data)
 {
-    struct cli_state *state = NULL;
+    cli_state_t *state = _data;
     char *line = NULL;
 
-    state = _data;
+    GF_ASSERT(state);
 
     fprintf(stderr,
             "Welcome to gluster prompt, type 'help' to see the available "
@@ -364,7 +364,7 @@ cli_rl_input(void *_data)
 }
 
 int
-cli_rl_enable(struct cli_state *state)
+cli_rl_enable(cli_state_t *state)
 {
     int ret = 0;
 
@@ -394,7 +394,7 @@ out:
 #else /* HAVE_READLINE */
 
 int
-cli_rl_enable(struct cli_state *state)
+cli_rl_enable(cli_state_t *state)
 {
     return 0;
 }
