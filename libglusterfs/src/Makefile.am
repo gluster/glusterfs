@@ -24,7 +24,7 @@ CONTRIB_BUILDDIR = $(top_builddir)/contrib
 
 libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	hashfn.c common-utils.c timer.c inode.c call-stub.c \
-	compat.c fd.c compat-errno.c event.c memory.c gf-dirent.c syscall.c \
+	compat.c fd.c compat-errno.c event.c mem-pool.c gf-dirent.c syscall.c \
 	iobuf.c globals.c statedump.c stack.c checksum.c daemon.c timespec.c \
 	$(CONTRIBDIR)/rbtree/rb.c rbthash.c store.c latency.c \
 	graph.c syncop.c graph-print.c trie.c options.c fd-lk.c \
@@ -56,7 +56,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
     glusterfs/xlator.h glusterfs/stack.h glusterfs/timer.h glusterfs/list.h \
     glusterfs/inode.h glusterfs/call-stub.h glusterfs/compat.h glusterfs/fd.h \
     glusterfs/revision.h glusterfs/compat-errno.h glusterfs/gf-event.h \
-    glusterfs/memory.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
+    glusterfs/mem-pool.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
     glusterfs/locking.h glusterfs/syscall.h glusterfs/iobuf.h \
     glusterfs/globals.h glusterfs/statedump.h glusterfs/checksum.h \
     glusterfs/daemon.h glusterfs/store.h glusterfs/rbthash.h glusterfs/iatt.h \

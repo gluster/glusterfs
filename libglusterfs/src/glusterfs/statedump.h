@@ -107,6 +107,9 @@ void
 gf_proc_dump_mem_info_to_dict(dict_t *dict);
 
 void
+gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict);
+
+void
 glusterd_init(int sig);
 
 void
@@ -126,27 +129,4 @@ gf_proc_dump_xlator_profile(xlator_t *this, strfd_t *strfd);
 
 void
 gf_latency_statedump_and_reset(char *key, gf_latency_t *lat);
-
-#ifdef GF_DISABLE_ALLOCATION_TRACKING
-
-static inline void
-gf_proc_dump_xlator_mem_info(xlator_t *xl)
-{
-}
-
-static inline void
-gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
-{
-}
-
-#else /* not GF_DISABLE_ALLOCATION_TRACKING */
-
-void
-gf_proc_dump_xlator_mem_info(xlator_t *xl);
-
-void
-gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl);
-
-#endif /* GF_DISABLE_ALLOCATION_TRACKING */
-
 #endif /* STATEDUMP_H */

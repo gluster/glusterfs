@@ -20,7 +20,7 @@
 #include <netdb.h>
 
 #include "glusterfs/syscall.h"
-#include "glusterfs/memory.h"
+#include "glusterfs/mem-pool.h"
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/globals.h"
 #include "glusterfs/events.h"

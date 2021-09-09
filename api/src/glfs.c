@@ -845,6 +845,11 @@ pub_glfs_new(const char *volname)
     }
 
 label:
+    /*
+     * Do this as soon as possible in case something else depends on
+     * pool allocations.
+     */
+    mem_pools_init();
 
     fs = glfs_new_fs(volname);
     if (!fs)
@@ -901,6 +906,9 @@ out:
         if (fs) {
             glfs_fini(fs);
             fs = NULL;
+        } else {
+            /* glfs_fini() calls mem_pools_fini() too */
+            mem_pools_fini();
         }
     }
 
@@ -1392,6 +1400,12 @@ pub_glfs_fini(struct glfs *fs)
 
 free_fs:
     glfs_free_from_ctx(fs);
+
+    /*
+     * Do this as late as possible in case anything else has (or
+     * grows) a dependency on mem-pool allocations.
+     */
+    mem_pools_fini();
 
 fail:
     if (!ret)

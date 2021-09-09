@@ -45,7 +45,7 @@ trap(void);
 /* To solve type punned error */
 #define VOID(ptr) ((void **)((void *)ptr))
 
-#include "glusterfs/memory.h"
+#include "glusterfs/mem-pool.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/iatt.h"
 #include "glusterfs/libglusterfs-messages.h"

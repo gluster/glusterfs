@@ -16,7 +16,7 @@
 #include <stdio.h>
 
 #include "glusterfs/parse-utils.h"
-#include "glusterfs/memory.h"
+#include "glusterfs/mem-pool.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
