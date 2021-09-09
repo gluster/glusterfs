@@ -10325,7 +10325,7 @@ out:
 
     GF_FREE(req.dict.dict_val);
 
-    if (state->mode & GLUSTER_MODE_XML) {
+    if (state && (state->mode & GLUSTER_MODE_XML)) {
         /* XML mode handles its own error */
         ret = 0;
     }
