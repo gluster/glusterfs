@@ -718,9 +718,9 @@ xlator_notify(xlator_t *xl, int event, void *data, ...)
 int
 xlator_mem_acct_init(xlator_t *xl, int num_types)
 {
-#ifdef GF_DISABLE_ALLOCATION_TRACKING
-    return 0;
-#else /* not GF_DISABLE_ALLOCATION_TRACKING */
+    int i = 0;
+    int ret = 0;
+
     if (!xl)
         return -1;
 
@@ -730,18 +730,41 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     if (!xl->ctx->mem_acct_enable)
         return 0;
 
-    xl->mem_acct = gf_mem_acct_init(num_types);
+    xl->mem_acct = MALLOC(sizeof(struct mem_acct) +
+                          sizeof(struct mem_acct_rec) * num_types);
 
-    return xl->mem_acct ? 0 : -1;
-#endif /* GF_DISABLE_ALLOCATION_TRACKING */
+    if (!xl->mem_acct) {
+        return -1;
+    }
+
+    xl->mem_acct->num_types = num_types;
+    GF_ATOMIC_INIT(xl->mem_acct->refcnt, 1);
+
+    for (i = 0; i < num_types; i++) {
+        memset(&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
+        ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
+        if (ret) {
+            fprintf(stderr, "Unable to lock..errno : %d", errno);
+        }
+#ifdef DEBUG
+        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
+#endif
+    }
+
+    return 0;
 }
 
 void
 xlator_mem_acct_unref(struct mem_acct *mem_acct)
 {
-#ifndef GF_DISABLE_ALLOCATION_TRACKING
-    gf_mem_acct_fini(mem_acct);
-#endif /* GF_DISABLE_ALLOCATION_TRACKING */
+    uint32_t i;
+
+    if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
+        for (i = 0; i < mem_acct->num_types; i++) {
+            LOCK_DESTROY(&(mem_acct->rec[i].lock));
+        }
+        FREE(mem_acct);
+    }
 }
 
 void
@@ -772,15 +795,22 @@ xlator_list_destroy(xlator_list_t *list)
     return 0;
 }
 
-static void
+int
 xlator_memrec_free(xlator_t *xl)
 {
-#ifndef GF_DISABLE_ALLOCATION_TRACKING
-    if (xl && xl->mem_acct) {
-        if (gf_mem_acct_fini(xl->mem_acct) == 0)
-            xl->mem_acct = NULL;
+    struct mem_acct *mem_acct = NULL;
+
+    if (!xl) {
+        return 0;
     }
-#endif /* GF_DISABLE_ALLOCATION_TRACKING */
+    mem_acct = xl->mem_acct;
+
+    if (mem_acct) {
+        xlator_mem_acct_unref(mem_acct);
+        xl->mem_acct = NULL;
+    }
+
+    return 0;
 }
 
 static int

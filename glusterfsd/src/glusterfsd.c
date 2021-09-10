@@ -1399,7 +1399,8 @@ parse_opts(int key, char *arg, struct argp_state *state)
         case ARGP_IO_ENGINE_KEY:
             cmd_args->io_engine = gf_strdup(arg);
             if (cmd_args->io_engine == NULL) {
-                argp_failure(state, -1, 0, "Failed to allocate memory for "
+                argp_failure(state, -1, 0,
+                             "Failed to allocate memory for "
                              "io-engine");
             }
             break;
@@ -2621,6 +2622,8 @@ GF_IO_ASYNC(main_start, op, static)
 {
     int32_t res;
 
+    mem_pools_init();
+
     /* TODO: gf_async support should be removed once the I/O framework
      *       supports multithreaded I/O without io_uring. */
     res = gf_async_init(global_ctx);
@@ -2664,10 +2667,8 @@ out:
 int
 main(int argc, char *argv[])
 {
-    gf_io_handlers_t main_handlers = {
-        .setup = main_start,
-        .cleanup = main_terminate
-    };
+    gf_io_handlers_t main_handlers = {.setup = main_start,
+                                      .cleanup = main_terminate};
     glusterfs_ctx_t *ctx = NULL;
     int ret = -1;
     char cmdlinestr[PATH_MAX] = {

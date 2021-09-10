@@ -17,10 +17,28 @@
 static void
 dump_mem_acct_details(xlator_t *xl, int fd)
 {
+    struct mem_acct_rec *mem_rec;
+    int i = 0;
+
     if (!xl || !xl->mem_acct || (xl->ctx->active != xl->graph))
         return;
 
-    gf_mem_acct_dump_details(xl->type, xl->name, xl->mem_acct, fd);
+    dprintf(fd, "# %s.%s.total.num_types %d\n", xl->type, xl->name,
+            xl->mem_acct->num_types);
+
+    dprintf(fd,
+            "# type, in-use-size, in-use-units, max-size, "
+            "max-units, total-allocs\n");
+
+    for (i = 0; i < xl->mem_acct->num_types; i++) {
+        mem_rec = &xl->mem_acct->rec[i];
+        if (mem_rec->num_allocs == 0)
+            continue;
+        dprintf(fd, "# %s, %" PRIu64 ", %u, %" PRIu64 ", %u, %" PRIu64 "\n",
+                mem_rec->typestr, mem_rec->size, mem_rec->num_allocs,
+                mem_rec->max_size, mem_rec->max_num_allocs,
+                mem_rec->total_allocs);
+    }
 }
 
 static void
