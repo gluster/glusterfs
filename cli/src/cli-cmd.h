@@ -24,7 +24,7 @@
         if (local) {                                                           \
             local->words = words;                                              \
             if (dictionary)                                                    \
-                local->dict = dictionary;                                      \
+                local->dict = dict_ref(dictionary);                            \
             if (frame)                                                         \
                 frame->local = local;                                          \
         }                                                                      \

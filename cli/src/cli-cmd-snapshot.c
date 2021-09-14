@@ -63,6 +63,8 @@ out:
         cli_out("Snapshot command failed");
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }

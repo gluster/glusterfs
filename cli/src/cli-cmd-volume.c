@@ -192,6 +192,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -262,6 +264,9 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
@@ -338,6 +343,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0 && GF_ANSWER_YES == answer) {
         gf_event(EVENT_VOLUME_DELETE, "name=%s", (char *)words[2]);
@@ -418,6 +425,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_VOLUME_START, "name=%s;force=%d", (char *)words[2],
@@ -632,6 +641,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -692,6 +703,8 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -740,6 +753,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -854,6 +869,8 @@ out:
 
 end:
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1049,10 +1066,13 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
-int
+static int
 cli_get_soft_limit(dict_t *options, const char **words, dict_t *xdata)
 {
     call_frame_t *frame = NULL;
@@ -1068,10 +1088,8 @@ cli_get_soft_limit(dict_t *options, const char **words, dict_t *xdata)
         goto out;
     }
 
-    // We need a ref on @options to prevent CLI_STACK_DESTROY
-    // from destroying it prematurely.
-    dict_ref(options);
     CLI_LOCAL_INIT(local, words, frame, options);
+
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_QUOTA];
     ret = proc->fn(frame, THIS, options);
 
@@ -1155,7 +1173,7 @@ out:
     return limits_set;
 }
 
-int
+static int
 cli_cmd_quota_handle_list_all(cli_state_t *state, const char **words,
                               dict_t *options)
 {
@@ -1368,8 +1386,6 @@ out:
                    "xml format");
         }
     }
-    if (xdata)
-        dict_unref(xdata);
 
     if (fd != -1) {
         sys_close(fd);
@@ -1380,7 +1396,11 @@ out:
                "Could not fetch and display quota"
                " limits");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (xdata)
+        dict_unref(xdata);
+
     return ret;
 }
 
@@ -1496,6 +1516,9 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
 out2:
     return ret;
 }
@@ -1590,8 +1613,6 @@ out:
                 "Quota command failed. Please check the cli "
                 "logs for more details");
     }
-    if (options)
-        dict_unref(options);
 
     /* Events for Quota */
     if (ret == 0) {
@@ -1652,6 +1673,9 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
@@ -1842,7 +1866,10 @@ out:
                      (char *)words[2], (char *)words[3]);
         }
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1896,7 +1923,10 @@ out:
                  "Volume=%s;source-brick=%s;destination-brick=%s",
                  (char *)words[2], (char *)words[3], (char *)words[4]);
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1944,6 +1974,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1997,7 +2029,10 @@ out:
         if ((sent == 0) && (parse_error == 0))
             cli_out("Volume log rotate failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2230,6 +2265,8 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2282,6 +2319,8 @@ cli_cmd_volume_status_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
 out:
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -2596,10 +2635,9 @@ out:
         }
     }
 
+    CLI_STACK_DESTROY(frame);
     if (options)
         dict_unref(options);
-
-    CLI_STACK_DESTROY(frame);
 
     return ret;
 }
@@ -2661,6 +2699,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2753,6 +2793,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2807,7 +2849,10 @@ out:
         if ((sent == 0) && (parse_error == 0))
             cli_err("Volume barrier failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2861,7 +2906,11 @@ out:
         if ((sent == 0) && (parse_err == 0))
             cli_err("Volume get option failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
