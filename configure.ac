@@ -1180,6 +1180,77 @@ if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
 fi
 
+dnl Looking for OS-dependent non-POSIX function to set thread name.
+
+PTHREAD_SETNAME_FOUND=no
+
+dnl Linux-like version assuming glibc (so _GNU_SOURCE).
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_setname_np(thread, name)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-D_GNU_SOURCE -pthread"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread.h>]],
+         [[pthread_t t; pthread_setname_np(t, "name");]])],
+         [pthread_setname_np_two_args=yes], [pthread_setname_np_two_args=no])
+   AC_MSG_RESULT([$pthread_setname_np_two_args])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_setname_np_two_args = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SETNAME_NP_TWO_ARGS, 1,
+                [Define if 'pthread_setname_np(thread, name)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+dnl NetBSD-like version with three arguments.
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_setname_np(thread, name, arg)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-pthread"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread.h>]],
+         [[pthread_t t; pthread_setname_np(t, "name", NULL);]])],
+         [pthread_setname_np_three_args=yes], [pthread_setname_np_three_args=no])
+   AC_MSG_RESULT([$pthread_setname_np_three_args])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_setname_np_three_args = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SETNAME_NP_THREE_ARGS, 1,
+                [Define if 'pthread_setname_np(thread, name, arg)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+dnl FreeBSD provides pthread_np.h header file and both (not sure
+dnl for versions older than 13.0) 'pthread_setname_np(thread, name)'
+dnl and 'pthread_set_name_np(thread, name)'.
+
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_set_name_np(thread, name)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-pthread"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread_np.h>]],
+         [[pthread_t t; pthread_set_name_np(t, "name");]])],
+         [pthread_set_name_np=yes], [pthread_set_name_np=no])
+   AC_MSG_RESULT([$pthread_set_name_np])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_set_name_np = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1,
+                [Define if 'pthread_set_name_np(thread, name)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_WARN([Unable to detect function to set thread name])
+fi
+
 # Check the distribution where you are compiling glusterfs on.
 # For cross-compiling, you're advised to specify it manually.
 

@@ -234,15 +234,7 @@ gf_io_thread_name(pthread_t id, const char *code, uint32_t index)
         return -EINVAL;
     }
 
-#ifdef GF_LINUX_HOST_OS
-    return gf_io_call_ret(pthread_setname_np, id, name);
-#elif defined(__NetBSD__)
-    return gf_io_call_ret(pthread_setname_np, id, name, NULL);
-#elif defined(__FreeBSD__)
-    pthread_set_name_np(id, name);
-
-    return 0;
-#endif
+    return __gf_thread_set_name(id, name);
 }
 
 /* Sets the signal mask of the thread. */

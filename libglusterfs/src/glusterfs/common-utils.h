@@ -1094,6 +1094,21 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key);
 int
 gf_set_timestamp(const char *src, const char *dest);
 
+static inline int
+__gf_thread_set_name(pthread_t thread, const char *name)
+{
+#if defined(HAVE_PTHREAD_SETNAME_NP_TWO_ARGS)
+    return pthread_setname_np(thread, name);
+#elif defined(HAVE_PTHREAD_SETNAME_NP_THREE_ARGS)
+    return pthread_setname_np(thread, name, NULL);
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+    pthread_set_name_np(thread, name);
+    return 0;
+#else /* none found */
+    return -ENOSYS;
+#endif /* set name */
+}
+
 int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
                  void *(*start_routine)(void *), void *arg, const char *name,
