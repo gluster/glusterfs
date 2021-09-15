@@ -68,6 +68,11 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libtirpc
 %{?_without_libtirpc:%global _without_libtirpc --without-libtirpc}
 
+# libtcmalloc
+# if you wish to compile an rpm without tcmalloc (i.e. use gluster mempool)
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without tcmalloc
+%{?_without_tcmalloc:%global _without_libtcmalloc --without-tcmalloc}
+
 # Do not use libtirpc on EL6, it does not have xdr_uint64_t() and xdr_uint32_t
 # Do not use libtirpc on EL7, it does not have xdr_sizeof()
 %if ( 0%{?rhel} && 0%{?rhel} <= 7 )
@@ -248,6 +253,10 @@ Requires(pre):    shadow-utils
 BuildRequires:    systemd
 %endif
 
+%if ( 0%{?_with_tcmalloc:1} )
+Requires:         gperftools-libs%{?_isa}
+%endif
+
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 Requires:         libgfrpc0%{?_isa} = %{version}-%{release}
 Requires:         libgfxdr0%{?_isa} = %{version}-%{release}
@@ -266,6 +275,9 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
+%if ( 0%{?_with_tcmalloc:1} )
+BuildRequires:    gperftools-devel
+%endif
 %if ( 0%{?rhel} && 0%{?rhel} < 8 )
 BuildRequires:    python-ctypes
 %endif
@@ -858,7 +870,8 @@ done
         %{?_without_syslog} \
         %{?_with_ipv6default} \
         %{?_without_linux_io_uring} \
-        %{?_without_libtirpc}
+        %{?_without_libtirpc} \
+        %{?_without_tcmalloc}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
