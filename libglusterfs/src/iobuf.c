@@ -509,6 +509,37 @@ out:
     return iobuf;
 }
 
+static struct iobuf *
+iobuf_get_from_small(struct iobuf_pool *iobuf_pool, const size_t page_size)
+{
+    struct iobuf *iobuf = NULL;
+    int ret = -1;
+
+    iobuf = GF_CALLOC(1, sizeof(*iobuf), gf_common_mt_iobuf);
+    if (!iobuf)
+        goto out;
+
+    iobuf->free_ptr = GF_MALLOC(page_size, gf_common_mt_iobuf_pool);
+    if (!iobuf->free_ptr)
+        goto out;
+
+    iobuf->ptr = iobuf->free_ptr;
+    iobuf->page_size = page_size;
+    LOCK_INIT(&iobuf->lock);
+    /* Hold a ref because you are allocating and using it */
+    GF_ATOMIC_INIT(iobuf->ref, 1);
+
+    ret = 0;
+out:
+    if (ret && iobuf) {
+        GF_FREE(iobuf->free_ptr);
+        GF_FREE(iobuf);
+        iobuf = NULL;
+    }
+
+    return iobuf;
+}
+
 struct iobuf *
 iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
 {
@@ -518,6 +549,19 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
 
     if (page_size == 0) {
         page_size = iobuf_pool->default_page_size;
+    }
+
+    /* During smallfile testing we have observed the performance
+       is improved significantly while use standard allocation if
+       page size is less than equal to 128KB, the data is available
+       on the link https://github.com/gluster/glusterfs/issues/2771
+    */
+    if (page_size <= USE_IOBUF_POOL_IF_SIZE_GREATER_THAN) {
+        iobuf = iobuf_get_from_small(iobuf_pool, page_size);
+        if (!iobuf)
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                    NULL);
+        return iobuf;
     }
 
     rounded_size = gf_iobuf_get_pagesize(page_size, &index);
@@ -568,6 +612,16 @@ iobuf_get_page_aligned(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     if (req_size == 0) {
         req_size = iobuf_pool->default_page_size;
+    }
+
+    if (req_size <= USE_IOBUF_POOL_IF_SIZE_GREATER_THAN) {
+        req_size = req_size + align_size;
+        iobuf = iobuf_get_from_small(iobuf_pool, req_size);
+        if (!iobuf)
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                    NULL);
+        iobuf->ptr = GF_ALIGN_BUF(iobuf->ptr, align_size);
+        return iobuf;
     }
 
     iobuf = iobuf_get2(iobuf_pool, req_size + align_size);
@@ -677,6 +731,14 @@ iobuf_put(struct iobuf *iobuf)
     struct iobuf_pool *iobuf_pool = NULL;
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+
+    if (iobuf->page_size) {
+        GF_FREE(iobuf->free_ptr);
+        iobuf->free_ptr = NULL;
+        iobuf->ptr = NULL;
+        GF_FREE(iobuf);
+        return;
+    }
 
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
@@ -924,6 +986,10 @@ iobuf_size(struct iobuf *iobuf)
     size_t size = 0;
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+
+    if (iobuf->page_size) {
+        return iobuf->page_size;
+    }
 
     if (!iobuf->iobuf_arena) {
         gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
