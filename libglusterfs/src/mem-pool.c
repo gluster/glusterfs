@@ -391,7 +391,6 @@ static struct list_head pool_threads;
 static pthread_mutex_t pool_free_lock = PTHREAD_MUTEX_INITIALIZER;
 static struct list_head pool_free_threads;
 static struct mem_pool_shared pools[NPOOLS];
-static size_t pool_list_size;
 
 static __thread per_thread_pool_list_t *thread_pool_list = NULL;
 
@@ -410,7 +409,6 @@ enum init_state {
     GF_MEMPOOL_INIT_DESTROY
 };
 
-static enum init_state init_done = GF_MEMPOOL_INIT_NONE;
 static pthread_mutex_t init_mutex = PTHREAD_MUTEX_INITIALIZER;
 static unsigned int init_count = 0;
 static pthread_t sweeper_tid;
@@ -557,17 +555,7 @@ mem_pools_preinit(void)
 
     for (i = 0; i < NPOOLS; ++i) {
         pools[i].power_of_two = POOL_SMALLEST + i;
-
-        GF_ATOMIC_INIT(pools[i].allocs_hot, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_cold, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_stdc, 0);
-        GF_ATOMIC_INIT(pools[i].frees_to_list, 0);
     }
-
-    pool_list_size = sizeof(per_thread_pool_list_t) +
-                     sizeof(per_thread_pool_t) * (NPOOLS - 1);
-
-    init_done = GF_MEMPOOL_INIT_EARLY;
 }
 
 static __attribute__((destructor)) void
@@ -596,8 +584,6 @@ mem_pools_init(void)
     if ((init_count++) == 0) {
         (void)gf_thread_create(&sweeper_tid, NULL, pool_sweeper, NULL,
                                "memsweep");
-
-        init_done = GF_MEMPOOL_INIT_LATE;
     }
     pthread_mutex_unlock(&init_mutex);
 }
@@ -631,7 +617,6 @@ mem_pools_fini(void)
              * to them. */
             mem_pool_thread_destructor(NULL);
 
-            init_done = GF_MEMPOOL_INIT_DESTROY;
             /* Fall through. */
         }
         default:
@@ -668,7 +653,7 @@ struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                 unsigned long count, char *name)
 {
-    unsigned long extra_size, size;
+    unsigned long size;
     unsigned int power;
     struct mem_pool *new = NULL;
     struct mem_pool_shared *pool = NULL;
@@ -679,9 +664,8 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
         return NULL;
     }
 
-    /* This is the overhead we'll have because of memory accounting for each
-     * memory block. */
-    extra_size = sizeof(pooled_obj_hdr_t);
+    /* sizeof(pooled_obj_hdr_t) is the overhead we'll have because of memory
+     * accounting for each memory block. */
 
     /* We need to compute the total space needed to hold the data type and
      * the header. Given that the smallest block size we have in the pools
@@ -691,7 +675,8 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
      * we can simply do a bitwise or with the minimum size. We need to
      * subtract 1 for correct handling of sizes that are exactly a power
      * of 2. */
-    size = (sizeof_type + extra_size - 1UL) | ((1UL << POOL_SMALLEST) - 1UL);
+    size = (sizeof_type + sizeof(pooled_obj_hdr_t) - 1UL) |
+           ((1UL << POOL_SMALLEST) - 1UL);
 
     /* We compute the logarithm in base 2 rounded up of the resulting size.
      * This value will identify which pool we need to use from the pools of
@@ -711,7 +696,6 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
 
     new->ctx = ctx;
     new->sizeof_type = sizeof_type;
-    new->count = count;
     new->name = name;
     new->xl_name = THIS->name;
     new->pool = pool;
@@ -751,7 +735,8 @@ mem_get_pool_list(void)
     (void)pthread_mutex_unlock(&pool_free_lock);
 
     if (!pool_list) {
-        pool_list = MALLOC(pool_list_size);
+        pool_list = MALLOC(sizeof(per_thread_pool_list_t) +
+                           sizeof(per_thread_pool_t) * (NPOOLS - 1));
         if (!pool_list) {
             return NULL;
         }
@@ -806,16 +791,13 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     if (retval) {
         pt_pool->hot_list = retval->next;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->allocs_hot);
     } else {
         retval = pt_pool->cold_list;
         if (retval) {
             pt_pool->cold_list = retval->next;
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_cold);
         } else {
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
             retval = malloc(1 << pt_pool->parent->power_of_two);
 #ifdef DEBUG
             hit = _gf_false;
@@ -921,7 +903,6 @@ mem_put(void *ptr)
         hdr->next = pt_pool->hot_list;
         pt_pool->hot_list = hdr;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->frees_to_list);
     } else {
         /* If the owner thread of this element has terminated, we simply
          * release its memory. */
