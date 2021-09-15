@@ -220,8 +220,6 @@ struct mem_pool {
 
 #else /* !GF_DISABLE_MEMPOOL */
 
-/* kind of 'header' for the actual mem_pool_shared structure, this might make
- * it possible to dump some more details in a statedump */
 struct mem_pool {
     /* object size, without pooled_obj_hdr_t */
     unsigned long sizeof_type;
@@ -235,7 +233,7 @@ struct mem_pool {
     struct list_head owner; /* glusterfs_ctx_t->mempool_list */
     glusterfs_ctx_t *ctx;   /* take ctx->lock when updating owner */
 
-    struct mem_pool_shared *pool; /* the initial pool that was returned */
+    unsigned int pool_power_of_two;
 };
 
 typedef struct pooled_obj_hdr {
@@ -254,8 +252,7 @@ typedef struct pooled_obj_hdr {
 #define AVAILABLE_SIZE(p2) ((1UL << (p2)) - sizeof(pooled_obj_hdr_t))
 
 typedef struct per_thread_pool {
-    /* the pool that was used to request this allocation */
-    struct mem_pool_shared *parent;
+    unsigned int parent_power_of_two;
     /* Everything else is protected by our own lock. */
     pooled_obj_hdr_t *hot_list;
     pooled_obj_hdr_t *cold_list;
@@ -284,11 +281,6 @@ typedef struct per_thread_pool_list {
      */
     per_thread_pool_t pools[1];
 } per_thread_pool_list_t;
-
-/* actual pool structure, shared between different mem_pools */
-struct mem_pool_shared {
-    unsigned int power_of_two;
-};
 
 void
 mem_pools_init(void); /* start the pool_sweeper thread */
