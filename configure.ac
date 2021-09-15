@@ -339,15 +339,18 @@ fi
 
 # Initialize CFLAGS before usage
 BUILD_TCMALLOC=no
-AC_ARG_ENABLE([tcmalloc],
-              AC_HELP_STRING([--enable-tcmalloc],
-                             [Enable linking with tcmalloc library.]))
-if test "x$enable_tcmalloc" = "xyes"; then
+USE_MEMPOOL=yes
+AC_ARG_WITH([tcmalloc],
+        [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
+        [with_tcmalloc="no"], [with_tcmalloc="yes"])
+if test "x$with_tcmalloc" = "xyes"; then
+    AC_CHECK_LIB([tcmalloc], [malloc], [],
+                 [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    AC_CHECK_LIB([tcmalloc], [malloc], [],
-                 [AC_MSG_ERROR([when --enable-tcmalloc is used, tcmalloc library needs to be present])])
     GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+    AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+    USE_MEMPOOL=no
 fi
 
 
@@ -1491,16 +1494,6 @@ AC_SUBST(UMOUNTD_SUBDIR)
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
-
-AC_ARG_ENABLE([mempool],
-              AC_HELP_STRING([--disable-mempool],
-                             [Disable the Gluster memory pooler.]))
-
-USE_MEMPOOL="yes"
-if test "x$enable_mempool" = "xno"; then
-        USE_MEMPOOL="no"
-        AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
-fi
 
 dnl Add readline support in CLI if available.
 PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
