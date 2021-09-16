@@ -52,8 +52,12 @@ def modify_htime_file(brick_path):
                     os.makedirs(path, mode = 0o600, exist_ok = True)
 
                     #copy existing changelogs to new directory structure, delete old changelog files
-                    shutil.copyfile(pth, os.path.join(path, changelog))
-                    os.remove(pth)
+                    try:
+                        shutil.copyfile(pth, os.path.join(path, changelog))
+                    except shutil.SameFileError:
+                        pass
+                    else:
+                        os.remove(pth)
 
         #rename temp_htime_file with htime file
         os.rename(htime_file_path, os.path.join('%s.bak'%htime_file_path))
