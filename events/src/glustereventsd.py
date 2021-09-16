@@ -117,20 +117,25 @@ def init_event_server():
                    GlusterEventsRequestHandler)
     except socket.error as e:
         sys.stderr.write("Failed to start Eventsd for IPv4: {0}\n".format(e))
-        sys.exit(1)
+        serverv4 = None
+    if serverv4:
+        server_thread1 = threading.Thread(target=UDP_server_thread,
+                         args=(serverv4,))
+        server_thread1.start()
     # Creating the Eventing Server, UDP Server for IPv6 packets
     try:
         serverv6 = UDPServerv6((SERVER_ADDRESSv6, port),
                    GlusterEventsRequestHandler)
     except socket.error as e:
         sys.stderr.write("Failed to start Eventsd for IPv6: {0}\n".format(e))
+        serverv6 = None
+    if serverv6:
+        server_thread2 = threading.Thread(target=UDP_server_thread,
+                         args=(serverv6,))
+        server_thread2.start()
+    if serverv4 is None and serverv6 is None:
+        sys.stderr.write("Failed to start Eventsd: {0}\n".format(e))
         sys.exit(1)
-    server_thread1 = threading.Thread(target=UDP_server_thread,
-                     args=(serverv4,))
-    server_thread2 = threading.Thread(target=UDP_server_thread,
-                     args=(serverv6,))
-    server_thread1.start()
-    server_thread2.start()
 
 
 def get_args():
