@@ -535,7 +535,7 @@ new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->fd_num = fd_to_fdnum(fd);
     lock->fd = fd;
     lock->client_pid = client_pid;
-    lock->owner = *owner;
+    lk_owner_copy(&lock->owner, owner);
     lock->lk_flags = lk_flags;
 
     lock->blocking = blocking;
@@ -590,7 +590,7 @@ posix_lock_to_flock(posix_lock_t *lock, struct gf_flock *flock)
     flock->l_pid = lock->user_flock.l_pid;
     flock->l_type = lock->fl_type;
     flock->l_start = lock->fl_start;
-    flock->l_owner = lock->owner;
+    lk_owner_copy(&flock->l_owner, &lock->owner);
 
     if (lock->fl_end == LLONG_MAX)
         flock->l_len = 0;

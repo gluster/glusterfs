@@ -270,7 +270,7 @@ afr_add_lock_to_saved_locks(call_frame_t *frame, xlator_t *this)
     if (!info->xdata_req) {
         goto cleanup;
     }
-    info->lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&info->lk_owner, &frame->root->lk_owner);
     info->locked_nodes = GF_MALLOC(
         sizeof(*info->locked_nodes) * priv->child_count, gf_afr_mt_char);
     if (!info->locked_nodes) {
@@ -7631,9 +7631,7 @@ gf_boolean_t
 afr_ta_is_fop_called_from_synctask(xlator_t *this)
 {
     struct synctask *task = NULL;
-    gf_lkowner_t tmp_owner = {
-        0,
-    };
+    gf_lkowner_t tmp_owner;
 
     task = synctask_get();
     if (!task)

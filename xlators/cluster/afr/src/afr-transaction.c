@@ -453,7 +453,7 @@ afr_save_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    local->saved_lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&local->saved_lk_owner, &frame->root->lk_owner);
 }
 
 static void
@@ -463,7 +463,7 @@ afr_restore_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    frame->root->lk_owner = local->saved_lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &local->saved_lk_owner);
 }
 
 void
@@ -605,7 +605,8 @@ fop:
      *  flush cant clear the  posix-lks without that lk-owner.
      */
     afr_save_lk_owner(frame);
-    frame->root->lk_owner = local->transaction.main_frame->root->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner,
+                  &local->transaction.main_frame->root->lk_owner);
 
     if (priv->arbiter_count == 1) {
         afr_txn_arbitrate_fop(frame, this);

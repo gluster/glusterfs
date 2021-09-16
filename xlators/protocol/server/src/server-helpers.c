@@ -542,7 +542,7 @@ get_frame_from_request(rpcsvc_request_t *req)
     frame->root->gid = req->gid;
     frame->root->pid = req->pid;
     frame->root->client = client;
-    frame->root->lk_owner = req->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &req->lk_owner);
 
     if (priv->server_manage_gids)
         server_resolve_groups(frame, req);

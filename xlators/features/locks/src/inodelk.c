@@ -921,7 +921,7 @@ new_inode_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->client = client;
     lock->client_pid = client_pid;
     lock->volume = volume;
-    lock->owner = frame->root->lk_owner;
+    lk_owner_copy(&lock->owner, &frame->root->lk_owner);
     lock->frame = frame;
     lock->this = this;
 

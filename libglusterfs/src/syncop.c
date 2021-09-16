@@ -155,7 +155,7 @@ syncopctx_setfslkowner(gf_lkowner_t *lk_owner)
 
     opctx = syncopctx_getctx();
 
-    opctx->lk_owner = *lk_owner;
+    lk_owner_copy(&opctx->lk_owner, lk_owner);
     opctx->valid |= SYNCOPCTX_LKOWNER;
 
 out:

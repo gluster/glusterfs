@@ -96,7 +96,7 @@ dht_set_lkowner(dht_lock_t **lk_array, int count, gf_lkowner_t *lkowner)
         goto out;
 
     for (i = 0; i < count; i++) {
-        lk_array[i]->lk_owner = *lkowner;
+        lk_owner_copy(&lk_array[i]->lk_owner, lkowner);
     }
 
 out:
@@ -402,8 +402,8 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
         if (!local->lock[0].ns.directory_ns.locks[i]->locked)
             continue;
 
-        lock_frame->root
-            ->lk_owner = local->lock[0].ns.directory_ns.locks[i]->lk_owner;
+        lk_owner_copy(&lock_frame->root->lk_owner,
+                      &local->lock[0].ns.directory_ns.locks[i]->lk_owner);
         STACK_WIND_COOKIE(
             lock_frame, dht_unlock_entrylk_cbk, (void *)(long)i,
             local->lock[0].ns.directory_ns.locks[i]->xl,
@@ -786,8 +786,8 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
         if (!local->lock[0].layout.my_layout.locks[i]->locked)
             continue;
 
-        lock_frame->root
-            ->lk_owner = local->lock[0].layout.my_layout.locks[i]->lk_owner;
+        lk_owner_copy(&lock_frame->root->lk_owner,
+                      &local->lock[0].layout.my_layout.locks[i]->lk_owner);
         STACK_WIND_COOKIE(
             lock_frame, dht_unlock_inodelk_cbk, (void *)(long)i,
             local->lock[0].layout.my_layout.locks[i]->xl,

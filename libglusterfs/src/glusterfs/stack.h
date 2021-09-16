@@ -513,7 +513,7 @@ copy_frame(call_frame_t *frame)
     memcpy(newstack->groups, oldstack->groups, sizeof(gid_t) * oldstack->ngrps);
     newstack->unique = oldstack->unique;
     newstack->pool = oldstack->pool;
-    newstack->lk_owner = oldstack->lk_owner;
+    lk_owner_copy(&newstack->lk_owner, &oldstack->lk_owner);
     newstack->ctx = oldstack->ctx;
 
     if (newstack->ctx->measure_latency) {
