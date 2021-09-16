@@ -337,22 +337,58 @@ if test "x$enable_ubsan" = "xyes"; then
         GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
 fi
 
-# Initialize CFLAGS before usage
-BUILD_TCMALLOC=no
-USE_MEMPOOL=yes
-AC_ARG_WITH([tcmalloc],
-        [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
-        [with_tcmalloc="no"], [with_tcmalloc="yes"])
-if test "x$with_tcmalloc" = "xyes"; then
-    AC_CHECK_LIB([tcmalloc], [malloc], [],
-                 [AC_MSG_ERROR([tcmalloc library needs to be present])])
-    BUILD_TCMALLOC=yes
-    GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+dnl Initialize pkg-config magic.
+PKG_PROG_PKG_CONFIG
+
+dnl Select malloc implementation. TCMalloc is preferred since it is
+dnl known to have the best performance on a wide range of benchmarks.
+
+MALLOC_IMPL=tcmalloc
+
+AC_ARG_WITH([malloc],
+            AC_HELP_STRING([--with-malloc=@<:@tcmalloc,jemalloc,system@:>@],
+                             [Use tcmalloc, jemalloc or system default malloc.]))
+case x$with_malloc in
+  x|xtcmalloc)
+    PKG_CHECK_MODULES([TCMALLOC], [libtcmalloc], [use_tcmalloc=yes], [use_tcmalloc=no])
+    if test x$use_tcmalloc = xyes; then
+        AC_DEFINE(USE_TCMALLOC, 1, [Define to 1 if tcmalloc is used.])
+        GF_LDFLAGS="${GF_LDFLAGS} ${TCMALLOC_LIBS}"
+        MALLOC_IMPL=tcmalloc
+    else
+        AC_MSG_ERROR([unable to detect tcmalloc, make sure it's installed.])
+    fi
+    ;;
+  xjemalloc)
+    PKG_CHECK_MODULES([JEMALLOC], [jemalloc], [use_jemalloc=yes], [use_jemalloc=no])
+    if test x$use_jemalloc = xyes; then
+        AC_DEFINE(USE_JEMALLOC, 1, [Define to 1 if jemalloc is used.])
+        GF_LDFLAGS="${GF_LDFLAGS} ${JEMALLOC_LIBS}"
+        MALLOC_IMPL=jemalloc
+    else
+        AC_MSG_ERROR([unable to detect jemalloc, make sure it's installed.])
+    fi
+    ;;
+  xsystem)
+    MALLOC_IMPL=system
+    ;;
+  *)
+    AC_MSG_ERROR([Please specify --with-malloc=@<:@tcmalloc,jemalloc,system@:>@])
+    ;;
+esac
+
+dnl With TCMalloc, memory pools are disabled by default.
+if test x$MALLOC_IMPL = xtcmalloc; then
     AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
     USE_MEMPOOL=no
+else
+    USE_MEMPOOL=yes
 fi
 
+dnl Custom memory management function may be confused with compiler builtins.
+if test x$MALLOC_IMPL != xsystem; then
+    GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
+fi
 
 dnl When possible, prefer libtirpc over glibc rpc.
 dnl
@@ -1820,7 +1856,7 @@ echo "Use TIRPC            : $with_libtirpc"
 echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Metadata dispersal   : $BUILD_METADISP"
-echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
+echo "Memory management    : $MALLOC_IMPL"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo "Building with LTO    : $LTO_BUILD"
 echo
@@ -1831,4 +1867,11 @@ if test "x$SANITIZER" != "xnone"; then
         echo "'export ${SANITIZER^^}_OPTIONS=log_path=/path/to/xxx.log' to collect"
         echo "sanitizer output. Further details and more options can be"
         echo "found at https://github.com/google/sanitizers."
+fi
+
+dnl Warn if malloc implementation other than TCMalloc is selected.
+if test x$MALLOC_IMPL != xtcmalloc; then
+    echo "Warning: consider using TCMalloc as the default memory allocator since"
+    echo "it is known to have the best performance on a wide range of benchmarks."
+    echo "For the details on TCMalloc, see https://github.com/google/tcmalloc."
 fi

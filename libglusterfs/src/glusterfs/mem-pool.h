@@ -21,6 +21,12 @@
 #include <string.h>
 #include <stdarg.h>
 
+#if defined(USE_TCMALLOC)
+#include <gperftools/tcmalloc.h>
+#elif defined(USE_JEMALLOC)
+#include <jemalloc/jemalloc.h>
+#endif /* custom malloc */
+
 /*
  * Need this for unit tests since inline functions
  * access memory allocation and need to use the
