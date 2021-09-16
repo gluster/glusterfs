@@ -1931,12 +1931,11 @@ struct volume_options server_options[] = {
      .min = SERVER_MIN_EVENT_THREADS,
      .max = SERVER_MAX_EVENT_THREADS,
      .default_value = TOSTRING(STARTING_EVENT_THREADS),
-     .description = "Specifies the number of event threads to execute "
-                    "in parallel. Larger values would help process"
-                    " responses faster, depending on available processing"
-                    " power.",
+     .description = "Specifies the number of event threads to execute in "
+                    "parallel. Larger values would help process responses "
+                    "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"dynamic-auth"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",

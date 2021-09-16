@@ -1479,11 +1479,10 @@ struct volume_options options[] = {
      .max = IOT_MAX_THREADS,
      .default_value = TOSTRING(IOT_DEFAULT_THREADS),
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-threads"},
-     /*.option = "thread-count"*/
      .description = "Number of threads in IO threads translator which "
-                    "perform concurrent IO operations"
+                    "perform concurrent IO operations."
 
     },
     {.key = {"high-prio-threads"},
@@ -1492,46 +1491,40 @@ struct volume_options options[] = {
      .max = IOT_MAX_THREADS,
      .default_value = TOSTRING(IOT_DEFAULT_THREADS),
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-threads"},
      .description = "Max number of threads in IO threads translator which "
-                    "perform high priority IO operations at a given time"
-
-    },
+                    "perform high priority IO operations at a given time."},
     {.key = {"normal-prio-threads"},
      .type = GF_OPTION_TYPE_INT,
      .min = IOT_MIN_THREADS,
      .max = IOT_MAX_THREADS,
      .default_value = TOSTRING(IOT_DEFAULT_THREADS),
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-threads"},
      .description = "Max number of threads in IO threads translator which "
-                    "perform normal priority IO operations at a given time"
-
-    },
+                    "perform normal priority IO operations at a given time."},
     {.key = {"low-prio-threads"},
      .type = GF_OPTION_TYPE_INT,
      .min = IOT_MIN_THREADS,
      .max = IOT_MAX_THREADS,
      .default_value = TOSTRING(IOT_DEFAULT_THREADS),
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-threads"},
      .description = "Max number of threads in IO threads translator which "
-                    "perform low priority IO operations at a given time"
-
-    },
+                    "perform low priority IO operations at a given time."},
     {.key = {"least-prio-threads"},
      .type = GF_OPTION_TYPE_INT,
      .min = IOT_MIN_THREADS,
      .max = IOT_MAX_THREADS,
      .default_value = TOSTRING(IOT_MIN_THREADS),
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-threads"},
      .description = "Max number of threads in IO threads translator which "
-                    "perform least priority IO operations at a given time"},
+                    "perform least priority IO operations at a given time."},
     {.key = {"enable-least-priority"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = SITE_H_ENABLE_LEAST_PRIORITY,

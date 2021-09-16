@@ -1166,8 +1166,15 @@ xlator_option_info_list(volume_opt_list_t *list, char *key, char **def_val,
 
     if (def_val)
         *def_val = opt->default_value;
-    if (descr)
-        *descr = opt->description;
+    if (descr) {
+        if (opt->flags & OPT_FLAG_RANGE)
+            gf_asprintf(descr,
+                        "%s Minimum value is %.0lf, maximum value "
+                        "is %.0lf.",
+                        opt->description, opt->min, opt->max);
+        else
+            *descr = gf_strdup(opt->description);
+    }
 
     ret = 0;
 out:

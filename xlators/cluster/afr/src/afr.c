@@ -1242,12 +1242,13 @@ struct volume_options options[] = {
      .max = SHD_MAX_THREADS,
      .default_value = TOSTRING(SHD_DEFAULT_THREADS),
      .op_version = {GD_OP_VERSION_3_7_12},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
-     .description = "Maximum number of parallel heals SHD can do per "
-                    "local brick. This can substantially lower heal times"
-                    ", but can also crush your bricks if you don't have "
-                    "the storage hardware to support this."},
+     .description = "Maximum number of parallel heals SHD can do per local "
+                    "brick. This can substantially lower heal times, but can "
+                    "also crush your bricks if you don't have the storage "
+                    "hardware to support this."},
     {
         .key = {"shd-wait-qlength"},
         .type = GF_OPTION_TYPE_INT,

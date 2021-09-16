@@ -13196,7 +13196,6 @@ glusterd_get_value_for_vme_entry(struct volopt_map_entry *vme, char **def_val)
     int ret = -1;
     char *key = NULL;
     xlator_t *this = THIS;
-    char *descr = NULL;
     char *local_def_val = NULL;
     void *dl_handle = NULL;
     volume_opt_list_t vol_opt_handle = {
@@ -13223,9 +13222,9 @@ glusterd_get_value_for_vme_entry(struct volopt_map_entry *vme, char **def_val)
         goto cont;
     }
 
-    ret = xlator_option_info_list(&vol_opt_handle, key, &local_def_val, &descr);
+    ret = xlator_option_info_list(&vol_opt_handle, key, &local_def_val, NULL);
     if (ret) {
-        /*Swallow Error if option not found*/
+        /* Swallow error if option was not found. */
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_GET_KEY_FAILED,
                "Failed to get option for %s "
                "key",
@@ -13585,6 +13584,7 @@ glusterd_get_volopt_content(dict_t *ctx, gf_boolean_t xml_out)
     char *output = NULL;
     size_t size = 0;
     size_t used = 0;
+    gf_boolean_t free_descr = _gf_false;
 #if (HAVE_LIB_XML)
     xmlTextWriterPtr writer = NULL;
     xmlBufferPtr buf = NULL;
@@ -13611,6 +13611,8 @@ glusterd_get_volopt_content(dict_t *ctx, gf_boolean_t xml_out)
         if ((vme->type == NO_DOC) || (vme->type == GLOBAL_NO_DOC))
             continue;
 
+        free_descr = _gf_false;
+
         if (vme->description) {
             descr = vme->description;
             def_val = vme->value;
@@ -13635,12 +13637,13 @@ glusterd_get_volopt_content(dict_t *ctx, gf_boolean_t xml_out)
 
             ret = xlator_option_info_list(&vol_opt_handle, key, &def_val,
                                           &descr);
-            if (ret) { /*Swallow Error i.e if option not found*/
+            if (ret) { /* Swallow error if option was not found. */
                 gf_msg_debug("glusterd", 0, "Failed to get option for %s key",
                              key);
                 ret = 0;
                 goto cont;
             }
+            free_descr = _gf_true;
         }
 
         if (xml_out) {
@@ -13681,6 +13684,8 @@ glusterd_get_volopt_content(dict_t *ctx, gf_boolean_t xml_out)
             } while (1);
         }
     cont:
+        if (free_descr)
+            GF_FREE(descr);
         if (dl_handle) {
             dlclose(dl_handle);
             dl_handle = NULL;
