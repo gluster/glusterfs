@@ -176,7 +176,7 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
 
     ptr = calloc(1, tot_size);
 
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -199,7 +199,7 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
     tot_size = __gf_total_alloc_size(size);
 
     ptr = malloc(tot_size);
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -223,7 +223,7 @@ __gf_realloc(void *ptr, size_t size)
 
     tot_size = __gf_total_alloc_size(size);
     header = realloc(header, tot_size);
-    if (!header) {
+    if (caa_unlikely(!header)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -335,7 +335,7 @@ __gf_free(void *free_ptr)
     struct mem_header *header = NULL;
     uint64_t num_allocs = 0;
 
-    if (!free_ptr)
+    if (caa_unlikely(!free_ptr))
         return;
 
     if (!gf_mem_acct_enabled()) {
