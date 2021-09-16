@@ -142,8 +142,7 @@ iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
 #define iobpool_default_pagesize(iobpool) ((iobpool)->default_page_size)
-#define iobuf_pagesize(iob)                                                    \
-    (iob->iobuf_arena ? iob->iobuf_arena->page_size : iob->page_size)
+#define iobuf_pagesize(iob) (iob->page_size)
 
 struct iobref {
     gf_lock_t lock;
