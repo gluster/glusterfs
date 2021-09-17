@@ -35,6 +35,7 @@
     ((void *)((unsigned long)(ptr + bound - 1) & (unsigned long)(~(bound - 1))))
 
 #define GF_IOBUF_ALIGN_SIZE 512
+#define USE_IOBUF_POOL_IF_SIZE_GREATER_THAN 131072
 
 /* one allocatable unit for the consumers of the IOBUF API */
 /* each unit hosts @page_size bytes of memory */
@@ -68,8 +69,9 @@ struct iobuf {
 
     void *ptr; /* usable memory region by the consumer */
 
-    void *free_ptr; /* in case of stdalloc, this is the
-                       one to be freed */
+    void *free_ptr;   /* in case of stdalloc, this is the
+                         one to be freed */
+    size_t page_size;
 };
 
 struct iobuf_arena {
@@ -140,7 +142,7 @@ iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
 #define iobpool_default_pagesize(iobpool) ((iobpool)->default_page_size)
-#define iobuf_pagesize(iob) (iob->iobuf_arena->page_size)
+#define iobuf_pagesize(iob) (iob->page_size)
 
 struct iobref {
     gf_lock_t lock;
