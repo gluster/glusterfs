@@ -21,7 +21,7 @@
 #include <pwd.h>
 
 /* based on nfs_fix_aux_groups() */
-int
+static int
 gid_resolve(server_conf_t *conf, call_stack_t *root)
 {
     int ret = 0;
@@ -98,30 +98,10 @@ gid_resolve(server_conf_t *conf, call_stack_t *root)
     return ret;
 }
 
-int
-server_resolve_groups(call_frame_t *frame, rpcsvc_request_t *req)
-{
-    xlator_t *this = NULL;
-    server_conf_t *conf = NULL;
-
-    GF_VALIDATE_OR_GOTO("server", frame, out);
-    GF_VALIDATE_OR_GOTO("server", req, out);
-
-    this = req->trans->xl;
-    conf = this->private;
-
-    return gid_resolve(conf, frame->root);
-out:
-    return -1;
-}
-
-int
+static int
 server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
 {
     int i = 0;
-
-    GF_VALIDATE_OR_GOTO("server", frame, out);
-    GF_VALIDATE_OR_GOTO("server", req, out);
 
     if (call_stack_alloc_groups(frame->root, req->auxgidcount) != 0)
         return -1;
@@ -136,7 +116,7 @@ server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
 
     for (; i < frame->root->ngrps; ++i)
         frame->root->groups[i] = req->auxgids[i];
-out:
+
     return 0;
 }
 
@@ -415,19 +395,10 @@ out:
 }
 
 static call_frame_t *
-server_alloc_frame(rpcsvc_request_t *req)
+server_alloc_frame(rpcsvc_request_t *req, client_t *client)
 {
     call_frame_t *frame = NULL;
     server_state_t *state = NULL;
-    client_t *client = NULL;
-
-    GF_VALIDATE_OR_GOTO("server", req, out);
-    GF_VALIDATE_OR_GOTO("server", req->trans, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
-
-    client = req->trans->xl_private;
-    GF_VALIDATE_OR_GOTO("server", client, out);
 
     frame = create_frame(client->this, req->svc->ctx->pool);
     if (!frame)
@@ -467,15 +438,21 @@ get_frame_from_request(rpcsvc_request_t *req)
     server_state_t *state = NULL;
 
     GF_VALIDATE_OR_GOTO("server", req, out);
+    trans = req->trans;
+    GF_VALIDATE_OR_GOTO("server", trans, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
-    frame = server_alloc_frame(req);
+    client = trans->xl_private;
+    GF_VALIDATE_OR_GOTO("server", client, out);
+
+    frame = server_alloc_frame(req, client);
     if (!frame)
         goto out;
 
     frame->root->op = req->procnum;
 
-    client = req->trans->xl_private;
-    this = req->trans->xl;
+    this = trans->xl;
     priv = this->private;
     clienttable = this->ctx->clienttable;
 
@@ -537,8 +514,7 @@ get_frame_from_request(rpcsvc_request_t *req)
 
 after_squash:
     /* Add a ref for this fop */
-    if (client)
-        gf_client_ref(client);
+    gf_client_ref(client);
 
     frame->root->uid = req->uid;
     frame->root->gid = req->gid;
@@ -547,14 +523,11 @@ after_squash:
     lk_owner_copy(&frame->root->lk_owner, &req->lk_owner);
 
     if (priv->server_manage_gids)
-        server_resolve_groups(frame, req);
+        gid_resolve(priv, frame->root);
     else
         server_decode_groups(frame, req);
-    trans = req->trans;
-    if (trans) {
-        memcpy(&frame->root->identifier, trans->peerinfo.identifier,
-               sizeof(trans->peerinfo.identifier));
-    }
+
+    memcpy(&frame->root->identifier, trans->peerinfo.identifier, UNIX_PATH_MAX);
 
     /* more fields, for the clients which are 3.x series this will be 0 */
     frame->root->flags = req->flags;
