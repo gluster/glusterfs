@@ -71,7 +71,7 @@ struct iobuf {
 
     void *free_ptr;   /* in case of stdalloc, this is the
                          one to be freed */
-    size_t page_size; /* The size is set only in case of stdalloc */
+    size_t page_size;
 };
 
 struct iobuf_arena {

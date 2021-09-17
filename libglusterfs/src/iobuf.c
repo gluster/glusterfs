@@ -708,15 +708,10 @@ iobuf_put(struct iobuf *iobuf)
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
 
-    if (!iobuf->iobuf_arena) {
-        GF_FREE(iobuf->free_ptr);
-        GF_FREE(iobuf);
-        return;
-    }
-
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
+        GF_FREE(iobuf->free_ptr);
+        GF_FREE(iobuf);
         return;
     }
 
