@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <stdint.h>
 
+#include "socket.h"
 #include "rpc-clnt.h"
 #include <glusterfs/list.h>
 #include <glusterfs/inode.h>
@@ -30,10 +31,7 @@
 #define CLIENT_MIN_EVENT_THREADS 1
 #define CLIENT_MAX_EVENT_THREADS 32
 
-/* FIXME: Needs to be defined in a common file */
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
-#define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
-#define GF_MIN_SOCKET_WINDOW_SIZE (0)
 
 typedef enum {
     DEFAULT_REMOTE_FD = 0,

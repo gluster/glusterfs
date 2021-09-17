@@ -22,6 +22,7 @@ server_ladir = $(includedir)/glusterfs/server
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" \
 	-DLIBDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/auth\" \
+	-I$(top_srcdir)/rpc/rpc-transport/socket/src \
 	-I$(top_srcdir)/xlators/protocol/lib/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
