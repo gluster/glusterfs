@@ -4023,16 +4023,8 @@ gf_thread_set_vname(pthread_t thread, const char *name, va_list args)
                 "name=%s", thread_name, NULL);
     }
 
-#ifdef GF_LINUX_HOST_OS
-    ret = pthread_setname_np(thread, thread_name);
-#elif defined(__NetBSD__)
-    ret = pthread_setname_np(thread, thread_name, NULL);
-#elif defined(__FreeBSD__)
-    pthread_set_name_np(thread, thread_name);
-    ret = 0;
-#else
-    ret = ENOSYS;
-#endif
+    ret = __gf_thread_set_name(thread, thread_name);
+
     if (ret != 0) {
         gf_smsg(THIS->name, GF_LOG_WARNING, ret, LG_MSG_SET_THREAD_FAILED,
                 "name=%s", thread_name, NULL);
