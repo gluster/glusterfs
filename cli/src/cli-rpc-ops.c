@@ -83,7 +83,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
                 rpc_clnt_prog_t *prog, struct iobref *iobref);
 
 static int
-add_cli_cmd_timeout_to_dict(dict_t *dict);
+add_cli_cmd_timeout_to_dict(struct cli_state *state, dict_t *dict);
 
 static rpc_clnt_prog_t cli_handshake_prog = {
     .progname = "cli handshake",
@@ -3485,17 +3485,19 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
     int ret = 0;
     dict_t *dict = NULL;
     struct rpc_clnt *rpc = NULL;
+    struct cli_state *state = NULL;
 
     if (!frame || !this || !data) {
         ret = -1;
         goto out;
     }
 
-    rpc = ((cli_state_t *)(frame->this->private))->quotad_rpc;
+    state = frame->this->private;
+    rpc = state->quotad_rpc;
     GF_ASSERT(rpc);
 
     dict = data;
-    ret = add_cli_cmd_timeout_to_dict(dict);
+    ret = add_cli_cmd_timeout_to_dict(state, dict);
 
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
@@ -10548,12 +10550,12 @@ gf_cli_get_vol_opt(call_frame_t *frame, xlator_t *this, void *data)
 }
 
 static int
-add_cli_cmd_timeout_to_dict(dict_t *dict)
+add_cli_cmd_timeout_to_dict(struct cli_state *state, dict_t *dict)
 {
     int ret = 0;
 
-    if (cli_default_conn_timeout > 120) {
-        ret = dict_set_time(dict, "timeout", cli_default_conn_timeout);
+    if (state->default_conn_timeout > 120) {
+        ret = dict_set_time(dict, "timeout", state->default_conn_timeout);
         if (ret) {
             gf_log("cli", GF_LOG_INFO, "Failed to save timeout to dict");
         }
@@ -10572,6 +10574,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     int i = 0;
     const char **words = NULL;
     cli_local_t *local = NULL;
+    struct cli_state *state = NULL;
 
     if (!this || !frame || !frame->local || !dict) {
         ret = -1;
@@ -10579,6 +10582,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     }
 
     local = frame->local;
+    state = frame->this->private;
 
     if (!local->words) {
         ret = -1;
@@ -10607,7 +10611,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     if (ret)
         goto out;
 
-    ret = add_cli_cmd_timeout_to_dict(dict);
+    ret = add_cli_cmd_timeout_to_dict(state, dict);
 
     ret = dict_allocate_and_serialize(dict, &(req->dict).dict_val,
                                       &(req->dict).dict_len);
