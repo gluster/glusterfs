@@ -524,6 +524,7 @@ ga_heal_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
               dict_t *xdata)
 {
     int ret = -1;
+    gf_boolean_t xdata_ref = _gf_false;
     ga_heal_args_t *args = NULL;
     loc_t tmp_loc = {
         0,
@@ -543,8 +544,10 @@ ga_heal_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
 
     if (!xdata)
         xdata = dict_new();
-    else
+    else {
         xdata = dict_ref(xdata);
+	xdata_ref = _gf_true;
+    }
 
     if (!xdata) {
         ret = -1;
@@ -571,7 +574,7 @@ out:
 
     loc_wipe(&tmp_loc);
 
-    if (xdata)
+    if (xdata_ref && xdata)
         dict_unref(xdata);
 
     return ret;
