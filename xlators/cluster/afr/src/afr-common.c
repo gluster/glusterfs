@@ -7482,16 +7482,16 @@ afr_fav_child_reset_sink_xattrs(void *opaque)
  */
 int
 afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
-                                    char *buf, const char *default_str,
-                                    int32_t *serz_len, char delimiter)
+                                    char *buf, size_t size,
+                                    const char *default_str, int32_t *serz_len,
+                                    char delimiter)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     char *xattr = NULL;
     int i = 0;
-    int len = 0;
+    size_t len = 0;
     int keylen = 0;
-    size_t str_len = 0;
     int ret = -1;
 
     priv = this->private;
@@ -7500,11 +7500,8 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
     keylen = strlen(local->cont.getxattr.name);
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid || local->replies[i].op_ret) {
-            str_len = strlen(default_str);
-            buf = strncat(buf, default_str, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
+            len += snprintf(buf + len, size - len, "%s%c", default_str,
+                            delimiter);
         } else {
             ret = dict_get_strn(local->replies[i].xattr,
                                 local->cont.getxattr.name, keylen, &xattr);
@@ -7515,12 +7512,10 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
                        i);
                 goto out;
             }
-            str_len = strlen(xattr);
-            buf = strncat(buf, xattr, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
+            len += snprintf(buf + len, size - len, "%s%c", xattr, delimiter);
         }
+        /* No overflow but buffer size is not enough. */
+        GF_ASSERT(len <= size);
     }
     buf[--len] = '\0'; /*remove the last delimiter*/
     if (serz_len)
