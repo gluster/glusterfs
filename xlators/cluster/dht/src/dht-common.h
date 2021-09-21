@@ -64,6 +64,19 @@ typedef int (*dht_refresh_layout_unlock)(call_frame_t *frame, xlator_t *this,
 
 typedef int (*dht_refresh_layout_done_handle)(call_frame_t *frame);
 
+struct dht_layout_entry {
+    int err; /* 0 = normal
+                -1 = dir exists and no xattr
+                >0 = dir lookup failed with errno
+             */
+    uint32_t start;
+    uint32_t stop;
+    uint32_t commit_hash;
+    xlator_t *xlator;
+};
+
+typedef struct dht_layout_entry dht_layout_entry_t;
+
 struct dht_layout {
     int spread_cnt; /* layout spread count per directory,
                        is controlled by 'setxattr()' with
@@ -88,16 +101,7 @@ struct dht_layout {
     int type;
     gf_atomic_t ref; /* use with dht_conf_t->layout_lock */
     uint32_t search_unhashed;
-    struct {
-        int err; /* 0 = normal
-                    -1 = dir exists and no xattr
-                    >0 = dir lookup failed with errno
-                 */
-        uint32_t start;
-        uint32_t stop;
-        uint32_t commit_hash;
-        xlator_t *xlator;
-    } list[];
+    dht_layout_entry_t list[];
 };
 typedef struct dht_layout dht_layout_t;
 
@@ -1199,7 +1203,7 @@ void
 dht_log_new_layout_for_dir_selfheal(xlator_t *this, loc_t *loc,
                                     dht_layout_t *layout);
 
-int
+void
 dht_layout_sort(dht_layout_t *layout);
 
 int

@@ -370,34 +370,6 @@ out:
 }
 
 void
-dht_layout_entry_swap(dht_layout_t *layout, int i, int j)
-{
-    uint32_t start_swap = 0;
-    uint32_t stop_swap = 0;
-    uint32_t commit_hash_swap = 0;
-    xlator_t *xlator_swap = 0;
-    int err_swap = 0;
-
-    start_swap = layout->list[i].start;
-    stop_swap = layout->list[i].stop;
-    xlator_swap = layout->list[i].xlator;
-    err_swap = layout->list[i].err;
-    commit_hash_swap = layout->list[i].commit_hash;
-
-    layout->list[i].start = layout->list[j].start;
-    layout->list[i].stop = layout->list[j].stop;
-    layout->list[i].xlator = layout->list[j].xlator;
-    layout->list[i].err = layout->list[j].err;
-    layout->list[i].commit_hash = layout->list[j].commit_hash;
-
-    layout->list[j].start = start_swap;
-    layout->list[j].stop = stop_swap;
-    layout->list[j].xlator = xlator_swap;
-    layout->list[j].err = err_swap;
-    layout->list[j].commit_hash = commit_hash_swap;
-}
-
-void
 dht_layout_range_swap(dht_layout_t *layout, int i, int j)
 {
     uint32_t start_swap = 0;
@@ -411,11 +383,6 @@ dht_layout_range_swap(dht_layout_t *layout, int i, int j)
 
     layout->list[j].start = start_swap;
     layout->list[j].stop = stop_swap;
-}
-static int64_t
-dht_layout_entry_cmp_volname(dht_layout_t *layout, int i, int j)
-{
-    return (strcmp(layout->list[i].xlator->name, layout->list[j].xlator->name));
 }
 
 gf_boolean_t
@@ -435,58 +402,36 @@ dht_is_subvol_in_layout(dht_layout_t *layout, xlator_t *xlator)
     return _gf_false;
 }
 
-static int64_t
-dht_layout_entry_cmp(dht_layout_t *layout, int i, int j)
+static int
+dht_layout_entry_cmp(const void *p, const void *q)
 {
-    int64_t diff = 0;
+    const dht_layout_entry_t *x = p, *y = q;
 
-    /* swap zero'ed out layouts to front, if needed */
-    if (!layout->list[j].start && !layout->list[j].stop) {
-        diff = (int64_t)layout->list[i].stop - (int64_t)layout->list[j].stop;
-        goto out;
-    }
-    diff = (int64_t)layout->list[i].start - (int64_t)layout->list[j].start;
-
-out:
-    return diff;
+    /* Swap zero'ed out layouts to front if needed. */
+    return (!y->start && !y->stop) ? (x->stop - y->stop) :
+        (x->start - y->start);
 }
 
-int
+static int
+dht_layout_entry_cmp_volname(const void *p, const void *q)
+{
+    const dht_layout_entry_t *x = p, *y = q;
+
+    return strcmp(x->xlator->name, y->xlator->name);
+}
+
+void
 dht_layout_sort(dht_layout_t *layout)
 {
-    int i = 0;
-    int j = 0;
-    int64_t ret = 0;
-
-    /* TODO: O(n^2) -- bad bad */
-
-    for (i = 0; i < layout->cnt - 1; i++) {
-        for (j = i + 1; j < layout->cnt; j++) {
-            ret = dht_layout_entry_cmp(layout, i, j);
-            if (ret > 0)
-                dht_layout_entry_swap(layout, i, j);
-        }
-    }
-
-    return 0;
+    qsort(layout->list, layout->cnt, sizeof(dht_layout_entry_t),
+          dht_layout_entry_cmp);
 }
 
 void
 dht_layout_sort_volname(dht_layout_t *layout)
 {
-    int i = 0;
-    int j = 0;
-    int64_t ret = 0;
-
-    /* TODO: O(n^2) -- bad bad */
-
-    for (i = 0; i < layout->cnt - 1; i++) {
-        for (j = i + 1; j < layout->cnt; j++) {
-            ret = dht_layout_entry_cmp_volname(layout, i, j);
-            if (ret > 0)
-                dht_layout_entry_swap(layout, i, j);
-        }
-    }
+    qsort(layout->list, layout->cnt, sizeof(dht_layout_entry_t),
+          dht_layout_entry_cmp_volname);
 }
 
 void
@@ -617,12 +562,7 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
     uint32_t misc = 0, missing_dirs = 0;
     char gfid[GF_UUID_BUF_SIZE] = {0};
 
-    ret = dht_layout_sort(layout);
-    if (ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_SORT_FAILED,
-                NULL);
-        goto out;
-    }
+    dht_layout_sort(layout);
 
     gf_uuid_unparse(loc->gfid, gfid);
 
@@ -652,7 +592,6 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
             ret += missing_dirs;
     }
 
-out:
     return ret;
 }
 
