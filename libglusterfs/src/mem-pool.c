@@ -101,13 +101,13 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
             rec->typestr = typestr;
         }
         num_allocs = GF_ATOMIC_INC(rec->num_allocs);
-        rec->max_size = max(rec->max_size, (num_allocs * size));
-        rec->max_num_allocs = max(rec->max_num_allocs, num_allocs);
         if (num_allocs == 1)
             GF_ATOMIC_INC(mem_acct->refcnt);
 #ifdef DEBUG
         LOCK(&rec->lock);
         {
+            rec->max_size = max(rec->max_size, (num_allocs * size));
+            rec->max_num_allocs = max(rec->max_num_allocs, num_allocs);
             list_add(&header->acct_list, &rec->obj_list);
         }
         UNLOCK(&rec->lock);
@@ -130,10 +130,16 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 
     if (mem_acct != NULL) {
         rec = &mem_acct->rec[header->type];
-        rec->max_size = max(rec->max_size, rec->size);
 #ifdef DEBUG
+        rec->max_size = max(rec->max_size, rec->size);
         LOCK(&rec->lock);
         {
+            /* The old 'header' already was present in 'obj_list', but
+             * realloc() could have changed its address. We need to remove
+             * the old item from the list and add the new one. This can be
+             * done this way because list_move() doesn't use the pointers
+             * to the old location (which are not valid anymore) already
+             * present in the list, it simply overwrites them. */
             list_move(&header->acct_list, &rec->obj_list);
         }
         UNLOCK(&rec->lock);

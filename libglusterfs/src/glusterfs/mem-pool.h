@@ -45,10 +45,10 @@ typedef uint32_t gf_mem_magic_t;
 struct mem_acct_rec {
     const char *typestr;
     uint64_t size;
-    uint64_t max_size;
-    uint32_t max_num_allocs;
     gf_atomic_t num_allocs;
 #ifdef DEBUG
+    uint64_t max_size;
+    uint32_t max_num_allocs;
     gf_lock_t lock;
     struct list_head obj_list;
 #endif
