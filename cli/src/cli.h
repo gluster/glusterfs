@@ -114,6 +114,13 @@ struct cli_state {
     /* for events dispatching */
     glusterfs_ctx_t *ctx;
 
+    /* Client to perform RPC calls to glusterd. */
+    struct rpc_clnt *rpc;
+
+    /* Client to perform RPC calls to quotad.
+       May be NULL if quotad is not running. */
+    struct rpc_clnt *quotad_rpc;
+
     /* registry of known commands */
     struct cli_cmd_tree tree;
 
@@ -191,10 +198,6 @@ typedef struct cli_local cli_local_t;
 typedef struct cli_state cli_state_t;
 
 typedef ssize_t (*cli_serialize_t)(struct iovec outmsg, void *args);
-
-extern struct rpc_clnt *global_quotad_rpc;
-
-extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 

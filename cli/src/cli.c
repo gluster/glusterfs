@@ -70,10 +70,6 @@ const char *argp_program_version =
     "in all cases as published by the Free Software Foundation.";
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
-struct rpc_clnt *global_quotad_rpc;
-
-struct rpc_clnt *global_rpc;
-
 rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
@@ -277,8 +273,11 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         count = 1;
     }
 
-    if (!rpc)
-        rpc = global_rpc;
+    if (!rpc) {
+        rpc = ((cli_state_t *)(frame->this->private))->rpc;
+        GF_ASSERT(rpc);
+    }
+
     /* Send the msg */
     ret = rpc_clnt_submit(rpc, prog, procnum, cbkfn, &iov, count, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
@@ -621,8 +620,8 @@ _cli_out(const char *fmt, ...)
     return ret;
 }
 
-struct rpc_clnt *
-cli_quotad_clnt_rpc_init(void)
+static int
+cli_quotad_clnt_rpc_init(cli_state_t *state)
 {
     struct rpc_clnt *rpc = NULL;
     dict_t *rpc_opts = NULL;
@@ -648,18 +647,19 @@ cli_quotad_clnt_rpc_init(void)
         goto out;
 
     rpc = cli_quotad_clnt_init(THIS, rpc_opts);
-    if (!rpc)
+    if (!rpc) {
+        ret = -1;
         goto out;
-
-    global_quotad_rpc = rpc;
-out:
-    if (rpc_opts) {
-        dict_unref(rpc_opts);
     }
-    return rpc;
+    state->quotad_rpc = rpc;
+    ret = 0;
+out:
+    if (rpc_opts)
+        dict_unref(rpc_opts);
+    return ret;
 }
 
-struct rpc_clnt *
+static int
 cli_rpc_init(struct cli_state *state)
 {
     struct rpc_clnt *rpc = NULL;
@@ -747,8 +747,10 @@ out:
         if (rpc)
             rpc_clnt_unref(rpc);
         rpc = NULL;
-    }
-    return rpc;
+    } else
+        state->rpc = rpc;
+
+    return ret;
 }
 
 cli_local_t *
@@ -826,20 +828,15 @@ main(int argc, char *argv[])
     gf_log("cli", GF_LOG_INFO, "Started running %s with version %s", argv[0],
            PACKAGE_VERSION);
 
-    global_rpc = cli_rpc_init(&state);
-    if (!global_rpc)
+    ret = cli_rpc_init(&state);
+    if (ret)
         goto out;
 
-    /*
-     * Now, one doesn't need to initialize global rpc
-     * for quota unless and until quota is enabled.
-     * So why not put a check to save all the rpc related
-     * ops here.
-     */
+    /* Do not initialize quota RPC context unless and until quota is enabled. */
     ret = sys_access(QUOTAD_PID_PATH, F_OK);
     if (!ret) {
-        global_quotad_rpc = cli_quotad_clnt_rpc_init();
-        if (!global_quotad_rpc)
+        ret = cli_quotad_clnt_rpc_init(&state);
+        if (ret)
             goto out;
     }
 
