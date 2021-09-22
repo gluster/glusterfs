@@ -48,8 +48,8 @@ struct mem_acct_rec {
     uint64_t max_size;
     uint32_t max_num_allocs;
     gf_atomic_t num_allocs;
-    gf_lock_t lock;
 #ifdef DEBUG
+    gf_lock_t lock;
     struct list_head obj_list;
 #endif
 };
