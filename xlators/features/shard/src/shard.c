@@ -7279,7 +7279,7 @@ shard_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 }
 
 static void
-shard_unlink_wait(shard_unlink_thread_t *ti)
+shard_unlink_wait(shard_unlink_thread_t *ti, time_t interval)
 {
     struct timespec wait_till = {
         0,
@@ -7287,8 +7287,7 @@ shard_unlink_wait(shard_unlink_thread_t *ti)
 
     pthread_mutex_lock(&ti->mutex);
     {
-        /* shard_unlink_handler() runs every 10 mins of interval */
-        wait_till.tv_sec = time(NULL) + 600;
+        wait_till.tv_sec = gf_time() + interval;
 
         while (!ti->rerun) {
             if (pthread_cond_timedwait(&ti->cond, &ti->mutex, &wait_till) ==
@@ -7305,12 +7304,13 @@ shard_unlink_handler(void *data)
 {
     shard_unlink_thread_t *ti = data;
     xlator_t *this = ti->this;
+    shard_priv_t *priv = this->private;
 
     THIS = this;
 
     while (!ti->stop) {
         shard_start_background_deletion(this);
-        shard_unlink_wait(ti);
+        shard_unlink_wait(ti, priv->deletion_interval);
     }
     return NULL;
 }
@@ -7457,6 +7457,9 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("shard-deletion-rate", priv->deletion_rate, uint32, out);
 
+    GF_OPTION_INIT("shard-deletion-interval", priv->deletion_interval, time,
+                   out);
+
     GF_OPTION_INIT("shard-lru-limit", priv->lru_limit, uint64, out);
 
     this->local_pool = mem_pool_new(shard_local_t, 128);
@@ -7527,6 +7530,10 @@ reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("shard-deletion-rate", priv->deletion_rate, options,
                      uint32, out);
+
+    GF_OPTION_RECONF("shard-deletion-interval", priv->deletion_interval,
+                     options, time, out);
+
     ret = 0;
 
 out:
@@ -7659,30 +7666,45 @@ struct volume_options options[] = {
         .key = {"shard-block-size"},
         .type = GF_OPTION_TYPE_SIZET,
         .op_version = {GD_OP_VERSION_3_7_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
         .tags = {"shard"},
         .default_value = "64MB",
         .min = SHARD_MIN_BLOCK_SIZE,
         .max = SHARD_MAX_BLOCK_SIZE,
         .description = "The size unit used to break a file into multiple "
-                       "chunks",
+                       "shards, in bytes.",
     },
     {
         .key = {"shard-deletion-rate"},
         .type = GF_OPTION_TYPE_INT,
         .op_version = {GD_OP_VERSION_5_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
         .tags = {"shard"},
         .default_value = "100",
         .min = 100,
         .max = INT_MAX,
-        .description = "The number of shards to send deletes on at a time",
+        .description = "The number of shards to send deletes on at a time.",
+    },
+    {
+        .key = {"shard-deletion-interval"},
+        .type = GF_OPTION_TYPE_INT,
+        .op_version = {GD_OP_VERSION_10_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
+        .tags = {"shard"},
+        .default_value = "600",
+        .min = SHARD_MIN_DELETION_INTERVAL,
+        .max = SHARD_MAX_DELETION_INTERVAL,
+        .description = "Interval in seconds between the background "
+                       "shard deletion thread runs.",
     },
     {
         .key = {"shard-lru-limit"},
         .type = GF_OPTION_TYPE_INT,
         .op_version = {GD_OP_VERSION_5_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_RANGE,
         .tags = {"shard"},
         .default_value = "16384",
         .min = 20,
@@ -7693,7 +7715,7 @@ struct volume_options options[] = {
                        "frequent lookups on them when they participate in "
                        "file operations. The option also has a bearing on "
                        "amount of memory consumed by these inodes and their "
-                       "internal metadata",
+                       "internal metadata.",
     },
     {.key = {NULL}},
 };

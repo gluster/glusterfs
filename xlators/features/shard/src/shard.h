@@ -20,6 +20,8 @@
 #define GF_SHARD_REMOVE_ME_DIR ".remove_me"
 #define SHARD_MIN_BLOCK_SIZE (4 * GF_UNIT_MB)
 #define SHARD_MAX_BLOCK_SIZE (4 * GF_UNIT_TB)
+#define SHARD_MIN_DELETION_INTERVAL 10
+#define SHARD_MAX_DELETION_INTERVAL 3600
 #define SHARD_XATTR_PREFIX "trusted.glusterfs.shard."
 #define GF_XATTR_SHARD_BLOCK_SIZE "trusted.glusterfs.shard.block-size"
 /**
@@ -227,6 +229,7 @@ typedef struct shard_priv {
     int inode_count;
     struct list_head ilist_head;
     uint32_t deletion_rate;
+    time_t deletion_interval;
     shard_bg_deletion_state_t bg_del_state;
     gf_boolean_t first_lookup_done;
     uint64_t lru_limit;

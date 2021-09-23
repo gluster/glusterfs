@@ -2619,6 +2619,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "features/shard",
      .op_version = GD_OP_VERSION_5_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
+    {.key = "features.shard-deletion-interval",
+     .voltype = "features/shard",
+     .op_version = GD_OP_VERSION_10_0,
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {
         .key = "features.scrub-throttle",
         .voltype = "features/bit-rot",
