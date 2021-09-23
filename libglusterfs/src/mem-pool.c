@@ -97,12 +97,12 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
         GF_ASSERT(type <= mem_acct->num_types);
 
         rec = &mem_acct->rec[type];
-        if (!rec->typestr) {
-            rec->typestr = typestr;
-        }
         num_allocs = GF_ATOMIC_INC(rec->num_allocs);
-        if (num_allocs == 1)
+        if (num_allocs == 1) {
             GF_ATOMIC_INC(mem_acct->refcnt);
+            if (!rec->typestr)
+                rec->typestr = typestr;
+        }
 #ifdef DEBUG
         LOCK(&rec->lock);
         {
@@ -364,9 +364,6 @@ __gf_free(void *free_ptr)
     }
 
     num_allocs = GF_ATOMIC_DEC(mem_acct->rec[header->type].num_allocs);
-    if (!num_allocs) {
-        mem_acct->rec[header->type].typestr = NULL;
-    }
 #ifdef DEBUG
     LOCK(&mem_acct->rec[header->type].lock);
     {
