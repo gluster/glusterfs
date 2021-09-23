@@ -34,15 +34,14 @@ dump_mem_acct_details(xlator_t *xl, int fd)
         mem_rec = &xl->mem_acct->rec[i];
         if (!GF_ATOMIC_GET(mem_rec->num_allocs))
             continue;
-        #ifdef DEBUG
-            dprintf(fd, "# %s, %lu, %lu, %u, %" PRIu64 "\n", mem_rec->typestr,
-                    mem_rec->size, mem_rec->max_size, mem_rec->max_num_allocs,
-                    GF_ATOMIC_GET(mem_rec->num_allocs));
-        #else
-            dprintf(fd, "# %s, %lu, %" PRIu64 "\n", mem_rec->typestr,
-                    mem_rec->size, GF_ATOMIC_GET(mem_rec->num_allocs));
-        #endif
-
+#ifdef DEBUG
+        dprintf(fd, "# %s, %lu, %lu, %u, %" PRIu64 "\n", mem_rec->typestr,
+                mem_rec->size, mem_rec->max_size, mem_rec->max_num_allocs,
+                GF_ATOMIC_GET(mem_rec->num_allocs));
+#else
+        dprintf(fd, "# %s, %lu, %" PRIu64 "\n", mem_rec->typestr, mem_rec->size,
+                GF_ATOMIC_GET(mem_rec->num_allocs));
+#endif
     }
 }
 
