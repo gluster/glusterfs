@@ -17,7 +17,6 @@
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "glusterd.h"
 #include "protocol-common.h"
 #include "glusterd-hooks.h"
@@ -287,8 +286,8 @@ glusterd_set_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo);
 
 void
 glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
-                         glusterd_op_sm_state_t state, int *op,
-                         dict_t *op_ctx, rpcsvc_request_t *req);
+                         glusterd_op_sm_state_t state, int *op, dict_t *op_ctx,
+                         rpcsvc_request_t *req);
 
 int32_t
 glusterd_txn_opinfo_dict_init(void);

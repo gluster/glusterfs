@@ -9,7 +9,6 @@
 */
 
 #include "dht-common.h"
-#include <glusterfs/byte-order.h>
 #include "unittest/unittest.h"
 
 #define layout_base_size (sizeof(dht_layout_t))
@@ -221,10 +220,10 @@ dht_disk_layout_extract(xlator_t *this, dht_layout_t *layout, int pos,
         goto out;
     }
 
-    disk_layout[0] = hton32(layout->list[pos].commit_hash);
-    disk_layout[1] = hton32(layout->type);
-    disk_layout[2] = hton32(layout->list[pos].start);
-    disk_layout[3] = hton32(layout->list[pos].stop);
+    disk_layout[0] = htobe32(layout->list[pos].commit_hash);
+    disk_layout[1] = htobe32(layout->type);
+    disk_layout[2] = htobe32(layout->list[pos].start);
+    disk_layout[3] = htobe32(layout->list[pos].stop);
 
     if (disk_layout_p)
         *disk_layout_p = disk_layout;
@@ -274,7 +273,7 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
 
     memcpy(disk_layout, disk_layout_raw, disk_layout_len);
 
-    type = ntoh32(disk_layout[1]);
+    type = be32toh(disk_layout[1]);
     switch (type) {
         case DHT_HASH_TYPE_DM_USER:
             gf_msg_debug(this->name, 0, "found user-set layout");
@@ -288,9 +287,9 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
             return -1;
     }
 
-    commit_hash = ntoh32(disk_layout[0]);
-    start_off = ntoh32(disk_layout[2]);
-    stop_off = ntoh32(disk_layout[3]);
+    commit_hash = be32toh(disk_layout[0]);
+    start_off = be32toh(disk_layout[2]);
+    stop_off = be32toh(disk_layout[3]);
 
     layout->list[pos].commit_hash = commit_hash;
     layout->list[pos].start = start_off;
@@ -679,9 +678,9 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
     memcpy(disk_layout, disk_layout_raw, sizeof(disk_layout));
 
-    start_off = ntoh32(disk_layout[2]);
-    stop_off = ntoh32(disk_layout[3]);
-    commit_hash = ntoh32(disk_layout[0]);
+    start_off = be32toh(disk_layout[2]);
+    stop_off = be32toh(disk_layout[3]);
+    commit_hash = be32toh(disk_layout[0]);
 
     if ((layout->list[pos].start != start_off) ||
         (layout->list[pos].stop != stop_off) ||

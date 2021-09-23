@@ -10,7 +10,6 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
@@ -549,7 +548,7 @@ afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
     if (!raw)
         goto err;
 
-    raw[idx] = hton32(output_dirty[subvol]);
+    raw[idx] = htobe32(output_dirty[subvol]);
     ret = dict_set_bin(xattr, AFR_DIRTY, raw,
                        sizeof(int) * AFR_NUM_CHANGE_LOGS);
     if (ret) {
@@ -563,9 +562,9 @@ afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
         if (!raw)
             goto err;
 
-        raw[idx] = hton32(output_matrix[subvol][j]);
+        raw[idx] = htobe32(output_matrix[subvol][j]);
         if (is_full_crawl)
-            raw[d_idx] = hton32(full_heal_mtx_out[subvol][j]);
+            raw[d_idx] = htobe32(full_heal_mtx_out[subvol][j]);
 
         ret = dict_set_bin(xattr, priv->pending_key[j], raw,
                            sizeof(int) * AFR_NUM_CHANGE_LOGS);
@@ -743,7 +742,7 @@ afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
     if (!pending_raw)
         return -1;
 
-    dirty[subvol] = ntoh32(*((int *)pending_raw + idx));
+    dirty[subvol] = be32toh(*((int *)pending_raw + idx));
 
     return 0;
 }
@@ -761,7 +760,7 @@ afr_selfheal_fill_cell(afr_private_t *priv, dict_t *src_xdata, int *cell,
     if (!pending_raw)
         goto out;
 
-    *cell = ntoh32(*((int *)pending_raw + idx));
+    *cell = be32toh(*((int *)pending_raw + idx));
 out:
     return;
 }

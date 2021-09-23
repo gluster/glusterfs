@@ -12,7 +12,6 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
@@ -737,7 +736,7 @@ rpc_clnt_handle_reply(struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
     clnt = rpc_clnt_ref(clnt);
     conn = &clnt->conn;
 
-    xid = ntoh32(*((uint32_t *)pollin->vector[0].iov_base));
+    xid = be32toh(*((uint32_t *)pollin->vector[0].iov_base));
     saved_frame = lookup_frame(conn, xid);
     if (saved_frame == NULL) {
         gf_log(conn->name, GF_LOG_ERROR,

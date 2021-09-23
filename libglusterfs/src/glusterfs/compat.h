@@ -30,10 +30,6 @@
 #include <linux/falloc.h>
 #endif
 
-#ifdef HAVE_ENDIAN_H
-#include <endian.h>
-#endif
-
 #ifndef _PATH_UMOUNT
 #define _PATH_UMOUNT "/bin/umount"
 #endif

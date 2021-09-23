@@ -25,7 +25,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/events.h>
 #include <glusterfs/upcall-utils.h>
@@ -6703,6 +6702,7 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     int m_idx = 0;
     int d_idx = 0;
     int ret = 0;
+    uint32_t hton32_1;
 
     m_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
     d_idx = afr_index_for_transaction_type(AFR_DATA_TRANSACTION);
@@ -6713,18 +6713,19 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     if (!changelog)
         goto out;
 
+    hton32_1 = htobe32(1);
     for (i = 0; i < priv->child_count; i++) {
         if (!pending[i])
             continue;
 
-        changelog[i][m_idx] = hton32(1);
+        changelog[i][m_idx] = hton32_1;
         if (idx != -1)
-            changelog[i][idx] = hton32(1);
+            changelog[i][idx] = hton32_1;
         /* If the newentry marking is on a newly created directory,
          * then mark it with the full-heal indicator.
          */
         if ((IA_ISDIR(iat)) && (priv->esh_granular))
-            changelog[i][d_idx] = hton32(1);
+            changelog[i][d_idx] = hton32_1;
     }
     ret = afr_set_pending_dict(priv, xattr, changelog);
     if (ret < 0) {

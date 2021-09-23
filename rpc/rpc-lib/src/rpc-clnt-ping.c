@@ -10,7 +10,6 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"

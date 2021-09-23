@@ -40,7 +40,6 @@
 #include <glusterfs/syscall.h>
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include <glusterfs/byte-order.h>
 
 #include <glusterfs/run.h>
 #include <glusterfs/events.h>
@@ -921,9 +920,9 @@ xml_output:
                                       replica_count, disperse_count,
                                       redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s",
-                ((transport == 0) ? "tcp"
-                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
+        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
+                                       : (transport == 1) ? "rdma"
+                                                          : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -3063,8 +3062,8 @@ print_quota_list_from_mountdir(cli_local_t *local, cli_state_t *state,
         goto out;
     }
 
-    limits.hl = ntoh64(limits.hl);
-    limits.sl = ntoh64(limits.sl);
+    limits.hl = be64toh(limits.hl);
+    limits.sl = be64toh(limits.sl);
 
 enoattr:
     xattr_size = sys_lgetxattr(mountdir, QUOTA_SIZE_KEY, NULL, 0);
@@ -3097,9 +3096,9 @@ enoattr:
         goto out;
     }
 
-    used_space.size = ntoh64(used_space.size);
-    used_space.file_count = ntoh64(used_space.file_count);
-    used_space.dir_count = ntoh64(used_space.dir_count);
+    used_space.size = be64toh(used_space.size);
+    used_space.file_count = be64toh(used_space.file_count);
+    used_space.dir_count = be64toh(used_space.dir_count);
 
     ret = print_quota_list_output(local, state, path, default_sl, &limits,
                                   &used_space, type, limit_set);
@@ -3251,8 +3250,8 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
         }
     }
 
-    limits.hl = ntoh64(size_limits->hl);
-    limits.sl = ntoh64(size_limits->sl);
+    limits.hl = be64toh(size_limits->hl);
+    limits.sl = be64toh(size_limits->sl);
 
     if (type == GF_QUOTA_OPTION_TYPE_LIST)
         ret = quota_dict_get_meta(rsp_dict, QUOTA_SIZE_KEY,

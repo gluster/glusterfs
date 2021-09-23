@@ -9,7 +9,6 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/common-utils.h>
 
 #include "afr.h"

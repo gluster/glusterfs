@@ -14,7 +14,6 @@
 #include "protocol-common.h"
 #include <glusterfs/syncop-utils.h>
 #include "afr-messages.h"
-#include <glusterfs/byte-order.h>
 
 #define AFR_EH_SPLIT_BRAIN_LIMIT 1024
 #define AFR_STATISTICS_HISTORY_SIZE 50
@@ -702,7 +701,7 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
         }
 
         for (j = 0; j < AFR_NUM_CHANGE_LOGS; j++) {
-            val = ntoh32(*((int *)pending_raw + j));
+            val = be32toh(*((int *)pending_raw + j));
             if (val) {
                 if (i == healer) {
                     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_THIN_ARB,
@@ -715,7 +714,7 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
                     goto out;
                 }
                 need_xattrop = _gf_true;
-                raw[j] = hton32(-val);
+                raw[j] = htobe32(-val);
             }
         }
 

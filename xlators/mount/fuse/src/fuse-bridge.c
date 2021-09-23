@@ -13,7 +13,6 @@
 #include <sys/wait.h>
 #include "fuse-bridge.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syscall.h>

@@ -12,7 +12,6 @@
 
 #include "shard.h"
 #include "shard-mem-types.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
 
@@ -573,8 +572,8 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
 
     memcpy(size_array, size_attr, sizeof(size_array));
 
-    stbuf->ia_size = ntoh64(size_array[0]);
-    stbuf->ia_blocks = ntoh64(size_array[2]);
+    stbuf->ia_size = be64toh(size_array[0]);
+    stbuf->ia_blocks = be64toh(size_array[2]);
 
     return 0;
 }
@@ -1165,13 +1164,13 @@ shard_set_size_attrs(int64_t size, int64_t block_count, int64_t **size_attr_p)
     if (!size_attr)
         goto out;
 
-    size_attr[0] = hton64(size);
+    size_attr[0] = htobe64(size);
     /* As sharding evolves, it _may_ be necessary to embed more pieces of
      * information within the same xattr. So allocating slots for them in
      * advance. For now, only bytes 0-63 and 128-191 which would make up the
      * current size and block count respectively of the file are valid.
      */
-    size_attr[2] = hton64(block_count);
+    size_attr[2] = htobe64(block_count);
 
     *size_attr_p = size_attr;
 
@@ -1493,7 +1492,7 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
         /* Fresh lookup */
         ret = dict_get_ptr(xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
         if (!ret)
-            size = ntoh64(*((uint64_t *)bsize));
+            size = be64toh(*((uint64_t *)bsize));
         /* If the file is sharded, set its block size, otherwise just
          * set 0.
          */
@@ -3415,7 +3414,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
                "Failed to get dict value: key:%s", GF_XATTR_SHARD_BLOCK_SIZE);
         goto err;
     }
-    block_size = ntoh64(*((uint64_t *)bsize));
+    block_size = be64toh(*((uint64_t *)bsize));
 
     ret = dict_get_ptr(xattr_rsp, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
@@ -3425,7 +3424,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
     }
 
     memcpy(size_array, size_attr, sizeof(size_array));
-    size = ntoh64(size_array[0]);
+    size = be64toh(size_array[0]);
 
     shard_count = (size / block_size) - 1;
     if (shard_count < 0) {

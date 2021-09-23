@@ -18,7 +18,6 @@
 #include <glusterfs/run.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "glusterd.h"
 #include "rpcsvc.h"
 

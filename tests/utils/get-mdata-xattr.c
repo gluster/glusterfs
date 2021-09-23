@@ -9,7 +9,11 @@
 */
 
 #include <stdlib.h>
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
 #include <endian.h>
+#endif
 #include <stdio.h>
 #include <time.h>
 #include <string.h>
