@@ -1191,7 +1191,7 @@ dnl Linux-like version assuming glibc (so _GNU_SOURCE).
 if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_setname_np(thread, name)])
    saved_CFLAGS=${CFLAGS}
-   CFLAGS="-D_GNU_SOURCE -pthread"
+   CFLAGS="-D_GNU_SOURCE -pthread ${saved_CFLAGS}"
    AC_LINK_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread.h>]],
@@ -1211,7 +1211,7 @@ dnl NetBSD-like version with three arguments.
 if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_setname_np(thread, name, arg)])
    saved_CFLAGS=${CFLAGS}
-   CFLAGS="-pthread"
+   CFLAGS="-pthread ${saved_CFLAGS}"
    AC_LINK_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread.h>]],
@@ -1234,7 +1234,7 @@ dnl and 'pthread_set_name_np(thread, name)'.
 if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_set_name_np(thread, name)])
    saved_CFLAGS=${CFLAGS}
-   CFLAGS="-pthread"
+   CFLAGS="-pthread ${saved_CFLAGS}"
    AC_LINK_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread_np.h>]],
