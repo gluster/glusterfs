@@ -1192,7 +1192,7 @@ if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_setname_np(thread, name)])
    saved_CFLAGS=${CFLAGS}
    CFLAGS="-D_GNU_SOURCE -pthread"
-   AC_LINK_IFELSE(
+   AC_COMPILE_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread.h>]],
          [[pthread_t t; pthread_setname_np(t, "name");]])],
@@ -1212,7 +1212,7 @@ if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_setname_np(thread, name, arg)])
    saved_CFLAGS=${CFLAGS}
    CFLAGS="-pthread"
-   AC_LINK_IFELSE(
+   AC_COMPILE_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread.h>]],
          [[pthread_t t; pthread_setname_np(t, "name", NULL);]])],
@@ -1235,7 +1235,7 @@ if test x$PTHREAD_SETNAME_FOUND = xno; then
    AC_MSG_CHECKING([for pthread_set_name_np(thread, name)])
    saved_CFLAGS=${CFLAGS}
    CFLAGS="-pthread"
-   AC_LINK_IFELSE(
+   AC_COMPILE_IFELSE(
       [AC_LANG_PROGRAM([
          [#include <pthread_np.h>]],
          [[pthread_t t; pthread_set_name_np(t, "name");]])],
