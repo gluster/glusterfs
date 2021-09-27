@@ -217,10 +217,10 @@ upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx,
             }
         }
     }
-    pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
 
     ret = 0;
 out:
+    pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
     return ret;
 }
 
