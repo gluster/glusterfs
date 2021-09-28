@@ -122,6 +122,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     inode_ref(inode);
 
 out:
+    loc_wipe(&loc);
     return inode;
 }
 
