@@ -1377,8 +1377,6 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     } else
         local->ctr_link_count_req = _gf_true;
 
-    LOCK_INIT(&frame->lock);
-
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
@@ -2001,8 +1999,6 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         goto out;
     }
-
-    LOCK_INIT(&frame->lock);
 
     local = mem_get0(this->local_pool);
     if (!local) {

@@ -944,7 +944,8 @@ event_pool_destroy_epoll(struct event_pool *event_pool)
             table = event_pool->ereg[i];
             event_pool->ereg[i] = NULL;
             for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
-                LOCK_DESTROY(&table[j].lock);
+                if (table[j].fd != -1)
+                    LOCK_DESTROY(&table[j].lock);
             }
             GF_FREE(table);
         }

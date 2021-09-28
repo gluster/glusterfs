@@ -281,6 +281,16 @@ else
         BUILD_DEBUG=no
 fi
 
+AC_ARG_ENABLE([lock-debug],
+              AC_HELP_STRING([--enable-lock-debug],
+                             [Enable lock debugging.]))
+if test "x$enable_lock_debug" = "xyes"; then
+        AC_DEFINE(GF_LOCK_DEBUG, 1, [Define if lock debugging is enabled.])
+        DEBUG_LOCKS=yes
+else
+        DEBUG_LOCKS=no
+fi
+
 SANITIZER=none
 
 AC_ARG_ENABLE([asan],
@@ -1872,6 +1882,7 @@ echo "Linux-AIO            : $BUILD_LIBAIO"
 echo "Linux io_uring       : $BUILD_LINUX_IO_URING"
 echo "Use liburing         : $BUILD_LIBURING"
 echo "Enable Debug         : $BUILD_DEBUG"
+echo "Debug locks          : $DEBUG_LOCKS"
 echo "Run with Valgrind    : $VALGRIND_TOOL"
 echo "Sanitizer enabled    : $SANITIZER"
 echo "XML output           : $BUILD_XML_OUTPUT"

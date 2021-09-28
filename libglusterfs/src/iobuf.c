@@ -710,6 +710,7 @@ iobuf_put(struct iobuf *iobuf)
 
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
+        LOCK_DESTROY(&iobuf->lock);
         GF_FREE(iobuf->free_ptr);
         GF_FREE(iobuf);
         return;
@@ -808,6 +809,8 @@ iobref_destroy(struct iobref *iobref)
         if (iobuf)
             iobuf_unref(iobuf);
     }
+
+    LOCK_DESTROY(&iobref->lock);
 
     GF_FREE(iobref->iobrefs);
     GF_FREE(iobref);

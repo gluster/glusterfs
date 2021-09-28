@@ -2875,8 +2875,6 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
     if (!options)
         goto out;
 
-    LOCK_INIT(&ctx->volfile_lock);
-
     if (cmd_args->volfile_server_port)
         port = cmd_args->volfile_server_port;
 
