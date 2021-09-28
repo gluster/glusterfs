@@ -1560,12 +1560,6 @@ if test "x${GF_HOST_OS}" != "xGF_LINUX_HOST_OS" ; then
 fi
 AC_SUBST(UMOUNTD_SUBDIR)
 
-
-# enable debug section
-AC_ARG_ENABLE([debug],
-              AC_HELP_STRING([--enable-debug],
-                             [Enable debug build options.]))
-
 dnl Add readline support in CLI if available.
 PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
                   [BUILD_READLINE="no"])
