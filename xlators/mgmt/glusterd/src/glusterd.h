@@ -237,6 +237,7 @@ typedef struct {
     char rundir[VALID_GLUSTERD_PATHMAX];
     char logdir[VALID_GLUSTERD_PATHMAX];
     struct list_head hostnames;
+    struct list_head remote_hostnames;
 } glusterd_conf_t;
 
 typedef struct glusterd_add_dict_args {
