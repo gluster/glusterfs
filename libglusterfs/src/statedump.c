@@ -253,7 +253,9 @@ gf_proc_dump_xlator_mem_info(xlator_t *xl)
 
         gf_proc_dump_add_section("%s.%s - usage-type %s memusage", xl->type,
                                  xl->name, xl->mem_acct->rec[i].typestr);
+#ifdef DEBUG
         gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
+#endif
         gf_proc_dump_write("num_allocs", "%" PRIu64,
                            GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs));
 #ifdef DEBUG
@@ -282,14 +284,14 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
+#ifdef DEBUG
         if (!xl->mem_acct->rec[i].size)
             continue;
-
+#endif
         gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
                                  i);
-
-        gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
 #ifdef DEBUG
+        gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
         gf_proc_dump_write("max_size", "%" PRIu64,
                            xl->mem_acct->rec[i].max_size);
 #endif
