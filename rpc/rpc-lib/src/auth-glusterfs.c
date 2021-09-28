@@ -290,6 +290,7 @@ auth_glusterfs_v3_authenticate(rpcsvc_request_t *req, void *priv)
     int i = 0;
     int max_groups = 0;
     int max_lk_owner_len = 0;
+    xlator_t *this;
 
     if (!req)
         return ret;
@@ -355,11 +356,13 @@ auth_glusterfs_v3_authenticate(rpcsvc_request_t *req, void *priv)
     req->ctime.tv_sec = au.ctime_sec;
     req->ctime.tv_nsec = au.ctime_nsec;
 
-    gf_log(GF_RPCSVC, GF_LOG_TRACE,
-           "Auth Info: pid: %u, uid: %d"
-           ", gid: %d, owner: %s, flags: %d",
-           req->pid, req->uid, req->gid, lkowner_utoa(&req->lk_owner),
-           req->flags);
+    this = THIS;
+    if (DO_LOGGING(this, GF_LOG_TRACE))
+        gf_log(GF_RPCSVC, GF_LOG_TRACE,
+               "Auth Info: pid: %u, uid: %d"
+               ", gid: %d, owner: %s, flags: %d",
+               req->pid, req->uid, req->gid, lkowner_utoa(&req->lk_owner),
+               req->flags);
     ret = RPCSVC_AUTH_ACCEPT;
 err:
     /* TODO: instead use alloca() for these variables */

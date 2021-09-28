@@ -186,6 +186,23 @@ int
 _gf_log_eh(const char *function, const char *fmt, ...)
     __attribute__((__format__(__printf__, 2, 3)));
 
+#define DO_LOGGING(_xl, level)                                                 \
+    ({                                                                         \
+        gf_boolean_t to_log = _gf_false;                                       \
+        if (_xl->loglevel) {                                                   \
+            if (level <= _xl->loglevel)                                        \
+                to_log = _gf_true;                                             \
+            else                                                               \
+                to_log = _gf_false;                                            \
+        } else if (_xl->ctx) {                                                 \
+            if (level <= _xl->ctx->log.loglevel)                               \
+                to_log = _gf_true;                                             \
+            else                                                               \
+                to_log = _gf_false;                                            \
+        }                                                                      \
+        to_log;                                                                \
+    })
+
 /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
  * other level as is */
 #define SET_LOG_PRIO(level, priority)                                          \

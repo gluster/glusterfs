@@ -371,8 +371,9 @@ send_fuse_iov(xlator_t *this, fuse_in_header_t *finh, struct iovec *iov_out,
     fouh->unique = finh->unique;
 
     res = sys_writev(priv->fd, iov_out, count);
-    gf_log("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s", res,
-           fouh->len, res == -1 ? strerror(errno) : "");
+    if (DO_LOGGING(this, GF_LOG_TRACE))
+        gf_log("glusterfs-fuse", GF_LOG_TRACE, "writev() result %d/%d %s", res,
+               fouh->len, res == -1 ? strerror(errno) : "");
 
     return check_and_dump_fuse_W(priv, iov_out, count, res, NULL);
 }

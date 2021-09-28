@@ -408,16 +408,18 @@ __wb_request_unref(wb_request_t *req)
 
     ret = --req->refcount;
     if (req->refcount == 0) {
-        uuid_utoa_r(req->gfid, gfid);
+        if (DO_LOGGING(wb_inode->this, GF_LOG_DEBUG)) {
+            uuid_utoa_r(req->gfid, gfid);
 
-        gf_log_callingfn(wb_inode->this->name, GF_LOG_DEBUG,
-                         "(unique = %" PRIu64
-                         ", fop=%s, gfid=%s, "
-                         "gen=%" PRIu64
-                         "): destroying request, "
-                         "removing from all queues",
-                         req->unique, gf_fop_list[req->fop], gfid, req->gen);
-
+            gf_log_callingfn(wb_inode->this->name, GF_LOG_DEBUG,
+                             "(unique = %" PRIu64
+                             ", fop=%s, gfid=%s, "
+                             "gen=%" PRIu64
+                             "): destroying request, "
+                             "removing from all queues",
+                             req->unique, gf_fop_list[req->fop], gfid,
+                             req->gen);
+        }
         list_del_init(&req->todo);
         list_del_init(&req->lie);
         list_del_init(&req->wip);
@@ -742,17 +744,18 @@ __wb_fulfill_request(wb_request_t *req)
     wb_inode->window_current -= req->total_size;
     wb_inode->transit -= req->total_size;
 
-    uuid_utoa_r(req->gfid, gfid);
+    if (DO_LOGGING(wb_inode->this, GF_LOG_DEBUG)) {
+        uuid_utoa_r(req->gfid, gfid);
 
-    gf_log_callingfn(wb_inode->this->name, GF_LOG_DEBUG,
-                     "(unique=%" PRIu64
-                     ", fop=%s, gfid=%s, "
-                     "gen=%" PRIu64
-                     "): request fulfilled. "
-                     "removing the request from liability queue? = %s",
-                     req->unique, gf_fop_list[req->fop], gfid, req->gen,
-                     req->ordering.lied ? "yes" : "no");
-
+        gf_log_callingfn(wb_inode->this->name, GF_LOG_DEBUG,
+                         "(unique=%" PRIu64
+                         ", fop=%s, gfid=%s, "
+                         "gen=%" PRIu64
+                         "): request fulfilled. "
+                         "removing the request from liability queue? = %s",
+                         req->unique, gf_fop_list[req->fop], gfid, req->gen,
+                         req->ordering.lied ? "yes" : "no");
+    }
     if (req->ordering.lied) {
         /* 1. If yes, request is in liability queue and hence can be
               safely removed from list.
@@ -1268,10 +1271,9 @@ __wb_pick_unwinds(wb_inode_t *wb_inode, list_head_t *lies)
 {
     wb_request_t *req = NULL;
     wb_request_t *tmp = NULL;
-    char gfid[64] = {
-        0,
-    };
+    gf_boolean_t debug_log;
 
+    debug_log = DO_LOGGING(wb_inode->this, GF_LOG_DEBUG);
     list_for_each_entry_safe(req, tmp, &wb_inode->temptation, lie)
     {
         if (!req->ordering.fulfilled &&
@@ -1291,15 +1293,16 @@ __wb_pick_unwinds(wb_inode_t *wb_inode, list_head_t *lies)
 
             req->ordering.lied = 1;
 
-            uuid_utoa_r(req->gfid, gfid);
-            gf_msg_debug(wb_inode->this->name, 0,
-                         "(unique=%" PRIu64
-                         ", fop=%s, gfid=%s, "
-                         "gen=%" PRIu64
-                         "): added req to liability "
-                         "queue. inode-generation-number=%" PRIu64,
-                         req->stub->frame->root->unique, gf_fop_list[req->fop],
-                         gfid, req->gen, wb_inode->gen);
+            if (debug_log)
+                gf_msg_debug(wb_inode->this->name, 0,
+                             "(unique=%" PRIu64
+                             ", fop=%s, gfid=%s, "
+                             "gen=%" PRIu64
+                             "): added req to liability "
+                             "queue. inode-generation-number=%" PRIu64,
+                             req->stub->frame->root->unique,
+                             gf_fop_list[req->fop], uuid_utoa(req->gfid),
+                             req->gen, wb_inode->gen);
         }
     }
 
@@ -1382,9 +1385,7 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
     wb_conf_t *conf = NULL;
     int ret = 0;
     ssize_t page_size = 0;
-    char gfid[64] = {
-        0,
-    };
+    gf_boolean_t debug_log;
 
     /* With asynchronous IO from a VM guest (as a file), there
        can be two sequential writes happening in two regions
@@ -1398,6 +1399,7 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
     conf = wb_inode->this->private;
     page_size = conf->page_size;
 
+    debug_log = DO_LOGGING(wb_inode->this, GF_LOG_DEBUG);
     list_for_each_entry_safe(req, tmp, &wb_inode->todo, todo)
     {
         if (wb_inode->dontsync && req->ordering.lied) {
@@ -1409,14 +1411,15 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
              * waiting for write result.
              */
 
-            uuid_utoa_r(req->gfid, gfid);
-            gf_msg_debug(wb_inode->this->name, 0,
-                         "(unique=%" PRIu64
-                         ", fop=%s, gfid=%s, "
-                         "gen=%" PRIu64
-                         "): not setting ordering.go"
-                         "as dontsync is set",
-                         req->unique, gf_fop_list[req->fop], gfid, req->gen);
+            if (debug_log)
+                gf_msg_debug(wb_inode->this->name, 0,
+                             "(unique=%" PRIu64
+                             ", fop=%s, gfid=%s, "
+                             "gen=%" PRIu64
+                             "): not setting ordering.go"
+                             "as dontsync is set",
+                             req->unique, gf_fop_list[req->fop],
+                             uuid_utoa(req->gfid), req->gen);
 
             continue;
         }
@@ -1502,13 +1505,13 @@ __wb_handle_failed_conflict(wb_request_t *req, wb_request_t *conflict,
                             list_head_t *tasks)
 {
     wb_conf_t *conf = NULL;
-    char gfid[64] = {
-        0,
-    };
+    char gfid[64];
+    gf_boolean_t debug_log = DO_LOGGING(req->wb_inode->this, GF_LOG_DEBUG);
 
     conf = req->wb_inode->this->private;
 
-    uuid_utoa_r(req->gfid, gfid);
+    if (debug_log)
+        uuid_utoa_r(req->gfid, gfid);
 
     if ((req->stub->fop != GF_FOP_FLUSH) &&
         ((req->stub->fop != GF_FOP_FSYNC) || conf->resync_after_fsync)) {
@@ -1530,16 +1533,17 @@ __wb_handle_failed_conflict(wb_request_t *req, wb_request_t *conflict,
             list_del_init(&req->todo);
             list_add_tail(&req->winds, tasks);
 
-            gf_msg_debug(req->wb_inode->this->name, 0,
-                         "(unique=%" PRIu64
-                         ", fop=%s, gfid=%s, "
-                         "gen=%" PRIu64
-                         "): A conflicting write "
-                         "request in liability queue has failed "
-                         "to sync (error = \"%s\"), "
-                         "unwinding this request as a failure",
-                         req->unique, gf_fop_list[req->fop], gfid, req->gen,
-                         strerror(req->op_errno));
+            if (debug_log)
+                gf_msg_debug(req->wb_inode->this->name, req->op_errno,
+                             "(unique=%" PRIu64
+                             ", fop=%s, gfid=%s, "
+                             "gen=%" PRIu64
+                             "): A conflicting write "
+                             "request in liability queue has failed "
+                             "to sync (error = \"%s\"), "
+                             "unwinding this request as a failure",
+                             req->unique, gf_fop_list[req->fop], gfid, req->gen,
+                             strerror(req->op_errno));
 
             if (req->ordering.tempted) {
                 /* make sure that it won't be unwound in
@@ -1548,31 +1552,33 @@ __wb_handle_failed_conflict(wb_request_t *req, wb_request_t *conflict,
                  */
                 list_del_init(&req->lie);
 
-                gf_msg_debug(req->wb_inode->this->name, 0,
-                             "(unique=%" PRIu64
-                             ", fop=%s, "
-                             "gfid=%s, gen=%" PRIu64
-                             "): "
-                             "removed from liability queue",
-                             req->unique, gf_fop_list[req->fop], gfid,
-                             req->gen);
+                if (debug_log)
+                    gf_msg_debug(req->wb_inode->this->name, 0,
+                                 "(unique=%" PRIu64
+                                 ", fop=%s, "
+                                 "gfid=%s, gen=%" PRIu64
+                                 "): "
+                                 "removed from liability queue",
+                                 req->unique, gf_fop_list[req->fop], gfid,
+                                 req->gen);
 
                 __wb_fulfill_request(req);
             }
         }
     } else {
-        gf_msg_debug(req->wb_inode->this->name, 0,
-                     "(unique=%" PRIu64
-                     ", fop=%s, gfid=%s, "
-                     "gen=%" PRIu64
-                     "): A conflicting write request "
-                     "in liability queue has failed to sync "
-                     "(error = \"%s\"). This is an "
-                     "FSYNC/FLUSH and we need to maintain ordering "
-                     "guarantees with other writes in TODO queue. "
-                     "Hence doing nothing now",
-                     req->unique, gf_fop_list[req->fop], gfid, req->gen,
-                     strerror(conflict->op_errno));
+        if (debug_log)
+            gf_msg_debug(req->wb_inode->this->name, conflict->op_errno,
+                         "(unique=%" PRIu64
+                         ", fop=%s, gfid=%s, "
+                         "gen=%" PRIu64
+                         "): A conflicting write request "
+                         "in liability queue has failed to sync "
+                         "(error = \"%s\"). This is an "
+                         "FSYNC/FLUSH and we need to maintain ordering "
+                         "guarantees with other writes in TODO queue. "
+                         "Hence doing nothing now",
+                         req->unique, gf_fop_list[req->fop], gfid, req->gen,
+                         strerror(conflict->op_errno));
 
         /* flush and fsync (without conf->resync_after_fsync) act as
            barriers. We cannot unwind them out of
@@ -1611,41 +1617,38 @@ __wb_pick_winds(wb_inode_t *wb_inode, list_head_t *tasks,
     wb_request_t *req = NULL;
     wb_request_t *tmp = NULL;
     wb_request_t *conflict = NULL;
-    char req_gfid[64] =
-        {
-            0,
-        },
-         conflict_gfid[64] = {
-             0,
-         };
+    char req_gfid[64], conflict_gfid[64];
+    gf_boolean_t debug_log = DO_LOGGING(wb_inode->this, GF_LOG_DEBUG);
 
     list_for_each_entry_safe(req, tmp, &wb_inode->todo, todo)
     {
-        uuid_utoa_r(req->gfid, req_gfid);
+        if (debug_log)
+            uuid_utoa_r(req->gfid, req_gfid);
 
         conflict = wb_liability_has_conflict(wb_inode, req);
         if (conflict) {
-            uuid_utoa_r(conflict->gfid, conflict_gfid);
+            if (debug_log) {
+                uuid_utoa_r(conflict->gfid, conflict_gfid);
 
-            gf_msg_debug(wb_inode->this->name, 0,
-                         "Not winding request due to a "
-                         "conflicting write in liability queue. "
-                         "REQ: unique=%" PRIu64
-                         ", fop=%s, "
-                         "gen=%" PRIu64
-                         ", gfid=%s. "
-                         "CONFLICT: unique=%" PRIu64
-                         ", fop=%s, "
-                         "gen=%" PRIu64
-                         ", gfid=%s, "
-                         "conflicts-sync-failed?=%s, "
-                         "conflicts-error=%s",
-                         req->unique, gf_fop_list[req->fop], req->gen, req_gfid,
-                         conflict->unique, gf_fop_list[conflict->fop],
-                         conflict->gen, conflict_gfid,
-                         (conflict->op_ret == 1) ? "yes" : "no",
-                         strerror(conflict->op_errno));
-
+                gf_msg_debug(
+                    wb_inode->this->name, conflict->op_errno,
+                    "Not winding request due to a "
+                    "conflicting write in liability queue. "
+                    "REQ: unique=%" PRIu64
+                    ", fop=%s, "
+                    "gen=%" PRIu64
+                    ", gfid=%s. "
+                    "CONFLICT: unique=%" PRIu64
+                    ", fop=%s, "
+                    "gen=%" PRIu64
+                    ", gfid=%s, "
+                    "conflicts-sync-failed?=%s, "
+                    "conflicts-error=%s",
+                    req->unique, gf_fop_list[req->fop], req->gen, req_gfid,
+                    conflict->unique, gf_fop_list[conflict->fop], conflict->gen,
+                    conflict_gfid, (conflict->op_ret == 1) ? "yes" : "no",
+                    strerror(conflict->op_errno));
+            }
             if (conflict->op_ret == -1) {
                 /* There is a conflicting liability which failed
                  * to sync in previous attempts, resume the req
@@ -1665,12 +1668,13 @@ __wb_pick_winds(wb_inode_t *wb_inode, list_head_t *tasks,
 
         if (req->ordering.tempted && !req->ordering.go) {
             /* wait some more */
-            gf_msg_debug(wb_inode->this->name, 0,
-                         "(unique=%" PRIu64 ", fop=%s, gen=%" PRIu64
-                         ", gfid=%s): ordering.go is not set, "
-                         "hence not winding",
-                         req->unique, gf_fop_list[req->fop], req->gen,
-                         req_gfid);
+            if (debug_log)
+                gf_msg_debug(wb_inode->this->name, 0,
+                             "(unique=%" PRIu64 ", fop=%s, gen=%" PRIu64
+                             ", gfid=%s): ordering.go is not set, "
+                             "hence not winding",
+                             req->unique, gf_fop_list[req->fop], req->gen,
+                             req_gfid);
             continue;
         }
 
@@ -1678,25 +1682,27 @@ __wb_pick_winds(wb_inode_t *wb_inode, list_head_t *tasks,
             conflict = wb_wip_has_conflict(wb_inode, req);
 
             if (conflict) {
-                uuid_utoa_r(conflict->gfid, conflict_gfid);
+                if (debug_log) {
+                    uuid_utoa_r(conflict->gfid, conflict_gfid);
 
-                gf_msg_debug(wb_inode->this->name, 0,
-                             "Not winding write request as "
-                             "a conflicting write is being "
-                             "synced to backend. "
-                             "REQ: unique=%" PRIu64
-                             " fop=%s,"
-                             " gen=%" PRIu64
-                             ", gfid=%s. "
-                             "CONFLICT: unique=%" PRIu64
-                             " "
-                             "fop=%s, gen=%" PRIu64
-                             ", "
-                             "gfid=%s",
-                             req->unique, gf_fop_list[req->fop], req->gen,
-                             req_gfid, conflict->unique,
-                             gf_fop_list[conflict->fop], conflict->gen,
-                             conflict_gfid);
+                    gf_msg_debug(wb_inode->this->name, 0,
+                                 "Not winding write request as "
+                                 "a conflicting write is being "
+                                 "synced to backend. "
+                                 "REQ: unique=%" PRIu64
+                                 " fop=%s,"
+                                 " gen=%" PRIu64
+                                 ", gfid=%s. "
+                                 "CONFLICT: unique=%" PRIu64
+                                 " "
+                                 "fop=%s, gen=%" PRIu64
+                                 ", "
+                                 "gfid=%s",
+                                 req->unique, gf_fop_list[req->fop], req->gen,
+                                 req_gfid, conflict->unique,
+                                 gf_fop_list[conflict->fop], conflict->gen,
+                                 conflict_gfid);
+                }
                 continue;
             }
 
@@ -1708,13 +1714,15 @@ __wb_pick_winds(wb_inode_t *wb_inode, list_head_t *tasks,
                 req->stub->frame->local = __wb_request_ref(req);
         }
 
-        gf_msg_debug(wb_inode->this->name, 0,
-                     "(unique=%" PRIu64
-                     ", fop=%s, gfid=%s, "
-                     "gen=%" PRIu64
-                     "): picking the request for "
-                     "winding",
-                     req->unique, gf_fop_list[req->fop], req_gfid, req->gen);
+        if (debug_log)
+            gf_msg_debug(wb_inode->this->name, 0,
+                         "(unique=%" PRIu64
+                         ", fop=%s, gfid=%s, "
+                         "gen=%" PRIu64
+                         "): picking the request for "
+                         "winding",
+                         req->unique, gf_fop_list[req->fop], req_gfid,
+                         req->gen);
 
         list_del_init(&req->todo);
 

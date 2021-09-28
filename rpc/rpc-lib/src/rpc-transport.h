@@ -165,7 +165,7 @@ struct rpc_transport {
 
     void *private;
     struct _client *xl_private;
-    void *xl; /* Used for THIS */
+    xlator_t *xl; /* Used for THIS */
     void *mydata;
     pthread_mutex_t lock;
     gf_atomic_t refcount;

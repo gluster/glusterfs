@@ -282,10 +282,11 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         frame->wind_to = #fn;                                                  \
         old_THIS = THIS;                                                       \
         THIS = next_xl;                                                        \
-        gf_msg_trace("stack-trace", 0,                                         \
-                     "stack-address: %p, "                                     \
-                     "winding from %s to %s",                                  \
-                     frame->root, old_THIS->name, THIS->name);                 \
+        if (DO_LOGGING(next_xl, GF_LOG_TRACE))                                 \
+            gf_msg_trace("stack-trace", 0,                                     \
+                         "stack-address: %p, "                                 \
+                         "winding from %s to %s",                              \
+                         frame->root, old_THIS->name, THIS->name);             \
         /* Need to capture counts at leaf node */                              \
         if (!next_xl->pass_through && !next_xl->children) {                    \
             GF_ATOMIC_INC(next_xl->stats[opn].total_fop);                      \
@@ -342,10 +343,11 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         fn##_cbk = rfn;                                                        \
         old_THIS = THIS;                                                       \
         THIS = obj;                                                            \
-        gf_msg_trace("stack-trace", 0,                                         \
-                     "stack-address: %p, "                                     \
-                     "winding from %s to %s",                                  \
-                     frame->root, old_THIS->name, THIS->name);                 \
+        if (DO_LOGGING(old_THIS, GF_LOG_TRACE))                                \
+            gf_msg_trace("stack-trace", 0,                                     \
+                         "stack-address: %p, "                                 \
+                         "winding from %s to %s",                              \
+                         frame->root, old_THIS->name, THIS->name);             \
         if (obj->ctx->measure_latency)                                         \
             timespec_now(&_new->begin);                                        \
         _new->op = get_fop_index_from_fn((_new->this), (fn));                  \
@@ -374,17 +376,19 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             gf_msg("stack", GF_LOG_CRITICAL, 0, LG_MSG_FRAME_ERROR, "!frame"); \
             break;                                                             \
         }                                                                      \
+        old_THIS = THIS;                                                       \
         if ((op_ret) < 0) {                                                    \
-            gf_msg_debug("stack-trace", op_errno,                              \
-                         "stack-address: %p, "                                 \
-                         "%s returned %d error: %s",                           \
-                         frame->root, THIS->name, (int32_t)(op_ret),           \
-                         strerror(op_errno));                                  \
+            if (DO_LOGGING(old_THIS, GF_LOG_DEBUG))                            \
+                gf_msg_debug("stack-trace", op_errno,                          \
+                             "stack-address: %p, "                             \
+                             "%s returned %d",                                 \
+                             frame->root, old_THIS->name, (int32_t)(op_ret));  \
         } else {                                                               \
-            gf_msg_trace("stack-trace", 0,                                     \
-                         "stack-address: %p, "                                 \
-                         "%s returned %d",                                     \
-                         frame->root, THIS->name, (int32_t)(op_ret));          \
+            if (DO_LOGGING(old_THIS, GF_LOG_TRACE))                            \
+                gf_msg_trace("stack-trace", 0,                                 \
+                             "stack-address: %p, "                             \
+                             "%s returned %d",                                 \
+                             frame->root, old_THIS->name, (int32_t)(op_ret));  \
         }                                                                      \
         fn = (fop_##fop##_cbk_t)frame->ret;                                    \
         _parent = frame->parent;                                               \
@@ -399,7 +403,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             }                                                                  \
         }                                                                      \
         UNLOCK(&frame->root->stack_lock);                                      \
-        old_THIS = THIS;                                                       \
         THIS = _parent->this;                                                  \
         frame->complete = _gf_true;                                            \
         frame->unwind_from = __FUNCTION__;                                     \

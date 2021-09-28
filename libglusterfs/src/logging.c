@@ -751,17 +751,7 @@ set_sys_log_level(gf_loglevel_t level)
 static gf_boolean_t
 skip_logging(xlator_t *this, gf_loglevel_t level)
 {
-    gf_loglevel_t existing_level = this->loglevel ? this->loglevel
-                                                  : this->ctx->log.loglevel;
-    if (level > existing_level) {
-        return _gf_true;
-    }
-
-    if (level == GF_LOG_NONE) {
-        return _gf_true;
-    }
-
-    return _gf_false;
+    return !(DO_LOGGING(this, level));
 }
 
 int

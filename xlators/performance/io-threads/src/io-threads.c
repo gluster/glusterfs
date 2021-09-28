@@ -365,8 +365,9 @@ iot_schedule(call_frame_t *frame, xlator_t *this, call_stub_t *stub)
             return -EINVAL;
     }
 out:
-    gf_msg_debug(this->name, 0, "%s scheduled as %s priority fop",
-                 gf_fop_list[stub->fop], iot_get_pri_meaning(pri));
+    if (DO_LOGGING(this, GF_LOG_DEBUG))
+        gf_msg_debug(this->name, 0, "%s scheduled as %s priority fop",
+                     gf_fop_list[stub->fop], iot_get_pri_meaning(pri));
     ret = do_iot_schedule(conf, stub, pri);
     return ret;
 }

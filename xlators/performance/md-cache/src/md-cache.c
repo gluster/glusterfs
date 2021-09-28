@@ -502,10 +502,11 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
     LOCK(&mdc->lock);
     {
         if (!iatt || !iatt->ia_ctime) {
-            gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
-                             "invalidating iatt(NULL)"
-                             "(%s)",
-                             uuid_utoa(inode->gfid));
+            if (DO_LOGGING(this, GF_LOG_TRACE))
+                gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
+                                 "invalidating iatt(NULL)"
+                                 "(%s)",
+                                 uuid_utoa(inode->gfid));
             mdc->ia_time = 0;
             mdc->valid = 0;
 
@@ -523,21 +524,23 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
          * changes, hence check for ctime only.
          */
         if (mdc->md_ctime > iatt->ia_ctime) {
-            gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
-                             MD_CACHE_MSG_DISCARD_UPDATE,
-                             "discarding the iatt validate "
-                             "request (%s)",
-                             uuid_utoa(inode->gfid));
+            if (DO_LOGGING(this, GF_LOG_DEBUG))
+                gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
+                                 MD_CACHE_MSG_DISCARD_UPDATE,
+                                 "discarding the iatt validate "
+                                 "request (%s)",
+                                 uuid_utoa(inode->gfid));
             ret = -1;
             goto unlock;
         }
         if ((mdc->md_ctime == iatt->ia_ctime) &&
             (mdc->md_ctime_nsec > iatt->ia_ctime_nsec)) {
-            gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
-                             MD_CACHE_MSG_DISCARD_UPDATE,
-                             "discarding the iatt validate "
-                             "request(ctime_nsec) (%s)",
-                             uuid_utoa(inode->gfid));
+            if (DO_LOGGING(this, GF_LOG_DEBUG))
+                gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
+                                 MD_CACHE_MSG_DISCARD_UPDATE,
+                                 "discarding the iatt validate "
+                                 "request(ctime_nsec) (%s)",
+                                 uuid_utoa(inode->gfid));
             ret = -1;
             goto unlock;
         }
@@ -558,11 +561,12 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                  (prebuf->ia_ctime != mdc->md_ctime) ||
                  (prebuf->ia_ctime_nsec != mdc->md_ctime_nsec))) {
                 if (IA_ISREG(inode->ia_type)) {
-                    gf_msg("md-cache", GF_LOG_TRACE, 0,
-                           MD_CACHE_MSG_DISCARD_UPDATE,
-                           "prebuf doesn't match the value we have cached,"
-                           " invalidate the inode(%s)",
-                           uuid_utoa(inode->gfid));
+                    if (DO_LOGGING(this, GF_LOG_TRACE))
+                        gf_msg("md-cache", GF_LOG_TRACE, 0,
+                               MD_CACHE_MSG_DISCARD_UPDATE,
+                               "prebuf doesn't match the value we have cached,"
+                               " invalidate the inode(%s)",
+                               uuid_utoa(inode->gfid));
 
                     inode_invalidate(inode);
                 }
@@ -580,23 +584,24 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                 if (mdc->xa_time && update_xa_time)
                     mdc->xa_time = mdc->ia_time;
             }
-
-            gf_msg_callingfn(
-                "md-cache", GF_LOG_TRACE, 0, MD_CACHE_MSG_CACHE_UPDATE,
-                "Updated iatt(%s)"
-                " time:%lld generation=%lld",
-                uuid_utoa(iatt->ia_gfid), (unsigned long long)mdc->ia_time,
-                (unsigned long long)mdc->generation);
+            if (DO_LOGGING(this, GF_LOG_TRACE))
+                gf_msg_callingfn(
+                    "md-cache", GF_LOG_TRACE, 0, MD_CACHE_MSG_CACHE_UPDATE,
+                    "Updated iatt(%s)"
+                    " time:%lld generation=%lld",
+                    uuid_utoa(iatt->ia_gfid), (unsigned long long)mdc->ia_time,
+                    (unsigned long long)mdc->generation);
         } else {
-            gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
-                             "not updating cache (%s)"
-                             "mdc-rollover=%u rollover=%u "
-                             "mdc-generation=%llu "
-                             "mdc-ia_time=%llu incident_time=%llu ",
-                             uuid_utoa(iatt->ia_gfid), mdc->gen_rollover,
-                             rollover, (unsigned long long)mdc->generation,
-                             (unsigned long long)mdc->ia_time,
-                             (unsigned long long)incident_time);
+            if (DO_LOGGING(this, GF_LOG_TRACE))
+                gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
+                                 "not updating cache (%s)"
+                                 "mdc-rollover=%u rollover=%u "
+                                 "mdc-generation=%llu "
+                                 "mdc-ia_time=%llu incident_time=%llu ",
+                                 uuid_utoa(iatt->ia_gfid), mdc->gen_rollover,
+                                 rollover, (unsigned long long)mdc->generation,
+                                 (unsigned long long)mdc->ia_time,
+                                 (unsigned long long)incident_time);
         }
     }
 unlock:

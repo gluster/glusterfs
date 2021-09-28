@@ -651,12 +651,13 @@ rpc_clnt_reply_init(rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
         goto out;
     }
 
-    gf_log(conn->name, GF_LOG_TRACE,
-           "received rpc message (RPC XID: 0x%x"
-           " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
-           saved_frame->rpcreq->xid, saved_frame->rpcreq->prog->progname,
-           saved_frame->rpcreq->prog->progver, saved_frame->rpcreq->procnum,
-           conn->name);
+    if (DO_LOGGING((THIS), GF_LOG_TRACE))
+        gf_log(conn->name, GF_LOG_TRACE,
+               "received rpc message (RPC XID: 0x%x"
+               " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
+               saved_frame->rpcreq->xid, saved_frame->rpcreq->prog->progname,
+               saved_frame->rpcreq->prog->progver, saved_frame->rpcreq->procnum,
+               conn->name);
 
 out:
     if (ret != 0) {
@@ -1722,13 +1723,15 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
             conn->msgcnt++;
 
-            gf_log("rpc-clnt", GF_LOG_TRACE,
-                   "submitted request "
-                   "(unique: %" PRIu64
-                   ", XID: 0x%x, Program: %s, "
-                   "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
-                   cframe->root->unique, rpcreq->xid, rpcreq->prog->progname,
-                   rpcreq->prog->progver, rpcreq->procnum, conn->name);
+            if (DO_LOGGING((THIS), GF_LOG_TRACE))
+                gf_log("rpc-clnt", GF_LOG_TRACE,
+                       "submitted request "
+                       "(unique: %" PRIu64
+                       ", XID: 0x%x, Program: %s, "
+                       "ProgVers: %d, Proc: %d) to rpc-transport (%s)",
+                       cframe->root->unique, rpcreq->xid,
+                       rpcreq->prog->progname, rpcreq->prog->progver,
+                       rpcreq->procnum, conn->name);
         }
     }
 unlock:

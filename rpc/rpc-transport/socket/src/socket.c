@@ -547,10 +547,12 @@ __socket_ssl_readv(rpc_transport_t *this, struct iovec *opvector, int opcount)
     sock = priv->sock;
 
     if (priv->use_ssl) {
-        gf_log(this->name, GF_LOG_TRACE, "***** reading over SSL");
+        if (DO_LOGGING(this->xl, GF_LOG_TRACE))
+            gf_log(this->name, GF_LOG_TRACE, "***** reading over SSL");
         ret = ssl_read_one(this, opvector->iov_base, opvector->iov_len);
     } else {
-        gf_log(this->name, GF_LOG_TRACE, "***** reading over non-SSL");
+        if (DO_LOGGING(this->xl, GF_LOG_TRACE))
+            gf_log(this->name, GF_LOG_TRACE, "***** reading over non-SSL");
         ret = sys_readv(sock, opvector, IOV_MIN(opcount));
     }
 
@@ -2865,6 +2867,8 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     int ret = -1;
     glusterfs_ctx_t *ctx = NULL;
     gf_boolean_t socket_closed = _gf_false, notify_handled = _gf_false;
+    gf_boolean_t log_trace;
+    char *sock_type;
 
     this = data;
 
@@ -2895,53 +2899,62 @@ socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
     }
     pthread_mutex_unlock(&priv->out_lock);
 
-    gf_log(this->name, GF_LOG_TRACE, "%s (sock:%d) in:%d, out:%d, err:%d",
-           (priv->is_server ? "server" : "client"), priv->sock, poll_in,
-           poll_out, poll_err);
-
+    log_trace = DO_LOGGING(this->xl, GF_LOG_TRACE);
+    if (log_trace) {
+        sock_type = (priv->is_server ? "Server" : "Client");
+        gf_log(this->name, GF_LOG_TRACE, "%s (sock:%d) in:%d, out:%d, err:%d",
+               sock_type, priv->sock, poll_in, poll_out, poll_err);
+    }
     if (!poll_err) {
         if (!socket_is_connected(priv)) {
-            gf_log(this->name, GF_LOG_TRACE,
-                   "%s (sock:%d) socket is not connected, "
-                   "completing connection",
-                   (priv->is_server ? "server" : "client"), priv->sock);
+            if (log_trace)
+                gf_log(this->name, GF_LOG_TRACE,
+                       "%s (sock:%d) socket is not connected, "
+                       "completing connection",
+                       sock_type, priv->sock);
 
             ret = socket_complete_connection(this);
 
-            gf_log(this->name, GF_LOG_TRACE,
-                   "(sock:%d) "
-                   "socket_complete_connection() returned %d",
-                   priv->sock, ret);
-
             if (ret > 0) {
-                gf_log(this->name, GF_LOG_TRACE,
-                       "(sock:%d) returning to wait on socket", priv->sock);
+                if (log_trace)
+                    gf_log(
+                        this->name, GF_LOG_TRACE,
+                        "(sock:%d) socket_complete_connection() returned %d, "
+                        "returning to wait on socket",
+                        priv->sock, ret);
                 goto out;
+            } else {
+                if (log_trace)
+                    gf_log(this->name, GF_LOG_TRACE,
+                           "(sock:%d) "
+                           "socket_complete_connection() returned %d",
+                           priv->sock, ret);
             }
         } else {
-            char *sock_type = (priv->is_server ? "Server" : "Client");
-
-            gf_log(this->name, GF_LOG_TRACE,
-                   "%s socket (%d) is already connected", sock_type,
-                   priv->sock);
+            if (log_trace)
+                gf_log(this->name, GF_LOG_TRACE,
+                       "%s socket (%d) is already connected", sock_type,
+                       priv->sock);
             ret = 0;
         }
     }
 
     if (!ret && poll_out) {
         ret = socket_event_poll_out(this);
-        gf_log(this->name, GF_LOG_TRACE,
-               "(sock:%d) "
-               "socket_event_poll_out returned %d",
-               priv->sock, ret);
+        if (log_trace)
+            gf_log(this->name, GF_LOG_TRACE,
+                   "(sock:%d) "
+                   "socket_event_poll_out returned %d",
+                   priv->sock, ret);
     }
 
     if (!ret && poll_in) {
         ret = socket_event_poll_in(this, !poll_err);
-        gf_log(this->name, GF_LOG_TRACE,
-               "(sock:%d) "
-               "socket_event_poll_in returned %d",
-               priv->sock, ret);
+        if (log_trace)
+            gf_log(this->name, GF_LOG_TRACE,
+                   "(sock:%d) "
+                   "socket_event_poll_in returned %d",
+                   priv->sock, ret);
         notify_handled = _gf_true;
     }
 
@@ -4101,7 +4114,7 @@ threadid_func(CRYPTO_THREADID *id)
      */
     CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
 }
-#else /* older openssl */
+#else  /* older openssl */
 static unsigned long
 legacy_threadid_func(void)
 {
@@ -4357,7 +4370,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "DH ciphers are disabled.",
                        dh_param, ERR_error_string(err, NULL));
             }
-#else /* HAVE_OPENSSL_DH_H */
+#else  /* HAVE_OPENSSL_DH_H */
             BIO_free(bio);
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no DH support");
 #endif /* HAVE_OPENSSL_DH_H */
@@ -4384,7 +4397,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "ECDH ciphers are disabled.",
                        ec_curve, ERR_error_string(err, NULL));
             }
-#else /* HAVE_OPENSSL_ECDH_H */
+#else  /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }

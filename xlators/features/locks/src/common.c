@@ -433,6 +433,7 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
     uint64_t tmp_pl_inode = 0;
     pl_inode_t *pl_inode = NULL;
     int ret = 0;
+    gf_boolean_t log_allocation = _gf_false;
 
     LOCK(&inode->lock);
     {
@@ -447,7 +448,7 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
             goto unlock;
         }
 
-        gf_log(this->name, GF_LOG_TRACE, "Allocating new pl inode");
+        log_allocation = _gf_true;
 
         pthread_mutex_init(&pl_inode->mutex, NULL);
         pthread_cond_init(&pl_inode->check_fop_wind_count, 0);
@@ -478,6 +479,9 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
     }
 unlock:
     UNLOCK(&inode->lock);
+
+    if (log_allocation && DO_LOGGING(this, GF_LOG_TRACE))
+        gf_log(this->name, GF_LOG_TRACE, "Allocated new pl inode");
 
     if ((pl_inode != NULL) && pl_is_mandatory_locking_enabled(pl_inode) &&
         pl_inode->check_mlock_info && local) {
