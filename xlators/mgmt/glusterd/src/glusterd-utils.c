@@ -903,6 +903,7 @@ glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
 
     strcpy(dup_brickinfo->hostname, brickinfo->hostname);
     strcpy(dup_brickinfo->path, brickinfo->path);
+    strcpy(dup_brickinfo->origin_path, brickinfo->origin_path);
     strcpy(dup_brickinfo->real_path, brickinfo->real_path);
     strcpy(dup_brickinfo->device_path, brickinfo->device_path);
     strcpy(dup_brickinfo->fstype, brickinfo->fstype);
@@ -929,6 +930,7 @@ glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
     strcpy(dup_brickinfo->mount_dir, brickinfo->mount_dir);
     dup_brickinfo->status = brickinfo->status;
     dup_brickinfo->snap_status = brickinfo->snap_status;
+    dup_brickinfo->snap = brickinfo->snap;
 out:
     return ret;
 }
@@ -1454,8 +1456,8 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
                                        gf_boolean_t ignore_partition)
 {
     int ret = -1;
-    char parentdir[PATH_MAX] = "";
-    struct stat parent_st = {
+    struct mntent *mnt_ent = NULL;
+    struct mntent save_entry = {
         0,
     };
     struct stat brick_st = {
@@ -1465,6 +1467,7 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         0,
     };
     char msg[2048] = "";
+    char buff[PATH_MAX] = "";
     gf_boolean_t is_created = _gf_false;
     char glusterfs_dir_path[PATH_MAX] = "";
     int32_t len = 0;
@@ -1511,12 +1514,6 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    len = snprintf(parentdir, sizeof(parentdir), "%s/..", brickinfo->path);
-    if ((len < 0) || (len >= sizeof(parentdir))) {
-        ret = -1;
-        goto out;
-    }
-
     ret = sys_lstat("/", &root_st);
     if (ret) {
         len = snprintf(msg, sizeof(msg),
@@ -1528,17 +1525,6 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
         goto out;
     }
 
-    ret = sys_lstat(parentdir, &parent_st);
-    if (ret) {
-        len = snprintf(msg, sizeof(msg),
-                       "lstat failed on %s. "
-                       "Reason : %s",
-                       parentdir, strerror(errno));
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_LSTAT_FAIL,
-                "Failed on parentdir=%s, Reason=%s", parentdir, strerror(errno),
-                NULL);
-        goto out;
-    }
     if (strncmp(volname, GLUSTER_SHARED_STORAGE,
                 SLEN(GLUSTER_SHARED_STORAGE)) &&
         sizeof(GLUSTERD_DEFAULT_WORKDIR) <= (strlen(brickinfo->path) + 1) &&
@@ -1554,7 +1540,9 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
     }
 
     if (!is_force) {
-        if (brick_st.st_dev != parent_st.st_dev) {
+        mnt_ent = glusterd_get_mnt_entry_info(brickinfo->path, buff,
+                                              sizeof(buff), &save_entry);
+        if (mnt_ent) {
             len = snprintf(msg, sizeof(msg),
                            "The brick %s:%s "
                            "is a mount point. Please create a "
@@ -1570,7 +1558,7 @@ glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
                     brickinfo->hostname, brickinfo->path, NULL);
             ret = -1;
             goto out;
-        } else if (parent_st.st_dev == root_st.st_dev) {
+        } else if (brick_st.st_dev == root_st.st_dev) {
             len = snprintf(msg, sizeof(msg),
                            "The brick %s:%s "
                            "is being created in the root "
@@ -2100,6 +2088,8 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
     char *inet_family = NULL;
     char *global_threading = NULL;
     bool threading = false;
+    glusterd_volinfo_t *parent_volinfo = NULL;
+    char xlator_option_volume_id[4096] = "";
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
@@ -2232,6 +2222,32 @@ retry:
                       &localtime_logging) == 0) {
         if (strcmp(localtime_logging, "enable") == 0)
             runner_add_arg(&runner, "--localtime-logging");
+    }
+
+    if (volinfo->is_snap_volume) {
+        /* If the Brick process belongs to a Snapshot brick then set
+           the parent Volume ID itself as Volume ID. This is to avoid
+           setting xattr when a Snapshot is created. Setting Xattr fails
+           in a few file system where Snapshots are not allowed
+           to mount as rw */
+        ret = glusterd_volinfo_find(volinfo->parent_volname, &parent_volinfo);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+                   "Parent Volume (%s) does not exist ",
+                   volinfo->parent_volname);
+            goto out;
+        }
+        (void)snprintf(xlator_option_volume_id, sizeof(xlator_option_volume_id),
+                       "*-posix.volume-id=%s",
+                       uuid_utoa(parent_volinfo->volume_id));
+        runner_add_args(&runner, "--xlator-option", xlator_option_volume_id,
+                        NULL);
+
+        (void)snprintf(xlator_option_volume_id, sizeof(xlator_option_volume_id),
+                       "%s.volume-id=%s", brickinfo->path,
+                       uuid_utoa(parent_volinfo->volume_id));
+        runner_add_args(&runner, "--xlator-option", xlator_option_volume_id,
+                        NULL);
     }
 
     runner_add_arg(&runner, "--brick-port");
@@ -4964,7 +4980,7 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
     if ((!gf_uuid_is_null(stale_volinfo->restored_from_snap)) &&
         (gf_uuid_compare(stale_volinfo->restored_from_snap,
                          valid_volinfo->restored_from_snap))) {
-        ret = glusterd_lvm_snapshot_remove(NULL, stale_volinfo);
+        ret = glusterd_snapshot_remove(NULL, stale_volinfo);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
                    "Failed to remove lvm snapshot for "
@@ -6759,7 +6775,10 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    if (gf_uuid_compare(volinfo->volume_id, volid)) {
+    /* If it is Snapshot brick, allow starting the brick process even if
+       on disk Volume id is different than the one in Snap Volume info */
+    if (gf_uuid_compare(volinfo->volume_id, volid) &&
+        !volinfo->is_snap_volume) {
         gf_log(this->name, GF_LOG_ERROR,
                "Mismatching %s extended attribute on brick root (%s),"
                " brick is deemed not to be a part of the volume (%s)",
@@ -13179,6 +13198,8 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
     gf_strncpy(brickinfo->mnt_opts, entry->mnt_opts,
                sizeof(brickinfo->mnt_opts));
 
+    (void)glusterd_snapshot_probe(mnt_pt, brickinfo);
+
     ret = 0;
 out:
     if (mnt_pt)
@@ -15086,6 +15107,98 @@ glusterd_replace_old_auth_allow_list(char *volname)
                "failed to store volinfo");
         goto out;
     }
+out:
+    return ret;
+}
+
+/* This function will update the file-system label of the
+ * backend snapshot brick.
+ *
+ * @param brick_path     brick path of the snap volume
+ * @param fstype         brick fstype of the snap volume
+ * @param device_path    brick device path of the snap volume
+ *
+ * @return 0 on success and -1 on failure
+ */
+int
+glusterd_update_fs_label(char *brick_path, char *fstype, char *device_path)
+{
+    int32_t ret = -1;
+    char msg[PATH_MAX] = "";
+    char label[NAME_MAX] = "";
+    uuid_t uuid = {
+        0,
+    };
+    runner_t runner = {
+        0,
+    };
+    xlator_t *this = THIS;
+    int32_t len = 0;
+
+    GF_ASSERT(brick_path);
+    GF_ASSERT(fstype);
+
+    /* Generate a new UUID */
+    gf_uuid_generate(uuid);
+
+    GLUSTERD_GET_UUID_NOHYPHEN(label, uuid);
+
+    runinit(&runner);
+
+    /* Call the file-system specific tools to update the file-system
+     * label. Currently we are only supporting xfs and ext2/ext3/ext4
+     * file-system.
+     */
+    if (0 == strcmp(fstype, "xfs")) {
+        /* XFS label is of size 12. Therefore we should truncate the
+         * label to 12 bytes*/
+        label[12] = '\0';
+        len = snprintf(msg, sizeof(msg),
+                       "Changing filesystem label "
+                       "of %s brick to %s",
+                       brick_path, label);
+        if (len < 0) {
+            strcpy(msg, "<error>");
+        }
+        /* Run the run xfs_admin tool to change the label
+         * of the file-system */
+        runner_add_args(&runner, "xfs_admin", "-L", label, device_path, NULL);
+    } else if (0 == strcmp(fstype, "ext4") || 0 == strcmp(fstype, "ext3") ||
+               0 == strcmp(fstype, "ext2")) {
+        /* Ext2/Ext3/Ext4 label is of size 16. Therefore we should
+         * truncate the label to 16 bytes*/
+        label[16] = '\0';
+        len = snprintf(msg, sizeof(msg),
+                       "Changing filesystem label "
+                       "of %s brick to %s",
+                       brick_path, label);
+        if (len < 0) {
+            strcpy(msg, "<error>");
+        }
+        /* For ext2/ext3/ext4 run tune2fs to change the
+         * file-system label */
+        runner_add_args(&runner, "tune2fs", "-L", label, device_path, NULL);
+    } else {
+        gf_msg(this->name, GF_LOG_WARNING, EOPNOTSUPP, GD_MSG_OP_UNSUPPORTED,
+               "Changing file-system "
+               "label of %s file-system is not supported as of now",
+               fstype);
+        runner_end(&runner);
+        ret = -1;
+        goto out;
+    }
+
+    runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
+    ret = runner_run(&runner);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FS_LABEL_UPDATE_FAIL,
+               "Failed to change "
+               "filesystem label of %s brick to %s",
+               brick_path, label);
+        goto out;
+    }
+
+    ret = 0;
 out:
     return ret;
 }

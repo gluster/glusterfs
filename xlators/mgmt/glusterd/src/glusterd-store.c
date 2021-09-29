@@ -334,10 +334,10 @@ gd_store_brick_snap_details_write(int fd, glusterd_brickinfo_t *brickinfo)
         goto out;
     }
 
-    if (brickinfo->device_path[0] != '\0') {
+    if (brickinfo->origin_path[0] != '\0') {
         ret = snprintf(value + total_len, sizeof(value) - total_len, "%s=%s\n",
-                       GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH,
-                       brickinfo->device_path);
+                       GLUSTERD_STORE_KEY_BRICK_ORIGIN_PATH,
+                       brickinfo->origin_path);
         if (ret < 0 || ret >= sizeof(value) - total_len) {
             ret = -1;
             goto err;
@@ -359,6 +359,16 @@ gd_store_brick_snap_details_write(int fd, glusterd_brickinfo_t *brickinfo)
     if (brickinfo->fstype[0] != '\0') {
         ret = snprintf(value + total_len, sizeof(value) - total_len, "%s=%s\n",
                        GLUSTERD_STORE_KEY_BRICK_FSTYPE, brickinfo->fstype);
+        if (ret < 0 || ret >= sizeof(value) - total_len) {
+            ret = -1;
+            goto err;
+        }
+        total_len += ret;
+    }
+
+    if (strlen(brickinfo->snap_type) > 0) {
+        ret = snprintf(value + total_len, sizeof(value) - total_len, "%s=%s\n",
+                       GLUSTERD_STORE_KEY_BRICK_SNAPTYPE, brickinfo->snap_type);
         if (ret < 0 || ret >= sizeof(value) - total_len) {
             ret = -1;
             goto err;
@@ -2458,14 +2468,14 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                            "string to integer");
                 }
 
-            } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH,
-                                SLEN(GLUSTERD_STORE_KEY_BRICK_DEVICE_PATH))) {
-                if (snprintf(brickinfo->device_path,
-                             sizeof(brickinfo->device_path), "%s",
-                             value) >= sizeof(brickinfo->device_path)) {
+            } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_ORIGIN_PATH,
+                                SLEN(GLUSTERD_STORE_KEY_BRICK_ORIGIN_PATH))) {
+                if (snprintf(brickinfo->origin_path,
+                             sizeof(brickinfo->origin_path), "%s",
+                             value) >= sizeof(brickinfo->origin_path)) {
                     gf_msg("glusterd", GF_LOG_ERROR, op_errno,
                            GD_MSG_PARSE_BRICKINFO_FAIL,
-                           "device_path truncated: %s", brickinfo->device_path);
+                           "origin_path truncated: %s", brickinfo->origin_path);
                     goto out;
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR,
@@ -2494,6 +2504,15 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                     gf_msg("glusterd", GF_LOG_ERROR, op_errno,
                            GD_MSG_PARSE_BRICKINFO_FAIL, "fstype truncated: %s",
                            brickinfo->fstype);
+                    goto out;
+                }
+            } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_SNAPTYPE,
+                                SLEN(GLUSTERD_STORE_KEY_BRICK_SNAPTYPE))) {
+                if (snprintf(brickinfo->snap_type, sizeof(brickinfo->snap_type),
+                             "%s", value) >= sizeof(brickinfo->snap_type)) {
+                    gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                           GD_MSG_PARSE_BRICKINFO_FAIL,
+                           "snap_type truncated: %s", brickinfo->snap_type);
                     goto out;
                 }
             } else if (!strncmp(key, GLUSTERD_STORE_KEY_BRICK_MNTOPTS,
@@ -3593,64 +3612,35 @@ out:
     return ret;
 }
 
-/* Check if brick_mount_path is already mounted. If not, mount the device_path
+/* Check if brick_mount_path is already mounted. If not, mount the device
  * at the brick_mount_path
  */
 int32_t
-glusterd_mount_brick_paths(char *brick_mount_path,
-                           glusterd_brickinfo_t *brickinfo)
+glusterd_mount_brick_paths(glusterd_volinfo_t *volinfo,
+                           glusterd_brickinfo_t *brickinfo, int32_t brick_num)
 {
     int32_t ret = -1;
-    runner_t runner = {
-        0,
-    };
-    char buff[PATH_MAX] = {
-        0,
-    };
-    struct mntent save_entry = {
-        0,
-    };
-    struct mntent *entry = NULL;
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
-    GF_ASSERT(brick_mount_path);
     GF_ASSERT(brickinfo);
 
     priv = this->private;
     GF_ASSERT(priv);
 
-    /* Check if the brick_mount_path is already mounted */
-    entry = glusterd_get_mnt_entry_info(brick_mount_path, buff, sizeof(buff),
-                                        &save_entry);
-    if (entry) {
-        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_ALREADY_MOUNTED,
-               "brick_mount_path (%s) already mounted.", brick_mount_path);
-        ret = 0;
+    if (!glusterd_snapshot_probe(brickinfo->origin_path, brickinfo)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
+               "Snapshot activate not supported on %s", brickinfo->origin_path);
+        ret = -1;
         goto out;
     }
 
-    /* TODO RHEL 6.5 has the logical volumes inactive by default
-     * on reboot. Hence activating the logical vol. Check behaviour
-     * on other systems
-     */
-    /* Activate the snapshot */
-    runinit(&runner);
-    runner_add_args(&runner, "lvchange", "-ay", brickinfo->device_path, NULL);
-    ret = runner_run(&runner);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_SNAP_ACTIVATE_FAIL,
-               "Failed to activate %s.", brickinfo->device_path);
-        goto out;
-    } else
-        gf_msg_debug(this->name, 0, "Activating %s successful",
-                     brickinfo->device_path);
-
     /* Mount the snapshot */
-    ret = glusterd_mount_lvm_snapshot(brickinfo, brick_mount_path);
+    ret = brickinfo->snap->activate(brickinfo, volinfo->snapshot->snapname,
+                                    volinfo->volname, brick_num);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_MOUNT_FAIL,
-               "Failed to mount lvm snapshot.");
+               "Failed to mount snapshot.");
         goto out;
     }
 
@@ -3662,58 +3652,40 @@ out:
 int32_t
 glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
 {
-    char *brick_mount_path = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     int32_t ret = -1;
     struct stat st_buf = {
         0,
     };
     char abspath[PATH_MAX] = {0};
+    int brick_count = -1;
 
     GF_ASSERT(volinfo);
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
+        brick_count++;
+
         /* If the brick is not of this node, or its
          * snapshot is pending, or the brick is not
          * a snapshotted brick, we continue
          */
         if ((gf_uuid_compare(brickinfo->uuid, MY_UUID)) ||
-            (brickinfo->snap_status == -1) ||
-            (strlen(brickinfo->device_path) == 0))
+            (brickinfo->snap_status == -1))
             continue;
-
-        /* Fetch the brick mount path from the brickinfo->path */
-        ret = glusterd_find_brick_mount_path(brickinfo->path,
-                                             &brick_mount_path);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_MNTPATH_GET_FAIL,
-                   "Failed to find brick_mount_path for %s", brickinfo->path);
-            goto out;
-        }
 
         /* Check if the brickinfo path is present.
          * If not create the brick_mount_path */
         ret = sys_lstat(brickinfo->path, &st_buf);
         if (ret) {
-            if (errno == ENOENT) {
-                ret = mkdir_p(brick_mount_path, 0755, _gf_true);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, errno,
-                           GD_MSG_CREATE_DIR_FAILED, "Failed to create %s. ",
-                           brick_mount_path);
-                    goto out;
-                }
-            } else {
-                gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-                       "Brick Path(%s) not valid. ", brickinfo->path);
-                goto out;
-            }
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                   "Brick Path(%s) not valid. ", brickinfo->path);
+            goto out;
         }
 
         /* Check if brick_mount_path is already mounted.
          * If not, mount the device_path at the brick_mount_path */
-        ret = glusterd_mount_brick_paths(brick_mount_path, brickinfo);
+        ret = glusterd_mount_brick_paths(volinfo, brickinfo, brick_count);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_MNTPATH_MOUNT_FAIL,
                    "Failed to mount brick_mount_path");
@@ -3738,18 +3710,10 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
                               sizeof(brickinfo->real_path));
             }
         }
-
-        if (brick_mount_path) {
-            GF_FREE(brick_mount_path);
-            brick_mount_path = NULL;
-        }
     }
 
     ret = 0;
 out:
-    if (ret && brick_mount_path)
-        GF_FREE(brick_mount_path);
-
     gf_msg_trace(this->name, 0, "Returning with %d", ret);
     return ret;
 }

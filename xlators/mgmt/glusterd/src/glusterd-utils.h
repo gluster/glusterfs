@@ -90,6 +90,44 @@ typedef struct glusterd_hostname_ {
     struct list_head hostname_list;
 } glusterd_hostname_t;
 
+struct glusterd_snap_ops {
+    const char *name;
+
+    gf_boolean_t (*const probe)(char *brick_path);
+    int (*const details)(dict_t *rsp_dict, glusterd_brickinfo_t *snap_brickinfo,
+                         char *snapname, char *snap_volume_id,
+                         int32_t brick_num, char *key_prefix);
+    int32_t (*const create)(glusterd_brickinfo_t *snap_brickinfo,
+                            char *snapname, char *snap_volume_id,
+                            int32_t brick_num);
+    int32_t (*const clone)(glusterd_brickinfo_t *snap_brickinfo, char *snapname,
+                           char *snap_volume_id, char *clonename,
+                           char *clone_volume_id, int32_t brick_num);
+    int32_t (*const remove)(glusterd_brickinfo_t *snap_brickinfo,
+                            char *snapname, char *snap_volume_id,
+                            int32_t brick_num);
+    int32_t (*const activate)(glusterd_brickinfo_t *snap_brickinfo,
+                              char *snapname, char *snap_volume_id,
+                              int32_t brick_num);
+    int32_t (*const deactivate)(glusterd_brickinfo_t *snap_brickinfo,
+                                char *snapname, char *snap_volume_id,
+                                int32_t brick_num);
+    int32_t (*const restore)(glusterd_brickinfo_t *snap_brickinfo,
+                             char *snapname, char *snap_volume_id,
+                             int32_t brick_num,
+                             gf_boolean_t *retain_origin_path);
+    int32_t (*const brick_path)(char *snap_mount_dir, char *origin_brick_path,
+                                int clone, char *snap_clone_name,
+                                char *snap_clone_volume_id,
+                                char *snap_brick_dir, int brick_num,
+                                char **snap_brick_path, int restore);
+};
+
+extern struct glusterd_snap_ops lvm_snap_ops;
+
+gf_boolean_t
+glusterd_mntopts_exists(const char *str, const char *opts);
+
 gf_boolean_t
 is_brick_mx_enabled(void);
 
@@ -652,9 +690,6 @@ glusterd_get_mnt_entry_info(char *mnt_pt, char *buff, int buflen,
 int
 glusterd_get_brick_root(char *path, char **mount_point);
 
-int32_t
-glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
-
 gf_boolean_t
 gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo);
 
@@ -663,10 +698,6 @@ glusterd_get_brick_mount_dir(char *brickpath, char *hostname, char *mount_dir);
 
 int32_t
 glusterd_aggr_brick_mount_dirs(dict_t *aggr, dict_t *rsp_dict);
-
-int32_t
-glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
-                           char *origin_brick_path);
 
 int
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque);
@@ -691,7 +722,7 @@ int
 glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo);
 
 int
-glusterd_update_fs_label(glusterd_brickinfo_t *brickinfo);
+glusterd_update_fs_label(char *brick_path, char *fstype, char *device_path);
 
 int
 glusterd_get_volopt_content(dict_t *dict, gf_boolean_t xml_out);

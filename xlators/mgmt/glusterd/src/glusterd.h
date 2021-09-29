@@ -277,6 +277,8 @@ struct glusterd_brick_proc {
 
 typedef struct glusterd_brick_proc glusterd_brick_proc_t;
 
+struct glusterd_snap_ops;
+
 struct glusterd_brickinfo {
     struct cds_list_head brick_list;
     uuid_t uuid;
@@ -288,6 +290,7 @@ struct glusterd_brickinfo {
     int decommissioned;
     gf_brick_status_t status;
     int32_t snap_status;
+    struct glusterd_snap_ops *snap;
     /*
      * The group is used to identify which bricks are part of the same
      * replica set during brick-volfile generation, so that JBR volfiles
@@ -310,11 +313,13 @@ struct glusterd_brickinfo {
     char path[VALID_GLUSTERD_PATHMAX];
     char real_path[VALID_GLUSTERD_PATHMAX];
     char device_path[VALID_GLUSTERD_PATHMAX];
+    char origin_path[VALID_GLUSTERD_PATHMAX];
     char mount_dir[VALID_GLUSTERD_PATHMAX];
-    char brick_id[1024];   /*Client xlator name, AFR changelog name*/
-    char fstype[NAME_MAX]; /* Brick file-system type */
-    char mnt_opts[1024];   /* Brick mount options */
-    char vg[PATH_MAX];     /* FIXME: Use max size for length of vg */
+    char brick_id[1024];      /*Client xlator name, AFR changelog name*/
+    char fstype[NAME_MAX];    /* Brick file-system type */
+    char snap_type[NAME_MAX]; /* Brick snapshot type */
+    char mnt_opts[1024];      /* Brick mount options */
+    char vg[PATH_MAX];        /* FIXME: Use max size for length of vg */
 };
 
 struct glusterd_gfproxyd_info {
