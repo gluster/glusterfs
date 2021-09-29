@@ -17,7 +17,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 master=$GMV0
-SH0="192.168.122.1"
+SH0="127.0.0.1"
 slave=${SH0}::${GSV0}
 num_active=2
 num_passive=2
@@ -86,7 +86,7 @@ TEST pidof glusterd
 
 TEST $CLI get-state detail
 TEST pidof glusterd
-exit
+
 #Pause geo-replication session
 TEST $GEOREP_CLI  $master $slave pause
 
