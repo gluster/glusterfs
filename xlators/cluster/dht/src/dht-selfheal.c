@@ -125,10 +125,9 @@ done:
     return 0;
 }
 
-int
+static int
 dht_refresh_layout_done(call_frame_t *frame)
 {
-    int ret = -1;
     dht_layout_t *refreshed = NULL, *heal = NULL;
     dht_local_t *local = NULL;
     dht_need_heal_t should_heal = NULL;
@@ -142,12 +141,7 @@ dht_refresh_layout_done(call_frame_t *frame)
     healer = local->selfheal.healer;
     should_heal = local->selfheal.should_heal;
 
-    ret = dht_layout_sort(refreshed);
-    if (ret == -1) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
-                DHT_MSG_LAYOUT_SORT_FAILED, NULL);
-        goto err;
-    }
+    dht_layout_sort(refreshed);
 
     if (should_heal(frame, &heal, &refreshed)) {
         healer(frame, &local->loc, heal);
@@ -161,10 +155,6 @@ dht_refresh_layout_done(call_frame_t *frame)
         dht_selfheal_dir_finish(frame, frame->this, 0, 1);
     }
 
-    return 0;
-
-err:
-    dht_selfheal_dir_finish(frame, frame->this, -1, 1);
     return 0;
 }
 
