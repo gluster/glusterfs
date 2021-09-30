@@ -682,6 +682,8 @@ glfs_fd_destroy(struct glfs_fd *glfd)
 
     GF_FREE(glfd->readdirbuf);
 
+    LOCK_DESTROY(&glfd->lock);
+
     GF_FREE(glfd);
 }
 
@@ -699,6 +701,8 @@ glfs_fd_new(struct glfs *fs)
     INIT_LIST_HEAD(&glfd->openfds);
 
     GF_REF_INIT(glfd, glfs_fd_destroy);
+
+    LOCK_INIT(&glfd->lock);
 
     return glfd;
 }
@@ -1207,6 +1211,8 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     GF_FREE(ctx->cmd_args.process_name);
 
     LOCK_DESTROY(&ctx->lock);
+    LOCK_DESTROY(&ctx->volfile_lock);
+
     pthread_mutex_destroy(&ctx->notify_lock);
     pthread_cond_destroy(&ctx->notify_cond);
 
@@ -1221,6 +1227,7 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     GF_FREE(ctx->statedump_path);
+    FREE(ctx->hostname);
     FREE(ctx);
 
     return ret;
