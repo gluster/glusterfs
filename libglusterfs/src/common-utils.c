@@ -5465,6 +5465,33 @@ gf_syncfs(int fd)
     return ret;
 }
 
+int
+gf_pipe(int fd[2], int flags)
+{
+    int ret = 0;
+#if defined(HAVE_PIPE2)
+    ret = pipe2(fd, flags);
+#else /* not HAVE_PIPE2 */
+    ret = pipe(fd);
+    if (ret < 0)
+        return ret;
+    if (flags) {
+        ret = fcntl(fd[0], F_SETFL, (fcntl(fd[0], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+        ret = fcntl(fd[1], F_SETFL, (fcntl(fd[1], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+    }
+out:
+    if (ret < 0) {
+        close(fd[0]);
+        close(fd[1]);
+    }
+#endif /* HAVE_PIPE2 */
+    return ret;
+}
+
 char **
 get_xattrs_to_heal()
 {

@@ -1183,6 +1183,11 @@ if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
 fi
 
+AC_CHECK_FUNC([pipe2], [have_pipe2=yes])
+if test "x${have_pipe2}" = "xyes"; then
+AC_DEFINE(HAVE_PIPE2, 1, [Define if (Linux-specific) pipe2() exists.])
+fi
+
 dnl Looking for OS-dependent non-POSIX function to set thread name.
 
 PTHREAD_SETNAME_FOUND=no

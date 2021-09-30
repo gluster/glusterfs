@@ -106,35 +106,12 @@ event_pool_new_poll(int count, int eventthreadcount)
 
     pthread_mutex_init(&event_pool->mutex, NULL);
 
-    ret = pipe(event_pool->breaker);
+    /* Both ends are opened non-blocking. */
+    ret = gf_pipe(event_pool->breaker, O_NONBLOCK);
 
     if (ret == -1) {
         gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED, NULL);
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        return NULL;
-    }
-
-    ret = fcntl(event_pool->breaker[0], F_SETFL, O_NONBLOCK);
-    if (ret == -1) {
-        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
-        sys_close(event_pool->breaker[0]);
-        sys_close(event_pool->breaker[1]);
         event_pool->breaker[0] = event_pool->breaker[1] = -1;
-
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        return NULL;
-    }
-
-    ret = fcntl(event_pool->breaker[1], F_SETFL, O_NONBLOCK);
-    if (ret == -1) {
-        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
-
-        sys_close(event_pool->breaker[0]);
-        sys_close(event_pool->breaker[1]);
-        event_pool->breaker[0] = event_pool->breaker[1] = -1;
-
         GF_FREE(event_pool->reg);
         GF_FREE(event_pool);
         return NULL;
