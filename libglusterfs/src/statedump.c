@@ -284,10 +284,9 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
-#ifdef DEBUG
-        if (!xl->mem_acct->rec[i].size)
+        if (!GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs))
             continue;
-#endif
+
         gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
                                  i);
 #ifdef DEBUG
