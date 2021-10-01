@@ -357,8 +357,8 @@ br_scrubber_scrub_begin(xlator_t *this, struct br_fsscan_entry *fsentry)
     }
 
     /* skip updating scrub statistics for shard entries */
-    gf_uuid_parse(SHARD_ROOT_GFID, shard_root_gfid);
-    if (gf_uuid_compare(loc.pargfid, shard_root_gfid) == 0)
+    uuid_parse(SHARD_ROOT_GFID, shard_root_gfid);
+    if (uuid_compare(loc.pargfid, shard_root_gfid) == 0)
         skip_stat = _gf_true;
 
     /**
@@ -1611,7 +1611,7 @@ br_lookup_bad_obj_dir(xlator_t *this, br_child_t *child, uuid_t gfid)
         goto out;
     }
 
-    gf_uuid_copy(loc.gfid, gfid);
+    uuid_copy(loc.gfid, gfid);
 
     ret = syncop_lookup(child->xl, &loc, &statbuf, NULL, NULL, NULL);
     if (ret < 0) {
@@ -1721,7 +1721,7 @@ br_get_bad_objects_from_child(xlator_t *this, dict_t *dict, br_child_t *child)
     }
 
     loc.inode = inode;
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     ret = syncop_opendir(child->xl, &loc, fd, NULL, NULL);
     if (ret < 0) {

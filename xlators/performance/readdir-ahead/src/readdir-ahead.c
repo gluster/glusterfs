@@ -135,7 +135,7 @@ __rda_inode_ctx_update_iatts(inode_t *inode, xlator_t *this,
         else
             tmp_stat = ctx_p->statbuf;
         memset(&ctx_p->statbuf, 0, sizeof(ctx_p->statbuf));
-        gf_uuid_copy(ctx_p->statbuf.ia_gfid, tmp_stat.ia_gfid);
+        uuid_copy(ctx_p->statbuf.ia_gfid, tmp_stat.ia_gfid);
         ctx_p->statbuf.ia_type = tmp_stat.ia_type;
         GF_ATOMIC_INC(ctx_p->generation);
     } else {

@@ -106,7 +106,7 @@ glfs_refresh_inode_safe(xlator_t *subvol, inode_t *oldinode,
             return newinode;
     }
 
-    gf_uuid_copy(loc.gfid, oldinode->gfid);
+    uuid_copy(loc.gfid, oldinode->gfid);
     if (!newinode)
         loc.inode = inode_new(subvol->itable);
     else
@@ -189,7 +189,7 @@ glfs_resolve_symlink(struct glfs *fs, xlator_t *subvol, inode_t *inode,
     int ret = -1;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     ret = inode_path(inode, NULL, &rpath);
     if (ret < 0)
         goto out;
@@ -219,7 +219,7 @@ glfs_resolve_base(struct glfs *fs, xlator_t *subvol, inode_t *inode,
     char *path = NULL;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     ret = inode_path(loc.inode, NULL, &path);
     loc.path = path;
@@ -290,7 +290,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
     uint64_t ctx_value = LOOKUP_NOT_NEEDED;
 
     loc.parent = inode_ref(parent);
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
 
     if (__is_root_gfid(parent->gfid) &&
         ((strcmp(component, ".") == 0) || (strcmp(component, "..") == 0) ||
@@ -339,7 +339,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         if (temp_parent) {
             inode_unref(loc.parent);
             loc.parent = temp_parent;
-            gf_uuid_copy(loc.pargfid, temp_parent->gfid);
+            uuid_copy(loc.pargfid, temp_parent->gfid);
             inode_find_directory_name(loc.inode, &loc.name);
         }
 
@@ -350,12 +350,12 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             if (temp_parent) {
                 inode_unref(loc.parent);
                 loc.parent = temp_parent;
-                gf_uuid_copy(loc.pargfid, temp_parent->gfid);
+                uuid_copy(loc.pargfid, temp_parent->gfid);
                 inode_find_directory_name(loc.inode, &loc.name);
             } else if (__is_root_gfid(loc.inode->gfid)) {
                 inode_unref(loc.parent);
                 loc.parent = inode_ref(loc.inode);
-                gf_uuid_copy(loc.pargfid, loc.inode->gfid);
+                uuid_copy(loc.pargfid, loc.inode->gfid);
                 loc.name = ".";
             } else {
                 inode_unref(loc.inode);
@@ -369,7 +369,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         loc.name = component;
 
     if (loc.inode) {
-        gf_uuid_copy(loc.gfid, loc.inode->gfid);
+        uuid_copy(loc.gfid, loc.inode->gfid);
         reval = 1;
 
         if (!(force_lookup || inode_needs_lookup(loc.inode, THIS))) {
@@ -377,7 +377,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto found;
         }
     } else {
-        gf_uuid_generate(gfid);
+        uuid_generate(gfid);
         loc.inode = inode_new(parent->table);
         if (!loc.inode) {
             errno = ENOMEM;
@@ -416,7 +416,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         }
 
         inode_unref(loc.inode);
-        gf_uuid_clear(loc.gfid);
+        uuid_clear(loc.gfid);
         loc.inode = inode_new(parent->table);
         if (!loc.inode) {
             errno = ENOMEM;
@@ -429,7 +429,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
 
-        gf_uuid_generate(gfid);
+        uuid_generate(gfid);
 
         ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
         if (ret) {
@@ -593,13 +593,13 @@ priv_glfs_resolve_at(struct glfs *fs, xlator_t *subvol, inode_t *at,
 
     loc->parent = parent;
     if (parent) {
-        gf_uuid_copy(loc->pargfid, parent->gfid);
+        uuid_copy(loc->pargfid, parent->gfid);
         loc->name = component;
     }
 
     loc->inode = inode;
     if (inode) {
-        gf_uuid_copy(loc->gfid, inode->gfid);
+        uuid_copy(loc->gfid, inode->gfid);
         if (iatt)
             *iatt = ciatt;
         ret = 0;
@@ -783,7 +783,7 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
         goto out;
     }
 
-    gf_uuid_copy(loc.gfid, oldinode->gfid);
+    uuid_copy(loc.gfid, oldinode->gfid);
 
     if (IA_ISDIR(oldinode->ia_type))
         ret = syncop_opendir(newsubvol, &loc, newfd, NULL, NULL);
@@ -895,7 +895,7 @@ __glfs_migrate_openfds(struct glfs *fs, xlator_t *subvol)
 
     list_for_each_entry(glfd, &fs->openfds, openfds)
     {
-        if (gf_uuid_is_null(glfd->fd->inode->gfid)) {
+        if (uuid_is_null(glfd->fd->inode->gfid)) {
             gf_smsg(fs->volname, GF_LOG_INFO, 0, API_MSG_OPENFD_SKIPPED,
                     "glfd=%p", glfd, "glfd->fd=%p", glfd->fd, "subvol=%s",
                     graphid_str(subvol), "id=%d", subvol->graph->id, NULL);
@@ -1149,7 +1149,7 @@ glfs_create_object(loc_t *loc, struct glfs_object **retobject)
     }
 
     object->inode = loc->inode;
-    gf_uuid_copy(object->gfid, object->inode->gfid);
+    uuid_copy(object->gfid, object->inode->gfid);
 
     /* we hold the reference */
     loc->inode = NULL;

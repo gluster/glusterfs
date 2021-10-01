@@ -35,7 +35,7 @@ metadisp_stat_resume(call_frame_t *frame, xlator_t *this, loc_t *loc,
                      dict_t *xdata)
 {
     METADISP_TRACE("winding stat to path %s", loc->path);
-    if (gf_uuid_is_null(loc->gfid)) {
+    if (uuid_is_null(loc->gfid)) {
         METADISP_TRACE("bad object, sending EUCLEAN");
         STACK_UNWIND_STRICT(open, frame, -1, EUCLEAN, NULL, NULL);
         return 0;

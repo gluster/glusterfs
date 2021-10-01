@@ -78,8 +78,8 @@ nfs3_fh_to_xlator(struct nfs3_state *nfs3, struct nfs3_fh *fh);
         rpc_transport_t *trans = NULL;                                         \
         volume = nfs3_fh_to_xlator((nfs3state), handle);                       \
         if (!volume) {                                                         \
-            gf_uuid_unparse(handle->exportid, exportid);                       \
-            gf_uuid_unparse(handle->gfid, gfid);                               \
+            uuid_unparse(handle->exportid, exportid);                          \
+            uuid_unparse(handle->gfid, gfid);                                  \
             trans = rpcsvc_request_transport(req);                             \
             gf_msg(GF_ACL, GF_LOG_ERROR, 0, NFS_MSG_FH_TO_VOL_FAIL,            \
                    "Failed to map "                                            \
@@ -116,7 +116,7 @@ nfs3_fh_to_xlator(struct nfs3_state *nfs3, struct nfs3_fh *fh);
         if ((cst)->resolve_ret < 0) {                                          \
             trans = rpcsvc_request_transport(cst->req);                        \
             xlatorp = nfs3_fh_to_xlator(cst->nfs3state, &cst->resolvefh);      \
-            gf_uuid_unparse(cst->resolvefh.gfid, gfid);                        \
+            uuid_unparse(cst->resolvefh.gfid, gfid);                           \
             snprintf(buf, sizeof(buf), "(%s) %s : %s",                         \
                      trans->peerinfo.identifier,                               \
                      xlatorp ? xlatorp->name : "ERR", gfid);                   \

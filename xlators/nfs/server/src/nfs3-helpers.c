@@ -3724,7 +3724,7 @@ nfs3_fh_resolve_inode(nfs3_call_state_t *cs)
 
     this = cs->nfsx;
     gf_msg_trace(GF_NFS3, 0, "FH needs inode resolution");
-    gf_uuid_copy(cs->resolvedloc.gfid, cs->resolvefh.gfid);
+    uuid_copy(cs->resolvedloc.gfid, cs->resolvefh.gfid);
 
     inode = inode_find(cs->vol->itable, cs->resolvefh.gfid);
     if (!inode || inode_ctx_get(inode, this, NULL))

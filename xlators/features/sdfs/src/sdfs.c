@@ -95,7 +95,7 @@ sdfs_build_parent_loc(loc_t *parent, loc_t *child)
         goto out;
     }
 
-    gf_uuid_copy(parent->gfid, child->pargfid);
+    uuid_copy(parent->gfid, child->pargfid);
     return 0;
 
 out:
@@ -200,7 +200,7 @@ sdfs_get_new_frame_readdirp(call_frame_t *frame, fd_t *fd,
 
     local = (*new_frame)->local;
     local->parent_loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->parent_loc.gfid, fd->inode->gfid);
+    uuid_copy(local->parent_loc.gfid, fd->inode->gfid);
 
     ret = 0;
 err:
@@ -264,7 +264,7 @@ sdfs_mkdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -355,7 +355,7 @@ sdfs_rmdir_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -445,7 +445,7 @@ sdfs_create_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -536,7 +536,7 @@ sdfs_unlink_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -625,7 +625,7 @@ sdfs_symlink_helper(call_frame_t *frame, xlator_t *this, const char *linkname,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -838,7 +838,7 @@ sdfs_entry_lock_cmp(const void *l1, const void *l2)
 
     loc_gfid((loc_t *)&r1->parent_loc, gfid1);
     loc_gfid((loc_t *)&r2->parent_loc, gfid2);
-    ret = gf_uuid_compare(gfid1, gfid2);
+    ret = uuid_compare(gfid1, gfid2);
     /*Entrylks with NULL basename are the 'smallest'*/
     if (ret == 0) {
         if (!r1->basename)
@@ -959,7 +959,7 @@ sdfs_mknod_helper(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -1230,7 +1230,7 @@ sdfs_lookup_helper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     local = frame->local;
 
-    gf_uuid_unparse(loc->pargfid, gfid);
+    uuid_unparse(loc->pargfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,
@@ -1329,7 +1329,7 @@ sdfs_readdirp_helper(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     local = frame->local;
 
-    gf_uuid_unparse(fd->inode->gfid, gfid);
+    uuid_unparse(fd->inode->gfid, gfid);
 
     if (local->op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SDFS_MSG_ENTRYLK_ERROR,

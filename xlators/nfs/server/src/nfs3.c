@@ -91,7 +91,7 @@ __nfs3_get_export_by_volumeid(struct nfs3_state *nfs3, uuid_t exportid)
 
     list_for_each_entry(exp, &nfs3->exports, explist)
     {
-        if (!gf_uuid_compare(exportid, exp->volumeid))
+        if (!uuid_compare(exportid, exp->volumeid))
             goto found;
     }
 
@@ -208,8 +208,8 @@ out:
         rpc_transport_t *trans = NULL;                                         \
         volume = nfs3_fh_to_xlator((nfs3state), handle);                       \
         if (!volume) {                                                         \
-            gf_uuid_unparse(handle->exportid, exportid);                       \
-            gf_uuid_unparse(handle->gfid, gfid);                               \
+            uuid_unparse(handle->exportid, exportid);                          \
+            uuid_unparse(handle->gfid, gfid);                                  \
             trans = rpcsvc_request_transport(req);                             \
             GF_LOG_OCCASIONALLY(nfs3state->occ_logger, GF_NFS3, GF_LOG_ERROR,  \
                                 "Failed to map "                               \
@@ -254,7 +254,7 @@ out:
         if (auth_ret < 0) {                                                    \
             trans = rpcsvc_request_transport(cst->req);                        \
             xlatorp = nfs3_fh_to_xlator(cst->nfs3state, &cst->resolvefh);      \
-            gf_uuid_unparse(cst->resolvefh.gfid, gfid);                        \
+            uuid_unparse(cst->resolvefh.gfid, gfid);                           \
             sprintf(buf, "(%s) %s : %s", trans->peerinfo.identifier,           \
                     xlatorp ? xlatorp->name : "ERR", gfid);                    \
             gf_msg(GF_NFS3, GF_LOG_ERROR, 0, NFS_MSG_RESOLVE_FH_FAIL,          \
@@ -274,7 +274,7 @@ out:
         if ((cst)->resolve_ret < 0) {                                          \
             trans = rpcsvc_request_transport(cst->req);                        \
             xlatorp = nfs3_fh_to_xlator(cst->nfs3state, &cst->resolvefh);      \
-            gf_uuid_unparse(cst->resolvefh.gfid, gfid);                        \
+            uuid_unparse(cst->resolvefh.gfid, gfid);                           \
             snprintf(buf, sizeof(buf), "(%s) %s : %s",                         \
                      trans->peerinfo.identifier,                               \
                      xlatorp ? xlatorp->name : "ERR", gfid);                   \
@@ -293,7 +293,7 @@ out:
         if (((cst)->resolve_ret < 0) && ((cst)->resolve_errno != ENOENT)) {    \
             trans = rpcsvc_request_transport(cst->req);                        \
             xlatorp = nfs3_fh_to_xlator(cst->nfs3state, &cst->resolvefh);      \
-            gf_uuid_unparse(cst->resolvefh.gfid, gfid);                        \
+            uuid_unparse(cst->resolvefh.gfid, gfid);                           \
             snprintf(buf, sizeof(buf), "(%s) %s : %s",                         \
                      trans->peerinfo.identifier,                               \
                      xlatorp ? xlatorp->name : "ERR", gfid);                   \
@@ -316,7 +316,7 @@ __nfs3_get_volume_id(struct nfs3_state *nfs3, xlator_t *xl, uuid_t volumeid)
     list_for_each_entry(exp, &nfs3->exports, explist)
     {
         if (exp->subvol == xl) {
-            gf_uuid_copy(volumeid, exp->volumeid);
+            uuid_copy(volumeid, exp->volumeid);
             ret = 0;
             goto out;
         }
@@ -379,7 +379,7 @@ nfs3_funge_webnfs_zerolen_fh(rpcsvc_request_t *req, struct nfs3_state *nfs3st,
     }
 
     /* resolved subdir, copy gfid for the fh */
-    gf_uuid_copy(fhd->gfid, loc.gfid);
+    uuid_copy(fhd->gfid, loc.gfid);
     loc_wipe(&loc);
 
     if (gf_nfs_dvm_off(nfs_state(nfs3st->nfsx)))
@@ -2496,7 +2496,7 @@ nfs3svc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     cs->preparent = *preparent;
     cs->postparent = *postparent;
     nfs_request_user_init(&nfu, cs->req);
-    gf_uuid_copy(cs->resolvedloc.gfid, oldinode->gfid);
+    uuid_copy(cs->resolvedloc.gfid, oldinode->gfid);
     ret = nfs_setattr(cs->nfsx, cs->vol, &nfu, &cs->resolvedloc, &cs->stbuf,
                       cs->setattr_valid, nfs3svc_create_setattr_cbk, cs);
     if (ret < 0)
@@ -5378,7 +5378,7 @@ nfs3_init_subvolume_options(xlator_t *nfsx, struct nfs3_export *exp,
     if (!options)
         return (-1);
 
-    gf_uuid_clear(volumeid);
+    uuid_clear(volumeid);
     if (gf_nfs_dvm_off(nfs_state(nfsx)))
         goto no_dvm;
 
@@ -5409,14 +5409,14 @@ nfs3_init_subvolume_options(xlator_t *nfsx, struct nfs3_export *exp,
     }
 
     if (optstr) {
-        ret = gf_uuid_parse(optstr, volumeid);
+        ret = uuid_parse(optstr, volumeid);
         if (ret < 0) {
             gf_msg(GF_MNT, GF_LOG_ERROR, 0, NFS_MSG_PARSE_VOL_UUID_FAIL,
                    "Failed to parse volume UUID");
             ret = -1;
             goto err;
         }
-        gf_uuid_copy(exp->volumeid, volumeid);
+        uuid_copy(exp->volumeid, volumeid);
     }
 
 no_dvm:

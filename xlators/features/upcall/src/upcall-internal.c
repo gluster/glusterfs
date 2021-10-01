@@ -113,7 +113,7 @@ __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
     INIT_LIST_HEAD(&inode_ctx->inode_ctx_list);
     INIT_LIST_HEAD(&inode_ctx->client_list);
     inode_ctx->destroy = 0;
-    gf_uuid_copy(inode_ctx->gfid, inode->gfid);
+    uuid_copy(inode_ctx->gfid, inode->gfid);
 
     ctx = (long)inode_ctx;
     ret = __inode_ctx_set(inode, this, &ctx);
@@ -518,14 +518,14 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
      * invalid till it gets linked to inode table. Read gfid from
      * the stat returned in such cases.
      */
-    if (gf_uuid_is_null(up_inode_ctx->gfid) && stbuf) {
+    if (uuid_is_null(up_inode_ctx->gfid) && stbuf) {
         /* That means inode must have been invalid when this inode_ctx
          * is created. Copy the gfid value from stbuf instead.
          */
-        gf_uuid_copy(up_inode_ctx->gfid, stbuf->ia_gfid);
+        uuid_copy(up_inode_ctx->gfid, stbuf->ia_gfid);
     }
 
-    if (gf_uuid_is_null(up_inode_ctx->gfid)) {
+    if (uuid_is_null(up_inode_ctx->gfid)) {
         gf_msg_debug(this->name, 0,
                      "up_inode_ctx->gfid and "
                      "stbuf->ia_gfid is NULL, fop:%s",
@@ -602,14 +602,14 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
     int ret = -1;
     time_t t_expired = now - up_client_entry->access_time;
 
-    GF_VALIDATE_OR_GOTO("upcall_client_cache_invalidate",
-                        !(gf_uuid_is_null(gfid)), out);
+    GF_VALIDATE_OR_GOTO("upcall_client_cache_invalidate", !(uuid_is_null(gfid)),
+                        out);
     timeout = get_cache_invalidation_timeout(this);
 
     if (t_expired < timeout) {
         /* Send notify call */
         up_req.client_uid = up_client_entry->client_uid;
-        gf_uuid_copy(up_req.gfid, gfid);
+        uuid_copy(up_req.gfid, gfid);
 
         ca_req.flags = flags;
         ca_req.expire_time_attr = up_client_entry->expire_time_attr;

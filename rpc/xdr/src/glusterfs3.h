@@ -398,9 +398,9 @@ gf_proto_cache_invalidation_to_upcall(xlator_t *this,
     gf_c_data = (struct gf_upcall_cache_invalidation *)gf_up_data->data;
     GF_VALIDATE_OR_GOTO(this->name, gf_c_data, out);
 
-    ret = gf_uuid_parse(gf_c_req->gfid, gf_up_data->gfid);
+    ret = uuid_parse(gf_c_req->gfid, gf_up_data->gfid);
     if (ret) {
-        gf_log(this->name, GF_LOG_WARNING, "gf_uuid_parse(%s) failed",
+        gf_log(this->name, GF_LOG_WARNING, "uuid_parse(%s) failed",
                gf_c_req->gfid);
         gf_up_data->event_type = GF_UPCALL_EVENT_NULL;
         goto out;
@@ -444,7 +444,7 @@ gf_proto_inodelk_contention_to_upcall(struct gfs4_inodelk_contention_req *lc,
 
     tmp = (struct gf_upcall_inodelk_contention *)gf_up_data->data;
 
-    gf_uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
+    uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
 
     gf_proto_flock_to_flock(&lc->flock, &tmp->flock);
     tmp->pid = lc->pid;
@@ -480,7 +480,7 @@ gf_proto_inodelk_contention_from_upcall(xlator_t *this,
 
     tmp = (struct gf_upcall_inodelk_contention *)gf_up_data->data;
 
-    gf_uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
+    uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
 
     gf_proto_flock_from_flock(&lc->flock, &tmp->flock);
     lc->pid = tmp->pid;
@@ -518,7 +518,7 @@ gf_proto_entrylk_contention_to_upcall(struct gfs4_entrylk_contention_req *lc,
 
     tmp = (struct gf_upcall_entrylk_contention *)gf_up_data->data;
 
-    gf_uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
+    uuid_copy(gf_up_data->gfid, (unsigned char *)lc->gfid);
 
     tmp->type = lc->type;
     tmp->name = lc->name;
@@ -558,7 +558,7 @@ gf_proto_entrylk_contention_from_upcall(xlator_t *this,
 
     tmp = (struct gf_upcall_entrylk_contention *)gf_up_data->data;
 
-    gf_uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
+    uuid_copy((unsigned char *)lc->gfid, gf_up_data->gfid);
 
     lc->type = tmp->type;
     lc->name = (char *)tmp->name;

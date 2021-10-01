@@ -53,7 +53,6 @@
 #include "posix-metadata.h"
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
-#include <glusterfs/compat-uuid.h>
 #include <glusterfs/common-utils.h>
 
 extern char *marker_xattrs[];
@@ -1892,7 +1891,7 @@ _fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
     if (fd)
         inode = fd->inode;
 
-    if (!fd || !fd->inode || gf_uuid_is_null(fd->inode->gfid)) {
+    if (!fd || !fd->inode || uuid_is_null(fd->inode->gfid)) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, P_MSG_XATTR_FAILED,
                          "fd: %p inode: %p"
                          "gfid:%s",
@@ -3316,7 +3315,7 @@ posix_links_in_same_directory(char *dirpath, int count, inode_t *leaf_inode,
             };
 
             loc.inode = inode_ref(leaf_inode);
-            gf_uuid_copy(loc.gfid, leaf_inode->gfid);
+            uuid_copy(loc.gfid, leaf_inode->gfid);
 
             (void)snprintf(temppath, sizeof(temppath), "%s/%s", dirpath,
                            entry->d_name);
@@ -3417,7 +3416,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
         goto out;
     }
 
-    gf_uuid_copy(loc->gfid, leaf_inode->gfid);
+    uuid_copy(loc->gfid, leaf_inode->gfid);
 
     MAKE_INODE_HANDLE(leaf_path, this, loc, NULL);
     if (!leaf_path) {
@@ -3496,7 +3495,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
 
         snprintf(pgfidstr, sizeof(pgfidstr), "%s",
                  key + SLEN(PGFID_XATTR_KEY_PREFIX));
-        gf_uuid_parse(pgfidstr, pgfid);
+        uuid_parse(pgfidstr, pgfid);
 
         handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
@@ -3721,7 +3720,7 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         }
         size = gf_asprintf(
             &host_buf, "<POSIX(%s):%s:%s>", priv->base_path,
-            ((priv->node_uuid_pathinfo && !gf_uuid_is_null(priv->glusterd_uuid))
+            ((priv->node_uuid_pathinfo && !uuid_is_null(priv->glusterd_uuid))
                  ? uuid_utoa(priv->glusterd_uuid)
                  : priv->hostname),
             rpath);
@@ -3744,7 +3743,7 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 
     if (loc->inode && name && (strcmp(name, GF_XATTR_NODE_UUID_KEY) == 0) &&
-        !gf_uuid_is_null(priv->glusterd_uuid)) {
+        !uuid_is_null(priv->glusterd_uuid)) {
         size = gf_asprintf(&host_buf, "%s", uuid_utoa(priv->glusterd_uuid));
         if (size == -1) {
             op_errno = ENOMEM;
@@ -5136,7 +5135,7 @@ do_xattrop(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
         _fd = pfd->fd;
     }
 
-    if (loc && !gf_uuid_is_null(loc->gfid)) {
+    if (loc && !uuid_is_null(loc->gfid)) {
         MAKE_INODE_HANDLE(real_path, this, loc, NULL);
         if (!real_path) {
             op_ret = -1;
@@ -5719,7 +5718,7 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     {
         inode = inode_grep(fd->inode->table, fd->inode, entry->d_name);
         if (inode)
-            gf_uuid_copy(gfid, inode->gfid);
+            uuid_copy(gfid, inode->gfid);
         else
             bzero(gfid, 16);
 

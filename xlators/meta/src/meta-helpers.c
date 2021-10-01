@@ -176,9 +176,9 @@ meta_direct_io_mode(dict_t *xdata, call_frame_t *frame)
 static void
 meta_uuid_copy(uuid_t dst, uuid_t src)
 {
-    gf_uuid_copy(dst, src);
-    if (gf_uuid_is_null(dst))
-        gf_uuid_generate(dst);
+    uuid_copy(dst, src);
+    if (uuid_is_null(dst))
+        uuid_generate(dst);
 }
 
 static void

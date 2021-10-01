@@ -36,7 +36,6 @@
 #include "glusterfs/locking.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/lkowner.h"
-#include "glusterfs/compat-uuid.h"
 #include "glusterfs/refcount.h"
 #include "glusterfs/atomic.h"
 

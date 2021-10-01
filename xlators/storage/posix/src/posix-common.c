@@ -50,7 +50,6 @@
 #include "posix-messages.h"
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
-#include <glusterfs/compat-uuid.h>
 #include "timer-wheel.h"
 
 extern char *marker_xattrs[];
@@ -409,7 +408,7 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("node-uuid-pathinfo", priv->node_uuid_pathinfo, options,
                      bool, out);
 
-    if (priv->node_uuid_pathinfo && (gf_uuid_is_null(priv->glusterd_uuid))) {
+    if (priv->node_uuid_pathinfo && (uuid_is_null(priv->glusterd_uuid))) {
         gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_UUID_NULL,
                "glusterd uuid is NULL, pathinfo xattr would"
                " fallback to <hostname>:<export>");
@@ -567,7 +566,7 @@ posix_create_unlink_dir(xlator_t *this)
     (void)snprintf(unlink_path, sizeof(unlink_path), "%s/%s", priv->base_path,
                    GF_UNLINK_PATH);
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     uuid_utoa_r(gfid, gfid_str);
 
     (void)snprintf(landfill_path, sizeof(landfill_path), "%s/%s/%s",
@@ -759,7 +758,7 @@ posix_init(xlator_t *this)
 
     tmp_data = dict_get(this->options, "volume-id");
     if (tmp_data) {
-        op_ret = gf_uuid_parse(tmp_data->data, dict_uuid);
+        op_ret = uuid_parse(tmp_data->data, dict_uuid);
         if (op_ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_INVALID_VOLUME_ID,
                    "wrong volume-id (%s) set"
@@ -771,7 +770,7 @@ posix_init(xlator_t *this)
         size = sys_lgetxattr(dir_data->data, "trusted.glusterfs.volume-id",
                              old_uuid, 16);
         if (size == 16) {
-            if (gf_uuid_compare(old_uuid, dict_uuid)) {
+            if (uuid_compare(old_uuid, dict_uuid)) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_INVALID_VOLUME_ID,
                        "mismatching volume-id (%s) received. "
                        "already is a part of volume %s ",
@@ -958,7 +957,7 @@ posix_init(xlator_t *this)
 
     ret = dict_get_str(this->options, "glusterd-uuid", &guuid);
     if (!ret) {
-        if (gf_uuid_parse(guuid, _private->glusterd_uuid))
+        if (uuid_parse(guuid, _private->glusterd_uuid))
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_INVALID_NODE_UUID,
                    "Cannot parse "
                    "glusterd (node) UUID, node-uuid xattr "
@@ -1102,7 +1101,7 @@ posix_init(xlator_t *this)
     GF_OPTION_INIT("node-uuid-pathinfo", _private->node_uuid_pathinfo, bool,
                    out);
     if (_private->node_uuid_pathinfo &&
-        (gf_uuid_is_null(_private->glusterd_uuid))) {
+        (uuid_is_null(_private->glusterd_uuid))) {
         gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_UUID_NULL,
                "glusterd uuid is NULL, pathinfo xattr would"
                " fallback to <hostname>:<export>");

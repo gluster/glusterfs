@@ -12,7 +12,6 @@
 #define _UPCALL_UTILS_H
 
 #include "glusterfs/iatt.h"
-#include "glusterfs/compat-uuid.h"
 #include "glusterfs/compat.h"
 
 /* Flags sent for cache_invalidation */

@@ -189,7 +189,7 @@ dht_refresh_layout_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_iatt_merge(this, &local->stbuf, stbuf);
 
         if (op_ret == -1) {
-            gf_uuid_unparse(local->loc.gfid, gfid);
+            uuid_unparse(local->loc.gfid, gfid);
             local->op_errno = op_errno;
             gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                     DHT_MSG_FILE_LOOKUP_FAILED, "path=%s", local->loc.path,
@@ -253,7 +253,7 @@ dht_refresh_layout(call_frame_t *frame)
     local->selfheal.refreshed_layout = dht_layout_new(this,
                                                       conf->subvolume_cnt);
     if (!local->selfheal.refreshed_layout) {
-        gf_uuid_unparse(local->loc.gfid, gfid);
+        uuid_unparse(local->loc.gfid, gfid);
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
                 "path=%s", local->loc.path, "gfid=%s", gfid, NULL);
         goto out;
@@ -264,7 +264,7 @@ dht_refresh_layout(call_frame_t *frame)
     }
 
     if (local->xattr_req == NULL) {
-        gf_uuid_unparse(local->loc.gfid, gfid);
+        uuid_unparse(local->loc.gfid, gfid);
         local->xattr_req = dict_new();
         if (local->xattr_req == NULL) {
             gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
@@ -542,7 +542,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
 
         lk_array = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_char);
         if (lk_array == NULL) {
-            gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+            uuid_unparse(local->stbuf.ia_gfid, gfid);
             gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
                     "lk_array-gfid=%s", gfid, "path=%s", local->loc.path, NULL);
             goto err;
@@ -553,7 +553,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
                 frame->this, conf->subvolumes[i], &local->loc, F_WRLCK,
                 DHT_LAYOUT_HEAL_DOMAIN, NULL, FAIL_ON_ANY_ERROR);
             if (lk_array[i] == NULL) {
-                gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+                uuid_unparse(local->stbuf.ia_gfid, gfid);
                 gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM,
                         DHT_MSG_MEM_ALLOC_FAILED, "lk_array-gfid=%s", gfid,
                         "path=%s", local->loc.path, NULL);
@@ -564,7 +564,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
         count = 1;
         lk_array = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_char);
         if (lk_array == NULL) {
-            gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+            uuid_unparse(local->stbuf.ia_gfid, gfid);
             gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
                     "lk_array-gfid=%s", gfid, "path=%s", local->loc.path, NULL);
             goto err;
@@ -574,7 +574,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
                                    &local->loc, F_WRLCK, DHT_LAYOUT_HEAL_DOMAIN,
                                    NULL, FAIL_ON_ANY_ERROR);
         if (lk_array[0] == NULL) {
-            gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
+            uuid_unparse(local->stbuf.ia_gfid, gfid);
             gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
                     "lk_array-gfid=%s", gfid, "path=%s", local->loc.path, NULL);
             goto err;
@@ -623,7 +623,7 @@ dht_selfheal_dir_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == 0) {
         err = 0;
     } else {
-        gf_uuid_unparse(local->loc.gfid, gfid);
+        uuid_unparse(local->loc.gfid, gfid);
         gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                 DHT_MSG_DIR_SELFHEAL_XATTR_FAILED, "name=%s", subvol->name,
                 "path=%s", local->loc.path, "gfid=%s", gfid, NULL);
@@ -632,7 +632,7 @@ dht_selfheal_dir_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     ret = dict_get_bin(xdata, DHT_IATT_IN_XDATA_KEY, (void **)&stbuf);
     if (ret < 0) {
-        gf_uuid_unparse(local->loc.gfid, gfid);
+        uuid_unparse(local->loc.gfid, gfid);
         gf_msg_debug(this->name, 0,
                      "key = %s not present in dict"
                      ", path:%s gfid:%s",
@@ -729,7 +729,7 @@ dht_selfheal_dir_xattr_persubvol(call_frame_t *frame, loc_t *loc,
         goto err;
     }
 
-    gf_uuid_unparse(loc->inode->gfid, gfid);
+    uuid_unparse(loc->inode->gfid, gfid);
 
     ret = dht_disk_layout_extract(this, layout, i, &disk_layout);
     if (ret == -1) {
@@ -778,8 +778,8 @@ dht_selfheal_dir_xattr_persubvol(call_frame_t *frame, loc_t *loc,
         }
     }
 
-    if (!gf_uuid_is_null(local->gfid))
-        gf_uuid_copy(loc->gfid, local->gfid);
+    if (!uuid_is_null(local->gfid))
+        uuid_copy(loc->gfid, local->gfid);
 
     STACK_WIND_COOKIE(frame, dht_selfheal_dir_xattr_cbk, (void *)subvol, subvol,
                       subvol->fops->setxattr, loc, xattr, 0, xdata);
@@ -910,7 +910,7 @@ dht_selfheal_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
     }
     dummy = dht_layout_new(this, 1);
     if (!dummy) {
-        gf_uuid_unparse(loc->gfid, gfid);
+        uuid_unparse(loc->gfid, gfid);
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_DUMMY_ALLOC_FAILED,
                 "path=%s", loc->path, "gfid=%s", gfid, NULL);
         goto out;
@@ -1047,7 +1047,7 @@ dht_selfheal_dir_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (op_ret) {
-        gf_uuid_unparse(local->loc.gfid, gfid);
+        uuid_unparse(local->loc.gfid, gfid);
         gf_smsg(this->name,
                 ((op_errno == EEXIST) ? GF_LOG_DEBUG : GF_LOG_WARNING),
                 op_errno, DHT_MSG_DIR_SELFHEAL_FAILED, "path=%s",
@@ -1087,7 +1087,7 @@ dht_selfheal_dir_mkdir_lookup_done(call_frame_t *frame, xlator_t *this)
     layout = local->layout;
     loc = &local->loc;
 
-    if (!gf_uuid_is_null(local->gfid)) {
+    if (!uuid_is_null(local->gfid)) {
         dict = dict_new();
         if (!dict)
             return -1;
@@ -1170,8 +1170,8 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     loc = &local->loc;
     prev = cookie;
 
-    if (!gf_uuid_is_null(local->gfid))
-        gf_uuid_unparse(local->gfid, gfid_local);
+    if (!uuid_is_null(local->gfid))
+        uuid_unparse(local->gfid, gfid_local);
 
     LOCK(&frame->lock);
     {
@@ -1344,8 +1344,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                             local->loc.path, "gfid=%s", local->gfid, NULL);
                 }
             } else {
-                if (!gf_uuid_is_null(local->gfid))
-                    gf_uuid_copy(loc->gfid, local->gfid);
+                if (!uuid_is_null(local->gfid))
+                    uuid_copy(loc->gfid, local->gfid);
 
                 ret = dht_common_mark_mdsxattr(frame, NULL, 0);
                 if (!ret)
@@ -1631,7 +1631,7 @@ dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
 
     new_layout = dht_layout_new(this, priv->subvolume_cnt);
     if (!new_layout) {
-        gf_uuid_unparse(loc->gfid, gfid);
+        uuid_unparse(loc->gfid, gfid);
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
                 "new_layout, path=%s", loc->path, "gfid=%s", gfid, NULL);
         goto done;
@@ -1642,7 +1642,7 @@ dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
                          NULL, NULL);
 
     if (subvol_down) {
-        gf_uuid_unparse(loc->gfid, gfid);
+        uuid_unparse(loc->gfid, gfid);
         gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_FIX_FAILED,
                 "subvol-down=%u", subvol_down, "Skipping-fix-layout", "path=%s",
                 loc->path, "gfid=%s", gfid, NULL);
@@ -1881,8 +1881,8 @@ dht_selfheal_new_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
     loc = &local->loc;
 
-    gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
-    gf_uuid_unparse(loc->parent->gfid, pgfid);
+    uuid_unparse(local->stbuf.ia_gfid, gfid);
+    uuid_unparse(loc->parent->gfid, pgfid);
 
     linked_inode = inode_link(loc->inode, loc->parent, loc->name,
                               &local->stbuf);
@@ -1975,8 +1975,8 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     }
 
     if (!__is_root_gfid(local->stbuf.ia_gfid)) {
-        gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
-        gf_uuid_unparse(loc->parent->gfid, pgfid);
+        uuid_unparse(local->stbuf.ia_gfid, gfid);
+        uuid_unparse(loc->parent->gfid, pgfid);
 
         linked_inode = inode_link(loc->inode, loc->parent, loc->name,
                                   &local->stbuf);
@@ -2102,7 +2102,7 @@ dht_dir_heal_xattrs(void *data)
     mds_subvol = local->mds_subvol;
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
-    gf_uuid_unparse(local->loc.gfid, gfid);
+    uuid_unparse(local->loc.gfid, gfid);
 
     if (!mds_subvol) {
         gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_NO_MDS_SUBVOL, "path=%s",
@@ -2110,8 +2110,8 @@ dht_dir_heal_xattrs(void *data)
         goto out;
     }
 
-    if ((local->loc.inode && gf_uuid_is_null(local->loc.inode->gfid)) ||
-        gf_uuid_is_null(local->loc.gfid)) {
+    if ((local->loc.inode && uuid_is_null(local->loc.inode->gfid)) ||
+        uuid_is_null(local->loc.gfid)) {
         gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_GFID_NOT_PRESENT,
                 "skip-heal path=%s", local->loc.path, "gfid=%s", gfid, NULL);
         goto out;
@@ -2296,7 +2296,7 @@ dht_dir_attr_heal(void *data)
         }
 
         if (ret) {
-            gf_uuid_unparse(local->loc.gfid, gfid);
+            uuid_unparse(local->loc.gfid, gfid);
 
             gf_smsg(this->name, GF_LOG_ERROR, -ret,
                     DHT_MSG_DIR_ATTR_HEAL_FAILED, "path=%s", local->loc.path,

@@ -155,7 +155,7 @@
     do {                                                                       \
         char *__parp;                                                          \
                                                                                \
-        if (gf_uuid_is_null(loc->pargfid) || !loc->name) {                     \
+        if (uuid_is_null(loc->pargfid) || !loc->name) {                        \
             gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_ENTRY_HANDLE_CREATE,     \
                    "null pargfid/name for path %s", loc->path);                \
             break;                                                             \

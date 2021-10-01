@@ -201,7 +201,7 @@ gf_utime_set_mdata_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         loc.inode = inode_ref(inode);
-        gf_uuid_copy(loc.gfid, stbuf->ia_gfid);
+        uuid_copy(loc.gfid, stbuf->ia_gfid);
 
         new_frame->root->uid = 0;
         new_frame->root->gid = 0;

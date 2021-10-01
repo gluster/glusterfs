@@ -70,7 +70,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
     glusterfs/syncop-utils.h glusterfs/parse-utils.h \
     glusterfs/libglusterfs-messages.h glusterfs/lvm-defaults.h \
     glusterfs/quota-common-utils.h glusterfs/rot-buffs.h \
-    glusterfs/compat-uuid.h glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
+    glusterfs/upcall-utils.h glusterfs/throttle-tbf.h \
     glusterfs/events.h glusterfs/atomic.h glusterfs/monitoring.h \
     glusterfs/async.h glusterfs/glusterfs-fops.h glusterfs/gf-io.h \
     glusterfs/gf-io-common.h glusterfs/gf-io-legacy.h \

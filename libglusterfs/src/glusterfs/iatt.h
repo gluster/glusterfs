@@ -14,12 +14,12 @@
 #if defined(GF_LINUX_HOST_OS)
 #include <sys/sysmacros.h> /* for makedev(3), major(3), minor(3) */
 #endif
+#include <uuid/uuid.h>
 #include <sys/types.h>
 #include <sys/stat.h> /* for iatt <--> stat conversions */
 #include <unistd.h>
 
 #include "glusterfs/compat.h"
-#include "glusterfs/compat-uuid.h"
 
 typedef enum {
     IA_INVAL = 0,
@@ -438,7 +438,7 @@ oldiatt_from_iatt(struct old_iatt *o_iatt, struct iatt *c_iatt)
     o_iatt->ia_ctime = c_iatt->ia_ctime;
     o_iatt->ia_ctime_nsec = c_iatt->ia_ctime_nsec;
 
-    gf_uuid_copy(o_iatt->ia_gfid, c_iatt->ia_gfid);
+    uuid_copy(o_iatt->ia_gfid, c_iatt->ia_gfid);
 
     return;
 }
@@ -464,7 +464,7 @@ iatt_from_oldiatt(struct iatt *c_iatt, struct old_iatt *o_iatt)
     c_iatt->ia_ctime = o_iatt->ia_ctime;
     c_iatt->ia_ctime_nsec = o_iatt->ia_ctime_nsec;
 
-    gf_uuid_copy(c_iatt->ia_gfid, o_iatt->ia_gfid);
+    uuid_copy(c_iatt->ia_gfid, o_iatt->ia_gfid);
 
     c_iatt->ia_attributes = 0;
 

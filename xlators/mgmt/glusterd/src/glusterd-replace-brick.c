@@ -313,7 +313,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
          * introduced in gluster-3.6.0
          */
 
-        if (!(gf_uuid_compare(dst_brickinfo->uuid, MY_UUID))) {
+        if (!(uuid_compare(dst_brickinfo->uuid, MY_UUID))) {
             ret = glusterd_get_brick_mount_dir(dst_brickinfo->path,
                                                dst_brickinfo->hostname,
                                                dst_brickinfo->mount_dir);
@@ -378,7 +378,7 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     if (ret)
         goto out;
 
-    if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
+    if (!uuid_compare(new_brickinfo->uuid, MY_UUID)) {
         ret = sys_statvfs(new_brickinfo->path, &brickstat);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_STATVFS_FAILED,
@@ -428,7 +428,7 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
 
     /* if the volume is a replicate volume, do: */
     if (glusterd_is_volume_replicate(volinfo)) {
-        if (!gf_uuid_compare(new_brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(new_brickinfo->uuid, MY_UUID)) {
             ret = glusterd_handle_replicate_brick_ops(volinfo, new_brickinfo,
                                                       GD_OP_REPLACE_BRICK);
             if (ret < 0)
@@ -610,7 +610,7 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases(rpcsvc_request_t *req,
         goto out;
     }
 
-    gf_uuid_copy(*originator_uuid, MY_UUID);
+    uuid_copy(*originator_uuid, MY_UUID);
     ret = dict_set_bin(dict, "originator_uuid", originator_uuid,
                        sizeof(uuid_t));
     if (ret) {

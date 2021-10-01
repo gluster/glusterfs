@@ -128,7 +128,7 @@ syncop_ftw(xlator_t *subvol, loc_t *loc, int pid, void *data,
 
             if (entry->d_stat.ia_type == IA_IFDIR) {
                 child_loc.inode = inode_ref(entry->inode);
-                gf_uuid_copy(child_loc.gfid, entry->inode->gfid);
+                uuid_copy(child_loc.gfid, entry->inode->gfid);
                 ret = syncop_ftw(subvol, &child_loc, pid, data, fn);
                 loc_wipe(&child_loc);
                 if (ret)
@@ -216,7 +216,7 @@ syncop_ftw_throttle(xlator_t *subvol, loc_t *loc, int pid, void *data,
 
             if (entry->d_stat.ia_type == IA_IFDIR) {
                 child_loc.inode = inode_ref(entry->inode);
-                gf_uuid_copy(child_loc.gfid, entry->inode->gfid);
+                uuid_copy(child_loc.gfid, entry->inode->gfid);
                 ret = syncop_ftw_throttle(subvol, &child_loc, pid, data, fn,
                                           count, sleep_time);
                 loc_wipe(&child_loc);
@@ -567,7 +567,7 @@ syncop_gfid_to_path_hard(inode_table_t *itable, xlator_t *subvol, uuid_t gfid,
     };
     dict_t *xattr = NULL;
 
-    gf_uuid_copy(loc.gfid, gfid);
+    uuid_copy(loc.gfid, gfid);
 
     if (!inode)
         loc.inode = inode_new(itable);
@@ -650,7 +650,7 @@ syncop_inode_find(xlator_t *this, xlator_t *subvol, uuid_t gfid,
         ret = -ENOMEM;
         goto out;
     }
-    gf_uuid_copy(loc.gfid, gfid);
+    uuid_copy(loc.gfid, gfid);
 
     ret = syncop_lookup(subvol, &loc, &iatt, NULL, xdata, rsp_dict);
     if (ret < 0)

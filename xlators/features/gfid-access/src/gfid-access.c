@@ -36,7 +36,7 @@ ga_valid_inode_loc_copy(loc_t *dst, loc_t *src, xlator_t *this)
         }
         inode_unref(dst->parent);
         dst->parent = inode_ref((inode_t *)(uintptr_t)value);
-        gf_uuid_copy(dst->pargfid, dst->parent->gfid);
+        uuid_copy(dst->pargfid, dst->parent->gfid);
     }
 
     if (dst->inode) {
@@ -47,7 +47,7 @@ ga_valid_inode_loc_copy(loc_t *dst, loc_t *src, xlator_t *this)
         }
         inode_unref(dst->inode);
         dst->inode = inode_ref((inode_t *)(uintptr_t)value);
-        gf_uuid_copy(dst->gfid, dst->inode->gfid);
+        uuid_copy(dst->gfid, dst->inode->gfid);
     }
 out:
 
@@ -285,18 +285,18 @@ ga_fill_tmp_loc(loc_t *loc, xlator_t *this, uuid_t gfid, char *bname,
     ret = inode_ctx_get(loc->inode, this, &value);
     if (!ret) {
         parent = (void *)(uintptr_t)value;
-        if (gf_uuid_is_null(parent->gfid))
+        if (uuid_is_null(parent->gfid))
             parent = loc->inode;
     }
 
     /* parent itself should be looked up */
-    gf_uuid_copy(new_loc->pargfid, parent->gfid);
+    uuid_copy(new_loc->pargfid, parent->gfid);
     new_loc->parent = inode_ref(parent);
 
     new_loc->inode = inode_grep(parent->table, parent, bname);
     if (!new_loc->inode) {
         new_loc->inode = inode_new(parent->table);
-        gf_uuid_copy(new_loc->inode->gfid, gfid);
+        uuid_copy(new_loc->inode->gfid, gfid);
     }
 
     loc_path(new_loc, bname);
@@ -311,7 +311,7 @@ ga_fill_tmp_loc(loc_t *loc, xlator_t *this, uuid_t gfid, char *bname,
         ret = -1;
         goto out;
     }
-    gf_uuid_copy(gfid_ptr, gfid);
+    uuid_copy(gfid_ptr, gfid);
     ret = dict_set_gfuuid(xdata, "gfid-req", gfid_ptr, false);
     if (ret < 0)
         goto out;
@@ -330,7 +330,7 @@ __is_gfid_access_dir(uuid_t gfid)
     static uuid_t aux_gfid = {0, 0, 0, 0, 0, 0, 0, 0,
                               0, 0, 0, 0, 0, 0, 0, GF_AUX_GFID};
 
-    if (gf_uuid_compare(gfid, aux_gfid) == 0)
+    if (uuid_compare(gfid, aux_gfid) == 0)
         return _gf_true;
 
     return _gf_false;
@@ -461,7 +461,7 @@ ga_new_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
     if (!args)
         goto out;
 
-    ret = gf_uuid_parse(args->gfid, gfid);
+    ret = uuid_parse(args->gfid, gfid);
     if (ret)
         goto out;
 
@@ -538,7 +538,7 @@ ga_heal_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
     if (!args)
         goto out;
 
-    ret = gf_uuid_parse(args->gfid, gfid);
+    ret = uuid_parse(args->gfid, gfid);
     if (ret)
         goto out;
 
@@ -696,17 +696,17 @@ ga_virtual_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         inode = NULL;
     }
 
-    if (!gf_uuid_is_null(cbk_inode->gfid)) {
+    if (!uuid_is_null(cbk_inode->gfid)) {
         /* if the previous linked inode is used, use the
            same gfid */
-        gf_uuid_copy(random_gfid, cbk_inode->gfid);
+        uuid_copy(random_gfid, cbk_inode->gfid);
     } else {
         /* replace the buf->ia_gfid to a random gfid
            for directory, for files, what we received is fine */
-        gf_uuid_generate(random_gfid);
+        uuid_generate(random_gfid);
     }
 
-    gf_uuid_copy(buf->ia_gfid, random_gfid);
+    uuid_copy(buf->ia_gfid, random_gfid);
 
     buf->ia_ino = gfid_to_ino(buf->ia_gfid);
 
@@ -793,7 +793,7 @@ ga_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
              __is_gfid_access_dir(loc->pargfid))) {
             /* here, just send 'loc->gfid' and 'loc->inode' */
             tmp_loc.inode = inode_ref(loc->inode);
-            gf_uuid_copy(tmp_loc.gfid, loc->inode->gfid);
+            uuid_copy(tmp_loc.gfid, loc->inode->gfid);
 
             STACK_WIND(frame, default_lookup_cbk, FIRST_CHILD(this),
                        FIRST_CHILD(this)->fops->lookup, &tmp_loc, xdata);
@@ -845,7 +845,7 @@ ga_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     /* make sure the 'basename' is actually a 'canonical-gfid',
        otherwise, return error */
-    ret = gf_uuid_parse(loc->name, tmp_gfid);
+    ret = uuid_parse(loc->name, tmp_gfid);
     if (ret)
         goto err;
 
@@ -883,7 +883,7 @@ discover:
     if (xdata)
         dict_del(xdata, "gfid-req");
 
-    gf_uuid_copy(tmp_loc.gfid, tmp_gfid);
+    uuid_copy(tmp_loc.gfid, tmp_gfid);
 
     /* if revalidate, then we need to have the proper reference */
     if (inode) {

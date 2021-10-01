@@ -12,9 +12,7 @@
 #include <grp.h>
 #include <sys/uio.h>
 #include <sys/resource.h>
-
 #include <libgen.h>
-#include <glusterfs/compat-uuid.h>
 
 #include "glusterd.h"
 #include "rpcsvc.h"
@@ -175,7 +173,7 @@ glusterd_uuid_generate_save()
     priv = this->private;
     GF_ASSERT(priv);
 
-    gf_uuid_generate(priv->uuid);
+    uuid_generate(priv->uuid);
 
     gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_GENERATED_UUID,
            "generated UUID: %s", uuid_utoa(priv->uuid));

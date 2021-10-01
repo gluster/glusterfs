@@ -60,7 +60,7 @@ worm_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         goto out;
     }
 
-    gf_uuid_copy(oldloc->gfid, oldloc->inode->gfid);
+    uuid_copy(oldloc->gfid, oldloc->inode->gfid);
     if (is_wormfile(this, _gf_false, oldloc)) {
         op_errno = 0;
         goto out;
@@ -96,7 +96,7 @@ worm_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         goto out;
     }
 
-    gf_uuid_copy(loc->gfid, loc->inode->gfid);
+    uuid_copy(loc->gfid, loc->inode->gfid);
     if (is_wormfile(this, _gf_false, loc)) {
         op_errno = 0;
         goto out;
@@ -129,7 +129,7 @@ worm_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         goto out;
     }
 
-    gf_uuid_copy(oldloc->gfid, oldloc->inode->gfid);
+    uuid_copy(oldloc->gfid, oldloc->inode->gfid);
     if (is_wormfile(this, _gf_false, oldloc)) {
         op_errno = 0;
         goto check_newloc;
@@ -139,7 +139,7 @@ worm_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     if (op_errno == 0) {
     check_newloc:
         if (newloc->inode != NULL) {
-            gf_uuid_copy(newloc->gfid, newloc->inode->gfid);
+            uuid_copy(newloc->gfid, newloc->inode->gfid);
             if (is_wormfile(this, _gf_false, newloc)) {
                 op_errno = 0;
                 goto out;
@@ -637,7 +637,7 @@ worm_release(xlator_t *this, fd_t *fd)
         }
 
         loc.inode = inode_ref(fd->inode);
-        gf_uuid_copy(loc.gfid, fd->inode->gfid);
+        uuid_copy(loc.gfid, fd->inode->gfid);
         ret = syncop_setxattr(this, &loc, dict, 0, NULL, NULL);
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR, "Error setting xattr");

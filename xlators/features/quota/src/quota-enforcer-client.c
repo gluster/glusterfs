@@ -167,8 +167,8 @@ quota_enforcer_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
                                  (rsp.xdata.xdata_len), rsp.op_ret, op_errno,
                                  out);
 
-    if ((!gf_uuid_is_null(inode->gfid)) &&
-        (gf_uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
+    if ((!uuid_is_null(inode->gfid)) &&
+        (uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
         gf_msg_debug(frame->this->name, ESTALE, "gfid changed for %s",
                      local->validate_loc.path);
         rsp.op_ret = -1;
@@ -281,7 +281,7 @@ _quota_enforcer_lookup(void *data)
     if (!(loc && loc->inode))
         goto unwind;
 
-    if (!gf_uuid_is_null(loc->inode->gfid))
+    if (!uuid_is_null(loc->inode->gfid))
         memcpy(req.gfid, loc->inode->gfid, 16);
     else
         memcpy(req.gfid, loc->gfid, 16);

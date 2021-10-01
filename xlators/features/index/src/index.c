@@ -45,7 +45,7 @@ index_get_type_from_vgfid(index_priv_t *priv, uuid_t vgfid)
     int i = 0;
 
     for (i = 0; i < XATTROP_TYPE_END; i++) {
-        if (gf_uuid_compare(priv->internal_vgfid[i], vgfid) == 0)
+        if (uuid_compare(priv->internal_vgfid[i], vgfid) == 0)
             return i;
     }
     return -1;
@@ -114,7 +114,7 @@ index_is_subdir_of_entry_changes(xlator_t *this, inode_t *inode)
         return _gf_false;
 
     ret = index_inode_ctx_get(inode, this, &ctx);
-    if ((ret == 0) && !gf_uuid_is_null(ctx->virtual_pargfid))
+    if ((ret == 0) && !uuid_is_null(ctx->virtual_pargfid))
         return _gf_true;
     return _gf_false;
 }
@@ -140,10 +140,10 @@ index_is_fop_on_internal_inode(xlator_t *this, inode_t *inode, uuid_t gfid)
     if (!inode)
         return _gf_false;
 
-    if (gfid && !gf_uuid_is_null(gfid))
-        gf_uuid_copy(vgfid, gfid);
+    if (gfid && !uuid_is_null(gfid))
+        uuid_copy(vgfid, gfid);
     else
-        gf_uuid_copy(vgfid, inode->gfid);
+        uuid_copy(vgfid, inode->gfid);
 
     if (index_is_virtual_gfid(priv, vgfid))
         return _gf_true;
@@ -309,7 +309,7 @@ index_get_index(index_priv_t *priv, uuid_t index)
 {
     LOCK(&priv->lock);
     {
-        gf_uuid_copy(index, priv->index);
+        uuid_copy(index, priv->index);
     }
     UNLOCK(&priv->lock);
 }
@@ -322,9 +322,9 @@ index_generate_index(index_priv_t *priv, uuid_t index)
         // To prevent duplicate generates.
         // This method fails if number of contending threads is greater
         // than MAX_LINK count of the fs
-        if (!gf_uuid_compare(priv->index, index))
-            gf_uuid_generate(priv->index);
-        gf_uuid_copy(index, priv->index);
+        if (!uuid_compare(priv->index, index))
+            uuid_generate(priv->index);
+        uuid_copy(index, priv->index);
     }
     UNLOCK(&priv->lock);
 }
@@ -662,7 +662,7 @@ index_add(xlator_t *this, uuid_t gfid, const char *subdir,
 
     priv = this->private;
 
-    if (gf_uuid_is_null(gfid)) {
+    if (uuid_is_null(gfid)) {
         GF_ASSERT(0);
         goto out;
     }
@@ -694,7 +694,7 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
     uuid_t uuid;
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !uuid_is_null(gfid), out,
                                   op_errno, EINVAL);
     make_gfid_path(priv->index_basepath, subdir, gfid, gfid_path,
                    sizeof(gfid_path));
@@ -712,7 +712,7 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
          * the index is stale and subsequently wipe it out using rmdir().
          */
         if ((ret) && (errno == ENOTEMPTY)) {
-            gf_uuid_generate(uuid);
+            uuid_generate(uuid);
             make_gfid_path(priv->index_basepath, subdir, uuid, rename_dst,
                            sizeof(rename_dst));
             ret = sys_rename(gfid_path, rename_dst);
@@ -845,8 +845,8 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(inode->gfid),
-                                  out, op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !uuid_is_null(inode->gfid), out,
+                                  op_errno, EINVAL);
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
 
     ret = index_inode_ctx_get(inode, this, &ctx);
@@ -906,7 +906,7 @@ index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(pgfid), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !uuid_is_null(pgfid), out,
                                   op_errno, EINVAL);
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
 
@@ -1117,7 +1117,7 @@ index_inode_path(xlator_t *this, inode_t *inode, char *dirpath, size_t len)
         ret = index_inode_ctx_get(inode, this, &ictx);
         if (ret)
             goto out;
-        if (gf_uuid_is_null(ictx->virtual_pargfid)) {
+        if (uuid_is_null(ictx->virtual_pargfid)) {
             ret = -EINVAL;
             goto out;
         }
@@ -1551,7 +1551,7 @@ index_save_pargfid_for_entry_changes(xlator_t *this, loc_t *loc, char *path)
     priv = this->private;
     if (!loc)
         return -1;
-    if (gf_uuid_compare(loc->pargfid, priv->internal_vgfid[ENTRY_CHANGES]))
+    if (uuid_compare(loc->pargfid, priv->internal_vgfid[ENTRY_CHANGES]))
         return 0;
 
     ret = index_inode_ctx_get(loc->inode, this, &ctx);
@@ -1561,7 +1561,7 @@ index_save_pargfid_for_entry_changes(xlator_t *this, loc_t *loc, char *path)
                "Unable to get inode context for %s", path);
         return -EINVAL;
     }
-    ret = gf_uuid_parse(loc->name, ctx->virtual_pargfid);
+    ret = uuid_parse(loc->name, ctx->virtual_pargfid);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL,
                INDEX_MSG_INODE_CTX_GET_SET_FAILED,
@@ -1669,7 +1669,7 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (is_dir || inode_is_linked(iloc.inode))
         loc_gfid(&iloc, stbuf.ia_gfid);
     else
-        gf_uuid_generate(stbuf.ia_gfid);
+        uuid_generate(stbuf.ia_gfid);
 
     ret = index_save_pargfid_for_entry_changes(this, &iloc, path);
     if (ret) {
@@ -1708,7 +1708,7 @@ index_get_gfid_type(void *opaque)
 
         entry->d_type = gf_d_type_from_ia_type(IA_INVAL);
         entry->d_stat.ia_type = IA_INVAL;
-        if (gf_uuid_parse(entry->d_name, loc.gfid))
+        if (uuid_parse(entry->d_name, loc.gfid))
             continue;
 
         loc.inode = inode_find(args->parent->table, loc.gfid);
@@ -1832,7 +1832,7 @@ index_get_parent_iatt(struct iatt *parent, char *path, loc_t *loc,
     }
 
     iatt_from_stat(parent, &lstatbuf);
-    gf_uuid_copy(parent->ia_gfid, loc->pargfid);
+    uuid_copy(parent->ia_gfid, loc->pargfid);
     parent->ia_ino = -1;
 
     return;
@@ -1868,7 +1868,7 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
     if (op_ret < 0)
         goto done;
 
-    gf_uuid_parse(loc->name, gfid);
+    uuid_parse(loc->name, gfid);
     make_gfid_path(priv->index_basepath, subdir, gfid, index_subdir,
                    sizeof(index_subdir));
 
@@ -1927,7 +1927,7 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
 
     if (type <= XATTROP_TYPE_UNSET) {
         ret = index_inode_ctx_get(loc->parent, this, &ictx);
-        if ((ret == 0) && gf_uuid_is_null(ictx->virtual_pargfid)) {
+        if ((ret == 0) && uuid_is_null(ictx->virtual_pargfid)) {
             ret = -EINVAL;
         }
         if (ret == 0) {
@@ -1940,7 +1940,7 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         ret = sys_unlink(filepath);
     } else {
         subdir = index_get_subdir_from_type(type);
-        gf_uuid_parse(loc->name, gfid);
+        uuid_parse(loc->name, gfid);
         ret = index_del(this, gfid, subdir, type);
     }
     if (ret < 0) {
@@ -2453,9 +2453,9 @@ init(xlator_t *this)
         priv->complete_watchlist = dict_copy_with_ref(priv->pending_watchlist,
                                                       priv->complete_watchlist);
 
-    gf_uuid_generate(priv->index);
+    uuid_generate(priv->index);
     for (i = 0; i < XATTROP_TYPE_END; i++)
-        gf_uuid_generate(priv->internal_vgfid[i]);
+        uuid_generate(priv->internal_vgfid[i]);
 
     INIT_LIST_HEAD(&priv->callstubs);
     GF_ATOMIC_INIT(priv->stub_cnt, 0);

@@ -447,7 +447,7 @@ fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
             parent = fuse_ino_to_inode(par, state->this);
             loc->parent = parent;
             if (parent)
-                gf_uuid_copy(loc->pargfid, parent->gfid);
+                uuid_copy(loc->pargfid, parent->gfid);
         }
 
         inode = loc->inode;
@@ -470,7 +470,7 @@ fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
             inode = fuse_ino_to_inode(ino, state->this);
             loc->inode = inode;
             if (inode)
-                gf_uuid_copy(loc->gfid, inode->gfid);
+                uuid_copy(loc->gfid, inode->gfid);
         }
 
         parent = loc->parent;
@@ -478,7 +478,7 @@ fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
             parent = inode_parent(inode, null_gfid, NULL);
             loc->parent = parent;
             if (parent)
-                gf_uuid_copy(loc->pargfid, parent->gfid);
+                uuid_copy(loc->pargfid, parent->gfid);
         }
 
         ret = inode_path(inode, NULL, &path);

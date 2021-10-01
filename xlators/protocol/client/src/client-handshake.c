@@ -233,7 +233,7 @@ protocol_client_reopendir(clnt_fd_ctx_t *fdctx, xlator_t *this)
     }
     local->fdctx = fdctx;
 
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
+    uuid_copy(local->loc.gfid, fdctx->gfid);
     ret = loc_path(&local->loc, NULL);
     if (ret < 0)
         goto out;
@@ -294,7 +294,7 @@ protocol_client_reopenfile(clnt_fd_ctx_t *fdctx, xlator_t *this)
     }
 
     local->fdctx = fdctx;
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
+    uuid_copy(local->loc.gfid, fdctx->gfid);
     ret = loc_path(&local->loc, NULL);
     if (ret < 0)
         goto out;
@@ -465,7 +465,7 @@ protocol_client_reopendir_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
     }
     local->fdctx = fdctx;
 
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
+    uuid_copy(local->loc.gfid, fdctx->gfid);
     ret = loc_path(&local->loc, NULL);
     if (ret < 0)
         goto out;
@@ -526,7 +526,7 @@ protocol_client_reopenfile_v2(clnt_fd_ctx_t *fdctx, xlator_t *this)
     }
 
     local->fdctx = fdctx;
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
+    uuid_copy(local->loc.gfid, fdctx->gfid);
     ret = loc_path(&local->loc, NULL);
     if (ret < 0)
         goto out;

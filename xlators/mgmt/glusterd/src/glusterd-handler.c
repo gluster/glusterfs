@@ -138,9 +138,9 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     }
 
     event->peername = gf_strdup(peerinfo->hostname);
-    gf_uuid_copy(event->peerid, peerinfo->uuid);
+    uuid_copy(event->peerid, peerinfo->uuid);
 
-    gf_uuid_copy(ctx->uuid, uuid);
+    uuid_copy(ctx->uuid, uuid);
     if (hostname)
         ctx->hostname = gf_strdup(hostname);
     ctx->req = req;
@@ -236,7 +236,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     if (hostname)
         event->peername = gf_strdup(hostname);
 
-    gf_uuid_copy(event->peerid, uuid);
+    uuid_copy(event->peerid, uuid);
 
     if (!ctx) {
         RCU_READ_UNLOCK;
@@ -246,7 +246,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         goto out;
     }
 
-    gf_uuid_copy(ctx->uuid, uuid);
+    uuid_copy(ctx->uuid, uuid);
     if (hostname)
         ctx->hostname = gf_strdup(hostname);
     ctx->req = req;
@@ -802,7 +802,7 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
         return -1;
     }
 
-    gf_uuid_copy(ctx->uuid, lock_req.uuid);
+    uuid_copy(ctx->uuid, lock_req.uuid);
     ctx->req = req;
     ctx->dict = NULL;
 
@@ -861,7 +861,7 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
     dict_t *dict = NULL;
     xlator_t *this = THIS;
 
-    gf_uuid_unparse(uuid, str);
+    uuid_unparse(uuid, str);
     gf_msg_debug(this->name, 0, "Received op from uuid %s", str);
 
     dict = dict_new();
@@ -876,7 +876,7 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
         goto out;
     }
 
-    gf_uuid_copy(req_ctx->uuid, uuid);
+    uuid_copy(req_ctx->uuid, uuid);
     req_ctx->op = op;
     ret = dict_unserialize(buf_val, buf_len, &dict);
     if (ret) {
@@ -966,8 +966,8 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
         gf_msg_debug(this->name, 0, "No transaction's opinfo set");
 
         state = GD_OP_STATE_LOCKED;
-        glusterd_txn_opinfo_init(&txn_op_info, state, &op_req.op,
-                                 req_ctx->dict, req);
+        glusterd_txn_opinfo_init(&txn_op_info, state, &op_req.op, req_ctx->dict,
+                                 req);
 
         if (req_ctx->op != GD_OP_GSYNC_SET)
             txn_op_info.skip_locking = _gf_true;
@@ -1282,7 +1282,7 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (!gf_uuid_compare(uuid, MY_UUID)) {
+    if (!uuid_compare(uuid, MY_UUID)) {
         op_errno = GF_DEPROBE_LOCALHOST;
         ret = -1;
         goto out;
@@ -1330,7 +1330,7 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
         }
     }
 
-    if (!gf_uuid_is_null(uuid)) {
+    if (!uuid_is_null(uuid)) {
         ret = glusterd_deprobe_begin(req, hostname, port, uuid, dict,
                                      &op_errno);
     } else {
@@ -1568,10 +1568,10 @@ __glusterd_handle_cli_uuid_reset(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_uuid_copy(uuid, priv->uuid);
+    uuid_copy(uuid, priv->uuid);
     ret = glusterd_uuid_generate_save();
 
-    if (!gf_uuid_compare(uuid, MY_UUID)) {
+    if (!uuid_compare(uuid, MY_UUID)) {
         snprintf(msg_str, sizeof(msg_str),
                  "old uuid and the new uuid"
                  " are same. Try gluster peer reset again");
@@ -2340,7 +2340,7 @@ glusterd_op_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     rsp.op_ret = status;
     if (rsp.op_ret)
         rsp.op_errno = errno;
-    gf_uuid_copy(rsp.txn_id, *txn_id);
+    uuid_copy(rsp.txn_id, *txn_id);
 
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
@@ -2365,7 +2365,7 @@ glusterd_op_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     if (rsp.op_ret)
         rsp.op_errno = errno;
     glusterd_get_uuid(&rsp.uuid);
-    gf_uuid_copy(rsp.txn_id, *txn_id);
+    uuid_copy(rsp.txn_id, *txn_id);
 
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
@@ -2426,7 +2426,7 @@ __glusterd_handle_cluster_unlock(rpcsvc_request_t *req)
                "No memory.");
         return -1;
     }
-    gf_uuid_copy(ctx->uuid, unlock_req.uuid);
+    uuid_copy(ctx->uuid, unlock_req.uuid);
     ctx->req = req;
     ctx->dict = NULL;
 
@@ -2770,9 +2770,9 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         ret = dict_get_strn(dict, key, keylen, &uuid_buf);
         if (ret)
             goto out;
-        gf_uuid_parse(uuid_buf, uuid);
+        uuid_parse(uuid_buf, uuid);
 
-        if (!gf_uuid_compare(uuid, MY_UUID)) {
+        if (!uuid_compare(uuid, MY_UUID)) {
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_UUID_RECEIVED,
                    "Received my uuid as Friend");
             i++;
@@ -2835,7 +2835,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     }
 
 out:
-    gf_uuid_copy(rsp.uuid, MY_UUID);
+    uuid_copy(rsp.uuid, MY_UUID);
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_friend_update_rsp);
     if (dict) {
@@ -2905,7 +2905,7 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
     /* Check for uuid collision and handle it in a user friendly way by
      * sending the error.
      */
-    if (!gf_uuid_compare(probe_req.uuid, MY_UUID)) {
+    if (!uuid_compare(probe_req.uuid, MY_UUID)) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_UUIDS_SAME_RETRY,
                "Peer uuid %s is same as "
                "local uuid. Please check the uuid of both the peers "
@@ -2949,7 +2949,7 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
     RCU_READ_UNLOCK;
 
 respond:
-    gf_uuid_copy(rsp.uuid, MY_UUID);
+    uuid_copy(rsp.uuid, MY_UUID);
 
     rsp.hostname = probe_req.hostname;
     rsp.op_errstr = "";
@@ -3458,7 +3458,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     if (args)
         peerctx->args = *args;
 
-    gf_uuid_copy(peerctx->peerid, peerinfo->uuid);
+    uuid_copy(peerctx->peerid, peerinfo->uuid);
     peerctx->peername = gf_strdup(peerinfo->hostname);
     peerctx->peerinfo_gen = peerinfo->generation; /* A peerinfos generation
                                                      number can be used to
@@ -3676,7 +3676,7 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
         ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_NEW_NAME, &event);
         if (!ret) {
             event->peername = gf_strdup(peerinfo->hostname);
-            gf_uuid_copy(event->peerid, peerinfo->uuid);
+            uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
             glusterd_xfer_cli_probe_resp(req, 0, GF_PROBE_SUCCESS, NULL,
@@ -3753,7 +3753,7 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
     event->ctx = ctx;
 
     event->peername = gf_strdup(hoststr);
-    gf_uuid_copy(event->peerid, uuid);
+    uuid_copy(event->peerid, uuid);
 
     ret = glusterd_friend_sm_inject_event(event);
 
@@ -3784,7 +3784,7 @@ glusterd_xfer_friend_remove_resp(rpcsvc_request_t *req, char *hostname,
 
     rsp.op_ret = 0;
 
-    gf_uuid_copy(rsp.uuid, MY_UUID);
+    uuid_copy(rsp.uuid, MY_UUID);
     rsp.hostname = hostname;
     rsp.port = port;
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
@@ -3807,7 +3807,7 @@ glusterd_xfer_friend_add_resp(rpcsvc_request_t *req, char *myhostname,
 
     GF_ASSERT(myhostname);
 
-    gf_uuid_copy(rsp.uuid, MY_UUID);
+    uuid_copy(rsp.uuid, MY_UUID);
     rsp.op_ret = op_ret;
     rsp.op_errno = op_errno;
     rsp.hostname = gf_strdup(myhostname);
@@ -4556,7 +4556,7 @@ get_volinfo_from_brickid(char *brickid, glusterd_volinfo_t **volinfo)
 
     *brick = '\0';
     brick++;
-    gf_uuid_parse(volid_str, volid);
+    uuid_parse(volid_str, volid);
     ret = glusterd_volinfo_find_by_volume_id(volid, volinfo);
     if (ret) {
         /* Check if it is a snapshot volume */
@@ -5232,7 +5232,7 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
 
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
-    if (gf_uuid_compare(brickinfo->uuid, MY_UUID) ||
+    if (uuid_compare(brickinfo->uuid, MY_UUID) ||
         !glusterd_is_brick_started(brickinfo)) {
         ret = 0;
         goto out;
@@ -5684,7 +5684,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
             }
             /* Add following information only for bricks
              *  local to current node */
-            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+            if (uuid_compare(brickinfo->uuid, MY_UUID))
                 continue;
             fprintf(fp, "Volume%d.Brick%d.port: %d\n", count_bkp, count,
                     brickinfo->port);
@@ -5948,7 +5948,7 @@ get_brickinfo_from_brickid(char *brickid, glusterd_brickinfo_t **brickinfo)
 
     *brick = '\0';
     brick++;
-    gf_uuid_parse(volid_str, volid);
+    uuid_parse(volid_str, volid);
     ret = glusterd_volinfo_find_by_volume_id(volid, &volinfo);
     if (ret) {
         /* Check if it a snapshot volume */
@@ -6188,7 +6188,7 @@ glusterd_friend_remove_notify(glusterd_peerctx_t *peerctx, int32_t op_errno)
                                      peerinfo->hostname, peerinfo->port, dict);
 
         new_event->peername = gf_strdup(peerinfo->hostname);
-        gf_uuid_copy(new_event->peerid, peerinfo->uuid);
+        uuid_copy(new_event->peerid, peerinfo->uuid);
         ret = glusterd_friend_sm_inject_event(new_event);
 
     } else {
@@ -6280,7 +6280,7 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
              * peer probe trigger and given we already generate an event for
              * peer probe this would be unnecessary.
              */
-            if (!gf_uuid_is_null(peerinfo->uuid)) {
+            if (!uuid_is_null(peerinfo->uuid)) {
                 gf_event(EVENT_PEER_CONNECT, "host=%s;uuid=%s",
                          peerinfo->hostname, uuid_utoa(peerinfo->uuid));
             }
@@ -6310,8 +6310,8 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
             if (peerinfo->connected) {
                 if (conf->op_version < GD_OP_VERSION_3_6_0) {
                     glusterd_get_lock_owner(&uuid);
-                    if (!gf_uuid_is_null(uuid) &&
-                        !gf_uuid_compare(peerinfo->uuid, uuid))
+                    if (!uuid_is_null(uuid) &&
+                        !uuid_compare(peerinfo->uuid, uuid))
                         glusterd_unlock(peerinfo->uuid);
                 } else {
                     cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)

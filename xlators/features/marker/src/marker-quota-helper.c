@@ -32,8 +32,8 @@ mq_loc_fill(loc_t *loc, inode_t *inode, inode_t *parent, char *path)
     if (parent)
         loc->parent = inode_ref(parent);
 
-    if (!gf_uuid_is_null(inode->gfid))
-        gf_uuid_copy(loc->gfid, inode->gfid);
+    if (!uuid_is_null(inode->gfid))
+        uuid_copy(loc->gfid, inode->gfid);
 
     loc->path = gf_strdup(path);
     if (!loc->path) {
@@ -168,7 +168,7 @@ mq_contri_init(inode_t *inode)
     contri->contribution = 0;
     contri->file_count = 0;
     contri->dir_count = 0;
-    gf_uuid_copy(contri->gfid, inode->gfid);
+    uuid_copy(contri->gfid, inode->gfid);
 
     LOCK_INIT(&contri->lock);
     INIT_LIST_HEAD(&contri->contri_list);
@@ -193,7 +193,7 @@ mq_get_contribution_node(inode_t *inode, quota_inode_ctx_t *ctx)
 
         list_for_each_entry(temp, &ctx->contribution_head, contri_list)
         {
-            if (gf_uuid_compare(temp->gfid, inode->gfid) == 0) {
+            if (uuid_compare(temp->gfid, inode->gfid) == 0) {
                 contri = temp;
                 GF_REF_GET(contri);
                 break;
@@ -214,7 +214,7 @@ __mq_add_new_contribution_node(xlator_t *this, quota_inode_ctx_t *ctx,
     inode_contribution_t *contribution = NULL;
 
     if (!loc->parent) {
-        if (!gf_uuid_is_null(loc->pargfid))
+        if (!uuid_is_null(loc->pargfid))
             loc->parent = inode_find(loc->inode->table, loc->pargfid);
 
         if (!loc->parent)
@@ -226,7 +226,7 @@ __mq_add_new_contribution_node(xlator_t *this, quota_inode_ctx_t *ctx,
     list_for_each_entry(contribution, &ctx->contribution_head, contri_list)
     {
         if (loc->parent &&
-            gf_uuid_compare(contribution->gfid, loc->parent->gfid) == 0) {
+            uuid_compare(contribution->gfid, loc->parent->gfid) == 0) {
             goto out;
         }
     }
@@ -250,7 +250,7 @@ mq_add_new_contribution_node(xlator_t *this, quota_inode_ctx_t *ctx, loc_t *loc)
         return NULL;
 
     if (((loc->path) && (strcmp(loc->path, "/") == 0)) ||
-        (!loc->path && gf_uuid_is_null(loc->pargfid)))
+        (!loc->path && uuid_is_null(loc->pargfid)))
         return NULL;
 
     LOCK(&ctx->lock);
@@ -277,7 +277,7 @@ mq_dict_set_contribution(xlator_t *this, dict_t *dict, loc_t *loc, uuid_t gfid,
     GF_VALIDATE_OR_GOTO("marker", dict, out);
     GF_VALIDATE_OR_GOTO("marker", loc, out);
 
-    if (gfid && !gf_uuid_is_null(gfid)) {
+    if (gfid && !uuid_is_null(gfid)) {
         GET_CONTRI_KEY(this, key, gfid, ret);
     } else if (loc->parent) {
         GET_CONTRI_KEY(this, key, loc->parent->gfid, ret);

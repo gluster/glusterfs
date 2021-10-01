@@ -503,7 +503,7 @@ dht_check_and_open_fd_on_subvol_task(void *data)
                  fd, fd->flags, uuid_utoa(fd->inode->gfid), subvol->name);
 
     loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(loc.gfid, fd->inode->gfid);
+    uuid_copy(loc.gfid, fd->inode->gfid);
 
     /* Open this on the dst subvol */
 
@@ -1078,7 +1078,7 @@ dht_iatt_merge(xlator_t *this, struct iatt *to, struct iatt *from)
 
     to->ia_dev = from->ia_dev;
 
-    gf_uuid_copy(to->ia_gfid, from->ia_gfid);
+    uuid_copy(to->ia_gfid, from->ia_gfid);
 
     to->ia_ino = from->ia_ino;
     to->ia_prot = from->ia_prot;
@@ -1349,7 +1349,7 @@ dht_migration_complete_check_task(void *data)
         loc_copy(&tmp_loc, &local->loc);
     } else {
         tmp_loc.inode = inode_ref(inode);
-        gf_uuid_copy(tmp_loc.gfid, inode->gfid);
+        uuid_copy(tmp_loc.gfid, inode->gfid);
     }
 
     ret = syncop_lookup(this, &tmp_loc, &stbuf, 0, 0, 0);
@@ -1369,7 +1369,7 @@ dht_migration_complete_check_task(void *data)
                 dst_node->name, NULL);
     }
 
-    if (gf_uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
+    if (uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH, "tmp=%s",
                 tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
                 "dst_name=%s", dst_node->name, NULL);
@@ -1642,7 +1642,7 @@ dht_rebalance_inprogress_task(void *data)
         loc_copy(&tmp_loc, &local->loc);
     } else {
         tmp_loc.inode = inode_ref(inode);
-        gf_uuid_copy(tmp_loc.gfid, inode->gfid);
+        uuid_copy(tmp_loc.gfid, inode->gfid);
     }
 
     /* lookup on dst */
@@ -1655,7 +1655,7 @@ dht_rebalance_inprogress_task(void *data)
         goto out;
     }
 
-    if (gf_uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
+    if (uuid_compare(stbuf.ia_gfid, tmp_loc.inode->gfid)) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH, "tmp=%s",
                 tmp_loc.path ? tmp_loc.path : uuid_utoa(tmp_loc.gfid),
                 "name=%s", dst_node->name, NULL);
@@ -1941,7 +1941,7 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
         goto out;
     }
 
-    gf_uuid_copy(loc.pargfid, gfid);
+    uuid_copy(loc.pargfid, gfid);
     loc.parent = inode_ref(itable->root);
 
     bname = strtok_r(tmp_path, "/", &save_ptr);
@@ -1974,7 +1974,7 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
             }
             inode_unref(loc.parent);
             loc.parent = loc.inode;
-            gf_uuid_copy(loc.pargfid, loc.inode->gfid);
+            uuid_copy(loc.pargfid, loc.inode->gfid);
             loc.inode = NULL;
             continue;
         }
@@ -1995,7 +1995,7 @@ dht_heal_path(xlator_t *this, char *path, inode_table_t *itable)
             goto out;
 
         loc_wipe(&loc);
-        gf_uuid_copy(loc.pargfid, linked_inode->gfid);
+        uuid_copy(loc.pargfid, linked_inode->gfid);
         loc.inode = NULL;
 
         bname = strtok_r(NULL, "/", &save_ptr);
@@ -2033,7 +2033,7 @@ dht_heal_full_path(void *data)
     this = heal_frame->this;
     source = heal_frame->cookie;
     heal_frame->cookie = NULL;
-    gf_uuid_copy(loc.gfid, local->gfid);
+    uuid_copy(loc.gfid, local->gfid);
 
     if (local->loc.inode)
         loc.inode = inode_ref(local->loc.inode);
@@ -2184,7 +2184,7 @@ dht_get_lock_subvolume(xlator_t *this, struct gf_flock *lock,
     if (!subvol && lock->l_type != F_UNLCK && cached_subvol) {
         ret = __dht_lock_subvol_set(inode, this, cached_subvol);
         if (ret) {
-            gf_uuid_unparse(inode->gfid, gfid);
+            uuid_unparse(inode->gfid, gfid);
             UNLOCK(&inode->lock);
             gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_SET_INODE_CTX_FAILED,
                     "lock_subvol gfid=%s", gfid, NULL);
@@ -2231,7 +2231,7 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
         case F_RDLCK:
         case F_WRLCK:
             if (op_ret) {
-                gf_uuid_unparse(inode->gfid, gfid);
+                uuid_unparse(inode->gfid, gfid);
                 gf_msg_debug(this->name, 0, "lock request failed for gfid %s",
                              gfid);
                 inode_unref(inode);
@@ -2243,7 +2243,7 @@ dht_lk_inode_unref(call_frame_t *frame, int32_t op_ret)
             if (!op_ret) {
                 inode_unref(inode);
             } else {
-                gf_uuid_unparse(inode->gfid, gfid);
+                uuid_unparse(inode->gfid, gfid);
                 gf_smsg(this->name, GF_LOG_WARNING, 0,
                         DHT_MSG_LOCK_INODE_UNREF_FAILED, "gfid=%s", gfid, NULL);
                 goto out;

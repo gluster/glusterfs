@@ -58,7 +58,7 @@ afr_build_parent_loc(loc_t *parent, loc_t *child, int32_t *op_errno)
     }
 
     parent->inode = inode_ref(child->parent);
-    gf_uuid_copy(parent->gfid, child->pargfid);
+    uuid_copy(parent->gfid, child->pargfid);
 
     ret = 0;
 out:
@@ -88,7 +88,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
             continue;
         if (local->replies[i].op_ret == -1)
             continue;
-        gf_uuid_copy(args.gfid, local->replies[i].poststat.ia_gfid);
+        uuid_copy(args.gfid, local->replies[i].poststat.ia_gfid);
         args.ia_type = local->replies[i].poststat.ia_type;
         break;
     }
@@ -312,7 +312,7 @@ afr_mark_new_entry_changelog(call_frame_t *frame, xlator_t *this)
         goto out;
 
     new_local->pending = changelog;
-    gf_uuid_copy(new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
+    uuid_copy(new_local->loc.gfid, local->cont.dir_fop.buf.ia_gfid);
     new_local->loc.inode = inode_ref(local->inode);
 
     new_local->call_count = call_count;

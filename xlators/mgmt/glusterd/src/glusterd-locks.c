@@ -144,7 +144,7 @@ glusterd_get_mgmt_v3_lock_owner(char *key, uuid_t *uuid)
 
     ret = dict_get_bin(priv->mgmt_v3_lock, key, (void **)&lock_obj);
     if (!ret)
-        gf_uuid_copy(*uuid, lock_obj->lock_owner);
+        uuid_copy(*uuid, lock_obj->lock_owner);
 
     ret = 0;
 out:
@@ -541,7 +541,7 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
 
     /* If the lock has already been held for the given volume
      * we fail */
-    if (!gf_uuid_is_null(owner)) {
+    if (!uuid_is_null(owner)) {
         gf_msg_callingfn(this->name, GF_LOG_WARNING, 0,
                          GD_MSG_LOCK_ALREADY_HELD, "Lock for %s held by %s",
                          name, uuid_utoa(owner));
@@ -557,7 +557,7 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
         goto out;
     }
 
-    gf_uuid_copy(lock_obj->lock_owner, uuid);
+    uuid_copy(lock_obj->lock_owner, uuid);
 
     ret = dict_set_bin(priv->mgmt_v3_lock, key, lock_obj,
                        sizeof(glusterd_mgmt_v3_lock_obj));
@@ -764,14 +764,14 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         goto out;
     }
 
-    if (gf_uuid_is_null(owner)) {
+    if (uuid_is_null(owner)) {
         gf_msg_callingfn(this->name, GF_LOG_WARNING, 0, GD_MSG_LOCK_NOT_HELD,
                          "Lock for %s %s not held", type, name);
         ret = -1;
         goto out;
     }
 
-    ret = gf_uuid_compare(uuid, owner);
+    ret = uuid_compare(uuid, owner);
     if (ret) {
         gf_msg_callingfn(this->name, GF_LOG_WARNING, 0,
                          GD_MSG_LOCK_OWNER_MISMATCH,

@@ -399,7 +399,7 @@ ios_stat_add_to_list(struct ios_stat_head *list_head, uint64_t value,
             if (cnt == list_head->members)
                 last = entry;
 
-            if (!gf_uuid_compare(iosstat->gfid, entry->iosstat->gfid)) {
+            if (!uuid_compare(iosstat->gfid, entry->iosstat->gfid)) {
                 list_entry = entry;
                 found = cnt;
                 entry->value = value;
@@ -1893,7 +1893,7 @@ ios_init_iosstat(xlator_t *this, char *path, uuid_t gfid, inode_t *inode)
         goto out;
 
     iosstat->filename = gf_strdup(path);
-    gf_uuid_copy(iosstat->gfid, gfid);
+    uuid_copy(iosstat->gfid, gfid);
     LOCK_INIT(&iosstat->lock);
 
     for (i = 0; i < IOS_STATS_TYPE_MAX; i++)

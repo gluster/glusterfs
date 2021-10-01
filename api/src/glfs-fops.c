@@ -162,7 +162,7 @@ glfs_get_upcall_lease(struct gf_upcall *to_up_data,
     to_up_data->data = ca_data;
 
     ca_data->lease_type = f_ca_data->lease_type;
-    gf_uuid_copy(ca_data->tid, f_ca_data->tid);
+    uuid_copy(ca_data->tid, f_ca_data->tid);
     ca_data->dict = f_ca_data->dict;
 
     ret = 0;
@@ -784,7 +784,7 @@ pub_glfs_creat(struct glfs *fs, const char *path, int flags, mode_t mode)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -2716,7 +2716,7 @@ pub_glfs_symlink(struct glfs *fs, const char *data, const char *path)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -2863,7 +2863,7 @@ pub_glfs_mknod(struct glfs *fs, const char *path, mode_t mode, dev_t dev)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -2953,7 +2953,7 @@ pub_glfs_mkdir(struct glfs *fs, const char *path, mode_t mode)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -5487,7 +5487,7 @@ glfs_enqueue_upcall_data(struct glfs *fs, struct gf_upcall *upcall_data)
 
     INIT_LIST_HEAD(&u_list->upcall_list);
 
-    gf_uuid_copy(u_list->upcall_data.gfid, upcall_data->gfid);
+    uuid_copy(u_list->upcall_data.gfid, upcall_data->gfid);
     u_list->upcall_data.event_type = upcall_data->event_type;
 
     switch (upcall_data->event_type) {
@@ -5876,7 +5876,7 @@ upcall_syncop_args_init(struct glfs *fs, struct gf_upcall *upcall_data)
     t_data = &(args->upcall_data);
     t_data->client_uid = gf_strdup(upcall_data->client_uid);
 
-    gf_uuid_copy(t_data->gfid, upcall_data->gfid);
+    uuid_copy(t_data->gfid, upcall_data->gfid);
     t_data->event_type = upcall_data->event_type;
 
     switch (t_data->event_type) {

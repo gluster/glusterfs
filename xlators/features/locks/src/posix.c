@@ -1414,7 +1414,7 @@ fetch_pathinfo(xlator_t *this, inode_t *inode, int32_t *op_errno,
     if (!op_errno)
         goto out;
 
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     loc.inode = inode_ref(inode);
 
     ret = syncop_getxattr(FIRST_CHILD(this), &loc, &dict, GF_XATTR_PATHINFO_KEY,

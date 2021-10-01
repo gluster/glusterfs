@@ -238,7 +238,7 @@ quotad_aggregator_getlimit(rpcsvc_request_t *req)
         goto err;
     }
 
-    gf_uuid_parse((const char *)gfid_str, gfid);
+    uuid_parse((const char *)gfid_str, gfid);
 
     frame = quotad_aggregator_get_frame_from_req(req);
     if (frame == NULL) {

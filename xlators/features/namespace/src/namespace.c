@@ -62,7 +62,7 @@ ns_local_new(call_stub_t *stub, inode_t *inode)
     }
 
     /* Set up a fake loc_t struct to give to the getxattr call. */
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     loc.inode = inode_ref(inode);
 
     /* If for some reason inode_ref() fails, then just give up. */
@@ -303,8 +303,8 @@ set_ns_from_loc(const char *fn, call_frame_t *frame, xlator_t *this, loc_t *loc)
     /* Keep trying by calling inode_path next, making sure to copy
     the loc's gfid into its inode if necessary. */
     if (ret == PATH_PARSE_RESULT_IS_GFID) {
-        if (gf_uuid_is_null(loc->inode->gfid)) {
-            gf_uuid_copy(loc->inode->gfid, loc->gfid);
+        if (uuid_is_null(loc->inode->gfid)) {
+            uuid_copy(loc->inode->gfid, loc->gfid);
         }
 
         if (inode_path(loc->inode, NULL, &path) >= 0 && path) {
@@ -332,8 +332,8 @@ set_ns_from_loc(const char *fn, call_frame_t *frame, xlator_t *this, loc_t *loc)
         gf_log(this->name, GF_LOG_WARNING, "%s: LOC has no path", fn);
     } else if (ret == PATH_PARSE_RESULT_IS_GFID) {
         /* Make sure to copy the inode's gfid for the eventual wind. */
-        if (gf_uuid_is_null(loc->inode->gfid)) {
-            gf_uuid_copy(loc->inode->gfid, loc->gfid);
+        if (uuid_is_null(loc->inode->gfid)) {
+            uuid_copy(loc->inode->gfid, loc->gfid);
         }
 
         gf_log(this->name, GF_LOG_DEBUG, "%s: LOC %s winding, looking for path",

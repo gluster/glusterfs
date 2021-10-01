@@ -901,7 +901,7 @@ __recall_lease(xlator_t *this, lease_inode_ctx_t *lease_ctx)
     list_for_each_entry_safe(lease_entry, tmp, &lease_ctx->lease_id_list,
                              lease_id_list)
     {
-        gf_uuid_copy(up_req.gfid, lease_ctx->inode->gfid);
+        uuid_copy(up_req.gfid, lease_ctx->inode->gfid);
         up_req.client_uid = lease_entry->client_uid;
         up_req.event_type = GF_UPCALL_RECALL_LEASE;
         up_req.data = &recall_req;

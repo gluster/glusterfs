@@ -326,7 +326,7 @@ cvlt_init_file_info(cs_loc_xattr_t *xattr, archstore_fileinfo_t *file_info)
         return -1;
     }
 
-    gf_uuid_copy(file_info->uuid, xattr->uuid);
+    uuid_copy(file_info->uuid, xattr->uuid);
     file_info->path = xattr->file_path;
     file_info->pathlength = strlen(xattr->file_path);
 
@@ -360,7 +360,7 @@ cvlt_init_gluster_file_info(cs_loc_xattr_t *xattr,
         return -1;
     }
 
-    gf_uuid_copy(file_info->uuid, xattr->gfid);
+    uuid_copy(file_info->uuid, xattr->gfid);
     file_info->path = xattr->file_path;
     file_info->pathlength = strlen(xattr->file_path);
 

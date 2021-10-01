@@ -53,7 +53,6 @@
 #include "posix-metadata.h"
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
-#include <glusterfs/compat-uuid.h>
 #include <glusterfs/syncop.h>
 
 extern char *marker_xattrs[];
@@ -221,7 +220,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     op_ret = dict_get_int32_sizen(xdata, GF_GFIDLESS_LOOKUP, &gfidless);
     op_ret = -1;
-    if (gf_uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
+    if (uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
         /* nameless lookup */
         op_ret = op_errno = errno = 0;
         MAKE_INODE_HANDLE(real_path, this, loc, &buf);
@@ -260,7 +259,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
             op_errno = ESTALE;
             goto out;
         }
-        if (gf_uuid_is_null(loc->inode->gfid)) {
+        if (uuid_is_null(loc->inode->gfid)) {
             op_ret = posix_gfid_heal(this, real_path, loc, xdata);
             if (op_ret < 0) {
                 op_errno = -op_ret;
@@ -318,7 +317,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     posix_update_iatt_buf(&buf, -1, real_path, xdata);
     if (priv->update_pgfid_nlinks) {
-        if (!gf_uuid_is_null(loc->pargfid) && !IA_ISDIR(buf.ia_type)) {
+        if (!uuid_is_null(loc->pargfid) && !IA_ISDIR(buf.ia_type)) {
             MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                  loc->pargfid);
 
@@ -361,7 +360,7 @@ parent:
 
     op_ret = entry_ret;
 out:
-    if (!op_ret && !gfidless && gf_uuid_is_null(buf.ia_gfid)) {
+    if (!op_ret && !gfidless && uuid_is_null(buf.ia_gfid)) {
         gf_msg(this->name, GF_LOG_ERROR, ENODATA, P_MSG_NULL_GFID,
                "buf->ia_gfid is null for "
                "%s",
@@ -787,14 +786,14 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     mode = posix_override_umask(mode, mode_bit);
 
     if (xdata) {
-        if (!gf_uuid_compare(stbuf.ia_gfid, uuid_req)) {
+        if (!uuid_compare(stbuf.ia_gfid, uuid_req)) {
             op_ret = -1;
             op_errno = EEXIST;
             goto out;
         }
     }
 
-    if (!gf_uuid_is_null(uuid_req)) {
+    if (!uuid_is_null(uuid_req)) {
         op_ret = posix_istat(this, loc->inode, uuid_req, NULL, &stbuf);
         if ((op_ret == 0) && IA_ISDIR(stbuf.ia_type)) {
             gfid_path = alloca(PATH_MAX);
@@ -858,9 +857,9 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         arg_data = dict_getn(xdata, xattr_name, xattr_name_len);
         if (arg_data) {
             if (loc->parent)
-                gf_uuid_unparse(loc->parent->gfid, pgfid);
+                uuid_unparse(loc->parent->gfid, pgfid);
             else
-                gf_uuid_unparse(loc->pargfid, pgfid);
+                uuid_unparse(loc->pargfid, pgfid);
 
             size = 256;
             disk_xattr = GF_MALLOC(size + 1, gf_posix_mt_char);
@@ -1923,7 +1922,7 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     if ((op_ret == -1) && (errno == ENOENT)) {
         was_present = 0;
     } else {
-        gf_uuid_copy(victim, stbuf.ia_gfid);
+        uuid_copy(victim, stbuf.ia_gfid);
         if (IA_ISDIR(stbuf.ia_type))
             was_dir = 1;
         nlink = stbuf.ia_nlink;
@@ -1938,7 +1937,7 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     }
 
     if (was_present && IA_ISDIR(stbuf.ia_type) &&
-        gf_uuid_compare(newloc->inode->gfid, stbuf.ia_gfid)) {
+        uuid_compare(newloc->inode->gfid, stbuf.ia_gfid)) {
         gf_msg(this->name, GF_LOG_WARNING, EEXIST, P_MSG_DIR_FOUND,
                "found directory %s at %s while renaming %s",
                uuid_utoa_r(newloc->inode->gfid, olddirid), real_newpath,

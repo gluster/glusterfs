@@ -80,12 +80,11 @@ heal:
         if (!replies[i].valid || replies[i].op_ret != 0)
             continue;
 
-        if (gf_uuid_is_null(gfid) &&
-            !gf_uuid_is_null(replies[i].poststat.ia_gfid) &&
+        if (uuid_is_null(gfid) && !uuid_is_null(replies[i].poststat.ia_gfid) &&
             replies[i].poststat.ia_type == ia_type)
             gfid = replies[i].poststat.ia_gfid;
 
-        if (!gf_uuid_is_null(replies[i].poststat.ia_gfid) ||
+        if (!uuid_is_null(replies[i].poststat.ia_gfid) ||
             replies[i].poststat.ia_type != ia_type)
             continue;
 
@@ -115,7 +114,7 @@ heal:
 
     local = frame->local;
     loc.parent = inode_ref(parent);
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
     loc.name = name;
     loc.inode = inode_ref(inode);
 
@@ -133,7 +132,7 @@ heal:
             if (!wind_on[i])
                 continue;
             if (replies[i].valid && replies[i].op_ret == 0 &&
-                !gf_uuid_is_null(replies[i].poststat.ia_gfid)) {
+                !uuid_is_null(replies[i].poststat.ia_gfid)) {
                 *gfid_idx = i;
                 break;
             }
@@ -183,8 +182,8 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
 
         votes = 1;
         for (j = i + 1; j < child_count; j++) {
-            if ((!gf_uuid_compare(replies[i].poststat.ia_gfid,
-                                  replies[j].poststat.ia_gfid)))
+            if ((!uuid_compare(replies[i].poststat.ia_gfid,
+                               replies[j].poststat.ia_gfid)))
                 votes++;
             if (votes > child_count / 2)
                 return i;
@@ -436,7 +435,7 @@ afr_selfheal_post_op(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local = frame->local;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     local->op_ret = 0;
 
@@ -510,7 +509,7 @@ afr_selfheal_restore_time(call_frame_t *frame, xlator_t *this, inode_t *inode,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     AFR_ONLIST(healed_sinks, frame, afr_sh_generic_fop_cbk, setattr, &loc,
                &replies[source].poststat,
@@ -1812,7 +1811,7 @@ afr_selfheal_unlocked_lookup_on(call_frame_t *frame, inode_t *parent,
     }
 
     loc.parent = inode_ref(parent);
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
     loc.name = name;
     loc.inode = inode_ref(inode);
 
@@ -1890,7 +1889,7 @@ afr_selfheal_unlocked_discover_on(call_frame_t *frame, inode_t *inode,
     }
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, gfid);
+    uuid_copy(loc.gfid, gfid);
 
     AFR_ONLIST(discover_on, frame, afr_selfheal_discover_cbk, lookup, &loc,
                xattr_req);
@@ -1986,7 +1985,7 @@ afr_selfheal_tryinodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     flock.l_type = F_WRLCK;
     flock.l_start = off;
@@ -2019,7 +2018,7 @@ afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local = frame->local;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     flock.l_type = F_WRLCK;
     flock.l_start = off;
@@ -2085,7 +2084,7 @@ afr_selfheal_tie_breaker_inodelk(call_frame_t *frame, xlator_t *this,
     local = frame->local;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     flock.l_type = F_WRLCK;
     flock.l_start = off;
@@ -2123,7 +2122,7 @@ afr_selfheal_uninodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     flock.l_type = F_UNLCK;
     flock.l_start = off;
@@ -2146,7 +2145,7 @@ afr_selfheal_tryentrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     AFR_ONALL(frame, afr_selfheal_lock_cbk, entrylk, dom, &loc, name,
               ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
@@ -2171,7 +2170,7 @@ afr_selfheal_entrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local = frame->local;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     AFR_ONALL(frame, afr_selfheal_lock_cbk, entrylk, dom, &loc, name,
               ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
@@ -2211,7 +2210,7 @@ afr_selfheal_tie_breaker_entrylk(call_frame_t *frame, xlator_t *this,
     local = frame->local;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     AFR_ONALL(frame, afr_selfheal_lock_cbk, entrylk, dom, &loc, name,
               ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
@@ -2242,7 +2241,7 @@ afr_selfheal_unentrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     AFR_ONLIST(locked_on, frame, afr_selfheal_lock_cbk, entrylk, dom, &loc,
                name, ENTRYLK_UNLOCK, ENTRYLK_WRLCK, xdata);
@@ -2448,7 +2447,7 @@ afr_inode_find(xlator_t *this, uuid_t gfid)
     if (!inode)
         return NULL;
 
-    gf_uuid_copy(inode->gfid, gfid);
+    uuid_copy(inode->gfid, gfid);
 
     return inode;
 }
@@ -2495,7 +2494,7 @@ afr_selfheal_newentry_mark(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
     priv = this->private;
 
-    gf_uuid_copy(inode->gfid, replies[source].poststat.ia_gfid);
+    uuid_copy(inode->gfid, replies[source].poststat.ia_gfid);
 
     xattr = dict_new();
     if (!xattr)
@@ -2818,7 +2817,7 @@ afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode)
         /*Other bricks may need mkdir so don't error out yet*/
         child_op_errno = ENOTCONN;
     }
-    gf_uuid_parse(priv->anon_gfid_str, anon_inode_gfid);
+    uuid_parse(priv->anon_gfid_str, anon_inode_gfid);
     for (i = 0; i < priv->child_count; i++) {
         if (!local->child_up[i])
             continue;
@@ -2895,8 +2894,8 @@ lookup:
         }
 
         if (local->replies[i].op_ret == 0) {
-            if (gf_uuid_compare(anon_inode_gfid,
-                                local->replies[i].poststat.ia_gfid) == 0) {
+            if (uuid_compare(anon_inode_gfid,
+                             local->replies[i].poststat.ia_gfid) == 0) {
                 priv->anon_inode[i] = 1;
                 iatt = local->replies[i].poststat;
             } else {
@@ -2911,7 +2910,7 @@ lookup:
         }
     }
 link:
-    if (!gf_uuid_is_null(iatt.ia_gfid)) {
+    if (!uuid_is_null(iatt.ia_gfid)) {
         *linked_inode = inode_link(loc.inode, loc.parent, loc.name, &iatt);
         if (*linked_inode) {
             op_errno = 0;

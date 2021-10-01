@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/compat-uuid.h>
 #include <glusterfs/globals.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>

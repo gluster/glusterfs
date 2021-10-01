@@ -161,7 +161,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_uuid_copy(ctx->uuid, lock_req.uuid);
+    uuid_copy(ctx->uuid, lock_req.uuid);
     ctx->req = req;
 
     ctx->dict = dict_new();
@@ -970,7 +970,7 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_uuid_copy(ctx->uuid, lock_req.uuid);
+    uuid_copy(ctx->uuid, lock_req.uuid);
     ctx->req = req;
 
     ctx->dict = dict_new();

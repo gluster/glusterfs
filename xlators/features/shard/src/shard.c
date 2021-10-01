@@ -23,7 +23,7 @@ __is_shard_dir(uuid_t gfid)
 {
     shard_priv_t *priv = THIS->private;
 
-    if (gf_uuid_compare(gfid, priv->dot_shard_gfid) == 0)
+    if (uuid_compare(gfid, priv->dot_shard_gfid) == 0)
         return _gf_true;
 
     return _gf_false;
@@ -47,7 +47,7 @@ shard_make_block_bname(int block_num, uuid_t gfid, char *buf, size_t len)
         0,
     };
 
-    gf_uuid_unparse(gfid, gfid_str);
+    uuid_unparse(gfid, gfid_str);
     snprintf(buf, len, "%s.%d", gfid_str, block_num);
 }
 
@@ -155,7 +155,7 @@ __shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
 
     if (valid & SHARD_MASK_OTHERS) {
         ctx->stat.ia_ino = stbuf->ia_ino;
-        gf_uuid_copy(ctx->stat.ia_gfid, stbuf->ia_gfid);
+        uuid_copy(ctx->stat.ia_gfid, stbuf->ia_gfid);
         ctx->stat.ia_dev = stbuf->ia_dev;
         ctx->stat.ia_type = stbuf->ia_type;
         ctx->stat.ia_rdev = stbuf->ia_rdev;
@@ -694,9 +694,9 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
              */
             inode_ref(linked_inode);
             if (base_inode)
-                gf_uuid_copy(ctx->base_gfid, base_inode->gfid);
+                uuid_copy(ctx->base_gfid, base_inode->gfid);
             else
-                gf_uuid_copy(ctx->base_gfid, gfid);
+                uuid_copy(ctx->base_gfid, gfid);
             ctx->block_num = block_num;
             list_add_tail(&ctx->ilist, &priv->ilist_head);
             priv->inode_count++;
@@ -771,9 +771,9 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
              */
             inode_ref(linked_inode);
             if (base_inode)
-                gf_uuid_copy(ctx->base_gfid, base_inode->gfid);
+                uuid_copy(ctx->base_gfid, base_inode->gfid);
             else
-                gf_uuid_copy(ctx->base_gfid, gfid);
+                uuid_copy(ctx->base_gfid, gfid);
             ctx->block_num = block_num;
             ctx->base_inode = inode_ref(base_inode);
             list_add_tail(&ctx->ilist, &priv->ilist_head);
@@ -1069,9 +1069,9 @@ shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
     resolve_count = local->last_block - local->create_count;
 
     if (res_inode)
-        gf_uuid_copy(gfid, res_inode->gfid);
+        uuid_copy(gfid, res_inode->gfid);
     else
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_copy(gfid, local->base_gfid);
 
     /* Build base shard path before appending index of the shard */
     prefix_len = shard_make_base_path(path, gfid);
@@ -1334,10 +1334,10 @@ shard_refresh_internal_dir(call_frame_t *frame, xlator_t *this,
 
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
-            gf_uuid_copy(gfid, priv->dot_shard_gfid);
+            uuid_copy(gfid, priv->dot_shard_gfid);
             break;
         case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
-            gf_uuid_copy(gfid, priv->dot_shard_rm_gfid);
+            uuid_copy(gfid, priv->dot_shard_rm_gfid);
             break;
         default:
             break;
@@ -1354,7 +1354,7 @@ shard_refresh_internal_dir(call_frame_t *frame, xlator_t *this,
      * call to inode_find()
      */
     loc.inode = inode;
-    gf_uuid_copy(loc.gfid, gfid);
+    uuid_copy(loc.gfid, gfid);
 
     STACK_WIND_COOKIE(frame, shard_refresh_internal_dir_cbk, (void *)(long)type,
                       FIRST_CHILD(this), FIRST_CHILD(this)->fops->lookup, &loc,
@@ -1441,11 +1441,11 @@ shard_lookup_internal_dir(call_frame_t *frame, xlator_t *this,
 
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
-            gf_uuid_copy(*gfid, priv->dot_shard_gfid);
+            uuid_copy(*gfid, priv->dot_shard_gfid);
             loc = &local->dot_shard_loc;
             break;
         case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
-            gf_uuid_copy(*gfid, priv->dot_shard_rm_gfid);
+            uuid_copy(*gfid, priv->dot_shard_rm_gfid);
             loc = &local->dot_shard_rm_loc;
             break;
         default:
@@ -2120,7 +2120,7 @@ shard_truncate_last_shard(call_frame_t *frame, xlator_t *this, inode_t *inode)
     SHARD_SET_ROOT_FS_ID(frame, local);
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     last_shard_size_after = (local->offset % local->block_size);
 
@@ -2351,13 +2351,13 @@ shard_link_block_inode(shard_local_t *local, int block_num, inode_t *inode,
     this = THIS;
     priv = this->private;
     if (local->loc.inode) {
-        gf_uuid_copy(gfid, local->loc.inode->gfid);
+        uuid_copy(gfid, local->loc.inode->gfid);
         base_inode = local->loc.inode;
     } else if (local->resolver_base_inode) {
-        gf_uuid_copy(gfid, local->resolver_base_inode->gfid);
+        uuid_copy(gfid, local->resolver_base_inode->gfid);
         base_inode = local->resolver_base_inode;
     } else {
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_copy(gfid, local->base_gfid);
     }
 
     shard_make_block_bname(block_num, gfid, block_bname, sizeof(block_bname));
@@ -2393,9 +2393,9 @@ shard_common_lookup_shards_cbk(call_frame_t *frame, void *cookie,
 
     local = frame->local;
     if (local->resolver_base_inode)
-        gf_uuid_copy(gfid, local->resolver_base_inode->gfid);
+        uuid_copy(gfid, local->resolver_base_inode->gfid);
     else
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_copy(gfid, local->base_gfid);
 
     if (op_ret < 0) {
         /* Ignore absence of shards in the backend in truncate fop. */
@@ -2470,7 +2470,7 @@ shard_create_gfid_dict(dict_t *dict)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
 
     ret = dict_set_gfuuid(new, "gfid-req", gfid, false);
 
@@ -2541,7 +2541,7 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
         shard_append_index(path, SHARD_PATH_MAX, prefix_len, shard_idx_iter);
         loc.inode = inode_new(this->itable);
         loc.parent = inode_ref(priv->dot_shard_inode);
-        gf_uuid_copy(loc.pargfid, priv->dot_shard_gfid);
+        uuid_copy(loc.pargfid, priv->dot_shard_gfid);
         ret = inode_path(loc.parent, bname, (char **)&(loc.path));
         if (ret < 0 || !(loc.inode)) {
             gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
@@ -2877,7 +2877,7 @@ shard_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     local->fop = GF_FOP_FTRUNCATE;
 
     local->loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+    uuid_copy(local->loc.gfid, fd->inode->gfid);
     local->resolver_base_inode = fd->inode;
     GF_ATOMIC_INIT(local->delta_blocks, 0);
 
@@ -3048,9 +3048,9 @@ shard_post_lookup_shards_unlink_handler(call_frame_t *frame, xlator_t *this)
     local = frame->local;
 
     if (local->resolver_base_inode)
-        gf_uuid_copy(gfid, local->resolver_base_inode->gfid);
+        uuid_copy(gfid, local->resolver_base_inode->gfid);
     else
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_copy(gfid, local->base_gfid);
 
     if ((local->op_ret < 0) && (local->op_errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_ERROR, local->op_errno, SHARD_MSG_FOP_FAILED,
@@ -3105,9 +3105,9 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
     shard_inode_ctx_get(inode, this, &ctx);
     base_inode = ctx->base_inode;
     if (base_inode)
-        gf_uuid_copy(gfid, base_inode->gfid);
+        uuid_copy(gfid, base_inode->gfid);
     else
-        gf_uuid_copy(gfid, ctx->base_gfid);
+        uuid_copy(gfid, ctx->base_gfid);
     shard_make_block_bname(shard_block_num, gfid, block_bname,
                            sizeof(block_bname));
 
@@ -3313,8 +3313,8 @@ shard_regulated_shards_deletion(call_frame_t *cleanup_frame, xlator_t *this,
     local->first_block = first_block;
     local->last_block = first_block + now - 1;
     local->num_blocks = now;
-    gf_uuid_parse(entry->d_name, gfid);
-    gf_uuid_copy(local->base_gfid, gfid);
+    uuid_parse(entry->d_name, gfid);
+    uuid_copy(local->base_gfid, gfid);
     local->resolver_base_inode = inode_find(this->itable, gfid);
     local->call_count = 0;
     ret = syncbarrier_init(&local->barrier);
@@ -3466,7 +3466,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
         ret = -ENOMEM;
         goto err;
     }
-    gf_uuid_parse(entry->d_name, loc.gfid);
+    uuid_parse(entry->d_name, loc.gfid);
     ret = syncop_lookup(FIRST_CHILD(this), &loc, NULL, NULL, NULL, NULL);
     if (!ret) {
         gf_msg_debug(this->name, 0,
@@ -3585,12 +3585,12 @@ shard_resolve_internal_dir(xlator_t *this, shard_local_t *local,
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
             loc = &local->dot_shard_loc;
-            gf_uuid_copy(gfid, priv->dot_shard_gfid);
+            uuid_copy(gfid, priv->dot_shard_gfid);
             bname = GF_SHARD_DIR;
             break;
         case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
             loc = &local->dot_shard_rm_loc;
-            gf_uuid_copy(gfid, priv->dot_shard_rm_gfid);
+            uuid_copy(gfid, priv->dot_shard_rm_gfid);
             bname = GF_SHARD_REMOVE_ME_DIR;
             break;
         default:
@@ -3687,7 +3687,7 @@ shard_nameless_lookup_base_file(xlator_t *this, char *gfid)
         goto out;
     }
 
-    ret = gf_uuid_parse(gfid, loc.gfid);
+    ret = uuid_parse(gfid, loc.gfid);
     if (ret < 0)
         goto out;
 
@@ -4355,7 +4355,7 @@ shard_acquire_entrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     int_entrylk->loc.inode = inode_ref(inode);
     set_lk_owner_from_ptr(&entrylk_frame->root->lk_owner, entrylk_frame->root);
     local->entrylk_frame = entrylk_frame;
-    gf_uuid_unparse(gfid, gfid_str);
+    uuid_unparse(gfid, gfid_str);
     int_entrylk->basename = gf_strdup(gfid_str);
 
     STACK_WIND(entrylk_frame, shard_acquire_entrylk_cbk, FIRST_CHILD(this),
@@ -4672,7 +4672,7 @@ shard_rename_src_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * and ia_blocks.*/
     if (local->block_size) {
         local->tmp_loc.inode = inode_new(this->itable);
-        gf_uuid_copy(local->tmp_loc.gfid, (local->loc.inode)->gfid);
+        uuid_copy(local->tmp_loc.gfid, (local->loc.inode)->gfid);
         shard_refresh_base_file(frame, this, &local->tmp_loc, NULL,
                                 shard_post_rename_lookup_handler);
     } else {
@@ -5453,7 +5453,7 @@ shard_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto err;
 
     local->loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+    uuid_copy(local->loc.gfid, fd->inode->gfid);
 
     shard_refresh_base_file(frame, this, NULL, fd,
                             shard_post_lookup_readv_handler);
@@ -5950,11 +5950,11 @@ shard_mkdir_internal_dir(call_frame_t *frame, xlator_t *this,
 
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
-            gf_uuid_copy(*gfid, priv->dot_shard_gfid);
+            uuid_copy(*gfid, priv->dot_shard_gfid);
             loc = &local->dot_shard_loc;
             break;
         case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
-            gf_uuid_copy(*gfid, priv->dot_shard_rm_gfid);
+            uuid_copy(*gfid, priv->dot_shard_rm_gfid);
             loc = &local->dot_shard_rm_loc;
             break;
         default:
@@ -6270,7 +6270,7 @@ shard_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
         goto err;
 
     local->loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+    uuid_copy(local->loc.gfid, fd->inode->gfid);
 
     shard_refresh_base_file(frame, this, NULL, fd,
                             shard_post_lookup_fsync_handler);
@@ -6646,7 +6646,7 @@ shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
     if (fd) {
         local->fd = fd_ref(fd);
         local->loc.inode = inode_ref(fd->inode);
-        gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+        uuid_copy(local->loc.gfid, fd->inode->gfid);
     }
 
     if (name) {
@@ -6896,7 +6896,7 @@ shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
     if (fd) {
         local->fd = fd_ref(fd);
         local->loc.inode = inode_ref(fd->inode);
-        gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+        uuid_copy(local->loc.gfid, fd->inode->gfid);
     }
     local->flags = flags;
     /* Reusing local->xattr_req and local->xattr_rsp to store the setxattr dict
@@ -7213,7 +7213,7 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     GF_ATOMIC_INIT(local->delta_blocks, 0);
 
     local->loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->loc.gfid, fd->inode->gfid);
+    uuid_copy(local->loc.gfid, fd->inode->gfid);
 
     shard_refresh_base_file(frame, this, NULL, fd,
                             shard_common_inode_write_post_lookup_handler);
@@ -7464,8 +7464,8 @@ init(xlator_t *this)
         ret = -1;
         goto out;
     }
-    gf_uuid_parse(SHARD_ROOT_GFID, priv->dot_shard_gfid);
-    gf_uuid_parse(DOT_SHARD_REMOVE_ME_GFID, priv->dot_shard_rm_gfid);
+    uuid_parse(SHARD_ROOT_GFID, priv->dot_shard_gfid);
+    uuid_parse(DOT_SHARD_REMOVE_ME_GFID, priv->dot_shard_rm_gfid);
 
     this->private = priv;
     LOCK_INIT(&priv->lock);

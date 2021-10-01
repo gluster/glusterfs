@@ -151,7 +151,7 @@ ec_iatt_combine(ec_fop_data_t *fop, struct iatt *dst, struct iatt *src,
         if ((dst[i].ia_ino != src[i].ia_ino) ||
             (((dst[i].ia_type == IA_IFBLK) || (dst[i].ia_type == IA_IFCHR)) &&
              (dst[i].ia_rdev != src[i].ia_rdev)) ||
-            (gf_uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0)) {
+            (uuid_compare(dst[i].ia_gfid, src[i].ia_gfid) != 0)) {
             failed = _gf_true;
         }
         /* Check for not so stable fields. These fields can change if the

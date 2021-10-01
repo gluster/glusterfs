@@ -110,7 +110,7 @@ ec_shd_index_inode(xlator_t *this, xlator_t *subvol, inode_t **inode)
 
     *inode = NULL;
     rootloc.inode = inode_ref(this->itable->root);
-    gf_uuid_copy(rootloc.gfid, rootloc.inode->gfid);
+    uuid_copy(rootloc.gfid, rootloc.inode->gfid);
 
     ret = syncop_getxattr(subvol, &rootloc, &xattr, GF_XATTROP_INDEX_GFID, NULL,
                           NULL);
@@ -251,7 +251,7 @@ ec_shd_index_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 
     gf_msg_debug(healer->this->name, 0, "got entry: %s", entry->d_name);
 
-    ret = gf_uuid_parse(entry->d_name, loc.gfid);
+    ret = uuid_parse(entry->d_name, loc.gfid);
     if (ret)
         return 0;
 
@@ -339,7 +339,7 @@ ec_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     if (!ec->shd.enabled)
         return -EBUSY;
 
-    if (gf_uuid_is_null(entry->d_stat.ia_gfid)) {
+    if (uuid_is_null(entry->d_stat.ia_gfid)) {
         /* It's possible that an entry has been removed just after
          * being seen in a directory but before getting its stat info.
          * In this case we'll receive a NULL gfid here. Since the file
@@ -349,7 +349,7 @@ ec_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
 
     loc.parent = inode_ref(parent->inode);
     loc.name = entry->d_name;
-    gf_uuid_copy(loc.gfid, entry->d_stat.ia_gfid);
+    uuid_copy(loc.gfid, entry->d_stat.ia_gfid);
 
     /* If this fails with ENOENT/ESTALE index is stale */
     ret = syncop_gfid_to_path(this->itable, subvol, loc.gfid,

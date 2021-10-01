@@ -226,7 +226,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_uuid_generate(volume_id);
+    uuid_generate(volume_id);
     free_ptr = gf_strdup(uuid_utoa(volume_id));
     ret = dict_set_dynstrn(dict, "volume-id", SLEN("volume-id"), free_ptr);
     if (ret) {
@@ -242,7 +242,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
 
     /* generate internal username and password */
 
-    gf_uuid_generate(tmp_uuid);
+    uuid_generate(tmp_uuid);
     username = gf_strdup(uuid_utoa(tmp_uuid));
     ret = dict_set_dynstrn(dict, "internal-username", SLEN("internal-username"),
                            username);
@@ -254,7 +254,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_uuid_generate(tmp_uuid);
+    uuid_generate(tmp_uuid);
     password = gf_strdup(uuid_utoa(tmp_uuid));
     ret = dict_set_dynstrn(dict, "internal-password", SLEN("internal-password"),
                            password);
@@ -923,7 +923,7 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
         goto out;
     }
 
-    ret = gf_uuid_parse(volume_uuid_str, volume_uuid);
+    ret = uuid_parse(volume_uuid_str, volume_uuid);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UUID_PARSE_FAIL,
                "Unable to parse volume id of"
@@ -1052,7 +1052,7 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
             goto out;
         }
 
-        if (!gf_uuid_compare(brick_info->uuid, MY_UUID)) {
+        if (!uuid_compare(brick_info->uuid, MY_UUID)) {
             ret = glusterd_validate_and_create_brickpath(
                 brick_info, volume_uuid, volname, op_errstr, is_force,
                 _gf_false);
@@ -1272,7 +1272,7 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             goto out;
         }
 
-        if ((gf_uuid_compare(brickinfo->uuid, MY_UUID)) ||
+        if ((uuid_compare(brickinfo->uuid, MY_UUID)) ||
             (brickinfo->snap_status == -1))
             continue;
 
@@ -1322,7 +1322,7 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 continue;
             }
         }
-        if (gf_uuid_compare(volinfo->volume_id, volume_id)) {
+        if (uuid_compare(volinfo->volume_id, volume_id)) {
             len = snprintf(msg, sizeof(msg),
                            "Volume id "
                            "mismatch for brick %s:%s. Expected "
@@ -2058,7 +2058,7 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                "Unable to get volume-id of volume %s", volname);
         goto out;
     }
-    ret = gf_uuid_parse(str, volinfo->volume_id);
+    ret = uuid_parse(str, volinfo->volume_id);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UUID_PARSE_FAIL,
                "unable to parse uuid %s of volume %s", str, volname);
@@ -2170,7 +2170,7 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
                      brick_mount_dir);
         }
 
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
             ret = sys_statvfs(brickinfo->path, &brickstat);
             if (ret) {
                 gf_log("brick-op", GF_LOG_ERROR,
@@ -2351,7 +2351,7 @@ glusterd_op_start_volume(dict_t *dict, char **op_errstr)
             brick_count++;
             /* Don't check bricks that are not owned by you
              */
-            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+            if (uuid_compare(brickinfo->uuid, MY_UUID))
                 continue;
             if (strlen(brickinfo->mount_dir) < 1) {
                 brick_mount_dir = NULL;
@@ -2780,7 +2780,7 @@ glusterd_clearlocks_get_local_client_ports(glusterd_volinfo_t *volinfo,
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
         index++;
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
         if (volinfo->transport_type == GF_TRANSPORT_RDMA) {

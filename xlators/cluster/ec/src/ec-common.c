@@ -90,7 +90,7 @@ ec_is_fd_fixable(fd_t *fd)
         return _gf_false;
     else if (fd_is_anonymous(fd))
         return _gf_false;
-    else if (gf_uuid_is_null(fd->inode->gfid))
+    else if (uuid_is_null(fd->inode->gfid))
         return _gf_false;
 
     return _gf_true;
@@ -116,7 +116,7 @@ ec_fix_open(ec_fop_data_t *fop, uintptr_t mask)
     }
 
     loc.inode = inode_ref(fop->fd->inode);
-    gf_uuid_copy(loc.gfid, fop->fd->inode->gfid);
+    uuid_copy(loc.gfid, fop->fd->inode->gfid);
     ret = loc_path(&loc, NULL);
     if (ret < 0) {
         goto out;
@@ -196,7 +196,7 @@ ec_select_first_by_read_policy(ec_t *ec, ec_fop_data_t *fop)
                                  sizeof(fop->fd->inode->gfid)) %
                    ec->nodes;
         } else {
-            if (gf_uuid_is_null(fop->loc[0].gfid))
+            if (uuid_is_null(fop->loc[0].gfid))
                 loc_gfid(&fop->loc[0], fop->loc[0].gfid);
             return SuperFastHash((char *)fop->loc[0].gfid,
                                  sizeof(fop->loc[0].gfid)) %
@@ -926,7 +926,7 @@ ec_lock_allocate(ec_fop_data_t *fop, loc_t *loc)
     int32_t err;
 
     if ((loc->inode == NULL) ||
-        (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid))) {
+        (uuid_is_null(loc->gfid) && uuid_is_null(loc->inode->gfid))) {
         gf_msg(fop->xl->name, GF_LOG_ERROR, EINVAL, EC_MSG_INVALID_INODE,
                "Trying to lock based on an invalid "
                "inode");
@@ -968,7 +968,7 @@ ec_lock_destroy(ec_lock_t *lock)
 int32_t
 ec_lock_compare(ec_lock_t *lock1, ec_lock_t *lock2)
 {
-    return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
+    return uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
 }
 
 static void
@@ -1533,7 +1533,7 @@ unlock:
         if (error != 0) {
             goto out;
         }
-        if (gf_uuid_is_null(loc.pargfid)) {
+        if (uuid_is_null(loc.pargfid)) {
             if (loc.parent != NULL) {
                 inode_unref(loc.parent);
                 loc.parent = NULL;

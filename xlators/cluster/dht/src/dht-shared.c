@@ -677,7 +677,7 @@ dht_init(xlator_t *this)
             goto err;
         }
 
-        if (gf_uuid_parse(node_uuid, defrag->node_uuid)) {
+        if (uuid_parse(node_uuid, defrag->node_uuid)) {
             gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INVALID_OPTION,
                    "Invalid option:"
                    " Cannot parse glusterd node uuid");

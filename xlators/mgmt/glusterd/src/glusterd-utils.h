@@ -11,7 +11,6 @@
 #define _GLUSTERD_UTILS_H
 
 #include <pthread.h>
-#include <glusterfs/compat-uuid.h>
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>

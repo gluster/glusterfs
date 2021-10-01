@@ -333,9 +333,9 @@ nfs_gfid_dict(inode_t *inode)
     if (dyngfid == NULL)
         return (NULL);
 
-    gf_uuid_generate(newgfid);
+    uuid_generate(newgfid);
 
-    if (gf_uuid_compare(inode->gfid, rootgfid) == 0)
+    if (uuid_compare(inode->gfid, rootgfid) == 0)
         memcpy(dyngfid, rootgfid, sizeof(uuid_t));
     else
         memcpy(dyngfid, newgfid, sizeof(uuid_t));

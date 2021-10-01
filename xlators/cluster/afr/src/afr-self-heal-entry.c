@@ -62,7 +62,7 @@ afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
         goto out;
     }
     local = frame->local;
-    gf_uuid_copy(loc.gfid, replies[child].poststat.ia_gfid);
+    uuid_copy(loc.gfid, replies[child].poststat.ia_gfid);
     AFR_ONLIST(local->child_up, frame, afr_selfheal_discover_cbk, lookup, &loc,
                NULL);
     for (i = 0; i < priv->child_count; i++) {
@@ -91,7 +91,7 @@ anon_inode:
     }
 
     loc.parent = inode_ref(dir);
-    gf_uuid_copy(loc.pargfid, dir->gfid);
+    uuid_copy(loc.pargfid, dir->gfid);
     loc.name = name;
 
     ret = afr_anon_inode_create(this, child, &loc2.parent);
@@ -273,7 +273,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     priv = this->private;
     iatt = &replies[source].poststat;
     uuid_utoa_r(iatt->ia_gfid, iatt_uuid_str);
-    if (iatt->ia_type == IA_INVAL || gf_uuid_is_null(iatt->ia_gfid)) {
+    if (iatt->ia_type == IA_INVAL || uuid_is_null(iatt->ia_gfid)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SELF_HEAL_FAILED,
                "Invalid ia_type (%d) or gfid(%s). source brick=%d, "
                "pargfid=%s, name=%s",
@@ -288,7 +288,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
         return -ENOMEM;
     newentry = alloca0(priv->child_count);
     loc.parent = inode_ref(dir);
-    gf_uuid_copy(loc.pargfid, dir->gfid);
+    uuid_copy(loc.pargfid, dir->gfid);
     loc.name = name;
     loc.inode = inode_ref(inode);
 
@@ -302,7 +302,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
         goto out;
 
     srcloc.inode = inode_ref(inode);
-    gf_uuid_copy(srcloc.gfid, iatt->ia_gfid);
+    uuid_copy(srcloc.gfid, iatt->ia_gfid);
     ret = afr_new_entry_mark_status(frame, &srcloc, replies, sources, source,
                                     dst);
     if (ret == -ENOENT || ret == -ESTALE) {
@@ -401,8 +401,8 @@ __afr_selfheal_heal_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
             ret = afr_selfheal_entry_delete(this, fd->inode, name, inode, i,
                                             replies);
         } else {
-            if (!gf_uuid_compare(replies[i].poststat.ia_gfid,
-                                 replies[source].poststat.ia_gfid)) {
+            if (!uuid_compare(replies[i].poststat.ia_gfid,
+                              replies[source].poststat.ia_gfid)) {
                 gf_msg_debug(this->name, 0, "skipping %s, no heal needed.",
                              name);
                 continue;
@@ -445,20 +445,20 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
         if (replies[i].op_ret != 0)
             continue;
 
-        if (gf_uuid_is_null(replies[i].poststat.ia_gfid))
+        if (uuid_is_null(replies[i].poststat.ia_gfid))
             continue;
 
         if (replies[i].poststat.ia_type == IA_INVAL)
             continue;
 
-        if (ia_type == IA_INVAL || gf_uuid_is_null(gfid)) {
+        if (ia_type == IA_INVAL || uuid_is_null(gfid)) {
             src_idx = i;
             ia_type = replies[src_idx].poststat.ia_type;
             gfid = &replies[src_idx].poststat.ia_gfid;
             continue;
         }
 
-        if (gf_uuid_compare(gfid, replies[i].poststat.ia_gfid) &&
+        if (uuid_compare(gfid, replies[i].poststat.ia_gfid) &&
             (ia_type == replies[i].poststat.ia_type)) {
             ret = afr_gfid_split_brain_source(this, replies, inode, pargfid,
                                               bname, src_idx, i, locked_on, src,
@@ -547,8 +547,8 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
         source = src;
         for (i = 0; i < priv->child_count; i++) {
             if (i != src && replies[i].valid &&
-                gf_uuid_compare(replies[src].poststat.ia_gfid,
-                                replies[i].poststat.ia_gfid)) {
+                uuid_compare(replies[src].poststat.ia_gfid,
+                             replies[i].poststat.ia_gfid)) {
                 sources[i] = 0;
             }
         }
@@ -559,8 +559,8 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
             continue;
 
         if (src != -1) {
-            if (!gf_uuid_compare(replies[src].poststat.ia_gfid,
-                                 replies[i].poststat.ia_gfid))
+            if (!uuid_compare(replies[src].poststat.ia_gfid,
+                              replies[i].poststat.ia_gfid))
                 continue;
         } else if (replies[i].op_errno != ENOENT) {
             continue;
@@ -871,7 +871,7 @@ afr_shd_entry_changes_index_inode(xlator_t *this, xlator_t *subvol,
     };
 
     rootloc.inode = inode_ref(this->itable->root);
-    gf_uuid_copy(rootloc.gfid, rootloc.inode->gfid);
+    uuid_copy(rootloc.gfid, rootloc.inode->gfid);
 
     ret = syncop_getxattr(subvol, &rootloc, &xattr,
                           GF_XATTROP_ENTRY_CHANGES_GFID, NULL, NULL);
@@ -892,7 +892,7 @@ afr_shd_entry_changes_index_inode(xlator_t *this, xlator_t *subvol,
         goto out;
     }
 
-    gf_uuid_copy(loc.pargfid, index_gfid);
+    uuid_copy(loc.pargfid, index_gfid);
     loc.name = gf_strdup(uuid_utoa(pargfid));
 
     ret = syncop_lookup(subvol, &loc, &iatt, NULL, NULL, NULL);
@@ -1254,7 +1254,7 @@ afr_selfheal_data_opendir(xlator_t *this, inode_t *inode)
         return NULL;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     ret = syncop_opendir(this, &loc, fd, NULL, NULL);
     if (ret) {

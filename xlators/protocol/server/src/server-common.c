@@ -14,7 +14,7 @@ void
 server_post_stat(server_state_t *state, gfs3_stat_rsp *rsp, struct iatt *stbuf)
 {
     if (state->client->subdir_mount &&
-        !gf_uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
+        !uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
         /* This is very important as when we send iatt of
            root-inode, fuse/client expect the gfid to be 1,
            along with inode number. As for subdirectory mount,
@@ -24,7 +24,7 @@ server_post_stat(server_state_t *state, gfs3_stat_rsp *rsp, struct iatt *stbuf)
         static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         stbuf->ia_ino = 1;
-        gf_uuid_copy(stbuf->ia_gfid, gfid);
+        uuid_copy(stbuf->ia_gfid, gfid);
     }
 
     gf_stat_from_iatt(&rsp->stat, stbuf);
@@ -172,7 +172,7 @@ server_post_fstat(server_state_t *state, gfs3_fstat_rsp *rsp,
                   struct iatt *stbuf)
 {
     if (state->client->subdir_mount &&
-        !gf_uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
+        !uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
         /* This is very important as when we send iatt of
            root-inode, fuse/client expect the gfid to be 1,
            along with inode number. As for subdirectory mount,
@@ -182,7 +182,7 @@ server_post_fstat(server_state_t *state, gfs3_fstat_rsp *rsp,
         static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         stbuf->ia_ino = 1;
-        gf_uuid_copy(stbuf->ia_gfid, gfid);
+        uuid_copy(stbuf->ia_gfid, gfid);
     }
 
     gf_stat_from_iatt(&rsp->stat, stbuf);
@@ -472,7 +472,7 @@ server_post_lookup(gfs3_lookup_rsp *rsp, call_frame_t *frame,
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
         stbuf->ia_ino = 1;
-        gf_uuid_copy(stbuf->ia_gfid, rootgfid);
+        uuid_copy(stbuf->ia_gfid, rootgfid);
         if (inode->ia_type == 0)
             inode->ia_type = stbuf->ia_type;
     }
@@ -505,7 +505,7 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
 
     gfx_stat_from_iattx(&rsp->stat, stbuf);
     if (state->client->subdir_mount &&
-        !gf_uuid_compare(preparent->ia_gfid, state->client->subdir_gfid)) {
+        !uuid_compare(preparent->ia_gfid, state->client->subdir_gfid)) {
         /* This is very important as when we send iatt of
            root-inode, fuse/client expect the gfid to be 1,
            along with inode number. As for subdirectory mount,
@@ -516,8 +516,8 @@ server4_post_common_3iatt(server_state_t *state, gfx_common_3iatt_rsp *rsp,
 
         preparent->ia_ino = 1;
         postparent->ia_ino = 1;
-        gf_uuid_copy(preparent->ia_gfid, gfid);
-        gf_uuid_copy(postparent->ia_gfid, gfid);
+        uuid_copy(preparent->ia_gfid, gfid);
+        uuid_copy(postparent->ia_gfid, gfid);
     }
 
     gfx_stat_from_iattx(&rsp->preparent, preparent);
@@ -572,7 +572,7 @@ server4_post_common_iatt(server_state_t *state, gfx_common_iatt_rsp *rsp,
                          struct iatt *stbuf)
 {
     if (state->client->subdir_mount &&
-        !gf_uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
+        !uuid_compare(stbuf->ia_gfid, state->client->subdir_gfid)) {
         /* This is very important as when we send iatt of
            root-inode, fuse/client expect the gfid to be 1,
            along with inode number. As for subdirectory mount,
@@ -582,7 +582,7 @@ server4_post_common_iatt(server_state_t *state, gfx_common_iatt_rsp *rsp,
         static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
         stbuf->ia_ino = 1;
-        gf_uuid_copy(stbuf->ia_gfid, gfid);
+        uuid_copy(stbuf->ia_gfid, gfid);
     }
 
     gfx_stat_from_iattx(&rsp->stat, stbuf);
@@ -811,7 +811,7 @@ server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
            make sure we send fops only from subdir and below,
            we have to alter inode gfid and send it to client */
         stbuf->ia_ino = 1;
-        gf_uuid_copy(stbuf->ia_gfid, rootgfid);
+        uuid_copy(stbuf->ia_gfid, rootgfid);
         if (inode->ia_type == 0)
             inode->ia_type = stbuf->ia_type;
     }

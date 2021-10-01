@@ -179,7 +179,7 @@ is_data_equal(data_t *one, data_t *two)
                 return 0;
             }
         }
-        if (gf_uuid_compare(iatt1->ia_gfid, iatt2->ia_gfid) != 0) {
+        if (uuid_compare(iatt1->ia_gfid, iatt2->ia_gfid) != 0) {
             return 0;
         }
 

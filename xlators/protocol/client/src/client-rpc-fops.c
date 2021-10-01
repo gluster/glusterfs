@@ -246,8 +246,8 @@ _copy_gfid_from_inode_holders(uuid_t gfid, loc_t *loc, fd_t *fd)
 {
     int ret = 0;
 
-    if (fd && fd->inode && !gf_uuid_is_null(fd->inode->gfid)) {
-        gf_uuid_copy(gfid, fd->inode->gfid);
+    if (fd && fd->inode && !uuid_is_null(fd->inode->gfid)) {
+        uuid_copy(gfid, fd->inode->gfid);
         goto out;
     }
 
@@ -257,10 +257,10 @@ _copy_gfid_from_inode_holders(uuid_t gfid, loc_t *loc, fd_t *fd)
         goto out;
     }
 
-    if (loc->inode && !gf_uuid_is_null(loc->inode->gfid)) {
-        gf_uuid_copy(gfid, loc->inode->gfid);
-    } else if (!gf_uuid_is_null(loc->gfid)) {
-        gf_uuid_copy(gfid, loc->gfid);
+    if (loc->inode && !uuid_is_null(loc->inode->gfid)) {
+        uuid_copy(gfid, loc->inode->gfid);
+    } else if (!uuid_is_null(loc->gfid)) {
+        uuid_copy(gfid, loc->gfid);
     } else {
         GF_ASSERT(0);
         ret = -1;
@@ -291,7 +291,7 @@ client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
         goto out;
     }
 
-    gf_uuid_copy(fdctx->gfid, gfid);
+    uuid_copy(fdctx->gfid, gfid);
     fdctx->is_dir = is_dir;
     fdctx->remote_fd = remote_fd;
     fdctx->flags = flags;
@@ -2807,8 +2807,8 @@ client3_3_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.op_ret < 0)
         goto out;
 
-    if ((!gf_uuid_is_null(inode->gfid)) &&
-        (gf_uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
+    if ((!uuid_is_null(inode->gfid)) &&
+        (uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
         gf_msg_debug(frame->this->name, 0, "gfid changed for %s",
                      local->loc.path);
 
@@ -5870,14 +5870,14 @@ client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
     if (!(args->loc && args->loc->inode))
         goto unwind;
 
-    if (!gf_uuid_is_null(args->loc->inode->gfid))
+    if (!uuid_is_null(args->loc->inode->gfid))
         memcpy(req.gfid, args->loc->inode->gfid, 16);
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
-                                  unwind, op_errno, EINVAL);
+                                  !uuid_is_null(*((uuid_t *)req.gfid)), unwind,
+                                  op_errno, EINVAL);
     conf = this->private;
 
     GF_PROTOCOL_DICT_SERIALIZE(this, args->xdata, (&req.xdata.xdata_val),
@@ -5921,14 +5921,14 @@ client3_3_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
     if (!(args->loc && args->loc->inode && args->locklist))
         goto unwind;
 
-    if (!gf_uuid_is_null(args->loc->inode->gfid))
+    if (!uuid_is_null(args->loc->inode->gfid))
         memcpy(req.gfid, args->loc->inode->gfid, 16);
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
-                                  unwind, op_errno, EINVAL);
+                                  !uuid_is_null(*((uuid_t *)req.gfid)), unwind,
+                                  op_errno, EINVAL);
     conf = this->private;
 
     GF_PROTOCOL_DICT_SERIALIZE(this, args->xdata, (&req.xdata.xdata_val),

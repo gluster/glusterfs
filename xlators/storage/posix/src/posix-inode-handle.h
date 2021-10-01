@@ -63,7 +63,7 @@
                    "private is NULL, fini is already called");                 \
             break;                                                             \
         }                                                                      \
-        if (gf_uuid_is_null(loc->gfid)) {                                      \
+        if (uuid_is_null(loc->gfid)) {                                         \
             op_ret = -1;                                                       \
             gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_INODE_HANDLE_CREATE,     \
                    "null gfid for path %s", (loc)->path);                      \

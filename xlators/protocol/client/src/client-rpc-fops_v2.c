@@ -2593,8 +2593,8 @@ client4_0_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.op_ret < 0)
         goto out;
 
-    if ((!gf_uuid_is_null(inode->gfid)) &&
-        (gf_uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
+    if ((!uuid_is_null(inode->gfid)) &&
+        (uuid_compare(stbuf.ia_gfid, inode->gfid) != 0)) {
         gf_msg_debug(frame->this->name, 0, "gfid changed for %s",
                      local->loc.path);
 
@@ -5433,14 +5433,14 @@ client4_0_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
     if (!(args->loc && args->loc->inode))
         goto unwind;
 
-    if (!gf_uuid_is_null(args->loc->inode->gfid))
+    if (!uuid_is_null(args->loc->inode->gfid))
         memcpy(req.gfid, args->loc->inode->gfid, 16);
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
-                                  unwind, op_errno, EINVAL);
+                                  !uuid_is_null(*((uuid_t *)req.gfid)), unwind,
+                                  op_errno, EINVAL);
     conf = this->private;
 
     dict_to_xdr(args->xdata, &req.xdata);
@@ -5483,14 +5483,14 @@ client4_0_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
     if (!(args->loc && args->loc->inode && args->locklist))
         goto unwind;
 
-    if (!gf_uuid_is_null(args->loc->inode->gfid))
+    if (!uuid_is_null(args->loc->inode->gfid))
         memcpy(req.gfid, args->loc->inode->gfid, 16);
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
-                                  unwind, op_errno, EINVAL);
+                                  !uuid_is_null(*((uuid_t *)req.gfid)), unwind,
+                                  op_errno, EINVAL);
     conf = this->private;
 
     dict_to_xdr(args->xdata, &req.xdata);
@@ -5757,13 +5757,13 @@ client4_0_namelink(call_frame_t *frame, xlator_t *this, void *data)
     if (!(args->loc && args->loc->parent))
         goto unwind;
 
-    if (!gf_uuid_is_null(args->loc->parent->gfid))
+    if (!uuid_is_null(args->loc->parent->gfid))
         memcpy(req.pargfid, args->loc->parent->gfid, sizeof(uuid_t));
     else
         memcpy(req.pargfid, args->loc->pargfid, sizeof(uuid_t));
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.pargfid)),
+                                  !uuid_is_null(*((uuid_t *)req.pargfid)),
                                   unwind, op_errno, EINVAL);
 
     req.bname = (char *)args->loc->name;

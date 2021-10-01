@@ -76,7 +76,7 @@ afr_shd_is_subvol_local(xlator_t *this, int subvol)
     };
 
     loc.inode = this->itable->root;
-    gf_uuid_copy(loc.gfid, loc.inode->gfid);
+    uuid_copy(loc.gfid, loc.inode->gfid);
     priv = this->private;
     syncop_is_subvol_local(priv->children[subvol], &loc, &is_local);
     return is_local;
@@ -195,7 +195,7 @@ afr_shd_index_inode(xlator_t *this, xlator_t *subvol, char *vgfid)
     void *index_gfid = NULL;
 
     rootloc.inode = inode_ref(this->itable->root);
-    gf_uuid_copy(rootloc.gfid, rootloc.inode->gfid);
+    uuid_copy(rootloc.gfid, rootloc.inode->gfid);
 
     ret = syncop_getxattr(subvol, &rootloc, &xattr, vgfid, NULL, NULL);
     if (ret || !xattr) {
@@ -415,7 +415,7 @@ afr_shd_index_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     gf_msg_debug(healer->this->name, 0, "got entry: %s from %s", entry->d_name,
                  priv->children[healer->subvol]->name);
 
-    ret = gf_uuid_parse(entry->d_name, gfid);
+    ret = uuid_parse(entry->d_name, gfid);
     if (ret)
         return 0;
 
@@ -563,12 +563,12 @@ afr_shd_fill_ta_loc(xlator_t *this, loc_t *loc)
 
     priv = this->private;
     loc->parent = inode_ref(this->itable->root);
-    gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+    uuid_copy(loc->pargfid, loc->parent->gfid);
     loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
     loc->inode = inode_new(loc->parent->table);
     GF_CHECK_ALLOC(loc->inode, ret, out);
 
-    if (!gf_uuid_is_null(priv->ta_gfid))
+    if (!uuid_is_null(priv->ta_gfid))
         goto assign_gfid;
 
     ret = syncop_lookup(priv->children[THIN_ARBITER_BRICK_INDEX], loc, &stbuf,
@@ -579,10 +579,10 @@ afr_shd_fill_ta_loc(xlator_t *this, loc_t *loc)
         goto out;
     }
 
-    gf_uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
+    uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
 
 assign_gfid:
-    gf_uuid_copy(loc->gfid, priv->ta_gfid);
+    uuid_copy(loc->gfid, priv->ta_gfid);
     ret = 0;
 
 out:
@@ -878,7 +878,7 @@ afr_shd_anon_inode_cleaner(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
         ret = -ENOMEM;
         goto out;
     }
-    ret = gf_uuid_parse(entry->d_name, loc.gfid);
+    ret = uuid_parse(entry->d_name, loc.gfid);
     if (ret) {
         ret = 0;
         goto out;
@@ -1431,7 +1431,7 @@ afr_shd_get_index_count(xlator_t *this, int i, uint64_t *count)
     subvol = priv->children[i];
 
     rootloc.inode = inode_ref(this->itable->root);
-    gf_uuid_copy(rootloc.gfid, rootloc.inode->gfid);
+    uuid_copy(rootloc.gfid, rootloc.inode->gfid);
 
     ret = syncop_getxattr(subvol, &rootloc, &xattr, GF_XATTROP_INDEX_COUNT,
                           NULL, NULL);

@@ -583,7 +583,7 @@ gd_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -635,7 +635,7 @@ gd_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -875,7 +875,7 @@ gd_mgmt_v3_pre_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
         }
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     pthread_mutex_lock(&args->lock_dict);
     {
         ret = glusterd_pre_validate_aggr_rsp_dict(rsp.op, args->dict, rsp_dict);
@@ -949,7 +949,7 @@ gd_mgmt_v3_pre_validate_req(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -1230,7 +1230,7 @@ gd_mgmt_v3_brick_op_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     pthread_mutex_lock(&args->lock_dict);
     {
         if (rsp.op == GD_OP_DEFRAG_BRICK_VOLUME ||
@@ -1309,7 +1309,7 @@ gd_mgmt_v3_brick_op_req(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -1492,7 +1492,7 @@ gd_mgmt_v3_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     pthread_mutex_lock(&args->lock_dict);
     {
         ret = glusterd_syncop_aggr_rsp_dict(rsp.op, args->dict, rsp_dict);
@@ -1566,7 +1566,7 @@ gd_mgmt_v3_commit_req(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -1773,7 +1773,7 @@ gd_mgmt_v3_post_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     pthread_mutex_lock(&args->lock_dict);
     {
         ret = glusterd_syncop_aggr_rsp_dict(rsp.op, args->dict, rsp_dict);
@@ -1847,7 +1847,7 @@ gd_mgmt_v3_post_commit_req(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -2019,7 +2019,7 @@ gd_mgmt_v3_post_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -2076,7 +2076,7 @@ gd_mgmt_v3_post_validate_req(glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
     req.op_ret = op_ret;
 
@@ -2239,7 +2239,7 @@ gd_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -2291,7 +2291,7 @@ gd_mgmt_v3_unlock(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -2427,7 +2427,7 @@ glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(rpcsvc_request_t *req,
         goto out;
     }
 
-    gf_uuid_copy(*originator_uuid, MY_UUID);
+    uuid_copy(*originator_uuid, MY_UUID);
     ret = dict_set_bin(dict, "originator_uuid", originator_uuid,
                        sizeof(uuid_t));
     if (ret) {
@@ -2591,7 +2591,7 @@ glusterd_mgmt_v3_initiate_all_phases(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_copy(*originator_uuid, MY_UUID);
+    uuid_copy(*originator_uuid, MY_UUID);
     ret = dict_set_bin(dict, "originator_uuid", originator_uuid,
                        sizeof(uuid_t));
     if (ret) {
@@ -2820,7 +2820,7 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_copy(*originator_uuid, MY_UUID);
+    uuid_copy(*originator_uuid, MY_UUID);
     ret = dict_set_bin(dict, "originator_uuid", originator_uuid,
                        sizeof(uuid_t));
     if (ret) {

@@ -27,7 +27,7 @@ mq_loc_copy(loc_t *dst, loc_t *src)
     GF_VALIDATE_OR_GOTO("marker", src, out);
 
     if (src->inode == NULL ||
-        ((src->parent == NULL) && (gf_uuid_is_null(src->pargfid)) &&
+        ((src->parent == NULL) && (uuid_is_null(src->pargfid)) &&
          !__is_root_gfid(src->inode->gfid))) {
         gf_log("marker", GF_LOG_WARNING, "src loc is not valid");
         goto out;
@@ -1160,13 +1160,13 @@ mq_prevalidate_txn(xlator_t *this, loc_t *origin_loc, loc_t *loc,
     }
 
     if (origin_loc == NULL || origin_loc->inode == NULL ||
-        gf_uuid_is_null(origin_loc->inode->gfid))
+        uuid_is_null(origin_loc->inode->gfid))
         goto out;
 
     loc_copy(loc, origin_loc);
 
-    if (gf_uuid_is_null(loc->gfid))
-        gf_uuid_copy(loc->gfid, loc->inode->gfid);
+    if (uuid_is_null(loc->gfid))
+        uuid_copy(loc->gfid, loc->inode->gfid);
 
     if (!loc_is_root(loc) && loc->parent == NULL)
         loc->parent = inode_parent(loc->inode, 0, NULL);
@@ -1634,7 +1634,7 @@ mq_initiate_quota_task(void *opaque)
                 ret = -1;
                 goto out;
             }
-            if (gf_uuid_compare(tmp_parent->gfid, parent_loc.gfid)) {
+            if (uuid_compare(tmp_parent->gfid, parent_loc.gfid)) {
                 /* abort txn if parent has changed */
                 ret = 0;
                 goto out;
@@ -2205,7 +2205,7 @@ mq_xattr_state(xlator_t *this, loc_t *origin_loc, dict_t *dict,
     if (!loc_is_root(&loc)) {
         contribution = mq_add_new_contribution_node(this, ctx, &loc);
         if (contribution == NULL) {
-            if (!gf_uuid_is_null(loc.inode->gfid))
+            if (!uuid_is_null(loc.inode->gfid))
                 gf_log(this->name, GF_LOG_WARNING,
                        "cannot add a new contribution node "
                        "(%s)",

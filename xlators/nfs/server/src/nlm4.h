@@ -22,7 +22,6 @@
 #include "xdr-nfs3.h"
 #include <glusterfs/locking.h>
 #include "nfs3-fh.h"
-#include <glusterfs/compat-uuid.h>
 #include "nlm4-xdr.h"
 #include <glusterfs/lkowner.h>
 

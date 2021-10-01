@@ -1053,7 +1053,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         if (ret)
             goto out;
 
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
             ret = sys_statvfs(brickinfo->path, &brickstat);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_STATVFS_FAILED,
@@ -1156,7 +1156,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         if (ret)
             goto out;
 
-        if (gf_uuid_is_null(brickinfo->uuid)) {
+        if (uuid_is_null(brickinfo->uuid)) {
             ret = glusterd_resolve_brick(brickinfo);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RESOLVE_BRICK_FAIL,
@@ -1168,7 +1168,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
 
         /* if the volume is a replicate volume, do: */
         if (is_valid_add_brick) {
-            if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+            if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
                 ret = glusterd_handle_replicate_brick_ops(volinfo, brickinfo,
                                                           GD_OP_ADD_BRICK);
                 if (ret < 0)
@@ -1183,7 +1183,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
 
         /* Check if the brick is added in this node, and set
          * the restart_needed flag. */
-        if ((!gf_uuid_compare(brickinfo->uuid, MY_UUID)) && !restart_needed) {
+        if ((!uuid_compare(brickinfo->uuid, MY_UUID)) && !restart_needed) {
             restart_needed = 1;
             gf_msg_debug(this->name, 0,
                          "Restart gsyncd session, if it's already "
@@ -1249,7 +1249,7 @@ glusterd_op_perform_remove_brick(glusterd_volinfo_t *volinfo, char *brick,
 
     glusterd_volinfo_reset_defrag_stats(volinfo);
 
-    if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+    if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
         /* Only if the brick is in this glusterd, do the rebalance */
         if (need_migrate)
             *need_migrate = 1;
@@ -1432,7 +1432,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     if (volinfo->replica_count < replica_count && !is_force) {
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
-            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+            if (uuid_compare(brickinfo->uuid, MY_UUID))
                 continue;
             if (brickinfo->status == GF_BRICK_STOPPED) {
                 ret = -1;
@@ -1555,7 +1555,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             goto out;
         }
 
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
             ret = glusterd_validate_and_create_brickpath(
                 brickinfo, volinfo->volume_id, volinfo->volname, op_errstr,
                 is_force, _gf_false);
@@ -2251,7 +2251,7 @@ glusterd_set_rebalance_id_for_remove_brick(dict_t *req_dict, dict_t *rsp_dict)
                    "%s", msg);
             ret = 0;
         } else {
-            gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+            uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
 
             ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id,
                                              rsp_dict, GF_REMOVE_BRICK_TID_KEY,
@@ -2264,7 +2264,7 @@ glusterd_set_rebalance_id_for_remove_brick(dict_t *req_dict, dict_t *rsp_dict)
             }
         }
     }
-    if (!gf_uuid_is_null(volinfo->rebal.rebalance_id) &&
+    if (!uuid_is_null(volinfo->rebal.rebalance_id) &&
         GD_OP_REMOVE_BRICK == volinfo->rebal.op) {
         ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id, rsp_dict,
                                          GF_REMOVE_BRICK_TID_KEY,
@@ -2337,7 +2337,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
      */
 
     if (is_origin_glusterd(dict) && (!start_remove)) {
-        if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
+        if (!uuid_is_null(volinfo->rebal.rebalance_id)) {
             ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id, dict,
                                              GF_REMOVE_BRICK_TID_KEY,
                                              SLEN(GF_REMOVE_BRICK_TID_KEY));
@@ -2353,7 +2353,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     /* Clear task-id, rebal.op and stored bricks on commmitting/stopping
      * remove-brick */
     if ((!start_remove) && (cmd != GF_OP_CMD_STATUS)) {
-        gf_uuid_clear(volinfo->rebal.rebalance_id);
+        uuid_clear(volinfo->rebal.rebalance_id);
         volinfo->rebal.op = GD_OP_NONE;
         dict_unref(volinfo->rebal.dict);
         volinfo->rebal.dict = NULL;
@@ -2385,7 +2385,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
                 gf_msg_debug(this->name, errno, "Missing remove-brick-id");
                 ret = 0;
             } else {
-                gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                 volinfo->rebal.op = GD_OP_REMOVE_BRICK;
             }
             force = 0;

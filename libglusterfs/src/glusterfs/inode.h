@@ -30,7 +30,6 @@ typedef struct _dentry dentry_t;
 
 #include "glusterfs/list.h"
 #include "glusterfs/iatt.h"
-#include "glusterfs/compat-uuid.h"
 #include "glusterfs/fd.h"
 
 struct _inode_table {

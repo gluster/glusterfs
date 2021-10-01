@@ -11,7 +11,6 @@
 #define _GLUSTERD_OP_SM_H_
 
 #include <pthread.h>
-#include <glusterfs/compat-uuid.h>
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
@@ -287,8 +286,8 @@ glusterd_set_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo);
 
 void
 glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
-                         glusterd_op_sm_state_t state, int *op,
-                         dict_t *op_ctx, rpcsvc_request_t *req);
+                         glusterd_op_sm_state_t state, int *op, dict_t *op_ctx,
+                         rpcsvc_request_t *req);
 
 int32_t
 glusterd_txn_opinfo_dict_init(void);

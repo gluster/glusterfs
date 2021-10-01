@@ -770,7 +770,7 @@ pub_glfs_h_creat(struct glfs *fs, struct glfs_object *parent, const char *path,
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -883,7 +883,7 @@ pub_glfs_h_creat_open(struct glfs *fs, struct glfs_object *parent,
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -1014,7 +1014,7 @@ pub_glfs_h_mkdir(struct glfs *fs, struct glfs_object *parent, const char *path,
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -1112,7 +1112,7 @@ pub_glfs_h_mknod(struct glfs *fs, struct glfs_object *parent, const char *path,
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -1438,8 +1438,8 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
     memcpy(loc.gfid, handle, GFAPI_HANDLE_LENGTH);
 
     /* make sure the gfid received is valid */
-    GF_VALIDATE_OR_GOTO("glfs_h_create_from_handle",
-                        !(gf_uuid_is_null(loc.gfid)), out);
+    GF_VALIDATE_OR_GOTO("glfs_h_create_from_handle", !(uuid_is_null(loc.gfid)),
+                        out);
 
     newinode = inode_find(subvol->itable, loc.gfid);
     if (newinode) {
@@ -1510,7 +1510,7 @@ found:
 
     /* populate the return object */
     object->inode = newinode;
-    gf_uuid_copy(object->gfid, object->inode->gfid);
+    uuid_copy(object->gfid, object->inode->gfid);
 
 out:
     /* TODO: Check where the inode ref is being held? */
@@ -1647,7 +1647,7 @@ pub_glfs_h_symlink(struct glfs *fs, struct glfs_object *parent,
         goto out;
     }
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
     if (ret) {
         ret = -1;
@@ -1999,7 +1999,7 @@ glfs_h_find_handle(struct glfs *fs, unsigned char *handle, int len)
     memcpy(gfid, handle, GFAPI_HANDLE_LENGTH);
 
     /* make sure the gfid received is valid */
-    GF_VALIDATE_OR_GOTO("glfs_h_find_handle", !(gf_uuid_is_null(gfid)), out);
+    GF_VALIDATE_OR_GOTO("glfs_h_find_handle", !(uuid_is_null(gfid)), out);
 
     newinode = inode_find(subvol->itable, gfid);
     if (!newinode) {
@@ -2015,7 +2015,7 @@ glfs_h_find_handle(struct glfs *fs, unsigned char *handle, int len)
     /* populate the return object. The ref taken here
      * is un'refed when the application does glfs_h_close() */
     object->inode = inode_ref(newinode);
-    gf_uuid_copy(object->gfid, object->inode->gfid);
+    uuid_copy(object->gfid, object->inode->gfid);
 
 out:
     /* inode_find takes a reference. Unref it. */
@@ -2568,7 +2568,7 @@ pub_glfs_object_copy(struct glfs_object *src)
     }
 
     object->inode = inode_ref(src->inode);
-    gf_uuid_copy(object->gfid, src->inode->gfid);
+    uuid_copy(object->gfid, src->inode->gfid);
 
 out:
     return object;

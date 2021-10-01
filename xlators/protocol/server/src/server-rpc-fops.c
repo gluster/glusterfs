@@ -48,7 +48,7 @@ set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid)
 {
     if (client->subdir_mount && __is_root_gfid((unsigned char *)on_wire_gfid)) {
         /* set the subdir_mount's gfid for proper resolution */
-        gf_uuid_copy(resolve_gfid, client->subdir_gfid);
+        uuid_copy(resolve_gfid, client->subdir_gfid);
     } else {
         memcpy(resolve_gfid, on_wire_gfid, 16);
     }

@@ -461,7 +461,7 @@ pl_inode_get(xlator_t *this, inode_t *inode, pl_local_t *local)
         INIT_LIST_HEAD(&pl_inode->metalk_list);
         INIT_LIST_HEAD(&pl_inode->queued_locks);
         INIT_LIST_HEAD(&pl_inode->waiting);
-        gf_uuid_copy(pl_inode->gfid, inode->gfid);
+        uuid_copy(pl_inode->gfid, inode->gfid);
 
         pl_inode->check_mlock_info = _gf_true;
         pl_inode->mlock_enforced = _gf_false;
@@ -1306,7 +1306,7 @@ pl_inode_from_loc(loc_t *loc, inode_t **pinode)
         goto done;
     }
 
-    if (!gf_uuid_is_null(loc->gfid)) {
+    if (!uuid_is_null(loc->gfid)) {
         inode = inode_find(loc->parent->table, loc->gfid);
         if (inode != NULL) {
             goto done;

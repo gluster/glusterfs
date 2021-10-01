@@ -333,7 +333,7 @@ gf_svc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
 
         if ((op_errno == ENOENT || op_errno == ESTALE) &&
-            !gf_uuid_is_null(local->loc.gfid)) {
+            !uuid_is_null(local->loc.gfid)) {
             if (inode != NULL)
                 ret = svc_inode_ctx_get(this, inode, &inode_type);
 
@@ -432,7 +432,7 @@ gf_svc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     */
 
     if (!loc->name) {
-        if (gf_uuid_is_null(loc->inode->gfid)) {
+        if (uuid_is_null(loc->inode->gfid)) {
             subvolume = FIRST_CHILD(this);
             local->subvolume = subvolume;
             wind = _gf_true;
@@ -544,7 +544,7 @@ gf_svc_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
              */
             subvolume = FIRST_CHILD(this);
             root_loc.path = gf_strdup("/");
-            gf_uuid_clear(root_loc.gfid);
+            uuid_clear(root_loc.gfid);
             root_loc.gfid[15] = 1;
             root_loc.inode = inode_ref(loc->inode->table->root);
             temp_loc = &root_loc;
@@ -1854,7 +1854,7 @@ gf_svc_special_dir_revalidate_lookup(call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
-    gf_uuid_copy(local->loc.gfid, loc->inode->gfid);
+    uuid_copy(local->loc.gfid, loc->inode->gfid);
     ret = inode_path(loc->parent, entry_point, &path);
     if (ret < 0)
         goto out;
@@ -1957,9 +1957,9 @@ gf_svc_readdir_on_special_dir(call_frame_t *frame, void *cookie, xlator_t *this,
             }
         }
 
-        gf_uuid_copy(local->loc.pargfid, fd->inode->gfid);
-        gf_uuid_copy(local->loc.gfid, inode->gfid);
-        if (gf_uuid_is_null(inode->gfid))
+        uuid_copy(local->loc.pargfid, fd->inode->gfid);
+        uuid_copy(local->loc.gfid, inode->gfid);
+        if (uuid_is_null(inode->gfid))
             ret = inode_path(fd->inode, entry_point, &path);
         else
             ret = inode_path(inode, NULL, &path);

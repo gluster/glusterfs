@@ -46,7 +46,6 @@ trap(void);
 #define VOID(ptr) ((void **)((void *)ptr))
 
 #include "glusterfs/mem-pool.h"
-#include "glusterfs/compat-uuid.h"
 #include "glusterfs/iatt.h"
 #include "glusterfs/libglusterfs-messages.h"
 
@@ -491,7 +490,7 @@ gf_assert(void);
     } while (0)
 
 #define GF_UUID_ASSERT(u)                                                      \
-    if (gf_uuid_is_null(u))                                                    \
+    if (uuid_is_null(u))                                                       \
         GF_ASSERT(!"uuid null");
 
 #define GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, op_errno)                        \

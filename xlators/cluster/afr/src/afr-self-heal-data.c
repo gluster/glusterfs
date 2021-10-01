@@ -819,7 +819,7 @@ afr_selfheal_data_open(xlator_t *this, inode_t *inode, fd_t **fd)
         return -ENOMEM;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     frame = afr_frame_create(this, &ret);
     if (!frame) {

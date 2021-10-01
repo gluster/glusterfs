@@ -312,12 +312,12 @@ __dentry_search_for_inode(inode_t *inode, uuid_t pargfid, const char *name)
     /* earlier, just the ino was sent, which could have been 0, now
        we deal with gfid, and if sent gfid is null or 0, no need to
        continue with the check */
-    if (!pargfid || gf_uuid_is_null(pargfid))
+    if (!pargfid || uuid_is_null(pargfid))
         return NULL;
 
     list_for_each_entry(tmp, &inode->dentry_list, inode_list)
     {
-        if ((gf_uuid_compare(tmp->parent->gfid, pargfid) == 0) &&
+        if ((uuid_compare(tmp->parent->gfid, pargfid) == 0) &&
             !strcmp(tmp->name, name)) {
             dentry = tmp;
             break;
@@ -886,7 +886,7 @@ inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
         if (dentry) {
             inode = dentry->inode;
             if (inode) {
-                gf_uuid_copy(gfid, inode->gfid);
+                uuid_copy(gfid, inode->gfid);
                 *type = inode->ia_type;
                 ret = 0;
             }
@@ -903,7 +903,7 @@ __is_root_gfid(uuid_t gfid)
 {
     static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-    if (gf_uuid_compare(gfid, root) == 0)
+    if (uuid_compare(gfid, root) == 0)
         return _gf_true;
 
     return _gf_false;
@@ -920,7 +920,7 @@ __inode_find(inode_table_t *table, uuid_t gfid, const int hash)
 
     list_for_each_entry(tmp, &table->inode_hash[hash], hash)
     {
-        if (gf_uuid_compare(tmp->gfid, gfid) == 0) {
+        if (uuid_compare(tmp->gfid, gfid) == 0) {
             inode = tmp;
             break;
         }
@@ -999,7 +999,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             return NULL;
         }
 
-        if (gf_uuid_is_null(iatt->ia_gfid)) {
+        if (uuid_is_null(iatt->ia_gfid)) {
             errno = EINVAL;
             return NULL;
         }
@@ -1011,7 +1011,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
         if (old_inode) {
             link_inode = old_inode;
         } else {
-            gf_uuid_copy(inode->gfid, iatt->ia_gfid);
+            uuid_copy(inode->gfid, iatt->ia_gfid);
             inode->ia_type = iatt->ia_type;
             __inode_hash(inode, ihash);
         }
@@ -1369,7 +1369,7 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
 
     pthread_mutex_lock(&table->lock);
     {
-        if (pargfid && !gf_uuid_is_null(pargfid) && name) {
+        if (pargfid && !uuid_is_null(pargfid) && name) {
             dentry = __dentry_search_for_inode(inode, pargfid, name);
         } else {
             dentry = __dentry_search_arbit(inode);
@@ -1423,7 +1423,7 @@ __inode_path(inode_t *inode, const char *name, char **bufp)
     int len = 0;
     char *buf = NULL;
 
-    if (!inode || gf_uuid_is_null(inode->gfid)) {
+    if (!inode || uuid_is_null(inode->gfid)) {
         GF_ASSERT(0);
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid inode");

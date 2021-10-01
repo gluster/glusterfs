@@ -45,7 +45,7 @@
     do {                                                                       \
         dst_ptr = GF_MALLOC(sizeof(*dst_ptr), gf_common_mt_uuid_t);            \
         if (dst_ptr) {                                                         \
-            gf_uuid_copy(*dst_ptr, uuid);                                      \
+            uuid_copy(*dst_ptr, uuid);                                         \
             ret = 0;                                                           \
         } else {                                                               \
             ret = -1;                                                          \

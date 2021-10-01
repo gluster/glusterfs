@@ -659,7 +659,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
                        GD_MSG_REBALANCE_ID_MISSING, "%s", msg);
                 ret = 0;
             } else {
-                gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                 ret = glusterd_copy_uuid_to_dict(volinfo->rebal.rebalance_id,
                                                  rsp_dict, GF_REBALANCE_TID_KEY,
                                                  SLEN(GF_REBALANCE_TID_KEY));
@@ -678,7 +678,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
      * start. This is needed when we want rebalance id in xml output
      */
     if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP) {
-        if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
+        if (!uuid_is_null(volinfo->rebal.rebalance_id)) {
             if (GD_OP_REMOVE_BRICK == volinfo->rebal.op)
                 ret = glusterd_copy_uuid_to_dict(
                     volinfo->rebal.rebalance_id, rsp_dict,
@@ -899,7 +899,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                  " id");
                     ret = 0;
                 } else {
-                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                     volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 if (!gd_should_i_start_rebalance(volinfo)) {
@@ -938,7 +938,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                  " id");
                     ret = 0;
                 } else {
-                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                     volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 if (dict_get_uint32(dict, "commit-hash", &commit_hash) == 0) {
@@ -952,7 +952,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
              * Also clear the stored operation, so it doesn't cause trouble
              * with future rebalance/remove-brick starts
              */
-            gf_uuid_clear(volinfo->rebal.rebalance_id);
+            uuid_clear(volinfo->rebal.rebalance_id);
             volinfo->rebal.op = GD_OP_NONE;
 
             /* Fall back to the old volume file in case of decommission*/
@@ -1193,7 +1193,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
      * start
      */
     if (cmd == GF_DEFRAG_CMD_STATUS || cmd == GF_DEFRAG_CMD_STOP) {
-        if (!gf_uuid_is_null(volinfo->rebal.rebalance_id)) {
+        if (!uuid_is_null(volinfo->rebal.rebalance_id)) {
             ctx = glusterd_op_get_ctx();
             if (!ctx) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OPCTX_GET_FAIL,
@@ -1241,7 +1241,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                  " id");
                     ret = 0;
                 } else {
-                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                     volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 if (!gd_should_i_start_rebalance(volinfo)) {
@@ -1280,7 +1280,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                                  " id");
                     ret = 0;
                 } else {
-                    gf_uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
+                    uuid_parse(task_id_str, volinfo->rebal.rebalance_id);
                     volinfo->rebal.op = GD_OP_REBALANCE;
                 }
                 if (dict_get_uint32(dict, "commit-hash", &commit_hash) == 0) {
@@ -1294,7 +1294,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
              * Also clear the stored operation, so it doesn't cause trouble
              * with future rebalance/remove-brick starts
              */
-            gf_uuid_clear(volinfo->rebal.rebalance_id);
+            uuid_clear(volinfo->rebal.rebalance_id);
             volinfo->rebal.op = GD_OP_NONE;
 
             /* Fall back to the old volume file in case of decommission*/

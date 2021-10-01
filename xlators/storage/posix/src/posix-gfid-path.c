@@ -160,7 +160,7 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             /* Parse pargfid from xattr value*/
             strncpy(pargfid_str, xattr_value, 36);
             pargfid_str[36] = '\0';
-            gf_uuid_parse(pargfid_str, pargfid);
+            uuid_parse(pargfid_str, pargfid);
 
             /* Convert pargfid to path */
             ret = posix_resolve_dirgfid_to_path(pargfid, priv->base_path,

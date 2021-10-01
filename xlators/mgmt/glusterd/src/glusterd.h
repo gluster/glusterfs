@@ -15,8 +15,6 @@
 #include <pthread.h>
 #include <libgen.h>
 
-#include <glusterfs/compat-uuid.h>
-
 #include "rpc-clnt.h"
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
@@ -804,7 +802,7 @@ __glusterd_uuid()
 {
     glusterd_conf_t *priv = THIS->private;
 
-    if (gf_uuid_is_null(priv->uuid))
+    if (uuid_is_null(priv->uuid))
         glusterd_uuid_init();
     return &priv->uuid[0];
 }

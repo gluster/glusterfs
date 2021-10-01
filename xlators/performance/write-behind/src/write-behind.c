@@ -536,7 +536,7 @@ wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
                                      : stub->args.loc.inode);
 
     if (inode)
-        gf_uuid_copy(req->gfid, inode->gfid);
+        uuid_copy(req->gfid, inode->gfid);
 
     if (stub->fop == GF_FOP_WRITE) {
         req->write_size = iov_length(stub->args.vector, stub->args.count);

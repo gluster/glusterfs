@@ -1049,9 +1049,9 @@ loc_path(loc_t *loc, const char *bname)
     if (!bname)
         goto inode_path;
 
-    if (loc->parent && !gf_uuid_is_null(loc->parent->gfid)) {
+    if (loc->parent && !uuid_is_null(loc->parent->gfid)) {
         ret = inode_path(loc->parent, bname, (char **)&loc->path);
-    } else if (!gf_uuid_is_null(loc->pargfid)) {
+    } else if (!uuid_is_null(loc->pargfid)) {
         ret = gf_asprintf((char **)&loc->path, INODE_PATH_FMT "/%s",
                           uuid_utoa(loc->pargfid), bname);
     }
@@ -1060,9 +1060,9 @@ loc_path(loc_t *loc, const char *bname)
         goto out;
 
 inode_path:
-    if (loc->inode && !gf_uuid_is_null(loc->inode->gfid)) {
+    if (loc->inode && !uuid_is_null(loc->inode->gfid)) {
         ret = inode_path(loc->inode, NULL, (char **)&loc->path);
-    } else if (!gf_uuid_is_null(loc->gfid)) {
+    } else if (!uuid_is_null(loc->gfid)) {
         ret = gf_asprintf((char **)&loc->path, INODE_PATH_FMT,
                           uuid_utoa(loc->gfid));
     }
@@ -1075,14 +1075,14 @@ loc_gfid(loc_t *loc, uuid_t gfid)
 {
     if (!gfid)
         goto out;
-    gf_uuid_clear(gfid);
+    uuid_clear(gfid);
 
     if (!loc)
         goto out;
-    else if (!gf_uuid_is_null(loc->gfid))
-        gf_uuid_copy(gfid, loc->gfid);
-    else if (loc->inode && (!gf_uuid_is_null(loc->inode->gfid)))
-        gf_uuid_copy(gfid, loc->inode->gfid);
+    else if (!uuid_is_null(loc->gfid))
+        uuid_copy(gfid, loc->gfid);
+    else if (loc->inode && (!uuid_is_null(loc->inode->gfid)))
+        uuid_copy(gfid, loc->inode->gfid);
 out:
     return;
 }
@@ -1092,14 +1092,14 @@ loc_pargfid(loc_t *loc, uuid_t gfid)
 {
     if (!gfid)
         goto out;
-    gf_uuid_clear(gfid);
+    uuid_clear(gfid);
 
     if (!loc)
         goto out;
-    else if (!gf_uuid_is_null(loc->pargfid))
-        gf_uuid_copy(gfid, loc->pargfid);
-    else if (loc->parent && (!gf_uuid_is_null(loc->parent->gfid)))
-        gf_uuid_copy(gfid, loc->parent->gfid);
+    else if (!uuid_is_null(loc->pargfid))
+        uuid_copy(gfid, loc->pargfid);
+    else if (loc->parent && (!uuid_is_null(loc->parent->gfid)))
+        uuid_copy(gfid, loc->parent->gfid);
 out:
     return;
 }
@@ -1128,12 +1128,12 @@ loc_touchup(loc_t *loc, const char *name)
         if (path) /*Guaranteed to have trailing '/' */
             loc->name = strrchr(path, '/') + 1;
 
-        if (gf_uuid_is_null(loc->pargfid))
-            gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+        if (uuid_is_null(loc->pargfid))
+            uuid_copy(loc->pargfid, loc->parent->gfid);
     } else if (loc->inode) {
         ret = inode_path(loc->inode, 0, &path);
-        if (gf_uuid_is_null(loc->gfid))
-            gf_uuid_copy(loc->gfid, loc->inode->gfid);
+        if (uuid_is_null(loc->gfid))
+            uuid_copy(loc->gfid, loc->inode->gfid);
     }
 
     if (ret < 0 || !path) {
@@ -1156,8 +1156,8 @@ loc_copy_overload_parent(loc_t *dst, loc_t *src, inode_t *parent)
     GF_VALIDATE_OR_GOTO("xlator", src, err);
     GF_VALIDATE_OR_GOTO("xlator", parent, err);
 
-    gf_uuid_copy(dst->gfid, src->gfid);
-    gf_uuid_copy(dst->pargfid, parent->gfid);
+    uuid_copy(dst->gfid, src->gfid);
+    uuid_copy(dst->pargfid, parent->gfid);
 
     if (src->inode)
         dst->inode = inode_ref(src->inode);
@@ -1196,12 +1196,12 @@ loc_copy(loc_t *dst, loc_t *src)
     GF_VALIDATE_OR_GOTO("xlator", dst, err);
     GF_VALIDATE_OR_GOTO("xlator", src, err);
 
-    if (!gf_uuid_is_null(src->gfid))
-        gf_uuid_copy(dst->gfid, src->gfid);
-    else if (src->inode && !gf_uuid_is_null(src->inode->gfid))
-        gf_uuid_copy(dst->gfid, src->inode->gfid);
+    if (!uuid_is_null(src->gfid))
+        uuid_copy(dst->gfid, src->gfid);
+    else if (src->inode && !uuid_is_null(src->inode->gfid))
+        uuid_copy(dst->gfid, src->inode->gfid);
 
-    gf_uuid_copy(dst->pargfid, src->pargfid);
+    uuid_copy(dst->pargfid, src->pargfid);
 
     if (src->inode)
         dst->inode = inode_ref(src->inode);
@@ -1291,7 +1291,7 @@ loc_is_nameless(loc_t *loc)
 
     GF_VALIDATE_OR_GOTO("xlator", loc, out);
 
-    if ((!loc->parent && gf_uuid_is_null(loc->pargfid)) || !loc->name)
+    if ((!loc->parent && uuid_is_null(loc->pargfid)) || !loc->name)
         ret = _gf_true;
 out:
     return ret;

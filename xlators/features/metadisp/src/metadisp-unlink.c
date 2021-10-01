@@ -83,7 +83,7 @@ metadisp_unlink_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     // fail fast on empty gfid so we don't loop forever
-    if (gf_uuid_is_null(buf->ia_gfid)) {
+    if (uuid_is_null(buf->ia_gfid)) {
         op_ret = -1;
         op_errno = ENODATA;
         goto unwind;
@@ -119,7 +119,7 @@ metadisp_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
         0,
     };
 
-    if (gf_uuid_is_null(loc->gfid)) {
+    if (uuid_is_null(loc->gfid)) {
         METADISP_TRACE("winding lookup for unlink to path %s", loc->path);
 
         // loop back to ourselves after a lookup

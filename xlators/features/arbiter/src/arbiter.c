@@ -138,7 +138,7 @@ arbiter_fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this)
     int32_t ret = 0;
     int is_append = 1;
 
-    if (!fd || !fd->inode || gf_uuid_is_null(fd->inode->gfid)) {
+    if (!fd || !fd->inode || uuid_is_null(fd->inode->gfid)) {
         goto out;
     }
 

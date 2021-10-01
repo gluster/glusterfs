@@ -13,7 +13,6 @@
 #include "marker-quota.h"
 #include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/compat-uuid.h>
 #include <glusterfs/call-stub.h>
 
 #define MARKER_XATTR_PREFIX "trusted.glusterfs"

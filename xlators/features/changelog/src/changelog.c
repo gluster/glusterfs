@@ -963,7 +963,7 @@ changelog_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* fill the event structure.. similar to open() */
     ev.ev_type = CHANGELOG_OP_TYPE_CREATE;
-    gf_uuid_copy(ev.u.create.gfid, buf->ia_gfid);
+    uuid_copy(ev.u.create.gfid, buf->ia_gfid);
     ev.u.create.flags = fd->flags;
     changelog_dispatch_event(this, priv, &ev);
 
@@ -1200,8 +1200,8 @@ changelog_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     CHANGELOG_IF_INTERNAL_FOP_THEN_GOTO(frame, xdata, wind);
 
     /* Do not record META on .shard */
-    gf_uuid_parse(SHARD_ROOT_GFID, shard_root_gfid);
-    if (gf_uuid_compare(loc->gfid, shard_root_gfid) == 0) {
+    uuid_parse(SHARD_ROOT_GFID, shard_root_gfid);
+    if (uuid_compare(loc->gfid, shard_root_gfid) == 0) {
         goto wind;
     }
 
@@ -1793,7 +1793,7 @@ changelog_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     /* fill the event structure */
     ev.ev_type = CHANGELOG_OP_TYPE_OPEN;
-    gf_uuid_copy(ev.u.open.gfid, fd->inode->gfid);
+    uuid_copy(ev.u.open.gfid, fd->inode->gfid);
     ev.u.open.flags = fd->flags;
     changelog_dispatch_event(this, priv, &ev);
 
@@ -1884,7 +1884,7 @@ changelog_release(xlator_t *this, fd_t *fd)
     priv = this->private;
 
     ev.ev_type = CHANGELOG_OP_TYPE_RELEASE;
-    gf_uuid_copy(ev.u.release.gfid, fd->inode->gfid);
+    uuid_copy(ev.u.release.gfid, fd->inode->gfid);
     changelog_dispatch_event(this, priv, &ev);
 
     (void)fd_ctx_del(fd, this, NULL);

@@ -45,8 +45,8 @@ make_hashkey(struct nfs3_fh *fh, const char *host)
     };
     size_t nbytes = 0;
 
-    gf_uuid_unparse(fh->exportid, exportid);
-    gf_uuid_unparse(fh->mountid, mountid);
+    uuid_unparse(fh->exportid, exportid);
+    uuid_unparse(fh->mountid, mountid);
 
     nbytes = strlen(exportid) + strlen(host) + strlen(mountid) + 3;
     hashkey = GF_MALLOC(nbytes, gf_common_mt_char);

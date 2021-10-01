@@ -109,8 +109,8 @@ br_stub_add(xlator_t *this, uuid_t gfid)
     struct stat st = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !uuid_is_null(gfid), out, errno,
+                                  EINVAL);
 
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
@@ -151,7 +151,7 @@ br_stub_del(xlator_t *this, uuid_t gfid)
     char gfid_path[BR_PATH_MAX_PLUS] = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !uuid_is_null(gfid), out,
                                   op_errno, EINVAL);
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
@@ -257,7 +257,7 @@ br_stub_dir_create(xlator_t *this, br_stub_private_t *priv)
         0,
     };
 
-    gf_uuid_copy(priv->bad_object_dir_gfid, BR_BAD_OBJ_CONTAINER);
+    uuid_copy(priv->bad_object_dir_gfid, BR_BAD_OBJ_CONTAINER);
 
     if (snprintf(fullpath, sizeof(fullpath), "%s", priv->stub_basepath) >=
         sizeof(fullpath))
@@ -367,7 +367,7 @@ br_stub_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     BR_STUB_VER_COND_GOTO(priv, (!ver_enabled), done);
 
     VALIDATE_OR_GOTO(loc, done);
-    if (gf_uuid_compare(loc->gfid, priv->bad_object_dir_gfid))
+    if (uuid_compare(loc->gfid, priv->bad_object_dir_gfid))
         goto done;
 
     ret = sys_lstat(priv->stub_basepath, &lstatbuf);
@@ -386,7 +386,7 @@ br_stub_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
 
     iatt_from_stat(&stbuf, &lstatbuf);
-    gf_uuid_copy(stbuf.ia_gfid, priv->bad_object_dir_gfid);
+    uuid_copy(stbuf.ia_gfid, priv->bad_object_dir_gfid);
 
     op_ret = op_errno = 0;
     xattr = dict_new();
@@ -679,8 +679,8 @@ br_stub_bad_objects_path(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        gf_uuid_clear(gfid);
-        gf_uuid_parse(entry->d_name, gfid);
+        uuid_clear(gfid);
+        uuid_parse(entry->d_name, gfid);
 
         inode = inode_find(fd->inode->table, gfid);
 

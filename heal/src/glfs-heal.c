@@ -531,7 +531,7 @@ glfsh_get_index_dir_loc(loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
         goto out;
     }
 
-    gf_uuid_copy(dirloc->gfid, index_gfid);
+    uuid_copy(dirloc->gfid, index_gfid);
     dirloc->path = "";
     dirloc->inode = inode_new(rootloc->inode->table);
     ret = syncop_lookup(xl, dirloc, &iattr, &parent, NULL, NULL);
@@ -799,12 +799,12 @@ glfsh_process_entries(xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
             dict_unref(dict);
             dict = NULL;
         }
-        gf_uuid_clear(gfid);
+        uuid_clear(gfid);
         GF_FREE(path);
         path = NULL;
 
-        gf_uuid_parse(entry->d_name, gfid);
-        gf_uuid_copy(loc.gfid, gfid);
+        uuid_parse(entry->d_name, gfid);
+        uuid_copy(loc.gfid, gfid);
         ret = syncop_getxattr(this, &loc, &dict, GF_HEAL_INFO, NULL, NULL);
         if (ret) {
             if ((mode != GLFSH_MODE_CONTINUE_ON_ERROR) && (ret == -ENOTCONN))
@@ -1231,7 +1231,7 @@ glfsh_heal_splitbrain_file(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         }
         path = strtok(filename, ":");
         path = strtok(NULL, ";");
-        gf_uuid_parse(path, loc.gfid);
+        uuid_parse(path, loc.gfid);
         loc.path = gf_strdup(uuid_utoa(loc.gfid));
         if (!loc.path) {
             printf("Error allocating memory to path\n");
@@ -1294,8 +1294,8 @@ glfsh_heal_splitbrain_file(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
             goto out;
         }
         loc.name = filename1;
-        gf_uuid_copy(loc.pargfid, loc.gfid);
-        gf_uuid_clear(loc.gfid);
+        uuid_copy(loc.pargfid, loc.gfid);
+        uuid_clear(loc.gfid);
 
         ret = syncop_lookup(xl, &loc, &iatt, 0, xattr_req, &xattr_rsp);
         if (ret) {

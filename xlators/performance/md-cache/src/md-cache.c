@@ -638,7 +638,7 @@ mdc_inode_iatt_get(xlator_t *this, inode_t *inode, struct iatt *iatt)
     }
     UNLOCK(&mdc->lock);
 
-    gf_uuid_copy(iatt->ia_gfid, inode->gfid);
+    uuid_copy(iatt->ia_gfid, inode->gfid);
     iatt->ia_ino = gfid_to_ino(inode->gfid);
     iatt->ia_dev = 42;
     iatt->ia_type = inode->ia_type;

@@ -2843,7 +2843,7 @@ char *
 uuid_utoa(uuid_t uuid)
 {
     char *uuid_buffer = glusterfs_uuid_buf_get();
-    gf_uuid_unparse(uuid, uuid_buffer);
+    uuid_unparse(uuid, uuid_buffer);
     return uuid_buffer;
 }
 
@@ -2853,7 +2853,7 @@ uuid_utoa_r(uuid_t uuid, char *dst)
 {
     if (!dst)
         return NULL;
-    gf_uuid_unparse(uuid, dst);
+    uuid_unparse(uuid, dst);
     return dst;
 }
 
@@ -3247,7 +3247,7 @@ generate_glusterfs_ctx_id(void)
     uuid_t ctxid;
     char *tmp = NULL;
 
-    gf_uuid_generate(ctxid);
+    uuid_generate(ctxid);
     tmp = uuid_utoa(ctxid);
 
     return gf_strdup(tmp);

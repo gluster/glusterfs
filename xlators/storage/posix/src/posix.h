@@ -110,7 +110,7 @@
             op_errno = EINVAL;                                                 \
             goto out;                                                          \
         }                                                                      \
-        if (gf_uuid_is_null(_uuid_req)) {                                      \
+        if (uuid_is_null(_uuid_req)) {                                         \
             gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,          \
                    "gfid is null for %s", loc->path);                          \
             op_ret = -1;                                                       \

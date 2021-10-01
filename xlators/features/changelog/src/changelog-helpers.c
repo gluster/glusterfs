@@ -1130,7 +1130,7 @@ changelog_local_init(xlator_t *this, inode_t *inode, uuid_t gfid,
 
     local->update_no_check = update_flag;
 
-    gf_uuid_copy(local->cld.cld_gfid, gfid);
+    uuid_copy(local->cld.cld_gfid, gfid);
 
     local->cld.cld_iobuf = iobuf;
     local->cld.cld_xtra_records = 0; /* set by the caller */
@@ -1911,8 +1911,8 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t pgfid, char **path,
     priv = this->private;
     GF_ASSERT(priv);
 
-    gf_uuid_copy(pargfid, pgfid);
-    if (!path || gf_uuid_is_null(pargfid)) {
+    uuid_copy(pargfid, pgfid);
+    if (!path || uuid_is_null(pargfid)) {
         ret = -1;
         goto out;
     }
@@ -1963,8 +1963,8 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t pgfid, char **path,
             goto out;
         }
 
-        gf_uuid_parse(pgfidstr, tmp_gfid);
-        gf_uuid_copy(pargfid, tmp_gfid);
+        uuid_parse(pgfidstr, tmp_gfid);
+        uuid_copy(pargfid, tmp_gfid);
     }
 
     if (bname)

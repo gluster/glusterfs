@@ -139,8 +139,8 @@ nfs_loc_fill(loc_t *loc, inode_t *inode, inode_t *parent, char *path)
 
     if (inode) {
         loc->inode = inode_ref(inode);
-        if (!gf_uuid_is_null(inode->gfid))
-            gf_uuid_copy(loc->gfid, inode->gfid);
+        if (!uuid_is_null(inode->gfid))
+            uuid_copy(loc->gfid, inode->gfid);
     }
 
     if (parent)
@@ -180,7 +180,7 @@ nfs_inode_loc_fill(inode_t *inode, loc_t *loc, int how)
      * the inode table, and not a newly created one. For newly
      * created inode, inode_path returns null gfid as the path.
      */
-    if (!gf_uuid_is_null(inode->gfid)) {
+    if (!uuid_is_null(inode->gfid)) {
         ret = inode_path(inode, NULL, &resolvedpath);
         if (ret < 0) {
             gf_msg(GF_NFS, GF_LOG_ERROR, 0, NFS_MSG_PATH_RESOLVE_FAIL,
@@ -254,7 +254,7 @@ nfs_gfid_loc_fill(inode_table_t *itable, uuid_t gfid, loc_t *loc, int how)
         gf_msg_trace(GF_NFS, 0, "Inode was found in the itable.");
     }
 
-    gf_uuid_copy(loc->gfid, gfid);
+    uuid_copy(loc->gfid, gfid);
 
     ret = nfs_inode_loc_fill(inode, loc, how);
     if (ret < 0) {
@@ -326,7 +326,7 @@ nfs_entry_loc_fill(xlator_t *this, inode_table_t *itable, uuid_t pargfid,
     if (!parent || inode_ctx_get(parent, this, NULL))
         goto err;
 
-    gf_uuid_copy(loc->pargfid, pargfid);
+    uuid_copy(loc->pargfid, pargfid);
 
     ret = -2;
     entryinode = inode_grep(itable, parent, entry);

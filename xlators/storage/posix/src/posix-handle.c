@@ -49,7 +49,7 @@ posix_resolve(xlator_t *this, inode_table_t *itable, inode_t *parent,
         inode = inode_find(itable, iabuf->ia_gfid);
         if (inode == NULL) {
             inode = inode_new(itable);
-            gf_uuid_copy(inode->gfid, iabuf->ia_gfid);
+            uuid_copy(inode->gfid, iabuf->ia_gfid);
         }
     }
 
@@ -118,7 +118,7 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         list_add_tail(&entry->list, &head->list);
         snprintf(real_path, sizeof(real_path), "%s/%s", priv_base_path, path);
         loc.inode = inode_ref(inode);
-        gf_uuid_copy(loc.gfid, inode->gfid);
+        uuid_copy(loc.gfid, inode->gfid);
 
         entry->dict = posix_xattr_fill(THIS, real_path, &loc, NULL, -1, xdata,
                                        iabuf);
@@ -161,17 +161,17 @@ posix_make_ancestryfromgfid(xlator_t *this, char *path, int pathsize,
     char *saved_dir = NULL;
     int top = -1;
 
-    if (!path || !parent || !priv_base_path || gf_uuid_is_null(gfid)) {
+    if (!path || !parent || !priv_base_path || uuid_is_null(gfid)) {
         *op_errno = EINVAL;
         goto out;
     }
 
     dir_handle = alloca(handle_size);
     linkname = alloca(PATH_MAX);
-    gf_uuid_copy(tmp_gfid, gfid);
+    uuid_copy(tmp_gfid, gfid);
 
     while (top < PATH_MAX / 2) {
-        gf_uuid_copy(gfid_stack[++top], tmp_gfid);
+        uuid_copy(gfid_stack[++top], tmp_gfid);
         if (__is_root_gfid(tmp_gfid)) {
             *parent = inode_ref(itable->root);
 
@@ -203,7 +203,7 @@ posix_make_ancestryfromgfid(xlator_t *this, char *path, int pathsize,
             pgfidstr = strtok_r(linkname + SLEN("../../00/00/"), "/", &saveptr);
             dir_name = strtok_r(NULL, "/", &saveptr);
             saved_dir = alloca(strlen(dir_name) + 1);
-            gf_uuid_parse(pgfidstr, tmp_gfid);
+            uuid_parse(pgfidstr, tmp_gfid);
             strcpy(saved_dir, dir_name);
             dir_stack[top] = saved_dir;
         }
@@ -658,7 +658,7 @@ posix_mv_old_trash_into_new_trash(xlator_t *this, char *old, char *new)
 
     if (!posix_does_old_trash_exists(old))
         goto out;
-    gf_uuid_generate(dest_name);
+    uuid_generate(dest_name);
     snprintf(dest_old, sizeof(dest_old), "%s/%s", new, uuid_utoa(dest_name));
     ret = sys_rename(old, dest_old);
     if (ret < 0) {

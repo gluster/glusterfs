@@ -59,8 +59,8 @@ __afr_inode_write_finalize(call_frame_t *frame, xlator_t *this)
                 continue;
             if (local->replies[i].op_ret == -1)
                 continue;
-            if (!gf_uuid_is_null(local->replies[i].poststat.ia_gfid)) {
-                gf_uuid_copy(args.gfid, local->replies[i].poststat.ia_gfid);
+            if (!uuid_is_null(local->replies[i].poststat.ia_gfid)) {
+                uuid_copy(args.gfid, local->replies[i].poststat.ia_gfid);
                 args.ia_type = local->replies[i].poststat.ia_type;
                 break;
             } else {
@@ -68,7 +68,7 @@ __afr_inode_write_finalize(call_frame_t *frame, xlator_t *this)
                                    DHT_IATT_IN_XDATA_KEY, (void **)&stbuf);
                 if (ret)
                     continue;
-                gf_uuid_copy(args.gfid, stbuf->ia_gfid);
+                uuid_copy(args.gfid, stbuf->ia_gfid);
                 args.ia_type = stbuf->ia_type;
                 break;
             }

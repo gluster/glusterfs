@@ -525,7 +525,7 @@ br_stub_fill_local(br_stub_local_t *local, call_stub_t *stub, fd_t *fd,
         local->u.context.fd = fd_ref(fd);
     if (inode)
         local->u.context.inode = inode_ref(inode);
-    gf_uuid_copy(local->u.context.gfid, gfid);
+    uuid_copy(local->u.context.gfid, gfid);
 }
 
 static void
@@ -1833,8 +1833,8 @@ br_stub_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (name &&
         (strncmp(name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
                  sizeof(GLUSTERFS_GET_BR_STUB_INIT_TIME) - 1) == 0) &&
-        ((gf_uuid_compare(loc->gfid, rootgfid) == 0) ||
-         (gf_uuid_compare(loc->inode->gfid, rootgfid) == 0))) {
+        ((uuid_compare(loc->gfid, rootgfid) == 0) ||
+         (uuid_compare(loc->inode->gfid, rootgfid) == 0))) {
         BR_STUB_RESET_LOCAL_NULL(frame);
         br_stub_send_stub_init_time(frame, this);
         return 0;
@@ -1910,7 +1910,7 @@ br_stub_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     if (name &&
         (strncmp(name, GLUSTERFS_GET_BR_STUB_INIT_TIME,
                  sizeof(GLUSTERFS_GET_BR_STUB_INIT_TIME) - 1) == 0) &&
-        (gf_uuid_compare(fd->inode->gfid, rootgfid) == 0)) {
+        (uuid_compare(fd->inode->gfid, rootgfid) == 0)) {
         BR_STUB_RESET_LOCAL_NULL(frame);
         br_stub_send_stub_init_time(frame, this);
         return 0;
@@ -2677,7 +2677,7 @@ br_stub_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     int32_t op_errno = EINVAL;
 
     priv = this->private;
-    if (gf_uuid_compare(fd->inode->gfid, priv->bad_object_dir_gfid))
+    if (uuid_compare(fd->inode->gfid, priv->bad_object_dir_gfid))
         goto normal;
 
     fd_ctx = br_stub_fd_new();
@@ -2722,7 +2722,7 @@ br_stub_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!priv->do_versioning)
         goto out;
 
-    if (gf_uuid_compare(fd->inode->gfid, priv->bad_object_dir_gfid))
+    if (uuid_compare(fd->inode->gfid, priv->bad_object_dir_gfid))
         goto out;
     stub = fop_readdir_stub(frame, br_stub_readdir_wrapper, fd, size, off,
                             xdata);
@@ -3028,8 +3028,8 @@ br_stub_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 
     BR_STUB_VER_NOT_ACTIVE_THEN_GOTO(frame, priv, wind);
 
-    if (!gf_uuid_compare(loc->gfid, priv->bad_object_dir_gfid) ||
-        !gf_uuid_compare(loc->pargfid, priv->bad_object_dir_gfid)) {
+    if (!uuid_compare(loc->gfid, priv->bad_object_dir_gfid) ||
+        !uuid_compare(loc->pargfid, priv->bad_object_dir_gfid)) {
         stub = fop_lookup_stub(frame, br_stub_lookup_wrapper, loc, xdata);
         if (!stub) {
             op_errno = ENOMEM;
@@ -3322,7 +3322,7 @@ br_stub_send_ipc_fop(xlator_t *this, fd_t *fd, unsigned long releaseversion,
     ev.ev_type = CHANGELOG_OP_TYPE_BR_RELEASE;
     ev.u.releasebr.version = releaseversion;
     ev.u.releasebr.sign_info = sign_info;
-    gf_uuid_copy(ev.u.releasebr.gfid, fd->inode->gfid);
+    uuid_copy(ev.u.releasebr.gfid, fd->inode->gfid);
 
     xdata = dict_new();
     if (!xdata) {

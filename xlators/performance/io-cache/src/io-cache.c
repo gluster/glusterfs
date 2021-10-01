@@ -1995,7 +1995,7 @@ ioc_inode_dump(xlator_t *this, inode_t *inode)
         goto out;
 
     {
-        if (gf_uuid_is_null(ioc_inode->inode->gfid))
+        if (uuid_is_null(ioc_inode->inode->gfid))
             goto unlock;
 
         gf_proc_dump_add_section("%s", key_prefix);

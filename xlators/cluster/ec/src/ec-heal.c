@@ -484,7 +484,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
 
     /* Allocate the required memory */
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     on = alloca0(ec->nodes);
     output = alloca0(ec->nodes);
     EC_REPLIES_ALLOC(replies, ec->nodes);
@@ -694,7 +694,7 @@ __ec_heal_metadata_prepare(call_frame_t *frame, ec_t *ec, inode_t *inode,
     EC_REPLIES_ALLOC(greplies, ec->nodes);
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     output = alloca0(ec->nodes);
     lookup_on = alloca0(ec->nodes);
     ret = cluster_lookup(ec->xl_list, locked_on, ec->nodes, replies, output,
@@ -745,7 +745,7 @@ __ec_removexattr_sinks(call_frame_t *frame, ec_t *ec, inode_t *inode,
     loc_t loc = {0};
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     for (i = 0; i < ec->nodes; i++) {
         if (i == source)
@@ -803,7 +803,7 @@ __ec_heal_metadata(call_frame_t *frame, ec_t *ec, inode_t *inode,
     EC_REPLIES_ALLOC(sreplies, ec->nodes);
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     output = alloca0(ec->nodes);
     versions = alloca0(ec->nodes * sizeof(*versions));
     dirty = alloca0(ec->nodes * sizeof(*dirty));
@@ -920,7 +920,7 @@ __ec_heal_entry_prepare(call_frame_t *frame, ec_t *ec, inode_t *inode,
     EC_REPLIES_ALLOC(replies, ec->nodes);
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     xdata = dict_new();
     if (!xdata) {
         ret = -ENOMEM;
@@ -971,7 +971,7 @@ ec_set_new_entry_dirty(ec_t *ec, loc_t *loc, struct iatt *ia,
         dirty[EC_DATA_TXN] = 0;
 
     newloc.inode = inode_ref(loc->inode);
-    gf_uuid_copy(newloc.gfid, ia->ia_gfid);
+    uuid_copy(newloc.gfid, ia->ia_gfid);
     EC_REPLIES_ALLOC(replies, ec->nodes);
     output = alloca0(ec->nodes);
     xattr = dict_new();
@@ -1031,8 +1031,8 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
         goto out;
     }
 
-    gf_uuid_parse(key, gfid);
-    gf_uuid_copy(loc.pargfid, name_data->parent->gfid);
+    uuid_parse(key, gfid);
+    uuid_copy(loc.pargfid, name_data->parent->gfid);
     loc.name = name_data->name;
     output = alloca0(ec->nodes);
     ret = cluster_lookup(ec->xl_list, name_data->participants, ec->nodes,
@@ -1046,7 +1046,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
                 estale_count++;
             else
                 name_data->participants[i] = 0;
-        } else if (gf_uuid_compare(gfid, replies[i].stat.ia_gfid)) {
+        } else if (uuid_compare(gfid, replies[i].stat.ia_gfid)) {
             estale_count++;
             gf_msg_debug(ec->xl->name, 0, "%s/%s: different gfid as %s",
                          uuid_utoa(name_data->parent->gfid), name_data->name,
@@ -1069,7 +1069,7 @@ ec_delete_stale_name(dict_t *gfid_db, char *key, data_t *d, void *data)
     /*Noway to recover, delete the name*/
     loc_wipe(&loc);
     loc.parent = inode_ref(name_data->parent);
-    gf_uuid_copy(loc.pargfid, loc.parent->gfid);
+    uuid_copy(loc.pargfid, loc.parent->gfid);
     loc.name = name_data->name;
     for (i = 0; i < ec->nodes; i++) {
         if (same[i] && replies[i].valid && (replies[i].op_ret == 0)) {
@@ -1193,11 +1193,11 @@ ec_create_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     ia = &lookup_replies[i].stat;
     xdata = dict_new();
     loc.parent = inode_ref(parent);
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
     loc.inode = inode_new(parent->table);
     if (loc.inode)
         srcloc.inode = inode_ref(loc.inode);
-    gf_uuid_copy(srcloc.gfid, ia->ia_gfid);
+    uuid_copy(srcloc.gfid, ia->ia_gfid);
     if (!loc.inode || !xdata ||
         dict_set_static_bin(xdata, "gfid-req", ia->ia_gfid,
                             sizeof(ia->ia_gfid))) {
@@ -1335,7 +1335,7 @@ __ec_heal_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
     EC_REPLIES_ALLOC(replies, ec->nodes);
     loc.parent = inode_ref(parent);
     loc.inode = inode_new(parent->table);
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
     loc.name = name;
     xdata = dict_new();
     gfid_db = dict_new();
@@ -1370,7 +1370,7 @@ __ec_heal_name(call_frame_t *frame, ec_t *ec, inode_t *parent, char *name,
             continue;
         }
         ia = &replies[i].stat;
-        if (gf_uuid_is_null(ia->ia_gfid)) {
+        if (uuid_is_null(ia->ia_gfid)) {
             if (IA_ISDIR(ia->ia_type) || ia->ia_size == 0)
                 gfidless[i] = 1;
             else
@@ -1520,7 +1520,7 @@ ec_heal_names(call_frame_t *frame, ec_t *ec, inode_t *inode,
     int ret = 0;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     name_data.frame = frame;
     name_data.participants = participants;
     name_data.failed_on = alloca0(ec->nodes);
@@ -2320,7 +2320,7 @@ ec_restore_time_and_adjust_versions(call_frame_t *frame, ec_t *ec, fd_t *fd,
             goto unlock;
 
         loc.inode = inode_ref(fd->inode);
-        gf_uuid_copy(loc.gfid, fd->inode->gfid);
+        uuid_copy(loc.gfid, fd->inode->gfid);
         ret = cluster_setattr(
             ec->xl_list, healed_sinks, ec->nodes, replies, output, frame,
             ec->xl, &loc, &source_buf,
@@ -2440,7 +2440,7 @@ ec_heal_data(call_frame_t *frame, ec_t *ec, gf_boolean_t block, inode_t *inode,
     output = alloca0(ec->nodes);
     up_subvols = alloca0(ec->nodes);
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     fd = fd_create(inode, 0);
     if (!fd) {
@@ -2506,7 +2506,7 @@ ec_heal_purge_stale_index(call_frame_t *frame, ec_t *ec, inode_t *inode)
 
     /* Allocate the required memory */
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     on = alloca0(ec->nodes);
     EC_REPLIES_ALLOC(replies, ec->nodes);
     xattr = GF_CALLOC(ec->nodes, sizeof(*xattr), gf_common_mt_pointer);
@@ -2881,7 +2881,7 @@ ec_heal(call_frame_t *frame, xlator_t *this, uintptr_t target,
     VALIDATE_OR_GOTO(this, fail);
     GF_VALIDATE_OR_GOTO(this->name, this->private, fail);
 
-    if (!loc || !loc->inode || gf_uuid_is_null(loc->inode->gfid))
+    if (!loc || !loc->inode || uuid_is_null(loc->inode->gfid))
         goto fail;
 
     if (frame && frame->local)
@@ -2943,7 +2943,7 @@ ec_replace_heal(ec_t *ec, inode_t *inode)
     int ret = 0;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     ret = syncop_getxattr(ec->xl, &loc, NULL, EC_XATTR_HEAL, NULL, NULL);
     if (ret < 0)
         gf_msg_debug(ec->xl->name, 0, "Heal failed for replace brick ret = %d",
@@ -3209,7 +3209,7 @@ ec_heal_inspect(call_frame_t *frame, ec_t *ec, inode_t *inode,
     output = alloca0(ec->nodes);
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     xdata = dict_new();
     if (!xdata ||

@@ -51,7 +51,7 @@ match_uuid_local(const char *name, char *uuid)
         return -1;
 
     name = strtail((char *)name, MARKER_XATTR_PREFIX);
-    if (!name || name++ [0] != '.')
+    if (!name || name++[0] != '.')
         return -1;
 
     name = strtail((char *)name, uuid);
@@ -279,7 +279,7 @@ cluster_markeruuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         } else {
             local->volmark = gf_memdup(volmark, sizeof(*volmark));
             VALIDATE_OR_GOTO(local->volmark, unlock);
-            gf_uuid_unparse(volmark->uuid, vol_uuid);
+            uuid_unparse(volmark->uuid, vol_uuid);
             if (volmark->retval)
                 local->retval = volmark->retval;
             local->count[MCNT_FOUND]++;

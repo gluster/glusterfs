@@ -1969,12 +1969,12 @@ afr_inode_refresh_subvol_with_lookup(call_frame_t *frame, xlator_t *this, int i,
     priv = this->private;
 
     loc.inode = inode;
-    if (gf_uuid_is_null(inode->gfid) && gfid) {
+    if (uuid_is_null(inode->gfid) && gfid) {
         /* To handle setattr/setxattr on yet to be linked inode from
          * dht */
-        gf_uuid_copy(loc.gfid, gfid);
+        uuid_copy(loc.gfid, gfid);
     } else {
-        gf_uuid_copy(loc.gfid, inode->gfid);
+        uuid_copy(loc.gfid, inode->gfid);
     }
 
     STACK_WIND_COOKIE(frame, afr_inode_refresh_subvol_with_lookup_cbk,
@@ -2118,9 +2118,9 @@ afr_inode_refresh(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local->refreshinode = inode_ref(inode);
 
     if (gfid)
-        gf_uuid_copy(local->refreshgfid, gfid);
+        uuid_copy(local->refreshgfid, gfid);
     else
-        gf_uuid_clear(local->refreshgfid);
+        uuid_clear(local->refreshgfid);
 
     afr_inode_refresh_do(frame, this);
 
@@ -2288,7 +2288,7 @@ afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv,
         case AFR_READ_POLICY_FIRST_UP:
             break;
         case AFR_READ_POLICY_GFID_HASH:
-            gf_uuid_copy(gfid_copy, args->gfid);
+            uuid_copy(gfid_copy, args->gfid);
             child = SuperFastHash((char *)gfid_copy, sizeof(gfid_copy)) %
                     priv->child_count;
             break;
@@ -2304,7 +2304,7 @@ afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv,
                  * need is a low probability that multiple clients
                  * won't converge on the same subvolume.
                  */
-                gf_uuid_copy(gfid_copy, args->gfid);
+                uuid_copy(gfid_copy, args->gfid);
                 pid = getpid();
                 *(pid_t *)gfid_copy ^= pid;
             }
@@ -2344,7 +2344,7 @@ afr_read_subvol_select_by_policy(inode_t *inode, xlator_t *this,
         return priv->read_child;
 
     if (inode_is_linked(inode)) {
-        gf_uuid_copy(local_args.gfid, inode->gfid);
+        uuid_copy(local_args.gfid, inode->gfid);
         local_args.ia_type = inode->ia_type;
     } else if (args) {
         local_args = *args;
@@ -2999,7 +2999,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
 
         if (read_subvol == -1 || !readable[read_subvol]) {
             read_subvol = i;
-            gf_uuid_copy(read_gfid, replies[i].poststat.ia_gfid);
+            uuid_copy(read_gfid, replies[i].poststat.ia_gfid);
             ia_type = replies[i].poststat.ia_type;
             local->op_ret = 0;
         }
@@ -3023,7 +3023,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
             continue;
         }
 
-        if (!gf_uuid_compare(replies[i].poststat.ia_gfid, read_gfid))
+        if (!uuid_compare(replies[i].poststat.ia_gfid, read_gfid))
             continue;
 
         can_interpret = _gf_false;
@@ -3061,7 +3061,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
            a response from all the UP subvolumes and all of them resolved
            to the same GFID
         */
-        gf_uuid_copy(args.gfid, read_gfid);
+        uuid_copy(args.gfid, read_gfid);
         args.ia_type = ia_type;
         ret = afr_replies_interpret(frame, this, local->inode, NULL);
         read_subvol = afr_read_subvol_decide(local->inode, this, &args,
@@ -3363,7 +3363,7 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
             break;
         }
 
-        if (gf_uuid_compare(stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
+        if (uuid_compare(stbuf.ia_gfid, replies[i].poststat.ia_gfid)) {
             start = _gf_false;
             break;
         }
@@ -3497,8 +3497,8 @@ afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
             continue;
 
         if (replies[i].op_ret == 0) {
-            if (gf_uuid_is_null(gfid)) {
-                gf_uuid_copy(gfid, replies[i].poststat.ia_gfid);
+            if (uuid_is_null(gfid)) {
+                uuid_copy(gfid, replies[i].poststat.ia_gfid);
             }
             success[i] = 1;
         } else {
@@ -3528,7 +3528,7 @@ afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
              * a name-heal and the destination may not have pending xattrs
              * to indicate which name is good and which is bad so always do
              * this heal*/
-            if (gf_uuid_compare(replies[i].poststat.ia_gfid, gfid)) {
+            if (uuid_compare(replies[i].poststat.ia_gfid, gfid)) {
                 goto name_heal;
             }
         }
@@ -3721,7 +3721,7 @@ afr_ta_id_file_check(void *opaque)
         dict = dict_new();
         if (!dict)
             goto out;
-        gf_uuid_generate(gfid);
+        uuid_generate(gfid);
         ret = dict_set_gfuuid(dict, "gfid-req", gfid, true);
         ret = syncop_create(priv->children[THIN_ARBITER_BRICK_INDEX], &loc,
                             O_RDWR, 0664, fd, &stbuf, dict, NULL);
@@ -3729,7 +3729,7 @@ afr_ta_id_file_check(void *opaque)
 
 out:
     if (ret == 0) {
-        gf_uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
+        uuid_copy(priv->ta_gfid, stbuf.ia_gfid);
     } else {
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_THIN_ARB,
                "Failed to lookup/create thin-arbiter id file.");
@@ -3758,7 +3758,7 @@ afr_discover_done(call_frame_t *frame, xlator_t *this)
     priv = this->private;
     if (!priv->thin_arbiter_count)
         goto unwind;
-    if (!gf_uuid_is_null(priv->ta_gfid))
+    if (!uuid_is_null(priv->ta_gfid))
         goto unwind;
 
     ret = synctask_new(this->ctx->env, afr_ta_id_file_check,
@@ -3901,7 +3901,7 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         }
     }
 
-    if (gf_uuid_is_null(loc->inode->gfid)) {
+    if (uuid_is_null(loc->inode->gfid)) {
         afr_discover_do(frame, this, 0);
         return 0;
     }
@@ -4547,7 +4547,7 @@ afr_unlock_partial_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0 && op_errno != ENOTCONN) {
         if (local->fd)
-            gf_uuid_copy(gfid, local->fd->inode->gfid);
+            uuid_copy(gfid, local->fd->inode->gfid);
         else
             loc_gfid(&local->loc, gfid);
         gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_UNLOCK_FAIL,
@@ -7680,7 +7680,7 @@ afr_ta_post_op_lock(xlator_t *this, loc_t *loc)
             flock1.l_len = 0;
         } else {
             cmd = F_SETLK;
-            gf_uuid_generate(gfid);
+            uuid_generate(gfid);
             flock1.l_start = gfid_to_ino(gfid);
             if (flock1.l_start < 0)
                 flock1.l_start = -flock1.l_start;

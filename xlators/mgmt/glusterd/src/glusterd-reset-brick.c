@@ -81,7 +81,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
      * to the volume.
      */
     if (ret == 0) {
-        if (!gf_uuid_compare(MY_UUID, dst_brickinfo->uuid)) {
+        if (!uuid_compare(MY_UUID, dst_brickinfo->uuid)) {
             ret = -1;
             *op_errstr = gf_strdup(
                 "When destination brick is new,"
@@ -112,7 +112,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
         }
         ret = sys_lgetxattr(dst_brickinfo->path, GF_XATTR_VOL_ID_KEY, volume_id,
                             16);
-        if (gf_uuid_compare(dst_brickinfo->uuid, src_brickinfo->uuid) ||
+        if (uuid_compare(dst_brickinfo->uuid, src_brickinfo->uuid) ||
             (ret >= 0 && is_force == _gf_false)) {
             ret = -1;
             *op_errstr = gf_strdup(
@@ -183,7 +183,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
         RCU_READ_UNLOCK;
     }
 
-    if (!(gf_uuid_compare(dst_brickinfo->uuid, MY_UUID))) {
+    if (!(uuid_compare(dst_brickinfo->uuid, MY_UUID))) {
         ret = glusterd_get_brick_mount_dir(dst_brickinfo->path,
                                            dst_brickinfo->hostname,
                                            dst_brickinfo->mount_dir);
@@ -308,7 +308,7 @@ glusterd_op_reset_brick(dict_t *dict, dict_t *rsp_dict)
         if (ret)
             goto out;
 
-        if (gf_uuid_compare(dst_brickinfo->uuid, MY_UUID)) {
+        if (uuid_compare(dst_brickinfo->uuid, MY_UUID)) {
             gf_msg_debug(this->name, 0, "I AM THE DESTINATION HOST");
             ret = glusterd_volume_stop_glusterfs(volinfo, src_brickinfo,
                                                  _gf_false);

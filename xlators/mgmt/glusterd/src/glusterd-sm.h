@@ -11,7 +11,6 @@
 #define _GLUSTERD_SM_H_
 
 #include <pthread.h>
-#include <glusterfs/compat-uuid.h>
 
 #include "rpc-clnt.h"
 #include <glusterfs/glusterfs.h>

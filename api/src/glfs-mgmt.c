@@ -338,7 +338,7 @@ out:
     if (volume_id_str) {
         gf_msg_debug(frame->this->name, 0, "Volume Id: %s", volume_id_str);
         pthread_mutex_lock(&fs->mutex);
-        gf_uuid_parse(volume_id_str, fs->vol_uuid);
+        uuid_parse(volume_id_str, fs->vol_uuid);
         pthread_mutex_unlock(&fs->mutex);
     }
 
@@ -377,7 +377,7 @@ pub_glfs_get_volumeid(struct glfs *fs, char *volid, size_t size)
     pthread_mutex_lock(&fs->mutex);
     {
         /* check if the volume uuid is initialized */
-        if (!gf_uuid_is_null(fs->vol_uuid)) {
+        if (!uuid_is_null(fs->vol_uuid)) {
             pthread_mutex_unlock(&fs->mutex);
             goto done;
         }
@@ -387,7 +387,7 @@ pub_glfs_get_volumeid(struct glfs *fs, char *volid, size_t size)
     /* Need to fetch volume_uuid */
     glfs_get_volume_info(fs);
 
-    if (gf_uuid_is_null(fs->vol_uuid)) {
+    if (uuid_is_null(fs->vol_uuid)) {
         gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, API_MSG_FETCH_VOLUUID_FAILED,
                 NULL);
         goto out;

@@ -294,7 +294,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
      * command was used to begin the probe process.
      */
     if ((conf->op_version >= GD_OP_VERSION_3_6_0) &&
-        (gf_uuid_compare(rsp.uuid, peerinfo->uuid) == 0)) {
+        (uuid_compare(rsp.uuid, peerinfo->uuid) == 0)) {
         ctx = ((call_frame_t *)myframe)->local;
         /* Presence of ctx->req implies this probe was started by a cli
          * probe command
@@ -329,7 +329,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_NEW_NAME, &event);
         if (!ret) {
             event->peername = gf_strdup(peerinfo->hostname);
-            gf_uuid_copy(event->peerid, peerinfo->uuid);
+            uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
         }
@@ -383,7 +383,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
 cont:
-    gf_uuid_copy(peerinfo->uuid, rsp.uuid);
+    uuid_copy(peerinfo->uuid, rsp.uuid);
 
     ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_INIT_FRIEND_REQ, &event);
 
@@ -395,7 +395,7 @@ cont:
     }
 
     event->peername = gf_strdup(peerinfo->hostname);
-    gf_uuid_copy(event->peerid, peerinfo->uuid);
+    uuid_copy(event->peerid, peerinfo->uuid);
 
     event->ctx = ((call_frame_t *)myframe)->local;
     ((call_frame_t *)myframe)->local = NULL;
@@ -501,11 +501,11 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto unlock;
     }
 
-    gf_uuid_copy(ev_ctx->uuid, rsp.uuid);
+    uuid_copy(ev_ctx->uuid, rsp.uuid);
     ev_ctx->hostname = gf_strdup(rsp.hostname);
 
     event->peername = gf_strdup(peerinfo->hostname);
-    gf_uuid_copy(event->peerid, peerinfo->uuid);
+    uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ev_ctx;
     ret = glusterd_friend_sm_inject_event(event);
 
@@ -611,7 +611,7 @@ inject:
         goto unlock;
     }
     event->peername = gf_strdup(peerinfo->hostname);
-    gf_uuid_copy(event->peerid, peerinfo->uuid);
+    uuid_copy(event->peerid, peerinfo->uuid);
 
     ret = glusterd_friend_sm_inject_event(event);
 
@@ -1474,7 +1474,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, MY_UUID);
+    uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(hostname);
     req.port = port;
 
@@ -1528,7 +1528,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
 
     RCU_READ_UNLOCK;
 
-    gf_uuid_copy(req.uuid, MY_UUID);
+    uuid_copy(req.uuid, MY_UUID);
 
     peer_data = dict_new();
     if (!peer_data) {
@@ -1634,7 +1634,7 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, MY_UUID);
+    uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(peerinfo->hostname);
     req.port = peerinfo->port;
 
@@ -1681,7 +1681,7 @@ glusterd_rpc_friend_update(call_frame_t *frame, xlator_t *this, void *data)
     if (ret)
         goto out;
 
-    gf_uuid_copy(req.uuid, MY_UUID);
+    uuid_copy(req.uuid, MY_UUID);
 
     dummy_frame = create_frame(this, this->ctx->pool);
     ret = glusterd_submit_request(peerinfo->rpc, &req, dummy_frame,
@@ -1778,7 +1778,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     } else {
         gf_msg_debug(this->name, 0, "Transaction_id = %s", uuid_utoa(*txn_id));
-        gf_uuid_copy(req.txn_id, *txn_id);
+        uuid_copy(req.txn_id, *txn_id);
     }
 
     if (!frame)
@@ -1794,7 +1794,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
         ret = -1;
         goto out;
     }
-    gf_uuid_copy(frame->cookie, req.txn_id);
+    uuid_copy(frame->cookie, req.txn_id);
 
     ret = glusterd_submit_request(peerinfo->rpc, &req, frame, peerinfo->mgmt_v3,
                                   GLUSTERD_MGMT_V3_LOCK, NULL, this,
@@ -1854,7 +1854,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     } else {
         gf_msg_debug(this->name, 0, "Transaction_id = %s", uuid_utoa(*txn_id));
-        gf_uuid_copy(req.txn_id, *txn_id);
+        uuid_copy(req.txn_id, *txn_id);
     }
 
     if (!frame)
@@ -1870,7 +1870,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
         ret = -1;
         goto out;
     }
-    gf_uuid_copy(frame->cookie, req.txn_id);
+    uuid_copy(frame->cookie, req.txn_id);
 
     ret = glusterd_submit_request(peerinfo->rpc, &req, frame, peerinfo->mgmt_v3,
                                   GLUSTERD_MGMT_V3_UNLOCK, NULL, this,
@@ -1981,7 +1981,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
         ret = -1;
         goto out;
     }
-    gf_uuid_copy(frame->cookie, *txn_id);
+    uuid_copy(frame->cookie, *txn_id);
 
     ret = glusterd_submit_request(peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                   GLUSTERD_MGMT_STAGE_OP, NULL, this,
@@ -2056,7 +2056,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
         ret = -1;
         goto out;
     }
-    gf_uuid_copy(frame->cookie, *txn_id);
+    uuid_copy(frame->cookie, *txn_id);
 
     ret = glusterd_submit_request(peerinfo->rpc, &req, frame, peerinfo->mgmt,
                                   GLUSTERD_MGMT_COMMIT_OP, NULL, this,

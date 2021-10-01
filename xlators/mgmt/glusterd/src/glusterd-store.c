@@ -1278,7 +1278,7 @@ glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
         goto out;
     }
 
-    gf_uuid_unparse(volinfo->rebal.rebalance_id, uuid);
+    uuid_unparse(volinfo->rebal.rebalance_id, uuid);
     ret = snprintf(buf + total_len, sizeof(buf) - total_len,
                    "%s=%d\n%s=%d\n%s=%d\n%s=%s\n",
                    GLUSTERD_STORE_KEY_VOL_DEFRAG, volinfo->rebal.defrag_cmd,
@@ -2200,7 +2200,7 @@ glusterd_retrieve_uuid()
         goto out;
     }
 
-    gf_uuid_parse(uuid_str, priv->uuid);
+    uuid_parse(uuid_str, priv->uuid);
 
 out:
     GF_FREE(uuid_str);
@@ -2533,7 +2533,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                 }
 
             } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_UUID)) {
-                gf_uuid_parse(value, brickinfo->uuid);
+                uuid_parse(value, brickinfo->uuid);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNKNOWN_KEY,
                        "Unknown key: %s", key);
@@ -2564,17 +2564,17 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
          * snapshot or snapshot restored volume this would be done post
          * creating the brick mounts
          */
-        if (gf_uuid_is_null(brickinfo->uuid))
+        if (uuid_is_null(brickinfo->uuid))
             (void)glusterd_resolve_brick(brickinfo);
         if (brickinfo->real_path[0] == '\0' && !volinfo->is_snap_volume &&
-            gf_uuid_is_null(volinfo->restored_from_snap)) {
+            uuid_is_null(volinfo->restored_from_snap)) {
             /* By now if the brick is a local brick then it will be
              * able to resolve which is the only thing we want now
              * for checking  whether the brickinfo->uuid matches
              * with MY_UUID for realpath check. Hence do not handle
              * error
              */
-            if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+            if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
                 if (!realpath(brickinfo->path, abspath)) {
                     gf_msg(this->name, GF_LOG_CRITICAL, errno,
                            GD_MSG_BRICKINFO_CREATE_FAIL,
@@ -2596,7 +2596,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
 
         /* Handle upgrade case of shared_brick_count 'fsid' */
         /* Ideally statfs_fsid should never be 0 if done right */
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID) &&
+        if (!uuid_compare(brickinfo->uuid, MY_UUID) &&
             brickinfo->statfs_fsid == 0) {
             struct statvfs brickstat = {
                 0,
@@ -2768,7 +2768,7 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
                                value);
                     }
                 } else if (!strcmp(key, GLUSTERD_STORE_KEY_BRICK_UUID)) {
-                    gf_uuid_parse(value, brickinfo->uuid);
+                    uuid_parse(value, brickinfo->uuid);
                 } else if (!strncmp(
                                key, GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS,
                                SLEN(GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS))) {
@@ -2799,7 +2799,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
             cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
             ta_brick_count++;
             if (gf_store_iter_destroy(&iter)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_STORE_ITER_DESTROY_FAIL,
                        "Failed to destroy store iter");
                 ret = -1;
                 goto out;
@@ -2882,7 +2883,7 @@ glusterd_store_retrieve_node_state(glusterd_volinfo_t *volinfo)
             volinfo->rebal.defrag_status = atoi(value);
         } else if (!strncmp(key, GF_REBALANCE_TID_KEY,
                             SLEN(GF_REBALANCE_TID_KEY))) {
-            gf_uuid_parse(value, volinfo->rebal.rebalance_id);
+            uuid_parse(value, volinfo->rebal.rebalance_id);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_DEFRAG_OP,
                             SLEN(GLUSTERD_STORE_KEY_DEFRAG_OP))) {
             volinfo->rebal.op = atoi(value);
@@ -3082,7 +3083,7 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
             volinfo->transport_type = atoi(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_ID,
                             SLEN(GLUSTERD_STORE_KEY_VOL_ID))) {
-            ret = gf_uuid_parse(value, volinfo->volume_id);
+            ret = uuid_parse(value, volinfo->volume_id);
             if (ret)
                 gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UUID_PARSE_FAIL,
                        "failed to parse uuid");
@@ -3122,7 +3123,7 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
             volinfo->snap_max_hard_limit = (uint64_t)atoll(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
                             SLEN(GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
-            ret = gf_uuid_parse(value, volinfo->restored_from_snap);
+            ret = uuid_parse(value, volinfo->restored_from_snap);
             if (ret)
                 gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UUID_PARSE_FAIL,
                        "failed to parse restored snap's uuid");
@@ -3677,7 +3678,7 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
          * snapshot is pending, or the brick is not
          * a snapshotted brick, we continue
          */
-        if ((gf_uuid_compare(brickinfo->uuid, MY_UUID)) ||
+        if ((uuid_compare(brickinfo->uuid, MY_UUID)) ||
             (brickinfo->snap_status == -1) ||
             (strlen(brickinfo->device_path) == 0))
             continue;
@@ -3717,7 +3718,7 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_MNTPATH_MOUNT_FAIL,
                    "Failed to mount brick_mount_path");
         }
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
             if (brickinfo->real_path[0] == '\0') {
                 if (!realpath(brickinfo->path, abspath)) {
                     gf_msg(this->name, GF_LOG_CRITICAL, errno,
@@ -3843,7 +3844,7 @@ glusterd_store_update_snap(glusterd_snap_t *snap)
 
         if (!strncmp(key, GLUSTERD_STORE_KEY_SNAP_ID,
                      SLEN(GLUSTERD_STORE_KEY_SNAP_ID))) {
-            ret = gf_uuid_parse(value, snap->snap_id);
+            ret = uuid_parse(value, snap->snap_id);
             if (ret)
                 gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UUID_PARSE_FAIL,
                        "Failed to parse uuid");
@@ -4226,7 +4227,7 @@ glusterd_store_delete_peerinfo(glusterd_peerinfo_t *peerinfo)
         goto out;
     }
 
-    if (gf_uuid_is_null(peerinfo->uuid)) {
+    if (uuid_is_null(peerinfo->uuid)) {
         if (peerinfo->hostname) {
             len = snprintf(filepath, PATH_MAX, "%s/%s", peerdir,
                            peerinfo->hostname);
@@ -4305,7 +4306,7 @@ glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
     GF_ASSERT(len >= PATH_MAX);
 
     glusterd_store_peerinfo_dirpath_set(peerdir, sizeof(peerdir));
-    gf_uuid_unparse(peerinfo->uuid, str);
+    uuid_unparse(peerinfo->uuid, str);
     snprintf(peerfpath, len, "%s/%s", peerdir, str);
 }
 
@@ -4374,7 +4375,7 @@ glusterd_store_create_peer_shandle(glusterd_peerinfo_t *peerinfo)
 
     GF_ASSERT(peerinfo);
 
-    if (gf_uuid_is_null(peerinfo->uuid)) {
+    if (uuid_is_null(peerinfo->uuid)) {
         ret = glusterd_store_peerinfo_hostname_shandle_create(peerinfo);
     } else {
         ret = glusterd_peerinfo_hostname_shandle_check_destroy(peerinfo);
@@ -4520,7 +4521,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
     while ((entry = sys_readdir(dir, scratch))) {
         if (gf_irrelevant_entry(entry))
             continue;
-        if (gf_uuid_parse(entry->d_name, tmp_uuid) != 0) {
+        if (uuid_parse(entry->d_name, tmp_uuid) != 0) {
             gf_log(this->name, GF_LOG_WARNING, "skipping non-peer file %s",
                    entry->d_name);
             continue;
@@ -4557,7 +4558,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
             if (!strncmp(GLUSTERD_STORE_KEY_PEER_UUID, key,
                          SLEN(GLUSTERD_STORE_KEY_PEER_UUID))) {
                 if (value)
-                    gf_uuid_parse(value, peerinfo->uuid);
+                    uuid_parse(value, peerinfo->uuid);
             } else if (!strncmp(GLUSTERD_STORE_KEY_PEER_STATE, key,
                                 SLEN(GLUSTERD_STORE_KEY_PEER_STATE))) {
                 peerinfo->state.state = atoi(value);
@@ -4585,7 +4586,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
             goto next;
         }
 
-        if (gf_uuid_is_null(peerinfo->uuid)) {
+        if (uuid_is_null(peerinfo->uuid)) {
             gf_log("", GF_LOG_ERROR,
                    "Null UUID while attempting to read peer from '%s'",
                    filepath);
@@ -4660,7 +4661,7 @@ glusterd_recreate_all_snap_brick_mounts(xlator_t *this)
     cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
     {
         /* If the volume is not a restored volume then continue */
-        if (gf_uuid_is_null(volinfo->restored_from_snap))
+        if (uuid_is_null(volinfo->restored_from_snap))
             continue;
 
         ret = glusterd_recreate_vol_brick_mounts(this, volinfo);

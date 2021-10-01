@@ -59,7 +59,7 @@
         };                                                                     \
         if (_gfid != NULL) {                                                   \
             char _gfid_unparsed[40];                                           \
-            gf_uuid_unparse(_gfid, _gfid_unparsed);                            \
+            uuid_unparse(_gfid, _gfid_unparsed);                               \
             _ret = snprintf(_tmp_var, QUOTA_KEY_MAX,                           \
                             QUOTA_XATTR_PREFIX ".%s.%s." CONTRIBUTION,         \
                             "quota", _gfid_unparsed);                          \

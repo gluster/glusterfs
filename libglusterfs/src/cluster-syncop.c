@@ -1015,7 +1015,7 @@ cluster_uninodelk(xlator_t **subvols, unsigned char *locked_on, int numsubvols,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     flock.l_type = F_UNLCK;
     flock.l_start = off;
@@ -1045,7 +1045,7 @@ cluster_tryinodelk(xlator_t **subvols, unsigned char *on, int numsubvols,
     flock.l_len = size;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, inodelk, dom,
                &loc, F_SETLK, &flock, NULL);
 
@@ -1072,7 +1072,7 @@ cluster_inodelk(xlator_t **subvols, unsigned char *on, int numsubvols,
 
     output = alloca(numsubvols);
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, inodelk, dom,
                &loc, F_SETLK, &flock, NULL);
 
@@ -1103,7 +1103,7 @@ cluster_unentrylk(xlator_t **subvols, unsigned char *locked_on, int numsubvols,
     };
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     FOP_ONLIST(subvols, locked_on, numsubvols, replies, output, frame, entrylk,
                dom, &loc, name, ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
@@ -1122,7 +1122,7 @@ cluster_tryentrylk(xlator_t **subvols, unsigned char *on, int numsubvols,
     loc_t loc = {0};
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, entrylk, dom,
                &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 
@@ -1142,7 +1142,7 @@ cluster_entrylk(xlator_t **subvols, unsigned char *on, int numsubvols,
 
     output = alloca(numsubvols);
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, entrylk, dom,
                &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 
@@ -1182,7 +1182,7 @@ cluster_tiebreaker_inodelk(xlator_t **subvols, unsigned char *on,
 
     output = alloca(numsubvols);
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, inodelk, dom,
                &loc, F_SETLK, &flock, NULL);
 
@@ -1230,7 +1230,7 @@ cluster_tiebreaker_entrylk(xlator_t **subvols, unsigned char *on,
 
     output = alloca(numsubvols);
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
     FOP_ONLIST(subvols, on, numsubvols, replies, locked_on, frame, entrylk, dom,
                &loc, name, ENTRYLK_LOCK_NB, ENTRYLK_WRLCK, NULL);
 

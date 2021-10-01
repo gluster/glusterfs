@@ -512,7 +512,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     } else if (len == SLEN(GLUSTERFS_OPEN_FD_COUNT) &&
                !strcmp(key, GLUSTERFS_OPEN_FD_COUNT)) {
         inode = _get_filler_inode(filler);
-        if (!inode || gf_uuid_is_null(inode->gfid))
+        if (!inode || uuid_is_null(inode->gfid))
             goto out;
         ret = dict_set_uint32(filler->xattr, key, inode->fd_count);
         if (ret < 0) {
@@ -522,7 +522,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     } else if (len == SLEN(GLUSTERFS_ACTIVE_FD_COUNT) &&
                !strcmp(key, GLUSTERFS_ACTIVE_FD_COUNT)) {
         inode = _get_filler_inode(filler);
-        if (!inode || gf_uuid_is_null(inode->gfid))
+        if (!inode || uuid_is_null(inode->gfid))
             goto out;
         ret = dict_set_uint32(filler->xattr, key, inode->active_fd_count);
         if (ret < 0) {
@@ -659,7 +659,7 @@ void
 posix_fill_ino_from_gfid(xlator_t *this, struct iatt *buf)
 {
     /* consider least significant 8 bytes of value out of gfid */
-    if (gf_uuid_is_null(buf->ia_gfid)) {
+    if (uuid_is_null(buf->ia_gfid)) {
         buf->ia_ino = -1;
         goto out;
     }
@@ -786,7 +786,7 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     if (basename)
         posix_fill_gfid_path(this, real_path, &stbuf);
     else
-        gf_uuid_copy(stbuf.ia_gfid, gfid);
+        uuid_copy(stbuf.ia_gfid, gfid);
     stbuf.ia_flags |= IATT_GFID;
 
     posix_fill_ino_from_gfid(this, &stbuf);
@@ -813,8 +813,8 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     priv = this->private;
 
-    if (gfid && !gf_uuid_is_null(gfid))
-        gf_uuid_copy(stbuf.ia_gfid, gfid);
+    if (gfid && !uuid_is_null(gfid))
+        uuid_copy(stbuf.ia_gfid, gfid);
     else
         posix_fill_gfid_path(this, path, &stbuf);
     stbuf.ia_flags |= IATT_GFID;
@@ -1048,7 +1048,7 @@ posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
         ret = -1;
         goto out;
     }
-    if (gf_uuid_is_null(uuid_req)) {
+    if (uuid_is_null(uuid_req)) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, P_MSG_NULL_GFID,
                "gfid is null for %s", loc ? loc->path : "");
         ret = -1;
@@ -1062,7 +1062,7 @@ posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
                "setting GFID on %s failed ", path);
         goto out;
     }
-    gf_uuid_copy(uuid_curr, uuid_req);
+    uuid_copy(uuid_curr, uuid_req);
 
 verify_handle:
     if (!S_ISDIR(stat.st_mode))
@@ -1385,7 +1385,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
     if (size < 0 && errno == ENOENT) {
         gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
         stale = _gf_true;
-    } else if (size == 16 && gf_uuid_compare(gfid, gfid_curr)) {
+    } else if (size == 16 && uuid_compare(gfid, gfid_curr)) {
         gf_msg_debug(this->name, 0,
                      "%s: mismatching gfid: %s, "
                      "at %s",
@@ -2718,8 +2718,8 @@ posix_resolve_dirgfid_to_path(const uuid_t dirgfid, const char *brick_path,
     this = THIS;
     GF_ASSERT(this);
 
-    gf_uuid_copy(pargfid, dirgfid);
-    if (!path || gf_uuid_is_null(pargfid)) {
+    uuid_copy(pargfid, dirgfid);
+    if (!path || uuid_is_null(pargfid)) {
         ret = -1;
         goto out;
     }
@@ -2773,8 +2773,8 @@ posix_resolve_dirgfid_to_path(const uuid_t dirgfid, const char *brick_path,
 
         snprintf(pre_dir_name, sizeof(pre_dir_name), "%s", result);
 
-        gf_uuid_parse(pgfidstr, tmp_gfid);
-        gf_uuid_copy(pargfid, tmp_gfid);
+        uuid_parse(pgfidstr, tmp_gfid);
+        uuid_copy(pargfid, tmp_gfid);
     }
 
     if (bname) {

@@ -478,7 +478,7 @@ nlc_invalidate(xlator_t *this, void *data)
         goto out;
     }
 
-    if (!gf_uuid_is_null(up_ci->p_stat.ia_gfid)) {
+    if (!uuid_is_null(up_ci->p_stat.ia_gfid)) {
         parent1 = inode_find(itable, up_ci->p_stat.ia_gfid);
         if (!parent1) {
             ret = -1;
@@ -486,7 +486,7 @@ nlc_invalidate(xlator_t *this, void *data)
         }
     }
 
-    if (!gf_uuid_is_null(up_ci->oldp_stat.ia_gfid)) {
+    if (!uuid_is_null(up_ci->oldp_stat.ia_gfid)) {
         parent2 = inode_find(itable, up_ci->oldp_stat.ia_gfid);
         if (!parent2) {
             ret = -1;

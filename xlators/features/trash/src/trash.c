@@ -235,10 +235,10 @@ append_time_stamp(char *name, size_t name_size)
 gf_boolean_t
 check_whether_op_permitted(trash_private_t *priv, loc_t *loc)
 {
-    if ((priv->state && (gf_uuid_compare(loc->inode->gfid, trash_gfid) == 0)))
+    if ((priv->state && (uuid_compare(loc->inode->gfid, trash_gfid) == 0)))
         return _gf_false;
     if (priv->internal &&
-        (gf_uuid_compare(loc->inode->gfid, internal_op_gfid) == 0))
+        (uuid_compare(loc->inode->gfid, internal_op_gfid) == 0))
         return _gf_false;
 
     return _gf_true;
@@ -363,8 +363,8 @@ rename_trash_directory(xlator_t *this)
     frame->local = local;
 
     /* assign new location values to new_loc members */
-    gf_uuid_copy(loc.gfid, trash_gfid);
-    gf_uuid_copy(loc.pargfid, root_gfid);
+    uuid_copy(loc.gfid, trash_gfid);
+    uuid_copy(loc.pargfid, root_gfid);
     ret = extract_trash_directory(priv->newtrash_dir, &loc.name);
     if (ret) {
         gf_log(this->name, GF_LOG_DEBUG, "out of memory");
@@ -378,8 +378,8 @@ rename_trash_directory(xlator_t *this)
     }
 
     /* assign old location values to old_loc members */
-    gf_uuid_copy(old_loc.gfid, trash_gfid);
-    gf_uuid_copy(old_loc.pargfid, root_gfid);
+    uuid_copy(old_loc.gfid, trash_gfid);
+    uuid_copy(old_loc.pargfid, root_gfid);
     ret = extract_trash_directory(priv->oldtrash_dir, &old_loc.name);
     if (ret) {
         gf_log(this->name, GF_LOG_DEBUG, "out of memory");
@@ -393,7 +393,7 @@ rename_trash_directory(xlator_t *this)
     }
 
     old_loc.inode = inode_ref(priv->trash_inode);
-    gf_uuid_copy(old_loc.inode->gfid, old_loc.gfid);
+    uuid_copy(old_loc.inode->gfid, old_loc.gfid);
 
     loc_copy(&local->loc, &old_loc);
     loc_copy(&local->newloc, &loc);
@@ -560,7 +560,7 @@ trash_internalop_dir_lookup_cbk(call_frame_t *frame, void *cookie,
             goto out;
         }
 
-        gf_uuid_copy(*gfid_ptr, internal_op_gfid);
+        uuid_copy(*gfid_ptr, internal_op_gfid);
 
         dict = dict_new();
         if (!dict) {
@@ -572,8 +572,8 @@ trash_internalop_dir_lookup_cbk(call_frame_t *frame, void *cookie,
             gf_log(this->name, GF_LOG_ERROR, "setting key gfid-req failed");
             goto out;
         }
-        gf_uuid_copy(loc.gfid, internal_op_gfid);
-        gf_uuid_copy(loc.pargfid, trash_gfid);
+        uuid_copy(loc.gfid, internal_op_gfid);
+        uuid_copy(loc.pargfid, trash_gfid);
 
         loc.inode = inode_new(priv->trash_itable);
 
@@ -639,7 +639,7 @@ trash_dir_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         gf_log(this->name, GF_LOG_DEBUG, "inode found with gfid %s",
                uuid_utoa(buf->ia_gfid));
 
-        gf_uuid_copy(loc.gfid, trash_gfid);
+        uuid_copy(loc.gfid, trash_gfid);
 
         /* Find trash inode using available information */
         priv->trash_inode = inode_link(inode, NULL, NULL, buf);
@@ -668,10 +668,10 @@ trash_dir_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             ret = ENOMEM;
             goto out;
         }
-        gf_uuid_copy(*gfid_ptr, trash_gfid);
+        uuid_copy(*gfid_ptr, trash_gfid);
 
-        gf_uuid_copy(loc.gfid, trash_gfid);
-        gf_uuid_copy(loc.pargfid, root_gfid);
+        uuid_copy(loc.gfid, trash_gfid);
+        uuid_copy(loc.pargfid, root_gfid);
         ret = extract_trash_directory(priv->newtrash_dir, &loc.name);
         if (ret) {
             gf_log(this->name, GF_LOG_DEBUG, "out of memory");
@@ -747,7 +747,7 @@ create_or_rename_trash_directory(xlator_t *this)
     frame->local = local;
 
     loc.inode = inode_new(priv->trash_itable);
-    gf_uuid_copy(loc.gfid, trash_gfid);
+    uuid_copy(loc.gfid, trash_gfid);
     loc_copy(&local->loc, &loc);
     gf_log(this->name, GF_LOG_DEBUG,
            "nameless lookup for"
@@ -786,8 +786,8 @@ create_internalop_directory(xlator_t *this)
     }
     frame->local = local;
 
-    gf_uuid_copy(loc.gfid, internal_op_gfid);
-    gf_uuid_copy(loc.pargfid, trash_gfid);
+    uuid_copy(loc.gfid, internal_op_gfid);
+    uuid_copy(loc.pargfid, trash_gfid);
     loc.inode = inode_new(priv->trash_itable);
     loc.inode->ia_type = IA_IFDIR;
 
@@ -1307,10 +1307,10 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
         goto out;
     }
     /* loc need some gfid which will be present in inode */
-    gf_uuid_copy(loc->gfid, loc->inode->gfid);
+    uuid_copy(loc->gfid, loc->inode->gfid);
 
     /* Checking for valid location */
-    if (gf_uuid_is_null(loc->gfid) && gf_uuid_is_null(loc->inode->gfid)) {
+    if (uuid_is_null(loc->gfid) && uuid_is_null(loc->inode->gfid)) {
         gf_log(this->name, GF_LOG_DEBUG, "Bad address");
         STACK_WIND(frame, trash_common_unwind_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->unlink, loc, 0, xdata);
@@ -1924,10 +1924,10 @@ trash_truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
     local->loc.parent = inode_ref(dir_entry->parent);
-    gf_uuid_copy(local->loc.pargfid, dir_entry->parent->gfid);
+    uuid_copy(local->loc.pargfid, dir_entry->parent->gfid);
 
     local->newloc.parent = inode_ref(dir_entry->parent);
-    gf_uuid_copy(local->newloc.pargfid, dir_entry->parent->gfid);
+    uuid_copy(local->newloc.pargfid, dir_entry->parent->gfid);
 
     flags = O_CREAT | O_EXCL | O_WRONLY;
 
@@ -2108,7 +2108,7 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     local->loc.path = pathbuf;
     local->loc.inode = inode_ref(fd->inode);
-    gf_uuid_copy(local->loc.gfid, local->loc.inode->gfid);
+    uuid_copy(local->loc.gfid, local->loc.inode->gfid);
 
     local->fop_offset = offset;
 

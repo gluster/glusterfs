@@ -533,7 +533,7 @@ glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
 
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
-        if (gf_uuid_compare(brick->uuid, MY_UUID))
+        if (uuid_compare(brick->uuid, MY_UUID))
             continue;
 
         ret = _glusterd_quota_initiate_fs_crawl(priv, volinfo, brick, type,
@@ -891,7 +891,7 @@ glusterd_find_gfid_match_3_6(uuid_t gfid, unsigned char *buf, size_t bytes_read,
 
     while (gfid_index != bytes_read) {
         memcpy((void *)tmp_buf, (void *)&buf[gfid_index], 16);
-        if (!gf_uuid_compare(gfid, tmp_buf)) {
+        if (!uuid_compare(gfid, tmp_buf)) {
             if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
                 shift_count = bytes_read - (gfid_index + 16);
                 memmove((void *)&buf[gfid_index], (void *)&buf[gfid_index + 16],
@@ -936,7 +936,7 @@ glusterd_find_gfid_match(uuid_t gfid, char gfid_type, unsigned char *buf,
         memcpy((void *)tmp_buf, (void *)&buf[gfid_index], 16);
         type = buf[gfid_index + 16];
 
-        if (!gf_uuid_compare(gfid, tmp_buf) && type == gfid_type) {
+        if (!uuid_compare(gfid, tmp_buf) && type == gfid_type) {
             if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE ||
                 opcode == GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS) {
                 shift_count = bytes_read - (gfid_index + 17);
@@ -1188,7 +1188,7 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
         ret = -1;
         goto out;
     }
-    gf_uuid_parse(gfid_str, gfid);
+    uuid_parse(gfid_str, gfid);
 
     if (opcode > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS)
         type = GF_QUOTA_CONF_TYPE_OBJECTS;
@@ -1815,7 +1815,7 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
             goto out;
         }
 
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
         if (brickinfo->vg[0])

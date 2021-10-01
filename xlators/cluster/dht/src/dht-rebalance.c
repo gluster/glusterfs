@@ -216,7 +216,7 @@ gf_defrag_handle_hardlink(xlator_t *this, loc_t *loc, int *fop_errno)
 
     conf = this->private;
 
-    if (gf_uuid_is_null(loc->pargfid)) {
+    if (uuid_is_null(loc->pargfid)) {
         gf_msg("", GF_LOG_ERROR, 0, DHT_MSG_MIGRATE_FILE_FAILED,
                "Migrate file failed :"
                "loc->pargfid is NULL for %s",
@@ -226,7 +226,7 @@ gf_defrag_handle_hardlink(xlator_t *this, loc_t *loc, int *fop_errno)
         goto out;
     }
 
-    if (gf_uuid_is_null(loc->gfid)) {
+    if (uuid_is_null(loc->gfid)) {
         gf_msg("", GF_LOG_ERROR, 0, DHT_MSG_MIGRATE_FILE_FAILED,
                "Migrate file failed :"
                "loc->gfid is NULL for %s",
@@ -635,7 +635,7 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
     ret = syncop_lookup(to, loc, &new_stbuf, NULL, xdata, NULL);
     if (!ret) {
         /* File exits in the destination, check if gfid matches */
-        if (gf_uuid_compare(stbuf->ia_gfid, new_stbuf.ia_gfid) != 0) {
+        if (uuid_compare(stbuf->ia_gfid, new_stbuf.ia_gfid) != 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH,
                    "file %s exists in %s with different gfid", loc->path,
                    to->name);
@@ -693,7 +693,7 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
 
     ret = syncop_lookup(to, loc, &check_stbuf, NULL, NULL, NULL);
     if (!ret) {
-        if (gf_uuid_compare(stbuf->ia_gfid, check_stbuf.ia_gfid) != 0) {
+        if (uuid_compare(stbuf->ia_gfid, check_stbuf.ia_gfid) != 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_GFID_MISMATCH,
                    "file %s exists in %s with different gfid,"
                    "found in lookup after create",
@@ -1591,7 +1591,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
     flock.l_type = F_WRLCK;
 
     tmp_loc.inode = inode_ref(loc->inode);
-    gf_uuid_copy(tmp_loc.gfid, loc->gfid);
+    uuid_copy(tmp_loc.gfid, loc->gfid);
     tmp_loc.path = gf_strdup(loc->path);
 
     /* this inodelk happens with flock.owner being zero. But to synchronize
@@ -2153,7 +2153,7 @@ dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
         rcvd_enoent_from_src = 1;
     }
 
-    if ((gf_uuid_compare(empty_iatt.ia_gfid, loc->gfid) == 0) &&
+    if ((uuid_compare(empty_iatt.ia_gfid, loc->gfid) == 0) &&
         (!rcvd_enoent_from_src) && delete_src_linkto) {
         /* take out the source from namespace */
         ret = syncop_unlink(cached_subvol, loc, NULL, NULL);
@@ -2548,7 +2548,7 @@ dht_get_first_non_null_index(subvol_nodeuuids_info_t *entry)
     int index = 0;
 
     for (i = 0; i < entry->count; i++) {
-        if (!gf_uuid_is_null(entry->elements[i].uuid)) {
+        if (!uuid_is_null(entry->elements[i].uuid)) {
             index = i;
             goto out;
         }
@@ -2604,7 +2604,7 @@ gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
         }
 
         /* Brick down - some other node has to migrate these files*/
-        if (gf_uuid_is_null(entry->elements[index].uuid)) {
+        if (uuid_is_null(entry->elements[index].uuid)) {
             /* Fall back to the first non-null index */
             index = dht_get_first_non_null_index(entry);
 
@@ -2723,9 +2723,9 @@ gf_defrag_migrate_single_file(void *opaque)
     should_i_migrate = gf_defrag_should_i_migrate(
         this, rebal_entry->local_subvol_index, entry->d_stat.ia_gfid);
 
-    gf_uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
+    uuid_copy(entry_loc.gfid, entry->d_stat.ia_gfid);
 
-    gf_uuid_copy(entry_loc.pargfid, loc->gfid);
+    uuid_copy(entry_loc.pargfid, loc->gfid);
 
     ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
 

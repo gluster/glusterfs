@@ -46,7 +46,7 @@ __afr_selfheal_metadata_do(call_frame_t *frame, xlator_t *this, inode_t *inode,
     priv = this->private;
 
     loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
+    uuid_copy(loc.gfid, inode->gfid);
 
     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
            "performing metadata selfheal on %s", uuid_utoa(inode->gfid));
@@ -511,7 +511,7 @@ afr_selfheal_metadata_by_stbuf(xlator_t *this, struct iatt *stbuf)
     call_frame_t *frame = NULL;
     int ret = 0;
 
-    if (gf_uuid_is_null(stbuf->ia_gfid)) {
+    if (uuid_is_null(stbuf->ia_gfid)) {
         ret = -EINVAL;
         goto out;
     }

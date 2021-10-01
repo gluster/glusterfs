@@ -191,7 +191,7 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
     brick_count = 0;
     cds_list_for_each_entry(brickinfo, &vol->bricks, brick_list)
     {
-        if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
             /* If the brick belongs to the same node */
             brick_count++;
             continue;
@@ -200,7 +200,7 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
         RCU_READ_LOCK;
         cds_list_for_each_entry_rcu(peerinfo, peers, uuid_list)
         {
-            if (gf_uuid_compare(peerinfo->uuid, brickinfo->uuid)) {
+            if (uuid_compare(peerinfo->uuid, brickinfo->uuid)) {
                 /* If the brick doesn't belong to this peer */
                 continue;
             }
@@ -1057,7 +1057,7 @@ glusterd_snapshot_restore_prevalidate(dict_t *dict, char **op_errstr,
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
             brick_count++;
-            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+            if (uuid_compare(brickinfo->uuid, MY_UUID))
                 continue;
 
             keylen = snprintf(key, sizeof(key), "snap%d.brick%d.path", volcount,
@@ -1919,7 +1919,7 @@ glusterd_snap_create_clone_common_prevalidate(
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (uuid_compare(brickinfo->uuid, MY_UUID)) {
             brick_order++;
             continue;
         }
@@ -2515,12 +2515,12 @@ glusterd_find_snap_by_id(uuid_t snap_id)
     priv = THIS->private;
     GF_ASSERT(priv);
 
-    if (gf_uuid_is_null(snap_id))
+    if (uuid_is_null(snap_id))
         goto out;
 
     cds_list_for_each_entry(snap, &priv->snapshots, snap_list)
     {
-        if (!gf_uuid_compare(snap->snap_id, snap_id)) {
+        if (!uuid_compare(snap->snap_id, snap_id)) {
             gf_msg_debug(THIS->name, 0,
                          "Found "
                          "snap %s (%s)",
@@ -2681,7 +2681,7 @@ glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
     GF_ASSERT(snap_vol);
 
     if ((snap_vol->is_snap_volume == _gf_false) &&
-        (gf_uuid_is_null(snap_vol->restored_from_snap))) {
+        (uuid_is_null(snap_vol->restored_from_snap))) {
         gf_msg_debug(this->name, 0,
                      "Not a snap volume, or a restored snap volume.");
         ret = 0;
@@ -2692,7 +2692,7 @@ glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
     cds_list_for_each_entry(brickinfo, &snap_vol->bricks, brick_list)
     {
         brick_count++;
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+        if (uuid_compare(brickinfo->uuid, MY_UUID)) {
             gf_msg_debug(this->name, 0, "%s:%s belongs to a different node",
                          brickinfo->hostname, brickinfo->path);
             continue;
@@ -2885,7 +2885,7 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
 
     cds_list_for_each_entry(brickinfo, &snap_vol->bricks, brick_list)
     {
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
         ret = glusterd_brick_stop(snap_vol, brickinfo, _gf_false);
@@ -3894,7 +3894,7 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_generate(*uuid_ptr);
+    uuid_generate(*uuid_ptr);
     ret = dict_set_bin(dict, "snap-id", uuid_ptr, sizeof(uuid_t));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -3914,7 +3914,7 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         /* generate internal username and password  for the snap*/
-        gf_uuid_generate(tmp_uuid);
+        uuid_generate(tmp_uuid);
         username = gf_strdup(uuid_utoa(tmp_uuid));
         keylen = snprintf(key, sizeof(key), "volume%d_username", i);
         ret = dict_set_dynstrn(dict, key, keylen, username);
@@ -3927,7 +3927,7 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
             goto out;
         }
 
-        gf_uuid_generate(tmp_uuid);
+        uuid_generate(tmp_uuid);
         password = gf_strdup(uuid_utoa(tmp_uuid));
         keylen = snprintf(key, sizeof(key), "volume%d_password", i);
         ret = dict_set_dynstrn(dict, key, keylen, password);
@@ -3949,7 +3949,7 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
         }
 
         snprintf(key, sizeof(key), "vol%d_volid", i);
-        gf_uuid_generate(*uuid_ptr);
+        uuid_generate(*uuid_ptr);
         ret = dict_set_bin(dict, key, uuid_ptr, sizeof(uuid_t));
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -4085,7 +4085,7 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_generate(*uuid_ptr);
+    uuid_generate(*uuid_ptr);
     ret = dict_set_bin(dict, "clone-id", uuid_ptr, sizeof(uuid_t));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -4102,7 +4102,7 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_generate(tmp_uuid);
+    uuid_generate(tmp_uuid);
     username = gf_strdup(uuid_utoa(tmp_uuid));
     keylen = snprintf(key, sizeof(key), "volume1_username");
     ret = dict_set_dynstrn(dict, key, keylen, username);
@@ -4115,7 +4115,7 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
         goto out;
     }
 
-    gf_uuid_generate(tmp_uuid);
+    uuid_generate(tmp_uuid);
     password = gf_strdup(uuid_utoa(tmp_uuid));
     keylen = snprintf(key, sizeof(key), "volume1_password");
     ret = dict_set_dynstrn(dict, key, keylen, password);
@@ -4137,7 +4137,7 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
     }
 
     snprintf(key, sizeof(key), "vol1_volid");
-    gf_uuid_generate(*uuid_ptr);
+    uuid_generate(*uuid_ptr);
     ret = dict_set_bin(dict, key, uuid_ptr, sizeof(uuid_t));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -4310,7 +4310,7 @@ glusterd_create_snap_object(dict_t *dict, dict_t *rsp_dict)
     cds_list_for_each_entry(snap, &priv->snapshots, snap_list)
     {
         if (!strcmp(snap->snapname, snapname) ||
-            !gf_uuid_compare(snap->snap_id, *snap_id)) {
+            !uuid_compare(snap->snap_id, *snap_id)) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_CREATION_FAIL,
                    "Found duplicate snap %s (%s)", snap->snapname,
                    uuid_utoa(snap->snap_id));
@@ -4333,7 +4333,7 @@ glusterd_create_snap_object(dict_t *dict, dict_t *rsp_dict)
     }
 
     gf_strncpy(snap->snapname, snapname, sizeof(snap->snapname));
-    gf_uuid_copy(snap->snap_id, *snap_id);
+    uuid_copy(snap->snap_id, *snap_id);
     snap->time_stamp = (time_t)time_stamp;
     /* Set the status as GD_SNAP_STATUS_INIT and once the backend snapshot
        is taken and snap is really ready to use, set the status to
@@ -4723,7 +4723,7 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
     }
 
     if ((snap_brickinfo->snap_status != -1) &&
-        (!gf_uuid_compare(original_brickinfo->uuid, MY_UUID)) &&
+        (!uuid_compare(original_brickinfo->uuid, MY_UUID)) &&
         (!glusterd_is_brick_started(original_brickinfo))) {
         /* In case if the brick goes down after prevalidate. */
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_BRICK_DISCONNECTED,
@@ -4813,7 +4813,7 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
 
     gf_strncpy(snap_brickinfo->mount_dir, original_brickinfo->mount_dir,
                sizeof(snap_brickinfo->mount_dir));
-    gf_uuid_copy(snap_brickinfo->uuid, original_brickinfo->uuid);
+    uuid_copy(snap_brickinfo->uuid, original_brickinfo->uuid);
     /* AFR changelog names are based on brick_id and hence the snap
      * volume's bricks must retain the same ID */
     cds_list_add_tail(&snap_brickinfo->brick_list, &snap_vol->bricks);
@@ -4858,7 +4858,7 @@ glusterd_update_fs_label(glusterd_brickinfo_t *brickinfo)
     GF_ASSERT(brickinfo);
 
     /* Generate a new UUID */
-    gf_uuid_generate(uuid);
+    uuid_generate(uuid);
 
     GLUSTERD_GET_UUID_NOHYPHEN(label, uuid);
 
@@ -5146,7 +5146,7 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
 
     /* uuid is used as lvm snapshot name.
        This will avoid restrictions on snapshot names provided by user */
-    gf_uuid_copy(snap_vol->volume_id, *snap_volid);
+    uuid_copy(snap_vol->volume_id, *snap_volid);
     snap_vol->is_snap_volume = _gf_true;
     snap_vol->snapshot = snap;
 
@@ -5162,8 +5162,7 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         }
         cds_list_add_tail(&snap_vol->vol_list, &snap->volumes);
         gf_strncpy(snap_vol->volname, clonename, sizeof(snap_vol->volname));
-        gf_uuid_copy(snap_vol->restored_from_snap,
-                     origin_vol->snapshot->snap_id);
+        uuid_copy(snap_vol->restored_from_snap, origin_vol->snapshot->snap_id);
 
     } else {
         GLUSTERD_GET_UUID_NOHYPHEN(snap_vol->volname, *snap_volid);
@@ -5952,7 +5951,7 @@ glusterd_snapshot_activate_commit(dict_t *dict, char **op_errstr,
     cds_list_for_each_entry(brickinfo, &snap_volinfo->bricks, brick_list)
     {
         brick_count++;
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+        if (uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
         ret = glusterd_snap_brick_create(snap_volinfo, brickinfo, brick_count,
                                          _gf_false);
@@ -6421,9 +6420,9 @@ glusterd_schedule_brick_snapshot(dict_t *dict, dict_t *rsp_dict,
                 goto out;
             }
 
-            if ((gf_uuid_compare(brickinfo->uuid, MY_UUID)) ||
+            if ((uuid_compare(brickinfo->uuid, MY_UUID)) ||
                 (brickinfo->snap_status == -1)) {
-                if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
+                if (!uuid_compare(brickinfo->uuid, MY_UUID)) {
                     brickcount++;
                     keylen = snprintf(key, sizeof(key),
                                       "snap-vol%d.brick%d.status", volcount,
@@ -6536,7 +6535,7 @@ glusterd_create_snap_object_for_clone(dict_t *dict, dict_t *rsp_dict)
     }
 
     gf_strncpy(snap->snapname, snapname, sizeof(snap->snapname));
-    gf_uuid_copy(snap->snap_id, *snap_id);
+    uuid_copy(snap->snap_id, *snap_id);
 
     ret = 0;
 
@@ -8738,7 +8737,7 @@ glusterd_snapshot_revert_partial_restored_vol(glusterd_volinfo_t *volinfo)
              * If the brick is not of this peer, or snapshot is    *
              * missed for the brick don't restore the xattr for it *
              */
-            if ((!gf_uuid_compare(brickinfo->uuid, MY_UUID)) &&
+            if ((!uuid_compare(brickinfo->uuid, MY_UUID)) &&
                 (brickinfo->snap_status != -1)) {
                 /*
                  * We need to restore volume id of all snap *
@@ -9708,9 +9707,9 @@ gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
     /* Following entries need to be derived from origin volume. */
     gf_strncpy(new_volinfo->volname, orig_vol->volname,
                sizeof(new_volinfo->volname));
-    gf_uuid_copy(new_volinfo->volume_id, orig_vol->volume_id);
+    uuid_copy(new_volinfo->volume_id, orig_vol->volume_id);
     new_volinfo->snap_count = orig_vol->snap_count;
-    gf_uuid_copy(new_volinfo->restored_from_snap, snap_vol->snapshot->snap_id);
+    uuid_copy(new_volinfo->restored_from_snap, snap_vol->snapshot->snap_id);
 
     /* Use the same version as the original version */
     new_volinfo->version = orig_vol->version;

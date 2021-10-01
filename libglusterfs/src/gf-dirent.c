@@ -270,10 +270,10 @@ gf_fill_iatt_for_dirent(gf_dirent_t *entry, inode_t *parent, xlator_t *subvol)
     loc.inode = inode_grep(parent->table, parent, entry->d_name);
     if (!loc.inode) {
         loc.inode = inode_new(parent->table);
-        gf_uuid_copy(loc.inode->gfid, entry->d_stat.ia_gfid);
+        uuid_copy(loc.inode->gfid, entry->d_stat.ia_gfid);
     }
 
-    gf_uuid_copy(loc.pargfid, parent->gfid);
+    uuid_copy(loc.pargfid, parent->gfid);
     loc.name = entry->d_name;
     loc.parent = inode_ref(parent);
     ret = inode_path(loc.parent, entry->d_name, &path);

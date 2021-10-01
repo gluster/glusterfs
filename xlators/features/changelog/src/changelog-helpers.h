@@ -585,7 +585,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t gfid, char **path,
         co->co_convert = converter;                                            \
         co->co_free = freefn;                                                  \
         co->co_type = CHANGELOG_OPT_REC_ENTRY;                                 \
-        gf_uuid_copy(co->co_entry.cef_uuid, pargfid);                          \
+        uuid_copy(co->co_entry.cef_uuid, pargfid);                             \
         co->co_entry.cef_bname = gf_strdup(bname);                             \
         if (!co->co_entry.cef_bname)                                           \
             goto label;                                                        \
@@ -598,7 +598,7 @@ resolve_pargfid_to_path(xlator_t *this, const uuid_t gfid, char **path,
         co->co_convert = converter;                                            \
         co->co_free = del_freefn;                                              \
         co->co_type = CHANGELOG_OPT_REC_ENTRY;                                 \
-        gf_uuid_copy(co->co_entry.cef_uuid, pargfid);                          \
+        uuid_copy(co->co_entry.cef_uuid, pargfid);                             \
         co->co_entry.cef_bname = gf_strdup(bname);                             \
         if (!co->co_entry.cef_bname)                                           \
             goto label;                                                        \

@@ -30,7 +30,7 @@ dht_linkfile_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret)
         goto out;
 
-    gf_uuid_unparse(local->loc.gfid, gfid);
+    uuid_unparse(local->loc.gfid, gfid);
 
     is_linkfile = check_is_linkfile(inode, stbuf, xattr, conf->link_xattr_name);
     if (!is_linkfile)
@@ -118,15 +118,15 @@ dht_linkfile_create(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
         need_unref = 1;
     }
 
-    if (!gf_uuid_is_null(local->gfid)) {
-        gf_uuid_unparse(local->gfid, gfid);
+    if (!uuid_is_null(local->gfid)) {
+        uuid_unparse(local->gfid, gfid);
 
         ret = dict_set_gfuuid(dict, "gfid-req", local->gfid, true);
         if (ret)
             gf_smsg("dht-linkfile", GF_LOG_INFO, 0, DHT_MSG_DICT_SET_FAILED,
                     "path=%s", loc->path, "gfid=%s", gfid, NULL);
     } else {
-        gf_uuid_unparse(loc->gfid, gfid);
+        uuid_unparse(loc->gfid, gfid);
     }
 
     ret = dict_set_str(dict, GLUSTERFS_INTERNAL_FOP_KEY, "yes");
@@ -239,7 +239,7 @@ dht_linkfile_attr_heal(call_frame_t *frame, xlator_t *this)
 
     DHT_MARK_FOP_INTERNAL(xattr);
 
-    gf_uuid_copy(local->loc.gfid, local->stbuf.ia_gfid);
+    uuid_copy(local->loc.gfid, local->stbuf.ia_gfid);
 
     copy = copy_frame(frame);
 

@@ -293,7 +293,7 @@ inodelk_contention_notify(xlator_t *this, struct list_head *contend)
             lc.domain = lock->volume;
             lc.xdata = NULL;
 
-            gf_uuid_copy(up.gfid, lock->pl_inode->gfid);
+            uuid_copy(up.gfid, lock->pl_inode->gfid);
             client = (client_t *)lock->client;
             if (client == NULL) {
                 /* A NULL client can be found if the inodelk

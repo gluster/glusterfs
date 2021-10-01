@@ -86,7 +86,7 @@ fuse_resolve_entry(fuse_state_t *state)
     resolve_loc = &resolve->resolve_loc;
 
     resolve_loc->parent = inode_ref(state->loc_now->parent);
-    gf_uuid_copy(resolve_loc->pargfid, state->loc_now->pargfid);
+    uuid_copy(resolve_loc->pargfid, state->loc_now->pargfid);
     resolve_loc->name = resolve->bname;
 
     resolve_loc->inode = inode_grep(state->itable, resolve->parhint,
@@ -133,7 +133,7 @@ fuse_resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          * -2: entry (inode corresponding to path) could not be resolved
          */
 
-        if (gf_uuid_is_null(resolve->gfid)) {
+        if (uuid_is_null(resolve->gfid)) {
             resolve->op_ret = -1;
         } else {
             resolve->op_ret = -2;
@@ -152,13 +152,13 @@ fuse_resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!link_inode)
         goto out;
 
-    if (!gf_uuid_is_null(resolve->gfid)) {
+    if (!uuid_is_null(resolve->gfid)) {
         loc_now->inode = link_inode;
         goto out;
     }
 
     loc_now->parent = link_inode;
-    gf_uuid_copy(loc_now->pargfid, link_inode->gfid);
+    uuid_copy(loc_now->pargfid, link_inode->gfid);
 
     tmp_inode = inode_grep(state->itable, link_inode, resolve->bname);
     if (tmp_inode && (!inode_needs_lookup(tmp_inode, THIS))) {
@@ -185,10 +185,10 @@ fuse_resolve_gfid(fuse_state_t *state)
     resolve = state->resolve_now;
     resolve_loc = &resolve->resolve_loc;
 
-    if (!gf_uuid_is_null(resolve->pargfid)) {
-        gf_uuid_copy(resolve_loc->gfid, resolve->pargfid);
-    } else if (!gf_uuid_is_null(resolve->gfid)) {
-        gf_uuid_copy(resolve_loc->gfid, resolve->gfid);
+    if (!uuid_is_null(resolve->pargfid)) {
+        uuid_copy(resolve_loc->gfid, resolve->pargfid);
+    } else if (!uuid_is_null(resolve->gfid)) {
+        uuid_copy(resolve_loc->gfid, resolve->gfid);
     }
 
     /* inode may already exist in case we are looking up an inode which was
@@ -238,7 +238,7 @@ fuse_resolve_parent_simple(fuse_state_t *state)
 
         /* no graph switches since */
         loc->parent = inode_ref(parent);
-        gf_uuid_copy(loc->pargfid, parent->gfid);
+        uuid_copy(loc->pargfid, parent->gfid);
         loc->inode = inode_grep(state->itable, parent, loc->name);
 
         /* nodeid for root is 1 and we blindly take the latest graph's
@@ -274,7 +274,7 @@ fuse_resolve_parent_simple(fuse_state_t *state)
     }
 
     loc->parent = parent;
-    gf_uuid_copy(loc->pargfid, resolve->pargfid);
+    uuid_copy(loc->pargfid, resolve->pargfid);
 
     inode = inode_grep(state->itable, parent, loc->name);
     if (inode && !inode_needs_lookup(inode, this)) {
@@ -550,7 +550,7 @@ fuse_gfid_set(fuse_state_t *state)
 {
     int ret = 0;
 
-    if (gf_uuid_is_null(state->gfid))
+    if (uuid_is_null(state->gfid))
         goto out;
 
     if (!state->xdata)
@@ -573,7 +573,7 @@ fuse_resolve_entry_init(fuse_state_t *state, fuse_resolve_t *resolve, ino_t par,
     inode_t *parent = NULL;
 
     parent = fuse_ino_to_inode(par, state->this);
-    gf_uuid_copy(resolve->pargfid, parent->gfid);
+    uuid_copy(resolve->pargfid, parent->gfid);
     resolve->parhint = parent;
     resolve->bname = gf_strdup(name);
 
@@ -586,7 +586,7 @@ fuse_resolve_inode_init(fuse_state_t *state, fuse_resolve_t *resolve, ino_t ino)
     inode_t *inode = NULL;
 
     inode = fuse_ino_to_inode(ino, state->this);
-    gf_uuid_copy(resolve->gfid, inode->gfid);
+    uuid_copy(resolve->gfid, inode->gfid);
     resolve->hint = inode;
 
     return 0;
@@ -610,10 +610,10 @@ fuse_resolve(fuse_state_t *state)
     if (resolve->fd) {
         fuse_resolve_fd(state);
 
-    } else if (!gf_uuid_is_null(resolve->pargfid)) {
+    } else if (!uuid_is_null(resolve->pargfid)) {
         fuse_resolve_parent(state);
 
-    } else if (!gf_uuid_is_null(resolve->gfid)) {
+    } else if (!uuid_is_null(resolve->gfid)) {
         fuse_resolve_inode(state);
 
     } else {

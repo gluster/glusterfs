@@ -151,7 +151,7 @@ afr_handle_anon_inode_options(afr_private_t *priv, dict_t *options)
                           AFR_ANON_DIR_PREFIX, volfile_id_str);
         /* Check whether an output was not truncated. */
         GF_ASSERT(nr < NAME_MAX);
-        gf_uuid_parse(volfile_id_str, anon_inode_gfid);
+        uuid_parse(volfile_id_str, anon_inode_gfid);
         /* Flip a bit to make sure volfile-id and anon-gfid are not same. */
         anon_inode_gfid[0] ^= 1;
         uuid_utoa_r(anon_inode_gfid, priv->anon_gfid_str);
@@ -406,7 +406,7 @@ afr_ta_init(afr_private_t *priv)
     priv->release_ta_notify_dom_lock = _gf_false;
     INIT_LIST_HEAD(&priv->ta_waitq);
     INIT_LIST_HEAD(&priv->ta_onwireq);
-    gf_uuid_clear(priv->ta_gfid);
+    uuid_clear(priv->ta_gfid);
 }
 
 int32_t

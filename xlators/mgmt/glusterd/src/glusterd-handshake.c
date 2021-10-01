@@ -619,7 +619,7 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
     GF_ASSERT(missed_snapinfo);
     GF_ASSERT(snap_opinfo);
 
-    gf_uuid_parse(missed_snapinfo->snap_uuid, snap_uuid);
+    uuid_parse(missed_snapinfo->snap_uuid, snap_uuid);
 
     /* Find the snap-object */
     snap = glusterd_find_snap_by_id(snap_uuid);
@@ -1299,7 +1299,7 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
      * not send a uuid
      */
     if (!ret) {
-        gf_uuid_parse(uuid_str, peer_uuid);
+        uuid_parse(uuid_str, peer_uuid);
         RCU_READ_LOCK;
         ret = (glusterd_peerinfo_find(peer_uuid, NULL) != NULL);
         RCU_READ_UNLOCK;
@@ -1914,7 +1914,7 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
     ctx->dict = peerctx->args.dict;
 
     event->peername = gf_strdup(peerinfo->hostname);
-    gf_uuid_copy(event->peerid, peerinfo->uuid);
+    uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ctx;
 
     ret = glusterd_friend_sm_inject_event(event);

@@ -97,7 +97,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     loc_touchup(&loc, basename);
     loc.inode = inode_new(xl->itable);
 
-    gf_uuid_generate(gfid);
+    uuid_generate(gfid);
     ret = dict_set_gfuuid(dict, "gfid-req", gfid, true);
     if (ret) {
         gf_log(xl->name, GF_LOG_ERROR, "failed to set 'gfid-req' for subdir");
@@ -149,7 +149,7 @@ server_first_lookup(xlator_t *this, client_t *client, dict_t *reply)
     loc.name = "";
     loc.inode = xl->itable->root;
     loc.parent = NULL;
-    gf_uuid_copy(loc.gfid, loc.inode->gfid);
+    uuid_copy(loc.gfid, loc.inode->gfid);
 
     ret = syncop_lookup(xl, &loc, &iatt, NULL, NULL, NULL);
     if (ret < 0)
@@ -180,7 +180,7 @@ server_first_lookup(xlator_t *this, client_t *client, dict_t *reply)
         }
 
         /* Can be used in server_resolve() */
-        gf_uuid_copy(client->subdir_gfid, inode->gfid);
+        uuid_copy(client->subdir_gfid, inode->gfid);
         client->subdir_inode = inode;
     }
 

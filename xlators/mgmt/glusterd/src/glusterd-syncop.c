@@ -375,7 +375,7 @@ gd_syncop_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -424,8 +424,8 @@ gd_syncop_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
-    gf_uuid_copy(req.txn_id, txn_id);
+    uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.txn_id, txn_id);
     req.op = op;
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
@@ -476,7 +476,7 @@ gd_syncop_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     op_ret = rsp.op_ret;
     op_errno = rsp.op_errno;
@@ -525,8 +525,8 @@ gd_syncop_mgmt_v3_unlock(dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         goto out;
     }
 
-    gf_uuid_copy(req.uuid, my_uuid);
-    gf_uuid_copy(req.txn_id, txn_id);
+    uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.txn_id, txn_id);
 
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
     if (ret)
@@ -575,7 +575,7 @@ _gd_syncop_mgmt_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(*peerid, NULL);
@@ -627,7 +627,7 @@ gd_syncop_mgmt_lock(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
     };
     uuid_t *peerid = NULL;
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
     if (ret)
         goto out;
@@ -674,7 +674,7 @@ _gd_syncop_mgmt_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret < 0)
         goto out;
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
 
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(*peerid, NULL);
@@ -724,7 +724,7 @@ gd_syncop_mgmt_unlock(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
     };
     uuid_t *peerid = NULL;
 
-    gf_uuid_copy(req.uuid, my_uuid);
+    uuid_copy(req.uuid, my_uuid);
     GD_ALLOC_COPY_UUID(peerid, peerinfo->uuid, ret);
     if (ret)
         goto out;
@@ -796,7 +796,7 @@ _gd_syncop_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     if (rsp.op == GD_OP_REPLACE_BRICK || rsp.op == GD_OP_QUOTA ||
         rsp.op == GD_OP_CREATE_VOLUME || rsp.op == GD_OP_ADD_BRICK ||
         rsp.op == GD_OP_START_VOLUME) {
@@ -853,7 +853,7 @@ gd_syncop_mgmt_stage_op(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         goto out;
     }
 
-    gf_uuid_copy(req->uuid, my_uuid);
+    uuid_copy(req->uuid, my_uuid);
     req->op = op;
 
     ret = dict_allocate_and_serialize(dict_out, &req->buf.buf_val,
@@ -1100,7 +1100,7 @@ _gd_syncop_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    gf_uuid_copy(args->uuid, rsp.uuid);
+    uuid_copy(args->uuid, rsp.uuid);
     if (rsp.op == GD_OP_QUOTA) {
         ret = dict_get_int32(args->dict, "type", &type);
         if (ret) {
@@ -1165,7 +1165,7 @@ gd_syncop_mgmt_commit_op(glusterd_peerinfo_t *peerinfo, struct syncargs *args,
         goto out;
     }
 
-    gf_uuid_copy(req->uuid, my_uuid);
+    uuid_copy(req->uuid, my_uuid);
     req->op = op;
 
     ret = dict_allocate_and_serialize(dict_out, &req->buf.buf_val,

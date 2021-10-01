@@ -1049,7 +1049,7 @@ cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
         goto err;
     }
 
-    gf_uuid_copy(local->xattrinfo.lxattr->gfid, local->loc.gfid);
+    uuid_copy(local->xattrinfo.lxattr->gfid, local->loc.gfid);
 
     if (local->remotepath) {
         local->xattrinfo.lxattr->file_path = gf_strdup(local->remotepath);
@@ -1064,7 +1064,7 @@ cs_update_xattrs(call_frame_t *frame, dict_t *xdata)
                           &(local->xattrinfo.lxattr->uuid));
 
     if (ret) {
-        gf_uuid_clear(local->xattrinfo.lxattr->uuid);
+        uuid_clear(local->xattrinfo.lxattr->uuid);
     }
     size = strlen(this->name) - strlen("-cloudsync") + 1;
     local->xattrinfo.lxattr->volname = GF_CALLOC(1, size, gf_common_mt_char);
@@ -1629,7 +1629,7 @@ cs_build_loc(loc_t *loc, call_frame_t *frame)
     if (local->fd) {
         loc->inode = inode_ref(local->fd->inode);
         if (loc->inode) {
-            gf_uuid_copy(loc->gfid, loc->inode->gfid);
+            uuid_copy(loc->gfid, loc->inode->gfid);
             ret = 0;
             goto out;
         } else {
@@ -1639,7 +1639,7 @@ cs_build_loc(loc_t *loc, call_frame_t *frame)
     } else {
         loc->inode = inode_ref(local->loc.inode);
         if (loc->inode) {
-            gf_uuid_copy(loc->gfid, loc->inode->gfid);
+            uuid_copy(loc->gfid, loc->inode->gfid);
             ret = 0;
             goto out;
         } else {

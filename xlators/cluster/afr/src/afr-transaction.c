@@ -1004,7 +1004,7 @@ set_response:
         local->op_errno = afr_quorum_errno(priv);
 
     if (local->fd) {
-        gf_uuid_copy(gfid, local->fd->inode->gfid);
+        uuid_copy(gfid, local->fd->inode->gfid);
         file = uuid_utoa(gfid);
     } else {
         loc_path(&local->loc, local->loc.name);
@@ -1035,14 +1035,14 @@ afr_fill_ta_loc(xlator_t *this, loc_t *loc, gf_boolean_t is_gfid_based_fop)
 
     priv = this->private;
     loc->parent = inode_ref(this->itable->root);
-    gf_uuid_copy(loc->pargfid, loc->parent->gfid);
+    uuid_copy(loc->pargfid, loc->parent->gfid);
     loc->name = priv->pending_key[THIN_ARBITER_BRICK_INDEX];
-    if (is_gfid_based_fop && gf_uuid_is_null(priv->ta_gfid)) {
+    if (is_gfid_based_fop && uuid_is_null(priv->ta_gfid)) {
         /* Except afr_ta_id_file_check() which is path based, all other gluster
          * FOPS need gfid.*/
         return -EINVAL;
     }
-    gf_uuid_copy(loc->gfid, priv->ta_gfid);
+    uuid_copy(loc->gfid, priv->ta_gfid);
     loc->inode = inode_new(loc->parent->table);
     if (!loc->inode) {
         loc_wipe(loc);
