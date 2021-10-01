@@ -93,7 +93,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     };
     inode_t *inode = NULL;
 
-    loc.parent = parinode;
+    loc.parent = inode_ref(parinode);
     loc_touchup(&loc, basename);
     loc.inode = inode_new(xl->itable);
 
@@ -122,6 +122,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     inode_ref(inode);
 
 out:
+    loc_wipe(&loc);
     return inode;
 }
 
