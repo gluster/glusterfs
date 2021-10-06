@@ -96,12 +96,11 @@ struct _data {
     gf_atomic_t refcount;
     gf_dict_data_type_t data_type;
     uint32_t len;
-    gf_boolean_t is_static;
+    uint32_t is_static;
 };
 
 struct _data_pair {
     struct _data_pair *hash_next;
-    struct _data_pair *prev;
     struct _data_pair *next;
     data_t *value;
     char *key;
@@ -113,12 +112,12 @@ struct _dict {
     int32_t hash_size;
     int32_t count;
     gf_atomic_t refcount;
+    gf_lock_t lock;
     data_pair_t **members;
     data_pair_t *members_list;
-    char *extra_stdfree;
-    gf_lock_t lock;
-    data_pair_t *members_internal;
     data_pair_t free_pair;
+    data_pair_t *members_internal;
+    char *extra_stdfree;
     /* Variable to store total keylen + value->len */
     uint32_t totkvlen;
 };

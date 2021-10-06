@@ -486,9 +486,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     this->members[hashval] = pair;
 
     pair->next = this->members_list;
-    pair->prev = NULL;
-    if (this->members_list)
-        this->members_list->prev = pair;
     this->members_list = pair;
     this->count++;
 
@@ -691,13 +688,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
-            if (pair->prev)
-                pair->prev->next = pair->next;
-            else
-                this->members_list = pair->next;
-
-            if (pair->next)
-                pair->next->prev = pair->prev;
+            this->members_list = pair->next;
 
             this->totkvlen -= (keylen + 1);
             GF_FREE(pair->key);
@@ -2244,9 +2235,6 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             this->members[hashval] = pair;
 
             pair->next = this->members_list;
-            pair->prev = NULL;
-            if (this->members_list)
-                this->members_list->prev = pair;
             this->members_list = pair;
             this->count++;
 
