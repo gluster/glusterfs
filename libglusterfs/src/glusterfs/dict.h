@@ -324,9 +324,9 @@ dict_set_uint64(dict_t *this, char *key, uint64_t val);
 #define dict_get_time(dict, key, val) dict_get_int64((dict), (key), (val))
 #define dict_set_time(dict, key, val) dict_set_int64((dict), (key), (val))
 #elif __WORDSIZE == 32
-#define dict_get_time(dict, key, val)                   \
+#define dict_get_time(dict, key, val)                                          \
     dict_get_int32((dict), (key), ((int32_t *)(val)))
-#define dict_set_time(dict, key, val)                   \
+#define dict_set_time(dict, key, val)                                          \
     dict_set_int32((dict), (key), ((int32_t)(val)))
 #else
 #error "unknown word size"
@@ -413,8 +413,6 @@ dict_dump_to_log(dict_t *dict);
 
 int
 dict_dump_to_str(dict_t *dict, char *dump, int dumpsize, char *format);
-gf_boolean_t
-dict_match_everything(dict_t *d, char *k, data_t *v, void *data);
 
 dict_t *
 dict_for_key_value(const char *name, const char *value, size_t size,

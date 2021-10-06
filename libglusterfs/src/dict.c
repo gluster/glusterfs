@@ -16,13 +16,11 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-
 /* dict_t is always initialized with hash_size = 1
  * with this usage it's implemented as a doubly-linked list
  * and the hash calculation done per operation is not necessary.
  * using this macro to delimit blocks related to hash imp */
 #define DICT_LIST_IMP 1
-
 
 #include "glusterfs/dict.h"
 #if !DICT_LIST_IMP
@@ -34,7 +32,6 @@
 #include "glusterfs/byte-order.h"
 #include "glusterfs/statedump.h"
 #include "glusterfs/libglusterfs-messages.h"
-
 
 struct dict_cmp {
     dict_t *dict;
@@ -254,6 +251,12 @@ key_value_cmp(dict_t *one, char *key1, data_t *value1, void *data)
     }
 
     return -1;
+}
+
+static inline gf_boolean_t
+dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
+{
+    return _gf_true;
 }
 
 /* If both dicts are NULL then equal. If one of the dicts is NULL but the
@@ -581,7 +584,7 @@ dict_get(dict_t *this, char *key)
     }
 #if !DICT_LIST_IMP
     return dict_getn(this, key, strlen(key));
-#else   
+#else
     return dict_getn(this, key, 0);
 #endif
 }
@@ -696,7 +699,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
             if (pair->next)
                 pair->next->prev = pair->prev;
 
-            this->totkvlen -= (strlen(pair->key) + 1);
+            this->totkvlen -= (keylen + 1);
             GF_FREE(pair->key);
             if (pair == &this->free_pair) {
                 this->free_pair.key = NULL;
@@ -1359,12 +1362,6 @@ dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp)
     return 0;
 }
 
-gf_boolean_t
-dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
-{
-    return _gf_true;
-}
-
 int
 dict_foreach(dict_t *dict,
              int (*fn)(dict_t *this, char *key, data_t *value, void *data),
@@ -1399,7 +1396,7 @@ dict_foreach_match(dict_t *dict,
         return -1;
     }
 
-    int ret = -1;
+    int ret;
     int count = 0;
     data_pair_t *pairs = dict->members_list;
     data_pair_t *next = NULL;
