@@ -2227,10 +2227,10 @@ posix_spawn_health_check_thread(xlator_t *xl)
     {
         /* cancel the running thread  */
         if (priv->health_check_active == _gf_true) {
-            ret = pthread_cancel(priv->health_check);
+            ret = gf_thread_cleanup_xint(priv->health_check);
             if (ret != 0) {
-                gf_msg(xl->name, GF_LOG_ERROR, ret, P_MSG_PTHREAD_CANCEL_FAILED,
-                       "Failed to send cancellation to health-check thread");
+                gf_msg(xl->name, GF_LOG_ERROR, ret, P_MSG_HEALTHCHECK_FAILED,
+                       "failed to terminate health-check thread");
                 ret = -1;
                 goto unlock;
             }
