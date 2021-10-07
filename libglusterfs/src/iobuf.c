@@ -468,50 +468,6 @@ __iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
 }
 
 static struct iobuf *
-iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
-{
-    struct iobuf *iobuf = NULL;
-    struct iobuf_arena *iobuf_arena = NULL;
-    struct iobuf_arena *trav = NULL;
-    int ret = -1;
-
-    /* The first arena in the 'MAX-INDEX' will always be used for misc */
-    list_for_each_entry(trav, &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX], list)
-    {
-        iobuf_arena = trav;
-        break;
-    }
-
-    iobuf = GF_CALLOC(1, sizeof(*iobuf), gf_common_mt_iobuf);
-    if (!iobuf)
-        goto out;
-
-    /* 4096 is the alignment */
-    iobuf->free_ptr = GF_CALLOC(1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
-                                gf_common_mt_char);
-    if (!iobuf->free_ptr)
-        goto out;
-
-    iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
-    iobuf->iobuf_arena = iobuf_arena;
-    iobuf->page_size = page_size;
-    LOCK_INIT(&iobuf->lock);
-
-    /* Hold a ref because you are allocating and using it */
-    GF_ATOMIC_INIT(iobuf->ref, 1);
-
-    ret = 0;
-out:
-    if (ret && iobuf) {
-        GF_FREE(iobuf->free_ptr);
-        GF_FREE(iobuf);
-        iobuf = NULL;
-    }
-
-    return iobuf;
-}
-
-static struct iobuf *
 iobuf_get_from_small(const size_t page_size)
 {
     struct iobuf *iobuf = NULL;
@@ -541,6 +497,32 @@ out:
         iobuf = NULL;
     }
 
+    return iobuf;
+}
+
+static struct iobuf *
+iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
+{
+    struct iobuf *iobuf = NULL;
+    struct iobuf_arena *iobuf_arena = NULL;
+    struct iobuf_arena *trav = NULL;
+
+    /* The first arena in the 'MAX-INDEX' will always be used for misc */
+    list_for_each_entry(trav, &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX], list)
+    {
+        iobuf_arena = trav;
+        break;
+    }
+
+    iobuf = iobuf_get_from_small(page_size + GF_IOBUF_ALIGN_SIZE);
+    if (iobuf) {
+        iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
+        iobuf->iobuf_arena = iobuf_arena;
+        /* Reset page_size because iobuf_get_from_small set page_size as a
+           passed argument
+        */
+        iobuf->page_size = page_size;
+    }
     return iobuf;
 }
 
