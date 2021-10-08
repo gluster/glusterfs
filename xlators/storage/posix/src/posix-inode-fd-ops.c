@@ -5954,7 +5954,10 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     LOCK(&fd->lock);
     {
         if (priv->aio_capable && priv->aio_init_done)
-            __posix_fd_set_odirect(fd, pfd, 0, offset, len);
+            __posix_fd_set_odirect(
+                fd, pfd, 0,
+                (DIRECT_ALIGNED(buf, priv) && DIRECT_ALIGNED(offset, priv) &&
+                 DIRECT_ALIGNED(len, priv)));
 
         bytes_read = sys_pread(_fd, buf, len, offset);
         if (bytes_read < 0) {
