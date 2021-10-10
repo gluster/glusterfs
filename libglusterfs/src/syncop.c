@@ -3225,7 +3225,7 @@ syncop_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         args->xdata = dict_ref(xdata);
 
     if (flock)
-        args->flock = *flock;
+        gf_flock_copy(&args->flock, flock);
     __wake(args);
 
     return 0;
@@ -3242,7 +3242,7 @@ syncop_lk(xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock,
     SYNCOP(subvol, (&args), syncop_lk_cbk, subvol->fops->lk, fd, cmd, flock,
            xdata_in);
 
-    *flock = args.flock;
+    gf_flock_copy(flock, &args.flock);
 
     if (xdata_out)
         *xdata_out = args.xdata;
@@ -3431,6 +3431,7 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret > 0) {
         list_for_each_entry(tmp, &locklist->list, list)
         {
+            /* TODO: move to GF_MALLOC() */
             entry = GF_CALLOC(1, sizeof(lock_migration_info_t),
                               gf_common_mt_char);
 
@@ -3444,7 +3445,7 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
             INIT_LIST_HEAD(&entry->list);
 
-            entry->flock = tmp->flock;
+            gf_flock_copy(&entry->flock, &tmp->flock);
 
             entry->lk_flags = tmp->lk_flags;
 

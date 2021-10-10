@@ -431,7 +431,7 @@ new_client_lock(struct gf_flock *flock, gf_lkowner_t *owner, int32_t cmd,
 
     INIT_LIST_HEAD(&new_lock->list);
     new_lock->fd = fd;
-    memcpy(&new_lock->user_flock, flock, sizeof(struct gf_flock));
+    gf_flock_copy(&new_lock->user_flock, flock);
 
     new_lock->fl_type = flock->l_type;
     new_lock->fl_start = flock->l_start;

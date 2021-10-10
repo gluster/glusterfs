@@ -321,9 +321,7 @@ afr_internal_lock_wind(call_frame_t *frame,
     afr_internal_lock_t *int_lock = &local->internal_lock;
     entrylk_cmd cmd = ENTRYLK_LOCK_NB;
     int32_t cmd1 = F_SETLK;
-    struct gf_flock flock = {
-        0,
-    };
+    struct gf_flock flock;
 
     switch (local->transaction.type) {
         case AFR_ENTRY_TRANSACTION:
@@ -354,7 +352,7 @@ afr_internal_lock_wind(call_frame_t *frame,
 
         case AFR_DATA_TRANSACTION:
         case AFR_METADATA_TRANSACTION:
-            flock = int_lock->lockee[lockee_num].flock;
+            gf_flock_copy(&flock, &int_lock->lockee[lockee_num].flock);
             if (unlock) {
                 flock.l_type = F_UNLCK;
             } else if (blocking) { /*Doesn't make sense to have blocking

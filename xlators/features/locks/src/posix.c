@@ -2477,7 +2477,7 @@ __set_next_lock_fd(pl_fdctx_t *fdctx, posix_lock_t *reqlock)
         goto out;
     }
 
-    reqlock->user_flock = lock->user_flock;
+    gf_flock_copy(&reqlock->user_flock, &lock->user_flock);
     reqlock->fl_start = lock->fl_start;
     reqlock->fl_type = lock->fl_type;
     reqlock->fl_end = lock->fl_end;

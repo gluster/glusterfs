@@ -539,7 +539,7 @@ new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->lk_flags = lk_flags;
 
     lock->blocking = blocking;
-    memcpy(&lock->user_flock, flock, sizeof(lock->user_flock));
+    gf_flock_copy(&lock->user_flock, flock);
 
     INIT_LIST_HEAD(&lock->list);
 
@@ -569,6 +569,9 @@ __copy_lock(posix_lock_t *src)
 
     dst = GF_MALLOC(sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
     if (dst != NULL) {
+        /* TODO: replace this memcpy with copying individual
+         * variables, and then efficiently copy the owner and
+         * user_owner structures using lk_owner_copy(), gf_flock_copy()*/
         memcpy(dst, src, sizeof(posix_lock_t));
         dst->client_uid = gf_strdup(src->client_uid);
         if (dst->client_uid == NULL) {
