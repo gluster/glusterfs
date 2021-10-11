@@ -29,3 +29,21 @@ Index xlator design and implementation are covered in this session.
 11. Locks xlator entrylks - [video](https://youtu.be/BCgm5hNWFbE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-11-locks-xlator-entrylks)  
     - Introduces and code walkthrough of entrylk part of locks xlator  
     - Explains the connection between entrylk and inodelk in deletion code paths  
+13. Replication xlator introduction - [video](https://youtu.be/cW4CHLHf_jY) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-13-replication-introduction)  
+    - Replicate xlator graph placement  
+    - On-disk data representation  
+    - On-disk data manipulation with xattrop  
+    - Common functioning of fops  
+    - Lookup  
+    - Open  
+    - readdir/readdirp  
+    - Flush  
+    - Statfs  
+14. Replication update transaction - [video](https://youtu.be/ku6nF7WWHh8) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-14-replication-update-fops)  
+    - Update transaction  
+    - Data/Metadata operation  
+    - Optimizations to reduce the network communication  
+15. Replication optimizations & Read transaction - [video](https://youtu.be/dZq8J_bsDAY) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-15-replication-read-transactions)  
+    - read transaction  
+    - Handling of faults by the transaction  
+    - Load balancing strategies  
