@@ -4140,7 +4140,7 @@ gf_cli_stop_volume(call_frame_t *frame, xlator_t *this, void *data)
         0,
     }};
     int ret = 0;
-    dict_t *dict = data;
+    dict_t *dict = NULL;
 
     dict = data;
 
