@@ -1057,7 +1057,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
     {.key = "cluster.ensure-durability",
      .voltype = "cluster/replicate",
      .op_version = 3,
-    .type = NO_DOC,
+     .type = NO_DOC,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "cluster.consistent-metadata",
      .voltype = "cluster/replicate",
@@ -1494,6 +1494,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .voltype = "protocol/client",
         .op_version = GD_OP_VERSION_3_7_0,
     },
+    {
+        .key = "client.nofile-limit",
+        .voltype = "protocol/client",
+        .op_version = GD_OP_VERSION_10_0,
+    },
     {.key = "client.tcp-user-timeout",
      .voltype = "protocol/client",
      .option = "transport.tcp-user-timeout",
@@ -1645,6 +1650,11 @@ struct volopt_map_entry glusterd_volopt_map[] = {
         .key = "server.event-threads",
         .voltype = "protocol/server",
         .op_version = GD_OP_VERSION_3_7_0,
+    },
+    {
+        .key = "server.nofile-limit",
+        .voltype = "protocol/server",
+        .op_version = GD_OP_VERSION_10_0,
     },
     {
         .key = "server.tcp-user-timeout",
@@ -3105,7 +3115,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 
     {.key = "rebalance.ensure-durability",
      .voltype = "cluster/distribute",
-    .type = NO_DOC,
+     .type = NO_DOC,
      .op_version = GD_OP_VERSION_10_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};

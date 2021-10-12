@@ -44,6 +44,8 @@
 /* Threading limits for glusterd event threads. */
 #define GLUSTERD_MIN_EVENT_THREADS 1
 #define GLUSTERD_MAX_EVENT_THREADS 32
+#define GLUSTERD_MIN_NOFILE_LIMIT 65536
+#define GLUSTERD_MAX_NOFILE_LIMIT 2147483647
 
 #define GLUSTERD_TR_LOG_SIZE 50
 #define GLUSTERD_QUORUM_TYPE_KEY "cluster.server-quorum-type"

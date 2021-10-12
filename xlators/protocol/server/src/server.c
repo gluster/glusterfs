@@ -800,6 +800,7 @@ server_reconfigure(xlator_t *this, dict_t *options)
     char *xprt_path = NULL;
     xlator_t *oldTHIS;
     xlator_t *kid;
+    int32_t nofile_limit = 0;
 
     /*
      * Since we're not a fop, we can't really count on THIS being set
@@ -1009,6 +1010,39 @@ do_rpc:
     if (ret)
         goto out;
 
+    GF_OPTION_RECONF("nofile-limit", nofile_limit, options, int32, out);
+    if (nofile_limit > 0) {
+#ifndef GF_DARWIN_HOST_OS
+        {
+            struct rlimit lim;
+
+            lim.rlim_cur = nofile_limit;
+            lim.rlim_max = nofile_limit;
+
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                gf_smsg(this->name, GF_LOG_WARNING, errno,
+                        PS_MSG_ULIMIT_SET_FAILED, "errno=%s", strerror(errno),
+                        NULL);
+                lim.rlim_cur = 65536;
+                lim.rlim_max = 65536;
+
+                if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                    gf_smsg(this->name, GF_LOG_WARNING, errno,
+                            PS_MSG_FD_NOT_FOUND, "errno=%s", strerror(errno),
+                            NULL);
+                } else {
+                    gf_msg_trace(this->name, 0,
+                                 "max open fd set "
+                                 "to 64k");
+                }
+            } else {
+                gf_log(this->name, GF_LOG_INFO,
+                       "Maximum allowed open file descriptors %d",
+                       nofile_limit);
+            }
+        }
+#endif
+    }
 out:
     THIS = oldTHIS;
     gf_msg_debug("", 0, "returning %d", ret);
@@ -1117,6 +1151,7 @@ server_init(xlator_t *this)
     char *transport_type = NULL;
     char *statedump_path = NULL;
     int total_transport = 0;
+    int32_t nofile_limit = 0;
 
     GF_VALIDATE_OR_GOTO("init", this, err);
 
@@ -1307,30 +1342,39 @@ server_init(xlator_t *this)
         goto err;
     }
 
+    GF_OPTION_INIT("nofile-limit", nofile_limit, int32, err);
+    if (nofile_limit > 0) {
 #ifndef GF_DARWIN_HOST_OS
-    {
-        struct rlimit lim;
+        {
+            struct rlimit lim;
 
-        lim.rlim_cur = 1048576;
-        lim.rlim_max = 1048576;
-
-        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_ULIMIT_SET_FAILED,
-                    "errno=%s", strerror(errno), NULL);
-            lim.rlim_cur = 65536;
-            lim.rlim_max = 65536;
+            lim.rlim_cur = nofile_limit;
+            lim.rlim_max = nofile_limit;
 
             if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_FD_NOT_FOUND,
-                        "errno=%s", strerror(errno), NULL);
+                gf_smsg(this->name, GF_LOG_WARNING, errno,
+                        PS_MSG_ULIMIT_SET_FAILED, "errno=%s", strerror(errno),
+                        NULL);
+                lim.rlim_cur = 65536;
+                lim.rlim_max = 65536;
+
+                if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                    gf_smsg(this->name, GF_LOG_WARNING, errno,
+                            PS_MSG_FD_NOT_FOUND, "errno=%s", strerror(errno),
+                            NULL);
+                } else {
+                    gf_msg_trace(this->name, 0,
+                                 "max open fd set "
+                                 "to 64k");
+                }
             } else {
-                gf_msg_trace(this->name, 0,
-                             "max open fd set "
-                             "to 64k");
+                gf_log(this->name, GF_LOG_INFO,
+                       "Maximum allowed open file descriptors %d",
+                       nofile_limit);
             }
         }
-    }
 #endif
+    }
     if (!this->ctx->cmd_args.volfile_id) {
         /* In some use cases this is a valid case, but
            document this to be annoying log in that case */
@@ -1936,6 +1980,15 @@ struct volume_options server_options[] = {
                     "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
+    {
+        .key = {"nofile-limit"},
+        .type = GF_OPTION_TYPE_INT,
+        .min = SERVER_MIN_NOFILE_LIMIT,
+        .max = SERVER_MAX_NOFILE_LIMIT,
+        .default_value = TOSTRING(SERVER_MIN_NOFILE_LIMIT),
+        .description = "Specifies the number of files limit for server",
+        .op_version = {GD_OP_VERSION_10_0},
+    },
     {.key = {"dynamic-auth"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",

@@ -15,6 +15,8 @@
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/gf-event.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
 #include "xdr-rpc.h"
 #include "glusterfs3.h"
@@ -2552,6 +2554,7 @@ reconfigure(xlator_t *this, dict_t *options)
     struct rpc_clnt_config rpc_config = {
         0,
     };
+    int32_t nofile_limit = 0;
 
     conf = this->private;
 
@@ -2570,6 +2573,27 @@ reconfigure(xlator_t *this, dict_t *options)
     ret = client_check_remote_host(this, options);
     if (ret)
         goto out;
+
+    GF_OPTION_RECONF("nofile-limit", nofile_limit, options, int32, out);
+    if (nofile_limit > 0) {
+#ifndef GF_DARWIN_HOST_OS
+        {
+            struct rlimit lim;
+            lim.rlim_cur = nofile_limit;
+            lim.rlim_max = nofile_limit;
+
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to set nofile resource limit %d error is %s",
+                       nofile_limit, strerror(errno));
+            } else {
+                gf_log(this->name, GF_LOG_INFO,
+                       "Maximum allowed open file descriptors %d",
+                       nofile_limit);
+            }
+        }
+#endif
+    }
 
     subvol_ret = dict_get_str_sizen(this->options, "remote-host",
                                     &old_remote_host);
@@ -2619,6 +2643,7 @@ init(xlator_t *this)
 {
     int ret = -1;
     clnt_conf_t *conf = NULL;
+    int32_t nofile_limit = 0;
 
     if (this->children) {
         gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_FATAL_CLIENT_PROTOCOL,
@@ -2651,6 +2676,27 @@ init(xlator_t *this)
     LOCK_INIT(&conf->rec_lock);
 
     conf->last_sent_event = -1; /* To start with we don't have any events */
+
+    GF_OPTION_INIT("nofile-limit", nofile_limit, int32, out);
+    if (nofile_limit > 0) {
+#ifndef GF_DARWIN_HOST_OS
+        {
+            struct rlimit lim;
+            lim.rlim_cur = nofile_limit;
+            lim.rlim_max = nofile_limit;
+
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to set nofile resource limit %d error is %s",
+                       nofile_limit, strerror(errno));
+            } else {
+                gf_log(this->name, GF_LOG_INFO,
+                       "Maximum allowed open file descriptors %d",
+                       nofile_limit);
+            }
+        }
+#endif
+    }
 
     this->private = conf;
 
@@ -2977,7 +3023,15 @@ struct volume_options options[] = {
                     "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
-
+    {
+        .key = {"nofile-limit"},
+        .type = GF_OPTION_TYPE_INT,
+        .min = CLIENT_MIN_NOFILE_LIMIT,
+        .max = CLIENT_MAX_NOFILE_LIMIT,
+        .default_value = TOSTRING(CLIENT_MIN_NOFILE_LIMIT),
+        .description = "Specifies the number of files limit for client",
+        .op_version = {GD_OP_VERSION_10_0},
+    },
     /* This option is required for running code-coverage tests with
        old protocol */
     {

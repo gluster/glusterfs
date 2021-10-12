@@ -1443,6 +1443,7 @@ init(xlator_t *this)
         0,
     };
     int32_t workers = 0;
+    int32_t nofile_limit = 0;
     gf_boolean_t upgrade = _gf_false;
     gf_boolean_t downgrade = _gf_false;
     char *localtime_logging = NULL;
@@ -1455,23 +1456,6 @@ init(xlator_t *this)
     vgtool = _gf_drd;
 #else
     vgtool = _gf_none;
-#endif
-
-#ifndef GF_DARWIN_HOST_OS
-    {
-        struct rlimit lim;
-        lim.rlim_cur = 65536;
-        lim.rlim_max = 65536;
-
-        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SET_XATTR_FAIL,
-                    "Failed to set 'ulimit -n 65536'", NULL);
-        } else {
-            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_FILE_DESC_LIMIT_SET,
-                   "Maximum allowed open file descriptors "
-                   "set to 65536");
-        }
-    }
 #endif
 
     dir_data = dict_get(this->options, "run-directory");
@@ -2103,6 +2087,26 @@ init(xlator_t *this)
             goto out;
     }
 
+    GF_OPTION_INIT("nofile-limit", nofile_limit, int32, out);
+    if (nofile_limit > 0) {
+#ifndef GF_DARWIN_HOST_OS
+        {
+            struct rlimit lim;
+            lim.rlim_cur = nofile_limit;
+            lim.rlim_max = nofile_limit;
+
+            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to set nofile resource limit %d error is %s",
+                       nofile_limit, strerror(errno));
+            } else {
+                gf_log(this->name, GF_LOG_INFO,
+                       "Maximum allowed open file descriptors %d",
+                       nofile_limit);
+            }
+        }
+#endif
+    }
     ret = 0;
 out:
     if (ret < 0) {
@@ -2309,6 +2313,12 @@ struct volume_options options[] = {
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"
                     " power. Range 1-32 threads."},
+    {.key = {"nofile-limit"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = GLUSTERD_MIN_NOFILE_LIMIT,
+     .max = GLUSTERD_MAX_NOFILE_LIMIT,
+     .default_value = TOSTRING(GLUSTERD_MIN_NOFILE_LIMIT),
+     .description = "Specifies the number of files limit for glusterd."},
     {.key = {NULL}},
 };
 

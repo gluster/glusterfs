@@ -29,6 +29,8 @@
 /* Threading limits for server event threads. */
 #define SERVER_MIN_EVENT_THREADS 1
 #define SERVER_MAX_EVENT_THREADS 1024
+#define SERVER_MIN_NOFILE_LIMIT 1048576
+#define SERVER_MAX_NOFILE_LIMIT 2147483647
 
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
 #define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)

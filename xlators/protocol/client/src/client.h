@@ -29,6 +29,8 @@
 /* Threading limits for client event threads. */
 #define CLIENT_MIN_EVENT_THREADS 1
 #define CLIENT_MAX_EVENT_THREADS 32
+#define CLIENT_MIN_NOFILE_LIMIT 4096
+#define CLIENT_MAX_NOFILE_LIMIT 2147483647
 
 /* FIXME: Needs to be defined in a common file */
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
