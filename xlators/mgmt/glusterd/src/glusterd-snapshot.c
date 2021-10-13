@@ -2441,6 +2441,14 @@ glusterd_snapshot_umount(glusterd_volinfo_t *snap_vol,
         unmount = _gf_false;
     }
 
+    if (!glusterd_snapshot_probe(brickinfo->origin_path, brickinfo)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_CREATION_FAIL,
+               "Snapshots not supported on brick %s:%s", brickinfo->hostname,
+               brickinfo->origin_path);
+        ret = -1;
+        goto out;
+    }
+
     /* umount cannot be done when the brick process is still in the process
        of shutdown, so give three re-tries */
     while ((unmount == _gf_true) && (retry_count < 3)) {
@@ -2480,6 +2488,8 @@ glusterd_snapshot_umount(glusterd_volinfo_t *snap_vol,
          */
         ret = 0;
     }
+
+out:
     return ret;
 }
 
