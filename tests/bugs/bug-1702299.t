@@ -46,6 +46,7 @@ cd -
 
 # Add-brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}{4,5}
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "6" online_brick_count
 
 cd $M0
 ## At this point dht code will heal xattr on down brick only for those dirs
