@@ -1268,6 +1268,18 @@ dht_rename_linkto_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         DHT_MARKER_DONT_ACCOUNT(xattr);
     }
 
+    /* problem: link creation fails if a stale linkto exists for dst in
+     * the src_cached.
+     * handling: populate the FORCE_REPLACE key for "forcing" posix
+     * to unlink the stale file and repeat the link */
+    if (dict_set_str(xattr, GF_FORCE_REPLACE_KEY, "yes")) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+               "Failed to set dictionary value: key = %s,"
+               " path = %s",
+               GF_FORCE_REPLACE_KEY, local->loc.path);
+        goto cleanup;
+    }
+
     local->added_link = _gf_true;
 
     STACK_WIND_COOKIE(frame, dht_rename_link_cbk, src_cached, src_cached,
@@ -1366,12 +1378,37 @@ dht_rename_create_links(call_frame_t *frame)
         return 0;
     }
 
+    dict_t *xattr_new = NULL;
+
     if (src_cached != dst_hashed) {
         /* needed to create the link file */
         call_cnt++;
         if (dst_hashed != src_hashed)
             /* needed to create the linkto file */
             call_cnt++;
+
+        /* handle cases of stale linkto files that cause failure to create
+         * linkto/link during rename.
+         * set the FORCE_REPLACE key for unlinking the stale file if it exists.
+         * possible cases of stale linkto:
+         * 1. stale linkto for src is exists in the dst_hash
+         * 2. stale linkto for dst is exists in the src_cache */
+
+        xattr_new = dict_copy_with_ref(xattr, NULL);
+        if (!xattr_new) {
+            ret = -1;
+            goto cleanup;
+        }
+        ret = dict_set_str(xattr_new, GF_FORCE_REPLACE_KEY, "yes");
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
+                   "Failed to set dictionary value: key = %s,"
+                   " path = %s",
+                   GF_FORCE_REPLACE_KEY, local->loc.path);
+            dict_unref(xattr_new);
+            ret = -1;
+            goto cleanup;
+        }
     }
 
     /* We should not have any failures post the link creation, as this
@@ -1386,43 +1423,14 @@ dht_rename_create_links(call_frame_t *frame)
      * unlink the newname we created, we would have effectively lost the
      * file to rename operations. */
     if (dst_hashed != src_hashed && src_cached != dst_hashed) {
-        dict_t *xattr_new = NULL;
-
-        xattr_new = dict_copy_with_ref(xattr, NULL);
-        if (!xattr_new) {
-            ret = -1;
-            goto cleanup;
-        }
-
-        /* rename(src,dst): if a stale linkto to src is present in the dst
-         * hashed, linkto creation fails with EEXIST.
-         * handling: populate the MKNOD REPLACE key for "forcing" posix the
-         * creation of the linkto with correct gfid. */
-        ret = dict_set_str(xattr_new, GF_FORCE_REPLACE_KEY, "yes");
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_DICT_SET_FAILED,
-                   "Failed to set dictionary value: key = %s,"
-                   " path = %s",
-                   GF_FORCE_REPLACE_KEY, local->loc.path);
-            dict_unref(xattr_new);
-            ret = -1;
-            goto cleanup;
-        }
-
-        local->params = xattr_new;
-
         gf_msg_trace(this->name, 0, "linkto-file %s @ %s => %s",
                      local->loc.path, dst_hashed->name, src_cached->name);
-
+        local->params = xattr_new;
         memcpy(local->gfid, local->loc.inode->gfid, 16);
         dht_linkfile_create(frame, dht_rename_linkto_cbk, this, src_cached,
                             dst_hashed, &local->loc);
 
     } else if (src_cached != dst_hashed) {
-        dict_t *xattr_new = NULL;
-
-        xattr_new = dict_copy_with_ref(xattr, NULL);
-
         gf_msg_trace(this->name, 0, "link %s => %s (%s)", local->loc.path,
                      local->loc2.path, src_cached->name);
         if (gf_uuid_compare(local->loc.pargfid, local->loc2.pargfid) == 0) {

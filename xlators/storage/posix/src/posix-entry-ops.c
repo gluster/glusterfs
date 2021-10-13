@@ -2189,10 +2189,20 @@ posix_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         goto out;
     }
 
+real_op:
     op_ret = sys_link(real_oldpath, real_newpath);
 
     if (op_ret == -1) {
         op_errno = errno;
+        if (op_errno == EEXIST) {
+            if (dict_get_sizen(xdata, GF_FORCE_REPLACE_KEY)) {
+                dict_del_sizen(xdata, GF_FORCE_REPLACE_KEY);
+                op_ret = posix_unlink_stale_linkto(frame, this, real_newpath,
+                                                   &op_errno, newloc);
+                if (op_ret == 0)
+                    goto real_op;
+            }
+        }
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LINK_FAILED,
                "link %s to %s failed", real_oldpath, real_newpath);
         goto out;
