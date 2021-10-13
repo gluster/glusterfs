@@ -2248,6 +2248,10 @@ retry:
                        uuid_utoa(parent_volinfo->volume_id));
         runner_add_args(&runner, "--xlator-option", xlator_option_volume_id,
                         NULL);
+
+        /* Snapshot Bricks are read only, disable the posix health check */
+        runner_add_args(&runner, "--xlator-option",
+                        "*-posix.health-check-interval=0", NULL);
     }
 
     runner_add_arg(&runner, "--brick-port");
