@@ -402,10 +402,9 @@ gf_proc_dump_mempool_info(glusterfs_ctx_t *ctx)
             gf_proc_dump_write("active-count", "%" GF_PRI_ATOMIC, active);
             gf_proc_dump_write("sizeof-type", "%lu", pool->sizeof_type);
             gf_proc_dump_write("padded-sizeof", "%d",
-                               1 << pool->pool->power_of_two);
+                               1 << pool->pool_power_of_two);
             gf_proc_dump_write("size", "%" PRId64,
-                               (1 << pool->pool->power_of_two) * active);
-            gf_proc_dump_write("shared-pool", "%p", pool->pool);
+                               (1 << pool->pool_power_of_two) * active);
         }
     }
     UNLOCK(&ctx->lock);
@@ -448,18 +447,13 @@ gf_proc_dump_mempool_info_to_dict(glusterfs_ctx_t *ctx, dict_t *dict)
                 goto out;
 
             snprintf(key, sizeof(key), "pool%d.padded-sizeof", count);
-            ret = dict_set_uint64(dict, key, 1 << pool->pool->power_of_two);
+            ret = dict_set_uint64(dict, key, 1 << pool->pool_power_of_two);
             if (ret)
                 goto out;
 
             snprintf(key, sizeof(key), "pool%d.size", count);
             ret = dict_set_uint64(dict, key,
-                                  (1 << pool->pool->power_of_two) * active);
-            if (ret)
-                goto out;
-
-            snprintf(key, sizeof(key), "pool%d.shared-pool", count);
-            ret = dict_set_static_ptr(dict, key, pool->pool);
+                                  (1 << pool->pool_power_of_two) * active);
             if (ret)
                 goto out;
         }
