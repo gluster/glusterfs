@@ -3563,11 +3563,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     int32_t keylen = 0;
     int32_t vallen = 0;
     int32_t hostord = 0;
-    xlator_t *this = NULL;
     int32_t keylenarr[totkeycount];
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!buf) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
