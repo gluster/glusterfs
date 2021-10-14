@@ -570,11 +570,6 @@ mem_pools_preinit(void)
 
     for (i = 0; i < NPOOLS; ++i) {
         pools[i].power_of_two = POOL_SMALLEST + i;
-
-        GF_ATOMIC_INIT(pools[i].allocs_hot, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_cold, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_stdc, 0);
-        GF_ATOMIC_INIT(pools[i].frees_to_list, 0);
     }
 
     pool_list_size = sizeof(per_thread_pool_list_t) +
@@ -819,16 +814,13 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     if (retval) {
         pt_pool->hot_list = retval->next;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->allocs_hot);
     } else {
         retval = pt_pool->cold_list;
         if (retval) {
             pt_pool->cold_list = retval->next;
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_cold);
         } else {
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
             retval = malloc(1 << pt_pool->parent->power_of_two);
 #ifdef DEBUG
             hit = _gf_false;
@@ -921,7 +913,6 @@ mem_put_pool(void *ptr)
         hdr->next = pt_pool->hot_list;
         pt_pool->hot_list = hdr;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->frees_to_list);
     } else {
         /* If the owner thread of this element has terminated, we simply
          * release its memory. */
