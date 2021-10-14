@@ -472,7 +472,7 @@ failed_cq:
 failed_sq:
     gf_io_uring_sq_fini();
 failed_close:
-    gf_io_call_errno0(close, fd);
+    gf_io_call_errno0(sys_close, fd);
 
     return res;
 }
@@ -484,7 +484,7 @@ gf_io_uring_cleanup(void)
     gf_io_uring_sq_fini();
     gf_io_uring_cq_fini();
 
-    gf_io_call_errno0(close, gf_io_uring.fd);
+    gf_io_call_errno0(sys_close, gf_io_uring.fd);
 }
 
 static int32_t
