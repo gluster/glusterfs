@@ -688,7 +688,10 @@ dict_deln(dict_t *this, char *key, const int keylen)
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
-            this->members_list = pair->next;
+            if (prev)
+                prev->next = pair->next;
+            else
+                this->members_list = pair->next;
 
             this->totkvlen -= (keylen + 1);
             GF_FREE(pair->key);
