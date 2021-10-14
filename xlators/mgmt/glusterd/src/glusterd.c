@@ -2088,7 +2088,6 @@ init(xlator_t *this)
     }
 
     GF_OPTION_INIT("nofile-limit", nofile_limit, int32, out);
-    if (nofile_limit > 0) {
 #ifndef GF_DARWIN_HOST_OS
         {
             struct rlimit lim;
@@ -2106,7 +2105,6 @@ init(xlator_t *this)
             }
         }
 #endif
-    }
     ret = 0;
 out:
     if (ret < 0) {

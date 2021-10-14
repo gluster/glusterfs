@@ -1011,7 +1011,7 @@ do_rpc:
         goto out;
 
     GF_OPTION_RECONF("nofile-limit", nofile_limit, options, int32, out);
-    if (nofile_limit > 0) {
+    if (nofile_limit) {
 #ifndef GF_DARWIN_HOST_OS
         {
             struct rlimit lim;
@@ -1020,21 +1020,9 @@ do_rpc:
             lim.rlim_max = nofile_limit;
 
             if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_smsg(this->name, GF_LOG_WARNING, errno,
-                        PS_MSG_ULIMIT_SET_FAILED, "errno=%s", strerror(errno),
-                        NULL);
-                lim.rlim_cur = 65536;
-                lim.rlim_max = 65536;
-
-                if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                    gf_smsg(this->name, GF_LOG_WARNING, errno,
-                            PS_MSG_FD_NOT_FOUND, "errno=%s", strerror(errno),
-                            NULL);
-                } else {
-                    gf_msg_trace(this->name, 0,
-                                 "max open fd set "
-                                 "to 64k");
-                }
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to set nofile resource limit %d error is %s",
+                       nofile_limit, strerror(errno));
             } else {
                 gf_log(this->name, GF_LOG_INFO,
                        "Maximum allowed open file descriptors %d",
@@ -1343,7 +1331,6 @@ server_init(xlator_t *this)
     }
 
     GF_OPTION_INIT("nofile-limit", nofile_limit, int32, err);
-    if (nofile_limit > 0) {
 #ifndef GF_DARWIN_HOST_OS
         {
             struct rlimit lim;
@@ -1352,21 +1339,9 @@ server_init(xlator_t *this)
             lim.rlim_max = nofile_limit;
 
             if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_smsg(this->name, GF_LOG_WARNING, errno,
-                        PS_MSG_ULIMIT_SET_FAILED, "errno=%s", strerror(errno),
-                        NULL);
-                lim.rlim_cur = 65536;
-                lim.rlim_max = 65536;
-
-                if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                    gf_smsg(this->name, GF_LOG_WARNING, errno,
-                            PS_MSG_FD_NOT_FOUND, "errno=%s", strerror(errno),
-                            NULL);
-                } else {
-                    gf_msg_trace(this->name, 0,
-                                 "max open fd set "
-                                 "to 64k");
-                }
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to set nofile resource limit %d error is %s",
+                       nofile_limit, strerror(errno));
             } else {
                 gf_log(this->name, GF_LOG_INFO,
                        "Maximum allowed open file descriptors %d",
@@ -1374,7 +1349,6 @@ server_init(xlator_t *this)
             }
         }
 #endif
-    }
     if (!this->ctx->cmd_args.volfile_id) {
         /* In some use cases this is a valid case, but
            document this to be annoying log in that case */

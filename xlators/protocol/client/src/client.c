@@ -2575,7 +2575,7 @@ reconfigure(xlator_t *this, dict_t *options)
         goto out;
 
     GF_OPTION_RECONF("nofile-limit", nofile_limit, options, int32, out);
-    if (nofile_limit > 0) {
+    if (nofile_limit) {
 #ifndef GF_DARWIN_HOST_OS
         {
             struct rlimit lim;
@@ -2678,7 +2678,6 @@ init(xlator_t *this)
     conf->last_sent_event = -1; /* To start with we don't have any events */
 
     GF_OPTION_INIT("nofile-limit", nofile_limit, int32, out);
-    if (nofile_limit > 0) {
 #ifndef GF_DARWIN_HOST_OS
         {
             struct rlimit lim;
@@ -2696,7 +2695,6 @@ init(xlator_t *this)
             }
         }
 #endif
-    }
 
     this->private = conf;
 
