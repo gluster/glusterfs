@@ -23,8 +23,9 @@
 /* Make sure this array is sorted based on pagesize */
 static const struct iobuf_init_config gf_iobuf_init_config[] = {
     /* { pagesize, num_pages }, */
-    {128, 1024},     {512, 512},       {2 * 1024, 512}, {8 * 1024, 128},
-    {32 * 1024, 64}, {128 * 1024, 32}, {256 * 1024, 8}, {1 * 1024 * 1024, 2},
+    {132 * 1024, 16},
+    {256 * 1024, 8},
+    {1 * 1024 * 1024, 2},
 };
 
 static int
@@ -285,31 +286,6 @@ out:
     return;
 }
 
-static void
-iobuf_create_stdalloc_arena(struct iobuf_pool *iobuf_pool)
-{
-    struct iobuf_arena *iobuf_arena = NULL;
-
-    /* No locking required here as its called only once during init */
-    iobuf_arena = GF_CALLOC(sizeof(*iobuf_arena), 1, gf_common_mt_iobuf_arena);
-    if (!iobuf_arena)
-        goto err;
-
-    INIT_LIST_HEAD(&iobuf_arena->list);
-    INIT_LIST_HEAD(&iobuf_arena->passive_list);
-    INIT_LIST_HEAD(&iobuf_arena->active_list);
-
-    iobuf_arena->iobuf_pool = iobuf_pool;
-
-    iobuf_arena->page_size = 0x7fffffff;
-
-    list_add_tail(&iobuf_arena->list,
-                  &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX-1]);
-
-err:
-    return;
-}
-
 struct iobuf_pool *
 iobuf_pool_new(void)
 {
@@ -342,9 +318,6 @@ iobuf_pool_new(void)
         if (__iobuf_pool_add_arena(iobuf_pool, page_size, num_pages, i) != NULL)
             arena_size += page_size * num_pages;
     }
-
-    /* Need an arena to handle all the bigger iobuf requests */
-    iobuf_create_stdalloc_arena(iobuf_pool);
 
     iobuf_pool->arena_size = arena_size;
 out:
