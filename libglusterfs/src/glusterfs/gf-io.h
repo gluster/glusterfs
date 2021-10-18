@@ -20,6 +20,7 @@
 #include <urcu/uatomic.h>
 
 #include <glusterfs/gf-io-common.h>
+#include <glusterfs/syscall.h>
 
 /* Some macros to deal with request IDs. */
 
