@@ -4835,7 +4835,7 @@ fuse_setlk_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
         goto err;
     }
 
-    frame = get_call_frame_for_req(state);
+    frame = get_call_frame_for_req(state, GF_FOP_GETXATTR);
     if (!frame) {
         goto err;
     }
