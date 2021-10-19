@@ -698,10 +698,6 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
 
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (ret == -1) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REPLY_SUBMIT_FAIL,
                "Reply submission failed");

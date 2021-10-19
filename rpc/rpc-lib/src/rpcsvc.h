@@ -187,15 +187,6 @@ struct rpcsvc_request {
 
     struct iobref *iobref;
 
-    /* There can be cases of RPC requests where the reply needs to
-     * be built from multiple sources. E.g. where even the NFS reply
-     * can contain a payload, as in the NFSv3 read reply. Here the RPC header
-     * ,NFS header and the read data are brought together separately from
-     * different buffers, so we need to stage the buffers temporarily here
-     * before all of them get added to the connection's transmission list.
-     */
-    struct list_head txlist;
-
     /* While the reply record is being built, this variable keeps track
      * of how many bytes have been added to the record.
      */
