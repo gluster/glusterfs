@@ -26,6 +26,7 @@
 typedef struct _fuse_async {
     struct iobuf *iobuf;
     fuse_in_header_t *finh;
+    xlator_t *this;
     void *msg;
     gf_async_t async;
 } fuse_async_t;
@@ -6031,22 +6032,25 @@ static fuse_handler_t *fuse_std_ops[] = {
 #define FUSE_OP_HIGH (sizeof(fuse_std_ops) / sizeof(*fuse_std_ops))
 
 static void
-fuse_dispatch(xlator_t *xl, gf_async_t *async)
+fuse_dispatch(gf_async_t *async)
 {
     fuse_async_t *fasync;
     fuse_private_t *priv;
     fuse_in_header_t *finh;
     struct iobuf *iobuf;
 
-    priv = xl->private;
     fasync = caa_container_of(async, fuse_async_t, async);
     finh = fasync->finh;
     iobuf = fasync->iobuf;
 
+    THIS = fasync->this;
+
     if (finh->opcode >= FUSE_OP_HIGH)
-        fuse_enosys(xl, finh, NULL, NULL);
-    else
-        priv->fuse_ops[finh->opcode](xl, finh, fasync->msg, iobuf);
+        fuse_enosys(fasync->this, finh, NULL, NULL);
+    else {
+        priv = fasync->this->private;
+        priv->fuse_ops[finh->opcode](fasync->this, finh, fasync->msg, iobuf);
+    }
 
     iobuf_unref(iobuf);
 }
@@ -6277,7 +6281,8 @@ fuse_thread_proc(void *data)
             fasync->finh = finh;
             fasync->msg = msg;
             fasync->iobuf = iobuf;
-            gf_async(&fasync->async, this, fuse_dispatch);
+            fasync->this = this;
+            gf_async(&fasync->async, fuse_dispatch);
         }
 
         continue;
