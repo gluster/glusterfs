@@ -145,6 +145,7 @@ frame_fill_groups(call_frame_t *frame)
 #if defined(GF_LINUX_HOST_OS)
     xlator_t *this = frame->this;
     fuse_private_t *priv = this->private;
+    gf_boolean_t resolve_gids;
     char filename[32];
     char line[4096];
     char *ptr = NULL;
@@ -155,7 +156,11 @@ frame_fill_groups(call_frame_t *frame)
     int ngroups = 0;
     gid_t *mygroups = NULL;
 
-    if (priv->resolve_gids) {
+    TUN_LOCK(priv);
+    resolve_gids = priv->resolve_gids;
+    TUN_UNLOCK(priv);
+
+    if (resolve_gids) {
         struct passwd pwent;
         char mystrs[1024];
         struct passwd *result;
@@ -337,13 +342,22 @@ get_groups(fuse_private_t *priv, call_frame_t *frame)
     int i;
     const gid_list_t *gl;
     gid_list_t agl;
+    time_t gid_cache_timeout;
 
-    if (!priv || !priv->gid_cache_timeout) {
+    if (!priv) {
+        frame_fill_groups(frame);
+        return;
+    }
+    TUN_LOCK(priv);
+    gid_cache_timeout = priv->gid_cache_timeout;
+    TUN_UNLOCK(priv);
+
+    if (!gid_cache_timeout) {
         frame_fill_groups(frame);
         return;
     }
 
-    if (-1 == priv->gid_cache_timeout) {
+    if (-1 == gid_cache_timeout) {
         frame->root->ngrps = 0;
         return;
     }
@@ -393,6 +407,8 @@ get_call_frame_for_req(fuse_state_t *state, int op_num)
     finh = state->finh;
     this = state->this;
     priv = this->private;
+    pid_t client_pid;
+    gf_boolean_t client_pid_set;
 
     frame = create_frame(this, pool);
     if (!frame)
@@ -410,8 +426,15 @@ get_call_frame_for_req(fuse_state_t *state, int op_num)
 
     get_groups(priv, frame);
 
-    if (priv && priv->client_pid_set)
-        frame->root->pid = priv->client_pid;
+    if (priv) {
+        TUN_LOCK(priv);
+        client_pid = priv->client_pid;
+        client_pid_set = priv->client_pid_set;
+        TUN_UNLOCK(priv);
+
+        if (client_pid_set)
+            frame->root->pid = client_pid;
+    }
 
     frame->root->type = GF_OP_TYPE_FOP;
 
@@ -627,13 +650,18 @@ fuse_flip_xattr_ns(fuse_private_t *priv, char *okey, char **nkey)
 {
     int ret = 0;
     gf_boolean_t need_flip = _gf_false;
+    pid_t client_pid;
 
-    if (GF_CLIENT_PID_GSYNCD == priv->client_pid) {
+    TUN_LOCK(priv);
+    client_pid = priv->client_pid;
+    TUN_UNLOCK(priv);
+
+    if (GF_CLIENT_PID_GSYNCD == client_pid) {
         /* valid xattr(s): *xtime, volume-mark* */
         gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                "PID: %d, checking xattr(s): "
                "volume-mark*, *xtime",
-               priv->client_pid);
+               client_pid);
         if ((strcmp(okey, UNPRIV_XA_NS ".glusterfs.volume-mark") == 0) ||
             (fnmatch(UNPRIV_XA_NS ".glusterfs.volume-mark.*", okey,
                      FNM_PERIOD) == 0) ||
@@ -657,12 +685,17 @@ int
 fuse_ignore_xattr_set(fuse_private_t *priv, char *key)
 {
     int ret = 0;
+    pid_t client_pid;
+
+    TUN_LOCK(priv);
+    client_pid = priv->client_pid;
+    TUN_UNLOCK(priv);
 
     /* don't mess with user namespace */
     if (fnmatch("user.*", key, FNM_PERIOD) == 0)
         goto out;
 
-    if (priv->client_pid != GF_CLIENT_PID_GSYNCD)
+    if (client_pid != GF_CLIENT_PID_GSYNCD)
         goto out;
 
     /* trusted NS check */
@@ -680,7 +713,7 @@ out:
     gf_log("glusterfs-fuse", GF_LOG_DEBUG,
            "%s setxattr: key [%s], "
            " client pid [%d]",
-           (ret ? "disallowing" : "allowing"), key, priv->client_pid);
+           (ret ? "disallowing" : "allowing"), key, client_pid);
 
     return ret;
 }
@@ -689,6 +722,13 @@ int
 fuse_check_selinux_cap_xattr(fuse_private_t *priv, char *name)
 {
     int ret = -1;
+    gf_boolean_t capability;
+    gf_boolean_t selinux;
+
+    TUN_LOCK(priv);
+    capability = priv->capability;
+    selinux = priv->selinux;
+    TUN_UNLOCK(priv);
 
     if (strcmp(name, "security.selinux") &&
         strcmp(name, "security.capability")) {
@@ -697,12 +737,12 @@ fuse_check_selinux_cap_xattr(fuse_private_t *priv, char *name)
         goto out;
     }
 
-    if ((strcmp(name, "security.selinux") == 0) && (priv->selinux)) {
+    if ((strcmp(name, "security.selinux") == 0) && (selinux)) {
         ret = 0;
     }
 
     if ((strcmp(name, "security.capability") == 0) &&
-        ((priv->capability) || (priv->selinux))) {
+        ((capability) || (selinux))) {
         ret = 0;
     }
 

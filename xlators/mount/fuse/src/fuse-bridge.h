@@ -92,6 +92,7 @@ struct fuse_private {
     fuse_handler_t **fuse_ops;
     fuse_handler_t **fuse_ops0;
     pthread_mutex_t fuse_dump_mutex;
+    char fuse_dumpfile[PATH_MAX];
     int fuse_dump_fd;
 
     glusterfs_graph_t *next_graph;
@@ -117,6 +118,7 @@ struct fuse_private {
     fdtable_t *fdtable;
     gid_cache_t gid_cache;
     char *fuse_mountopts;
+    gf_boolean_t sync_to_mount;
 
     /* For fuse-reverse-validation */
     struct list_head invalidate_list;
@@ -181,6 +183,9 @@ struct fuse_private {
     /* counters for fusdev errnos */
     uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
     pthread_mutex_t fusedev_errno_cnt_mutex;
+
+    /* Lock needed for safe runtime update of fuse options */
+    pthread_mutex_t runtime_tuning_mutex;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -247,6 +252,13 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 
 /* Use the same logic as the Linux NFS-client */
 #define GF_FUSE_SQUASH_INO(ino) (((uint32_t)ino) ^ (ino >> 32))
+
+/*
+ * Locking macros to access those mebmers of fuse_privaet_t which are backing
+ * adjustable options.
+ */
+#define TUN_LOCK(priv) (pthread_mutex_lock(&priv->runtime_tuning_mutex))
+#define TUN_UNLOCK(priv) (pthread_mutex_unlock(&priv->runtime_tuning_mutex))
 
 #define FUSE_FOP(state, ret, op_num, fop, args...)                             \
     do {                                                                       \
@@ -357,7 +369,11 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 #define fuse_log_eh_fop(this, state, frame, op_ret, op_errno)                  \
     do {                                                                       \
         fuse_private_t *priv = this->private;                                  \
-        if (this->history && priv->event_history) {                            \
+        gf_boolean_t event_history;                                            \
+        TUN_LOCK(priv);                                                        \
+        event_history = priv->event_history;                                   \
+        TUN_UNLOCK(priv);                                                      \
+        if (this->history && event_history) {                                  \
             if (state->fd)                                                     \
                 gf_log_eh(                                                     \
                     "op_ret: %d, op_errno: %d, "                               \

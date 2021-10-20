@@ -20,6 +20,7 @@ enum gf_meta_mem_types_ {
     gf_meta_mt_strfd_t,
     gf_meta_mt_dirents_t,
     gf_meta_mt_local_t,
+    gf_meta_mt_writestr_t,
     gf_meta_mt_end
 };
 #endif

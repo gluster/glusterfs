@@ -137,4 +137,8 @@ meta_dir_fill(xlator_t *this, fd_t *fd);
 
 int
 fixed_dirents_len(struct meta_dirent *dirents);
+
+int
+file_write_wrapper(xlator_t *this, fd_t *fd, struct iovec *iov, int count,
+                   int (*file_write_buf)(xlator_t *this, fd_t *fd, char *buf));
 #endif /* __META_H__ */

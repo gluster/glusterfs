@@ -155,6 +155,12 @@ typedef struct volume_options {
 
     /* Flag to understand how this option is categorized */
     gf_category_t category;
+
+    /* Method to get the actual value of the option */
+    char *(*fetch)(struct volume_options *opt, xlator_t *this);
+
+    /* Method to set the value of the option */
+    int (*update)(struct volume_options *opt, xlator_t *this, char *data);
 } volume_option_t;
 
 typedef struct vol_opt_list {

@@ -331,3 +331,42 @@ fixed_dirents_len(struct meta_dirent *dirents)
 
     return i;
 }
+
+/*
+ * Helper function for implementing meta_ops->file_write method;
+ * itt wraps the simpler / safer file_write_str type of function
+ * to fulfill this API. (meta_ops->file_write is iovec based, while
+ * file_write_str is string based; we ensure that the string passed to
+ * the latter is properly null termimated and that it's proper string
+ * data (does not contain an interim null).)
+ */
+int
+file_write_wrapper(xlator_t *this, fd_t *fd, struct iovec *iov, int count,
+                   int (*file_write_str)(xlator_t *this, fd_t *fd, char *str))
+{
+    int i = 0;
+    size_t tlen = 0;
+    char *str = NULL;
+    char *p = NULL;
+    int ret = 0;
+
+    for (i = 0; i < count; i++) {
+        if (memchr(iov[i].iov_base, 0, iov[i].iov_len) != NULL) {
+            return -EINVAL;
+        }
+        tlen += iov[i].iov_len;
+    }
+    str = GF_MALLOC(tlen + 1, gf_meta_mt_writestr_t);
+    if (!str)
+        return -ENOMEM;
+    p = str;
+    for (i = 0; i < count; i++) {
+        memcpy(p, iov[i].iov_base, iov[i].iov_len);
+        p += iov[i].iov_len;
+    }
+    str[tlen] = 0;
+    ret = file_write_str(this, fd, str);
+
+    GF_FREE(str);
+    return ret;
+}
