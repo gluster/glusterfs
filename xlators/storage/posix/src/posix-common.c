@@ -639,6 +639,9 @@ posix_init(xlator_t *this)
     struct stat buf = {
         0,
     };
+    struct statvfs fs = {
+        0,
+    };
     gf_boolean_t tmp_bool = 0;
     int ret = 0;
     int op_ret = -1;
@@ -713,6 +716,13 @@ posix_init(xlator_t *this)
 
     _private->base_path = gf_strdup(dir_data->data);
     _private->base_path_length = dir_data->len - 1;
+
+    if (sys_statvfs(_private->base_path, &fs) < 0) {
+        ret = -1;
+        goto out;
+    }
+    GF_ASSERT((fs.f_bsize & (fs.f_bsize - 1)) == 0);
+    _private->base_bsize = fs.f_bsize;
 
     _private->dirfd = -1;
     _private->mount_lock = -1;
