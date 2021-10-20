@@ -6369,6 +6369,19 @@ fuse_priv_dump(xlator_t *this)
     return 0;
 }
 
+static void
+dump_history_fuse(circular_buffer_t *cb, void *data)
+{
+    char timestr[GF_TIMESTR_SIZE] = {
+        0,
+    };
+
+    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_F_HMS);
+
+    gf_proc_dump_write("TIME", "%s", timestr);
+    gf_proc_dump_write("message", "%s\n", (char *)cb->data);
+}
+
 int
 fuse_history_dump(xlator_t *this)
 {
@@ -6392,22 +6405,6 @@ fuse_history_dump(xlator_t *this)
     ret = 0;
 out:
     return ret;
-}
-
-int
-dump_history_fuse(circular_buffer_t *cb, void *data)
-{
-    char timestr[GF_TIMESTR_SIZE] = {
-        0,
-    };
-
-    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_F_HMS);
-
-    gf_proc_dump_write("TIME", "%s", timestr);
-
-    gf_proc_dump_write("message", "%s\n", (char *)cb->data);
-
-    return 0;
 }
 
 int

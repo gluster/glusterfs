@@ -529,7 +529,5 @@ fuse_ignore_xattr_set(fuse_private_t *priv, char *key);
 void
 fuse_fop_resume(fuse_state_t *state);
 int
-dump_history_fuse(circular_buffer_t *cb, void *data);
-int
 fuse_check_selinux_cap_xattr(fuse_private_t *priv, char *name);
 #endif /* _GF_FUSE_BRIDGE_H_ */
