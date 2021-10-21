@@ -276,7 +276,6 @@ gf_asprintf(char **string_ptr, const char *format, ...)
 void
 __gf_mem_invalidate(void *ptr)
 {
-    return;
     struct mem_header *header = ptr;
     void *end = NULL;
 
