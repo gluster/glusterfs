@@ -464,7 +464,6 @@ rpcsvc_request_init(rpcsvc_t *svc, rpc_transport_t *trans,
     req->svc = svc;
     req->trans_private = msg->private;
 
-    INIT_LIST_HEAD(&req->txlist);
     INIT_LIST_HEAD(&req->request_list);
     req->payloadsize = 0;
 
