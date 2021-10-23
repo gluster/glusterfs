@@ -47,3 +47,7 @@ Index xlator design and implementation are covered in this session.
     - read transaction  
     - Handling of faults by the transaction  
     - Load balancing strategies  
+16. Self heal daemon of replication - [video](https://youtu.be/CnDw1uosGiI) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-16-selfheal-daemon-for-replication)
+    - Intro to self-heal daemon (shd)
+    - Types of crawls in shd
+    - Code walkthrough
