@@ -67,7 +67,7 @@ The implementation of flush interrupt is contained in the
 `fuse_flush_interrupt_handler()` function and blocks guarded by the
 
 ```
-if (priv->flush_handle_interrupt) { ...
+if (fuse_get_flag(priv, flush_handle_interrupt)) { ...
 ```
 
 conditional (where `priv` is a `*fuse_private_t`).

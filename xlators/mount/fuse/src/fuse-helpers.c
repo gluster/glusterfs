@@ -120,7 +120,7 @@ get_fuse_state(xlator_t *this, fuse_in_header_t *finh)
 
     pthread_mutex_lock(&priv->sync_mutex);
     {
-        while (priv->handle_graph_switch)
+        while (fuse_get_flag(priv, handle_graph_switch))
             pthread_cond_wait(&priv->migrate_cond, &priv->sync_mutex);
         active_subvol = fuse_active_subvol(state->this);
         active_subvol->winds++;
@@ -155,7 +155,7 @@ frame_fill_groups(call_frame_t *frame)
     int ngroups = 0;
     gid_t *mygroups = NULL;
 
-    if (priv->resolve_gids) {
+    if (fuse_get_flag(priv, resolve_gids)) {
         struct passwd pwent;
         char mystrs[1024];
         struct passwd *result;
@@ -410,7 +410,7 @@ get_call_frame_for_req(fuse_state_t *state, int op_num)
 
     get_groups(priv, frame);
 
-    if (priv && priv->client_pid_set)
+    if (priv && fuse_get_flag(priv, client_pid_set))
         frame->root->pid = priv->client_pid;
 
     frame->root->type = GF_OP_TYPE_FOP;
@@ -697,12 +697,12 @@ fuse_check_selinux_cap_xattr(fuse_private_t *priv, char *name)
         goto out;
     }
 
-    if ((strcmp(name, "security.selinux") == 0) && (priv->selinux)) {
+    if (fuse_get_flag(priv, selinux) && strcmp(name, "security.selinux") == 0) {
         ret = 0;
     }
 
-    if ((strcmp(name, "security.capability") == 0) &&
-        ((priv->capability) || (priv->selinux))) {
+    if ((fuse_get_flag(priv, capability) || fuse_get_flag(priv, selinux)) &&
+        strcmp(name, "security.capability") == 0) {
         ret = 0;
     }
 

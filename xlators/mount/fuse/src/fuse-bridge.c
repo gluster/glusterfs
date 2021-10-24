@@ -420,7 +420,7 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
     char gfid_str[UUID_CANONICAL_FORM_LEN + 1];
 
     priv = this->private;
-    if (!priv->reverse_fuse_thread_started)
+    if (!fuse_get_flag(priv, reverse_fuse_thread_started))
         return -1;
 
     if (priv->invalidate_limit &&
@@ -510,7 +510,7 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
 
     priv = this->private;
 
-    if (!priv->reverse_fuse_thread_started)
+    if (!fuse_get_flag(priv, reverse_fuse_thread_started))
         return -1;
 
     if (priv->invalidate_limit &&
@@ -608,7 +608,7 @@ send_fuse_timed(xlator_t *this, fuse_timed_message_t *dmsg)
 
     priv = this->private;
 
-    if (!priv->timed_response_fuse_thread_started) {
+    if (!fuse_get_flag(priv, timed_response_fuse_thread_started)) {
         return;
     }
 
@@ -1037,7 +1037,7 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op], state->loc.path, buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &feo.attr, fuse_get_flag(priv, enable_ino32));
 
         if (!buf->ia_ino) {
             gf_log("glusterfs-fuse", GF_LOG_WARNING,
@@ -1289,7 +1289,8 @@ fuse_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->loc.path ? state->loc.path : "ERR", prebuf->ia_ino);
 
         postbuf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(postbuf, &fao.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(postbuf, &fao.attr,
+                          fuse_get_flag(priv, enable_ino32));
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
         fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
@@ -1353,7 +1354,7 @@ fuse_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                state->loc.path ? state->loc.path : "ERR", buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &fao.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &fao.attr, fuse_get_flag(priv, enable_ino32));
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
         fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
@@ -1699,7 +1700,8 @@ fuse_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->loc.path ? state->loc.path : "ERR", statpost->ia_ino);
 
         statpost->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(statpost, &fao.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(statpost, &fao.attr,
+                          fuse_get_flag(priv, enable_ino32));
 
         fao.attr_valid = calc_timeout_sec(priv->attribute_timeout);
         fao.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
@@ -1990,7 +1992,7 @@ fuse_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     fuse_private_t *priv = this->private;
 
-    if (priv->flush_handle_interrupt) {
+    if (fuse_get_flag(priv, flush_handle_interrupt)) {
         if (fuse_interrupt_finish_fop(frame, this, _gf_false, NULL)) {
             return 0;
         }
@@ -2691,7 +2693,7 @@ fuse_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                state->loc.path, fd, buf->ia_ino);
 
         buf->ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(buf, &feo.attr, priv->enable_ino32);
+        gf_fuse_stat2attr(buf, &feo.attr, fuse_get_flag(priv, enable_ino32));
 
         linked_inode = inode_link(inode, state->loc.parent, state->loc.name,
                                   buf);
@@ -3365,7 +3367,7 @@ fuse_flush(xlator_t *this, fuse_in_header_t *finh, void *msg,
     state->fd = fd;
 
     priv = this->private;
-    if (priv->flush_handle_interrupt) {
+    if (fuse_get_flag(priv, flush_handle_interrupt)) {
         fuse_interrupt_record_t *fir = NULL;
 
         fir = fuse_interrupt_record_new(finh, fuse_flush_interrupt_handler);
@@ -3646,7 +3648,7 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     list_for_each_entry(entry, &entries->list, list)
     {
         fde = (struct fuse_dirent *)(buf + size);
-        gf_fuse_fill_dirent(entry, fde, priv->enable_ino32);
+        gf_fuse_fill_dirent(entry, fde, fuse_get_flag(priv, enable_ino32));
         size += FUSE_DIRENT_SIZE(fde);
 
         if (size == max_size)
@@ -3765,7 +3767,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         fde = (struct fuse_direntplus *)(buf + size);
         feo = &fde->entry_out;
 
-        if (priv->enable_ino32)
+        if (fuse_get_flag(priv, enable_ino32))
             fde->dirent.ino = GF_FUSE_SQUASH_INO(entry->d_ino);
         else
             fde->dirent.ino = entry->d_ino;
@@ -3780,7 +3782,8 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto next_entry;
 
         entry->d_stat.ia_blksize = this->ctx->page_size;
-        gf_fuse_stat2attr(&entry->d_stat, &feo->attr, priv->enable_ino32);
+        gf_fuse_stat2attr(&entry->d_stat, &feo->attr,
+                          fuse_get_flag(priv, enable_ino32));
 
         linked_inode = inode_link(entry->inode, state->fd->inode, entry->d_name,
                                   &entry->d_stat);
@@ -4132,7 +4135,7 @@ fuse_setxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
         goto done;
     }
 
-    if (!priv->acl) {
+    if (!fuse_get_flag(priv, acl)) {
         if ((strcmp(name, POSIX_ACL_ACCESS_XATTR) == 0) ||
             (strcmp(name, POSIX_ACL_DEFAULT_XATTR) == 0)) {
             op_errno = EOPNOTSUPP;
@@ -4476,7 +4479,7 @@ fuse_getxattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
     }
 #endif
 
-    if (!priv->acl) {
+    if (!fuse_get_flag(priv, acl)) {
         if ((strcmp(name, POSIX_ACL_ACCESS_XATTR) == 0) ||
             (strcmp(name, POSIX_ACL_DEFAULT_XATTR) == 0)) {
             op_errno = ENOTSUP;
@@ -4998,7 +5001,7 @@ notify_kernel_loop(void *data)
 
     pthread_mutex_lock(&priv->invalidate_mutex);
     {
-        priv->reverse_fuse_thread_started = _gf_false;
+        fuse_clear_flag(priv, reverse_fuse_thread_started);
         list_for_each_entry_safe(node, tmp, &priv->invalidate_list, next)
         {
             list_del_init(&node->next);
@@ -5091,7 +5094,7 @@ timed_response_loop(void *data)
 
     pthread_mutex_lock(&priv->timed_mutex);
     {
-        priv->timed_response_fuse_thread_started = _gf_false;
+        fuse_clear_flag(priv, timed_response_fuse_thread_started);
         list_for_each_entry_safe(dmsg, tmp, &priv->timed_list, next)
         {
             list_del_init(&dmsg->next);
@@ -5121,14 +5124,14 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     priv = this->private;
 
-    if (priv->init_recvd) {
+    if (fuse_get_flag(priv, init_recvd)) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR, "got INIT after first message");
 
         sys_close(priv->fd);
         goto out;
     }
 
-    priv->init_recvd = 1;
+    fuse_set_flag(priv, init_recvd);
 
     if (fini->major != FUSE_KERNEL_VERSION) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
@@ -5175,7 +5178,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
         sys_close(priv->fd);
         goto out;
     }
-    priv->timed_response_fuse_thread_started = _gf_true;
+    fuse_set_flag(priv, timed_response_fuse_thread_started);
 
     /* Used for 'reverse invalidation of inode' */
 #ifdef HAVE_FUSE_NOTIFICATIONS
@@ -5189,7 +5192,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
             sys_close(priv->fd);
             goto out;
         }
-        priv->reverse_fuse_thread_started = _gf_true;
+        fuse_set_flag(priv, reverse_fuse_thread_started);
     } else
 #endif
     {
@@ -5215,7 +5218,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     if (fini->minor < 9)
         *priv->msg0_len_p = sizeof(*finh) + FUSE_COMPAT_WRITE_IN_SIZE;
 
-    if (priv->use_readdirp) {
+    if (fuse_get_flag(priv, use_readdirp)) {
         if (fini->flags & FUSE_DO_READDIRPLUS)
             fino.flags |= FUSE_DO_READDIRPLUS;
     }
@@ -5236,12 +5239,12 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
                    "support for FUSE_AUTO_INVAL_DATA. Enabling "
                    "fopen_keep_cache automatically.");
 
-            if (priv->fuse_auto_inval)
+            if (fuse_get_flag(priv, fuse_auto_inval))
                 fino.flags |= FUSE_AUTO_INVAL_DATA;
         } else
 #endif
         {
-            if (priv->fuse_auto_inval) {
+            if (fuse_get_flag(priv, fuse_auto_inval)) {
                 gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                        "No support for FUSE_AUTO_INVAL_DATA. Disabling "
                        "fopen_keep_cache.");
@@ -5254,7 +5257,8 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
            then enable FUSE_AUTO_INVAL_DATA if possible.
         */
 #if FUSE_KERNEL_MINOR_VERSION >= 20
-        if (priv->fuse_auto_inval && (fini->flags & FUSE_AUTO_INVAL_DATA)) {
+        if (fuse_get_flag(priv, fuse_auto_inval) &&
+            (fini->flags & FUSE_AUTO_INVAL_DATA)) {
             gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                    "fopen_keep_cache "
                    "is explicitly set. Enabling FUSE_AUTO_INVAL_DATA");
@@ -5284,7 +5288,7 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     /* Writeback cache support */
     if (fini->minor >= 23) {
-        if (priv->kernel_writeback_cache)
+        if (fuse_get_flag(priv, kernel_writeback_cache))
             fino.flags |= FUSE_WRITEBACK_CACHE;
         fino.time_gran = priv->attr_times_granularity;
     }
@@ -5906,10 +5910,10 @@ fuse_graph_sync(xlator_t *this)
         priv->next_graph = NULL;
         need_first_lookup = 1;
         if (old_subvol) {
-            priv->handle_graph_switch = _gf_true;
+            fuse_set_flag(priv, handle_graph_switch);
         }
 
-        while (!priv->event_recvd) {
+        while (!fuse_get_flag(priv, event_recvd)) {
             ret = pthread_cond_wait(&priv->sync_cond, &priv->sync_mutex);
             if (ret != 0) {
                 gf_log(this->name, GF_LOG_DEBUG,
@@ -5935,7 +5939,7 @@ unlock:
         {
             old_subvol->switched = 1;
             winds_on_old_subvol = old_subvol->winds;
-            priv->handle_graph_switch = _gf_false;
+            fuse_clear_flag(priv, handle_graph_switch);
             pthread_cond_broadcast(&priv->migrate_cond);
         }
         pthread_mutex_unlock(&priv->sync_mutex);
@@ -6096,7 +6100,7 @@ fuse_thread_proc(void *data)
 
         pthread_mutex_lock(&priv->sync_mutex);
         {
-            if (!priv->mount_finished) {
+            if (!fuse_get_flag(priv, mount_finished)) {
                 memset(pfd, 0, sizeof(pfd));
                 pfd[0].fd = priv->status_pipe[0];
                 pfd[0].events = POLLIN | POLLHUP | POLLERR;
@@ -6113,7 +6117,7 @@ fuse_thread_proc(void *data)
                         pthread_mutex_unlock(&priv->sync_mutex);
                         break;
                     }
-                    priv->mount_finished = _gf_true;
+                    fuse_set_flag(priv, mount_finished);
                 } else if (pfd[0].revents) {
                     gf_log(this->name, GF_LOG_ERROR,
                            "mount pipe closed without status");
@@ -6136,7 +6140,7 @@ fuse_thread_proc(void *data)
          * make sure it's ready.
          */
 
-        if (priv->init_recvd)
+        if (fuse_get_flag(priv, init_recvd))
             fuse_graph_sync(this);
 
         /* TODO: This place should always get maximum supported buffer
@@ -6241,7 +6245,7 @@ fuse_thread_proc(void *data)
          * the old graph before we come to the part of the loop above
          * readv and check again.  That would be wrong.
          */
-        if (priv->init_recvd)
+        if (fuse_get_flag(priv, init_recvd))
             fuse_graph_sync(this);
 
         if (finh->opcode == FUSE_WRITE)
@@ -6355,21 +6359,25 @@ fuse_priv_dump(xlator_t *this)
     gf_proc_dump_write("volfile_size", "%" GF_PRI_SIZET, private->volfile_size);
     gf_proc_dump_write("mount_point", "%s", private->mount_point);
     gf_proc_dump_write("fuse_thread_started", "%d",
-                       (int)private->fuse_thread_started);
+                       (int)fuse_get_flag(private, thread_started));
     gf_proc_dump_write("direct_io_mode", "%d", private->direct_io_mode);
     gf_proc_dump_write("entry_timeout", "%lf", private->entry_timeout);
     gf_proc_dump_write("attribute_timeout", "%lf", private->attribute_timeout);
-    gf_proc_dump_write("init_recvd", "%d", (int)private->init_recvd);
+    gf_proc_dump_write("init_recvd", "%d",
+                       (int)fuse_get_flag(private, init_recvd));
     gf_proc_dump_write("strict_volfile_check", "%d",
-                       (int)private->strict_volfile_check);
-    gf_proc_dump_write("timed_response_thread_started", "%d",
-                       (int)private->timed_response_fuse_thread_started);
-    gf_proc_dump_write("reverse_thread_started", "%d",
-                       (int)private->reverse_fuse_thread_started);
+                       (int)fuse_get_flag(private, strict_volfile_check));
+    gf_proc_dump_write(
+        "timed_response_thread_started", "%d",
+        (int)fuse_get_flag(private, timed_response_fuse_thread_started));
+    gf_proc_dump_write(
+        "reverse_thread_started", "%d",
+        (int)fuse_get_flag(private, reverse_fuse_thread_started));
     gf_proc_dump_write("invalidate_limit", "%u", private->invalidate_limit);
     gf_proc_dump_write("invalidate_queue_length", "%" PRIu64,
                        private->invalidate_count);
-    gf_proc_dump_write("use_readdirp", "%d", private->use_readdirp);
+    gf_proc_dump_write("use_readdirp", "%d",
+                       (int)fuse_get_flag(private, use_readdirp));
 
     return 0;
 }
@@ -6398,7 +6406,7 @@ fuse_history_dump(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("fuse", this, out);
 
-    if (!priv->event_history)
+    if (!fuse_get_flag(priv, event_history))
         goto out;
 
     GF_VALIDATE_OR_GOTO(this->name, this->history, out);
@@ -6455,7 +6463,7 @@ fuse_graph_setup(xlator_t *this, glusterfs_graph_t *graph)
             prev_graph = graph;
         } else {
             priv->next_graph = graph;
-            priv->event_recvd = 0;
+            fuse_clear_flag(priv, event_recvd);
         }
 
         if (prev_graph != NULL)
@@ -6515,8 +6523,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                 (event == GF_EVENT_CHILD_DOWN)) {
                 pthread_mutex_lock(&private->sync_mutex);
                 {
-                   private
-                    ->event_recvd = 1;
+                    fuse_set_flag(private, event_recvd);
                     pthread_cond_broadcast(&private->sync_cond);
                 }
                 pthread_mutex_unlock(&private->sync_mutex);
@@ -6524,9 +6531,8 @@ notify(xlator_t *this, int32_t event, void *data, ...)
 
             pthread_mutex_lock(&private->sync_mutex);
             {
-                if (!private->fuse_thread_started) {
-                   private
-                    ->fuse_thread_started = 1;
+                if (!fuse_get_flag(private, thread_started)) {
+                    fuse_set_flag(private, thread_started);
                     start_thread = _gf_true;
                 }
             }
@@ -6558,7 +6564,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             pthread_mutex_lock(&private->sync_mutex);
             {
                 /*Wait for mount to finish*/
-                if (!private->mount_finished) {
+                if (!fuse_get_flag(private, mount_finished)) {
                     pfd.fd = private->status_pipe[0];
                     pfd.events = POLLIN | POLLHUP | POLLERR;
                     if (poll(&pfd, 1, -1) < 0) {
@@ -6570,8 +6576,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                         if (fuse_get_mount_status(this) != 0) {
                             goto auth_fail_unlock;
                         }
-                       private
-                        ->mount_finished = _gf_true;
+                        fuse_set_flag(private, mount_finished);
                     } else if (pfd.revents) {
                         gf_log(this->name, GF_LOG_ERROR,
                                "mount pipe closed without status");
@@ -6675,6 +6680,7 @@ init(xlator_t *this_xl)
     gf_boolean_t fopen_keep_cache = _gf_false;
     char *mnt_args = NULL;
     eh_t *event = NULL;
+    gf_boolean_t boolean_opt = _gf_false;
 
     if (this_xl == NULL)
         return -1;
@@ -6705,6 +6711,7 @@ init(xlator_t *this_xl)
         goto cleanup_exit;
     }
     this_xl->private = (void *)priv;
+    priv->fuse_flags = 0;
     priv->mount_point = NULL;
     priv->fd = -1;
 
@@ -6763,8 +6770,11 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("reader-thread-count", priv->reader_thread_count, uint32,
                    cleanup_exit);
 
-    GF_OPTION_INIT("auto-invalidation", priv->fuse_auto_inval, bool,
-                   cleanup_exit);
+    GF_OPTION_INIT("auto-invalidation", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, fuse_auto_inval);
+    else
+        fuse_clear_flag(priv, fuse_auto_inval);
     GF_OPTION_INIT(ZR_ENTRY_TIMEOUT_OPT, priv->entry_timeout, double,
                    cleanup_exit);
 
@@ -6773,7 +6783,11 @@ init(xlator_t *this_xl)
 
     GF_OPTION_INIT("client-pid", priv->client_pid, int32, cleanup_exit);
     /* have to check & register the presence of client-pid manually */
-    priv->client_pid_set = !!dict_get(this_xl->options, "client-pid");
+    boolean_opt = !!dict_get_sizen(this_xl->options, "client-pid");
+    if (boolean_opt)
+        fuse_set_flag(priv, client_pid_set);
+    else
+        fuse_clear_flag(priv, client_pid_set);
 
     GF_OPTION_INIT("uid-map-root", priv->uid_map_root, uint32, cleanup_exit);
 
@@ -6787,23 +6801,51 @@ init(xlator_t *this_xl)
         }
     }
 
-    GF_OPTION_INIT(ZR_STRICT_VOLFILE_CHECK, priv->strict_volfile_check, bool,
-                   cleanup_exit);
+    GF_OPTION_INIT(ZR_STRICT_VOLFILE_CHECK, boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, strict_volfile_check);
+    else
+        fuse_clear_flag(priv, strict_volfile_check);
 
-    GF_OPTION_INIT("acl", priv->acl, bool, cleanup_exit);
+    GF_OPTION_INIT("acl", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, acl);
+    else
+        fuse_clear_flag(priv, acl);
 
     if (priv->uid_map_root)
-        priv->acl = 1;
+        fuse_set_flag(priv, acl);
+    ;
 
-    GF_OPTION_INIT("selinux", priv->selinux, bool, cleanup_exit);
+    GF_OPTION_INIT("selinux", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, selinux);
+    else
+        fuse_clear_flag(priv, selinux);
 
-    GF_OPTION_INIT("capability", priv->capability, bool, cleanup_exit);
+    GF_OPTION_INIT("capability", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, capability);
+    else
+        fuse_clear_flag(priv, capability);
 
-    GF_OPTION_INIT("read-only", priv->read_only, bool, cleanup_exit);
+    GF_OPTION_INIT("read-only", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, read_only);
+    else
+        fuse_clear_flag(priv, read_only);
 
-    GF_OPTION_INIT("enable-ino32", priv->enable_ino32, bool, cleanup_exit);
+    GF_OPTION_INIT("enable-ino32", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, enable_ino32);
+    else
+        fuse_clear_flag(priv, enable_ino32);
 
-    GF_OPTION_INIT("use-readdirp", priv->use_readdirp, bool, cleanup_exit);
+    GF_OPTION_INIT("use-readdirp", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, use_readdirp);
+    else
+        fuse_clear_flag(priv, use_readdirp);
 
     priv->fuse_dump_fd = -1;
     ret = dict_get_str(options, "dump-fuse", &value_string);
@@ -6852,7 +6894,11 @@ init(xlator_t *this_xl)
         goto cleanup_exit;
     }
 
-    GF_OPTION_INIT("resolve-gids", priv->resolve_gids, bool, cleanup_exit);
+    GF_OPTION_INIT("resolve-gids", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, resolve_gids);
+    else
+        fuse_clear_flag(priv, resolve_gids);
 
     /* default values seemed to work fine during testing */
     GF_OPTION_INIT("background-qlen", priv->background_qlen, int32,
@@ -6860,13 +6906,18 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("congestion-threshold", priv->congestion_threshold, int32,
                    cleanup_exit);
 
-    GF_OPTION_INIT("no-root-squash", priv->no_root_squash, bool, cleanup_exit);
+    GF_OPTION_INIT("no-root-squash", boolean_opt, bool, cleanup_exit);
     /* change the client_pid to no-root-squash pid only if the
        client is neither defrag process or gsyncd process.
     */
-    if (!priv->client_pid_set) {
-        if (priv->no_root_squash == _gf_true) {
-            priv->client_pid_set = _gf_true;
+    if (boolean_opt)
+        fuse_set_flag(priv, no_root_squash);
+    else
+        fuse_clear_flag(priv, no_root_squash);
+
+    if (!fuse_get_flag(priv, client_pid_set)) {
+        if (fuse_get_flag(priv, no_root_squash)) {
+            fuse_set_flag(priv, client_pid_set);
             priv->client_pid = GF_CLIENT_PID_NO_ROOT_SQUASH;
         }
     }
@@ -6876,18 +6927,32 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("invalidate-limit", priv->invalidate_limit, uint32,
                    cleanup_exit);
 
-    GF_OPTION_INIT("event-history", priv->event_history, bool, cleanup_exit);
+    GF_OPTION_INIT("event-history", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, event_history);
+    else
+        fuse_clear_flag(priv, event_history);
 
-    GF_OPTION_INIT("thin-client", priv->thin_client, bool, cleanup_exit);
+    GF_OPTION_INIT("thin-client", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, thin_client);
+    else
+        fuse_clear_flag(priv, thin_client);
 
     /* Writeback cache support */
-    GF_OPTION_INIT("kernel-writeback-cache", priv->kernel_writeback_cache, bool,
-                   cleanup_exit);
+    GF_OPTION_INIT("kernel-writeback-cache", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, kernel_writeback_cache);
+    else
+        fuse_clear_flag(priv, kernel_writeback_cache);
     GF_OPTION_INIT("attr-times-granularity", priv->attr_times_granularity,
                    int32, cleanup_exit);
 
-    GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
-                   cleanup_exit);
+    GF_OPTION_INIT("flush-handle-interrupt", boolean_opt, bool, cleanup_exit);
+    if (boolean_opt)
+        fuse_set_flag(priv, flush_handle_interrupt);
+    else
+        fuse_clear_flag(priv, flush_handle_interrupt);
 
     GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
                    priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
@@ -6937,8 +7002,8 @@ init(xlator_t *this_xl)
     }
 
     gf_asprintf(&mnt_args, "%s%s%s%sallow_other,max_read=131072",
-                priv->acl ? "" : "default_permissions,",
-                priv->read_only ? "ro," : "",
+                fuse_get_flag(priv, acl) ? "" : "default_permissions,",
+                fuse_get_flag(priv, read_only) ? "ro," : "",
                 priv->fuse_mountopts ? priv->fuse_mountopts : "",
                 priv->fuse_mountopts ? "," : "");
     if (!mnt_args)
@@ -6955,7 +7020,7 @@ init(xlator_t *this_xl)
             iter_end = next_token(&mnt_tok, &tit);
 
             if (strcmp(mnt_tok, "auto_unmount") == 0) {
-                priv->auto_unmount = _gf_true;
+                fuse_set_flag(priv, auto_unmount);
                 drop_token(mnt_tok, &tit);
             }
 
@@ -6975,13 +7040,13 @@ init(xlator_t *this_xl)
                              priv->status_pipe[1]);
     if (priv->fd == -1)
         goto cleanup_exit;
-    if (priv->auto_unmount) {
+    if (fuse_get_flag(priv, auto_unmount)) {
         ret = gf_fuse_unmount_daemon(priv->mount_point, priv->fd);
         if (ret == -1)
             goto cleanup_exit;
     }
 
-    if (priv->event_history) {
+    if (fuse_get_flag(priv, event_history)) {
         event = eh_new(FUSE_EVENT_HISTORY_SIZE, _gf_false, NULL);
         if (!event) {
             gf_log(this_xl->name, GF_LOG_ERROR,
@@ -6996,7 +7061,7 @@ init(xlator_t *this_xl)
     pthread_cond_init(&priv->sync_cond, NULL);
     pthread_cond_init(&priv->migrate_cond, NULL);
     pthread_mutex_init(&priv->sync_mutex, NULL);
-    priv->event_recvd = 0;
+    fuse_clear_flag(priv, event_recvd);
 
     for (i = 0; i < FUSE_OP_HIGH; i++) {
         if (!fuse_std_ops[i])
@@ -7042,8 +7107,8 @@ fini(xlator_t *this_xl)
 
     pthread_mutex_lock(&priv->sync_mutex);
     {
-        if (!(priv->fini_invoked)) {
-            priv->fini_invoked = _gf_true;
+        if (!fuse_get_flag(priv, fini_invoked)) {
+            fuse_set_flag(priv, fini_invoked);
         } else {
             pthread_mutex_unlock(&priv->sync_mutex);
             return;
@@ -7055,7 +7120,7 @@ fini(xlator_t *this_xl)
         mount_point = data_to_str(
             dict_get(this_xl->options, ZR_MOUNTPOINT_OPT));
     if (mount_point != NULL) {
-        if (!priv->auto_unmount) {
+        if (!fuse_get_flag(priv, auto_unmount)) {
             gf_log(this_xl->name, GF_LOG_INFO, "Unmounting '%s'.", mount_point);
             gf_fuse_unmount(mount_point, priv->fd);
         }

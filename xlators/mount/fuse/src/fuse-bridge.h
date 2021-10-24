@@ -62,9 +62,60 @@ enum fusedev_errno {
     FUSEDEV_EMAXPLUS
 };
 
+#define fuse_thread_started (0 << 1)
+#define fuse_event_recvd (1 << 1)
+#define fuse_init_recvd (1 << 2)
+#define fuse_strict_volfile_check (1 << 3)
+#define fuse_client_pid_set (1 << 4)
+#define fuse_acl (1 << 5)
+#define fuse_selinux (1 << 6)
+#define fuse_read_only (1 << 7)
+#define fuse_fopen_keep_cache (1 << 8)
+#define fuse_enable_ino32 (1 << 9)
+/* This is the mount option for disabling the root-squash for the
+    mount irrespective of whether the root-squash option for the
+    volume is set or not. But this option is honoured only for
+    thr trusted clients. For non trusted clients this value does
+    not have any affect and the volume option for root-squash is
+    honoured.
+*/
+#define fuse_no_root_squash (1 << 10)
+#define fuse_reverse_fuse_thread_started (1 << 11)
+/* for using fuse-kernel readdirp*/
+#define fuse_use_readdirp (1 << 12)
+#define fuse_fini_invoked (1 << 13)
+/* resolve gid with getgrouplist() instead of /proc/%d/status */
+#define fuse_resolve_gids (1 << 14)
+/* Enable or disable capability support */
+#define fuse_capability (1 << 15)
+/* Enable or disable event history */
+#define fuse_event_history (1 << 16)
+/* whether to run the unmount daemon */
+#define fuse_auto_unmount (1 << 17)
+/* Load the thin volfile, and connect to gfproxyd*/
+#define fuse_thin_client (1 << 18)
+#define fuse_mount_finished (1 << 19)
+#define fuse_handle_graph_switch (1 << 20)
+/* Writeback cache support */
+#define fuse_kernel_writeback_cache (1 << 21)
+#define fuse_timed_response_fuse_thread_started (1 << 22)
+#define fuse_flush_handle_interrupt (1 << 23)
+#define fuse_fuse_auto_inval (1 << 24)
+/* fini started, helps prevent multiple epoll worker threads
+ * firing up the fini routine */
+#define fuse_fini_invoked (1 << 25)
+
+#define fuse_get_flag(_priv, _flag) (_priv->fuse_flags & fuse_##_flag)
+#define fuse_set_flag(_priv, _flag)                                            \
+    (_priv->fuse_flags = _priv->fuse_flags | fuse_##_flag)
+#define fuse_clear_flag(_priv, _flag)                                          \
+    (_priv->fuse_flags = _priv->fuse_flags & ~(fuse_##_flag))
+
 struct fuse_private {
     int fd;
     uint32_t proto_minor;
+    uint32_t fuse_flags;
+    int fuse_dump_fd;
     char *volfile;
     size_t volfile_size;
     char *mount_point;
@@ -72,7 +123,6 @@ struct fuse_private {
 
     pthread_t *fuse_thread;
     uint32_t reader_thread_count;
-    char fuse_thread_started;
 
     uint32_t direct_io_mode;
     size_t *msg0_len_p;
@@ -83,47 +133,29 @@ struct fuse_private {
 
     pthread_cond_t sync_cond;
     pthread_mutex_t sync_mutex;
-    char event_recvd;
-
-    char init_recvd;
-
-    gf_boolean_t strict_volfile_check;
 
     fuse_handler_t **fuse_ops;
     fuse_handler_t **fuse_ops0;
     pthread_mutex_t fuse_dump_mutex;
-    int fuse_dump_fd;
+    pid_t client_pid;
+    unsigned uid_map_root;
 
     glusterfs_graph_t *next_graph;
     xlator_t *active_subvol;
 
-    pid_t client_pid;
-    gf_boolean_t client_pid_set;
-    unsigned uid_map_root;
-    gf_boolean_t acl;
-    gf_boolean_t selinux;
-    gf_boolean_t read_only;
     int32_t fopen_keep_cache;
+    int attr_times_granularity;
+
     time_t gid_cache_timeout;
-    gf_boolean_t enable_ino32;
-    /* This is the mount option for disabling the root-squash for the
-       mount irrespective of whether the root-squash option for the
-       volume is set or not. But this option is honoured only for
-       thr trusted clients. For non trusted clients this value does
-       not have any affect and the volume option for root-squash is
-       honoured.
-    */
-    gf_boolean_t no_root_squash;
+
     fdtable_t *fdtable;
-    gid_cache_t gid_cache;
     char *fuse_mountopts;
 
     /* For fuse-reverse-validation */
     struct list_head invalidate_list;
-    pthread_cond_t invalidate_cond;
-    pthread_mutex_t invalidate_mutex;
-    gf_boolean_t reverse_fuse_thread_started;
     uint64_t invalidate_count;
+    pthread_mutex_t invalidate_mutex;
+    pthread_cond_t invalidate_cond;
     /* For communicating with separate mount thread. */
     int status_pipe[2];
 
@@ -131,56 +163,26 @@ struct fuse_private {
     int background_qlen;
     int congestion_threshold;
 
-    /* for using fuse-kernel readdirp*/
-    gf_boolean_t use_readdirp;
-
-    /* fini started, helps prevent multiple epoll worker threads
-     * firing up the fini routine */
-    gf_boolean_t fini_invoked;
-
-    /* resolve gid with getgrouplist() instead of /proc/%d/status */
-    gf_boolean_t resolve_gids;
-
-    /* Enable or disable capability support */
-    gf_boolean_t capability;
-
-    /* Enable or disable event history */
-    gf_boolean_t event_history;
-
-    /* whether to run the unmount daemon */
-    gf_boolean_t auto_unmount;
-
-    /* Load the thin volfile, and connect to gfproxyd*/
-    gf_boolean_t thin_client;
-    gf_boolean_t mount_finished;
-    gf_boolean_t handle_graph_switch;
     pthread_cond_t migrate_cond;
-
-    /* Writeback cache support */
-    gf_boolean_t kernel_writeback_cache;
-    int attr_times_granularity;
 
     /* Delayed fuse response */
     struct list_head timed_list;
     pthread_cond_t timed_cond;
     pthread_mutex_t timed_mutex;
-    gf_boolean_t timed_response_fuse_thread_started;
 
     /* Interrupt subscription */
     struct list_head interrupt_list;
     pthread_mutex_t interrupt_mutex;
 
-    gf_boolean_t flush_handle_interrupt;
-    gf_boolean_t fuse_auto_inval;
-
     /* LRU Limit, if not set, default is 64k for now */
     uint32_t lru_limit;
     uint32_t invalidate_limit;
-    uint32_t fuse_dev_eperm_ratelimit_ns;
 
-    /* counters for fusdev errnos */
-    uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
     pthread_mutex_t fusedev_errno_cnt_mutex;
+    /* counters for fusdev errnos */
+    uint32_t fuse_dev_eperm_ratelimit_ns;
+    uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];
+    gid_cache_t gid_cache;
 };
 typedef struct fuse_private fuse_private_t;
 
@@ -318,7 +320,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
     do {                                                                       \
         if (priv->proto_minor >= 12)                                           \
             state->mode &= ~fci->umask;                                        \
-        if (priv->proto_minor >= 12 && priv->acl) {                            \
+        if (priv->proto_minor >= 12 && fuse_get_flag(priv, acl)) {             \
             state->xdata = dict_new();                                         \
             if (!state->xdata) {                                               \
                 gf_log("glusterfs-fuse", GF_LOG_WARNING,                       \
@@ -357,7 +359,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 #define fuse_log_eh_fop(this, state, frame, op_ret, op_errno)                  \
     do {                                                                       \
         fuse_private_t *priv = this->private;                                  \
-        if (this->history && priv->event_history) {                            \
+        if (this->history && fuse_get_flag(priv, event_history)) {             \
             if (state->fd)                                                     \
                 gf_log_eh(                                                     \
                     "op_ret: %d, op_errno: %d, "                               \
@@ -378,7 +380,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
 #define fuse_log_eh(this, args...)                                             \
     do {                                                                       \
         fuse_private_t *priv = this->private;                                  \
-        if (this->history && priv->event_history)                              \
+        if (this->history && fuse_get_flag(priv, event_history))               \
             gf_log_eh(args);                                                   \
     } while (0)
 
