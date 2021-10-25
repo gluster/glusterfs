@@ -1346,6 +1346,7 @@ qr_init(xlator_t *this)
     }
 
     LOCK_INIT(&priv->table.lock);
+    LOCK_INIT(&priv->lock);
     conf = &priv->conf;
 
     GF_OPTION_INIT("max-file-size", conf->max_file_size, size_uint64, out);
@@ -1534,6 +1535,7 @@ qr_fini(xlator_t *this)
 
     qr_inode_table_destroy(priv);
     qr_conf_destroy(&priv->conf);
+    LOCK_DESTROY(&priv->lock);
 
     this->private = NULL;
 
