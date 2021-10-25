@@ -56,6 +56,6 @@ cb_buffer_destroy(buffer_t *buffer);
 
 void
 cb_buffer_dump(buffer_t *buffer, void *data,
-               int(fn)(circular_buffer_t *buffer, void *data));
+               void (*dumper)(circular_buffer_t *buffer, void *data));
 
 #endif /* _CB_H */

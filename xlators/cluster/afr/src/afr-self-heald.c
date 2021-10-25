@@ -1319,7 +1319,7 @@ out:
     return ret;
 }
 
-int
+static void
 afr_add_crawl_event(circular_buffer_t *cb, void *data)
 {
     dict_t *output = NULL;
@@ -1333,12 +1333,8 @@ afr_add_crawl_event(circular_buffer_t *cb, void *data)
     shd = &priv->shd;
     crawl_event = cb->data;
 
-    if (!shd->index_healers[crawl_event->child].local)
-        return 0;
-
-    afr_shd_dict_add_crawl_event(this, output, crawl_event);
-
-    return 0;
+    if (shd->index_healers[crawl_event->child].local)
+        afr_shd_dict_add_crawl_event(this, output, crawl_event);
 }
 
 int
