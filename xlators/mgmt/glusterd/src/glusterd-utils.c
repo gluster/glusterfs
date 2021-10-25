@@ -3518,16 +3518,8 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
     for (i = 0; i < count; i++) {
         if (dict_arr[i]) {
             dict_count = dict_arr[i]->count;
-            pair = dict_arr[i]->members_list;
-            while (dict_count) {
-                if (!pair) {
-                    gf_msg("glusterd", GF_LOG_ERROR, 0,
-                           LG_MSG_PAIRS_LESS_THAN_COUNT,
-                           "less than count data pairs found!");
-                    ret = -1;
-                    goto out;
-                }
-
+            list_for_each_entry(pair, &dict_arr[i]->members_list, list)
+            {
                 if (!pair->key) {
                     gf_msg("glusterd", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR,
                            "pair->key is null!");
@@ -3558,9 +3550,14 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
                     memcpy(buf, pair->value->data, pair->value->len);
                     buf += pair->value->len;
                 }
-
-                pair = pair->next;
                 dict_count--;
+            }
+            if (dict_count > 0) {
+                gf_msg("glusterd", GF_LOG_ERROR, 0,
+                       LG_MSG_PAIRS_LESS_THAN_COUNT,
+                       "less than count data pairs found!");
+                ret = -1;
+                goto out;
             }
         }
     }

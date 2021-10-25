@@ -16,13 +16,11 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-
 /* dict_t is always initialized with hash_size = 1
  * with this usage it's implemented as a doubly-linked list
  * and the hash calculation done per operation is not necessary.
  * using this macro to delimit blocks related to hash imp */
 #define DICT_LIST_IMP 1
-
 
 #include "glusterfs/dict.h"
 #if !DICT_LIST_IMP
@@ -34,7 +32,6 @@
 #include "glusterfs/byte-order.h"
 #include "glusterfs/statedump.h"
 #include "glusterfs/libglusterfs-messages.h"
-
 
 struct dict_cmp {
     dict_t *dict;
@@ -116,6 +113,7 @@ get_new_dict_full(int size_hint)
 
     dict->free_pair.key = NULL;
     dict->totkvlen = 0;
+    INIT_LIST_HEAD(&dict->members_list);
     LOCK_INIT(&dict->lock);
 
     return dict;
@@ -482,11 +480,8 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     pair->hash_next = this->members[hashval];
     this->members[hashval] = pair;
 
-    pair->next = this->members_list;
-    pair->prev = NULL;
-    if (this->members_list)
-        this->members_list->prev = pair;
-    this->members_list = pair;
+    INIT_LIST_HEAD(&pair->list);
+    list_add(&pair->list, &this->members_list);
     this->count++;
 
     if (key_free)
@@ -581,7 +576,7 @@ dict_get(dict_t *this, char *key)
     }
 #if !DICT_LIST_IMP
     return dict_getn(this, key, strlen(key));
-#else   
+#else
     return dict_getn(this, key, 0);
 #endif
 }
@@ -687,14 +682,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
 
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
-
-            if (pair->prev)
-                pair->prev->next = pair->next;
-            else
-                this->members_list = pair->next;
-
-            if (pair->next)
-                pair->next->prev = pair->prev;
+            list_del(&pair->list);
 
             this->totkvlen -= (strlen(pair->key) + 1);
             GF_FREE(pair->key);
@@ -722,11 +710,10 @@ dict_deln(dict_t *this, char *key, const int keylen)
 static void
 dict_clear_data(dict_t *this)
 {
-    data_pair_t *curr = this->members_list;
-    data_pair_t *next = NULL;
+    data_pair_t *curr = NULL, *next = NULL;
 
-    while (curr != NULL) {
-        next = curr->next;
+    list_for_each_entry_safe(curr, next, &this->members_list, list)
+    {
         data_unref(curr->value);
         GF_FREE(curr->key);
         if (curr == &this->free_pair) {
@@ -734,7 +721,6 @@ dict_clear_data(dict_t *this)
         } else {
             mem_put(curr);
         }
-        curr = next;
     }
     this->count = this->totkvlen = 0;
 }
@@ -1401,18 +1387,16 @@ dict_foreach_match(dict_t *dict,
 
     int ret = -1;
     int count = 0;
-    data_pair_t *pairs = dict->members_list;
-    data_pair_t *next = NULL;
+    data_pair_t *pairs = NULL, *next = NULL;
 
-    while (pairs) {
-        next = pairs->next;
+    list_for_each_entry_safe(pairs, next, &dict->members_list, list)
+    {
         if (match(dict, pairs->key, pairs->value, match_data)) {
             ret = action(dict, pairs->key, pairs->value, action_data);
             if (ret < 0)
                 return ret;
             count++;
         }
-        pairs = next;
     }
 
     return count;
@@ -1454,23 +1438,17 @@ int
 dict_keys_join(void *value, int size, dict_t *dict, int (*filter_fn)(char *k))
 {
     int len = 0;
-    data_pair_t *pairs = dict->members_list;
-    data_pair_t *next = NULL;
+    data_pair_t *pairs = NULL, *next = NULL;
 
-    while (pairs) {
-        next = pairs->next;
-
-        if (filter_fn && filter_fn(pairs->key)) {
-            pairs = next;
+    list_for_each_entry_safe(pairs, next, &dict->members_list, list)
+    {
+        if (filter_fn && filter_fn(pairs->key))
             continue;
-        }
 
         if (value && (size > len))
             strncpy(value + len, pairs->key, size - len);
 
         len += (strlen(pairs->key) + 1);
-
-        pairs = next;
     }
 
     return len;
@@ -1515,7 +1493,7 @@ dict_reset(dict_t *dict)
     dict_clear_data(dict);
     for (i = 0; i < dict->hash_size; i++)
         dict->members[i] = NULL;
-    dict->members_list = NULL;
+    INIT_LIST_HEAD(&dict->members_list);
 
     UNLOCK(&dict->lock);
     ret = 0;
@@ -2246,11 +2224,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             pair->hash_next = this->members[hashval];
             this->members[hashval] = pair;
 
-            pair->next = this->members_list;
-            pair->prev = NULL;
-            if (this->members_list)
-                this->members_list->prev = pair;
-            this->members_list = pair;
+            INIT_LIST_HEAD(&pair->list);
+            list_add(&pair->list, &this->members_list);
             this->count++;
 
             if (this->max_count < this->count)
@@ -2998,7 +2973,7 @@ static int
 dict_serialize_lk(dict_t *this, char *buf)
 {
     int ret = -1;
-    data_pair_t *pair = this->members_list;
+    data_pair_t *pair = NULL;
     int32_t count = this->count;
     int32_t keylen = 0;
     int32_t netword = 0;
@@ -3018,13 +2993,8 @@ dict_serialize_lk(dict_t *this, char *buf)
     memcpy(buf, &netword, sizeof(netword));
     buf += DICT_HDR_LEN;
 
-    while (count) {
-        if (!pair) {
-            gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_PAIRS_LESS_THAN_COUNT,
-                    NULL);
-            goto out;
-        }
-
+    list_for_each_entry(pair, &this->members_list, list)
+    {
         if (!pair->key) {
             gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR, NULL);
             goto out;
@@ -3052,12 +3022,13 @@ dict_serialize_lk(dict_t *this, char *buf)
             memcpy(buf, pair->value->data, pair->value->len);
             buf += pair->value->len;
         }
-
-        pair = pair->next;
         count--;
     }
-
-    ret = 0;
+    if (count > 0) {
+        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_PAIRS_LESS_THAN_COUNT, NULL);
+        ret = -1;
+    } else
+        ret = 0;
 out:
     return ret;
 }
@@ -3338,7 +3309,7 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
     int32_t count = this->count;
     int32_t vallen = 0;
     int32_t total_len = 0;
-    data_pair_t *pair = this->members_list;
+    data_pair_t *pair = NULL;
 
     if (!buf) {
         gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG, NULL);
@@ -3351,13 +3322,8 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
         goto out;
     }
 
-    while (count) {
-        if (!pair) {
-            gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_PAIRS_LESS_THAN_COUNT,
-                    NULL);
-            goto out;
-        }
-
+    list_for_each_entry(pair, &this->members_list, list)
+    {
         if (!pair->key || !pair->value) {
             gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_KEY_OR_VALUE_NULL, NULL);
             goto out;
@@ -3374,18 +3340,21 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
         *buf++ = delimiter;
 
         total_len += (vallen + 1);
-
-        pair = pair->next;
         count--;
     }
 
     *--buf = '\0';  // remove the last delimiter
     total_len--;    // adjust the length
-    ret = 0;
+
+    if (count > 0) {
+        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_PAIRS_LESS_THAN_COUNT, NULL);
+        ret = -1;
+        goto out;
+    } else
+        ret = 0;
 
     if (serz_len)
         *serz_len = total_len;
-
 out:
     return ret;
 }
@@ -3422,7 +3391,8 @@ dict_dump_to_str(dict_t *dict, char *dump, int dumpsize, char *format)
     if (!dict)
         return 0;
 
-    for (trav = dict->members_list; trav; trav = trav->next) {
+    list_for_each_entry(trav, &dict->members_list, list)
+    {
         ret = snprintf(&dump[dumplen], dumpsize - dumplen, format, trav->key,
                        trav->value->data);
         if ((ret == -1) || !ret)

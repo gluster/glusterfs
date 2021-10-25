@@ -2788,7 +2788,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         0,
     };
     int8_t sync_backend_xattrs = _gf_false;
-    data_pair_t *custom_xattrs;
+    data_pair_t *custom_xattrs = NULL;
     data_t *keyval = NULL;
     char **xattrs_to_heal = get_xattrs_to_heal();
 
@@ -3018,9 +3018,8 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         }
 
         /* Set custom xattrs based on info provided by DHT */
-        custom_xattrs = dict->members_list;
-
-        while (custom_xattrs != NULL) {
+        list_for_each_entry(custom_xattrs, &dict->members_list, list)
+        {
             ret = sys_lsetxattr(real_path, custom_xattrs->key,
                                 custom_xattrs->value->data,
                                 custom_xattrs->value->len, flags);
@@ -3030,8 +3029,6 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                        custom_xattrs->key, ret);
                 goto out;
             }
-
-            custom_xattrs = custom_xattrs->next;
         }
     }
 

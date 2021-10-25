@@ -140,7 +140,8 @@ glusterd_dict_mgmt_v3_lock_statedump(dict_t *dict)
                          "dict NULL");
         goto out;
     }
-    for (trav = dict->members_list; trav; trav = trav->next) {
+    list_for_each_entry(trav, &dict->members_list, list)
+    {
         if (strstr(trav->key, "debug.last-success-bt") != NULL) {
             ret = snprintf(&dump[dumplen], sizeof(dump) - dumplen, "\n\t%s:%s",
                            trav->key, trav->value->data);

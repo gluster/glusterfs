@@ -81,8 +81,6 @@ typedef struct _data_pair data_pair_t;
                                                                                \
     } while (0)
 
-#define dict_foreach_inline(d, c) for (c = d->members_list; c; c = c->next)
-
 #define DICT_KEY_VALUE_MAX_SIZE 1048576
 #define DICT_MAX_FLAGS 256
 #define DICT_FLAG_SET 1
@@ -101,8 +99,7 @@ struct _data {
 
 struct _data_pair {
     struct _data_pair *hash_next;
-    struct _data_pair *prev;
-    struct _data_pair *next;
+    struct list_head list;
     data_t *value;
     char *key;
     uint32_t key_hash;
@@ -114,7 +111,7 @@ struct _dict {
     int32_t count;
     gf_atomic_t refcount;
     data_pair_t **members;
-    data_pair_t *members_list;
+    struct list_head members_list;
     char *extra_stdfree;
     gf_lock_t lock;
     data_pair_t *members_internal;
@@ -324,9 +321,9 @@ dict_set_uint64(dict_t *this, char *key, uint64_t val);
 #define dict_get_time(dict, key, val) dict_get_int64((dict), (key), (val))
 #define dict_set_time(dict, key, val) dict_set_int64((dict), (key), (val))
 #elif __WORDSIZE == 32
-#define dict_get_time(dict, key, val)                   \
+#define dict_get_time(dict, key, val)                                          \
     dict_get_int32((dict), (key), ((int32_t *)(val)))
-#define dict_set_time(dict, key, val)                   \
+#define dict_set_time(dict, key, val)                                          \
     dict_set_int32((dict), (key), ((int32_t)(val)))
 #else
 #error "unknown word size"

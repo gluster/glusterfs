@@ -683,7 +683,6 @@ static inline int
 dict_to_xdr(dict_t *this, gfx_dict *dict)
 {
     int ret = -1;
-    int i = 0;
     int index = 0;
     data_pair_t *dpair = NULL;
     gfx_dict_pair *xpair = NULL;
@@ -713,8 +712,8 @@ dict_to_xdr(dict_t *this, gfx_dict *dict)
     if (!dict->pairs.pairs_val)
         goto out;
 
-    dpair = this->members_list;
-    for (i = 0; i < this->count; i++) {
+    list_for_each_entry(dpair, &this->members_list, list)
+    {
         xpair = &dict->pairs.pairs_val[index];
 
         xpair->key.key_val = dpair->key;
@@ -787,7 +786,6 @@ dict_to_xdr(dict_t *this, gfx_dict *dict)
                        "key '%s' is not sent on wire", dpair->key);
                 break;
         }
-        dpair = dpair->next;
     }
 
     dict->pairs.pairs_len = index;
