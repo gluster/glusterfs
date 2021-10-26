@@ -1074,8 +1074,7 @@ struct volume_options dht_options[] = {
      .default_value = "normal",
      .description = " Sets the maximum number of parallel file migrations "
                     "allowed on a node during the rebalance operation. The"
-                    " default value is normal and allows a max of "
-                    "[($(processing units) - 4) / 2), 2]  files to be "
+                    " default value is normal and allows 2 files to be "
                     "migrated at a time. Lazy will allow only one file to "
                     "be migrated at a time and aggressive will allow "
                     "max of [($(processing units) - 4) / 2), 4]",
