@@ -120,11 +120,10 @@ __iot_dequeue(iot_conf_t *conf, int *pri)
         fop_data->queue_sizes--;
         *pri = i;
         conf->queue_size--;
+
         return stub;
-        break;
     }
 
-    *pri = -1;
     return NULL;
 }
 
@@ -136,7 +135,7 @@ __iot_enqueue(iot_conf_t *conf, call_stub_t *stub, int pri)
     iot_fop_data_t *fop_data = &conf->fops_data[pri];
 
     if (client) {
-        ctx = iot_get_ctx(THIS, client);
+        ctx = iot_get_ctx(conf->this, client);
         if (ctx) {
             ctx = &ctx[pri];
         }
