@@ -2854,7 +2854,7 @@ socket_complete_connection(rpc_transport_t *this)
 /* reads rpc_requests during pollin */
 static void
 socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                     int poll_out, int poll_err, char event_thread_died)
+                     int poll_out, int poll_err, int event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
@@ -2979,7 +2979,7 @@ out:
 
 static void
 socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                            int poll_out, int poll_err, char event_thread_died)
+                            int poll_out, int poll_err, int event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;

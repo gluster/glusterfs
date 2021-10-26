@@ -195,12 +195,12 @@ struct rpc_transport {
                            * client */
     gf_atomic_t disconnect_progress;
     int bind_insecure;
+    int notify_poller_death;
     /* connect_failed: saves the connect() syscall status as socket_t
      * member holding connect() status can't be accessed by higher gfapi
      * layer or in client management notification handler functions
      */
     gf_boolean_t connect_failed;
-    char notify_poller_death;
     char poller_death_accept;
 };
 

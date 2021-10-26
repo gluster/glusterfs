@@ -26,7 +26,7 @@ struct event_data {
 
 typedef void (*event_handler_t)(int fd, int idx, int gen, void *data,
                                 int poll_in, int poll_out, int poll_err,
-                                char event_thread_exit);
+                                int event_thread_exit);
 
 #define EVENT_EPOLL_TABLES 1024
 #define EVENT_EPOLL_SLOTS 1024
@@ -43,9 +43,6 @@ struct event_pool {
 
     int count;
     struct event_slot_poll *reg;
-    struct event_slot_epoll *ereg[EVENT_EPOLL_TABLES];
-    int slots_used[EVENT_EPOLL_TABLES];
-
     struct list_head poller_death;
     int poller_death_sliced; /* track whether the list of fds interested
                               * poller_death is sliced. If yes, new thread death
@@ -56,17 +53,16 @@ struct event_pool {
     int used;
     int changed;
 
-    pthread_mutex_t mutex;
-    pthread_cond_t cond;
-
     void *evcache;
     int evcache_size;
 
     /* NOTE: Currently used only when event processing is done using
      * epoll. */
     int eventthreadcount; /* number of event threads to execute. */
-    pthread_t pollers[EVENT_MAX_THREADS]; /* poller thread_id store, and live
-                                             status */
+
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+
     int destroy;
     int activethreadcount;
 
@@ -82,6 +78,10 @@ struct event_pool {
      * TBD: consider auto-scaling for clients as well
      */
     int auto_thread_count;
+
+    struct event_slot_epoll *ereg[EVENT_EPOLL_TABLES];
+    pthread_t pollers[EVENT_MAX_THREADS]; /* poller thread_id store, and live
+                                             status */
 };
 
 struct event_destroy_data {
@@ -94,7 +94,7 @@ struct event_ops {
 
     int (*event_register)(struct event_pool *event_pool, int fd,
                           event_handler_t handler, void *data, int poll_in,
-                          int poll_out, char notify_poller_death);
+                          int poll_out, int notify_poller_death);
 
     int (*event_select_on)(struct event_pool *event_pool, int fd, int idx,
                            int poll_in, int poll_out);
@@ -121,7 +121,7 @@ gf_event_select_on(struct event_pool *event_pool, int fd, int idx, int poll_in,
 int
 gf_event_register(struct event_pool *event_pool, int fd,
                   event_handler_t handler, void *data, int poll_in,
-                  int poll_out, char notify_poller_death);
+                  int poll_out, int notify_poller_death);
 int
 gf_event_unregister(struct event_pool *event_pool, int fd, int idx);
 int
