@@ -38,13 +38,17 @@
 #define GEO_REP_CMD_INDEX 1
 #define GEO_REP_CMD_CONFIG_INDEX 4
 
+/* Default RPC call timeout, in seconds. */
+#define CLI_DEFAULT_CONN_TIMEOUT 120
+
+/* Special timeout for volume profile, volume
+   heal and ganesha RPC calls, in seconds. */
+#define CLI_TEN_MINUTES_TIMEOUT 600
+
 enum argp_option_keys {
     ARGP_DEBUG_KEY = 133,
     ARGP_PORT_KEY = 'p',
 };
-
-extern time_t cli_default_conn_timeout;
-extern time_t cli_ten_minutes_timeout;
 
 typedef enum {
     COLD_BRICK_COUNT,
@@ -142,6 +146,8 @@ struct cli_state {
     int remote_port;
     int mode;
     int await_connected;
+
+    time_t default_conn_timeout;
 
     char *log_file;
     gf_loglevel_t log_level;

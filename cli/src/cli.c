@@ -74,9 +74,6 @@ rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
 
-time_t cli_default_conn_timeout = 120;
-time_t cli_ten_minutes_timeout = 600;
-
 static int
 glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 {
@@ -440,7 +437,7 @@ cli_opt_parse(char *opt, struct cli_state *state)
             /* Use -2 to not confuse with unknown option error. */
             return -2;
         }
-        cli_default_conn_timeout = val;
+        state->default_conn_timeout = val;
         return 0;
     }
 
@@ -544,6 +541,8 @@ cli_state_init(struct cli_state *state)
 {
     struct cli_cmd_tree *tree = NULL;
     int ret = 0;
+
+    state->default_conn_timeout = CLI_DEFAULT_CONN_TIMEOUT;
 
     state->log_level = GF_LOG_NONE;
 
@@ -806,9 +805,6 @@ main(int argc, char *argv[])
     ret = glusterfs_ctx_defaults_init(ctx);
     if (ret)
         goto out;
-
-    cli_default_conn_timeout = 120;
-    cli_ten_minutes_timeout = 600;
 
     ret = cli_state_init(&state);
     if (ret)
