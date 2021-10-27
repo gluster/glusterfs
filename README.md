@@ -1,14 +1,16 @@
 <h1 align="center"><img src="https://www.gluster.org/wp-content/uploads/2016/03/gluster-ant.png" width="320" height="240" alt="Gluster is a free and open source software scalable network filesystem."></h1>
 
 <h4 align="center">
-    <a href="https://gluster.slack.com/">Slack</a> |
-    <a href="https://lists.gluster.org/mailman/listinfo">Mailing list</a> |
-    <a href="https://twitter.com/gluster">Twitter</a><br/><br/>
+    <a href="https://gluster.slack.com/"><img src=https://img.shields.io/badge/CHATON-SLACK-green></a> 
+    <a href="https://www.youtube.com/playlist?list=PLUjCssFKEMhXBqPAGtOA1lYtzS1eWaJuN"><img src=https://img.shields.io/badge/DEV%20SESSIONS-YOUTUBE-red></a> 
+    <a href="https://twitter.com/gluster"><img src=https://img.shields.io/badge/FOLLOW-ON%20TWITTER-blue></a><br/><br/>
     <a href="https://docs.gluster.org/en/latest/Quick-Start-Guide/Quickstart/">Quick Start Guide</a> |
     <a href="https://docs.gluster.org/en/latest/release-notes/">Release Notes</a> |
+    <a href="https://lists.gluster.org/mailman/listinfo">Mailing list</a> |
     <a href="https://www.gluster.org/community/">Community</a><br/><br/>
     <a href="https://docs.gluster.org/en/latest/Contributors-Guide/Index/">Contribute to this project!</a>
 </h4>
+
 
 ---
 
