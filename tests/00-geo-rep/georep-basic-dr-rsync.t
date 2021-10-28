@@ -24,8 +24,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=2
 primary_mnt=$M0
@@ -229,7 +228,7 @@ EXPECT_WITHIN $GEO_REP_TIMEOUT 0 verify_rename_with_existing_destination ${secon
 EXPECT_WITHIN $GEO_REP_TIMEOUT "x0" arequal_checksum ${primary_mnt} ${secondary_mnt}
 
 #Test config upgrade BUG: 1707731
-config_file=$GLUSTERD_WORKDIR/geo-replication/${GMV0}_${SH0}_${GSV0}/gsyncd.conf
+config_file=$GLUSTERD_WORKDIR/geo-replication/${GMV0}_${H0}_${GSV0}/gsyncd.conf
 cat >> $config_file<<EOL
 [peers ${GMV0} ${GSV0}]
 use_tarssh = true

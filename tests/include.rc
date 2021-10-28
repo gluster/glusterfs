@@ -50,7 +50,7 @@ if [ ! -f $ENV_RC ]; then
 fi
 . $ENV_RC
 
-H0=${H0:=`hostname`}; # hostname
+H0=${H0:=`ip -o -4 addr | grep -v "\<lo\>" | awk '{print $4}' | cut -d/ -f1 | head -n 1`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
