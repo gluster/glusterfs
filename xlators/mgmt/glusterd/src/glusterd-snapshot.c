@@ -2494,12 +2494,10 @@ out:
 }
 
 int32_t
-glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
+glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
+                         glusterd_brickinfo_t *brickinfo, int32_t brick_count)
 {
-    int32_t brick_count = -1;
     int32_t ret = -1;
-    int32_t err = 0;
-    glusterd_brickinfo_t *brickinfo = NULL;
     xlator_t *this = NULL;
     struct stat stbuf = {
         0,
@@ -2508,6 +2506,7 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
     this = THIS;
     GF_ASSERT(this);
     GF_ASSERT(snap_vol);
+    GF_ASSERT(brickinfo);
 
     if ((snap_vol->is_snap_volume == _gf_false) &&
         (gf_uuid_is_null(snap_vol->restored_from_snap))) {
@@ -2517,81 +2516,64 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol)
         goto out;
     }
 
-    brick_count = -1;
-    cds_list_for_each_entry(brickinfo, &snap_vol->bricks, brick_list)
-    {
-        brick_count++;
-        if (gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
-            gf_msg_debug(this->name, 0, "%s:%s belongs to a different node",
-                         brickinfo->hostname, brickinfo->path);
-            continue;
-        }
-
-        /* As deactivated snapshot have no active mount point we
-         * check only for activated snapshot.
-         */
-        if (snap_vol->status == GLUSTERD_STATUS_STARTED) {
-            ret = sys_lstat(brickinfo->path, &stbuf);
-            if (ret) {
-                gf_msg_debug(this->name, 0, "Brick %s:%s already deleted.",
-                             brickinfo->hostname, brickinfo->path);
-                ret = 0;
-                continue;
-            }
-        }
-
-        if (brickinfo->snap_status == -1) {
-            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SNAPSHOT_PENDING,
-                   "snapshot was pending. snapshot supports "
-                   "not present for brick %s:%s of the snap "
-                   "%s.",
-                   brickinfo->hostname, brickinfo->path,
-                   snap_vol->snapshot->snapname);
-
-            if (rsp_dict && (snap_vol->is_snap_volume == _gf_true)) {
-                /* Adding missed delete to the dict */
-                ret = glusterd_add_missed_snaps_to_dict(
-                    rsp_dict, snap_vol, brickinfo, brick_count + 1,
-                    GF_SNAP_OPTION_TYPE_DELETE);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_MISSED_SNAP_CREATE_FAIL,
-                           "Failed to add missed snapshot "
-                           "info for %s:%s in the "
-                           "rsp_dict",
-                           brickinfo->hostname, brickinfo->path);
-                    goto out;
-                }
-            }
-
-            continue;
-        }
-
-        ret = glusterd_snapshot_umount(snap_vol, brickinfo, brick_count);
+    /* As deactivated snapshot have no active mount point we
+     * check only for activated snapshot.
+     */
+    if (snap_vol->status == GLUSTERD_STATUS_STARTED) {
+        ret = sys_lstat(brickinfo->path, &stbuf);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_REMOVE_FAIL,
-                   "Can not remove snapshot %s (%s) from "
-                   "volume which does not support snapshots.",
-                   brickinfo->path, snap_vol->snapshot->snapname);
-            ret = -1;
+            gf_msg_debug(this->name, 0, "Brick %s:%s already deleted.",
+                         brickinfo->hostname, brickinfo->path);
+            ret = 0;
             goto out;
         }
+    }
 
-        ret = brickinfo->snap->remove(brickinfo, snap_vol->snapshot->snapname,
-                                      snap_vol->volname, brick_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_REMOVE_FAIL,
-                   "Failed to "
-                   "remove the snapshot %s (%s)",
-                   brickinfo->path, snap_vol->snapshot->snapname);
-            err = -1; /* We need to record this failure */
+    if (brickinfo->snap_status == -1) {
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SNAPSHOT_PENDING,
+               "snapshot was pending. snapshot supports "
+               "not present for brick %s:%s of the snap "
+               "%s.",
+               brickinfo->hostname, brickinfo->path,
+               snap_vol->snapshot->snapname);
+
+        if (rsp_dict && (snap_vol->is_snap_volume == _gf_true)) {
+            /* Adding missed delete to the dict */
+            ret = glusterd_add_missed_snaps_to_dict(rsp_dict, snap_vol,
+                                                    brickinfo, brick_count + 1,
+                                                    GF_SNAP_OPTION_TYPE_DELETE);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_MISSED_SNAP_CREATE_FAIL,
+                       "Failed to add missed snapshot "
+                       "info for %s:%s in the "
+                       "rsp_dict",
+                       brickinfo->hostname, brickinfo->path);
+                goto out;
+            }
         }
+        goto out;
+    }
+
+    ret = glusterd_snapshot_umount(snap_vol, brickinfo, brick_count);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_REMOVE_FAIL,
+               "Can not remove snapshot %s (%s) from "
+               "volume which does not support snapshots.",
+               brickinfo->path, snap_vol->snapshot->snapname);
+        ret = -1;
+        goto out;
+    }
+
+    ret = brickinfo->snap->remove(brickinfo, snap_vol->snapshot->snapname,
+                                  snap_vol->volname, brick_count);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_REMOVE_FAIL,
+               "Failed to "
+               "remove the snapshot %s (%s)",
+               brickinfo->path, snap_vol->snapshot->snapname);
     }
 out:
-    if (err) {
-        ret = err;
-    }
-
     gf_msg_trace(this->name, 0, "Returning %d", ret);
     return ret;
 }
@@ -2605,6 +2587,7 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
     glusterd_brickinfo_t *brickinfo = NULL;
     glusterd_volinfo_t *origin_vol = NULL;
     xlator_t *this = THIS;
+    int32_t brick_count = -1;
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_vol);
@@ -2618,6 +2601,7 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
 
     cds_list_for_each_entry(brickinfo, &snap_vol->bricks, brick_list)
     {
+        brick_count++;
         if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
             continue;
 
@@ -2634,19 +2618,20 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
             if (!force)
                 goto out;
         }
-    }
 
-    /* Only remove the backend snapshot when required */
-    if (remove_snapshot) {
-        ret = glusterd_snapshot_remove(rsp_dict, snap_vol);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
-                   "Failed to remove "
-                   "snapshot volume %s",
-                   snap_vol->volname);
-            save_ret = ret;
-            if (!force)
-                goto out;
+        /* Only remove the backend snapshot when required */
+        if (remove_snapshot) {
+            ret = glusterd_snapshot_remove(rsp_dict, snap_vol, brickinfo,
+                                           brick_count);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
+                       "Failed to remove "
+                       "snapshot volume %s",
+                       snap_vol->volname);
+                save_ret = ret;
+                if (!force)
+                    goto out;
+            }
         }
     }
 

@@ -4968,6 +4968,8 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
     glusterd_volinfo_t *temp_volinfo = NULL;
     glusterd_volinfo_t *voliter = NULL;
     glusterd_svc_t *svc = NULL;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    int32_t brick_count = -1;
 
     GF_ASSERT(stale_volinfo);
     GF_ASSERT(valid_volinfo);
@@ -4984,12 +4986,20 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
     if ((!gf_uuid_is_null(stale_volinfo->restored_from_snap)) &&
         (gf_uuid_compare(stale_volinfo->restored_from_snap,
                          valid_volinfo->restored_from_snap))) {
-        ret = glusterd_snapshot_remove(NULL, stale_volinfo);
-        if (ret) {
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
-                   "Failed to remove lvm snapshot for "
-                   "restored volume %s",
-                   stale_volinfo->volname);
+        cds_list_for_each_entry(brickinfo, &stale_volinfo->bricks, brick_list)
+        {
+            brick_count++;
+            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+                continue;
+
+            ret = glusterd_snapshot_remove(NULL, stale_volinfo, brickinfo,
+                                           brick_count);
+            if (ret) {
+                gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SNAP_REMOVE_FAIL,
+                       "Failed to remove snapshot for "
+                       "restored volume %s",
+                       stale_volinfo->volname);
+            }
         }
     }
 

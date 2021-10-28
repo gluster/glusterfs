@@ -996,6 +996,8 @@ glusterd_perform_missed_op(glusterd_snap_t *snap, int32_t op)
     uuid_t null_uuid = {0};
     char *parent_volname = NULL;
     gf_boolean_t retain_origin_path = _gf_false;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    int32_t brick_count = -1;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -1068,12 +1070,21 @@ glusterd_perform_missed_op(glusterd_snap_t *snap, int32_t op)
                  * volume's volinfo. If the volinfo is already restored
                  * then we should delete the backend LVMs */
                 if (!gf_uuid_is_null(volinfo->restored_from_snap)) {
-                    ret = glusterd_snapshot_remove(dict, volinfo);
-                    if (ret) {
-                        gf_msg(this->name, GF_LOG_ERROR, 0,
-                               GD_MSG_SNAP_REMOVE_FAIL,
-                               "Failed to remove LVM backend");
-                        goto out;
+                    cds_list_for_each_entry(brickinfo, &volinfo->bricks,
+                                            brick_list)
+                    {
+                        brick_count++;
+                        if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+                            continue;
+
+                        ret = glusterd_snapshot_remove(dict, volinfo, brickinfo,
+                                                       brick_count);
+                        if (ret) {
+                            gf_msg(this->name, GF_LOG_ERROR, 0,
+                                   GD_MSG_SNAP_REMOVE_FAIL,
+                                   "Failed to remove LVM backend");
+                            goto out;
+                        }
                     }
                 }
 

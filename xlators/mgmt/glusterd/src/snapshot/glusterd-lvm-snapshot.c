@@ -945,6 +945,10 @@ glusterd_lvm_snap_clone_brick_path(char *snap_mount_dir,
     int ret = 0;
     char brick_path[PATH_MAX] = "";
 
+    if (strcmp(snap_brick_dir, "/") == 0) {
+        snap_brick_dir = "";
+    }
+
     if (clone) {
         len = snprintf(brick_path, sizeof(brick_path), "%s/%s/brick%d%s",
                        snap_mount_dir, snap_clone_volume_id, brick_num + 1,

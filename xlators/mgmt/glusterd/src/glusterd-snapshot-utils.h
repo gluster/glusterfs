@@ -58,7 +58,8 @@ int
 glusterd_is_path_mounted(const char *path);
 
 int32_t
-glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
+glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
+                         glusterd_brickinfo_t *brickinfo, int32_t brick_count);
 
 int32_t
 glusterd_bricks_snapshot_restore(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
