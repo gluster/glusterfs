@@ -60,6 +60,7 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_OP_VERSION "op-version"
 #define GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION "client-op-version"
 #define GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION "quota-version"
+#define GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN "snap_plugin"
 
 #define GLUSTERD_STORE_KEY_SNAP_NAME "name"
 #define GLUSTERD_STORE_KEY_SNAP_ID "snap-id"

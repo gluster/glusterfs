@@ -863,6 +863,7 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     new_volinfo->quota_xattr_version = volinfo->quota_xattr_version;
     new_volinfo->snap_max_hard_limit = volinfo->snap_max_hard_limit;
     new_volinfo->quota_conf_cksum = volinfo->quota_conf_cksum;
+    strcpy(new_volinfo->snap_plugin, volinfo->snap_plugin);
 
     dict_copy(volinfo->dict, new_volinfo->dict);
     dict_copy(volinfo->gsync_secondaries, new_volinfo->gsync_secondaries);
@@ -13211,8 +13212,6 @@ glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo)
 
     gf_strncpy(brickinfo->mnt_opts, entry->mnt_opts,
                sizeof(brickinfo->mnt_opts));
-
-    (void)glusterd_snapshot_probe(mnt_pt, brickinfo);
 
     ret = 0;
 out:

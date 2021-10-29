@@ -36,8 +36,8 @@
     } while (0)
 
 void
-glusterd_snapshot_plugin_by_fs_type(char *name,
-                                    struct glusterd_snap_ops **snap_ops);
+glusterd_snapshot_plugin_by_name(char *name,
+                                 struct glusterd_snap_ops **snap_ops);
 
 gf_boolean_t
 glusterd_snapshot_probe(char *path, glusterd_brickinfo_t *brickinfo);
@@ -190,7 +190,7 @@ glusterd_snap_quorum_check(dict_t *dict, gf_boolean_t snap_volume,
 int32_t
 glusterd_snap_brick_create(glusterd_volinfo_t *snap_volinfo,
                            glusterd_brickinfo_t *brickinfo, int32_t brick_count,
-                           int32_t clone);
+                           int32_t clone, struct glusterd_snap_ops *snap_ops);
 
 int
 glusterd_snapshot_restore_cleanup(dict_t *rsp_dict, char *volname,

@@ -733,6 +733,7 @@ glusterd_volume_write_snap_details(int fd, glusterd_volinfo_t *volinfo)
     char buf[PATH_MAX] = {
         0,
     };
+    uint total_len = 0;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -754,6 +755,18 @@ glusterd_volume_write_snap_details(int fd, glusterd_volinfo_t *volinfo)
     if (ret < 0 || ret >= sizeof(buf)) {
         ret = -1;
         goto err;
+    }
+    total_len += ret;
+
+    if (volinfo->snap_plugin[0] != '\0') {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n",
+                       GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN,
+                       volinfo->snap_plugin);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
     }
 
     ret = gf_store_save_items(fd, buf);
@@ -3156,6 +3169,15 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
                        "parent_volname truncated: %s", volinfo->parent_volname);
                 goto out;
             }
+        } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN,
+                            SLEN(GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN))) {
+            if (snprintf(volinfo->snap_plugin, sizeof(volinfo->snap_plugin),
+                         "%s", value) >= sizeof(volinfo->snap_plugin)) {
+                gf_msg("glusterd", GF_LOG_ERROR, op_errno,
+                       GD_MSG_PARSE_BRICKINFO_FAIL, "snap_plugin truncated: %s",
+                       volinfo->snap_plugin);
+                goto out;
+            }
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION,
                             SLEN(GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION))) {
             volinfo->quota_xattr_version = atoi(value);
@@ -3622,22 +3644,18 @@ glusterd_mount_brick_paths(glusterd_volinfo_t *volinfo,
     int32_t ret = -1;
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
+    struct glusterd_snap_ops *snap_ops = NULL;
 
     GF_ASSERT(brickinfo);
 
     priv = this->private;
     GF_ASSERT(priv);
 
-    if (!glusterd_snapshot_probe(brickinfo->origin_path, brickinfo)) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
-               "Snapshot activate not supported on %s", brickinfo->origin_path);
-        ret = -1;
-        goto out;
-    }
+    glusterd_snapshot_plugin_by_name(volinfo->snap_plugin, &snap_ops);
 
     /* Mount the snapshot */
-    ret = brickinfo->snap->activate(brickinfo, volinfo->snapshot->snapname,
-                                    volinfo->volname, brick_num);
+    ret = snap_ops->activate(brickinfo, volinfo->snapshot->snapname,
+                             volinfo->volname, brick_num);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_MOUNT_FAIL,
                "Failed to mount snapshot.");

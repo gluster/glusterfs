@@ -516,6 +516,8 @@ struct glusterd_volinfo_ {
     /* Flag to check about volume has received updates
        from peer
     */
+
+    char snap_plugin[NAME_MAX]; /* Snapshot Plugin name */
 };
 
 typedef enum gd_snap_status_ {

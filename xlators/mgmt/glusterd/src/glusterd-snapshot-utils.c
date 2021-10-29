@@ -243,7 +243,8 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             ret = dict_get_str(dict, key, &value);
         } else {
             /* To use generic functions from the plugin */
-            glusterd_snapshot_plugin_by_fs_type(brickinfo->fstype, &snap_ops);
+            glusterd_snapshot_plugin_by_name(snap_volinfo->snap_plugin,
+                                             &snap_ops);
 
             snap_ops->brick_path(snap_mount_dir, brickinfo->origin_path, 0,
                                  snap_volinfo->snapshot->snapname,
@@ -3199,8 +3200,11 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
     int32_t ret = -1;
     int retry_count = 0;
     int brick_count = -1;
+    struct glusterd_snap_ops *snap_ops = NULL;
 
     GF_ASSERT(volinfo);
+
+    glusterd_snapshot_plugin_by_name(volinfo->snap_plugin, &snap_ops);
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
@@ -3223,23 +3227,14 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
             goto out;
         }
 
-        if (!glusterd_snapshot_probe(brickinfo->origin_path, brickinfo)) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
-                   "Snapshot unmount not supported on %s",
-                   brickinfo->origin_path);
-            ret = -1;
-            goto out;
-        }
-
         /* unmount cannot be done when the brick process is still in
          * the process of shutdown, so give three re-tries
          */
         retry_count = 0;
         while (retry_count <= 2) {
             retry_count++;
-            ret = brickinfo->snap->deactivate(brickinfo,
-                                              volinfo->snapshot->snapname,
-                                              volinfo->volname, brick_count);
+            ret = snap_ops->deactivate(brickinfo, volinfo->snapshot->snapname,
+                                       volinfo->volname, brick_count);
             if (!ret)
                 break;
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_UMOUNT_FAIL,
@@ -4036,10 +4031,17 @@ out:
 }
 
 void
-glusterd_snapshot_plugin_by_fs_type(char *name,
-                                    struct glusterd_snap_ops **snap_ops)
+glusterd_snapshot_plugin_by_name(char *name,
+                                 struct glusterd_snap_ops **snap_ops)
 {
-    *snap_ops = &lvm_snap_ops;
+    xlator_t *this = NULL;
+
+    this = THIS;
+
+    if (strcmp(name, "LVM") == 0)
+        *snap_ops = &lvm_snap_ops;
+
+    gf_msg_debug(this->name, 0, "Loaded Snapshot plugin %s", name);
 }
 
 gf_boolean_t
