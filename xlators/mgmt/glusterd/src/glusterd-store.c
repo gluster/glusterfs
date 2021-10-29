@@ -3678,18 +3678,24 @@ glusterd_recreate_vol_brick_mounts(xlator_t *this, glusterd_volinfo_t *volinfo)
          * If not create the brick_mount_path */
         ret = sys_lstat(brickinfo->path, &st_buf);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-                   "Brick Path(%s) not valid. ", brickinfo->path);
-            goto out;
+            if (errno == ENOENT) {
+                /* Check if brick_mount_path is already mounted.
+                 * If not, mount the device_path at the brick_mount_path */
+                ret = glusterd_mount_brick_paths(volinfo, brickinfo,
+                                                 brick_count);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
+                           GD_MSG_BRK_MNTPATH_MOUNT_FAIL,
+                           "Failed to mount brick_mount_path");
+                    goto out;
+                }
+            } else {
+                gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
+                       "Brick Path(%s) not valid. ", brickinfo->path);
+                goto out;
+            }
         }
 
-        /* Check if brick_mount_path is already mounted.
-         * If not, mount the device_path at the brick_mount_path */
-        ret = glusterd_mount_brick_paths(volinfo, brickinfo, brick_count);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRK_MNTPATH_MOUNT_FAIL,
-                   "Failed to mount brick_mount_path");
-        }
         if (!gf_uuid_compare(brickinfo->uuid, MY_UUID)) {
             if (brickinfo->real_path[0] == '\0') {
                 if (!realpath(brickinfo->path, abspath)) {
