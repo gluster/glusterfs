@@ -2498,7 +2498,7 @@ socket_proto_state_machine(rpc_transport_t *this,
 }
 
 static void
-socket_event_poll_in_async(xlator_t *xl, gf_async_t *async)
+socket_event_poll_in_async(gf_async_t *async)
 {
     rpc_transport_pollin_t *pollin;
     rpc_transport_t *this;
@@ -2549,7 +2549,7 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
 
     if (pollin) {
         rpc_transport_ref(this);
-        gf_async(&pollin->async, THIS, socket_event_poll_in_async);
+        gf_async(&pollin->async, socket_event_poll_in_async);
     }
 
     return ret;
