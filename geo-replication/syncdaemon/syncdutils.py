@@ -925,7 +925,7 @@ class Volinfo(object):
         vi = XET.fromstring(vix)
         if vi.find('opRet').text != '0':
             if prelude:
-                via = '(via %s) ' % prelude.join(' ')
+                via = '(via %s) ' % ' '.join(prelude)
             else:
                 via = ' '
             raise GsyncdError('getting volume info of %s%s '
