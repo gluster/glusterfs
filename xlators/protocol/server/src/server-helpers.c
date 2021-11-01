@@ -482,6 +482,18 @@ get_frame_from_request(rpcsvc_request_t *req)
     for (i = 0; i < clienttable->max_clients; i++) {
         tmp_client = clienttable->cliententries[i].client;
         if (client == tmp_client) {
+            /* For nfs clients the server processes will be running
+               within the trusted storage pool machines. So if we
+               do not do root-squashing and all-squashing for nfs
+               servers, thinking that its a trusted client, then
+               root-squashing and all-squashing won't work for nfs
+               clients.
+            */
+            if (req->pid == NFS_PID) {
+                RPC_AUTH_ROOT_SQUASH(req);
+                RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
+            }
             /* for non trusted clients username and password
                would not have been set. So for non trusted clients
                (i.e clients not from the same machine as the brick,
@@ -492,9 +504,10 @@ get_frame_from_request(rpcsvc_request_t *req)
                other machine's ip/hostname from the same pool)
                is present treat it as a trusted client
             */
-            if (!client->auth.username && req->pid != NFS_PID) {
+            else if (!client->auth.username) {
                 RPC_AUTH_ROOT_SQUASH(req);
                 RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
             }
 
             /* Problem: If we just check whether the client is
@@ -510,30 +523,19 @@ get_frame_from_request(rpcsvc_request_t *req)
                --no-root-squash option. But for defrag client and
                gsyncd client do not do root-squashing and all-squashing.
             */
-            if (client->auth.username &&
-                req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
-                req->pid != GF_CLIENT_PID_GSYNCD &&
-                req->pid != GF_CLIENT_PID_DEFRAG &&
-                req->pid != GF_CLIENT_PID_SELF_HEALD &&
-                req->pid != GF_CLIENT_PID_QUOTA_MOUNT) {
+            else if (req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
+                     req->pid != GF_CLIENT_PID_GSYNCD &&
+                     req->pid != GF_CLIENT_PID_DEFRAG &&
+                     req->pid != GF_CLIENT_PID_SELF_HEALD &&
+                     req->pid != GF_CLIENT_PID_QUOTA_MOUNT) {
                 RPC_AUTH_ROOT_SQUASH(req);
                 RPC_AUTH_ALL_SQUASH(req);
-            }
-
-            /* For nfs clients the server processes will be running
-               within the trusted storage pool machines. So if we
-               do not do root-squashing and all-squashing for nfs
-               servers, thinking that its a trusted client, then
-               root-squashing and all-squashing won't work for nfs
-               clients.
-            */
-            if (req->pid == NFS_PID) {
-                RPC_AUTH_ROOT_SQUASH(req);
-                RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
             }
         }
     }
 
+after_squash:
     /* Add a ref for this fop */
     if (client)
         gf_client_ref(client);

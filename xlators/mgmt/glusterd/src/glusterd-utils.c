@@ -698,10 +698,6 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
 
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
 
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (ret == -1) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REPLY_SUBMIT_FAIL,
                "Reply submission failed");
@@ -5297,7 +5293,7 @@ glusterd_get_global_server_quorum_ratio(dict_t *opts, double *quorum)
     ret = dict_get_strn(opts, GLUSTERD_QUORUM_RATIO_KEY,
                         SLEN(GLUSTERD_QUORUM_RATIO_KEY), &quorum_str);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GLUSTERD_QUORUM_RATIO_KEY, NULL);
     } else {
         ret = gf_string2percent(quorum_str, quorum);

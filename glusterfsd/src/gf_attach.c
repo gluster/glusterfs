@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
 #include "glfs-internal.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"
@@ -171,7 +172,7 @@ sanitize_args(int argc, char **argv)
         0,
     };
 
-    ret = lstat(argv[optind], &statbuf);
+    ret = sys_lstat(argv[optind], &statbuf);
     if (ret == -1) {
         fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind],
                 strerror(errno));
@@ -182,7 +183,7 @@ sanitize_args(int argc, char **argv)
         goto err;
     }
 
-    ret = lstat(argv[optind + 1], &statbuf);
+    ret = sys_lstat(argv[optind + 1], &statbuf);
     if (ret == -1) {
         fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind + 1],
                 strerror(errno));

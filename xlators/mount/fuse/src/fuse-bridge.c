@@ -26,6 +26,7 @@
 typedef struct _fuse_async {
     struct iobuf *iobuf;
     fuse_in_header_t *finh;
+    xlator_t *this;
     void *msg;
     gf_async_t async;
 } fuse_async_t;
@@ -4835,7 +4836,7 @@ fuse_setlk_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
         goto err;
     }
 
-    frame = get_call_frame_for_req(state);
+    frame = get_call_frame_for_req(state, GF_FOP_GETXATTR);
     if (!frame) {
         goto err;
     }
@@ -6031,22 +6032,25 @@ static fuse_handler_t *fuse_std_ops[] = {
 #define FUSE_OP_HIGH (sizeof(fuse_std_ops) / sizeof(*fuse_std_ops))
 
 static void
-fuse_dispatch(xlator_t *xl, gf_async_t *async)
+fuse_dispatch(gf_async_t *async)
 {
     fuse_async_t *fasync;
     fuse_private_t *priv;
     fuse_in_header_t *finh;
     struct iobuf *iobuf;
 
-    priv = xl->private;
     fasync = caa_container_of(async, fuse_async_t, async);
     finh = fasync->finh;
     iobuf = fasync->iobuf;
 
+    THIS = fasync->this;
+
     if (finh->opcode >= FUSE_OP_HIGH)
-        fuse_enosys(xl, finh, NULL, NULL);
-    else
-        priv->fuse_ops[finh->opcode](xl, finh, fasync->msg, iobuf);
+        fuse_enosys(fasync->this, finh, NULL, NULL);
+    else {
+        priv = fasync->this->private;
+        priv->fuse_ops[finh->opcode](fasync->this, finh, fasync->msg, iobuf);
+    }
 
     iobuf_unref(iobuf);
 }
@@ -6277,7 +6281,8 @@ fuse_thread_proc(void *data)
             fasync->finh = finh;
             fasync->msg = msg;
             fasync->iobuf = iobuf;
-            gf_async(&fasync->async, this, fuse_dispatch);
+            fasync->this = this;
+            gf_async(&fasync->async, fuse_dispatch);
         }
 
         continue;
@@ -6369,6 +6374,19 @@ fuse_priv_dump(xlator_t *this)
     return 0;
 }
 
+static void
+dump_history_fuse(circular_buffer_t *cb, void *data)
+{
+    char timestr[GF_TIMESTR_SIZE] = {
+        0,
+    };
+
+    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_F_HMS);
+
+    gf_proc_dump_write("TIME", "%s", timestr);
+    gf_proc_dump_write("message", "%s\n", (char *)cb->data);
+}
+
 int
 fuse_history_dump(xlator_t *this)
 {
@@ -6392,22 +6410,6 @@ fuse_history_dump(xlator_t *this)
     ret = 0;
 out:
     return ret;
-}
-
-int
-dump_history_fuse(circular_buffer_t *cb, void *data)
-{
-    char timestr[GF_TIMESTR_SIZE] = {
-        0,
-    };
-
-    gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_F_HMS);
-
-    gf_proc_dump_write("TIME", "%s", timestr);
-
-    gf_proc_dump_write("message", "%s\n", (char *)cb->data);
-
-    return 0;
 }
 
 int

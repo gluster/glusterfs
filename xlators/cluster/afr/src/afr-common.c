@@ -4058,7 +4058,7 @@ out:
     return 0;
 }
 
-void
+static void
 _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
 {
     afr_private_t *priv = this->private;
@@ -4068,6 +4068,7 @@ _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
         {
             list_del(&fd_ctx->lk_heal_info->pos);
         }
+        UNLOCK(&priv->lock);
         afr_lk_heal_info_cleanup(fd_ctx->lk_heal_info);
         fd_ctx->lk_heal_info = NULL;
     }

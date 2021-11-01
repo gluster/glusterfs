@@ -44,9 +44,9 @@ typedef uint32_t gf_mem_magic_t;
 
 struct mem_acct_rec {
     const char *typestr;
-    uint64_t size;
     gf_atomic_t num_allocs;
 #ifdef DEBUG
+    uint64_t size;
     uint64_t max_size;
     uint32_t max_num_allocs;
     gf_lock_t lock;
@@ -307,16 +307,6 @@ typedef struct per_thread_pool_list {
 /* actual pool structure, shared between different mem_pools */
 struct mem_pool_shared {
     unsigned int power_of_two;
-    /*
-     * Updates to these are *not* protected by a global lock, so races
-     * could occur and the numbers might be slightly off.  Don't expect
-     * them to line up exactly.  It's the general trends that matter, and
-     * it's not worth the locked-bus-cycle overhead to make these precise.
-     */
-    gf_atomic_t allocs_hot;
-    gf_atomic_t allocs_cold;
-    gf_atomic_t allocs_stdc;
-    gf_atomic_t frees_to_list;
 };
 
 void

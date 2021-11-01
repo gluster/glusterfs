@@ -39,8 +39,8 @@ dump_mem_acct_details(xlator_t *xl, int fd)
                 mem_rec->typestr, mem_rec->size, mem_rec->max_size,
                 mem_rec->max_num_allocs, GF_ATOMIC_GET(mem_rec->num_allocs));
 #else
-        dprintf(fd, "# %s, %" PRIu64 ", %" PRIu64 "\n", mem_rec->typestr,
-                mem_rec->size, GF_ATOMIC_GET(mem_rec->num_allocs));
+        dprintf(fd, "# %s, %" PRIu64 "\n", mem_rec->typestr,
+                GF_ATOMIC_GET(mem_rec->num_allocs));
 #endif
     }
 }

@@ -97,7 +97,7 @@ cb_buffer_show(buffer_t *buffer)
 
 void
 cb_buffer_dump(buffer_t *buffer, void *data,
-               int(fn)(circular_buffer_t *buffer, void *data))
+               void (*dumper)(circular_buffer_t *buffer, void *data))
 {
     int index = 0;
     circular_buffer_t *entry = NULL;
@@ -118,7 +118,7 @@ cb_buffer_dump(buffer_t *buffer, void *data,
             for (entries = 0; entries < buffer->used_len; entries++) {
                 entry = buffer->cb[index];
                 if (entry)
-                    fn(entry, data);
+                    dumper(entry, data);
                 else
                     gf_msg_callingfn("circ-buff", GF_LOG_WARNING, 0,
                                      LG_MSG_NULL_PTR,
@@ -133,7 +133,7 @@ cb_buffer_dump(buffer_t *buffer, void *data,
         } else {
             for (i = 0; i < buffer->used_len; i++) {
                 entry = buffer->cb[i];
-                fn(entry, data);
+                dumper(entry, data);
             }
         }
     }

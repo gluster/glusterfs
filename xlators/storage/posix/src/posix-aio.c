@@ -15,8 +15,7 @@
 #include <libaio.h>
 
 void
-__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
-                       off_t offset, size_t size)
+__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags, int direct)
 {
     int odirect = 0;
     int flags = 0;
@@ -25,15 +24,11 @@ __posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
     odirect = pfd->odirect;
 
     if ((fd->flags | opflags) & O_DIRECT) {
-        /* if instructed, use O_DIRECT always */
+        /* Always use O_DIRECT if requested. */
         odirect = 1;
-    } else {
-        /* else use O_DIRECT when feasible */
-        if ((offset | size) & 0xfff)
-            odirect = 0;
-        else
-            odirect = 1;
-    }
+    } else
+        /* Use hint from the caller. */
+        odirect = direct;
 
     if (!odirect && pfd->odirect) {
         flags = fcntl(pfd->fd, F_GETFL);
@@ -234,7 +229,10 @@ posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     LOCK(&fd->lock);
     {
-        __posix_fd_set_odirect(fd, pfd, flags, offset, size);
+        __posix_fd_set_odirect(
+            fd, pfd, flags,
+            (DIRECT_ALIGNED(size, priv) && DIRECT_ALIGNED(offset, priv) &&
+             DIRECT_ALIGNED(iobuf_ptr(paiocb->iobuf), priv)));
 
         ret = io_submit(priv->ctxp, 1, &iocb);
     }
@@ -322,9 +320,9 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
                  struct iobref *iobref, dict_t *xdata)
 {
     int32_t op_errno = EINVAL;
-    int _fd = -1;
+    int _fd = -1, i = 0;
     struct posix_fd *pfd = NULL;
-    int ret = -1;
+    int ret = -1, direct = 0;
     struct posix_aio_cb *paiocb = NULL;
     struct posix_private *priv = NULL;
     struct iocb *iocb = NULL;
@@ -368,9 +366,14 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
         goto err;
     }
 
+    direct = DIRECT_ALIGNED(offset, priv);
+    for (i = 0; direct && i < count; i++)
+        direct = (direct && DIRECT_ALIGNED(iov[i].iov_base, priv) &&
+                  DIRECT_ALIGNED(iov[i].iov_len, priv));
+
     LOCK(&fd->lock);
     {
-        __posix_fd_set_odirect(fd, pfd, flags, offset, iov_length(iov, count));
+        __posix_fd_set_odirect(fd, pfd, flags, direct);
 
         ret = io_submit(priv->ctxp, 1, &iocb);
     }
@@ -657,8 +660,7 @@ posix_aio_off(xlator_t *this)
 }
 
 void
-__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
-                       off_t offset, size_t size)
+__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags, int direct)
 {
     xlator_t *this = THIS;
     gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_AIO_UNAVAILABLE,

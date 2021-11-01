@@ -139,7 +139,7 @@ get_fuse_state(xlator_t *this, fuse_in_header_t *finh)
     return state;
 }
 
-void
+static void
 frame_fill_groups(call_frame_t *frame)
 {
 #if defined(GF_LINUX_HOST_OS)
@@ -189,17 +189,36 @@ frame_fill_groups(call_frame_t *frame)
     } else {
         FILE *fp = NULL;
 
+        if (frame->root->pid == 0) {
+            /* In this case, usecase is mostly container based
+               ref: libfuse/libfuse#67 */
+            frame->root->groups = frame->root->groups_small;
+            frame->root->ngrps = 1;
+            frame->root->groups[0] = 0;
+            goto out;
+        }
+
         ret = snprintf(filename, sizeof filename, "/proc/%d/status",
                        frame->root->pid);
         if (ret >= sizeof filename) {
-            gf_log(this->name, GF_LOG_ERROR, "procfs path exceeds buffer size");
+            gf_log(this->name, GF_LOG_ERROR,
+                   "%s: procfs path exceeds buffer size",
+                   gf_fop_list[frame->root->op]);
             goto out;
         }
 
         fp = fopen(filename, "r");
         if (!fp) {
-            gf_log(this->name, GF_LOG_ERROR, "failed to open %s: %s", filename,
-                   strerror(errno));
+            /* this is for handling a crash, but this log should now be
+               seriously looked into */
+            gf_log(this->name, GF_LOG_ERROR, "%s: failed to open %s: %s",
+                   gf_fop_list[frame->root->op], filename, strerror(errno));
+            /* In this case, we probably received a wrong PID, and hence no
+               'status' file exists. So, ideally the operation should happen
+               with group 0 (ie, 'root') */
+            frame->root->groups = frame->root->groups_small;
+            frame->root->ngrps = 1;
+            frame->root->groups[0] = 0;
             goto out;
         }
 
@@ -362,7 +381,7 @@ get_groups(fuse_private_t *priv, call_frame_t *frame)
 }
 
 call_frame_t *
-get_call_frame_for_req(fuse_state_t *state)
+get_call_frame_for_req(fuse_state_t *state, int op_num)
 {
     call_pool_t *pool = NULL;
     fuse_in_header_t *finh = NULL;
@@ -379,6 +398,8 @@ get_call_frame_for_req(fuse_state_t *state)
     if (!frame)
         return NULL;
 
+    /* helps in logging */
+    frame->root->op = op_num;
     if (finh) {
         frame->root->uid = finh->uid;
         frame->root->gid = finh->gid;

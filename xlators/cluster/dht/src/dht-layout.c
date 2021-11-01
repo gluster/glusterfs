@@ -406,10 +406,14 @@ static int
 dht_layout_entry_cmp(const void *p, const void *q)
 {
     const dht_layout_entry_t *x = p, *y = q;
+    int64_t diff = 0;
 
-    /* Swap zero'ed out layouts to front if needed. */
-    return (!y->start && !y->stop) ? (x->stop - y->stop) :
-        (x->start - y->start);
+    if (!y->start && !y->stop)
+        diff = (int64_t)x->stop - (int64_t)y->stop;
+    else
+        diff = (int64_t)x->start - (int64_t)y->start;
+
+    return (diff == 0 ? 0 : (diff < 0 ? -1 : 1));
 }
 
 static int

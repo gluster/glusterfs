@@ -262,7 +262,7 @@ typedef struct fuse_graph_switch_args fuse_graph_switch_args_t;
             break;                                                             \
         }                                                                      \
                                                                                \
-        frame = get_call_frame_for_req(state);                                 \
+        frame = get_call_frame_for_req(state, op_num);                         \
         if (!frame) {                                                          \
             /* This is not completely clean, as some                           \
              * earlier allocations might remain unfreed                        \
@@ -486,7 +486,7 @@ GF_MUST_CHECK int32_t
 fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
               const char *name);
 call_frame_t *
-get_call_frame_for_req(fuse_state_t *state);
+get_call_frame_for_req(fuse_state_t *state, int op_num);
 fuse_state_t *
 get_fuse_state(xlator_t *this, fuse_in_header_t *finh);
 void
@@ -528,8 +528,6 @@ int
 fuse_ignore_xattr_set(fuse_private_t *priv, char *key);
 void
 fuse_fop_resume(fuse_state_t *state);
-int
-dump_history_fuse(circular_buffer_t *cb, void *data);
 int
 fuse_check_selinux_cap_xattr(fuse_private_t *priv, char *name);
 #endif /* _GF_FUSE_BRIDGE_H_ */

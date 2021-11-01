@@ -122,10 +122,6 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
     /* ret = rpcsvc_callback_submit (req->svc, req->trans, req->prog,
        GF_CBK_NULL, &rsp, 1);
     */
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     iobuf_unref(iob);
     if (ret == -1) {
         gf_msg_callingfn("", GF_LOG_ERROR, 0, PS_MSG_REPLY_SUBMIT_FAILED,
@@ -871,7 +867,9 @@ server_reconfigure(xlator_t *this, dict_t *options)
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
 do_auth:
-    if (!conf->auth_modules)
+    if (conf->auth_modules)
+        gf_auth_fini(conf->auth_modules);
+    else
         conf->auth_modules = dict_new();
 
     dict_foreach(options, get_auth_types, conf->auth_modules);

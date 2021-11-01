@@ -686,10 +686,6 @@ nfs3svc_submit_reply(rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
 
     ret = 0;
 ret:
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (NULL != iob)
         iobuf_unref(iob);
     if (NULL != iobref)
@@ -745,10 +741,6 @@ nfs3svc_submit_vector_reply(rpcsvc_request_t *req, void *arg,
 
     ret = 0;
 ret:
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (NULL != iob)
         iobuf_unref(iob);
     if (new_iobref)
