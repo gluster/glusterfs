@@ -971,6 +971,16 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
         goto out;
     }
 
+    snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
+    ret = dict_get_str(dict, key, &volinfo->snap_plugin);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "%s missing in payload "
+               "for %s",
+               key, volname);
+        goto out;
+    }
+
     gf_uuid_parse(restored_snap, volinfo->restored_from_snap);
 
     snprintf(key, sizeof(key), "%s.snap-max-hard-limit", prefix);
