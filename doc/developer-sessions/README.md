@@ -51,3 +51,6 @@ Index xlator design and implementation are covered in this session.
     - Intro to self-heal daemon (shd)
     - Types of crawls in shd
     - Code walkthrough
+17. Self heal daemon - data, metadata, entry self-heals - [video](https://youtu.be/aiBFO_ggSVA) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-17-self-heal-daemon-data-metadata-entry-healing)
+    - Types of heal needed for a given file/directory
+    - Code walkthrough of data, metadata, entry self-heals
