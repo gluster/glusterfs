@@ -98,20 +98,24 @@ pmap_port_alloc(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
     int p = 0;
+    int i;
 
     GF_ASSERT(this);
 
     pmap = pmap_registry_get(this);
 
-    while (true) {
-        /* coverity[DC.WEAK_CRYPTO] */
-        p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
+    /* coverity[DC.WEAK_CRYPTO] */
+    p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
+    for (i = pmap->base_port; i <= pmap->max_port; i++) {
         if (pmap_port_isfree(p)) {
-            break;
+            return p;
+        }
+        if (p++ >= pmap->max_port) {
+            p = pmap->base_port;
         }
     }
 
-    return p;
+    return 0;
 }
 
 /* pmap_assign_port does a pmap_registry_remove followed by pmap_port_alloc,
