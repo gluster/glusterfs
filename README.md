@@ -4,11 +4,11 @@
     <a href="https://gluster.slack.com/"><img src=https://img.shields.io/badge/CHATON-SLACK-green></a> 
     <a href="https://www.youtube.com/playlist?list=PLUjCssFKEMhXBqPAGtOA1lYtzS1eWaJuN"><img src=https://img.shields.io/badge/DEV%20SESSIONS-YOUTUBE-red></a> 
     <a href="https://twitter.com/gluster"><img src=https://img.shields.io/badge/FOLLOW-ON%20TWITTER-blue></a><br/><br/>
-    <a href="https://docs.gluster.org/en/latest/Quick-Start-Guide/Quickstart/">Quick Start Guide</a> |
-    <a href="https://docs.gluster.org/en/latest/release-notes/">Release Notes</a> |
-    <a href="https://lists.gluster.org/mailman/listinfo">Mailing list</a> |
-    <a href="https://www.gluster.org/community/">Community</a><br/><br/>
-    <a href="https://docs.gluster.org/en/latest/Contributors-Guide/Index/">Contribute to this project!</a>
+    <a href="https://docs.gluster.org/en/latest/Quick-Start-Guide/Quickstart/"><img src=https://img.shields.io/badge/%20%20-Quick%20Start%20Guide-yellowgreen?style=for-the-badge></a> 
+    <a href="https://docs.gluster.org/en/latest/release-notes/"><img src=https://img.shields.io/badge/%20%20-Release%20Notes-%2341EDF5?style=for-the-badge></a> 
+    <a href="https://lists.gluster.org/mailman/listinfo"><img src=https://img.shields.io/badge/%20%20-Mailing%20List-%23F59E41?style=for-the-badge></a> 
+    <a href="https://www.gluster.org/community/"><img src=https://img.shields.io/badge/%20-COMMUNITY-%237D41F5?style=for-the-badge></a><br/><br/>
+    <a href="https://docs.gluster.org/en/latest/Contributors-Guide/Index/"><img src=https://readme-typing-svg.herokuapp.com?color=%23000000&size=32&center=true&width=600&lines=Contribute+to+Gluster></a>
 </h4>
 
 
