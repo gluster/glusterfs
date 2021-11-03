@@ -386,9 +386,7 @@ gf_async_run(struct cds_wfcq_node *node)
 
     /* We've just got work from the queue. Process it. */
     async = caa_container_of(node, gf_async_t, queue);
-    /* TODO: remove dependency from THIS and xl. */
-    THIS = async->xl;
-    async->cbk(async->xl, async);
+    async->cbk(async);
 }
 
 static void
@@ -469,17 +467,17 @@ gf_async_stop_check(gf_async_worker_t *worker)
 }
 
 static void
-gf_async_stop_all(xlator_t *xl, gf_async_t *async)
+gf_async_stop_all(gf_async_t *async)
 {
     if (gf_async_stop_check(gf_async_current_worker) > 0) {
         /* There are more workers running. We propagate the stop request to
          * them. */
-        gf_async(async, xl, gf_async_stop_all);
+        gf_async(async, gf_async_stop_all);
     }
 }
 
 static void
-gf_async_join(xlator_t *xl, gf_async_t *async)
+gf_async_join(gf_async_t *async)
 {
     gf_async_worker_t *worker;
 
@@ -505,7 +503,7 @@ gf_async_terminate(gf_async_worker_t *worker)
         gf_async_sync_now();
     } else {
         /* Force someone else to join this thread to release resources. */
-        gf_async(&worker->async, THIS, gf_async_join);
+        gf_async(&worker->async, gf_async_join);
     }
 }
 
@@ -575,7 +573,7 @@ gf_async_fini(void)
         /* Send the stop request to the thread pool. This will cause the
          * execution of gf_async_stop_all() by one of the worker threads which,
          * eventually, will terminate all worker threads. */
-        gf_async(&async, THIS, gf_async_stop_all);
+        gf_async(&async, gf_async_stop_all);
 
         /* We synchronize here with the last thread. */
         gf_async_sync_now();

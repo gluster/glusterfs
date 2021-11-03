@@ -15,7 +15,7 @@
 
 #include <glusterfs/fd.h>
 #include "rpcsvc.h"
-
+#include "socket.h"
 #include <glusterfs/fd.h>
 #include "protocol-common.h"
 #include "server-mem-types.h"
@@ -31,8 +31,6 @@
 #define SERVER_MAX_EVENT_THREADS 1024
 
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
-#define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
-#define GF_MIN_SOCKET_WINDOW_SIZE (0)
 
 typedef enum {
     INTERNAL_LOCKS = 1,

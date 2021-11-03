@@ -227,30 +227,29 @@ ssl_dump_error_stack(const char *caller)
 }
 
 static int
-ssl_do(rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
+ssl_do(socket_private_t *priv, void *buf, size_t len, SSL_trinary_func *func)
 {
-    int r = (-1);
-    socket_private_t *priv = NULL;
+    int r;
 
-    priv = this->private;
-
-    if (buf) {
-        if (priv->connected == -1) {
-            /*
-             * Fields in the SSL structure (especially
-             * the BIO pointers) are not valid at this
-             * point, so we'll segfault if we pass them
-             * to SSL_read/SSL_write.
-             */
-            gf_log(this->name, GF_LOG_INFO, "lost connection in %s", __func__);
-            return -1;
-        }
-        r = func(priv->ssl_ssl, buf, len);
-    } else {
+    if (caa_unlikely(!buf)) {
         /* This should be treated as error */
-        gf_log(this->name, GF_LOG_ERROR, "buffer is empty %s", __func__);
+        gf_log(THIS->name, GF_LOG_ERROR, "buffer is empty %s", __func__);
+        goto out;
+    } else if (caa_unlikely(priv->connected <= 0)) {
+        /* Not fully connected yet.
+         * Fields in the SSL structure (especially
+         * the BIO pointers) are not valid at this
+         * point, so we'll segfault if we pass them
+         * to SSL_read/SSL_write.
+         */
+        gf_log(THIS->name, GF_LOG_INFO, "lost connection in %s", __func__);
         goto out;
     }
+
+    r = func(priv->ssl_ssl, buf, len);
+    if (r > 0)
+        return r;
+
     switch (SSL_get_error(priv->ssl_ssl, r)) {
         case SSL_ERROR_NONE:
         /* fall through */
@@ -266,7 +265,7 @@ ssl_do(rpc_transport_t *this, void *buf, size_t len, SSL_trinary_func *func)
              * So, for now, just return the return value and the
              * errno as is.
              */
-            gf_log(this->name, GF_LOG_DEBUG,
+            gf_log(THIS->name, GF_LOG_DEBUG,
                    "syscall error (probably remote disconnect) "
                    "errno:%d:%s",
                    errno, strerror(errno));
@@ -279,10 +278,10 @@ out:
     return -1;
 }
 
-#define ssl_read_one(t, b, l)                                                  \
-    ssl_do((t), (b), (l), (SSL_trinary_func *)SSL_read)
-#define ssl_write_one(t, b, l)                                                 \
-    ssl_do((t), (b), (l), (SSL_trinary_func *)SSL_write)
+#define ssl_read_one(p, b, l)                                                  \
+    ssl_do((p), (b), (l), (SSL_trinary_func *)SSL_read)
+#define ssl_write_one(p, b, l)                                                 \
+    ssl_do((p), (b), (l), (SSL_trinary_func *)SSL_write)
 
 /* set crl verify flags only for server */
 /* see man X509_VERIFY_PARAM_SET_FLAGS(3)
@@ -443,8 +442,8 @@ ssl_complete_connection(rpc_transport_t *this)
                    *     as if EPOLLERR has been encountered
                    */
     char *cname = NULL;
-    int r = -1;
-    int ssl_error = -1;
+    int r;
+    int ssl_error;
     socket_private_t *priv = NULL;
 
     priv = this->private;
@@ -455,7 +454,11 @@ ssl_complete_connection(rpc_transport_t *this)
         r = SSL_connect(priv->ssl_ssl);
     }
 
-    ssl_error = SSL_get_error(priv->ssl_ssl, r);
+    if (r == 1)
+        ssl_error = SSL_ERROR_NONE;
+    else
+        ssl_error = SSL_get_error(priv->ssl_ssl, r);
+
     priv->ssl_error_required = ssl_error;
 
     switch (ssl_error) {
@@ -548,7 +551,7 @@ __socket_ssl_readv(rpc_transport_t *this, struct iovec *opvector, int opcount)
 
     if (priv->use_ssl) {
         gf_log(this->name, GF_LOG_TRACE, "***** reading over SSL");
-        ret = ssl_read_one(this, opvector->iov_base, opvector->iov_len);
+        ret = ssl_read_one(priv, opvector->iov_base, opvector->iov_len);
     } else {
         gf_log(this->name, GF_LOG_TRACE, "***** reading over non-SSL");
         ret = sys_readv(sock, opvector, IOV_MIN(opcount));
@@ -705,7 +708,7 @@ __socket_rwv(rpc_transport_t *this, struct iovec *vector, int count,
                    "### no priv->ssl_ssl yet; ret = -1;");
         } else if (write) {
             if (priv->use_ssl) {
-                ret = ssl_write_one(this, opvector->iov_base,
+                ret = ssl_write_one(priv, opvector->iov_base,
                                     opvector->iov_len);
             } else {
                 ret = sys_writev(sock, opvector, IOV_MIN(opcount));
@@ -2495,7 +2498,7 @@ socket_proto_state_machine(rpc_transport_t *this,
 }
 
 static void
-socket_event_poll_in_async(xlator_t *xl, gf_async_t *async)
+socket_event_poll_in_async(gf_async_t *async)
 {
     rpc_transport_pollin_t *pollin;
     rpc_transport_t *this;
@@ -2546,7 +2549,7 @@ socket_event_poll_in(rpc_transport_t *this, gf_boolean_t notify_handled)
 
     if (pollin) {
         rpc_transport_ref(this);
-        gf_async(&pollin->async, THIS, socket_event_poll_in_async);
+        gf_async(&pollin->async, socket_event_poll_in_async);
     }
 
     return ret;
@@ -4101,7 +4104,7 @@ threadid_func(CRYPTO_THREADID *id)
      */
     CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
 }
-#else /* older openssl */
+#else  /* older openssl */
 static unsigned long
 legacy_threadid_func(void)
 {
@@ -4357,7 +4360,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "DH ciphers are disabled.",
                        dh_param, ERR_error_string(err, NULL));
             }
-#else /* HAVE_OPENSSL_DH_H */
+#else  /* HAVE_OPENSSL_DH_H */
             BIO_free(bio);
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no DH support");
 #endif /* HAVE_OPENSSL_DH_H */
@@ -4384,7 +4387,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                        "ECDH ciphers are disabled.",
                        ec_curve, ERR_error_string(err, NULL));
             }
-#else /* HAVE_OPENSSL_ECDH_H */
+#else  /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }
