@@ -1430,7 +1430,6 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
             continue;
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".snap_plugin", i + 1);
         ret = dict_set_dynstr_with_alloc(dst, key, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,

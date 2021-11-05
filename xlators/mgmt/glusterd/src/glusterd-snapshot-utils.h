@@ -39,9 +39,6 @@ void
 glusterd_snapshot_plugin_by_name(char *name,
                                  struct glusterd_snap_ops **snap_ops);
 
-gf_boolean_t
-glusterd_snapshot_probe(char *path, glusterd_brickinfo_t *brickinfo);
-
 int32_t
 glusterd_snap_volinfo_find(char *volname, glusterd_snap_t *snap,
                            glusterd_volinfo_t **volinfo);
