@@ -29,6 +29,9 @@ Index xlator design and implementation are covered in this session.
 11. Locks xlator entrylks - [video](https://youtu.be/BCgm5hNWFbE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-11-locks-xlator-entrylks)  
     - Introduces and code walkthrough of entrylk part of locks xlator  
     - Explains the connection between entrylk and inodelk in deletion code paths  
+12. Locks xlator posixlk - [video](https://youtu.be/E7J_W50iRDw) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-12-locks-xlator-posixlk)
+    - What is the behavior of posixlks
+    - Code walkthrough
 13. Replication xlator introduction - [video](https://youtu.be/cW4CHLHf_jY) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-13-replication-introduction)  
     - Replicate xlator graph placement  
     - On-disk data representation  
