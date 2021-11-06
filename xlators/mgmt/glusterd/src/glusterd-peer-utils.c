@@ -604,6 +604,31 @@ out:
 }
 
 int
+gd_add_address_to_peer_head(glusterd_peerinfo_t *peerinfo, const char *address)
+{
+    int ret = -1;
+    glusterd_peer_hostname_t *hostname = NULL;
+
+    GF_VALIDATE_OR_GOTO("glusterd", (peerinfo != NULL), out);
+    GF_VALIDATE_OR_GOTO("glusterd", (address != NULL), out);
+
+    if (gd_peer_has_address(peerinfo, address)) {
+        ret = 0;
+        goto out;
+    }
+
+    ret = glusterd_peer_hostname_new(address, &hostname);
+    if (ret)
+        goto out;
+
+    cds_list_add_rcu(&hostname->hostname_list, &peerinfo->hostnames);
+
+    ret = 0;
+out:
+    return ret;
+}
+
+int
 gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address)
 {
     int ret = -1;
@@ -740,7 +765,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                key);
         goto out;
     }
-    ret = gd_add_address_to_peer(peerinfo, hostname);
+    ret = gd_add_address_to_peer_head(peerinfo, hostname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                "Could not add address to peer");

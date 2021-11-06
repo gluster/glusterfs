@@ -58,6 +58,9 @@ gf_boolean_t
 gd_peer_has_address(glusterd_peerinfo_t *peerinfo, const char *address);
 
 int
+gd_add_address_to_peer_head(glusterd_peerinfo_t *peerinfo, const char *address);
+
+int
 gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address);
 
 int

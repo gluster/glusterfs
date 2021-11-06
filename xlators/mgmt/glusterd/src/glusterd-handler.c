@@ -2653,13 +2653,18 @@ glusterd_peer_hostname_update(glusterd_peerinfo_t *peerinfo,
     GF_ASSERT(peerinfo);
     GF_ASSERT(hostname);
 
-    ret = gd_add_address_to_peer(peerinfo, hostname);
+    ret = gd_add_address_to_peer_head(peerinfo, hostname);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0,
                GD_MSG_HOSTNAME_ADD_TO_PEERLIST_FAIL,
                "Couldn't add address to the peer info");
         goto out;
     }
+
+    /* Also set peerinfo->hostname to the first address */
+    if (peerinfo->hostname != NULL)
+        GF_FREE(peerinfo->hostname);
+    peerinfo->hostname = gf_strdup(hostname);
 
     if (store_update)
         ret = glusterd_store_peerinfo(peerinfo);
