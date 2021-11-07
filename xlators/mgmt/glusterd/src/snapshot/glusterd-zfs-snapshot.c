@@ -204,10 +204,8 @@ out:
     return ret;
 }
 
-/* This function actually calls the command (or the API) for taking the
-   snapshot of the backend brick filesystem. If this is successful,
-   then call the glusterd_snap_create function to create the snap object
-   for glusterd
+/* This function actually calls the command for creating
+   a snapshot of the backend brick filesystem.
 */
 int32_t
 glusterd_zfs_snapshot_create(glusterd_brickinfo_t *snap_brickinfo,
@@ -218,10 +216,8 @@ glusterd_zfs_snapshot_create(glusterd_brickinfo_t *snap_brickinfo,
         snap_brickinfo, 0, snapname, snap_volume_id, NULL, NULL, brick_num);
 }
 
-/* This function actually calls the command (or the API) for taking the
-   snapshot of the backend brick filesystem. If this is successful,
-   then call the glusterd_snap_create function to create the snap object
-   for glusterd
+/* This function actually calls the command for cloning
+   a snapshot of the backend brick filesystem.
 */
 int32_t
 glusterd_zfs_snapshot_clone(glusterd_brickinfo_t *snap_brickinfo,
