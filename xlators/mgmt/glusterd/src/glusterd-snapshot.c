@@ -4759,7 +4759,6 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         gf_strncpy(snap_vol->volname, clonename, sizeof(snap_vol->volname));
         gf_uuid_copy(snap_vol->restored_from_snap,
                      origin_vol->snapshot->snap_id);
-
     } else {
         GLUSTERD_GET_UUID_NOHYPHEN(snap_vol->volname, *snap_volid);
         gf_strncpy(snap_vol->parent_volname, origin_vol->volname,
@@ -9207,6 +9206,8 @@ gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
     gf_uuid_copy(new_volinfo->volume_id, orig_vol->volume_id);
     new_volinfo->snap_count = orig_vol->snap_count;
     gf_uuid_copy(new_volinfo->restored_from_snap, snap_vol->snapshot->snap_id);
+    strcpy(new_volinfo->restored_from_snapname_id, snap_vol->volname);
+    strcpy(new_volinfo->restored_from_snapname, snap_vol->snapshot->snapname);
 
     /* Use the same version as the original version */
     new_volinfo->version = orig_vol->version;

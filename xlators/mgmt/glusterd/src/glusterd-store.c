@@ -758,10 +758,32 @@ glusterd_volume_write_snap_details(int fd, glusterd_volinfo_t *volinfo)
     }
     total_len += ret;
 
+    if (volinfo->restored_from_snapname_id[0] != '\0') {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n",
+                       GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME_ID,
+                       volinfo->restored_from_snapname_id);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
+    }
+
     if (volinfo->snap_plugin[0] != '\0') {
         ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n",
                        GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN,
                        volinfo->snap_plugin);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
+    }
+
+    if (volinfo->restored_from_snapname[0] != '\0') {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n",
+                       GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME,
+                       volinfo->restored_from_snapname);
         if (ret < 0 || ret >= sizeof(buf) - total_len) {
             ret = -1;
             goto out;
@@ -3153,6 +3175,23 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT,
                             SLEN(GLUSTERD_STORE_KEY_SNAP_MAX_HARD_LIMIT))) {
             volinfo->snap_max_hard_limit = (uint64_t)atoll(value);
+        } else if (!strncmp(
+                       key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME_ID,
+                       SLEN(GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME_ID))) {
+            if (snprintf(volinfo->restored_from_snapname_id,
+                         sizeof(volinfo->restored_from_snapname_id), "%s",
+                         value) >= sizeof(volinfo->restored_from_snapname_id)) {
+                gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UUID_PARSE_FAIL,
+                       "failed to parse restored_from_snapname_id");
+            }
+        } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME,
+                            SLEN(GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME))) {
+            if (snprintf(volinfo->restored_from_snapname,
+                         sizeof(volinfo->restored_from_snapname), "%s",
+                         value) >= sizeof(volinfo->restored_from_snapname)) {
+                gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_SET_FAILED,
+                       "failed to parse restored_from_snapname");
+            }
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP,
                             SLEN(GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP))) {
             ret = gf_uuid_parse(value, volinfo->restored_from_snap);
@@ -3645,6 +3684,8 @@ glusterd_mount_brick_paths(glusterd_volinfo_t *volinfo,
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     struct glusterd_snap_ops *snap_ops = NULL;
+    char snap_volume_id[64] = "";
+    char snapname[NAME_MAX] = "";
 
     GF_ASSERT(brickinfo);
 
@@ -3654,8 +3695,19 @@ glusterd_mount_brick_paths(glusterd_volinfo_t *volinfo,
     glusterd_snapshot_plugin_by_name(volinfo->snap_plugin, &snap_ops);
 
     /* Mount the snapshot */
-    ret = snap_ops->activate(brickinfo, volinfo->snapshot->snapname,
-                             volinfo->volname, brick_num);
+    if (volinfo->snapshot) {
+        strcpy(snap_volume_id, volinfo->volname);
+        strcpy(snapname, volinfo->snapshot->snapname);
+    } else if (strlen(volinfo->restored_from_snapname) == 0) {
+        /* This is clone brick, so Volume ID is the backend snap name
+           and volname is the Clone name */
+        GLUSTERD_GET_UUID_NOHYPHEN(snap_volume_id, volinfo->volume_id);
+        strcpy(snapname, volinfo->volname);
+    } else {
+        strcpy(snap_volume_id, volinfo->restored_from_snapname_id);
+        strcpy(snapname, volinfo->restored_from_snapname);
+    }
+    ret = snap_ops->activate(brickinfo, snapname, snap_volume_id, brick_num);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_MOUNT_FAIL,
                "Failed to mount snapshot.");

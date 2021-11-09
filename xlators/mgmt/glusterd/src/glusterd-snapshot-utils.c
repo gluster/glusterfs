@@ -578,6 +578,32 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
         goto out;
     }
 
+    if (strlen(volinfo->restored_from_snapname_id) > 0) {
+        snprintf(key, sizeof(key), "%s.restored_from_snapname_id", prefix);
+        ret = dict_set_dynstr_with_alloc(dict, key,
+                                         volinfo->restored_from_snapname_id);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set %s for volume"
+                   "%s",
+                   key, volinfo->volname);
+            goto out;
+        }
+    }
+
+    if (strlen(volinfo->restored_from_snapname) > 0) {
+        snprintf(key, sizeof(key), "%s.restored_from_snapname", prefix);
+        ret = dict_set_dynstr_with_alloc(dict, key,
+                                         volinfo->restored_from_snapname);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set %s for volume"
+                   "%s",
+                   key, volinfo->volname);
+            goto out;
+        }
+    }
+
     if (strlen(volinfo->parent_volname) > 0) {
         snprintf(key, sizeof(key), "%s.parent_volname", prefix);
         ret = dict_set_dynstr_with_alloc(dict, key, volinfo->parent_volname);
@@ -947,6 +973,8 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
         0,
     };
     char *restored_snap = NULL;
+    char *restored_snapname_id = NULL;
+    char *restored_snapname = NULL;
     char *snap_plugin = NULL;
 
     conf = this->private;
@@ -983,6 +1011,27 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                key, volname);
         goto out;
     }
+    gf_uuid_parse(restored_snap, volinfo->restored_from_snap);
+
+    snprintf(key, sizeof(key), "%s.restored_from_snapname_id", prefix);
+    ret = dict_get_str(dict, key, &restored_snapname_id);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "%s missing in payload "
+               "for %s",
+               key, volname);
+    } else
+        strcpy(volinfo->restored_from_snapname_id, restored_snapname_id);
+
+    snprintf(key, sizeof(key), "%s.restored_from_snapname", prefix);
+    ret = dict_get_str(dict, key, &restored_snapname);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "%s missing in payload "
+               "for %s",
+               key, volname);
+    } else
+        strcpy(volinfo->restored_from_snapname, restored_snapname);
 
     snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
     ret = dict_get_str(dict, key, &snap_plugin);
@@ -991,11 +1040,8 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                "%s missing in payload "
                "for %s",
                key, volname);
-        goto out;
-    }
-    strcpy(volinfo->snap_plugin, snap_plugin);
-
-    gf_uuid_parse(restored_snap, volinfo->restored_from_snap);
+    } else
+        strcpy(volinfo->snap_plugin, snap_plugin);
 
     snprintf(key, sizeof(key), "%s.snap-max-hard-limit", prefix);
     ret = dict_get_uint64(dict, key, &volinfo->snap_max_hard_limit);
@@ -1073,6 +1119,8 @@ glusterd_perform_missed_op(glusterd_snap_t *snap, int32_t op)
 
                 volinfo->version--;
                 gf_uuid_copy(volinfo->restored_from_snap, null_uuid);
+                strcpy(volinfo->restored_from_snapname_id, "");
+                strcpy(volinfo->restored_from_snapname, "");
 
                 /* gd_restore_snap_volume() uses the dict and volcount
                  * to fetch snap brick info from other nodes, which were

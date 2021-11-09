@@ -47,6 +47,8 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_TRANSPORT "transport-type"
 #define GLUSTERD_STORE_KEY_VOL_ID "volume-id"
 #define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP "restored_from_snap"
+#define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME_ID "restored_from_snapname_id"
+#define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME "restored_from_snapname"
 #define GLUSTERD_STORE_KEY_RB_STATUS "rb_status"
 #define GLUSTERD_STORE_KEY_RB_SRC_BRICK "rb_src"
 #define GLUSTERD_STORE_KEY_RB_DST_BRICK "rb_dst"

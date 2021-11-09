@@ -422,6 +422,8 @@ struct glusterd_volinfo_ {
     gf_lock_t lock;
     glusterd_snap_t *snapshot;
     uuid_t restored_from_snap;
+    char restored_from_snapname_id[GD_VOLUME_NAME_MAX];
+    char restored_from_snapname[GD_VOLUME_NAME_MAX];
     int type;
     int brick_count;
     uint64_t snap_count;
