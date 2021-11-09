@@ -271,10 +271,12 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
     }
 
     new_ev_ctx->hostname = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(new_ev_ctx->hostname);
     new_ev_ctx->port = peerinfo->port;
     new_ev_ctx->req = NULL;
 
     new_event->peername = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(new_event->peername);
     gf_uuid_copy(new_event->peerid, peerinfo->uuid);
     new_event->ctx = new_ev_ctx;
 
@@ -864,6 +866,7 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
         }
 
         new_event->peername = gf_strdup(peerinfo->hostname);
+        GF_ASSERT(new_event->peername);
         gf_uuid_copy(new_event->peerid, peerinfo->uuid);
 
         ret = glusterd_friend_sm_inject_event(new_event);
@@ -1054,6 +1057,7 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
 
     gf_uuid_copy(new_ev_ctx->uuid, ev_ctx->uuid);
     new_ev_ctx->hostname = gf_strdup(ev_ctx->hostname);
+    GF_ASSERT(new_ev_ctx->hostname);
     new_ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 
     new_event->ctx = new_ev_ctx;

@@ -3468,6 +3468,7 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname)
     }
 
     *hostname = gf_strdup((char *)client_hostname);
+    GF_ASSERT(*hostname);
 out:
     if (client_ip_copy)
         GF_FREE(client_ip_copy);

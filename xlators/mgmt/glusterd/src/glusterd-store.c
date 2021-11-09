@@ -4598,6 +4598,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
         address = cds_list_entry(peerinfo->hostnames.next,
                                  glusterd_peer_hostname_t, hostname_list);
         peerinfo->hostname = gf_strdup(address->hostname);
+        GF_ASSERT(peerinfo->hostname);
 
         ret = glusterd_friend_add_from_peerinfo(peerinfo, 1, NULL);
         if (ret)

@@ -236,6 +236,7 @@ glusterd_hostname_new(xlator_t *this, const char *hostname,
     }
 
     hostname_obj->hostname = gf_strdup(hostname);
+    GF_ASSERT(hostname_obj->hostname);
     CDS_INIT_LIST_HEAD(&hostname_obj->hostname_list);
 
     *name = hostname_obj;

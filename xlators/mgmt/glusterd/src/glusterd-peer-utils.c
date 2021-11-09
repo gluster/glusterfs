@@ -371,6 +371,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
          * get everything right
          */
         new_peer->hostname = gf_strdup(hostname);
+        GF_ASSERT(new_peer->hostname);
     }
 
     if (uuid) {
@@ -445,6 +446,7 @@ glusterd_uuid_to_hostname(uuid_t uuid)
 
     if (!gf_uuid_compare(MY_UUID, uuid)) {
         hostname = gf_strdup("localhost");
+        GF_ASSERT(hostname);
         return hostname;
     }
     RCU_READ_LOCK;
@@ -453,6 +455,7 @@ glusterd_uuid_to_hostname(uuid_t uuid)
         {
             if (!gf_uuid_compare(entry->uuid, uuid)) {
                 hostname = gf_strdup(entry->hostname);
+                GF_ASSERT(hostname);
                 break;
             }
         }
@@ -525,6 +528,7 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
             if (!(peerinfo->connected) ||
                 (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
                 *down_peerstr = gf_strdup(peerinfo->hostname);
+                GF_ASSERT(*down_peerstr);
                 RCU_READ_UNLOCK;
                 gf_msg_debug(THIS->name, 0, "Peer %s is down. ", *down_peerstr);
                 goto out;
@@ -558,6 +562,7 @@ glusterd_peer_hostname_new(const char *hostname,
     }
 
     peer_hostname->hostname = gf_strdup(hostname);
+    GF_ASSERT(peer_hostname->hostname);
     CDS_INIT_LIST_HEAD(&peer_hostname->hostname_list);
 
     *name = peer_hostname;
@@ -775,6 +780,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
     if (peerinfo->hostname != NULL)
         GF_FREE(peerinfo->hostname);
     peerinfo->hostname = gf_strdup(hostname);
+    GF_ASSERT(peerinfo->hostname);
 
     if (conf->op_version < GD_OP_VERSION_3_6_0) {
         ret = 0;

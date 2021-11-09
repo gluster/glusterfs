@@ -1909,11 +1909,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
         goto out;
     }
     ctx->hostname = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(ctx->hostname);
     ctx->port = peerinfo->port;
     ctx->req = peerctx->args.req;
     ctx->dict = peerctx->args.dict;
 
     event->peername = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(event->peername);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ctx;
 

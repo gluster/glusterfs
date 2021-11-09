@@ -329,6 +329,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_NEW_NAME, &event);
         if (!ret) {
             event->peername = gf_strdup(peerinfo->hostname);
+            GF_ASSERT(event->peername);
             gf_uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
@@ -395,6 +396,7 @@ cont:
     }
 
     event->peername = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(event->peername);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
     event->ctx = ((call_frame_t *)myframe)->local;
@@ -503,8 +505,9 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_uuid_copy(ev_ctx->uuid, rsp.uuid);
     ev_ctx->hostname = gf_strdup(rsp.hostname);
-
+    GF_ASSERT(ev_ctx->hostname);
     event->peername = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(ev_ctx->hostname);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ev_ctx;
     ret = glusterd_friend_sm_inject_event(event);
@@ -611,6 +614,7 @@ inject:
         goto unlock;
     }
     event->peername = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(event->peername);
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
     ret = glusterd_friend_sm_inject_event(event);
@@ -1476,6 +1480,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
 
     gf_uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(hostname);
+    GF_ASSERT(req.hostname);
     req.port = port;
 
     ret = glusterd_submit_request(
@@ -1524,6 +1529,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     req.hostname = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(req.hostname);
     req.port = peerinfo->port;
 
     RCU_READ_UNLOCK;
@@ -1636,6 +1642,7 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
 
     gf_uuid_copy(req.uuid, MY_UUID);
     req.hostname = gf_strdup(peerinfo->hostname);
+    GF_ASSERT(req.hostname);
     req.port = peerinfo->port;
 
     ret = glusterd_submit_request(peerinfo->rpc, &req, frame, peerinfo->peer,

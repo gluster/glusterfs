@@ -56,6 +56,7 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
         else
             peer_str = gf_strdup(uuid_utoa(uuid));
 
+        GF_ASSERT(peer_str);
         RCU_READ_UNLOCK;
 
         is_operrstr_blk = (op_errstr && strcmp(op_errstr, ""));
