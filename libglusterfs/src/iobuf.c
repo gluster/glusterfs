@@ -13,6 +13,9 @@
 #include <stdio.h>
 #include "glusterfs/libglusterfs-messages.h"
 
+#ifdef GF_LINUX_HOST_OS
+#include <linux/mman.h> /* for mmap with 2MB huge pages support */
+#endif
 /*
   TODO: implement destroy margins and prefetching of arenas
 */
@@ -23,8 +26,9 @@
 /* Make sure this array is sorted based on pagesize */
 static const struct iobuf_init_config gf_iobuf_init_config[] = {
     /* { pagesize, num_pages }, */
-    {128, 1024},     {512, 512},       {2 * 1024, 512}, {8 * 1024, 128},
-    {32 * 1024, 64}, {128 * 1024, 32}, {256 * 1024, 8}, {1 * 1024 * 1024, 2},
+    {128 * 1024, 32},
+    {256 * 1024, 8},
+    {1 * 1024 * 1024, 2},
 };
 
 static int
@@ -161,12 +165,26 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     iobuf_arena->arena_size = rounded_size * num_iobufs;
 
-    iobuf_arena->mem_base = mmap(NULL, iobuf_arena->arena_size,
-                                 PROT_READ | PROT_WRITE,
-                                 MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    iobuf_arena->mem_base = MAP_FAILED;
+
+#ifdef GF_LINUX_HOST_OS
+    /* On Linux, try to map with 2MB huge pages first */
+    iobuf_arena->mem_base = mmap(
+        NULL, iobuf_arena->arena_size, PROT_READ | PROT_WRITE,
+        MAP_PRIVATE | MAP_ANONYMOUS | MAP_HUGETLB | MAP_HUGE_2MB, -1, 0);
+#endif /*GF_LINUX_HOST_OS */
+
     if (iobuf_arena->mem_base == MAP_FAILED) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
-        goto err;
+        /* On Linux, try again - without huge pages this time.
+           On other OS, this is the first mmap() attempt.
+        */
+        iobuf_arena->mem_base = mmap(NULL, iobuf_arena->arena_size,
+                                     PROT_READ | PROT_WRITE,
+                                     MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (iobuf_arena->mem_base == MAP_FAILED) {
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
+            goto err;
+        }
     }
 
     list_add_tail(&iobuf_arena->all_list, &iobuf_pool->all_arenas);
