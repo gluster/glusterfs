@@ -86,7 +86,7 @@ GLFS_MSGID(
 #define glusterfsd_msg_37_STR "failed to get dict value"
 #define glusterfsd_msg_41_STR "received attach request for volfile"
 #define glusterfsd_msg_42_STR "failed to unserialize xdata to dictionary"
-#define glusterfsd_msg_041_STR "can't detach. flie not found"
+#define glusterfsd_msg_041_STR "can't detach. file not found"
 #define glusterfsd_msg_042_STR                                                 \
     "couldnot detach old graph. Aborting the reconfiguration operation"
 
