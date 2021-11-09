@@ -609,6 +609,18 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
                key, volinfo->volname);
     }
 
+    if (strlen(volinfo->snap_plugin) > 0) {
+        snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
+        ret = dict_set_dynstr_with_alloc(dict, key, volinfo->snap_plugin);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set %s "
+                   "for volume %s",
+                   key, volinfo->volname);
+            goto out;
+        }
+    }
+
 out:
     return ret;
 }
@@ -935,6 +947,7 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
         0,
     };
     char *restored_snap = NULL;
+    char *snap_plugin = NULL;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -972,7 +985,7 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
     }
 
     snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
-    ret = dict_get_str(dict, key, &volinfo->snap_plugin);
+    ret = dict_get_str(dict, key, &snap_plugin);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "%s missing in payload "
@@ -980,6 +993,7 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                key, volname);
         goto out;
     }
+    strcpy(volinfo->snap_plugin, snap_plugin);
 
     gf_uuid_parse(restored_snap, volinfo->restored_from_snap);
 
