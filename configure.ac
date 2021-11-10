@@ -812,6 +812,27 @@ if test "x$enable_epoll" != "xno"; then
 fi
 # end EPOLL section
 
+# TIMERFD and timer selection section
+AC_ARG_ENABLE([timerfd],
+              AC_HELP_STRING([--disable-timerfd],
+                             [Do not use timerfd for timers.]))
+
+BUILD_TIMERFD=no
+if test "x$enable_timerfd" != "xno"; then
+   AC_CHECK_HEADERS([sys/timerfd.h],
+                    [BUILD_TIMERFD=yes],
+                    [BUILD_TIMERFD=no])
+fi
+
+if test "x$BUILD_EPOLL" = "xyes" -a "x$BUILD_TIMERFD" = "xyes"; then
+   AC_DEFINE(GF_TIMERFD_TIMERS, 1, [Use timerfd-based timers.])
+   TIMERTYPE=timerfd
+else
+   TIMERTYPE=generic
+fi
+
+# end TIMERFD and timers section
+
 # SYNCDAEMON section
 AC_ARG_ENABLE([georeplication],
               AC_HELP_STRING([--disable-georeplication],
@@ -1865,6 +1886,7 @@ echo "GlusterFS configure summary"
 echo "==========================="
 echo "FUSE client          : $BUILD_FUSE_CLIENT"
 echo "epoll IO multiplex   : $BUILD_EPOLL"
+echo "Timer implementation : $TIMERTYPE"
 echo "fusermount           : $BUILD_FUSERMOUNT"
 echo "readline             : $BUILD_READLINE"
 echo "georeplication       : $BUILD_SYNCDAEMON"

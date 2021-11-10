@@ -15,6 +15,122 @@
 #include "glusterfs/timespec.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+#if defined(GF_TIMERFD_TIMERS)
+#include "glusterfs/syscall.h"
+#include "glusterfs/gf-event.h"
+#endif /* GF_TIMERFD_TIMERS */
+
+#if defined(GF_TIMERFD_TIMERS)
+
+static void
+gf_timer_event_handler(int fd, int idx, int gen, void *data, int poll_in,
+                       int poll_out, int poll_err, char event_thread_died)
+{
+    uint64_t exp = 0;
+    gf_timer_t *event = data;
+    xlator_t *old_THIS = NULL;
+    struct event_pool *pool = event->ctx->event_pool;
+
+    if (sys_read(fd, &exp, sizeof(exp)) != sizeof(exp))
+        GF_ABORT();
+
+    if (event_thread_died)
+        return;
+
+    gf_event_handled(pool, fd, idx, gen);
+
+    event->fired = _gf_true;
+
+    if (event->xl)
+        old_THIS = THIS, THIS = event->xl;
+
+    event->callbk(event->data);
+
+    if (old_THIS)
+        THIS = old_THIS;
+}
+
+gf_timer_t *
+gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
+                    gf_timer_cbk_t callbk, void *data)
+{
+    gf_timer_t *event;
+    struct itimerspec it;
+
+    if (ctx == NULL || ctx->cleanup_started) {
+        gf_msg_callingfn("timer", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "Either ctx is NULL or ctx cleanup started");
+        return NULL;
+    }
+
+    event = GF_CALLOC(1, sizeof(*event), gf_common_mt_gf_timer_t);
+    if (!event)
+        return NULL;
+
+    event->fd = timerfd_create(CLOCK_MONOTONIC, 0);
+    if (event->fd < 0)
+        goto out;
+
+    memset(&it, 0, sizeof(it));
+    it.it_value = delta;
+
+    if (timerfd_settime(event->fd, 0, &it, NULL) < 0)
+        goto out;
+
+    event->xl = THIS;
+    event->ctx = ctx;
+    event->data = data;
+    event->callbk = callbk;
+
+    event->idx = gf_event_register(ctx->event_pool, event->fd,
+                                   gf_timer_event_handler, event, 1, 0, 0);
+    if (event->idx == -1)
+        goto out;
+
+    return event;
+
+out:
+
+    if (event->fd > 0)
+        sys_close(event->fd);
+    GF_FREE(event);
+
+    return NULL;
+}
+
+int32_t
+gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
+{
+    gf_boolean_t fired = _gf_false;
+
+    if (ctx == NULL || event == NULL) {
+        gf_msg_callingfn("timer", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
+                         "invalid argument");
+        return -1;
+    }
+
+    if (ctx->cleanup_started) {
+        gf_msg_callingfn("timer", GF_LOG_INFO, 0, LG_MSG_CTX_CLEANUP_STARTED,
+                         "ctx cleanup started");
+        return -1;
+    }
+
+    fired = event->fired;
+
+    if (gf_event_unregister_close(ctx->event_pool, event->fd, event->idx) < 0)
+        GF_ABORT();
+
+    GF_FREE(event);
+    return fired ? -1 : 0;
+}
+
+void
+gf_timer_registry_destroy(glusterfs_ctx_t *ctx)
+{
+}
+
+#else /* not GF_TIMERFD_TIMERS */
+
 /* fwd decl */
 static gf_timer_registry_t *
 gf_timer_registry_init(glusterfs_ctx_t *);
@@ -254,3 +370,5 @@ gf_timer_registry_destroy(glusterfs_ctx_t *ctx)
 
     GF_FREE(reg);
 }
+
+#endif /* GF_TIMERFD_TIMERS */
