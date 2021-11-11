@@ -1251,6 +1251,9 @@ int
 gf_syncfs(int fd);
 
 int
+gf_pipe(int fd[2], int flags);
+
+int
 gf_nanosleep(uint64_t nsec);
 
 static inline time_t
