@@ -2520,6 +2520,7 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
         0,
     };
     struct glusterd_snap_ops *snap_ops = NULL;
+    char snap_path[4352] = "";
 
     this = THIS;
     GF_ASSERT(this);
@@ -2591,6 +2592,47 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
                "Failed to "
                "remove the snapshot %s (%s)",
                brickinfo->path, snap_vol->snapshot->snapname);
+    }
+
+    /* Cleanup of Snapshot pid directory */
+    snprintf(snap_path, sizeof(snap_path), "%s/%s/%s", snap_mount_dir,
+             snap_vol->snapshot->snapname, snap_vol->volname);
+    ret = sys_rmdir(snap_path);
+    if (ret) {
+        /* Do not fail the Snapshot delete since
+          this is a cleanup operation. */
+        ret = 0;
+        /* If multiple bricks in same node(Same Volume/Snashot) then
+          this directory may contain pid file of that brick */
+        if (errno == ENOENT || errno == ENOTEMPTY)
+            gf_msg_debug(this->name, 0,
+                         "Failed to remove "
+                         "%s directory : error : %s",
+                         snap_path, strerror(errno));
+        else
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
+                   "Failed to remove "
+                   "%s directory : error : %s",
+                   snap_path, strerror(errno));
+    }
+
+    snprintf(snap_path, sizeof(snap_path), "%s/%s", snap_mount_dir,
+             snap_vol->snapshot->snapname);
+    ret = sys_rmdir(snap_path);
+    if (ret) {
+        /* Do not fail the Snapshot delete since
+          this is a cleanup operation. */
+        ret = 0;
+        if (errno == ENOENT || errno == ENOTEMPTY)
+            gf_msg_debug(this->name, 0,
+                         "Failed to remove "
+                         "%s directory : error : %s",
+                         snap_path, strerror(errno));
+        else
+            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DIR_OP_FAILED,
+                   "Failed to remove "
+                   "%s directory : error : %s",
+                   snap_path, strerror(errno));
     }
 out:
     gf_msg_trace(this->name, 0, "Returning %d", ret);
