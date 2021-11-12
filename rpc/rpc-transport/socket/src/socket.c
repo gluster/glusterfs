@@ -12,7 +12,6 @@
 #include "name.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include "socket-mem-types.h"
 
@@ -1514,7 +1513,7 @@ __socket_read_vectored_request(rpc_transport_t *this,
             addr = rpc_cred_addr(iobuf_ptr(in->iobuf));
 
             /* also read verf flavour and verflen */
-            credlen = ntoh32(*((uint32_t *)addr)) +
+            credlen = be32toh(*((uint32_t *)addr)) +
                       RPC_AUTH_FLAVOUR_N_LENGTH_SIZE;
 
             __socket_proto_init_pending(priv, credlen);
@@ -1532,7 +1531,7 @@ __socket_read_vectored_request(rpc_transport_t *this,
 
         case SP_STATE_READ_CREDBYTES:
             addr = rpc_verf_addr(frag->fragcurrent);
-            verflen = ntoh32(*((uint32_t *)addr));
+            verflen = be32toh(*((uint32_t *)addr));
 
             if (verflen == 0) {
                 request->vector_state = SP_STATE_READ_VERFBYTES;
@@ -1686,18 +1685,17 @@ __socket_read_request(rpc_transport_t *this)
             /* fall through */
 
         case SP_STATE_READ_RPCHDR1:
-            buf = rpc_prognum_addr(iobuf_ptr(in->iobuf));
-            prognum = ntoh32(*((uint32_t *)buf));
-
-            buf = rpc_progver_addr(iobuf_ptr(in->iobuf));
-            progver = ntoh32(*((uint32_t *)buf));
-
-            buf = rpc_procnum_addr(iobuf_ptr(in->iobuf));
-            procnum = ntoh32(*((uint32_t *)buf));
-
             if (priv->is_server) {
                 /* this check is needed as rpcsvc and rpc-clnt
                  * actor structures are not same */
+                buf = rpc_prognum_addr(iobuf_ptr(in->iobuf));
+                prognum = be32toh(*((uint32_t *)buf));
+
+                buf = rpc_progver_addr(iobuf_ptr(in->iobuf));
+                progver = be32toh(*((uint32_t *)buf));
+
+                buf = rpc_procnum_addr(iobuf_ptr(in->iobuf));
+                procnum = be32toh(*((uint32_t *)buf));
                 vector_sizer = rpcsvc_get_program_vector_sizer(
                     (rpcsvc_t *)this->mydata, prognum, progver, procnum);
             }
@@ -2018,7 +2016,7 @@ __socket_read_accepted_reply(rpc_transport_t *this)
         case SP_STATE_READ_REPLY_VERFLEN:
             buf = rpc_reply_verflen_addr(frag->fragcurrent);
 
-            verflen = ntoh32(*((uint32_t *)buf));
+            verflen = be32toh(*((uint32_t *)buf));
 
             /* also read accept status along with verf data */
             len = verflen + RPC_ACCEPT_STATUS_LEN;
@@ -2038,7 +2036,7 @@ __socket_read_accepted_reply(rpc_transport_t *this)
 
             buf = rpc_reply_accept_status_addr(frag->fragcurrent);
 
-            frag->call_body.reply.accept_status = ntoh32(*(uint32_t *)buf);
+            frag->call_body.reply.accept_status = be32toh(*(uint32_t *)buf);
 
             /* fall through */
 
@@ -2111,7 +2109,7 @@ __socket_read_vectored_reply(rpc_transport_t *this)
 
             buf = rpc_reply_status_addr(frag->fragcurrent);
 
-            frag->call_body.reply.accept_status = ntoh32(*((uint32_t *)buf));
+            frag->call_body.reply.accept_status = be32toh(*((uint32_t *)buf));
 
             frag->call_body.reply.status_state = SP_STATE_READ_REPLY_STATUS;
 
@@ -2178,7 +2176,7 @@ __socket_read_reply(rpc_transport_t *this)
     request_info = in->request_info;
 
     if (map_xid) {
-        request_info->xid = ntoh32(*((uint32_t *)buf));
+        request_info->xid = be32toh(*((uint32_t *)buf));
 
         /* release priv->lock, so as to avoid deadlock b/w conn->lock
          * and priv->lock, since we are doing an upcall here.
@@ -2245,7 +2243,7 @@ __socket_read_frag(rpc_transport_t *this)
 
         case SP_STATE_READ_MSGTYPE:
             buf = rpc_msgtype_addr(iobuf_ptr(in->iobuf));
-            in->msg_type = ntoh32(*((uint32_t *)buf));
+            in->msg_type = be32toh(*((uint32_t *)buf));
 
             if (in->msg_type == CALL) {
                 ret = __socket_read_request(this);
@@ -2367,7 +2365,7 @@ __socket_proto_state_machine(rpc_transport_t *this,
 
             case SP_STATE_READ_FRAGHDR:
 
-                in->fraghdr = ntoh32(in->fraghdr);
+                in->fraghdr = be32toh(in->fraghdr);
                 in->total_bytes_read += RPC_FRAGSIZE(in->fraghdr);
 
                 if (in->total_bytes_read >= GF_UNIT_GB) {

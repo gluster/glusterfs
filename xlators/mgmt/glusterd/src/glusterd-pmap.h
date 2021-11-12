@@ -17,7 +17,6 @@
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "rpcsvc.h"
 
 struct pmap_ports {

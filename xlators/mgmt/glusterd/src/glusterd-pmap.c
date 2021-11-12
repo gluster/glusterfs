@@ -37,7 +37,7 @@ pmap_port_isfree(int port)
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = PF_INET;
-    sin.sin_port = hton16(port);
+    sin.sin_port = htobe16(port);
 
     sock = socket(PF_INET, SOCK_STREAM, 0);
     if (sock == -1)

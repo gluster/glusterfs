@@ -12,7 +12,6 @@
 #include <glusterfs/defaults.h>
 #include "libxlator.h"
 #include <glusterfs/common-utils.h>
-#include <glusterfs/byte-order.h>
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include <glusterfs/syncop.h>
@@ -319,13 +318,13 @@ quota_dict_set_size_meta(xlator_t *this, dict_t *dict, const quota_meta_t *meta)
     if (value == NULL) {
         goto out;
     }
-    value[0].size = hton64(meta->size);
-    value[0].file_count = hton64(meta->file_count);
-    value[0].dir_count = hton64(meta->dir_count);
+    value[0].size = htobe64(meta->size);
+    value[0].file_count = htobe64(meta->file_count);
+    value[0].dir_count = htobe64(meta->dir_count);
 
     value[1].size = 0;
     value[1].file_count = 0;
-    value[1].dir_count = hton64(1);
+    value[1].dir_count = htobe64(1);
 
     GET_SIZE_KEY(this, size_key, ret);
     if (ret < 0)

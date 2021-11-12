@@ -8,7 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/byte-order.h>
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
 #include <glusterfs/hashfn.h>
 
 #include "ec-mem-types.h"

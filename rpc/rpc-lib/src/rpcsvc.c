@@ -11,7 +11,6 @@
 #include "rpcsvc.h"
 #include "rpc-transport.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include "xdr-rpc.h"

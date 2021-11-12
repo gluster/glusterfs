@@ -19,7 +19,6 @@
 #include "glusterd-messages.h"
 #include <glusterfs/run.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/quota-common-utils.h>
 #include "glusterd-quota.h"
@@ -817,8 +816,8 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
                     goto out;
             }
         } else {
-            existing_limit.hl = ntoh64(existing_limit.hl);
-            existing_limit.sl = ntoh64(existing_limit.sl);
+            existing_limit.hl = be64toh(existing_limit.hl);
+            existing_limit.sl = be64toh(existing_limit.sl);
         }
         new_limit.sl = existing_limit.sl;
 
@@ -829,13 +828,13 @@ glusterd_set_quota_limit(char *volname, char *path, char *hard_limit,
         new_limit.sl = soft_limit_double;
     }
 
-    new_limit.sl = hton64(new_limit.sl);
+    new_limit.sl = htobe64(new_limit.sl);
 
     ret = gf_string2bytesize_int64(hard_limit, &local_hl);
     if (ret)
         goto out;
 
-    new_limit.hl = hton64(local_hl);
+    new_limit.hl = htobe64(local_hl);
 
     ret = sys_lsetxattr(abspath, key, (char *)(void *)&new_limit,
                         sizeof(new_limit), 0);

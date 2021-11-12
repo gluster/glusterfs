@@ -1437,8 +1437,8 @@ quota_get_limits(xlator_t *this, dict_t *dict, int64_t *hard_lim,
     limit = (quota_limits_t *)ptr;
 
     if (limit) {
-        *hard_lim = ntoh64(limit->hl);
-        soft_lim_percent = ntoh64(limit->sl);
+        *hard_lim = be64toh(limit->hl);
+        soft_lim_percent = be64toh(limit->sl);
     }
 
     if (soft_lim_percent < 0) {
@@ -1455,8 +1455,8 @@ quota_get_limits(xlator_t *this, dict_t *dict, int64_t *hard_lim,
     object_limit = (quota_limits_t *)ptr;
 
     if (object_limit) {
-        *object_hard_limit = ntoh64(object_limit->hl);
-        soft_lim_percent = ntoh64(object_limit->sl);
+        *object_hard_limit = be64toh(object_limit->hl);
+        soft_lim_percent = be64toh(object_limit->sl);
     }
 
     if (soft_lim_percent < 0) {
@@ -2681,7 +2681,7 @@ quota_rename_get_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         op_errno = EINVAL;
         goto out;
     }
-    local->delta = ntoh64(*size);
+    local->delta = be64toh(*size);
     local->object_delta = 1;
     quota_check_limit(frame, local->newloc.parent, this);
     return 0;

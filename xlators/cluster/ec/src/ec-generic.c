@@ -8,7 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/byte-order.h>
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
 
 #include "ec.h"
 #include "ec-messages.h"
@@ -1181,7 +1185,7 @@ ec_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((data != NULL) && (data->len >= sizeof(uint64_t))) {
             version = (uint64_t *)data->data;
 
-            if (((ntoh64(version[0]) >> EC_SELFHEAL_BIT) & 1) != 0) {
+            if (((be64toh(version[0]) >> EC_SELFHEAL_BIT) & 1) != 0) {
                 LOCK(&fop->lock);
 
                 fop->healing |= 1ULL << idx;

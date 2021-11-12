@@ -10,7 +10,6 @@
 
 #include "snapview-client.h"
 #include <glusterfs/inode.h>
-#include <glusterfs/byte-order.h>
 
 static void
 svc_local_free(svc_local_t *local)
