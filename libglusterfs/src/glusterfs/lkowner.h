@@ -27,13 +27,13 @@ lkowner_unparse(gf_lkowner_t *lkowner, char *buf, int buf_len)
     */
     if (lkowner->len >= 8 && buf_len > 16) {
         for (i = 0; i < 8; i++) {
-            nibble = lkowner->data[i] & 0x0F;
+            nibble = (lkowner->data[i] & 0xF0) >> 4;
             if (nibble < 10)
                 buf[j] = '0' + nibble;
             else
                 buf[j] = 'a' + nibble - 10;
             j++;
-            nibble = (lkowner->data[i] & 0xF0) >> 4;
+            nibble = lkowner->data[i] & 0x0F;
             if (nibble < 10)
                 buf[j] = '0' + nibble;
             else
@@ -99,7 +99,6 @@ is_lk_owner_null(gf_lkowner_t *lkowner)
     for (i = 0; i < lkowner->len; i++) {
         if (lkowner->data[i] != 0) {
             return 0;
-            break;
         }
     }
 
