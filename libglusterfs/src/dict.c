@@ -252,6 +252,12 @@ key_value_cmp(dict_t *one, char *key1, data_t *value1, void *data)
     return -1;
 }
 
+static inline gf_boolean_t
+dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
+{
+    return _gf_true;
+}
+
 /* If both dicts are NULL then equal. If one of the dicts is NULL but the
  * other has only ignorable keys then also they are equal. If both dicts are
  * non-null then check if for each non-ignorable key, values are same or
@@ -479,9 +485,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     this->members[hashval] = pair;
 
     pair->next = this->members_list;
-    pair->prev = NULL;
-    if (this->members_list)
-        this->members_list->prev = pair;
     this->members_list = pair;
     this->count++;
 
@@ -684,15 +687,12 @@ dict_deln(dict_t *this, char *key, const int keylen)
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
-            if (pair->prev)
-                pair->prev->next = pair->next;
+            if (prev)
+                prev->next = pair->next;
             else
                 this->members_list = pair->next;
 
-            if (pair->next)
-                pair->next->prev = pair->prev;
-
-            this->totkvlen -= (strlen(pair->key) + 1);
+            this->totkvlen -= (keylen + 1);
             GF_FREE(pair->key);
             if (pair == &this->free_pair) {
                 this->free_pair.key = NULL;
@@ -1355,12 +1355,6 @@ dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp)
     return 0;
 }
 
-gf_boolean_t
-dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
-{
-    return _gf_true;
-}
-
 int
 dict_foreach(dict_t *dict,
              int (*fn)(dict_t *this, char *key, data_t *value, void *data),
@@ -1395,7 +1389,7 @@ dict_foreach_match(dict_t *dict,
         return -1;
     }
 
-    int ret = -1;
+    int ret;
     int count = 0;
     data_pair_t *pairs = dict->members_list;
     data_pair_t *next = NULL;
@@ -2243,9 +2237,6 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             this->members[hashval] = pair;
 
             pair->next = this->members_list;
-            pair->prev = NULL;
-            if (this->members_list)
-                this->members_list->prev = pair;
             this->members_list = pair;
             this->count++;
 
@@ -3574,11 +3565,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     int32_t keylen = 0;
     int32_t vallen = 0;
     int32_t hostord = 0;
-    xlator_t *this = NULL;
     int32_t keylenarr[totkeycount];
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!buf) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
