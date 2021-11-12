@@ -230,12 +230,12 @@ ec_manager_create(ec_fop_data_t *fop, int32_t state)
         case -EC_STATE_REPORT:
             cbk = fop->answer;
 
-            GF_ASSERT(cbk != NULL);
             GF_ASSERT(fop->error != 0);
 
             if (fop->cbks.create != NULL) {
                 fop->cbks.create(fop->req_frame, fop, fop->xl, -1, fop->error,
-                                 NULL, NULL, NULL, NULL, NULL, cbk->xdata);
+                                 NULL, NULL, NULL, NULL, NULL,
+                                 cbk == NULL ? NULL : cbk->xdata);
             }
 
             return EC_STATE_LOCK_REUSE;
