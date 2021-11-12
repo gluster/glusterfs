@@ -158,8 +158,6 @@ struct rpcsvc_request {
 
     int procnum;
 
-    int type;
-
     /* Uid and gid filled by the rpc-auth module during the authentication
      * phase.
      */
@@ -168,7 +166,6 @@ struct rpcsvc_request {
     pid_t pid;
 
     gf_lkowner_t lk_owner;
-    uint64_t gfs_id;
 
     /* Might want to move this to AUTH_UNIX specific state since this array
      * is not available for every authentication scheme.
@@ -201,10 +198,14 @@ struct rpcsvc_request {
      * sent to the client.
      */
     client_auth_data_t verf;
+
+#if defined(BUILD_GNFS)
     /* Container for a RPC program wanting to store a temp
-     * request-specific item.
+     * request-specific item. Currently this is used only
+     * by the legacy gnfs server xlator.
      */
     void *private;
+#endif /* BUILD_GNFS */
 
     /* Container for transport to store request-specific item */
     void *trans_private;
@@ -247,8 +248,11 @@ struct rpcsvc_request {
     gf_boolean_t ownthread;
 
     gf_boolean_t synctask;
-    struct timespec begin; /*req handling start time*/
-    struct timespec end;   /*req handling end time*/
+
+    /* If latency measurement is enabled, marks the request handling
+     * start time.
+     */
+    struct timespec begin;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))
