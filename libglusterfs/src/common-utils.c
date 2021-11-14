@@ -5460,7 +5460,7 @@ gf_pipe(int fd[2], int flags)
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;

@@ -38,9 +38,7 @@ static const gf_io_engine_t *gf_io_engines[] = {
 #ifdef HAVE_IO_URING
     &gf_io_engine_io_uring,
 #endif
-    &gf_io_engine_legacy,
-    NULL
-};
+    &gf_io_engine_legacy, NULL};
 
 /* Allocate an array of objects in a memory mapped area. */
 #define gf_io_alloc_array(_ptr, _size)                                         \
@@ -374,9 +372,8 @@ GF_IO_CBK(gf_io_test_cancel, op, res, static)
 static int32_t
 gf_io_main(uint32_t workers, gf_io_handlers_t *handlers, void *data)
 {
-    static int32_t signals[] = {
-        SIGSEGV, SIGBUS, SIGILL, SIGSYS, SIGFPE, SIGABRT, SIGCONT, 0
-    };
+    static int32_t signals[] = {SIGSEGV, SIGBUS,  SIGILL,  SIGSYS,
+                                SIGFPE,  SIGABRT, SIGCONT, 0};
     gf_io_thread_pool_t pool;
     gf_io_thread_pool_config_t cfg;
     int32_t res;

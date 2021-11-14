@@ -131,8 +131,8 @@ glusterd_txn_opinfo_dict_fini()
 
 void
 glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
-                         glusterd_op_sm_state_t state, int *op,
-                         dict_t *op_ctx, rpcsvc_request_t *req)
+                         glusterd_op_sm_state_t state, int *op, dict_t *op_ctx,
+                         rpcsvc_request_t *req)
 {
     glusterd_conf_t *conf = NULL;
 
@@ -5826,9 +5826,9 @@ glusterd_op_sm_transition_state(glusterd_op_info_t *opinfo,
     conf = THIS->private;
     GF_ASSERT(conf);
 
-    (void)glusterd_sm_tr_log_transition_add(
-        &conf->op_sm_log, opinfo->state, state[event_type].next_state,
-        event_type);
+    (void)glusterd_sm_tr_log_transition_add(&conf->op_sm_log, opinfo->state,
+                                            state[event_type].next_state,
+                                            event_type);
 
     opinfo->state = state[event_type].next_state;
     return 0;

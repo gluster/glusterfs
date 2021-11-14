@@ -8,16 +8,16 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <string.h>
 #include <ctype.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/param.h> /* for PATH_MAX */
+#include <unistd.h>
 
+#include "procdiggy.h"
 #include <glusterfs/common-utils.h>
 #include <glusterfs/syscall.h>
-#include "procdiggy.h"
 
 pid_t
 pidinfo(pid_t pid, char **name)

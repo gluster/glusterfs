@@ -497,8 +497,8 @@ gf_io_thread_join(pthread_t thread, struct timespec *timeout)
 {
 #ifdef GF_LINUX_HOST_OS
     if (timeout != NULL) {
-        gf_io_success(gf_io_call_ret(pthread_timedjoin_np, thread, NULL,
-                                     timeout));
+        gf_io_success(
+            gf_io_call_ret(pthread_timedjoin_np, thread, NULL, timeout));
 
         return;
     }
