@@ -34,7 +34,7 @@
 #define GF_ALIGN_BUF(ptr, bound)                                               \
     ((void *)((unsigned long)(ptr + bound - 1) & (unsigned long)(~(bound - 1))))
 
-#define GF_IOBUF_ALIGN_SIZE 512
+#define GF_IOBUF_ALIGN_SIZE 4096
 #define USE_IOBUF_POOL_IF_SIZE_GREATER_THAN 131072
 
 /* one allocatable unit for the consumers of the IOBUF API */

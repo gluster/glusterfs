@@ -482,12 +482,12 @@ iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
         break;
     }
 
-    iobuf = GF_CALLOC(1, sizeof(*iobuf), gf_common_mt_iobuf);
+    iobuf = GF_MALLOC(sizeof(*iobuf), gf_common_mt_iobuf);
     if (!iobuf)
         goto out;
 
     /* 4096 is the alignment */
-    iobuf->free_ptr = GF_CALLOC(1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
+    iobuf->free_ptr = GF_MALLOC(((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
                                 gf_common_mt_char);
     if (!iobuf->free_ptr)
         goto out;
