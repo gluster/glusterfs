@@ -1352,4 +1352,8 @@ glusterd_add_peers_to_auth_list(char *volname);
 int
 glusterd_replace_old_auth_allow_list(char *volname);
 
+int
+glusterd_peer_hostname_update(glusterd_peerinfo_t *peerinfo,
+                              const char *hostname, gf_boolean_t store_update);
+
 #endif

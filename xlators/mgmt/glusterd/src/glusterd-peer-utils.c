@@ -363,7 +363,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
 
     CDS_INIT_LIST_HEAD(&new_peer->hostnames);
     if (hostname) {
-        ret = gd_add_address_to_peer(new_peer, hostname);
+        ret = gd_add_address_to_peer(new_peer, hostname, _gf_true);
         if (ret)
             goto out;
         /* Also set it to peerinfo->hostname. Doing this as we use
@@ -604,7 +604,8 @@ out:
 }
 
 int
-gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address)
+gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address,
+                       gf_boolean_t add_head)
 {
     int ret = -1;
     glusterd_peer_hostname_t *hostname = NULL;
@@ -621,9 +622,13 @@ gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address)
     if (ret)
         goto out;
 
+    ret = 0;
+    if (add_head) {
+        cds_list_add_rcu(&hostname->hostname_list, &peerinfo->hostnames);
+        goto out;
+    }
     cds_list_add_tail_rcu(&hostname->hostname_list, &peerinfo->hostnames);
 
-    ret = 0;
 out:
     return ret;
 }
@@ -740,16 +745,13 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                key);
         goto out;
     }
-    ret = gd_add_address_to_peer(peerinfo, hostname);
+    /* Also set peerinfo->hostname to the latest address */
+    ret = glusterd_peer_hostname_update(peerinfo, hostname, _gf_false);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                "Could not add address to peer");
         goto out;
     }
-    /* Also set peerinfo->hostname to the first address */
-    if (peerinfo->hostname != NULL)
-        GF_FREE(peerinfo->hostname);
-    peerinfo->hostname = gf_strdup(hostname);
 
     if (conf->op_version < GD_OP_VERSION_3_6_0) {
         ret = 0;
@@ -776,7 +778,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                    key);
             goto out;
         }
-        ret = gd_add_address_to_peer(peerinfo, hostname);
+        ret = gd_add_address_to_peer(peerinfo, hostname, _gf_true);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                    "Could not add address to peer");
