@@ -594,6 +594,7 @@ clnt_unserialize_rsp_locklist_v2(xlator_t *this,
         goto out;
 
     while (trav) {
+        /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
@@ -868,7 +869,7 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     int32_t ret = -1;
     char parent_down = 0;
     fd_lk_ctx_t *lk_ctx = NULL;
-    gf_lkowner_t null_owner = {0};
+    gf_lkowner_t null_owner;
     struct list_head deleted_list;
 
     GF_VALIDATE_OR_GOTO("client", this, out);
@@ -889,6 +890,7 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     pthread_mutex_unlock(&conf->lock);
     lk_ctx = fdctx->lk_ctx;
     fdctx->lk_ctx = NULL;
+    null_owner.len = 0; /* pass null owner to function */
     pthread_spin_lock(&conf->fd_lock);
     {
         __delete_granted_locks_owner_from_fdctx(fdctx, &null_owner,

@@ -782,11 +782,22 @@ struct gf_flock {
     gf_lkowner_t l_owner;
 };
 
+static inline void
+gf_flock_copy(struct gf_flock *dst, struct gf_flock *src)
+{
+    dst->l_type = src->l_type;
+    dst->l_whence = src->l_whence;
+    dst->l_start = src->l_start;
+    dst->l_len = src->l_len;
+    dst->l_pid = src->l_pid;
+    lk_owner_copy(&dst->l_owner, &src->l_owner);
+}
+
 typedef struct lock_migration_info {
     struct list_head list;
-    struct gf_flock flock;
     char *client_uid;
     uint32_t lk_flags;
+    struct gf_flock flock;
 } lock_migration_info_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))

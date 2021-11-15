@@ -439,7 +439,7 @@ syncop_create_frame(xlator_t *this)
     }
 
     if (opctx && (opctx->valid & SYNCOPCTX_LKOWNER))
-        frame->root->lk_owner = opctx->lk_owner;
+        lk_owner_copy(&frame->root->lk_owner, &opctx->lk_owner);
 
     return frame;
 }

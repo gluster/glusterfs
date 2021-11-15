@@ -705,7 +705,7 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -831,7 +831,7 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -977,7 +977,7 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(local->fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
         pthread_mutex_lock(&pl_inode->mutex);
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, local->fd, local->op,
@@ -2202,7 +2202,7 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -2320,7 +2320,7 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -2477,11 +2477,11 @@ __set_next_lock_fd(pl_fdctx_t *fdctx, posix_lock_t *reqlock)
         goto out;
     }
 
-    reqlock->user_flock = lock->user_flock;
+    gf_flock_copy(&reqlock->user_flock, &lock->user_flock);
     reqlock->fl_start = lock->fl_start;
     reqlock->fl_type = lock->fl_type;
     reqlock->fl_end = lock->fl_end;
-    reqlock->owner = lock->owner;
+    lk_owner_copy(&reqlock->owner, &lock->owner);
 
 out:
     if (lock)
@@ -4215,7 +4215,7 @@ gf_lkmig_info_to_posix_lock(call_frame_t *frame, lock_migration_info_t *lmi)
     }
 
     lock->client_pid = lmi->flock.l_pid;
-    lock->owner = lmi->flock.l_owner;
+    lk_owner_copy(&lock->owner, &lmi->flock.l_owner);
 
     INIT_LIST_HEAD(&lock->list);
 

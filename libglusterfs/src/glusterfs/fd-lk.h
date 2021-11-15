@@ -33,11 +33,11 @@ typedef struct fd_lk_ctx fd_lk_ctx_t;
 
 struct fd_lk_ctx_node {
     int32_t cmd;
-    struct gf_flock user_flock;
+    short fl_type;
     off_t fl_start;
     off_t fl_end;
-    short fl_type;
     struct list_head next;
+    struct gf_flock user_flock;
 };
 typedef struct fd_lk_ctx_node fd_lk_ctx_node_t;
 

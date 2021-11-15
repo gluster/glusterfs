@@ -88,6 +88,7 @@ static inline void
 lk_owner_copy(gf_lkowner_t *dst, gf_lkowner_t *src)
 {
     dst->len = src->len;
-    memcpy(dst->data, src->data, src->len);
+    if (src->len)
+        memcpy(dst->data, src->data, src->len);
 }
 #endif /* _LK_OWNER_H */

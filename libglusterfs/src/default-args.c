@@ -891,7 +891,7 @@ args_lk_store(default_args_t *args, fd_t *fd, int32_t cmd,
     if (fd)
         args->fd = fd_ref(fd);
     args->cmd = cmd;
-    args->lock = *lock;
+    gf_flock_copy(&args->lock, lock);
     if (xdata)
         args->xdata = dict_ref(xdata);
     return 0;
@@ -904,7 +904,7 @@ args_lk_cbk_store(default_args_cbk_t *args, int32_t op_ret, int32_t op_errno,
     args->op_ret = op_ret;
     args->op_errno = op_errno;
     if (op_ret == 0)
-        args->lock = *lock;
+        gf_flock_copy(&args->lock, lock);
     if (xdata)
         args->xdata = dict_ref(xdata);
 
@@ -920,7 +920,7 @@ args_inodelk_store(default_args_t *args, const char *volume, loc_t *loc,
 
     loc_copy(&args->loc, loc);
     args->cmd = cmd;
-    args->lock = *lock;
+    gf_flock_copy(&args->lock, lock);
     if (xdata)
         args->xdata = dict_ref(xdata);
     return 0;
@@ -949,7 +949,7 @@ args_finodelk_store(default_args_t *args, const char *volume, fd_t *fd,
         args->volume = gf_strdup(volume);
 
     args->cmd = cmd;
-    args->lock = *lock;
+    gf_flock_copy(&args->lock, lock);
 
     if (xdata)
         args->xdata = dict_ref(xdata);
@@ -1428,6 +1428,7 @@ args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     if (op_ret > 0) {
         list_for_each_entry(entry, &locklist->list, list)
         {
+            /* TODO: move to GF_MALLOC() */
             stub_entry = GF_CALLOC(1, sizeof(*stub_entry), gf_common_mt_char);
             if (!stub_entry) {
                 ret = -1;
@@ -1435,7 +1436,7 @@ args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
             }
 
             INIT_LIST_HEAD(&stub_entry->list);
-            stub_entry->flock = entry->flock;
+            gf_flock_copy(&stub_entry->flock, &entry->flock);
 
             stub_entry->lk_flags = entry->lk_flags;
 
@@ -1465,6 +1466,7 @@ args_setactivelk_store(default_args_t *args, loc_t *loc,
 
     list_for_each_entry(entry, &locklist->list, list)
     {
+        /* TODO: move to GF_MALLOC() */
         stub_entry = GF_CALLOC(1, sizeof(*stub_entry), gf_common_mt_lock_mig);
         if (!stub_entry) {
             ret = -1;
@@ -1472,7 +1474,7 @@ args_setactivelk_store(default_args_t *args, loc_t *loc,
         }
 
         INIT_LIST_HEAD(&stub_entry->list);
-        stub_entry->flock = entry->flock;
+        gf_flock_copy(&stub_entry->flock, &entry->flock);
 
         stub_entry->lk_flags = entry->lk_flags;
 
