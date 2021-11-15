@@ -3321,11 +3321,15 @@ connect_loop(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
         if (ret >= 0) {
             break;
         }
-        if ((errno != ENOENT) || (++connect_fails >= 5)) {
+        if ((errno != ENOENT) || (++connect_fails >= 50)) {
             break;
         }
         /* coverity[SLEEP] */
-        sleep(1);
+        if (connect_fails <= 3) {
+            usleep(10000);
+        } else {
+            usleep(100000);
+        }
     }
 
     return ret;
