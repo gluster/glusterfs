@@ -98,10 +98,6 @@ __iot_dequeue(iot_conf_t *conf, int *pri)
 
         /* Get the first per-client queue for this priority. */
         ctx = list_first_entry(&fop_data->clients, iot_client_ctx_t, clients);
-        if (!ctx) {
-            continue;
-        }
-
         if (list_empty(&ctx->reqs)) {
             continue;
         }
