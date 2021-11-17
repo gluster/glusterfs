@@ -93,7 +93,7 @@ function tar_logs()
                 tar -czf "${logdir}"/"${savetarname}".tar.gz -X "${logdir}"/.notar \
                         "${logdir}"/* 2> /dev/null \
                         && \
-                find "$logdir"/* -maxdepth 0 -name '*.tar.gz' -prune \
+                find "$logdir"/* -maxdepth 0 -name '*.tar.*' -prune \
                                         -o -exec rm -rf '{}' ';'
 
                 echo "Logs preserved in tarball ${savetarname}.tar.gz"
