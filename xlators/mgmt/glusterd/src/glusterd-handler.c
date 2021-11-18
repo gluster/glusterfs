@@ -966,8 +966,8 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
         gf_msg_debug(this->name, 0, "No transaction's opinfo set");
 
         state = GD_OP_STATE_LOCKED;
-        glusterd_txn_opinfo_init(&txn_op_info, state, &op_req.op,
-                                 req_ctx->dict, req);
+        glusterd_txn_opinfo_init(&txn_op_info, state, &op_req.op, req_ctx->dict,
+                                 req);
 
         if (req_ctx->op != GD_OP_GSYNC_SET)
             txn_op_info.skip_locking = _gf_true;
@@ -2653,7 +2653,7 @@ glusterd_peer_hostname_update(glusterd_peerinfo_t *peerinfo,
     GF_ASSERT(peerinfo);
     GF_ASSERT(hostname);
 
-    ret = gd_add_address_to_peer(peerinfo, hostname);
+    ret = gd_add_address_to_peer(peerinfo, hostname, _gf_true);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0,
                GD_MSG_HOSTNAME_ADD_TO_PEERLIST_FAIL,
@@ -2663,6 +2663,32 @@ glusterd_peer_hostname_update(glusterd_peerinfo_t *peerinfo,
 
     if (store_update)
         ret = glusterd_store_peerinfo(peerinfo);
+
+    if (peerinfo->hostname != NULL) {
+        GF_FREE(peerinfo->hostname);
+    }
+    peerinfo->hostname = gf_strdup(hostname);
+    if (peerinfo->hostname == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    if (peerinfo->rpc == NULL)
+        goto out;
+
+    char *remote_hostname = NULL;
+    remote_hostname = gf_strdup(hostname);
+    if (remote_hostname == NULL) {
+        ret = -1;
+        goto out;
+    }
+    ret = dict_set_dynstr_sizen(peerinfo->rpc->conn.trans->options,
+                                "remote-host", remote_hostname);
+    if (ret) {
+        gf_msg_debug(THIS->name, 0, "failed to set remote-host with %s",
+                     remote_hostname);
+        GF_FREE(remote_hostname);
+    }
 out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;

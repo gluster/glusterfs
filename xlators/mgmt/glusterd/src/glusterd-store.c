@@ -2799,7 +2799,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
             cds_list_add_tail(&ta_brickinfo->brick_list, &volinfo->ta_bricks);
             ta_brick_count++;
             if (gf_store_iter_destroy(&iter)) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_STORE_ITER_DESTROY_FAIL,
                        "Failed to destroy store iter");
                 ret = -1;
                 goto out;
@@ -4563,7 +4564,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
                 peerinfo->state.state = atoi(value);
             } else if (!strncmp(GLUSTERD_STORE_KEY_PEER_HOSTNAME, key,
                                 SLEN(GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
-                ret = gd_add_address_to_peer(peerinfo, value);
+                ret = gd_add_address_to_peer(peerinfo, value, _gf_false);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0,
                            GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
