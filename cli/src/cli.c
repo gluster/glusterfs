@@ -104,14 +104,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
-
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
-        goto out;
-    }
-
     ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
                                         STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
@@ -224,6 +216,32 @@ logging_init(glusterfs_ctx_t *ctx, struct cli_state *state)
     return 0;
 }
 
+static struct iobuf *
+allocate_cli_iobuf(ssize_t size)
+{
+    struct iobuf *iobuf = NULL;
+
+    iobuf = GF_MALLOC(sizeof(struct iobuf), gf_common_mt_iobuf);
+    if (!iobuf) {
+        goto out;
+    };
+    iobuf->free_ptr = GF_MALLOC(size, gf_common_mt_iobuf_pool);
+    if (!iobuf->free_ptr) {
+        GF_FREE(iobuf);
+        iobuf = NULL;
+        goto out;
+    }
+    iobuf->ptr = iobuf->free_ptr;
+    iobuf->page_size = size;
+    INIT_LIST_HEAD(&iobuf->list);
+    iobuf->iobuf_arena = NULL;
+    LOCK_INIT(&iobuf->lock);
+    /* Hold a ref because you are allocating and using it */
+    GF_ATOMIC_INIT(iobuf->ref, 1);
+
+out:
+    return iobuf;
+}
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                    rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
@@ -242,7 +260,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = allocate_cli_iobuf(xdr_size);
         if (!iobuf) {
             goto out;
         };
