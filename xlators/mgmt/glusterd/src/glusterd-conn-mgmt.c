@@ -69,7 +69,6 @@ glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, time_t frame_timeout,
     } else
         ret = 0;
 
-    conn->frame_timeout = frame_timeout;
     conn->rpc = rpc;
     conn->notify = notify;
 out:

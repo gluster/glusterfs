@@ -509,7 +509,6 @@ glusterd_muxsvc_conn_init(glusterd_conn_t *conn, glusterd_svc_proc_t *mux_proc,
     else
         ret = 0;
 
-    conn->frame_timeout = frame_timeout;
     conn->rpc = rpc;
     mux_proc->notify = notify;
 out:

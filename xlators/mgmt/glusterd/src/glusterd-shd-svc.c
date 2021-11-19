@@ -92,8 +92,6 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
 
     /* Initialize the connection mgmt */
     if (mux_conn && mux_svc->rpc) {
-        /* multiplexed svc */
-        svc->conn.frame_timeout = mux_conn->frame_timeout;
         /* This will be unrefed from glusterd_shd_svcproc_cleanup*/
         svc->conn.rpc = rpc_clnt_ref(mux_svc->rpc);
         ret = snprintf(svc->conn.sockpath, sizeof(svc->conn.sockpath), "%s",
