@@ -664,7 +664,6 @@ struct _glusterfs_ctx {
     unsigned char measure_latency;
     pthread_t sigwaiter;
     char *cmdlinestr;
-    struct mem_pool *stub_mem_pool;
     unsigned char cleanup_started;
     int graph_id;        /* Incremented per graph, value should
                             indicate how many times the graph has
