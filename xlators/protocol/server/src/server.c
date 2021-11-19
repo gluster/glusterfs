@@ -578,8 +578,6 @@ glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
         return 0;
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
     if (ctx->dict_pool)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)
