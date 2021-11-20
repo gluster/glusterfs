@@ -5209,8 +5209,7 @@ glusterd_print_snapinfo_by_vol(FILE *fp, glusterd_volinfo_t *volinfo,
 
             goto out;
         }
-        gf_time_fmt(timestr, sizeof timestr, snapinfo->time_stamp,
-                    gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr, snapinfo->time_stamp);
 
         fprintf(fp, "Volume%d.snapshot%d.name: %s\n", volcount, snapcount,
                 snapinfo->snapname);

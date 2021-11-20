@@ -2107,7 +2107,7 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
              (S_ISREG(stbuf.st_mode) || S_ISLNK(stbuf.st_mode))) ||
             (ret == -1)) {
             /* Have separate logfile per run. */
-            gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
+            gf_time_fmt_FT(timestr, sizeof timestr, gf_time());
             sprintf(tmp_logfile, "%s.%s.%d", cmd_args->log_file, timestr,
                     getpid());
 

@@ -3535,9 +3535,9 @@ pl_dump_lock(char *str, int size, struct gf_flock *flock, gf_lkowner_t *owner,
     };
 
     if (granted_time)
-        gf_time_fmt(granted, sizeof(granted), *granted_time, gf_timefmt_FT);
+        gf_time_fmt_FT(granted, sizeof(granted), *granted_time);
     if (blkd_time)
-        gf_time_fmt(blocked, sizeof(blocked), *blkd_time, gf_timefmt_FT);
+        gf_time_fmt_FT(blocked, sizeof(blocked), *blkd_time);
     switch (flock->l_type) {
         case F_RDLCK:
             type_str = "READ";
@@ -3604,8 +3604,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->entrylk_list, domain_list)
         {
-            gf_time_fmt(granted, sizeof(granted), lock->granted_time,
-                        gf_timefmt_FT);
+            gf_time_fmt_FT(granted, sizeof(granted), lock->granted_time);
             gf_proc_dump_build_key(key, k, "entrylk[%d](ACTIVE)", count);
             if (lock->blkd_time == 0) {
                 snprintf(tmp, sizeof(tmp), ENTRY_GRNTD_FMT,
@@ -3615,8 +3614,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
                          lkowner_utoa(&lock->owner), lock->client,
                          lock->connection_id, granted);
             } else {
-                gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
-                            gf_timefmt_FT);
+                gf_time_fmt_FT(blocked, sizeof(blocked), lock->blkd_time);
                 snprintf(tmp, sizeof(tmp), ENTRY_BLKD_GRNTD_FMT,
                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK"
                                                      : "ENTRYLK_WRLCK",
@@ -3632,8 +3630,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->blocked_entrylks, blocked_locks)
         {
-            gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
-                        gf_timefmt_FT);
+            gf_time_fmt_FT(blocked, sizeof(blocked), lock->blkd_time);
 
             gf_proc_dump_build_key(key, k, "entrylk[%d](BLOCKED)", count);
             snprintf(

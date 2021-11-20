@@ -610,7 +610,7 @@ br_scrubber_log_time(xlator_t *this, const char *sfx)
     now = gf_time();
     priv = this->private;
 
-    gf_time_fmt(timestr, sizeof(timestr), now, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now);
 
     if (strcasecmp(sfx, "started") == 0) {
         br_update_scrub_start_time(&priv->scrub_stat, now);
@@ -632,7 +632,7 @@ br_fsscanner_log_time(xlator_t *this, br_child_t *child, const char *sfx)
     time_t now = 0;
 
     now = gf_time();
-    gf_time_fmt(timestr, sizeof(timestr), now, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now);
 
     if (strcasecmp(sfx, "started") == 0) {
         gf_msg_debug(this->name, 0, "Scrubbing \"%s\" %s at %s",
@@ -950,8 +950,7 @@ br_fsscan_schedule(xlator_t *this)
     gf_tw_add_timer(priv->timer_wheel, timer);
     _br_monitor_set_scrub_state(scrub_monitor, BR_SCRUB_STATE_PENDING);
 
-    gf_time_fmt(timestr, sizeof(timestr), (scrub_monitor->boot + timo),
-                gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), (scrub_monitor->boot + timo));
     gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
            "Scrubbing is "
            "scheduled to run at %s",
@@ -993,7 +992,7 @@ br_fsscan_activate(xlator_t *this)
     }
     pthread_mutex_unlock(&scrub_monitor->donelock);
 
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
     (void)gf_tw_mod_timer(priv->timer_wheel, scrub_monitor->timer, timo);
 
     _br_monitor_set_scrub_state(scrub_monitor, BR_SCRUB_STATE_PENDING);
@@ -1033,7 +1032,7 @@ br_fsscan_reschedule(xlator_t *this)
         return -1;
     }
 
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
 
     pthread_mutex_lock(&scrub_monitor->donelock);
     {
@@ -1073,7 +1072,7 @@ br_fsscan_ondemand(xlator_t *this)
 
     now = gf_time();
     timo = BR_SCRUB_ONDEMAND;
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
 
     pthread_mutex_lock(&scrub_monitor->donelock);
     {

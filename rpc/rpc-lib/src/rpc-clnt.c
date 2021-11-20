@@ -162,8 +162,7 @@ call_bail(void *data)
 
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
-        gf_time_fmt(frame_sent, sizeof frame_sent, trav->saved_at,
-                    gf_timefmt_FT);
+        gf_time_fmt_tv_FT(frame_sent, sizeof frame_sent, &trav->saved_at, NULL);
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
@@ -308,7 +307,7 @@ out:
     return saved_frame;
 }
 
-void
+static void
 saved_frames_unwind(struct saved_frames *saved_frames)
 {
     struct saved_frame *trav = NULL;
@@ -324,8 +323,7 @@ saved_frames_unwind(struct saved_frames *saved_frames)
         if (!trav->rpcreq || !trav->rpcreq->prog)
             continue;
 
-        gf_time_fmt(timestr, sizeof timestr, trav->saved_at, gf_timefmt_FT);
-
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &trav->saved_at, NULL);
         gf_log_callingfn(
             trav->rpcreq->conn->name, GF_LOG_ERROR,
             "forced unwinding frame type(%s) op(%s(%d)) "

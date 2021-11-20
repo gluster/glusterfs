@@ -6011,7 +6011,7 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 ret = dict_get_int32n(dict, key, keylen, (int32_t *)&time_usec);
                 if (ret)
                     goto out;
-                gf_time_fmt(timestr, sizeof timestr, time_sec, gf_timefmt_FT);
+                gf_time_fmt_FT(timestr, sizeof timestr, time_sec);
                 snprintf(timestr + strlen(timestr),
                          sizeof timestr - strlen(timestr), ".%ld", time_usec);
                 if (strlen(filename) < VOL_TOP_PERF_FILENAME_DEF_WIDTH)

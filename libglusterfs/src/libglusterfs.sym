@@ -725,7 +725,6 @@ gf_thread_set_vname
 gf_timer_call_after
 gf_timer_call_cancel
 gf_timer_registry_destroy
-_gf_timestuff
 gf_trim
 gf_tw_add_timer
 gf_tw_del_timer

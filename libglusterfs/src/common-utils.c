@@ -945,7 +945,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     {
         /* Dump the timestamp of the crash too, so the previous logs
            can be related */
-        gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr, gf_time());
         gf_msg_plain_nomem(GF_LOG_ALERT, "time of crash: ");
         gf_msg_plain_nomem(GF_LOG_ALERT, timestr);
     }
@@ -3214,22 +3214,6 @@ out:
     return ret;
 }
 
-static const char *__gf_timefmts[] = {
-    "%F %T", "%Y/%m/%d-%T", "%b %d %T", "%F %H%M%S", "%Y-%m-%d-%T", "%s",
-};
-
-static const char *__gf_zerotimes[] = {
-    "0000-00-00 00:00:00", "0000/00/00-00:00:00", "xxx 00 00:00:00",
-    "0000-00-00 000000",   "0000-00-00-00:00:00", "0",
-};
-
-void
-_gf_timestuff(const char ***fmts, const char ***zeros)
-{
-    *fmts = __gf_timefmts;
-    *zeros = __gf_zerotimes;
-}
-
 char *
 generate_glusterfs_ctx_id(void)
 {
@@ -5460,7 +5444,7 @@ gf_pipe(int fd[2], int flags)
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;
