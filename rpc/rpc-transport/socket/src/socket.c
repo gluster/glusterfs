@@ -1208,16 +1208,11 @@ socket_set_last_frag_header_size(uint32_t size, char *haddr)
 }
 
 static struct ioq *
-__socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
+__socket_ioq_new(rpc_transport_msg_t *msg)
 {
     struct ioq *entry = NULL;
     int count = 0;
     uint32_t size = 0;
-
-    /* TODO: use mem-pool */
-    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
-    if (!entry)
-        return NULL;
 
     count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
@@ -1228,13 +1223,18 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
            iov_length(msg->progpayload, msg->progpayloadcount);
 
     if (size > RPC_MAX_FRAGMENT_SIZE) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(THIS->name, GF_LOG_ERROR,
                "msg size (%u) bigger than the maximum allowed size on "
                "sockets (%u)",
                size, RPC_MAX_FRAGMENT_SIZE);
-        GF_FREE(entry);
         return NULL;
     }
+
+    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
+    if (!entry)
+        return NULL;
+
+    INIT_LIST_HEAD(&entry->list);
 
     socket_set_last_frag_header_size(size, (char *)&entry->fraghdr);
 
@@ -1266,25 +1266,17 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
     if (msg->iobref != NULL)
         entry->iobref = iobref_ref(msg->iobref);
 
-    INIT_LIST_HEAD(&entry->list);
-
     return entry;
 }
 
 static void
 __socket_ioq_entry_free(struct ioq *entry)
 {
-    GF_VALIDATE_OR_GOTO("socket", entry, out);
-
     list_del_init(&entry->list);
     if (entry->iobref)
         iobref_unref(entry->iobref);
 
-    /* TODO: use mem-pool */
     GF_FREE(entry);
-
-out:
-    return;
 }
 
 static void
@@ -1294,14 +1286,16 @@ __socket_ioq_flush(socket_private_t *priv)
 
     while (!list_empty(&priv->ioq)) {
         entry = priv->ioq_next;
-        __socket_ioq_entry_free(entry);
+        if (entry)
+            __socket_ioq_entry_free(entry);
     }
 }
 
 static int
-__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
+__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry,
+                         gf_boolean_t free_entry)
 {
-    int ret = -1;
+    int ret;
 
     ret = __socket_writev(this, entry->pending_vector, entry->pending_count,
                           &entry->pending_vector, &entry->pending_count);
@@ -1309,7 +1303,8 @@ __socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
     if (ret == 0) {
         /* current entry was completely written */
         GF_ASSERT(entry->pending_count == 0);
-        __socket_ioq_entry_free(entry);
+        if (free_entry)
+            __socket_ioq_entry_free(entry);
     }
 
     return ret;
@@ -1328,7 +1323,7 @@ __socket_ioq_churn(rpc_transport_t *this)
         /* pick next entry */
         entry = priv->ioq_next;
 
-        ret = __socket_ioq_churn_entry(this, entry);
+        ret = __socket_ioq_churn_entry(this, entry, _gf_true);
 
         if (ret != 0)
             break;
@@ -3781,17 +3776,18 @@ static int32_t
 socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
     int ret = -1;
-    char need_poll_out = 0;
-    char need_append = 1;
+    gf_boolean_t need_poll_out = _gf_false;
+    gf_boolean_t free_entry = _gf_false;
     struct ioq *entry = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     socket_private_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
-    GF_VALIDATE_OR_GOTO("socket", this->private, out);
-
     priv = this->private;
-    ctx = this->ctx;
+    GF_VALIDATE_OR_GOTO("socket", priv, out);
+
+    entry = __socket_ioq_new(msg);
+    if (!entry)
+        goto out;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -3801,32 +3797,29 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
                        "not connected (priv->connected = %d)", priv->connected);
                 priv->submit_log = 1;
             }
+            free_entry = _gf_true;
             goto unlock;
         }
 
         priv->submit_log = 0;
-        entry = __socket_ioq_new(this, msg);
-        if (!entry)
-            goto unlock;
 
         if (list_empty(&priv->ioq)) {
-            ret = __socket_ioq_churn_entry(this, entry);
+            ret = __socket_ioq_churn_entry(this, entry, _gf_false);
 
-            if (ret == 0) {
-                need_append = 0;
-            }
-            if (ret > 0) {
-                need_poll_out = 1;
+            if (ret == 0) { /* current entry was completely written */
+                free_entry = _gf_true;
+            } else if (ret > 0) {
+                need_poll_out = _gf_true;
             }
         }
 
-        if (need_append) {
+        if (!free_entry) {
             list_add_tail(&entry->list, &priv->ioq);
             ret = 0;
         }
         if (need_poll_out) {
             /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+            priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
                                            priv->idx, -1, 1);
         }
     }
@@ -3834,6 +3827,8 @@ unlock:
     pthread_mutex_unlock(&priv->out_lock);
 
 out:
+    if (free_entry)
+        __socket_ioq_entry_free(entry);
     return ret;
 }
 
