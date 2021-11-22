@@ -2866,16 +2866,6 @@ lkowner_utoa(gf_lkowner_t *lkowner)
     return lkowner_buffer;
 }
 
-/*Re-entrant conversion function*/
-char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len)
-{
-    if (!dst)
-        return NULL;
-    lkowner_unparse(lkowner, dst, len);
-    return dst;
-}
-
 gf_boolean_t
 is_valid_lease_id(const char *lease_id)
 {
@@ -3325,7 +3315,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else /* FIXME: Non Linux Host */
+#else  /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -5170,7 +5160,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else /* !GF_LINUX_HOST_OS */
+#else  /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 
