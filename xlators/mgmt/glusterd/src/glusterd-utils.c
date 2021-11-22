@@ -2100,6 +2100,10 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
     char *inet_family = NULL;
     char *global_threading = NULL;
     bool threading = false;
+    /* Order should match gf_loglevel_t enum members in logging.h. */
+    static const char *loglevels[] = {"NONE",  "EMERG",   "ALERT",  "CRITICAL",
+                                      "ERROR", "WARNING", "NOTICE", "INFO",
+                                      "DEBUG", "TRACE"};
 
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
@@ -2226,6 +2230,11 @@ retry:
                     "--brick-name", brickinfo->path, "-l", brickinfo->logfile,
                     "--xlator-option", glusterd_uuid, "--process-name", "brick",
                     NULL);
+
+    /* Force brick process to inherit log level from us. */
+    if (this->ctx->cmd_args.log_level != DEFAULT_LOG_LEVEL)
+        runner_add_args(&runner, "--log-level",
+                        loglevels[this->ctx->cmd_args.log_level], NULL);
 
     if (dict_get_strn(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
                       SLEN(GLUSTERD_LOCALTIME_LOGGING_KEY),
