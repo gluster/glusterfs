@@ -69,8 +69,8 @@ struct iobuf {
 
     void *ptr; /* usable memory region by the consumer */
 
-    void *free_ptr;   /* in case of stdalloc, this is the
-                         one to be freed */
+    void *free_ptr; /* in case of stdalloc, this is the
+                       one to be freed */
     size_t page_size;
 };
 
@@ -151,6 +151,9 @@ struct iobref {
     int allocated;
     int used;
 };
+
+struct iobuf *
+iobuf_get_from_small(const size_t page_size);
 
 struct iobref *
 iobref_new(void);
