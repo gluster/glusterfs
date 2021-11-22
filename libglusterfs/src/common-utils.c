@@ -4166,19 +4166,16 @@ gf_is_service_running(char *pidfile, int *pid)
     fno = fileno(file);
     ret = lockf(fno, F_TEST, 0);
     if (ret == -1) {
-        running = _gf_true;
+        ret = fscanf(file, "%d", pid);
+        if (ret <= 0) {
+            gf_smsg("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED, "pidfile=%s",
+                    pidfile, NULL);
+            *pid = -1;
+            running = _gf_false;
+            goto out;
+        }
+        running = gf_is_pid_running(*pid);
     }
-
-    ret = fscanf(file, "%d", pid);
-    if (ret <= 0) {
-        gf_smsg("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED, "pidfile=%s",
-                pidfile, NULL);
-        *pid = -1;
-        running = _gf_false;
-        goto out;
-    }
-
-    running = gf_is_pid_running(*pid);
 out:
     if (file)
         fclose(file);
