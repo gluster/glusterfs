@@ -288,9 +288,9 @@ posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
 /*
   TODO: explain how this pump fixes ELOOP
 */
-gf_boolean_t
-posix_is_malformed_link(xlator_t *this, char *base_str, char *linkname,
-                        size_t len)
+static gf_boolean_t
+posix_is_malformed_link(const char *base_str, const char *linkname,
+                        const size_t len)
 {
     if ((len == 8) && strcmp(linkname, "../../..")) /*for root*/
         goto err;
@@ -314,71 +314,54 @@ posix_is_malformed_link(xlator_t *this, char *base_str, char *linkname,
     return _gf_false;
 
 err:
-    gf_log_callingfn(this->name, GF_LOG_ERROR,
+    gf_log_callingfn(THIS->name, GF_LOG_ERROR,
                      "malformed internal link "
                      "%s for %s",
                      linkname, base_str);
     return _gf_true;
 }
 
-int
-posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
-                  char *base_str, int base_len, int pfx_len)
+static int
+posix_handle_pump(char *buf, int len, char *base_str, int base_len, int maxlen,
+                  int pfx_len, int dfd)
 {
-    char linkname[512] = {
-        0,
-    }; /* "../../<gfid>/<NAME_MAX>" */
-    int ret = 0;
+    char linkname[512]; /* "../../<gfid>/<NAME_MAX>" */
     int blen = 0;
     int link_len = 0;
-    char tmpstr[POSIX_GFID_HASH2_LEN] = {
-        0,
-    };
-    char d2[3] = {
-        0,
-    };
-    int index = 0;
-    int dirfd = 0;
-    struct posix_private *priv = this->private;
+    char *tmpstr;
 
-    strncpy(tmpstr, (base_str + pfx_len + 3), 40);
-    strncpy(d2, (base_str + pfx_len), 2);
-    index = strtoul(d2, NULL, 16);
-    dirfd = priv->arrdfd[index];
+    tmpstr = base_str + pfx_len + 3;
 
     /* is a directory's symlink-handle */
-    ret = readlinkat(dirfd, tmpstr, linkname, 512);
-    if (ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
+    link_len = readlinkat(dfd, tmpstr, linkname, 512);
+    if (link_len < 0) {
+        gf_msg(THIS->name, GF_LOG_ERROR, errno, P_MSG_READLINK_FAILED,
                "internal readlink failed on %s ", base_str);
         goto err;
     }
 
-    if (ret < 512)
-        linkname[ret] = 0;
+    if (link_len < 512)
+        linkname[link_len] = 0;
 
-    link_len = ret;
-
-    if ((ret == 8) && memcmp(linkname, "../../..", 8) == 0) {
+    if ((link_len == 8) && memcmp(linkname, "../../..", 8) == 0) {
         if (strcmp(base_str, buf) == 0) {
             strcpy(buf + pfx_len, "..");
         }
         goto out;
     }
 
-    if (posix_is_malformed_link(this, base_str, linkname, ret))
+    if (posix_is_malformed_link(base_str, linkname, link_len))
         goto err;
 
     blen = link_len - 48;
 
     if (len + blen >= maxlen) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, P_MSG_HANDLEPATH_FAILED,
                "Unable to form handle path for %s (maxlen = %d)", buf, maxlen);
         goto err;
     }
 
-    memmove(buf + base_len + blen, buf + base_len,
-            (strlen(buf) - base_len) + 1);
+    memmove(buf + base_len + blen, buf + base_len, (len - base_len) + 1);
 
     strncpy(base_str + pfx_len, linkname + 6, 42);
 
@@ -399,8 +382,7 @@ err:
 */
 
 int
-posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
-                  size_t size)
+posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf)
 {
     struct posix_private *priv = NULL;
     char *uuid_str = NULL;
@@ -410,13 +392,11 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     char *base_str = NULL;
     int base_len = 0;
     int pfx_len;
-    int maxlen;
+    int maxlen = PATH_MAX;
     char *buf;
     int index = 0;
     int dfd = 0;
-    char newstr[POSIX_GFID_HASH2_LEN] = {
-        0,
-    };
+    char newstr[POSIX_GFID_HASH2_LEN];
 
     priv = this->private;
 
@@ -424,21 +404,19 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
 
     if (ubuf) {
         buf = ubuf;
-        maxlen = size;
     } else {
-        maxlen = PATH_MAX;
         buf = alloca(maxlen);
     }
 
     index = gfid[0];
     dfd = priv->arrdfd[index];
 
-    base_len = (priv->base_path_length + SLEN(GF_HIDDEN_PATH) + 45);
+    base_len = (priv->base_path_length + SLEN(GF_HIDDEN_PATH) +
+                POSIX_GFID_HASH2_LEN);
     base_str = alloca(base_len + 1);
-    base_len = snprintf(base_str, base_len + 1, "%s/%s/%02x/%02x/%s",
-                        priv->base_path, GF_HIDDEN_PATH, gfid[0], gfid[1],
-                        uuid_str);
-    pfx_len = priv->base_path_length + 1 + SLEN(GF_HIDDEN_PATH) + 1;
+    snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_str);
+    base_len = snprintf(base_str, base_len + 1, "%s/%s/%02x/%s",
+                        priv->base_path, GF_HIDDEN_PATH, gfid[0], newstr);
 
     if (basename) {
         len = snprintf(buf, maxlen, "%s/%s", base_str, basename);
@@ -446,22 +424,22 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
         len = snprintf(buf, maxlen, "%s", base_str);
     }
 
-    snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_str);
     ret = sys_fstatat(dfd, newstr, &stat, AT_SYMLINK_NOFOLLOW);
 
     if (!(ret == 0 && S_ISLNK(stat.st_mode) && stat.st_nlink == 1))
         goto out;
 
+    pfx_len = priv->base_path_length + 1 + SLEN(GF_HIDDEN_PATH) + 1;
     do {
         errno = 0;
-        ret = posix_handle_pump(this, buf, len, maxlen, base_str, base_len,
-                                pfx_len);
+        ret = posix_handle_pump(buf, len, base_str, base_len, maxlen, pfx_len,
+                                dfd);
         len = ret;
 
-        if (ret == -1)
+        if (ret < 0)
             break;
         ret = sys_lstat(buf, &stat);
-    } while ((ret == -1) && errno == ELOOP);
+    } while ((ret < 0) && errno == ELOOP);
 
 out:
     return len + 1;
@@ -821,7 +799,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     }
 
     if (ret == -1 && errno == ENOENT) {
-        if (posix_is_malformed_link(this, newpath, oldpath, strlen(oldpath))) {
+        if (posix_is_malformed_link(newpath, oldpath, strlen(oldpath))) {
             GF_ASSERT(!"Malformed link");
             errno = EINVAL;
             return -1;

@@ -797,7 +797,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         op_ret = posix_istat(this, loc->inode, uuid_req, NULL, &stbuf);
         if ((op_ret == 0) && IA_ISDIR(stbuf.ia_type)) {
             gfid_path = alloca(PATH_MAX);
-            size = posix_handle_path(this, uuid_req, NULL, gfid_path, PATH_MAX);
+            size = posix_handle_path(this, uuid_req, NULL, gfid_path);
             if (size <= 0) {
                 op_errno = ESTALE;
                 op_ret = -1;

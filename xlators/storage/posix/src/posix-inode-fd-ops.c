@@ -5704,7 +5704,7 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     itable = fd->inode->table;
 
     hpath = alloca(PATH_MAX);
-    len = posix_handle_path(this, fd->inode->gfid, NULL, hpath, PATH_MAX);
+    len = posix_handle_path(this, fd->inode->gfid, NULL, hpath);
     if (len <= 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLEPATH_FAILED,
                "Failed to create handle path, fd=%p, gfid=%s", fd,

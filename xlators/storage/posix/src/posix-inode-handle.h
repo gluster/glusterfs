@@ -44,9 +44,8 @@
 #define MAKE_HANDLE_PATH(var, this, gfid, base)                                \
     do {                                                                       \
         int __len = 0;                                                         \
-        int tot = PATH_MAX;                                                    \
-        var = alloca(tot);                                                     \
-        __len = posix_handle_path(this, gfid, base, var, tot);                 \
+        var = alloca(PATH_MAX);                                                \
+        __len = posix_handle_path(this, gfid, base, var);                      \
         if (__len <= 0) {                                                      \
             var = NULL;                                                        \
         }                                                                      \
@@ -98,8 +97,7 @@
 #define POSIX_ANCESTRY_DENTRY (1 << 1)
 
 int
-posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *buf,
-                  size_t len);
+posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *buf);
 
 int
 posix_make_ancestryfromgfid(xlator_t *this, char *path, int pathsize,

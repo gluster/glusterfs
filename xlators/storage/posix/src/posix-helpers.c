@@ -1371,7 +1371,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
         goto out;
     }
 
-    size = posix_handle_path(this, gfid, NULL, newpath, sizeof(newpath));
+    size = posix_handle_path(this, gfid, NULL, newpath);
     if (size <= 0) {
         if (errno == ENOENT) {
             gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
