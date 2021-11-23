@@ -29,15 +29,14 @@
 #endif
 
 #define ZFS_COMMAND "/sbin/zfs"
-#define ZPOOL_COMMAND "/sbin/zpool"
 
 extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
 int32_t
-glusterd_zfs_zpool(char *brick_path, char **pool_name)
+glusterd_zfs_dataset(char *brick_path, char **pool_name)
 {
     char msg[1024] = "";
-    char zpool[PATH_MAX] = "";
+    char dataset[PATH_MAX] = "";
     xlator_t *this = NULL;
     runner_t runner = {
         0,
@@ -58,17 +57,17 @@ glusterd_zfs_zpool(char *brick_path, char **pool_name)
     ret = runner_start(&runner);
     if (ret == -1) {
         gf_log(this->name, GF_LOG_ERROR,
-               "Failed to get pool name "
+               "Failed to get dataset name "
                "for the brick_path %s",
                brick_path);
         runner_end(&runner);
         goto out;
     }
-    ptr = fgets(zpool, sizeof(zpool), runner_chio(&runner, STDOUT_FILENO));
+    ptr = fgets(dataset, sizeof(dataset), runner_chio(&runner, STDOUT_FILENO));
 
-    if (!ptr || !strlen(zpool)) {
+    if (!ptr || !strlen(dataset)) {
         gf_log(this->name, GF_LOG_ERROR,
-               "Failed to get pool name "
+               "Failed to get datset name "
                "for the brick_path %s",
                brick_path);
         runner_end(&runner);
@@ -77,7 +76,7 @@ glusterd_zfs_zpool(char *brick_path, char **pool_name)
     }
     runner_end(&runner);
 
-    *pool_name = strtok(zpool, "\n");
+    *pool_name = strtok(dataset, "\n");
 
 out:
     return ret;
@@ -101,8 +100,7 @@ glusterd_zfs_probe(char *brick_path)
     GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, brick_path, out);
 
-    if (!glusterd_is_cmd_available(ZFS_COMMAND) ||
-        !glusterd_is_cmd_available(ZPOOL_COMMAND)) {
+    if (!glusterd_is_cmd_available(ZFS_COMMAND)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMAND_NOT_FOUND,
                "ZFS commands not found");
         ret = -1;
@@ -153,16 +151,16 @@ glusterd_zfs_snapshot_create_or_clone(glusterd_brickinfo_t *snap_brickinfo,
     xlator_t *this = THIS;
     char snap_device[NAME_MAX] = "";
     char clone_device[NAME_MAX] = "";
-    char *zpool = NULL;
+    char *dataset = NULL;
     int32_t len = 0;
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_zpool(snap_brickinfo->origin_path, &zpool);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
     if (ret)
         goto out;
 
-    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", zpool,
+    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", dataset,
                    snap_volume_id, brick_num);
     if ((len < 0) || (len >= sizeof(snap_device))) {
         goto out;
@@ -174,7 +172,7 @@ glusterd_zfs_snapshot_create_or_clone(glusterd_brickinfo_t *snap_brickinfo,
              snap_brickinfo->origin_path);
 
     if (clone) {
-        len = snprintf(clone_device, sizeof(clone_device), "%s/%s_%d", zpool,
+        len = snprintf(clone_device, sizeof(clone_device), "%s/%s_%d", dataset,
                        clone_volume_id, brick_num);
         if ((len < 0) || (len >= sizeof(clone_device))) {
             goto out;
@@ -240,7 +238,7 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
     char key[160] = ""; /* key_prefix is 128 bytes at most */
-    char *zpool = NULL;
+    char *dataset = NULL;
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_brickinfo);
@@ -248,7 +246,7 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = glusterd_zfs_zpool(snap_brickinfo->origin_path, &zpool);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
     if (ret)
         goto out;
 
@@ -257,7 +255,7 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
         goto out;
     }
 
-    ret = dict_set_str(rsp_dict, key, zpool);
+    ret = dict_set_str(rsp_dict, key, dataset);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Could not save vgname ");
@@ -308,18 +306,18 @@ glusterd_zfs_snapshot_remove(glusterd_brickinfo_t *snap_brickinfo,
     char msg[1024] = "";
     int len;
     char snap_device[NAME_MAX] = "";
-    char *zpool = NULL;
+    char *dataset = NULL;
 
     priv = this->private;
     GF_ASSERT(priv);
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_zpool(snap_brickinfo->origin_path, &zpool);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
     if (ret)
         goto out;
 
-    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", zpool,
+    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", dataset,
                    snap_volume_id, brick_num);
     if ((len < 0) || (len >= sizeof(snap_device))) {
         goto out;
@@ -400,24 +398,24 @@ glusterd_zfs_snapshot_restore(glusterd_brickinfo_t *snap_brickinfo,
     char snap_device[NAME_MAX] = "";
     char clone_device[NAME_MAX] = "";
     char mnt_pt[PATH_MAX] = "";
-    char *zpool = NULL;
+    char *dataset = NULL;
 
     priv = this->private;
     GF_ASSERT(priv);
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_zpool(snap_brickinfo->origin_path, &zpool);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
     if (ret)
         goto out;
 
-    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", zpool,
+    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", dataset,
                    snap_volume_id, brick_num);
     if ((len < 0) || (len >= sizeof(snap_device))) {
         goto out;
     }
 
-    len = snprintf(clone_device, sizeof(clone_device), "%s/%s_%d", zpool,
+    len = snprintf(clone_device, sizeof(clone_device), "%s/%s_%d", dataset,
                    snap_volume_id, brick_num);
     if ((len < 0) || (len >= sizeof(clone_device))) {
         goto out;

@@ -30,17 +30,8 @@ function init_zfs() {
             echo "Please run launch_cluster with atleast $ZFS_COUNT nodes"
             return 1
         fi
-        eval "L$i=/${ZFS_PREFIX}_pool_${i}/brick"
-        eval "LM$i=/${ZFS_PREFIX}_pool_${i}"
-        l="LM$i"
-        mkdir -p ${!l}
-        mkdir -p ${!b}
-        if [ $? -ne 0 ]; then
-            echo "Error: failed to create dir ${!l}"
-            return 1
-        fi
-
-        eval "POOL$i=${ZFS_PREFIX}_pool_${i}"
+        eval "L$i=/${ZFS_PREFIX}_pool_${i}/bricks/brick"
+        eval "LM$i=/${ZFS_PREFIX}_pool_${i}/bricks"
     done
 
     ZFS_DEFINED=1
@@ -94,6 +85,7 @@ function _setup_zfs() {
 
         _create_zfs_vhd ${!b} $i
         _create_zpool ${!b} $i
+        _create_zfs_dataset ${!b} $i
     done
 }
 
@@ -104,6 +96,7 @@ function _cleanup_zfs() {
 
     for i in `seq 1 $count`; do
         b="B$i"
+        _remove_zfs_dataset $i
         _remove_zpool $i
         _remove_zfs_vhd ${!b}
     done
@@ -143,11 +136,26 @@ function _create_zpool() {
     /sbin/zpool create ${zpool} $dir/${ZFS_PREFIX}_loop
 }
 
+function _create_zfs_dataset() {
+    local dir=$1
+    local num=$2
+    local dataset="${ZFS_PREFIX}_pool_${num}/bricks"
+
+    /sbin/zfs create ${dataset}
+}
+
 function _remove_zpool() {
     local num=$1
     local zpool="${ZFS_PREFIX}_pool_${num}"
 
     /sbin/zpool destroy -f ${!zpool}
+}
+
+function _remove_zfs_dataset() {
+    local num=$1
+    local dataset="${ZFS_PREFIX}_pool_${num}/bricks"
+
+    /sbin/zfs destroy -f ${!dataset}
 }
 
 function _remove_zfs_vhd() {
