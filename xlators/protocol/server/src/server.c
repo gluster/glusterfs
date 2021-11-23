@@ -1303,30 +1303,13 @@ server_init(xlator_t *this)
         goto err;
     }
 
-#ifndef GF_DARWIN_HOST_OS
-    {
-        struct rlimit lim;
+    ret = gf_set_nofile(SERVER_NOFILE_HIGH, SERVER_NOFILE_LOW);
+    if (ret != -1)
+        gf_msg_trace(this->name, 0,
+                     "set maximum allowed number"
+                     " of opened file descriptors to %d",
+                     ret);
 
-        lim.rlim_cur = 1048576;
-        lim.rlim_max = 1048576;
-
-        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_ULIMIT_SET_FAILED,
-                    "errno=%s", strerror(errno), NULL);
-            lim.rlim_cur = 65536;
-            lim.rlim_max = 65536;
-
-            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_smsg(this->name, GF_LOG_WARNING, errno, PS_MSG_FD_NOT_FOUND,
-                        "errno=%s", strerror(errno), NULL);
-            } else {
-                gf_msg_trace(this->name, 0,
-                             "max open fd set "
-                             "to 64k");
-            }
-        }
-    }
-#endif
     if (!this->ctx->cmd_args.volfile_id) {
         /* In some use cases this is a valid case, but
            document this to be annoying log in that case */

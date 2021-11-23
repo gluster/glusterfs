@@ -44,6 +44,9 @@
 #define GLUSTERD_MIN_EVENT_THREADS 1
 #define GLUSTERD_MAX_EVENT_THREADS 32
 
+/* Opened file descriptors limit for glusterd. */
+#define GLUSTERD_NOFILE 65536
+
 #define GLUSTERD_TR_LOG_SIZE 50
 #define GLUSTERD_QUORUM_TYPE_KEY "cluster.server-quorum-type"
 #define GLUSTERD_QUORUM_RATIO_KEY "cluster.server-quorum-ratio"

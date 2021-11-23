@@ -126,7 +126,7 @@ GLFS_MSGID(
     LG_MSG_IO_URING_NOT_SUPPORTED, LG_MSG_IO_URING_INVALID,
     LG_MSG_IO_URING_MISSING_FEAT, LG_MSG_IO_URING_TOO_SMALL,
     LG_MSG_IO_URING_ENTER_FAILED, LG_MSG_IO_SYNC_TIMEOUT,
-    LG_MSG_IO_SYNC_ABORTED, LG_MSG_IO_SYNC_COMPLETED);
+    LG_MSG_IO_SYNC_ABORTED, LG_MSG_IO_SYNC_COMPLETED, LG_MSG_NOFILE_SET_FAILED);
 
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
@@ -234,6 +234,8 @@ GLFS_MSGID(
 #define LG_MSG_STRDUP_ERROR_STR "failed to create metrics dir"
 #define LG_MSG_FILENAME_NOT_SPECIFIED_STR "no filename specified"
 #define LG_MSG_UNDERSIZED_BUF_STR "data value is smaller than expected"
+#define LG_MSG_NOFILE_SET_FAILED_STR                                           \
+    "failed to set maximum allowed number of opened file descriptors"
 #define LG_MSG_DICT_SET_FAILED_STR "unable to set dict"
 #define LG_MSG_COUNT_LESS_THAN_ZERO_STR "count < 0!"
 #define LG_MSG_PAIRS_LESS_THAN_COUNT_STR "less than count data pairs found"

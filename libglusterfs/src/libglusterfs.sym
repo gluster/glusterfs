@@ -677,6 +677,7 @@ gf_rsync_md5_checksum
 gf_rsync_weak_checksum
 gf_set_log_file_path
 gf_set_log_ident
+gf_set_nofile
 gf_set_timestamp
 gf_set_volfile_server_common
 _gf_smsg

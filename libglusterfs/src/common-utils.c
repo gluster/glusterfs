@@ -34,7 +34,7 @@
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
-#ifndef GF_LINUX_HOST_OS
+#ifndef GF_DARWIN_HOST_OS
 #include <sys/resource.h>
 #endif
 #ifdef HAVE_SYNCFS_SYS
@@ -4302,6 +4302,37 @@ gf_compare_sockaddr(const struct sockaddr *addr1, const struct sockaddr *addr2)
             return _gf_true;
     }
     return _gf_false;
+}
+
+int
+gf_set_nofile(int high, int low)
+{
+    int ret = -1;
+#ifndef GF_DARWIN_HOST_OS
+    struct rlimit rlim;
+    xlator_t *this = THIS;
+
+    rlim.rlim_cur = high;
+    rlim.rlim_max = high;
+
+    ret = setrlimit(RLIMIT_NOFILE, &rlim);
+    if (ret < 0) {
+        gf_msg_callingfn(this->name, GF_LOG_WARNING, errno,
+                         LG_MSG_NOFILE_SET_FAILED, "to %d", high);
+        if (low) {
+            rlim.rlim_cur = low;
+            rlim.rlim_max = low;
+            ret = setrlimit(RLIMIT_NOFILE, &rlim);
+            if (ret < 0)
+                gf_msg_callingfn(this->name, GF_LOG_WARNING, errno,
+                                 LG_MSG_NOFILE_SET_FAILED, "to %d", low);
+            else
+                ret = low;
+        }
+    } else
+        ret = high;
+#endif /* not GF_DARWIN_HOST_OS */
+    return ret;
 }
 
 /*

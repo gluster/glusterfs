@@ -1457,22 +1457,11 @@ init(xlator_t *this)
     vgtool = _gf_none;
 #endif
 
-#ifndef GF_DARWIN_HOST_OS
-    {
-        struct rlimit lim;
-        lim.rlim_cur = 65536;
-        lim.rlim_max = 65536;
-
-        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SET_XATTR_FAIL,
-                    "Failed to set 'ulimit -n 65536'", NULL);
-        } else {
-            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_FILE_DESC_LIMIT_SET,
-                   "Maximum allowed open file descriptors "
-                   "set to 65536");
-        }
-    }
-#endif
+    ret = gf_set_nofile(GLUSTERD_NOFILE, 0);
+    if (ret != -1)
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_FILE_DESC_LIMIT_SET,
+               "set maximum allowed number of opened file descriptors to %d",
+               GLUSTERD_NOFILE);
 
     dir_data = dict_get(this->options, "run-directory");
 

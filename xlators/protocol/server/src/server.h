@@ -30,6 +30,10 @@
 #define SERVER_MIN_EVENT_THREADS 1
 #define SERVER_MAX_EVENT_THREADS 1024
 
+/* Opened file descriptor limits for the server. */
+#define SERVER_NOFILE_HIGH 1048576
+#define SERVER_NOFILE_LOW 65536
+
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
 
 typedef enum {

@@ -54,6 +54,10 @@
 
 #define DHT_LINKTO "trusted.glusterfs.dht.linkto"
 
+/* Opened file descriptors limits for the posix xlator. */
+#define POSIX_NOFILE_HIGH 1048576
+#define POSIX_NOFILE_LOW 65536
+
 #define POSIX_GFID_HANDLE_SIZE(base_path_len)                                  \
     (base_path_len + SLEN("/") + SLEN(GF_HIDDEN_PATH) + SLEN("/") +            \
      SLEN("00/") + SLEN("00/") + SLEN(UUID0_STR) + 1) /* '\0' */;

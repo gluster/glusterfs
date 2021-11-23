@@ -103,7 +103,6 @@ GLFS_MSGID(
 #define PS_MSG_RPCSVC_LISTENER_CREATE_FAILED_STR "creation of listener failed"
 #define PS_MSG_RPCSVC_NOTIFY_STR "registration of notify with rpcsvc failed"
 #define PS_MSG_PGM_REG_FAILED_STR "registration of program failed"
-#define PS_MSG_ULIMIT_SET_FAILED_STR "WARNING: Failed to set 'ulimit -n 1M'"
 #define PS_MSG_FD_NOT_FOUND_STR "Failed to set max open fd to 64k"
 #define PS_MSG_VOL_FILE_OPEN_FAILED_STR                                        \
     "volfile-id argument not given. This is mandatory argument, defaulting "   \

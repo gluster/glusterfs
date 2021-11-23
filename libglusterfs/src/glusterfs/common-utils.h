@@ -1090,6 +1090,9 @@ int
 gf_gfid_generate_from_xxh64(uuid_t gfid, char *key);
 
 int
+gf_set_nofile(int high, int low);
+
+int
 gf_set_timestamp(const char *src, const char *dest);
 
 static inline int
