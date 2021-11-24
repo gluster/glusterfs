@@ -1193,17 +1193,16 @@ _gf_string2long(const char *str, long *n, int base)
     old_errno = errno;
     errno = 0;
     value = strtol(str, &tail, base);
-    if (str == tail)
+    if ((str == tail) || (*tail != 0)) {
         errno = EINVAL;
+        return -1;
+    }
 
     if (errno == ERANGE || errno == EINVAL)
         return -1;
 
     if (errno == 0)
         errno = old_errno;
-
-    if (tail[0] != '\0')
-        return -1;
 
     *n = value;
 
