@@ -4225,6 +4225,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
         return 0;
     }
 
+    /* Load a SSL library only while ssl is enabled */
+    init_openssl_mt();
+
     if (!ssl_check_aes_bit()) {
         cipher_list = "AES128:" DEFAULT_CIPHER_LIST;
     }
@@ -4673,8 +4676,6 @@ int32_t
 init(rpc_transport_t *this)
 {
     int ret = -1;
-
-    init_openssl_mt();
 
     ret = socket_init(this);
 

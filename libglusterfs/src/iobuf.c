@@ -451,7 +451,7 @@ iobuf_get_from_stdalloc(const size_t page_size, gf_boolean_t align_flag)
         goto out;
 
     if (align_flag)
-        align_size = page_size + GF_IOBUF_ALIGN_SIZE;
+        align_size = page_size + GF_IOBUF_ALIGN_SIZE - 1;
 
     iobuf->free_ptr = GF_MALLOC(align_size, gf_common_mt_iobuf_pool);
     if (!iobuf->free_ptr) {
