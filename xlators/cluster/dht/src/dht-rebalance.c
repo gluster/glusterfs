@@ -4444,6 +4444,9 @@ out:
     if (migrate_data)
         dict_unref(migrate_data);
 
+    if (fix_layout)
+        dict_unref(fix_layout);
+
     if (statfs_frame) {
         STACK_DESTROY(statfs_frame->root);
     }
