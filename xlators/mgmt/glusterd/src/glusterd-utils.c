@@ -2253,6 +2253,10 @@ retry:
         /* Snapshot Bricks are read only, disable the posix health check */
         runner_add_args(&runner, "--xlator-option",
                         "*-posix.health-check-interval=0", NULL);
+
+        /* Snapshot Bricks are read only, disable the changelog xlator */
+        runner_add_args(&runner, "--xlator-option", "*-changelog.changelog=off",
+                        NULL);
     }
 
     runner_add_arg(&runner, "--brick-port");
