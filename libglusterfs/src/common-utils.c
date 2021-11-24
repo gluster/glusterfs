@@ -1181,6 +1181,7 @@ _gf_string2long(const char *str, long *n, int base)
     value = strtol(str, &tail, base);
     if ((str == tail) || (*tail != 0)) {
         errno = EINVAL;
+        return -1;
     }
 
     if (errno == ERANGE || errno == EINVAL)
