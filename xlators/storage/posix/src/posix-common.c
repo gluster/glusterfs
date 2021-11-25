@@ -43,8 +43,8 @@
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
 #include "posix-aio.h"
-#include "posix-handle.h"
 #include "posix-io-uring.h"
+#include "posix-handle.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-messages.h"
 #include <glusterfs/events.h>
@@ -647,23 +647,17 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
     struct posix_private *priv = this->private;
     struct dirent *dentry = NULL;
     DIR *drptr = NULL;
-    char *tmp_gfid = NULL;
+    char tmp_gfid[64] = { 0, };
     uuid_t exp_gfid = {
         0,
     };
     uuid_t gfid_curr = {
         0,
     };
-    char src_path[PATH_MAX] = {
+    char dst_path[NAME_MAX] = {
         0,
     };
-    char dst_path[PATH_MAX] = {
-        0,
-    };
-    char gfid_link_path[PATH_MAX] = {
-        0,
-    };
-    char linkname[64] = {
+    char gfid_link_path[NAME_MAX*2] = {
         0,
     };
     int unlink_flag = 0;
@@ -689,75 +683,57 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
           fop was not succeeded completly so need to validate gfid and
           heal if it was not linked properly
         */
-        tmp_gfid = strdupa(dentry->d_name);
-        *(tmp_gfid + UUID_CANONICAL_FORM_LEN) = '\0';
+        snprintf(tmp_gfid, (dentry_len - UUID_CANONICAL_FORM_LEN),
+                 "%s", dentry->d_name);
         gf_uuid_parse(tmp_gfid, exp_gfid);
         if (dentry_len == UUID_CANONICAL_FORM_LEN_RENAME) {
             /* Need to follow below steps to heal the gfid link
-            1) Extract gfid from dentry name
-            2) Populate src and dst gfid path, src gfid exist in
-               special directory (tt) and dst directory is expected
-               gfid location
-            3) Read the link of src gfid path and extract trusted.gfid
-               xattr
-            4) If gfid's are matching it means crash was happened after
+            1) Read trusted.gfid xattr from linked directory
+            2) If gfid's are matching it means crash was happened after
                call rename call by posix_rename and before move tmp gfid
                so need to heal gfid
-            5) If gfid's are not matching it means the crash was happened
+            3) If gfid's are not matching it means the crash was happened
                before call rename by posix_rename so need to delete tmpgfid
                only
             */
-            snprintf(src_path, PATH_MAX, "%s/%s/%02x/tt/%s", priv->base_path,
-                     GF_HIDDEN_PATH, exp_gfid[0], dentry->d_name);
-            snprintf(dst_path, PATH_MAX, "%s/%s/%02x/%02x/%s", priv->base_path,
-                     GF_HIDDEN_PATH, exp_gfid[0], exp_gfid[1], dentry->d_name);
-            ret = sys_readlink(src_path, linkname, sizeof(linkname));
-            if (ret != -1) {
-                snprintf(gfid_link_path, PATH_MAX, "%s/%s/%s", priv->base_path,
-                         GF_HIDDEN_PATH, (linkname + 6));
-                size = sys_lgetxattr(gfid_link_path, "trusted.gfid", gfid_curr,
-                                     16);
-                if (size == 16) {
-                    if (!gf_uuid_compare(gfid_curr, exp_gfid)) {
-                        (void)posix_handle_unset(this, exp_gfid, NULL);
-                        unlink_flag = 0;
-                        ret = sys_rename(src_path, dst_path);
-                        if (ret) {
-                            gf_log(this->name, GF_LOG_ERROR,
-                                   "rename gfid %s to expected gfid %s "
-                                   "is failed",
-                                   src_path, dst_path);
-                        } else {
-                            gf_log(this->name, GF_LOG_INFO,
-                                   "rename gfid %s to expected gfid %s "
-                                   "is passed",
-                                   src_path, dst_path);
-                        }
+            snprintf(gfid_link_path, sizeof gfid_link_path, "%s/%s",
+                     dirname, dentry->d_name);
+            size = sys_lgetxattr(gfid_link_path, "trusted.gfid", gfid_curr, 16);
+            if (size == 16) {
+                if (!gf_uuid_compare(gfid_curr, exp_gfid)) {
+                    (void)posix_handle_unset(this, exp_gfid, NULL);
+                    unlink_flag = 0;
+                    index = exp_gfid[0];
+                    snprintf(dst_path, sizeof dst_path, "%02x/%s", exp_gfid[1], uuid_utoa(exp_gfid));
+                    ret = sys_renameat(dirfd(drptr), dentry->d_name, priv->arrdfd[index],
+                                       dst_path);
+                    if (ret) {
+                        gf_log(this->name, GF_LOG_ERROR,
+                               "rename gfid %s src %s to expected gfid path %s"
+                               "is failed", uuid_utoa(exp_gfid),
+                                dentry->d_name, dst_path);
+                    } else {
+                        gf_log(this->name, GF_LOG_INFO,
+                               "rename gfid %s src %s to expected gfid path %s "
+                               "is passed", uuid_utoa(exp_gfid),
+                               dentry->d_name, dst_path);
                     }
                 } else {
                     gf_log(this->name, GF_LOG_INFO,
                            "rename was not happened during crash so "
-                           "unlink %s path",
-                           src_path);
+                           "unlink %s path", dentry->d_name);
                 }
             }
         }
 
-        memset(src_path, 0, PATH_MAX);
-        memset(dst_path, 0, PATH_MAX);
-        memset(gfid_link_path, 0, PATH_MAX);
-
         if (unlink_flag) {
-            snprintf(src_path, PATH_MAX, "tt/%s", dentry->d_name);
-            index = exp_gfid[0];
-            ret = sys_unlinkat(priv->arrdfd[index], src_path);
+            ret = sys_unlinkat(dirfd(drptr), dentry->d_name);
             if (ret) {
                 gf_log(this->name, GF_LOG_INFO,
-                       "Unlink entry %s is failing in directory %s", src_path,
+                       "Unlink entry %s is failing in directory %s", dentry->d_name,
                        dirname);
             }
         }
-        memset(src_path, 0, PATH_MAX);
     }
     sys_closedir(drptr);
     ret = 0;
@@ -1376,9 +1352,7 @@ posix_init(xlator_t *this)
     GF_OPTION_INIT("ctime", _private->ctime, bool, out);
     for (i = 0; i < 256; i++) {
         snprintf(dir_name, PATH_MAX, "%s/%02x/tt", dir_handle, i);
-        ret = resolve_gfid_link_missed_during_rename(this, dir_name);
-        if (ret)
-            goto out;
+        (void)resolve_gfid_link_missed_during_rename(this, dir_name);
     }
 
 out:
@@ -1425,7 +1399,6 @@ posix_fini(xlator_t *this)
 
     if (!priv)
         return;
-
     LOCK(&priv->lock);
     {
         health_check = priv->health_check_active;

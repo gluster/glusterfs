@@ -695,6 +695,58 @@ out:
     return ret;
 }
 
+static int
+posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
+                               loc_t *loc, char *real_path)
+{
+    char *rpath = NULL;
+    inode_t *parent = NULL;
+    uuid_t null_gfid = {
+        0,
+    };
+    int ret = -1;
+
+    if (inode && inode->ia_type) {
+        if (gf_uuid_is_null(inode->gfid))
+            gf_uuid_copy(inode->gfid, gfid);
+        (void)inode_path(inode, NULL, &rpath);
+        if (inode->ia_type != IA_IFDIR) {
+            rpath = rpath + 1;
+            ret = posix_handle_hard(this, rpath, gfid, NULL);
+            if (!ret) {
+                goto out;
+            } else {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to create handle path for path %s gfid %s",
+                       rpath, uuid_utoa(gfid));
+            }
+        } else {
+            parent = inode_parent(inode, null_gfid, NULL);
+            if (loc && parent) {
+                gf_uuid_copy(loc->pargfid, parent->gfid);
+                loc->name = strrchr(loc->path, '/') + 1;
+                ret = posix_handle_soft(this, NULL, loc, gfid, NULL);
+                if (!ret) {
+                    goto out;
+                } else {
+                    gf_log(this->name, GF_LOG_ERROR,
+                           "Failed to create handle path for path %s gfid %s",
+                           loc->name, uuid_utoa(gfid));
+                }
+            } else {
+                gf_msg_debug(this->name, 0,
+                             "Can not create handle path for path %s "
+                             " because inode is NULL", real_path);
+                goto out;
+            }
+        }
+    }
+
+out:
+    return ret;
+}
+
+
 /* The inode here is expected to update posix_mdata stored on disk.
  * Don't use it as a general purpose inode and don't expect it to
  * be always exists
@@ -712,11 +764,6 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     };
     int ret = 0;
     struct posix_private *priv = NULL;
-    char *rpath = NULL;
-    inode_t *parent = NULL;
-    uuid_t null_gfid = {
-        0,
-    };
 
     priv = this->private;
 
@@ -739,45 +786,9 @@ again:
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
                        "lstat failed on %s", real_path);
             } else {
-                /* Below code is trying to heal gfid path if inode is valid
-                 */
-                if (inode && inode->ia_type) {
-                    if (gf_uuid_is_null(inode->gfid))
-                        gf_uuid_copy(inode->gfid, gfid);
-                    (void)inode_path(inode, NULL, &rpath);
-                    if (inode->ia_type != IA_IFDIR) {
-                        rpath = rpath + 1;
-                        ret = posix_handle_hard(this, rpath, gfid, NULL);
-                        if (!ret)
-                            goto again;
-                        else
-                            gf_log(this->name, GF_LOG_ERROR,
-                                   "Failed to create"
-                                   " handle path for path %s gfid %s",
-                                   rpath, uuid_utoa(gfid));
-                    } else {
-                        parent = inode_parent(inode, null_gfid, NULL);
-                        if (loc && parent) {
-                            gf_uuid_copy(loc->pargfid, parent->gfid);
-                            loc->name = strrchr(loc->path, '/') + 1;
-                            ret = posix_handle_soft(this, NULL, loc, gfid,
-                                                    NULL);
-                            if (!ret)
-                                goto again;
-                            else
-                                gf_log(this->name, GF_LOG_ERROR,
-                                       "Failed to create"
-                                       " handle path for path %s gfid %s",
-                                       loc->name, uuid_utoa(gfid));
-                        }
-                    }
-                } else {
-                    gf_msg_debug(this->name, 0,
-                                 "Can not create handle path for path %s "
-                                 " because inode is NULL",
-                                 real_path);
-                    goto out;
-                }
+                ret = posix_gfid_heal_inode_is_valid(this, inode, gfid, loc, real_path);
+                if (!ret)
+                    goto again;
             }
         } else {
             // may be some backend filesystem issue
@@ -1791,12 +1802,12 @@ posix_gfid_get_set(xlator_t *this, const char *path, loc_t *loc,
             }
         }
     }
+
     /* It means gfid is not present on backend */
     if (ret != 16) {
         (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX,
                              &ret);
     }
-
     return 0;
 }
 

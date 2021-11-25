@@ -149,4 +149,7 @@ posix_handle_init(xlator_t *this);
 int
 posix_handle_trash_init(xlator_t *this);
 
+int
+posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
+                     char *buf, size_t buflen);
 #endif /* !_POSIX_INODE_HANDLE_H */

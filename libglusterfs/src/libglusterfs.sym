@@ -1073,6 +1073,7 @@ sys_readdir
 sys_readlink
 sys_readv
 sys_rename
+sys_renameat
 sys_rmdir
 sys_stat
 sys_statvfs

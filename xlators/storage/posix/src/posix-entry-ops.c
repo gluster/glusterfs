@@ -555,6 +555,7 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     if (preparent.ia_prot.sgid) {
         gid = preparent.ia_gid;
     }
+
     strcpy(orig_real_path, real_path);
     if (frame->root->pid != GF_SERVER_PID_TRASH) {
         uuid_str = uuid_utoa(uuid_req);
@@ -776,8 +777,6 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     data_t *arg_data = NULL;
     char pgfid[GF_UUID_BUF_SIZE] = {0};
     mode_t mode_bit = 0;
-    char was_present = 0;
-    int index = 0;
     char *uuid_str = NULL;
     char gfid_tmp_path[PATH_MAX] = {
         0,
@@ -789,6 +788,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         0,
     };
     gf_boolean_t atomic_creation = _gf_false;
+    int index;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -828,17 +828,17 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                              uuid_req, out);
     DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
-    MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &stbuf);
+    MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, NULL);
     if (!real_path || !par_path) {
         op_ret = -1;
         op_errno = ESTALE;
         goto out;
     }
 
-    strcpy(orig_real_path, real_path);
-    if (stbuf.ia_ino)
-        was_present = 1;
     gid = frame->root->gid;
+    strcpy(orig_real_path, real_path);
+
+    op_ret = posix_pstat(this, loc->inode, NULL, real_path, &stbuf, _gf_false);
 
     op_ret = posix_pstat(this, loc->inode, NULL, real_path, &stbuf, _gf_false,
                          _gf_false);
@@ -1031,7 +1031,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         dict_del_sizen(xdata, GF_PREOP_PARENT_KEY);
     }
 
-    if (!was_present && (frame->root->pid != GF_SERVER_PID_TRASH)) {
+    if (frame->root->pid != GF_SERVER_PID_TRASH) {
         index = uuid_req[0];
         uuid_str = uuid_utoa(uuid_req);
         snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/tt/%s",
@@ -1109,7 +1109,6 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     op_ret = 0;
     if (atomic_creation)
         op_ret = rename_two_path(this, real_path, orig_real_path);
-
 out:
     SET_TO_OLD_FS_ID();
 
@@ -1183,7 +1182,6 @@ posix_move_gfid_to_unlink(xlator_t *this, uuid_t gfid, loc_t *loc)
                "Creation of unlink entry failed for gfid: %s", unlink_path);
         goto out;
     }
-
     ret = posix_add_unlink_to_ctx(loc->inode, this, unlink_path);
     if (ret < 0)
         goto out;
@@ -1804,6 +1802,7 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
         op_errno = ESTALE;
         goto out;
     }
+
     strcpy(orig_real_path, real_path);
     SET_FS_ID(frame->root->uid, gid);
 
@@ -1903,7 +1902,6 @@ ignore:
     posix_set_parent_ctime(frame, this, par_path, -1, loc->parent, &postparent);
 
     op_ret = rename_two_path(this, real_path, orig_real_path);
-
 out:
     SET_TO_OLD_FS_ID();
 
@@ -2176,9 +2174,8 @@ unlock:
         goto out;
     }
 
-    if (was_dir) {
+    if (was_dir)
         posix_handle_unset(this, victim, NULL);
-    }
 
     if (was_present && !was_dir && nlink == 1)
         posix_handle_unset(this, victim, NULL);
@@ -2449,12 +2446,8 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     uuid_t uuid_req = {
         0,
     };
-    int index = 0;
     char *uuid_str = NULL;
     char gfid_tmp_path[PATH_MAX] = {
-        0,
-    };
-    char gfid_open_path[PATH_MAX] = {
         0,
     };
     char orig_real_path[PATH_MAX] = {
@@ -2487,6 +2480,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         op_errno = ESTALE;
         goto out;
     }
+
     strcpy(orig_real_path, real_path);
     if (!stbuf.ia_ino)
         was_present = 0;
@@ -2537,17 +2531,13 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
     mode = posix_override_umask(mode, mode_bit);
-    if (was_present) {
-        _fd = sys_open(real_path, _flags, mode);
-    } else {
-        index = uuid_req[0];
+    if (!was_present) {
         uuid_str = uuid_utoa(uuid_req);
         snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/tt/%s",
                  priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
-        snprintf(gfid_open_path, sizeof(gfid_open_path), "tt/%s", uuid_str);
-        _fd = sys_openat(priv->arrdfd[index], gfid_open_path, _flags, mode);
         real_path = gfid_tmp_path;
     }
+    _fd = sys_open(real_path, _flags, mode);
 
     if (_fd == -1) {
         op_errno = errno;
@@ -2642,11 +2632,9 @@ fill_stat:
     if (op_ret)
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_FD_PATH_SETTING_FAILED,
                "failed to set the fd context path=%s fd=%p", real_path, fd);
-
-    op_ret = 0;
-    if (!was_present) {
+    if (!was_present)
         op_ret = rename_two_path(this, real_path, orig_real_path);
-    }
+
 out:
     SET_TO_OLD_FS_ID();
 
