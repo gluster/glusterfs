@@ -344,11 +344,16 @@ AC_ARG_WITH([tcmalloc],
         [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
         [with_tcmalloc="no"], [with_tcmalloc="yes"])
 if test "x$with_tcmalloc" = "xyes"; then
+    # If sanitizer (e.g. ASan) is enabled, next AC_CHECK_LIB constructs
+    # 'gcc -o conftest -g -O2 conftest.c -ltcmalloc -lasan' which is not what
+    # we want because sanitizer library should come first in the library list.
+    # Zeroing LIBS do the trick (and we rely on GF_LDFLAGS and not LIBS anyway).
+    LIBS=""
     AC_CHECK_LIB([tcmalloc], [malloc], [],
                  [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+    GF_LDFLAGS="${GF_LDFLAGS} -ltcmalloc"
     AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
     USE_MEMPOOL=no
 fi
