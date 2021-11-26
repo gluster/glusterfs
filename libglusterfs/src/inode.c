@@ -208,8 +208,8 @@ __dentry_unset(dentry_t *dentry)
     list_del_init(&dentry->inode_list);
 
     if (dentry->parent) {
-        __inode_unref(dentry->parent, false);
         GF_ATOMIC_DEC(dentry->parent->kids);
+        __inode_unref(dentry->parent, false);
         dentry->parent = NULL;
     }
 
@@ -1323,6 +1323,9 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     {
         linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
         /* pick the old dentry */
+        /* TODO: analyse properly about what should be the behavior if
+         * 'linked_inode' is NULL. Adding this check makes the inode tree
+         * robust, but is that good enough? (Ref: GH PR #1763) */
         if (linked_inode) {
             dentry = __inode_unlink(inode, srcdir, srcname);
         }
@@ -2464,6 +2467,10 @@ inode_dump(inode_t *inode, char *prefix)
         gf_proc_dump_write("invalidate-sent", "%d", inode->invalidate_sent);
         gf_proc_dump_write("ia_type", "%d", inode->ia_type);
         gf_proc_dump_write("kids", "%" PRId64, GF_ATOMIC_GET(inode->kids));
+        if (inode->ns_inode) {
+            gf_proc_dump_write("namespace", "%s",
+                               uuid_utoa(inode->ns_inode->gfid));
+        }
         if (inode->_ctx) {
             inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
                                   gf_common_mt_inode_ctx);

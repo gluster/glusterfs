@@ -870,7 +870,7 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
         /* This inode onwards we will set namespace */
-        gf_msg(THIS->name, GF_LOG_INFO, 0, PS_MSG_SETXATTR_INFO,
+        gf_msg(THIS->name, GF_LOG_DEBUG, 0, PS_MSG_SETXATTR_INFO,
                "client=%s, path=%s", STACK_CLIENT_NAME(frame->root),
                state->loc.path);
         inode_set_namespace_inode(state->loc.inode, state->loc.inode);
@@ -3223,25 +3223,31 @@ server4_lookup_resume(call_frame_t *frame, xlator_t *bound_xl)
         goto err;
 
     xdata = state->xdata ? dict_ref(state->xdata) : dict_new();
+    if (!xdata) {
+        state->resolve.op_ret = -1;
+        state->resolve.op_errno = ENOMEM;
+        goto err;
+    }
     if (!state->loc.inode) {
         state->loc.inode = server_inode_new(state->itable, state->loc.gfid);
-        if (xdata) {
-            int ret = dict_set_int32(xdata, GF_NAMESPACE_KEY, 1);
+        int ret = dict_set_int32(xdata, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, 0,
+                   "dict set (namespace) failed (path: %s), continuing",
+                   state->loc.path);
+            state->resolve.op_ret = -1;
+            state->resolve.op_errno = ENOMEM;
+            goto err;
+        }
+        if (state->loc.path && (state->loc.path[0] == '<')) {
+            /* This is a lookup on gfid : get full-path */
+            /* TODO: handle gfid based lookup in a better way. Ref GH PR #1763
+             */
+            ret = dict_set_int32(xdata, "get-full-path", 1);
             if (ret) {
-                gf_msg_debug(
-                    THIS->name, 0,
-                    "dict set (namespace) failed (path: %s), continuing",
-                    state->loc.path);
-            }
-            if (state->loc.path && (state->loc.path[0] == '<')) {
-                /* This is a lookup on gfid : get full-path */
-                ret = dict_set_int32(xdata, "get-full-path", 1);
-                if (ret) {
-                    gf_msg_debug(
-                        THIS->name, 0,
-                        "dict set (full-path) failed (path: %s), continuing",
-                        state->loc.path);
-                }
+                gf_msg(THIS->name, GF_LOG_INFO, ENOMEM, 0,
+                       "%s: dict set (full-path) failed, continuing",
+                       state->loc.path);
             }
         }
     } else {
@@ -3251,8 +3257,7 @@ server4_lookup_resume(call_frame_t *frame, xlator_t *bound_xl)
     STACK_WIND(frame, server4_lookup_cbk, bound_xl, bound_xl->fops->lookup,
                &state->loc, xdata);
 
-    if (xdata)
-        dict_unref(xdata);
+    dict_unref(xdata);
 
     return 0;
 err:

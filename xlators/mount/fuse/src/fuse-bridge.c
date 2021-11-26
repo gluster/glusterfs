@@ -1193,15 +1193,28 @@ fuse_lookup_resume(fuse_state_t *state)
         if (gf_uuid_is_null(state->gfid)) {
             /* this is when it's all completely new lookup, send namespace key
              * here */
-            if (state->xdata) {
-                int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY,
-                                               1);
-                if (ret) {
-                    gf_log(THIS->name, GF_LOG_DEBUG,
-                           "BUG: dict set failed (path: %s), still continuing",
-                           state->loc.path);
-                }
+            if (!state->xdata) {
+                state->xdata = dict_new();
             }
+            if (!state->xdata) {
+                gf_log(THIS->name, GF_LOG_ERROR,
+                       "%s: dict_new failed while setting namespace",
+                       state->loc.path);
+                send_fuse_err(state->this, state->finh, ENOMEM);
+                free_fuse_state(state);
+                return;
+            }
+
+            int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY, 1);
+            if (ret) {
+                gf_log(THIS->name, GF_LOG_ERROR,
+                       "%s: dict set failed for namespace key",
+                       state->loc.path);
+                send_fuse_err(state->this, state->finh, ENOMEM);
+                free_fuse_state(state);
+                return;
+            }
+
             gf_uuid_generate(state->gfid);
         }
         fuse_gfid_set(state);
@@ -2037,6 +2050,15 @@ fuse_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
         /* This inode onwards we will set namespace */
         inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
+        int64_t kids = GF_ATOMIC_GET(inode->kids);
+        if (kids > 0) {
+            /* Not adviced to continue this way. No consumers on client side
+               namespace right now, but in any case, keep an eye for this log */
+            gf_log(THIS->name, GF_LOG_WARNING,
+                   "%s: setting namespace on directory with entries (%" PRId64
+                   ")",
+                   state->loc.path, kids);
+        }
         inode_set_namespace_inode(inode, inode);
     }
 
@@ -4103,6 +4125,21 @@ fuse_setxattr_resume(fuse_state_t *state)
 #ifdef GF_TEST_FFOP
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
 #endif /* GF_TEST_FFOP */
+
+    if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
+        inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
+        int64_t kids = GF_ATOMIC_GET(inode->kids);
+        if (kids > 0) {
+            /* Not adviced to continue this way. No consumers on client side
+               namespace right now, but in any case, keep an eye for this log */
+            gf_log(THIS->name, GF_LOG_ERROR,
+                   "%s: setting namespace with entries (%" PRId64 ")",
+                   state->loc.path, kids);
+            send_fuse_err(state->this, state->finh, EPERM);
+            free_fuse_state(state);
+            return;
+        }
+    }
 
     if (state->fd) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
