@@ -50,7 +50,7 @@ function define_glusterds() {
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
         #Get the logdir
         logdir=`gluster --print-logdir`
-        clopt="management.cluster-test-mode=${logdir}/$i";
+        clopt="management.logging-directory=${logdir}/$i";
         #Fetch the testcases name and prefix the glusterd log with it
         logfile=`echo ${0##*/}`_glusterd$i.log
         lopt="--log-file=$logdir/$i/$logfile"
