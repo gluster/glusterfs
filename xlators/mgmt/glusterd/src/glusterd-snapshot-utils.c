@@ -501,6 +501,17 @@ gd_add_brick_snap_details_to_dict(dict_t *dict, char *prefix,
         goto out;
     }
 
+    if (brickinfo->origin_path[0] != '\0') {
+        snprintf(key, sizeof(key), "%s.origin_path", prefix);
+        ret = dict_set_str(dict, key, brickinfo->origin_path);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set origin_path for %s:%s", brickinfo->hostname,
+                   brickinfo->path);
+            goto out;
+        }
+    }
+
     snprintf(key, sizeof(key), "%s.fs_type", prefix);
     ret = dict_set_str(dict, key, brickinfo->fstype);
     if (ret) {
@@ -880,6 +891,7 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
         0,
     };
     char *snap_device = NULL;
+    char *origin_path = NULL;
     char *snap_type = NULL;
     char *fs_type = NULL;
     char *mnt_opts = NULL;
@@ -914,6 +926,15 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
     }
     gf_strncpy(brickinfo->device_path, snap_device,
                sizeof(brickinfo->device_path));
+
+    snprintf(key, sizeof(key), "%s.origin_path", prefix);
+    ret = dict_get_str(dict, key, &origin_path);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "%s missing in payload", key);
+    } else
+        gf_strncpy(brickinfo->origin_path, origin_path,
+                   sizeof(brickinfo->origin_path));
 
     snprintf(key, sizeof(key), "%s.fs_type", prefix);
     ret = dict_get_str(dict, key, &fs_type);
