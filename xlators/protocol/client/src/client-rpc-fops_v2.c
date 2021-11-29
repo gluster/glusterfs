@@ -121,10 +121,7 @@ client4_0_symlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     clnt_local_t *local = NULL;
     inode_t *inode = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -138,7 +135,7 @@ client4_0_symlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -154,7 +151,7 @@ out:
             /* no need to print the gfid, because it will be null,
              * since symlink operation failed.
              */
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, "source=%s", local->loc.path,
                     "target=%s", local->loc2.path, NULL);
         }
@@ -190,10 +187,7 @@ client4_0_mknod_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     clnt_local_t *local = NULL;
     inode_t *inode = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -208,7 +202,7 @@ client4_0_mknod_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -221,7 +215,7 @@ client4_0_mknod_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1 &&
         GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_MKNOD, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED,
                 "path=%s", local->loc.path, NULL);
@@ -257,10 +251,7 @@ client4_0_mkdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     clnt_local_t *local = NULL;
     inode_t *inode = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -274,7 +265,7 @@ client4_0_mkdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -287,7 +278,7 @@ client4_0_mkdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1 &&
         GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_MKDIR, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED,
                 "path=%s", local->loc.path, NULL);
@@ -314,10 +305,7 @@ client4_0_open_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfx_open_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -331,7 +319,7 @@ client4_0_open_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -351,7 +339,7 @@ client4_0_open_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_OPEN, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED,
                 "path=%s", local->loc.path, "gfid=%s",
@@ -379,10 +367,7 @@ client4_0_stat_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -393,7 +378,7 @@ client4_0_stat_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -406,10 +391,10 @@ out:
         /* stale filehandles are possible during normal operations, no
          * need to spam the logs with these */
         if (rsp.op_errno == ESTALE) {
-            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+            gf_msg_debug(THIS->name, gf_error_to_errno(rsp.op_errno),
                          "remote operation failed");
         } else {
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -435,10 +420,7 @@ client4_0_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -449,7 +431,7 @@ client4_0_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readlink_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -461,10 +443,10 @@ client4_0_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+            gf_msg_debug(THIS->name, gf_error_to_errno(rsp.op_errno),
                          "remote operation failed");
         } else {
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -498,10 +480,7 @@ client4_0_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -512,7 +491,7 @@ client4_0_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -524,10 +503,10 @@ client4_0_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+            gf_msg_debug(THIS->name, gf_error_to_errno(rsp.op_errno),
                          "remote operation failed");
         } else {
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -557,10 +536,7 @@ client4_0_rmdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -571,7 +547,7 @@ client4_0_rmdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -583,7 +559,7 @@ client4_0_rmdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -612,10 +588,7 @@ client4_0_truncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -626,7 +599,7 @@ client4_0_truncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -637,7 +610,7 @@ client4_0_truncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(truncate, frame, rsp.op_ret,
@@ -662,10 +635,7 @@ client4_0_statfs_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -676,7 +646,7 @@ client4_0_statfs_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_statfs_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -689,7 +659,7 @@ client4_0_statfs_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(statfs, frame, rsp.op_ret,
@@ -716,11 +686,8 @@ client4_0_writev_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     clnt_local_t *local = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -733,7 +700,7 @@ client4_0_writev_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -745,11 +712,11 @@ client4_0_writev_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     } else if (rsp.op_ret >= 0) {
         if (local->attempt_reopen)
-            client_attempt_reopen(local->fd, this);
+            client_attempt_reopen(local->fd, THIS);
     }
     CLIENT_STACK_UNWIND(writev, frame, rsp.op_ret,
                         gf_error_to_errno(rsp.op_errno), &prestat, &poststat,
@@ -761,12 +728,11 @@ out:
     return 0;
 }
 
-int
+static int
 client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
     call_frame_t *frame = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     gfx_common_rsp rsp = {
         0,
@@ -774,7 +740,6 @@ client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
 
     frame = myframe;
-    this = THIS;
 
     if (-1 == req->rpc_status) {
         rsp.op_ret = -1;
@@ -783,7 +748,7 @@ client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -794,7 +759,7 @@ client4_0_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_FLUSH, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
@@ -822,10 +787,7 @@ client4_0_fsync_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -837,7 +799,7 @@ client4_0_fsync_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -850,7 +812,7 @@ client4_0_fsync_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fsync, frame, rsp.op_ret,
@@ -871,11 +833,8 @@ client4_0_setxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     int op_errno = EINVAL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -887,7 +846,7 @@ client4_0_setxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -899,9 +858,9 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, op_errno, "remote operation failed");
+            gf_msg_debug(THIS->name, op_errno, "remote operation failed");
         } else {
-            gf_smsg(this->name, GF_LOG_WARNING, op_errno,
+            gf_smsg(THIS->name, GF_LOG_WARNING, op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -1065,11 +1024,8 @@ client4_0_removexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     gf_loglevel_t loglevel = GF_LOG_NONE;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1081,7 +1037,7 @@ client4_0_removexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1101,7 +1057,7 @@ out:
         else
             loglevel = GF_LOG_WARNING;
 
-        gf_smsg(this->name, loglevel, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, loglevel, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -1123,10 +1079,7 @@ client4_0_fremovexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1138,7 +1091,7 @@ client4_0_fremovexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1148,7 +1101,7 @@ client4_0_fremovexattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fremovexattr, frame, rsp.op_ret,
@@ -1169,10 +1122,7 @@ client4_0_fsyncdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1183,7 +1133,7 @@ client4_0_fsyncdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1194,7 +1144,7 @@ client4_0_fsyncdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fsyncdir, frame, rsp.op_ret,
@@ -1215,10 +1165,7 @@ client4_0_access_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1229,7 +1176,7 @@ client4_0_access_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1240,7 +1187,7 @@ client4_0_access_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(access, frame, rsp.op_ret,
@@ -1267,10 +1214,7 @@ client4_0_ftruncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1281,7 +1225,7 @@ client4_0_ftruncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1292,7 +1236,7 @@ client4_0_ftruncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(ftruncate, frame, rsp.op_ret,
@@ -1317,10 +1261,7 @@ client4_0_fstat_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1331,7 +1272,7 @@ client4_0_fstat_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1342,7 +1283,7 @@ client4_0_fstat_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fstat, frame, rsp.op_ret,
@@ -1363,10 +1304,7 @@ client4_0_inodelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1377,7 +1315,7 @@ client4_0_inodelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1387,7 +1325,7 @@ client4_0_inodelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_INODELK, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
@@ -1459,10 +1397,7 @@ client4_0_entrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1473,7 +1408,7 @@ client4_0_entrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1483,7 +1418,7 @@ client4_0_entrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_ENTRYLK, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED, NULL);
     }
@@ -1506,10 +1441,7 @@ client4_0_fentrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1520,7 +1452,7 @@ client4_0_fentrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1531,7 +1463,7 @@ client4_0_fentrylk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if ((rsp.op_ret == -1) && (EAGAIN != gf_error_to_errno(rsp.op_errno))) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -1687,11 +1619,8 @@ client4_0_fsetxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     int op_errno = EINVAL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1702,7 +1631,7 @@ client4_0_fsetxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1715,9 +1644,9 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, op_errno, "remote operation failed");
+            gf_msg_debug(THIS->name, op_errno, "remote operation failed");
         } else {
-            gf_smsg(this->name, GF_LOG_WARNING, rsp.op_errno,
+            gf_smsg(THIS->name, GF_LOG_WARNING, rsp.op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
         }
     }
@@ -1745,10 +1674,7 @@ client4_0_fallocate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1759,7 +1685,7 @@ client4_0_fallocate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1772,7 +1698,7 @@ client4_0_fallocate_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fallocate, frame, rsp.op_ret,
@@ -1800,10 +1726,7 @@ client4_0_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1814,7 +1737,7 @@ client4_0_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1825,7 +1748,7 @@ client4_0_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(discard, frame, rsp.op_ret,
@@ -1852,10 +1775,7 @@ client4_0_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1866,7 +1786,7 @@ client4_0_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1876,7 +1796,7 @@ client4_0_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(zerofill, frame, rsp.op_ret,
@@ -1898,10 +1818,7 @@ client4_0_ipc_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1912,7 +1829,7 @@ client4_0_ipc_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1922,7 +1839,7 @@ client4_0_ipc_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(ipc, frame, rsp.op_ret, gf_error_to_errno(rsp.op_errno),
@@ -1943,10 +1860,7 @@ client4_0_seek_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -1957,7 +1871,7 @@ client4_0_seek_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_seek_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -1967,7 +1881,7 @@ client4_0_seek_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(seek, frame, rsp.op_ret,
@@ -1994,10 +1908,7 @@ client4_0_setattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2009,7 +1920,7 @@ client4_0_setattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2020,7 +1931,7 @@ client4_0_setattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(setattr, frame, rsp.op_ret,
@@ -2048,10 +1959,7 @@ client4_0_fsetattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2063,7 +1971,7 @@ client4_0_fsetattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2074,7 +1982,7 @@ client4_0_fsetattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(fsetattr, frame, rsp.op_ret,
@@ -2108,10 +2016,7 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfx_create_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -2126,7 +2031,7 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_create_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2150,7 +2055,7 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, "path=%s", local->loc.path, NULL);
     }
 
@@ -2176,15 +2081,12 @@ client4_0_lease_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
     if (-1 == req->rpc_status) {
-        gf_smsg(this->name, GF_LOG_ERROR, ENOTCONN, PC_MSG_REMOTE_OP_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, ENOTCONN, PC_MSG_REMOTE_OP_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = ENOTCONN;
@@ -2193,7 +2095,7 @@ client4_0_lease_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_lease_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2204,7 +2106,7 @@ client4_0_lease_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -2233,8 +2135,6 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     dict_t *xdata = NULL;
     clnt_local_t *local = NULL;
 
-    this = THIS;
-
     frame = myframe;
     local = frame->local;
 
@@ -2246,7 +2146,7 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_lk_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2260,6 +2160,7 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (local->check_reopen) {
+        this = THIS;
         if (lock.l_type == F_WRLCK)
             set_fd_reopen_status(this, xdata, FD_REOPEN_NOT_ALLOWED);
         else
@@ -2268,7 +2169,7 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 out:
     if ((rsp.op_ret == -1) && (EAGAIN != gf_error_to_errno(rsp.op_errno))) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -2422,10 +2323,7 @@ client4_0_rename_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2437,7 +2335,7 @@ client4_0_rename_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_rename_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2448,7 +2346,7 @@ client4_0_rename_cbk(struct rpc_req *req, struct iovec *iov, int count,
                           &prenewparent, &postnewparent, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
     CLIENT_STACK_UNWIND(rename, frame, rsp.op_ret,
@@ -2481,10 +2379,7 @@ client4_0_link_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = 0;
     clnt_local_t *local = NULL;
     inode_t *inode = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2499,7 +2394,7 @@ client4_0_link_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2511,7 +2406,7 @@ client4_0_link_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (GF_IGNORE_IF_GSYNCD_SAFE_ERROR(frame, rsp.op_errno)) {
-            gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+            gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, "source=%s", local->loc.path,
                     "target=%s", local->loc2.path, NULL);
         }
@@ -2538,10 +2433,7 @@ client4_0_opendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gfx_open_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -2558,7 +2450,7 @@ client4_0_opendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
        but separated by fop number only */
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_open_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2578,7 +2470,7 @@ client4_0_opendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
     ret = xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name,
+        gf_smsg(THIS->name,
                 fop_log_level(GF_FOP_OPENDIR, gf_error_to_errno(rsp.op_errno)),
                 gf_error_to_errno(rsp.op_errno), PC_MSG_REMOTE_OP_FAILED,
                 "path=%s", local->loc.path, "gfid=%s",
@@ -2612,9 +2504,6 @@ client4_0_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int op_errno = EINVAL;
     dict_t *xdata = NULL;
     inode_t *inode = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -2628,7 +2517,7 @@ client4_0_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_2iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         op_errno = EINVAL;
@@ -2672,11 +2561,11 @@ out:
         /* any error other than ENOENT */
         if (!(local->loc.name && rsp.op_errno == ENOENT) &&
             !(rsp.op_errno == ESTALE))
-            gf_smsg(this->name, GF_LOG_WARNING, rsp.op_errno,
+            gf_smsg(THIS->name, GF_LOG_WARNING, rsp.op_errno,
                     PC_MSG_REMOTE_OP_FAILED, "path=%s", local->loc.path,
                     "gfid=%s", loc_gfid_utoa(&local->loc), NULL);
         else
-            gf_msg_trace(this->name, 0,
+            gf_msg_trace(THIS->name, 0,
                          "not found on remote "
                          "node");
     }
@@ -2707,10 +2596,7 @@ client4_0_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = 0, rspcount = 0;
     clnt_local_t *local = NULL;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
     local = frame->local;
@@ -2723,7 +2609,7 @@ client4_0_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_read_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2736,11 +2622,11 @@ client4_0_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
                                &req->rsp[1], &rspcount, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     } else if (rsp.op_ret >= 0) {
         if (local->attempt_reopen)
-            client_attempt_reopen(local->fd, this);
+            client_attempt_reopen(local->fd, THIS);
     }
     CLIENT_STACK_UNWIND(readv, frame, rsp.op_ret,
                         gf_error_to_errno(rsp.op_errno), vector, rspcount,
@@ -2783,10 +2669,7 @@ client4_0_getactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int32_t ret = 0;
     lock_migration_info_t locklist;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2798,7 +2681,7 @@ client4_0_getactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_getactivelk_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2808,14 +2691,14 @@ client4_0_getactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     INIT_LIST_HEAD(&locklist.list);
 
     if (rsp.op_ret > 0) {
-        clnt_unserialize_rsp_locklist_v2(this, &rsp, &locklist);
+        clnt_unserialize_rsp_locklist_v2(&rsp, &locklist);
     }
 
     xdr_to_dict(&rsp.xdata, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -2838,10 +2721,7 @@ client4_0_setactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int32_t ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -2853,7 +2733,7 @@ client4_0_setactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2863,7 +2743,7 @@ client4_0_setactivelk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -2898,8 +2778,6 @@ client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
     dict_t *xdata = NULL;
     clnt_local_t *local = NULL;
 
-    this = THIS;
-
     frame = myframe;
     local = frame->local;
 
@@ -2911,7 +2789,7 @@ client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -2923,9 +2801,10 @@ client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     } else if (rsp.op_ret >= 0) {
+        this = THIS;
         if (local->attempt_reopen)
             client_attempt_reopen(local->fd, this);
         if (local->attempt_reopen_out)
@@ -5543,10 +5422,7 @@ client4_rchecksum_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
-
-    this = THIS;
 
     frame = myframe;
 
@@ -5558,7 +5434,7 @@ client4_rchecksum_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_rchecksum_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -5568,7 +5444,7 @@ client4_rchecksum_cbk(struct rpc_req *req, struct iovec *iov, int count,
     xdr_to_dict(&rsp.xdata, &xdata);
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 
@@ -5691,7 +5567,6 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     call_frame_t *frame = NULL;
     int ret = 0;
-    xlator_t *this = NULL;
     dict_t *xdata = NULL;
     clnt_local_t *local = NULL;
     struct iatt stbuf = {
@@ -5705,8 +5580,6 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     inode_t *inode = NULL;
 
-    this = THIS;
-
     frame = myframe;
     local = frame->local;
     inode = local->loc.inode;
@@ -5719,7 +5592,7 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_common_3iatt_rsp);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
+        gf_smsg(THIS->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
@@ -5734,7 +5607,7 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 out:
     if (rsp.op_ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
+        gf_smsg(THIS->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                 PC_MSG_REMOTE_OP_FAILED, NULL);
     }
 

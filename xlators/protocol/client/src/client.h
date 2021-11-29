@@ -309,8 +309,7 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
                           gfx_setactivelk_req *req);
 
 int
-clnt_unserialize_rsp_locklist_v2(xlator_t *this,
-                                 struct gfx_getactivelk_rsp *rsp,
+clnt_unserialize_rsp_locklist_v2(struct gfx_getactivelk_rsp *rsp,
                                  lock_migration_info_t *lmi);
 
 int
