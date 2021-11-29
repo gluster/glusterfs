@@ -145,7 +145,7 @@ client4_0_symlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_3iatt(this, &rsp, &stbuf, &preparent, &postparent,
+    ret = client_post_common_3iatt(&rsp, &stbuf, &preparent, &postparent,
                                    &xdata);
 
 out:
@@ -215,7 +215,7 @@ client4_0_mknod_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_3iatt(this, &rsp, &stbuf, &preparent, &postparent,
+    ret = client_post_common_3iatt(&rsp, &stbuf, &preparent, &postparent,
                                    &xdata);
 
 out:
@@ -281,7 +281,7 @@ client4_0_mkdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_3iatt(this, &rsp, &stbuf, &preparent, &postparent,
+    ret = client_post_common_3iatt(&rsp, &stbuf, &preparent, &postparent,
                                    &xdata);
 
 out:
@@ -400,7 +400,7 @@ client4_0_stat_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_iatt(this, &rsp, &iatt, &xdata);
+    ret = client_post_common_iatt(&rsp, &iatt, &xdata);
 out:
     if (rsp.op_ret == -1) {
         /* stale filehandles are possible during normal operations, no
@@ -519,7 +519,7 @@ client4_0_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &preparent, &postparent, &xdata);
+    ret = client_post_common_2iatt(&rsp, &preparent, &postparent, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -578,7 +578,7 @@ client4_0_rmdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &preparent, &postparent, &xdata);
+    ret = client_post_common_2iatt(&rsp, &preparent, &postparent, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -633,7 +633,7 @@ client4_0_truncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -740,7 +740,7 @@ client4_0_writev_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
     if (ret < 0)
         goto out;
 out:
@@ -844,7 +844,7 @@ client4_0_fsync_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
     if (ret < 0)
         goto out;
 
@@ -950,7 +950,7 @@ client4_0_getxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     op_errno = gf_error_to_errno(rsp.op_errno);
-    ret = client_post_common_dict(this, &rsp, &dict, &xdata);
+    ret = client_post_common_dict(&rsp, &dict, &xdata);
     if (ret) {
         op_errno = -ret;
         goto out;
@@ -1023,7 +1023,7 @@ client4_0_fgetxattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     op_errno = gf_error_to_errno(rsp.op_errno);
-    ret = client_post_common_dict(this, &rsp, &dict, &xdata);
+    ret = client_post_common_dict(&rsp, &dict, &xdata);
     if (ret) {
         op_errno = -ret;
         goto out;
@@ -1288,7 +1288,7 @@ client4_0_ftruncate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -1338,7 +1338,7 @@ client4_0_fstat_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_iatt(this, &rsp, &stat, &xdata);
+    ret = client_post_common_iatt(&rsp, &stat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -1579,7 +1579,7 @@ client4_0_xattrop_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     op_errno = rsp.op_errno;
-    ret = client_post_common_dict(this, &rsp, &dict, &xdata);
+    ret = client_post_common_dict(&rsp, &dict, &xdata);
     if (ret) {
         op_errno = -ret;
         goto out;
@@ -1645,7 +1645,7 @@ client4_0_fxattrop_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
     op_errno = rsp.op_errno;
-    ret = client_post_common_dict(this, &rsp, &dict, &xdata);
+    ret = client_post_common_dict(&rsp, &dict, &xdata);
     if (ret) {
         rsp.op_ret = -1;
         op_errno = -ret;
@@ -1766,7 +1766,7 @@ client4_0_fallocate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
     if (ret < 0)
         goto out;
 
@@ -1821,7 +1821,7 @@ client4_0_discard_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -1873,7 +1873,7 @@ client4_0_zerofill_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 out:
     if (rsp.op_ret == -1) {
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
@@ -2016,7 +2016,7 @@ client4_0_setattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -2070,7 +2070,7 @@ client4_0_fsetattr_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_2iatt(this, &rsp, &prestat, &poststat, &xdata);
+    ret = client_post_common_2iatt(&rsp, &prestat, &poststat, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -2133,8 +2133,8 @@ client4_0_create_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_create_v2(this, &rsp, &stbuf, &preparent, &postparent,
-                                local, &xdata);
+    ret = client_post_create_v2(&rsp, &stbuf, &preparent, &postparent, local,
+                                &xdata);
     if (ret < 0)
         goto out;
 
@@ -2200,7 +2200,7 @@ client4_0_lease_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_lease_v2(this, &rsp, &lease, &xdata);
+    ret = client_post_lease_v2(&rsp, &lease, &xdata);
 
 out:
     if (rsp.op_ret == -1) {
@@ -2254,7 +2254,7 @@ client4_0_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (rsp.op_ret >= 0) {
-        ret = client_post_lk_v2(this, &rsp, &lock, &xdata);
+        ret = client_post_lk_v2(&rsp, &lock, &xdata);
         if (ret < 0)
             goto out;
     }
@@ -2444,7 +2444,7 @@ client4_0_rename_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    client_post_rename_v2(this, &rsp, &stbuf, &preoldparent, &postoldparent,
+    client_post_rename_v2(&rsp, &stbuf, &preoldparent, &postoldparent,
                           &prenewparent, &postnewparent, &xdata);
 out:
     if (rsp.op_ret == -1) {
@@ -2506,7 +2506,7 @@ client4_0_link_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_3iatt(this, &rsp, &stbuf, &preparent, &postparent,
+    ret = client_post_common_3iatt(&rsp, &stbuf, &preparent, &postparent,
                                    &xdata);
 out:
     if (rsp.op_ret == -1) {
@@ -2638,7 +2638,7 @@ client4_0_lookup_cbk(struct rpc_req *req, struct iovec *iov, int count,
     /* Preserve the op_errno received from the server */
     op_errno = gf_error_to_errno(rsp.op_errno);
 
-    ret = client_post_common_2iatt(this, &rsp, &stbuf, &postparent, &xdata);
+    ret = client_post_common_2iatt(&rsp, &stbuf, &postparent, &xdata);
     if (ret < 0) {
         /* Don't change the op_errno if the fop failed on server */
         if (rsp.op_ret == 0)
@@ -2732,8 +2732,8 @@ client4_0_readv_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     memset(vector, 0, sizeof(vector));
 
-    ret = client_post_readv_v2(this, &rsp, &iobref, req->rsp_iobref, &stat,
-                               vector, &req->rsp[1], &rspcount, &xdata);
+    ret = client_post_readv_v2(&rsp, &iobref, req->rsp_iobref, &stat, vector,
+                               &req->rsp[1], &rspcount, &xdata);
 out:
     if (rsp.op_ret == -1) {
         gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
@@ -2918,8 +2918,7 @@ client4_0_copy_file_range_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = client_post_common_3iatt(this, &rsp, &stbuf, &prestat, &poststat,
-                                   &xdata);
+    ret = client_post_common_3iatt(&rsp, &stbuf, &prestat, &poststat, &xdata);
     if (ret < 0)
         goto out;
 out:
@@ -3150,7 +3149,7 @@ client4_0_stat(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_stat_v2(this, &req, args->loc, args->xdata);
+    ret = client_pre_stat_v2(&req, args->loc, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3192,8 +3191,7 @@ client4_0_truncate(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_truncate_v2(this, &req, args->loc, args->offset,
-                                 args->xdata);
+    ret = client_pre_truncate_v2(&req, args->loc, args->offset, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3278,7 +3276,7 @@ client4_0_access(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    ret = client_pre_access_v2(this, &req, args->loc, args->mask, args->xdata);
+    ret = client_pre_access_v2(&req, args->loc, args->mask, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3329,8 +3327,7 @@ client4_0_readlink(call_frame_t *frame, xlator_t *this, void *data)
 
     frame->local = local;
 
-    ret = client_pre_readlink_v2(this, &req, args->loc, args->size,
-                                 args->xdata);
+    ret = client_pre_readlink_v2(&req, args->loc, args->size, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3373,7 +3370,7 @@ client4_0_unlink(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_unlink_v2(this, &req, args->loc, args->flags, args->xdata);
+    ret = client_pre_unlink_v2(&req, args->loc, args->flags, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3414,7 +3411,7 @@ client4_0_rmdir(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_rmdir_v2(this, &req, args->loc, args->flags, args->xdata);
+    ret = client_pre_rmdir_v2(&req, args->loc, args->flags, args->xdata);
 
     if (ret) {
         op_errno = -ret;
@@ -3472,8 +3469,8 @@ client4_0_symlink(call_frame_t *frame, xlator_t *this, void *data)
 
     local->loc2.path = gf_strdup(args->linkname);
 
-    ret = client_pre_symlink_v2(this, &req, args->loc, args->linkname,
-                                args->umask, args->xdata);
+    ret = client_pre_symlink_v2(&req, args->loc, args->linkname, args->umask,
+                                args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3517,8 +3514,7 @@ client4_0_rename(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_rename_v2(this, &req, args->oldloc, args->newloc,
-                               args->xdata);
+    ret = client_pre_rename_v2(&req, args->oldloc, args->newloc, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3570,8 +3566,7 @@ client4_0_link(call_frame_t *frame, xlator_t *this, void *data)
 
     frame->local = local;
 
-    ret = client_pre_link_v2(this, &req, args->oldloc, args->newloc,
-                             args->xdata);
+    ret = client_pre_link_v2(&req, args->oldloc, args->newloc, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -3630,7 +3625,7 @@ client4_0_mknod(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_mknod_v2(this, &req, args->loc, args->mode, args->rdev,
+    ret = client_pre_mknod_v2(&req, args->loc, args->mode, args->rdev,
                               args->umask, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -3696,7 +3691,7 @@ client4_0_mkdir(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_mkdir_v2(this, &req, args->loc, args->mode, args->umask,
+    ret = client_pre_mkdir_v2(&req, args->loc, args->mode, args->umask,
                               args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -3753,7 +3748,7 @@ client4_0_create(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_create_v2(this, &req, args->loc, args->fd, args->mode,
+    ret = client_pre_create_v2(&req, args->loc, args->fd, args->mode,
                                args->flags, args->umask, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -3812,7 +3807,7 @@ client4_0_open(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_open_v2(this, &req, args->loc, args->fd, args->flags,
+    ret = client_pre_open_v2(&req, args->loc, args->fd, args->flags,
                              args->xdata);
 
     if (ret) {
@@ -4162,7 +4157,7 @@ client4_0_opendir(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_opendir_v2(this, &req, args->loc, args->fd, args->xdata);
+    ret = client_pre_opendir_v2(&req, args->loc, args->fd, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -4249,7 +4244,7 @@ client4_0_statfs(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    ret = client_pre_statfs_v2(this, &req, args->loc, args->xdata);
+    ret = client_pre_statfs_v2(&req, args->loc, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -4291,8 +4286,8 @@ client4_0_setxattr(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_setxattr_v2(this, &req, args->loc, args->xattr,
-                                 args->flags, args->xdata);
+    ret = client_pre_setxattr_v2(&req, args->loc, args->xattr, args->flags,
+                                 args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -4449,7 +4444,7 @@ client4_0_getxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    ret = client_pre_getxattr_v2(this, &req, args->loc, args->name,
+    ret = client_pre_getxattr_v2(&req, args->loc, args->name,
                                  args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -4506,7 +4501,7 @@ client4_0_xattrop(call_frame_t *frame, xlator_t *this, void *data)
     loc_path(&local->loc, NULL);
     conf = this->private;
 
-    ret = client_pre_xattrop_v2(this, &req, args->loc, args->xattr, args->flags,
+    ret = client_pre_xattrop_v2(&req, args->loc, args->xattr, args->flags,
                                 args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -4602,8 +4597,7 @@ client4_0_removexattr(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_removexattr_v2(this, &req, args->loc, args->name,
-                                    args->xdata);
+    ret = client_pre_removexattr_v2(&req, args->loc, args->name, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -4688,7 +4682,7 @@ client4_0_lease(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_lease_v2(this, &req, args->loc, args->lease, args->xdata);
+    ret = client_pre_lease_v2(&req, args->loc, args->lease, args->xdata);
     if (ret < 0) {
         op_errno = -ret;
         goto unwind;
@@ -4812,7 +4806,7 @@ client4_0_inodelk(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_inodelk_v2(this, &req, args->loc, args->cmd, args->flock,
+    ret = client_pre_inodelk_v2(&req, args->loc, args->cmd, args->flock,
                                 args->volume, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -4903,9 +4897,8 @@ client4_0_entrylk(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    ret = client_pre_entrylk_v2(this, &req, args->loc, args->cmd_entrylk,
-                                args->type, args->volume, args->basename,
-                                args->xdata);
+    ret = client_pre_entrylk_v2(&req, args->loc, args->cmd_entrylk, args->type,
+                                args->volume, args->basename, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;
@@ -5199,7 +5192,7 @@ client4_0_setattr(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_setattr_v2(this, &req, args->loc, args->valid, args->stbuf,
+    ret = client_pre_setattr_v2(&req, args->loc, args->valid, args->stbuf,
                                 args->xdata);
 
     if (ret) {
@@ -5366,7 +5359,7 @@ client4_0_ipc(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    ret = client_pre_ipc_v2(this, &req, args->cmd, args->xdata);
+    ret = client_pre_ipc_v2(&req, args->cmd, args->xdata);
 
     if (ret) {
         op_errno = -ret;
@@ -5734,8 +5727,8 @@ client4_0_put_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (-1 != rsp.op_ret) {
-        ret = client_post_common_3iatt(this, &rsp, &stbuf, &preparent,
-                                       &postparent, &xdata);
+        ret = client_post_common_3iatt(&rsp, &stbuf, &preparent, &postparent,
+                                       &xdata);
         if (ret < 0)
             goto out;
     }
@@ -5883,7 +5876,7 @@ client4_0_put(call_frame_t *frame, xlator_t *this, void *data)
     loc_copy(&local->loc, args->loc);
     loc_path(&local->loc, NULL);
 
-    ret = client_pre_put_v2(this, &req, args->loc, args->mode, args->umask,
+    ret = client_pre_put_v2(&req, args->loc, args->mode, args->umask,
                             args->flags, args->size, args->offset, args->xattr,
                             args->xdata);
 
