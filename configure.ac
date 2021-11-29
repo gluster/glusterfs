@@ -290,6 +290,21 @@ if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
         AC_CHECK_LIB([asan], [__asan_init], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
+        if test "x$ac_cv_lib_asan___asan_init" = xyes; then
+                AC_MSG_CHECKING([whether asan API can be used])
+                saved_CFLAGS=${CFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=address"
+                AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                   [#include <sanitizer/common_interface_defs.h>]],
+                   [[__sanitizer_finish_switch_fiber(0, 0, 0)]])],
+                   [ASAN_API=yes], [ASAN_API=no])
+                AC_MSG_RESULT([$ASAN_API])
+                if test x$ASAN_API = "xyes"; then
+                   AC_DEFINE(HAVE_ASAN_API, 1, [Define if asan API can be used.])
+                fi
+                CFLAGS=${saved_CFLAGS}
+        fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
         GF_LDFLAGS="${GF_LDFLAGS} -lasan"
 fi
