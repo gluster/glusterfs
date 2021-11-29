@@ -30,8 +30,7 @@ client_pre_stat(xlator_t *this, gfs3_stat_req *req, loc_t *loc, dict_t *xdata)
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&req->xdata.xdata_val),
@@ -56,8 +55,7 @@ client_pre_readlink(xlator_t *this, gfs3_readlink_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->size = size;
     GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&req->xdata.xdata_val),
@@ -81,8 +79,7 @@ client_pre_mknod(xlator_t *this, gfs3_mknod_req *req, loc_t *loc, mode_t mode,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->mode = mode;
@@ -111,8 +108,7 @@ client_pre_mkdir(xlator_t *this, gfs3_mkdir_req *req, loc_t *loc, mode_t mode,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
 
     req->bname = (char *)loc->name;
@@ -141,8 +137,7 @@ client_pre_unlink(xlator_t *this, gfs3_unlink_req *req, loc_t *loc,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->xflags = flags;
@@ -169,8 +164,7 @@ client_pre_rmdir(xlator_t *this, gfs3_rmdir_req *req, loc_t *loc, int32_t flags,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->xflags = flags;
@@ -197,8 +191,7 @@ client_pre_symlink(xlator_t *this, gfs3_symlink_req *req, loc_t *loc,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->linkname = (char *)linkname;
     req->bname = (char *)loc->name;
@@ -230,11 +223,9 @@ client_pre_rename(xlator_t *this, gfs3_rename_req *req, loc_t *oldloc,
     else
         memcpy(req->newgfid, newloc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
                                   out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->newgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->newgfid)),
                                   out, op_errno, EINVAL);
     req->oldbname = (char *)oldloc->name;
     req->newbname = (char *)newloc->name;
@@ -266,11 +257,9 @@ client_pre_link(xlator_t *this, gfs3_link_req *req, loc_t *oldloc,
     else
         memcpy(req->newgfid, newloc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
                                   out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->newgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->newgfid)),
                                   out, op_errno, EINVAL);
     req->newbname = (char *)newloc->name;
 
@@ -296,8 +285,7 @@ client_pre_truncate(xlator_t *this, gfs3_truncate_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->offset = offset;
 
@@ -322,8 +310,7 @@ client_pre_open(xlator_t *this, gfs3_open_req *req, loc_t *loc, fd_t *fd,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->flags = gf_flags_from_flags(flags);
 
@@ -411,8 +398,7 @@ client_pre_statfs(xlator_t *this, gfs3_statfs_req *req, loc_t *loc,
         req->gfid[15] = 1;
     }
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&req->xdata.xdata_val),
@@ -479,8 +465,7 @@ client_pre_setxattr(xlator_t *this, gfs3_setxattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     if (xattr) {
         GF_PROTOCOL_DICT_SERIALIZE(this, xattr, (&req->dict.dict_val),
@@ -513,8 +498,7 @@ client_pre_getxattr(xlator_t *this, gfs3_getxattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->namelen = 1; /* Use it as a flag */
 
@@ -546,8 +530,7 @@ client_pre_removexattr(xlator_t *this, gfs3_removexattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->name = (char *)name;
 
@@ -573,8 +556,7 @@ client_pre_opendir(xlator_t *this, gfs3_opendir_req *req, loc_t *loc, fd_t *fd,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     GF_PROTOCOL_DICT_SERIALIZE(this, xdata, (&req->xdata.xdata_val),
@@ -621,8 +603,7 @@ client_pre_access(xlator_t *this, gfs3_access_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->mask = mask;
 
@@ -647,8 +628,7 @@ client_pre_create(xlator_t *this, gfs3_create_req *req, loc_t *loc, fd_t *fd,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->mode = mode;
@@ -824,8 +804,7 @@ client_pre_inodelk(xlator_t *this, gfs3_inodelk_req *req, loc_t *loc, int cmd,
     else
         memcpy(req->gfid, loc->inode->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     if (cmd == F_GETLK || cmd == F_GETLK64)
         gf_cmd = GF_LK_GETLK;
@@ -930,8 +909,7 @@ client_pre_entrylk(xlator_t *this, gfs3_entrylk_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->inode->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->cmd = cmd_entrylk;
     req->type = type;
@@ -994,8 +972,7 @@ client_pre_xattrop(xlator_t *this, gfs3_xattrop_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     if (xattr) {
         GF_PROTOCOL_DICT_SERIALIZE(this, xattr, (&req->dict.dict_val),
@@ -1129,8 +1106,7 @@ client_pre_setattr(xlator_t *this, gfs3_setattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     req->valid = valid;
@@ -1332,8 +1308,7 @@ client_pre_lease(xlator_t *this, gfs3_lease_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     gf_proto_lease_from_lease(&req->lease, lease);
@@ -2223,8 +2198,7 @@ client_pre_stat_v2(xlator_t *this, gfx_stat_req *req, loc_t *loc, dict_t *xdata)
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     dict_to_xdr(xdata, &req->xdata);
@@ -2248,8 +2222,7 @@ client_pre_readlink_v2(xlator_t *this, gfx_readlink_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->size = size;
     dict_to_xdr(xdata, &req->xdata);
@@ -2272,8 +2245,7 @@ client_pre_mknod_v2(xlator_t *this, gfx_mknod_req *req, loc_t *loc, mode_t mode,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->mode = mode;
@@ -2301,8 +2273,7 @@ client_pre_mkdir_v2(xlator_t *this, gfx_mkdir_req *req, loc_t *loc, mode_t mode,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
 
     req->bname = (char *)loc->name;
@@ -2330,8 +2301,7 @@ client_pre_unlink_v2(xlator_t *this, gfx_unlink_req *req, loc_t *loc,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->xflags = flags;
@@ -2357,8 +2327,7 @@ client_pre_rmdir_v2(xlator_t *this, gfx_rmdir_req *req, loc_t *loc,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->xflags = flags;
@@ -2384,8 +2353,7 @@ client_pre_symlink_v2(xlator_t *this, gfx_symlink_req *req, loc_t *loc,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->linkname = (char *)linkname;
     req->bname = (char *)loc->name;
@@ -2416,11 +2384,9 @@ client_pre_rename_v2(xlator_t *this, gfx_rename_req *req, loc_t *oldloc,
     else
         memcpy(req->newgfid, newloc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
                                   out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->newgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->newgfid)),
                                   out, op_errno, EINVAL);
     req->oldbname = (char *)oldloc->name;
     req->newbname = (char *)newloc->name;
@@ -2451,11 +2417,9 @@ client_pre_link_v2(xlator_t *this, gfx_link_req *req, loc_t *oldloc,
     else
         memcpy(req->newgfid, newloc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->oldgfid)),
                                   out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->newgfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->newgfid)),
                                   out, op_errno, EINVAL);
     req->newbname = (char *)newloc->name;
 
@@ -2480,8 +2444,7 @@ client_pre_truncate_v2(xlator_t *this, gfx_truncate_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->offset = offset;
 
@@ -2505,8 +2468,7 @@ client_pre_open_v2(xlator_t *this, gfx_open_req *req, loc_t *loc, fd_t *fd,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->flags = gf_flags_from_flags(flags);
 
@@ -2623,8 +2585,7 @@ client_pre_statfs_v2(xlator_t *this, gfx_statfs_req *req, loc_t *loc,
         req->gfid[15] = 1;
     }
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     dict_to_xdr(xdata, &req->xdata);
@@ -2688,8 +2649,7 @@ client_pre_setxattr_v2(xlator_t *this, gfx_setxattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     if (xattr) {
         dict_to_xdr(xattr, &req->dict);
@@ -2720,8 +2680,7 @@ client_pre_getxattr_v2(xlator_t *this, gfx_getxattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->namelen = 1; /* Use it as a flag */
 
@@ -2752,8 +2711,7 @@ client_pre_removexattr_v2(xlator_t *this, gfx_removexattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->name = (char *)name;
 
@@ -2778,8 +2736,7 @@ client_pre_opendir_v2(xlator_t *this, gfx_opendir_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     dict_to_xdr(xdata, &req->xdata);
@@ -2824,8 +2781,7 @@ client_pre_access_v2(xlator_t *this, gfx_access_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->mask = mask;
 
@@ -2849,8 +2805,7 @@ client_pre_create_v2(xlator_t *this, gfx_create_req *req, loc_t *loc, fd_t *fd,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->mode = mode;
@@ -3020,8 +2975,7 @@ client_pre_inodelk_v2(xlator_t *this, gfx_inodelk_req *req, loc_t *loc, int cmd,
     else
         memcpy(req->gfid, loc->inode->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     if (cmd == F_GETLK || cmd == F_GETLK64)
         gf_cmd = GF_LK_GETLK;
@@ -3125,8 +3079,7 @@ client_pre_entrylk_v2(xlator_t *this, gfx_entrylk_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->inode->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     req->cmd = cmd_entrylk;
     req->type = type;
@@ -3187,8 +3140,7 @@ client_pre_xattrop_v2(xlator_t *this, gfx_xattrop_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
     dict_to_xdr(xattr, &req->dict);
 
@@ -3310,8 +3262,7 @@ client_pre_setattr_v2(xlator_t *this, gfx_setattr_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     req->valid = valid;
@@ -3501,8 +3452,7 @@ client_pre_lease_v2(xlator_t *this, gfx_lease_req *req, loc_t *loc,
     else
         memcpy(req->gfid, loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
 
     gf_proto_lease_from_lease(&req->lease, lease);
@@ -3527,8 +3477,7 @@ client_pre_put_v2(xlator_t *this, gfx_put_req *req, loc_t *loc, mode_t mode,
     else
         memcpy(req->pargfid, loc->pargfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req->pargfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->pargfid)),
                                   out, op_errno, EINVAL);
     req->bname = (char *)loc->name;
     req->mode = mode;
