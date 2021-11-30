@@ -3595,39 +3595,6 @@ fuse_opendir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fuse_resolve_and_resume(state, fuse_opendir_resume);
 }
 
-unsigned char
-d_type_from_stat(struct iatt *buf)
-{
-    unsigned char d_type;
-
-    if (IA_ISLNK(buf->ia_type)) {
-        d_type = DT_LNK;
-
-    } else if (IA_ISDIR(buf->ia_type)) {
-        d_type = DT_DIR;
-
-    } else if (IA_ISFIFO(buf->ia_type)) {
-        d_type = DT_FIFO;
-
-    } else if (IA_ISSOCK(buf->ia_type)) {
-        d_type = DT_SOCK;
-
-    } else if (IA_ISCHR(buf->ia_type)) {
-        d_type = DT_CHR;
-
-    } else if (IA_ISBLK(buf->ia_type)) {
-        d_type = DT_BLK;
-
-    } else if (IA_ISREG(buf->ia_type)) {
-        d_type = DT_REG;
-
-    } else {
-        d_type = DT_UNKNOWN;
-    }
-
-    return d_type;
-}
-
 static int
 fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
@@ -3663,8 +3630,7 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        size_t fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET +
-                                            strlen(entry->d_name));
+        size_t fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (entry->d_len));
         max_size += fde_size;
 
         if (max_size > state->size) {
@@ -3779,7 +3745,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     list_for_each_entry(entry, &entries->list, list)
     {
         size_t fdes = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET_DIRENTPLUS +
-                                        strlen(entry->d_name));
+                                        entry->d_len);
         max_size += fdes;
 
         if (max_size > state->size) {
@@ -3818,7 +3784,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         fde->dirent.off = entry->d_off;
         fde->dirent.type = entry->d_type;
-        fde->dirent.namelen = strlen(entry->d_name);
+        fde->dirent.namelen = entry->d_len;
         (void)memcpy(fde->dirent.name, entry->d_name, fde->dirent.namelen);
         size += FUSE_DIRENTPLUS_SIZE(fde);
 

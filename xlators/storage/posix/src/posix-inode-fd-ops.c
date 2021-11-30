@@ -5625,6 +5625,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             0,
         },
     };
+    size_t entry_dname_len;
 
     if (!off) {
         rewinddir(pfd->dir);
@@ -5699,8 +5700,9 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             }
         }
 
+        entry_dname_len = strlen(entry->d_name);
         this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
-                    strlen(entry->d_name) + 1;
+                    entry_dname_len + 1;
 
         if (this_size + filled > size) {
             seekdir(pfd->dir, in_case);
@@ -5719,17 +5721,6 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             }
 #endif /* GF_LINUX_HOST_OS */
             break;
-        }
-
-        this_entry = gf_dirent_for_name(entry->d_name);
-
-        if (!this_entry) {
-            gf_msg(THIS->name, GF_LOG_ERROR, errno,
-                   P_MSG_GF_DIRENT_CREATE_FAILED,
-                   "could not create "
-                   "gf_dirent for entry %s",
-                   entry->d_name);
-            goto out;
         }
 
         if (DT_UNKNOWN == entry->d_type) {
@@ -5756,9 +5747,18 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
          */
 
         last_off = (u_long)telldir(pfd->dir);
-        this_entry->d_off = last_off;
-        this_entry->d_ino = entry->d_ino;
-        this_entry->d_type = entry->d_type;
+
+        this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
+                                         entry->d_ino, last_off, entry->d_type);
+
+        if (!this_entry) {
+            gf_msg(THIS->name, GF_LOG_ERROR, errno,
+                   P_MSG_GF_DIRENT_CREATE_FAILED,
+                   "could not create "
+                   "gf_dirent for entry %s",
+                   entry->d_name);
+            goto out;
+        }
 
         list_add_tail(&this_entry->list, &entries->list);
 

@@ -572,6 +572,7 @@ gf_cmd_log_init
 gf_deitransform
 gf_dirent_entry_free
 gf_dirent_for_name
+gf_dirent_for_name2
 gf_dirent_free
 gf_dirent_orig_offset
 gf_dm_hashfn
