@@ -3743,7 +3743,7 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
                 }
             }
 
-            gf_link_inodes_from_dirent(THIS, fd->inode, &entries);
+            gf_link_inodes_from_dirent(fd->inode, &entries);
         }
 
         list_splice_init(&glfd->entries, &old.list);
