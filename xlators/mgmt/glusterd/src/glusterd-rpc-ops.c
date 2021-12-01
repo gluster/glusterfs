@@ -317,7 +317,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto reply;
         }
 
-        ret = gd_add_address_to_peer(peerinfo, rsp.hostname);
+        ret = glusterd_peer_hostname_update(peerinfo, rsp.hostname, _gf_false);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    GD_MSG_HOSTNAME_ADD_TO_PEERLIST_FAIL,

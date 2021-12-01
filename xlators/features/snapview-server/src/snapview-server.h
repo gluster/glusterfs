@@ -14,7 +14,6 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/mem-types.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/iatt.h>
 #include <ctype.h>
 #include <sys/uio.h>

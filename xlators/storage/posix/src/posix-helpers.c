@@ -39,7 +39,6 @@
 #include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>

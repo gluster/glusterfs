@@ -10,7 +10,6 @@
 
 #include "glusterfs/dict.h"
 #include "glusterfs/logging.h"
-#include "glusterfs/byte-order.h"
 #include "glusterfs/quota-common-utils.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
@@ -36,15 +35,15 @@ quota_data_to_meta(data_t *data, quota_meta_t *meta)
 
     if (data->len > sizeof(int64_t)) {
         value = (quota_meta_t *)data->data;
-        meta->size = ntoh64(value->size);
-        meta->file_count = ntoh64(value->file_count);
+        meta->size = be64toh(value->size);
+        meta->file_count = be64toh(value->file_count);
         if (data->len > (sizeof(int64_t)) * 2)
-            meta->dir_count = ntoh64(value->dir_count);
+            meta->dir_count = be64toh(value->dir_count);
         else
             meta->dir_count = 0;
     } else {
         size = (int64_t *)data->data;
-        meta->size = ntoh64(*size);
+        meta->size = be64toh(*size);
         meta->file_count = 0;
         meta->dir_count = 0;
         /* This can happen during software upgrade.
@@ -111,9 +110,9 @@ quota_dict_set_meta(dict_t *dict, char *key, const quota_meta_t *meta,
         goto out;
     }
 
-    value->size = hton64(meta->size);
-    value->file_count = hton64(meta->file_count);
-    value->dir_count = hton64(meta->dir_count);
+    value->size = htobe64(meta->size);
+    value->file_count = htobe64(meta->file_count);
+    value->dir_count = htobe64(meta->dir_count);
 
     if (ia_type == IA_IFDIR) {
         ret = dict_set_bin(dict, key, value, sizeof(*value));

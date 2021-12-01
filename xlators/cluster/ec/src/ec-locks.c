@@ -720,18 +720,9 @@ ec_inodelk(call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
             goto out;
         }
     }
-    if (flock != NULL) {
-        fop->flock.l_type = flock->l_type;
-        fop->flock.l_whence = flock->l_whence;
-        fop->flock.l_start = flock->l_start;
-        fop->flock.l_len = flock->l_len;
-        fop->flock.l_pid = flock->l_pid;
-        fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0) {
-            memcpy(fop->flock.l_owner.data, flock->l_owner.data,
-                   flock->l_owner.len);
-        }
-    }
+    if (flock != NULL)
+        gf_flock_copy(&fop->flock, flock);
+
     if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL) {
@@ -856,18 +847,9 @@ ec_finodelk(call_frame_t *frame, xlator_t *this, gf_lkowner_t *owner,
             goto out;
         }
     }
-    if (flock != NULL) {
-        fop->flock.l_type = flock->l_type;
-        fop->flock.l_whence = flock->l_whence;
-        fop->flock.l_start = flock->l_start;
-        fop->flock.l_len = flock->l_len;
-        fop->flock.l_pid = flock->l_pid;
-        fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0) {
-            memcpy(fop->flock.l_owner.data, flock->l_owner.data,
-                   flock->l_owner.len);
-        }
-    }
+    if (flock != NULL)
+        gf_flock_copy(&fop->flock, flock);
+
     if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL) {
@@ -926,20 +908,8 @@ ec_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     cbk = ec_cbk_data_allocate(frame, this, fop, GF_FOP_LK, idx, op_ret,
                                op_errno);
     if (cbk != NULL) {
-        if (op_ret >= 0) {
-            if (flock != NULL) {
-                cbk->flock.l_type = flock->l_type;
-                cbk->flock.l_whence = flock->l_whence;
-                cbk->flock.l_start = flock->l_start;
-                cbk->flock.l_len = flock->l_len;
-                cbk->flock.l_pid = flock->l_pid;
-                cbk->flock.l_owner.len = flock->l_owner.len;
-                if (flock->l_owner.len > 0) {
-                    memcpy(cbk->flock.l_owner.data, flock->l_owner.data,
-                           flock->l_owner.len);
-                }
-            }
-        }
+        if (op_ret >= 0 && flock != NULL)
+            gf_flock_copy(&cbk->flock, flock);
         if (xdata != NULL) {
             cbk->xdata = dict_ref(xdata);
             if (cbk->xdata == NULL) {
@@ -1094,18 +1064,9 @@ ec_lk(call_frame_t *frame, xlator_t *this, uintptr_t target, uint32_t fop_flags,
             goto out;
         }
     }
-    if (flock != NULL) {
-        fop->flock.l_type = flock->l_type;
-        fop->flock.l_whence = flock->l_whence;
-        fop->flock.l_start = flock->l_start;
-        fop->flock.l_len = flock->l_len;
-        fop->flock.l_pid = flock->l_pid;
-        fop->flock.l_owner.len = flock->l_owner.len;
-        if (flock->l_owner.len > 0) {
-            memcpy(fop->flock.l_owner.data, flock->l_owner.data,
-                   flock->l_owner.len);
-        }
-    }
+    if (flock != NULL)
+        gf_flock_copy(&fop->flock, flock);
+
     if (xdata != NULL) {
         fop->xdata = dict_ref(xdata);
         if (fop->xdata == NULL) {

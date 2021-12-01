@@ -1179,17 +1179,16 @@ _gf_string2long(const char *str, long *n, int base)
     old_errno = errno;
     errno = 0;
     value = strtol(str, &tail, base);
-    if (str == tail)
+    if ((str == tail) || (*tail != 0)) {
         errno = EINVAL;
+        return -1;
+    }
 
     if (errno == ERANGE || errno == EINVAL)
         return -1;
 
     if (errno == 0)
         errno = old_errno;
-
-    if (tail[0] != '\0')
-        return -1;
 
     *n = value;
 
@@ -2866,16 +2865,6 @@ lkowner_utoa(gf_lkowner_t *lkowner)
     return lkowner_buffer;
 }
 
-/*Re-entrant conversion function*/
-char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len)
-{
-    if (!dst)
-        return NULL;
-    lkowner_unparse(lkowner, dst, len);
-    return dst;
-}
-
 gf_boolean_t
 is_valid_lease_id(const char *lease_id)
 {
@@ -3325,7 +3314,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else /* FIXME: Non Linux Host */
+#else  /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -5170,7 +5159,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else /* !GF_LINUX_HOST_OS */
+#else  /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 
@@ -5462,6 +5451,33 @@ gf_syncfs(int fd)
     /* Fallback to generic UNIX stuff. */
     sync();
 #endif
+    return ret;
+}
+
+int
+gf_pipe(int fd[2], int flags)
+{
+    int ret = 0;
+#if defined(HAVE_PIPE2)
+    ret = pipe2(fd, flags);
+#else /* not HAVE_PIPE2 */
+    ret = pipe(fd);
+    if (ret < 0)
+        return ret;
+    if (flags) {
+        ret = fcntl(fd[0], F_SETFL, (fcntl(fd[0], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+        ret = fcntl(fd[1], F_SETFL, (fcntl(fd[1], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+    }
+out:
+    if (ret < 0) {
+        close(fd[0]);
+        close(fd[1]);
+    }
+#endif /* HAVE_PIPE2 */
     return ret;
 }
 

@@ -22,7 +22,6 @@
 #include "nfs3-fh.h"
 #include "nfs-generics.h"
 #include "acl3.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include "nfs-messages.h"
 

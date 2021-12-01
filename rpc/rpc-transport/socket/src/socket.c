@@ -12,7 +12,6 @@
 #include "name.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include "socket-mem-types.h"
 
@@ -1209,16 +1208,11 @@ socket_set_last_frag_header_size(uint32_t size, char *haddr)
 }
 
 static struct ioq *
-__socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
+__socket_ioq_new(rpc_transport_msg_t *msg)
 {
     struct ioq *entry = NULL;
     int count = 0;
     uint32_t size = 0;
-
-    /* TODO: use mem-pool */
-    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
-    if (!entry)
-        return NULL;
 
     count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
@@ -1229,13 +1223,18 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
            iov_length(msg->progpayload, msg->progpayloadcount);
 
     if (size > RPC_MAX_FRAGMENT_SIZE) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(THIS->name, GF_LOG_ERROR,
                "msg size (%u) bigger than the maximum allowed size on "
                "sockets (%u)",
                size, RPC_MAX_FRAGMENT_SIZE);
-        GF_FREE(entry);
         return NULL;
     }
+
+    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
+    if (!entry)
+        return NULL;
+
+    INIT_LIST_HEAD(&entry->list);
 
     socket_set_last_frag_header_size(size, (char *)&entry->fraghdr);
 
@@ -1267,25 +1266,17 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
     if (msg->iobref != NULL)
         entry->iobref = iobref_ref(msg->iobref);
 
-    INIT_LIST_HEAD(&entry->list);
-
     return entry;
 }
 
 static void
 __socket_ioq_entry_free(struct ioq *entry)
 {
-    GF_VALIDATE_OR_GOTO("socket", entry, out);
-
     list_del_init(&entry->list);
     if (entry->iobref)
         iobref_unref(entry->iobref);
 
-    /* TODO: use mem-pool */
     GF_FREE(entry);
-
-out:
-    return;
 }
 
 static void
@@ -1295,14 +1286,16 @@ __socket_ioq_flush(socket_private_t *priv)
 
     while (!list_empty(&priv->ioq)) {
         entry = priv->ioq_next;
-        __socket_ioq_entry_free(entry);
+        if (entry)
+            __socket_ioq_entry_free(entry);
     }
 }
 
 static int
-__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
+__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry,
+                         gf_boolean_t free_entry)
 {
-    int ret = -1;
+    int ret;
 
     ret = __socket_writev(this, entry->pending_vector, entry->pending_count,
                           &entry->pending_vector, &entry->pending_count);
@@ -1310,7 +1303,8 @@ __socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
     if (ret == 0) {
         /* current entry was completely written */
         GF_ASSERT(entry->pending_count == 0);
-        __socket_ioq_entry_free(entry);
+        if (free_entry)
+            __socket_ioq_entry_free(entry);
     }
 
     return ret;
@@ -1329,7 +1323,7 @@ __socket_ioq_churn(rpc_transport_t *this)
         /* pick next entry */
         entry = priv->ioq_next;
 
-        ret = __socket_ioq_churn_entry(this, entry);
+        ret = __socket_ioq_churn_entry(this, entry, _gf_true);
 
         if (ret != 0)
             break;
@@ -1514,7 +1508,7 @@ __socket_read_vectored_request(rpc_transport_t *this,
             addr = rpc_cred_addr(iobuf_ptr(in->iobuf));
 
             /* also read verf flavour and verflen */
-            credlen = ntoh32(*((uint32_t *)addr)) +
+            credlen = be32toh(*((uint32_t *)addr)) +
                       RPC_AUTH_FLAVOUR_N_LENGTH_SIZE;
 
             __socket_proto_init_pending(priv, credlen);
@@ -1532,7 +1526,7 @@ __socket_read_vectored_request(rpc_transport_t *this,
 
         case SP_STATE_READ_CREDBYTES:
             addr = rpc_verf_addr(frag->fragcurrent);
-            verflen = ntoh32(*((uint32_t *)addr));
+            verflen = be32toh(*((uint32_t *)addr));
 
             if (verflen == 0) {
                 request->vector_state = SP_STATE_READ_VERFBYTES;
@@ -1686,18 +1680,17 @@ __socket_read_request(rpc_transport_t *this)
             /* fall through */
 
         case SP_STATE_READ_RPCHDR1:
-            buf = rpc_prognum_addr(iobuf_ptr(in->iobuf));
-            prognum = ntoh32(*((uint32_t *)buf));
-
-            buf = rpc_progver_addr(iobuf_ptr(in->iobuf));
-            progver = ntoh32(*((uint32_t *)buf));
-
-            buf = rpc_procnum_addr(iobuf_ptr(in->iobuf));
-            procnum = ntoh32(*((uint32_t *)buf));
-
             if (priv->is_server) {
                 /* this check is needed as rpcsvc and rpc-clnt
                  * actor structures are not same */
+                buf = rpc_prognum_addr(iobuf_ptr(in->iobuf));
+                prognum = be32toh(*((uint32_t *)buf));
+
+                buf = rpc_progver_addr(iobuf_ptr(in->iobuf));
+                progver = be32toh(*((uint32_t *)buf));
+
+                buf = rpc_procnum_addr(iobuf_ptr(in->iobuf));
+                procnum = be32toh(*((uint32_t *)buf));
                 vector_sizer = rpcsvc_get_program_vector_sizer(
                     (rpcsvc_t *)this->mydata, prognum, progver, procnum);
             }
@@ -2018,7 +2011,7 @@ __socket_read_accepted_reply(rpc_transport_t *this)
         case SP_STATE_READ_REPLY_VERFLEN:
             buf = rpc_reply_verflen_addr(frag->fragcurrent);
 
-            verflen = ntoh32(*((uint32_t *)buf));
+            verflen = be32toh(*((uint32_t *)buf));
 
             /* also read accept status along with verf data */
             len = verflen + RPC_ACCEPT_STATUS_LEN;
@@ -2038,7 +2031,7 @@ __socket_read_accepted_reply(rpc_transport_t *this)
 
             buf = rpc_reply_accept_status_addr(frag->fragcurrent);
 
-            frag->call_body.reply.accept_status = ntoh32(*(uint32_t *)buf);
+            frag->call_body.reply.accept_status = be32toh(*(uint32_t *)buf);
 
             /* fall through */
 
@@ -2111,7 +2104,7 @@ __socket_read_vectored_reply(rpc_transport_t *this)
 
             buf = rpc_reply_status_addr(frag->fragcurrent);
 
-            frag->call_body.reply.accept_status = ntoh32(*((uint32_t *)buf));
+            frag->call_body.reply.accept_status = be32toh(*((uint32_t *)buf));
 
             frag->call_body.reply.status_state = SP_STATE_READ_REPLY_STATUS;
 
@@ -2178,7 +2171,7 @@ __socket_read_reply(rpc_transport_t *this)
     request_info = in->request_info;
 
     if (map_xid) {
-        request_info->xid = ntoh32(*((uint32_t *)buf));
+        request_info->xid = be32toh(*((uint32_t *)buf));
 
         /* release priv->lock, so as to avoid deadlock b/w conn->lock
          * and priv->lock, since we are doing an upcall here.
@@ -2245,7 +2238,7 @@ __socket_read_frag(rpc_transport_t *this)
 
         case SP_STATE_READ_MSGTYPE:
             buf = rpc_msgtype_addr(iobuf_ptr(in->iobuf));
-            in->msg_type = ntoh32(*((uint32_t *)buf));
+            in->msg_type = be32toh(*((uint32_t *)buf));
 
             if (in->msg_type == CALL) {
                 ret = __socket_read_request(this);
@@ -2367,7 +2360,7 @@ __socket_proto_state_machine(rpc_transport_t *this,
 
             case SP_STATE_READ_FRAGHDR:
 
-                in->fraghdr = ntoh32(in->fraghdr);
+                in->fraghdr = be32toh(in->fraghdr);
                 in->total_bytes_read += RPC_FRAGSIZE(in->fraghdr);
 
                 if (in->total_bytes_read >= GF_UNIT_GB) {
@@ -3783,17 +3776,18 @@ static int32_t
 socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
     int ret = -1;
-    char need_poll_out = 0;
-    char need_append = 1;
+    gf_boolean_t need_poll_out = _gf_false;
+    gf_boolean_t free_entry = _gf_false;
     struct ioq *entry = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     socket_private_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
-    GF_VALIDATE_OR_GOTO("socket", this->private, out);
-
     priv = this->private;
-    ctx = this->ctx;
+    GF_VALIDATE_OR_GOTO("socket", priv, out);
+
+    entry = __socket_ioq_new(msg);
+    if (!entry)
+        goto out;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -3803,32 +3797,29 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
                        "not connected (priv->connected = %d)", priv->connected);
                 priv->submit_log = 1;
             }
+            free_entry = _gf_true;
             goto unlock;
         }
 
         priv->submit_log = 0;
-        entry = __socket_ioq_new(this, msg);
-        if (!entry)
-            goto unlock;
 
         if (list_empty(&priv->ioq)) {
-            ret = __socket_ioq_churn_entry(this, entry);
+            ret = __socket_ioq_churn_entry(this, entry, _gf_false);
 
-            if (ret == 0) {
-                need_append = 0;
-            }
-            if (ret > 0) {
-                need_poll_out = 1;
+            if (ret == 0) { /* current entry was completely written */
+                free_entry = _gf_true;
+            } else if (ret > 0) {
+                need_poll_out = _gf_true;
             }
         }
 
-        if (need_append) {
+        if (!free_entry) {
             list_add_tail(&entry->list, &priv->ioq);
             ret = 0;
         }
         if (need_poll_out) {
             /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+            priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
                                            priv->idx, -1, 1);
         }
     }
@@ -3836,6 +3827,8 @@ unlock:
     pthread_mutex_unlock(&priv->out_lock);
 
 out:
+    if (free_entry)
+        __socket_ioq_entry_free(entry);
     return ret;
 }
 

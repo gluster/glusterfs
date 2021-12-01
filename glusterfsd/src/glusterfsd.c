@@ -1653,12 +1653,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
-        gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "stub", NULL);
-        goto out;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
     if (!ctx->dict_pool)
         goto out;
@@ -1735,7 +1729,6 @@ out:
             mem_pool_destroy(ctx->pool->stack_mem_pool);
         }
         GF_FREE(ctx->pool);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_data_pool);
         mem_pool_destroy(ctx->dict_pair_pool);

@@ -11,7 +11,6 @@
 #include "rpcsvc.h"
 #include "rpc-transport.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include "xdr-rpc.h"
@@ -1498,15 +1497,16 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
     char new_iobref = 0;
     rpcsvc_drc_globals_t *drc = NULL;
     gf_latency_t *lat = NULL;
+    struct timespec end;
 
     if ((!req) || (!req->trans))
         return -1;
 
     if (req->prog && req->begin.tv_sec) {
         if ((req->procnum >= 0) && (req->procnum < req->prog->numactors)) {
-            timespec_now(&req->end);
+            timespec_now(&end);
             lat = &req->prog->latencies[req->procnum];
-            gf_latency_update(lat, &req->begin, &req->end);
+            gf_latency_update(lat, &req->begin, &end);
         }
     }
     trans = req->trans;

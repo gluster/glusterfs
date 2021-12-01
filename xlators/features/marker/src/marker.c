@@ -15,7 +15,6 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include "marker-common.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syscall.h>
 

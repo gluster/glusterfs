@@ -330,13 +330,12 @@ afr_index_from_ia_type(ia_type_t type)
 }
 
 typedef struct {
-    struct gf_flock flock;
     loc_t loc;
     fd_t *fd;
     char *basename;
     unsigned char *locked_nodes;
     int locked_count;
-
+    struct gf_flock flock;
 } afr_lockee_t;
 
 int
@@ -776,9 +775,9 @@ typedef struct _afr_local {
             char *volume;
             int32_t cmd;
             int32_t in_cmd;
+            void *xdata;
             struct gf_flock in_flock;
             struct gf_flock flock;
-            void *xdata;
         } inodelk;
 
         struct {

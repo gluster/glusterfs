@@ -251,13 +251,6 @@ typedef struct {
     struct list_head locks_list;
 } pl_fdctx_t;
 
-struct _locker {
-    struct list_head lockers;
-    char *volume;
-    inode_t *inode;
-    gf_lkowner_t owner;
-};
-
 typedef struct _locks_ctx {
     pthread_mutex_t lock;
     struct list_head inodelk_lockers;

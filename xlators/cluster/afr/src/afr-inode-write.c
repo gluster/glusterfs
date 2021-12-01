@@ -22,7 +22,6 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include "protocol-common.h"
-#include <glusterfs/byte-order.h>
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"
@@ -1115,6 +1114,7 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
 
     priv = this->private;
     local = frame->local;
+    uint32_t hton32_1;
 
     locked_nodes = alloca0(priv->child_count);
 
@@ -1125,10 +1125,11 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
     if (!local->pending)
         goto out;
 
-    local->pending[empty_index][idx] = hton32(1);
+    hton32_1 = htobe32(1);
+    local->pending[empty_index][idx] = hton32_1;
 
     if ((priv->esh_granular) && (type == AFR_ENTRY_TRANSACTION))
-        local->pending[empty_index][d_idx] = hton32(1);
+        local->pending[empty_index][d_idx] = hton32_1;
 
     local->xdata_req = dict_new();
     if (!local->xdata_req)

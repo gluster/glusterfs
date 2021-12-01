@@ -152,7 +152,7 @@ fd_lk_ctx_node_new(int32_t cmd, struct gf_flock *flock)
         else
             new_lock->fl_end = flock->l_start + flock->l_len - 1;
 
-        memcpy(&new_lock->user_flock, flock, sizeof(struct gf_flock));
+        gf_flock_copy(&new_lock->user_flock, flock);
     }
 
     INIT_LIST_HEAD(&new_lock->next);

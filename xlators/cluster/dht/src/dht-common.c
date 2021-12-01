@@ -13,7 +13,6 @@
 #include "libxlator.h"
 #include "dht-common.h"
 #include "dht-lock.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
@@ -122,14 +121,14 @@ dht_aggregate_quota_xattr(dict_t *dst, char *key, data_t *value)
     if (value->len > sizeof(int64_t)) {
         meta_src = data_to_bin(value);
 
-        meta_dst->size = hton64(ntoh64(meta_dst->size) +
-                                ntoh64(meta_src->size));
-        meta_dst->file_count = hton64(ntoh64(meta_dst->file_count) +
-                                      ntoh64(meta_src->file_count));
+        meta_dst->size = htobe64(be64toh(meta_dst->size) +
+                                 be64toh(meta_src->size));
+        meta_dst->file_count = htobe64(be64toh(meta_dst->file_count) +
+                                       be64toh(meta_src->file_count));
 
         if (value->len > (2 * sizeof(int64_t))) {
-            dst_dir_count = ntoh64(meta_dst->dir_count);
-            src_dir_count = ntoh64(meta_src->dir_count);
+            dst_dir_count = be64toh(meta_dst->dir_count);
+            src_dir_count = be64toh(meta_src->dir_count);
 
             if (src_dir_count > dst_dir_count)
                 meta_dst->dir_count = meta_src->dir_count;
@@ -138,7 +137,7 @@ dht_aggregate_quota_xattr(dict_t *dst, char *key, data_t *value)
         }
     } else {
         size = data_to_bin(value);
-        meta_dst->size = hton64(ntoh64(meta_dst->size) + ntoh64(*size));
+        meta_dst->size = htobe64(be64toh(meta_dst->size) + be64toh(*size));
     }
 
     ret = 0;
@@ -964,7 +963,7 @@ dht_dict_get_array(dict_t *dict, char *key, int32_t value[], int32_t size,
     }
 
     for (vindex = 0; vindex < size; vindex++) {
-        value[vindex] = ntoh32(*((int32_t *)ptr + vindex));
+        value[vindex] = be32toh(*((int32_t *)ptr + vindex));
         if (value[vindex] < 0)
             ret = -1;
     }
@@ -3766,7 +3765,7 @@ dht_dict_set_array(dict_t *dict, char *key, int32_t value[], int32_t size)
         return -ENOMEM;
     }
     for (vindex = 0; vindex < size; vindex++) {
-        ptr[vindex] = hton32(value[vindex]);
+        ptr[vindex] = htobe32(value[vindex]);
     }
     ret = dict_set_bin(dict, key, ptr, sizeof(int32_t) * size);
     if (ret)

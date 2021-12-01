@@ -344,11 +344,11 @@ AC_ARG_WITH([tcmalloc],
         [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
         [with_tcmalloc="no"], [with_tcmalloc="yes"])
 if test "x$with_tcmalloc" = "xyes"; then
-    AC_CHECK_LIB([tcmalloc], [malloc], [],
+    AC_CHECK_LIB([tcmalloc_minimal], [malloc], [],
                  [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+    GF_LDFLAGS="-ltcmalloc_minimal ${GF_LDFLAGS}"
     AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
     USE_MEMPOOL=no
 fi
@@ -1181,6 +1181,11 @@ fi
 AC_CHECK_FUNC([paccept], [have_paccept=yes])
 if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
+fi
+
+AC_CHECK_FUNC([pipe2], [have_pipe2=yes])
+if test "x${have_pipe2}" = "xyes"; then
+AC_DEFINE(HAVE_PIPE2, 1, [Define if (Linux-specific) pipe2() exists.])
 fi
 
 dnl Looking for OS-dependent non-POSIX function to set thread name.

@@ -18,7 +18,6 @@
 #include "glusterd-volgen.h"
 #include <glusterfs/run.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include "glusterd-scrub-svc.h"
 #include "glusterd-messages.h"

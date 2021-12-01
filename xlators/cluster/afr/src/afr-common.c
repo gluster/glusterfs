@@ -25,7 +25,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/events.h>
 #include <glusterfs/upcall-utils.h>
@@ -265,12 +264,12 @@ afr_add_lock_to_saved_locks(call_frame_t *frame, xlator_t *this)
     info->fd = fd_ref(local->fd);
     info->cmd = local->cont.lk.cmd;
     info->pid = frame->root->pid;
-    info->flock = local->cont.lk.user_flock;
+    gf_flock_copy(&info->flock, &local->cont.lk.user_flock);
     info->xdata_req = dict_copy_with_ref(local->xdata_req, NULL);
     if (!info->xdata_req) {
         goto cleanup;
     }
-    info->lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&info->lk_owner, &frame->root->lk_owner);
     info->locked_nodes = GF_MALLOC(
         sizeof(*info->locked_nodes) * priv->child_count, gf_afr_mt_char);
     if (!info->locked_nodes) {
@@ -329,7 +328,7 @@ static int
 afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = this->private;
-    struct gf_flock flock = local->cont.lk.user_flock;
+    struct gf_flock *user_flock;
     afr_lk_heal_info_t *info = NULL;
     afr_fd_ctx_t *fd_ctx = NULL;
     int ret = -EINVAL;
@@ -339,10 +338,11 @@ afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
         goto out;
     }
 
+    user_flock = &local->cont.lk.user_flock;
     info = fd_ctx->lk_heal_info;
-    if ((info->flock.l_start != flock.l_start) ||
-        (info->flock.l_whence != flock.l_whence) ||
-        (info->flock.l_len != flock.l_len)) {
+    if ((info->flock.l_start != user_flock->l_start) ||
+        (info->flock.l_whence != user_flock->l_whence) ||
+        (info->flock.l_len != user_flock->l_len)) {
         /*TODO: Compare lkowners too.*/
         goto out;
     }
@@ -355,7 +355,7 @@ afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
 
     afr_lk_heal_info_cleanup(info);
     fd_ctx->lk_heal_info = NULL;
-    ret = 0;
+    return 0;
 out:
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_LK_HEAL_DOM,
@@ -398,7 +398,7 @@ afr_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_LK_HEAL_DOM,
                "Failed getlk for %s", uuid_utoa(local->fd->inode->gfid));
     } else {
-        local->cont.lk.getlk_rsp[i] = *lock;
+        gf_flock_copy(&local->cont.lk.getlk_rsp[i], lock);
     }
 
     syncbarrier_wake(&local->barrier);
@@ -411,16 +411,14 @@ afr_does_lk_owner_match(call_frame_t *frame, afr_private_t *priv,
 {
     int i = 0;
     afr_local_t *local = frame->local;
-    struct gf_flock flock = {
-        0,
-    };
+    struct gf_flock flock;
     gf_boolean_t ret = _gf_true;
     char *wind_on = alloca0(priv->child_count);
     unsigned char *success_replies = alloca0(priv->child_count);
     local->cont.lk.getlk_rsp = GF_CALLOC(sizeof(*local->cont.lk.getlk_rsp),
                                          priv->child_count, gf_afr_mt_gf_lock);
 
-    flock = info->flock;
+    gf_flock_copy(&flock, &info->flock);
     for (i = 0; i < priv->child_count; i++) {
         if (info->locked_nodes[i])
             wind_on[i] = 1;
@@ -4510,7 +4508,8 @@ afr_fop_lock_proceed(call_frame_t *frame)
         case GF_FOP_INODELK:
         case GF_FOP_FINODELK:
             local->cont.inodelk.cmd = local->cont.inodelk.in_cmd;
-            local->cont.inodelk.flock = local->cont.inodelk.in_flock;
+            gf_flock_copy(&local->cont.inodelk.flock,
+                          &local->cont.inodelk.in_flock);
             if (local->cont.inodelk.xdata)
                 dict_unref(local->cont.inodelk.xdata);
             local->cont.inodelk.xdata = NULL;
@@ -4866,8 +4865,8 @@ afr_handle_inodelk(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
 
     local->cont.inodelk.in_cmd = cmd;
     local->cont.inodelk.cmd = cmd;
-    local->cont.inodelk.in_flock = *flock;
-    local->cont.inodelk.flock = *flock;
+    gf_flock_copy(&local->cont.inodelk.in_flock, flock);
+    gf_flock_copy(&local->cont.inodelk.flock, flock);
     if (xdata)
         local->xdata_req = dict_ref(xdata);
 
@@ -5147,7 +5146,7 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         local->op_ret = 0;
         local->op_errno = 0;
         local->cont.lk.locked_nodes[child_index] = 1;
-        local->cont.lk.ret_flock = *lock;
+        gf_flock_copy(&local->cont.lk.ret_flock, lock);
     }
 
     child_index++;
@@ -5196,7 +5195,7 @@ afr_lk_txn_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = 0;
         local->op_errno = 0;
         local->cont.lk.locked_nodes[child_index] = 1;
-        local->cont.lk.ret_flock = *lock;
+        gf_flock_copy(&local->cont.lk.ret_flock, lock);
     }
     syncbarrier_wake(&local->barrier);
     return 0;
@@ -5330,8 +5329,8 @@ afr_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
     local->fd = fd_ref(fd);
     local->cont.lk.cmd = cmd;
-    local->cont.lk.user_flock = *flock;
-    local->cont.lk.ret_flock = *flock;
+    gf_flock_copy(&local->cont.lk.user_flock, flock);
+    gf_flock_copy(&local->cont.lk.ret_flock, flock);
     if (xdata) {
         local->xdata_req = dict_ref(xdata);
         if (afr_is_lock_mode_mandatory(xdata)) {
@@ -6703,6 +6702,7 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     int m_idx = 0;
     int d_idx = 0;
     int ret = 0;
+    uint32_t hton32_1;
 
     m_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
     d_idx = afr_index_for_transaction_type(AFR_DATA_TRANSACTION);
@@ -6713,18 +6713,19 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     if (!changelog)
         goto out;
 
+    hton32_1 = htobe32(1);
     for (i = 0; i < priv->child_count; i++) {
         if (!pending[i])
             continue;
 
-        changelog[i][m_idx] = hton32(1);
+        changelog[i][m_idx] = hton32_1;
         if (idx != -1)
-            changelog[i][idx] = hton32(1);
+            changelog[i][idx] = hton32_1;
         /* If the newentry marking is on a newly created directory,
          * then mark it with the full-heal indicator.
          */
         if ((IA_ISDIR(iat)) && (priv->esh_granular))
-            changelog[i][d_idx] = hton32(1);
+            changelog[i][d_idx] = hton32_1;
     }
     ret = afr_set_pending_dict(priv, xattr, changelog);
     if (ret < 0) {
@@ -7632,9 +7633,7 @@ gf_boolean_t
 afr_ta_is_fop_called_from_synctask(xlator_t *this)
 {
     struct synctask *task = NULL;
-    gf_lkowner_t tmp_owner = {
-        0,
-    };
+    gf_lkowner_t tmp_owner;
 
     task = synctask_get();
     if (!task)

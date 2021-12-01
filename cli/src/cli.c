@@ -140,12 +140,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
-        goto out;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, 32);
     if (!ctx->dict_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict pool.");
@@ -193,7 +187,6 @@ out:
         GF_FREE(pool);
         pool = NULL;
         GF_FREE(ctx->process_uuid);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->dict_data_pool);

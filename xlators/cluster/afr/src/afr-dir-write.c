@@ -23,7 +23,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 
 #include "afr.h"
 #include "afr-transaction.h"

@@ -9,7 +9,6 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/timer.h>
 
@@ -453,7 +452,7 @@ afr_save_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    local->saved_lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&local->saved_lk_owner, &frame->root->lk_owner);
 }
 
 static void
@@ -463,7 +462,7 @@ afr_restore_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    frame->root->lk_owner = local->saved_lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &local->saved_lk_owner);
 }
 
 void
@@ -605,7 +604,8 @@ fop:
      *  flush cant clear the  posix-lks without that lk-owner.
      */
     afr_save_lk_owner(frame);
-    frame->root->lk_owner = local->transaction.main_frame->root->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner,
+                  &local->transaction.main_frame->root->lk_owner);
 
     if (priv->arbiter_count == 1) {
         afr_txn_arbitrate_fop(frame, this);
@@ -1085,6 +1085,7 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
     int idx = 0;
     int ret = 0;
     int i;
+    uint32_t hton32_1;
 
     if (local->is_new_entry == _gf_true) {
         changelog = afr_mark_pending_changelog(priv, pending, xattr,
@@ -1095,9 +1096,10 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
         if (!changelog) {
             goto out;
         }
+        hton32_1 = htobe32(1);
         for (i = 0; i < priv->child_count; i++) {
             if (local->transaction.failed_subvols[i])
-                changelog[i][idx] = hton32(1);
+                changelog[i][idx] = hton32_1;
         }
         ret = afr_set_pending_dict(priv, xattr, changelog);
         if (ret < 0) {
@@ -1377,6 +1379,7 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     int idx = 0;
     int nothing_failed = 1;
     gf_boolean_t need_undirty = _gf_false;
+    uint32_t hton32_1;
 
     afr_handle_quorum(frame, this);
     local = frame->local;
@@ -1395,9 +1398,10 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     else
         need_undirty = _gf_true;
 
+    hton32_1 = htobe32(1);
     if (local->op_ret < 0 && !nothing_failed) {
         if (afr_need_dirty_marking(frame, this)) {
-            local->dirty[idx] = hton32(1);
+            local->dirty[idx] = hton32_1;
             goto set_dirty;
         }
 
@@ -1418,7 +1422,7 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
 
     for (i = 0; i < priv->child_count; i++) {
         if (local->transaction.failed_subvols[i])
-            local->pending[i][idx] = hton32(1);
+            local->pending[i][idx] = hton32_1;
     }
 
     ret = afr_set_pending_dict(priv, xattr, local->pending);
@@ -1428,9 +1432,9 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     }
 
     if (need_undirty)
-        local->dirty[idx] = hton32(-1);
+        local->dirty[idx] = htobe32(-1);
     else
-        local->dirty[idx] = hton32(0);
+        local->dirty[idx] = 0;
 
 set_dirty:
     ret = dict_set_static_bin(xattr, AFR_DIRTY, local->dirty,
@@ -1967,7 +1971,7 @@ afr_changelog_pre_op(call_frame_t *frame, xlator_t *this)
     }
 
     if (afr_needs_changelog_update(local)) {
-        local->dirty[idx] = hton32(1);
+        local->dirty[idx] = htobe32(1);
 
         ret = dict_set_static_bin(xdata_req, AFR_DIRTY, local->dirty,
                                   sizeof(int) * AFR_NUM_CHANGE_LOGS);

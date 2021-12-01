@@ -10,7 +10,6 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
 #include <glusterfs/events.h>
 

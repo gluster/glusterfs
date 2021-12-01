@@ -418,7 +418,7 @@ cli_xml_output_vol_status_detail(xmlTextWriterPtr writer, dict_t *dict,
     ret = dict_get_str(dict, key, &inode_size);
     if (!ret) {
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"inodeSize",
-                                              "%s", fs_name);
+                                              "%s", inode_size);
         XML_RET_CHECK_AND_GOTO(ret, out);
     }
     snprintf(key, sizeof(key), "brick%d.total_inodes", brick_index);

@@ -3964,7 +3964,7 @@ client4_0_flush(call_frame_t *frame, xlator_t *this, void *data)
     frame->local = local;
 
     local->fd = fd_ref(args->fd);
-    local->owner = frame->root->lk_owner;
+    lk_owner_copy(&local->owner, &frame->root->lk_owner);
     ret = client_pre_flush_v2(this, &req, args->fd, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -4729,7 +4729,7 @@ client4_0_lk(call_frame_t *frame, xlator_t *this, void *data)
     if (ret)
         local->check_reopen = 0;
 
-    local->owner = frame->root->lk_owner;
+    lk_owner_copy(&local->owner, &frame->root->lk_owner);
     local->cmd = args->cmd;
     local->fd = fd_ref(args->fd);
 

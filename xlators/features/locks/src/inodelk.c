@@ -288,7 +288,7 @@ inodelk_contention_notify(xlator_t *this, struct list_head *contend)
             lock->contention_time.tv_sec = 0;
             lock->contention_time.tv_nsec = 0;
         } else {
-            memcpy(&lc.flock, &lock->user_flock, sizeof(lc.flock));
+            gf_flock_copy(&lc.flock, &lock->user_flock);
             lc.pid = lock->client_pid;
             lc.domain = lock->volume;
             lc.xdata = NULL;
@@ -921,7 +921,7 @@ new_inode_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->client = client;
     lock->client_pid = client_pid;
     lock->volume = volume;
-    lock->owner = frame->root->lk_owner;
+    lk_owner_copy(&lock->owner, &frame->root->lk_owner);
     lock->frame = frame;
     lock->this = this;
 
@@ -1046,7 +1046,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
 
         case F_SETLK:
             lock_type = flock->l_type;
-            memcpy(&reqlock->user_flock, flock, sizeof(struct gf_flock));
+            gf_flock_copy(&reqlock->user_flock, flock);
             ret = pl_inode_setlk(this, ctx, pinode, reqlock, can_block, dom,
                                  inode);
 

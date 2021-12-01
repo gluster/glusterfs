@@ -250,7 +250,7 @@ __insert_and_merge(clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock)
                 sum = add_locks(lock, conf);
 
                 sum->fd = lock->fd;
-                sum->owner = conf->owner;
+                lk_owner_copy(&sum->owner, &conf->owner);
 
                 __delete_client_lock(conf);
                 __destroy_client_lock(conf);
@@ -263,7 +263,7 @@ __insert_and_merge(clnt_fd_ctx_t *fdctx, client_posix_lock_t *lock)
                 sum = add_locks(lock, conf);
 
                 sum->fd = conf->fd;
-                sum->owner = conf->owner;
+                lk_owner_copy(&sum->owner, &conf->owner);
 
                 v = subtract_locks(sum, lock);
 
@@ -431,7 +431,7 @@ new_client_lock(struct gf_flock *flock, gf_lkowner_t *owner, int32_t cmd,
 
     INIT_LIST_HEAD(&new_lock->list);
     new_lock->fd = fd;
-    memcpy(&new_lock->user_flock, flock, sizeof(struct gf_flock));
+    gf_flock_copy(&new_lock->user_flock, flock);
 
     new_lock->fl_type = flock->l_type;
     new_lock->fl_start = flock->l_start;
@@ -441,7 +441,7 @@ new_client_lock(struct gf_flock *flock, gf_lkowner_t *owner, int32_t cmd,
     else
         new_lock->fl_end = flock->l_start + flock->l_len - 1;
 
-    new_lock->owner = *owner;
+    lk_owner_copy(&new_lock->owner, owner);
 
     new_lock->cmd = cmd; /* Not really useful */
 

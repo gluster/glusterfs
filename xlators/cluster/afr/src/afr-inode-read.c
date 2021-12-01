@@ -22,7 +22,6 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>

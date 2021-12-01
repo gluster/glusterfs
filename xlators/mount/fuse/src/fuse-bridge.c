@@ -13,7 +13,6 @@
 #include <sys/wait.h>
 #include "fuse-bridge.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syscall.h>
@@ -6554,7 +6553,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
         case GF_EVENT_AUTH_FAILED: {
             /* Authentication failure is an error and glusterfs should stop */
             gf_log(this->name, GF_LOG_ERROR,
-                   "Server authenication failed. Shutting down.");
+                   "Server authentication failed. Shutting down.");
             pthread_mutex_lock(&private->sync_mutex);
             {
                 /*Wait for mount to finish*/

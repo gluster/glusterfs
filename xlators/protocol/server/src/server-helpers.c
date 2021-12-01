@@ -544,7 +544,7 @@ after_squash:
     frame->root->gid = req->gid;
     frame->root->pid = req->pid;
     frame->root->client = client;
-    frame->root->lk_owner = req->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &req->lk_owner);
 
     if (priv->server_manage_gids)
         server_resolve_groups(frame, req);
@@ -1106,6 +1106,7 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
 
     list_for_each_entry(tmp, &locklist->list, list)
     {
+        /* TODO: move to GF_MALLOC() */
         trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_lock_mig_t);
         if (!trav)
             goto out;
@@ -1418,6 +1419,7 @@ unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
     INIT_LIST_HEAD(&lmi->list);
 
     while (trav) {
+        /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
@@ -1455,6 +1457,7 @@ unserialize_req_locklist_v2(gfx_setactivelk_req *req,
     INIT_LIST_HEAD(&lmi->list);
 
     while (trav) {
+        /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);

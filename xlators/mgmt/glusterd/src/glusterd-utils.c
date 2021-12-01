@@ -3511,7 +3511,7 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
     int dict_count = 0;
     int ret = 0;
 
-    netword = hton32(totcount);
+    netword = htobe32(totcount);
     memcpy(buf, &netword, sizeof(netword));
     buf += DICT_HDR_LEN;
 
@@ -3536,7 +3536,7 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
                 }
 
                 keylen = strlen(pair->key);
-                netword = hton32(keylen);
+                netword = htobe32(keylen);
                 memcpy(buf, &netword, sizeof(netword));
                 buf += DICT_DATA_HDR_KEY_LEN;
                 if (!pair->value) {
@@ -3546,7 +3546,7 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
                     goto out;
                 }
 
-                netword = hton32(pair->value->len);
+                netword = htobe32(pair->value->len);
                 memcpy(buf, &netword, sizeof(netword));
                 buf += DICT_DATA_HDR_VAL_LEN;
 
@@ -14055,7 +14055,7 @@ glusterd_handle_replicate_brick_ops(glusterd_volinfo_t *volinfo,
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
-    dirty[2] = hton32(1);
+    dirty[2] = htobe32(1);
 
     ret = sys_lsetxattr(brickinfo->path, GF_AFR_DIRTY, dirty, sizeof(dirty), 0);
     if (ret == -1) {

@@ -335,7 +335,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define VALIDATE_OR_GOTO(arg, label)                                           \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             errno = EINVAL;                                                    \
             gf_msg_callingfn((this ? (this->name) : "(Govinda! Govinda!)"),    \
                              GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,       \
@@ -346,7 +346,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_VALIDATE_OR_GOTO(name, arg, label)                                  \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             errno = EINVAL;                                                    \
             gf_msg_callingfn(name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,    \
                              "invalid argument: " #arg);                       \
@@ -356,7 +356,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error)         \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             errno = error;                                                     \
             gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
                              "invalid argument: " #arg);                       \
@@ -366,7 +366,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_CHECK_ALLOC(arg, retval, label)                                     \
     do {                                                                       \
-        if (!(arg)) {                                                          \
+        if (caa_unlikely(!(arg))) {                                            \
             retval = -ENOMEM;                                                  \
             goto label;                                                        \
         }                                                                      \
@@ -383,7 +383,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error)          \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             GF_ASSERT(0);                                                      \
             errno = error;                                                     \
             goto label;                                                        \
@@ -1041,8 +1041,6 @@ uuid_utoa_r(uuid_t uuid, char *dst);
 char *
 lkowner_utoa(gf_lkowner_t *lkowner);
 char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len);
-char *
 leaseid_utoa(const char *lease_id);
 gf_boolean_t
 is_valid_lease_id(const char *lease_id);
@@ -1104,7 +1102,7 @@ __gf_thread_set_name(pthread_t thread, const char *name)
 #elif defined(HAVE_PTHREAD_SET_NAME_NP)
     pthread_set_name_np(thread, name);
     return 0;
-#else /* none found */
+#else  /* none found */
     return -ENOSYS;
 #endif /* set name */
 }
@@ -1249,6 +1247,9 @@ gf_d_type_from_ia_type(ia_type_t type);
 
 int
 gf_syncfs(int fd);
+
+int
+gf_pipe(int fd[2], int flags);
 
 int
 gf_nanosleep(uint64_t nsec);

@@ -10,7 +10,11 @@
 
 #include <glusterfs/defaults.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/byte-order.h>
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/cluster-syncop.h>
@@ -520,7 +524,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
             continue;
         }
 
-        versions_xattr[type] = hton64(versions[source] - versions[i]);
+        versions_xattr[type] = htobe64(versions[source] - versions[i]);
         ret = dict_set_bin(xattr[i], EC_XATTR_VERSION, versions_xattr,
                            (sizeof(*versions_xattr) * EC_VERSION_SIZE));
         if (ret < 0) {
@@ -536,7 +540,7 @@ ec_adjust_versions(call_frame_t *frame, ec_t *ec, ec_txn_t type, inode_t *inode,
                 continue;
             }
 
-            dirty_xattr[type] = hton64(-dirty[i]);
+            dirty_xattr[type] = htobe64(-dirty[i]);
             ret = dict_set_bin(xattr[i], EC_XATTR_DIRTY, dirty_xattr,
                                (sizeof(*dirty_xattr) * EC_VERSION_SIZE));
             if (ret < 0) {
@@ -1904,7 +1908,7 @@ __ec_heal_mark_sinks(call_frame_t *frame, ec_t *ec, fd_t *fd,
     if (EC_COUNT(mark, ec->nodes) == 0)
         return 0;
 
-    versions_xattr[EC_DATA_TXN] = hton64(1ULL << EC_SELFHEAL_BIT);
+    versions_xattr[EC_DATA_TXN] = htobe64(1ULL << EC_SELFHEAL_BIT);
     if (dict_set_static_bin(xattrs, EC_XATTR_VERSION, versions_xattr,
                             sizeof(versions_xattr))) {
         ret = -ENOMEM;
@@ -2164,20 +2168,20 @@ ec_data_undo_pending(call_frame_t *frame, ec_t *ec, fd_t *fd, dict_t *xattr,
     uint64_t size_xattr = 0;
     int ret = 0;
 
-    versions_xattr[EC_DATA_TXN] = hton64(versions[source] - versions[idx]);
+    versions_xattr[EC_DATA_TXN] = htobe64(versions[source] - versions[idx]);
     ret = dict_set_static_bin(xattr, EC_XATTR_VERSION, versions_xattr,
                               sizeof(versions_xattr));
     if (ret < 0)
         goto out;
 
-    size_xattr = hton64(size[source] - size[idx]);
+    size_xattr = htobe64(size[source] - size[idx]);
     ret = dict_set_static_bin(xattr, EC_XATTR_SIZE, &size_xattr,
                               sizeof(size_xattr));
     if (ret < 0)
         goto out;
 
     if (erase_dirty) {
-        dirty_xattr[EC_DATA_TXN] = hton64(-dirty[idx]);
+        dirty_xattr[EC_DATA_TXN] = htobe64(-dirty[idx]);
         ret = dict_set_static_bin(xattr, EC_XATTR_DIRTY, dirty_xattr,
                                   sizeof(dirty_xattr));
         if (ret < 0)

@@ -56,7 +56,7 @@ libglusterfs_la_HEADERS = glusterfs/common-utils.h glusterfs/defaults.h \
     glusterfs/xlator.h glusterfs/stack.h glusterfs/timer.h glusterfs/list.h \
     glusterfs/inode.h glusterfs/call-stub.h glusterfs/compat.h glusterfs/fd.h \
     glusterfs/revision.h glusterfs/compat-errno.h glusterfs/gf-event.h \
-    glusterfs/mem-pool.h glusterfs/byte-order.h glusterfs/gf-dirent.h \
+    glusterfs/mem-pool.h glusterfs/gf-dirent.h \
     glusterfs/locking.h glusterfs/syscall.h glusterfs/iobuf.h \
     glusterfs/globals.h glusterfs/statedump.h glusterfs/checksum.h \
     glusterfs/daemon.h glusterfs/store.h glusterfs/rbthash.h glusterfs/iatt.h \

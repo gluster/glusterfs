@@ -223,7 +223,6 @@ DECLARE_INIT_OPT(time_t, time);
         char *def_value = NULL;                                                \
         char *set_value = NULL;                                                \
         char *value = NULL;                                                    \
-        xlator_t *old_THIS = NULL;                                             \
                                                                                \
         opt = xlator_volume_option_get(this, key);                             \
         if (!opt) {                                                            \
@@ -255,10 +254,7 @@ DECLARE_INIT_OPT(time_t, time);
                          " value %s",                                          \
                          key, value);                                          \
         }                                                                      \
-        old_THIS = THIS;                                                       \
-        THIS = this;                                                           \
         ret = conv(value, val_p);                                              \
-        THIS = old_THIS;                                                       \
         if (ret) {                                                             \
             gf_msg(this->name, GF_LOG_INFO, 0, LG_MSG_CONVERSION_FAILED,       \
                    "option %s conversion failed value %s", key, value);        \
@@ -271,7 +267,8 @@ DECLARE_INIT_OPT(time_t, time);
 #define GF_OPTION_INIT(key, val, type, err_label)                              \
     do {                                                                       \
         int val_ret = 0;                                                       \
-        val_ret = xlator_option_init_##type(THIS, THIS->options, key, &(val)); \
+        xlator_t *this = THIS;                                                 \
+        val_ret = xlator_option_init_##type(this, this->options, key, &(val)); \
         if (val_ret)                                                           \
             goto err_label;                                                    \
     } while (0)
@@ -301,7 +298,6 @@ DECLARE_RECONF_OPT(time_t, time);
     {                                                                          \
         int ret = 0;                                                           \
         char *value = NULL;                                                    \
-        xlator_t *old_THIS = NULL;                                             \
                                                                                \
         volume_option_t *opt = xlator_volume_option_get(this, key);            \
         if (!opt) {                                                            \
@@ -323,10 +319,7 @@ DECLARE_RECONF_OPT(time_t, time);
             return 0;                                                          \
         }                                                                      \
                                                                                \
-        old_THIS = THIS;                                                       \
-        THIS = this;                                                           \
         ret = conv(value, val_p);                                              \
-        THIS = old_THIS;                                                       \
         if (ret)                                                               \
             return ret;                                                        \
         return xlator_option_validate(this, key, value, opt, NULL);            \

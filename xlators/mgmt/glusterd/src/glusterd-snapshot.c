@@ -485,7 +485,7 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
     int32_t ret = -1;
     char snap_session_dir[PATH_MAX] = "";
     char georep_session_dir[PATH_MAX] = "";
-    regex_t *reg_exp = NULL;
+    regex_t reg_exp;
     int file_count = -1;
     struct dirent **files = {
         0,
@@ -524,16 +524,7 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
         goto out;
     }
 
-    /* TODO : good to have - Allocate in stack instead of heap */
-    reg_exp = GF_CALLOC(1, sizeof(regex_t), gf_common_mt_regex_t);
-    if (!reg_exp) {
-        ret = -1;
-        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
-               "Failed to allocate memory for regular expression");
-        goto out;
-    }
-
-    ret = regcomp(reg_exp, "(.*status$)|(.*conf$)\0", REG_EXTENDED);
+    ret = regcomp(&reg_exp, "(.*status$)|(.*conf$)\0", REG_EXTENDED);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REG_COMPILE_FAILED,
                "Failed to compile the regular expression");
@@ -548,28 +539,28 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
                "Session files not present "
                "in %s",
                georep_session_dir);
-        goto out;
+        goto out_reg_exp;
     }
 
     /* Now compare the file name with regular expression to see if
      * there is a match
      */
     for (i = 0; i < file_count; i++) {
-        if (regexec(reg_exp, files[i]->d_name, 0, NULL, 0))
+        if (regexec(&reg_exp, files[i]->d_name, 0, NULL, 0))
             continue;
 
         ret = snprintf(src_path, sizeof(src_path), "%s/%s", georep_session_dir,
                        files[i]->d_name);
         if (ret < 0) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
-            goto out;
+            goto out_reg_exp;
         }
 
         ret = snprintf(dest_path, sizeof(dest_path), "%s/%s", snap_session_dir,
                        files[i]->d_name);
         if (ret < 0) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_COPY_FAIL, NULL);
-            goto out;
+            goto out_reg_exp;
         }
 
         ret = glusterd_copy_file(src_path, dest_path);
@@ -577,9 +568,13 @@ glusterd_copy_geo_rep_session_files(char *session, glusterd_volinfo_t *snap_vol)
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                    "Could not copy file %s of session %s", files[i]->d_name,
                    session);
-            goto out;
+            goto out_reg_exp;
         }
     }
+
+out_reg_exp:
+    regfree(&reg_exp);
+
 out:
     /* files are malloc'd by scandir, free them */
     if (file_count > 0) {
@@ -588,10 +583,6 @@ out:
         }
         free(files);
     }
-
-    if (reg_exp)
-        GF_FREE(reg_exp);
-
     return ret;
 }
 

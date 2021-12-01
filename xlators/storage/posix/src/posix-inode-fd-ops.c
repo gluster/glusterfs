@@ -42,7 +42,6 @@
 #include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
@@ -3492,7 +3491,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
             goto out;
         }
 
-        nlink_samepgfid = ntoh32(nlink_samepgfid);
+        nlink_samepgfid = be32toh(nlink_samepgfid);
 
         snprintf(pgfidstr, sizeof(pgfidstr), "%s",
                  key + SLEN(PGFID_XATTR_KEY_PREFIX));
@@ -4803,8 +4802,8 @@ __add_array(int32_t *dest, int32_t *src, int count)
     int i = 0;
     int32_t destval = 0;
     for (i = 0; i < count; i++) {
-        destval = ntoh32(dest[i]);
-        dest[i] = hton32(destval + ntoh32(src[i]));
+        destval = be32toh(dest[i]);
+        dest[i] = htobe32(destval + be32toh(src[i]));
     }
 }
 
@@ -4813,7 +4812,7 @@ __add_long_array(int64_t *dest, int64_t *src, int count)
 {
     int i = 0;
     for (i = 0; i < count; i++) {
-        dest[i] = hton64(ntoh64(dest[i]) + ntoh64(src[i]));
+        dest[i] = htobe64(be64toh(dest[i]) + be64toh(src[i]));
     }
 }
 
@@ -4884,11 +4883,11 @@ __add_array_with_default(int32_t *dest, int32_t *src, int count)
     int32_t destval = 0;
 
     for (i = 0; i < count; i++) {
-        destval = ntoh32(dest[i]);
+        destval = be32toh(dest[i]);
         if (destval == 0)
-            dest[i] = hton32(ntoh32(src[i]) + ntoh32(src[count + i]));
+            dest[i] = htobe32(be32toh(src[i]) + be32toh(src[count + i]));
         else
-            dest[i] = hton32(destval + ntoh32(src[i]));
+            dest[i] = htobe32(destval + be32toh(src[i]));
     }
 }
 
@@ -4899,11 +4898,11 @@ __add_long_array_with_default(int64_t *dest, int64_t *src, int count)
     int64_t destval = 0;
 
     for (i = 0; i < count; i++) {
-        destval = ntoh64(dest[i]);
+        destval = be64toh(dest[i]);
         if (destval == 0)
-            dest[i] = hton64(ntoh64(src[i]) + ntoh64(src[i + count]));
+            dest[i] = htobe64(be64toh(src[i]) + be64toh(src[i + count]));
         else
-            dest[i] = hton64(destval + ntoh64(src[i]));
+            dest[i] = htobe64(destval + be64toh(src[i]));
     }
 }
 

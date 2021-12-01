@@ -96,12 +96,11 @@ struct _data {
     gf_atomic_t refcount;
     gf_dict_data_type_t data_type;
     uint32_t len;
-    gf_boolean_t is_static;
+    uint32_t is_static;
 };
 
 struct _data_pair {
     struct _data_pair *hash_next;
-    struct _data_pair *prev;
     struct _data_pair *next;
     data_t *value;
     char *key;
@@ -113,12 +112,12 @@ struct _dict {
     int32_t hash_size;
     int32_t count;
     gf_atomic_t refcount;
+    gf_lock_t lock;
     data_pair_t **members;
     data_pair_t *members_list;
-    char *extra_stdfree;
-    gf_lock_t lock;
-    data_pair_t *members_internal;
     data_pair_t free_pair;
+    data_pair_t *members_internal;
+    char *extra_stdfree;
     /* Variable to store total keylen + value->len */
     uint32_t totkvlen;
 };
@@ -324,9 +323,9 @@ dict_set_uint64(dict_t *this, char *key, uint64_t val);
 #define dict_get_time(dict, key, val) dict_get_int64((dict), (key), (val))
 #define dict_set_time(dict, key, val) dict_set_int64((dict), (key), (val))
 #elif __WORDSIZE == 32
-#define dict_get_time(dict, key, val)                   \
+#define dict_get_time(dict, key, val)                                          \
     dict_get_int32((dict), (key), ((int32_t *)(val)))
-#define dict_set_time(dict, key, val)                   \
+#define dict_set_time(dict, key, val)                                          \
     dict_set_int32((dict), (key), ((int32_t)(val)))
 #else
 #error "unknown word size"
@@ -413,8 +412,6 @@ dict_dump_to_log(dict_t *dict);
 
 int
 dict_dump_to_str(dict_t *dict, char *dump, int dumpsize, char *format);
-gf_boolean_t
-dict_match_everything(dict_t *d, char *k, data_t *v, void *data);
 
 dict_t *
 dict_for_key_value(const char *name, const char *value, size_t size,

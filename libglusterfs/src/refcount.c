@@ -11,12 +11,10 @@
 #include "glusterfs/common-utils.h"
 #include "glusterfs/refcount.h"
 
-#ifndef REFCOUNT_NEEDS_LOCK
-
 void *
 _gf_ref_get(gf_ref_t *ref)
 {
-    unsigned int cnt = __sync_fetch_and_add(&ref->cnt, 1);
+    unsigned int cnt = GF_ATOMIC_FETCH_ADD(ref->cnt, 1);
 
     /* if cnt == 0, we're in a fatal position, the object will be free'd
      *
@@ -33,7 +31,7 @@ _gf_ref_get(gf_ref_t *ref)
 unsigned int
 _gf_ref_put(gf_ref_t *ref)
 {
-    unsigned int cnt = __sync_fetch_and_sub(&ref->cnt, 1);
+    unsigned int cnt = GF_ATOMIC_FETCH_SUB(ref->cnt, 1);
 
     /* if cnt == 1, the last user just did a _gf_ref_put()
      *
@@ -49,60 +47,12 @@ _gf_ref_put(gf_ref_t *ref)
     return (cnt != 1);
 }
 
-#else
-
-void *
-_gf_ref_get(gf_ref_t *ref)
-{
-    unsigned int cnt = 0;
-
-    LOCK(&ref->lk);
-    {
-        /* never can be 0, should have been free'd */
-        if (ref->cnt > 0)
-            cnt = ++ref->cnt;
-        else
-            GF_ASSERT(ref->cnt > 0);
-    }
-    UNLOCK(&ref->lk);
-
-    return cnt ? ref->data : NULL;
-}
-
-unsigned int
-_gf_ref_put(gf_ref_t *ref)
-{
-    unsigned int cnt = 0;
-    int release = 0;
-
-    LOCK(&ref->lk);
-    {
-        if (ref->cnt != 0) {
-            cnt = --ref->cnt;
-            /* call release() only when cnt == 0 */
-            release = (cnt == 0);
-        } else
-            GF_ASSERT(ref->cnt != 0);
-    }
-    UNLOCK(&ref->lk);
-
-    if (release && ref->release)
-        ref->release(ref->data);
-
-    return !release;
-}
-
-#endif /* REFCOUNT_NEEDS_LOCK */
-
 void
 _gf_ref_init(gf_ref_t *ref, gf_ref_release_t release, void *data)
 {
     GF_ASSERT(ref);
 
-#ifdef REFCOUNT_NEEDS_LOCK
-    LOCK_INIT(&ref->lk);
-#endif
-    ref->cnt = 1;
+    GF_ATOMIC_INIT(ref->cnt, 1);
     ref->release = release;
     ref->data = data;
 }
