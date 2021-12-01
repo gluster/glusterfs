@@ -123,6 +123,7 @@ function _create_zfs_vhd() {
     local num=$2
     local loop_num=`expr $2 + 8`
 
+    mkdir -p $dir
     fallocate -l${VHD_SIZE} $dir/${ZFS_PREFIX}_vhd
     mknod -m660 $dir/${ZFS_PREFIX}_loop b 7 $loop_num
     /sbin/losetup $dir/${ZFS_PREFIX}_loop $dir/${ZFS_PREFIX}_vhd

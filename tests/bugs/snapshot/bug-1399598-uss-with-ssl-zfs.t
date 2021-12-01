@@ -42,7 +42,7 @@ TEST pidof glusterd;
 #EST $CLI volume set all cluster.brick-multiplex on
 
 # Create and start the volume
-TEST $CLI volume create $V0 $H0:$L1/b1;
+TEST $CLI volume create $V0 $H0:$L1;
 
 TEST $CLI volume start $V0;
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" volume_online_brick_count

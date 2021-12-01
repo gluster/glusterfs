@@ -12,8 +12,6 @@ fi
 
 cleanup;
 
-TESTS_EXPECTED_IN_LOOP=2
-
 TEST verify_zfs_version
 TEST init_n_bricks 2
 TEST setup_zfs 2
@@ -46,13 +44,6 @@ TEST $CLI volume stop $V1
 TEST $CLI snapshot restore ${V1}_snap;
 
 pkill gluster
-for snap_brick in $snap_bricks
-do
-    echo "Unmounting snap brick" $snap_brick
-    EXPECT_WITHIN_TEST_IN_LOOP $UMOUNT_TIMEOUT "Y" force_umount $snap_brick
-done
-
-rm -rf $snap_brick
 
 TEST glusterd
 TEST pidof glusterd

@@ -16,7 +16,7 @@ TEST pidof glusterd;
 
 TEST setup_zfs 1
 
-TEST $CLI volume create $V0 $H0:$L1/brick_dir
+TEST $CLI volume create $V0 $H0:$L1
 TEST $CLI volume start $V0
 
 TEST $CLI snapshot create snap1 $V0 no-timestamp
