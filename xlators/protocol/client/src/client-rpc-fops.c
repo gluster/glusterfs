@@ -5875,8 +5875,7 @@ client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req.gfid)),
                                   unwind, op_errno, EINVAL);
     conf = this->private;
 
@@ -5926,8 +5925,7 @@ client3_3_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req.gfid)),
                                   unwind, op_errno, EINVAL);
     conf = this->private;
 

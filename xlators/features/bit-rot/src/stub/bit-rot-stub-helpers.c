@@ -109,8 +109,7 @@ br_stub_add(xlator_t *this, uuid_t gfid)
     struct stat st = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, errno, EINVAL);
 
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
@@ -151,8 +150,8 @@ br_stub_del(xlator_t *this, uuid_t gfid)
     char gfid_path[BR_PATH_MAX_PLUS] = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, op_errno,
+                                  EINVAL);
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
     ret = sys_unlink(gfid_path);

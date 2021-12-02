@@ -354,10 +354,10 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error)         \
+#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, op_errno, error)      \
     do {                                                                       \
         if (caa_unlikely(!arg)) {                                              \
-            errno = error;                                                     \
+            op_errno = error;                                                  \
             gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
                              "invalid argument: " #arg);                       \
             goto label;                                                        \
@@ -381,22 +381,11 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error)          \
+#define GF_ASSERT_AND_GOTO_WITH_ERROR(arg, label, op_errno, error)             \
     do {                                                                       \
         if (caa_unlikely(!arg)) {                                              \
+            op_errno = error;                                                  \
             GF_ASSERT(0);                                                      \
-            errno = error;                                                     \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
-
-#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name, arg, label)                    \
-    do {                                                                       \
-        GF_VALIDATE_OR_GOTO(name, arg, label);                                 \
-        if ((arg[0]) != '/') {                                                 \
-            errno = EINVAL;                                                    \
-            gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
-                             "invalid argument: " #arg);                       \
             goto label;                                                        \
         }                                                                      \
     } while (0)
