@@ -153,11 +153,11 @@ struct _call_stack {
 struct xlator_fops;
 
 static inline void
-FRAME_DESTROY(call_frame_t *frame)
+FRAME_DESTROY(call_frame_t *frame, const gf_boolean_t measure_latency)
 {
     void *local = NULL;
 
-    if (frame->root->ctx->measure_latency)
+    if (measure_latency)
         gf_frame_latency_update(frame);
 
     list_del_init(&frame->frames);
@@ -178,6 +178,7 @@ STACK_DESTROY(call_stack_t *stack)
 {
     call_frame_t *frame = NULL;
     call_frame_t *tmp = NULL;
+    gf_boolean_t measure_latency;
 
     LOCK(&stack->pool->lock);
     {
@@ -188,9 +189,10 @@ STACK_DESTROY(call_stack_t *stack)
 
     LOCK_DESTROY(&stack->stack_lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &stack->myframes, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 
     GF_FREE(stack->groups_large);
@@ -205,6 +207,7 @@ STACK_RESET(call_stack_t *stack)
     call_frame_t *tmp = NULL;
     call_frame_t *last = NULL;
     struct list_head toreset = {0};
+    gf_boolean_t measure_latency;
 
     INIT_LIST_HEAD(&toreset);
 
@@ -221,9 +224,10 @@ STACK_RESET(call_stack_t *stack)
     }
     UNLOCK(&stack->pool->lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &toreset, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 }
 
