@@ -288,7 +288,7 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [__asan_init_v1], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
         GF_LDFLAGS="${GF_LDFLAGS} -lasan"
