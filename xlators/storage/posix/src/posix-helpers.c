@@ -3323,7 +3323,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
     }
 
     if (ret == 0) {
-        ret = dict_set_str(*rsp, GF_CS_OBJECT_REMOTE, value);
+        ret = dict_set_str_sizen(*rsp, GF_CS_OBJECT_REMOTE, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "failed to set"
@@ -3341,21 +3341,13 @@ out:
  */
 int
 posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
-                     struct iatt *buf, const char *realpath, dict_t *xattr_req,
-                     dict_t **xattr_rsp, gf_boolean_t ignore_failure)
+                     struct iatt *buf, const char *realpath,
+                     gf_boolean_t is_cs_obj_status,
+                     gf_boolean_t is_cs_obj_repair, dict_t **xattr_rsp,
+                     gf_boolean_t ignore_failure)
 {
     gf_cs_obj_state state = GF_CS_ERROR;
     int ret = 0;
-    gf_boolean_t is_cs_obj_status = _gf_false;
-    gf_boolean_t is_cs_obj_repair = _gf_false;
-
-    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
-        is_cs_obj_status = _gf_true;
-    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_REPAIR))
-        is_cs_obj_repair = _gf_true;
-
-    if (!(is_cs_obj_status || is_cs_obj_repair))
-        return 0;
 
     if (fd) {
         LOCK(&fd->inode->lock);
@@ -3486,18 +3478,12 @@ out:
 }
 
 void
-posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
+posix_update_iatt_buf(struct iatt *buf, int fd, char *loc)
 {
     int ret = 0;
-    char val[4096] = {
+    char val[64] = {
         0,
     };
-
-    if (!xattr_req)
-        return;
-
-    if (!dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
-        return;
 
     if (fd != -1) {
         ret = sys_fgetxattr(fd, GF_CS_OBJECT_SIZE, &val, sizeof(val));

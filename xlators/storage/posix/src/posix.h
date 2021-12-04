@@ -693,7 +693,8 @@ posix_cs_heal_state(xlator_t *this, const char *path, int *fd,
                     struct iatt *stbuf);
 int
 posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
-                     struct iatt *buf, const char *realpath, dict_t *xattr_req,
+                     struct iatt *buf, const char *realpath,
+                     gf_boolean_t cs_obj_status, gf_boolean_t cs_obj_repair,
                      dict_t **xattr_rsp, gf_boolean_t ignore_failure);
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
@@ -702,7 +703,7 @@ int
 posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 void
-posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
+posix_update_iatt_buf(struct iatt *buf, int fd, char *loc);
 
 gf_boolean_t
 posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this);

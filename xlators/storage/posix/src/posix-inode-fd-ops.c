@@ -101,7 +101,7 @@ extern char *marker_xattrs[];
 static char *disallow_removexattrs[] = {GF_XATTR_VOL_ID_KEY, GFID_XATTR_KEY,
                                         NULL};
 
-void
+static void
 posix_cs_build_xattr_rsp(xlator_t *this, dict_t **rsp, dict_t *req, int fd,
                          char *loc)
 {
@@ -167,6 +167,7 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     struct posix_private *priv = NULL;
     char *real_path = NULL;
     dict_t *xattr_rsp = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -198,13 +199,19 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         xattr_rsp = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata,
                                      &buf);
 
-        posix_cs_maintenance(this, NULL, loc, NULL, &buf, real_path, xdata,
-                             &xattr_rsp, _gf_true);
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
 
-        posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, -1, real_path);
+        if (cs_obj_status || cs_obj_repair)
+            posix_cs_maintenance(this, NULL, loc, NULL, &buf, real_path,
+                                 cs_obj_status, cs_obj_repair, &xattr_rsp,
+                                 _gf_true);
+        if (cs_obj_status) {
+            posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, -1, real_path);
+            posix_update_iatt_buf(&buf, -1, real_path);
+        }
     }
 
-    posix_update_iatt_buf(&buf, -1, real_path, xdata);
     op_ret = 0;
 
 out:
@@ -456,11 +463,14 @@ posix_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     posix_set_ctime(frame, this, real_path, -1, loc->inode, &statpost);
 
-    if (xdata)
+    if (xdata) {
         xattr_rsp = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata,
                                      &statpost);
-    posix_update_iatt_buf(&statpre, -1, real_path, xdata);
-    posix_update_iatt_buf(&statpost, -1, real_path, xdata);
+        if (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS)) {
+            posix_update_iatt_buf(&statpre, -1, real_path);
+            posix_update_iatt_buf(&statpost, -1, real_path);
+        }
+    }
     op_ret = 0;
 
 out:
@@ -719,6 +729,7 @@ posix_do_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
     struct stat statbuf = {
         0,
     };
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -760,22 +771,28 @@ overwrite:
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
 
-    ret = posix_fdstat(this, fd->inode, pfd->fd, statpre, _gf_true);
-    if (ret == -1) {
-        ret = -errno;
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-               "fallocate (fstat) failed on fd=%p", fd);
-        goto unlock;
-    }
-
     if (xdata) {
-        ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, statpre, NULL,
-                                   xdata, rsp_xdata, _gf_false);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            ret = -EIO;
-            goto unlock;
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+
+        if (cs_obj_status || cs_obj_repair) {
+            ret = posix_fdstat(this, fd->inode, pfd->fd, statpre, _gf_true);
+            if (ret == -1) {
+                ret = -errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "fallocate (fstat) failed on fd=%p", fd);
+                goto unlock;
+            }
+
+            ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, statpre, NULL,
+                                       cs_obj_status, cs_obj_repair, rsp_xdata,
+                                       _gf_false);
+            if (ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                ret = -EIO;
+                goto unlock;
+            }
         }
     }
 
@@ -964,6 +981,7 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     struct posix_fd *pfd = NULL;
     gf_boolean_t locked = _gf_false;
     posix_inode_ctx_t *ctx = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -990,28 +1008,35 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
 
-    ret = posix_fdstat(this, fd->inode, pfd->fd, statpre, _gf_true);
-    if (ret == -1) {
-        ret = -errno;
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-               "pre-operation fstat failed on fd = %p", fd);
-        goto out;
-    }
-
     if (xdata) {
-        ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, statpre, NULL,
-                                   xdata, rsp_xdata, _gf_false);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state "
-                   "check failed, fd %p",
-                   fd);
-            ret = -EIO;
-            goto out;
-        }
-    }
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
 
-    posix_update_iatt_buf(statpre, pfd->fd, NULL, xdata);
+        if (cs_obj_status || cs_obj_repair) {
+            /* statpre is only needed for CS related functions below */
+            ret = posix_fdstat(this, fd->inode, pfd->fd, statpre, _gf_true);
+            if (ret == -1) {
+                ret = -errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "pre-operation fstat failed on fd = %p", fd);
+                goto out;
+            }
+
+            ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, statpre, NULL,
+                                       cs_obj_status, cs_obj_repair, rsp_xdata,
+                                       _gf_false);
+            if (ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state "
+                       "check failed, fd %p",
+                       fd);
+                ret = -EIO;
+                goto out;
+            }
+        }
+        if (cs_obj_status)
+            posix_update_iatt_buf(statpre, pfd->fd, NULL);
+    }
     /* See if we can use FALLOC_FL_ZERO_RANGE to perform the zero fill.
      * If it fails, fall back to _posix_do_zerofill() and an optional fsync.
      */
@@ -1229,6 +1254,7 @@ posix_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         0,
     };
     dict_t *rsp_xdata = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1258,23 +1284,28 @@ posix_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
-    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
-                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
-        ret = posix_fdstat(this, fd->inode, pfd->fd, &preop, _gf_false);
-        if (ret == -1) {
-            ret = -errno;
-            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-                   "pre-operation fstat failed on fd=%p", fd);
-            goto out;
-        }
+    if (xdata) {
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
 
-        ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, &preop, NULL,
-                                   xdata, &rsp_xdata, _gf_false);
-        if (ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            ret = -EIO;
-            goto out;
+        if (cs_obj_status || cs_obj_repair) {
+            ret = posix_fdstat(this, fd->inode, pfd->fd, &preop, _gf_false);
+            if (ret == -1) {
+                ret = -errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "pre-operation fstat failed on fd=%p", fd);
+                goto out;
+            }
+
+            ret = posix_cs_maintenance(this, fd, NULL, &pfd->fd, &preop, NULL,
+                                       cs_obj_status, cs_obj_repair, &rsp_xdata,
+                                       _gf_false);
+            if (ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                ret = -EIO;
+                goto out;
+            }
         }
     }
 
@@ -1487,6 +1518,7 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         0,
     };
     dict_t *rsp_xdata = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1510,17 +1542,24 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     }
 
     if (xdata) {
-        op_ret = posix_cs_maintenance(this, NULL, loc, NULL, &prebuf, real_path,
-                                      xdata, &rsp_xdata, _gf_false);
-        if (op_ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, path %s", loc->path);
-            op_errno = EIO;
-            goto out;
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_cs_maintenance(this, NULL, loc, NULL, &prebuf,
+                                          real_path, cs_obj_status,
+                                          cs_obj_repair, &rsp_xdata, _gf_false);
+            if (op_ret == -1) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, path %s", loc->path);
+                op_errno = EIO;
+                goto out;
+            }
         }
+        if (cs_obj_status)
+            posix_update_iatt_buf(&prebuf, -1, real_path);
     }
 
-    posix_update_iatt_buf(&prebuf, -1, real_path, xdata);
     op_ret = sys_truncate(real_path, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -1569,6 +1608,7 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     struct iatt stbuf = {
         0,
     };
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1633,18 +1673,23 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     pfd->flags = flags;
     pfd->fd = _fd;
 
-    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
-                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
-        op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop, _gf_false);
-        if (op_ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-                   "pre-operation fstat failed on fd=%p", fd);
-            GF_FREE(pfd);
-            goto out;
-        }
+    if (xdata) {
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
 
-        posix_cs_maintenance(this, fd, NULL, &pfd->fd, &preop, NULL, xdata,
-                             &rsp_xdata, _gf_true);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop, _gf_false);
+            if (op_ret == -1) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "pre-operation fstat failed on fd=%p", fd);
+                GF_FREE(pfd);
+                goto out;
+            }
+
+            posix_cs_maintenance(this, fd, NULL, &pfd->fd, &preop, NULL,
+                                 cs_obj_status, cs_obj_repair, &rsp_xdata,
+                                 _gf_true);
+        }
     }
 
     op_ret = fd_ctx_set(fd, this, (uint64_t)(long)pfd);
@@ -1691,6 +1736,7 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     };
     int ret = -1;
     dict_t *rsp_xdata = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -1731,24 +1777,29 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     _fd = pfd->fd;
 
-    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
-                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
-        op_ret = posix_fdstat(this, fd->inode, _fd, &preop, _gf_false);
-        if (op_ret == -1) {
-            op_errno = errno;
-            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-                   "pre-operation fstat failed on fd=%p", fd);
-            goto out;
+    if (xdata) {
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_fdstat(this, fd->inode, _fd, &preop, _gf_false);
+            if (op_ret == -1) {
+                op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "pre-operation fstat failed on fd=%p", fd);
+                goto out;
+            }
+            op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL,
+                                          cs_obj_status, cs_obj_repair,
+                                          &rsp_xdata, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                op_errno = EIO;
+                goto out;
+            }
         }
-        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL, xdata,
-                                      &rsp_xdata, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            op_errno = EIO;
-            goto out;
-        }
-        posix_update_iatt_buf(&preop, _fd, NULL, xdata);
+        if (cs_obj_status)
+            posix_update_iatt_buf(&preop, _fd, NULL);
     }
 
     op_ret = sys_pread(_fd, iobuf->ptr, size, offset);
@@ -1971,6 +2022,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     };
     int totlen = 0;
     int idx = 0;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     VALIDATE_OR_GOTO(frame, unwind);
     VALIDATE_OR_GOTO(this, unwind);
@@ -2054,17 +2106,23 @@ overwrite:
     }
 
     if (xdata) {
-        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL, xdata,
-                                      &rsp_xdata, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            op_errno = EIO;
-            goto out;
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL,
+                                          cs_obj_status, cs_obj_repair,
+                                          &rsp_xdata, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                op_errno = EIO;
+                goto out;
+            }
         }
+        if (cs_obj_status)
+            posix_update_iatt_buf(&preop, _fd, NULL);
     }
 
-    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     if (locked && write_append) {
         if (preop.ia_size == offset || (fd->flags & O_APPEND))
             is_append = 1;
@@ -2193,6 +2251,7 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
     gf_boolean_t update_atomic = _gf_false;
     posix_inode_ctx_t *ctx = NULL;
     char in_uuid_str[64] = {0}, out_uuid_str[64] = {0};
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -2302,13 +2361,18 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
      * undergoing write fop from maintenance perspective.
      */
     if (xdata) {
-        op_ret = posix_cs_maintenance(this, fd_out, NULL, &_fd_out, &preop_dst,
-                                      NULL, xdata, &rsp_xdata, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd_out);
-            op_errno = EIO;
-            goto out;
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_cs_maintenance(this, fd_out, NULL, &_fd_out,
+                                          &preop_dst, NULL, cs_obj_status,
+                                          cs_obj_repair, &rsp_xdata, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd_out);
+                op_errno = EIO;
+                goto out;
+            }
         }
     }
 
@@ -2834,7 +2898,7 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     /* the io-stats-dump key should not reach disk */
     dict_del(dict, GF_XATTR_IOSTATS_DUMP_KEY);
 
-    tdata = dict_get(dict, GF_CS_OBJECT_UPLOAD_COMPLETE);
+    tdata = dict_get_sizen(dict, GF_CS_OBJECT_UPLOAD_COMPLETE);
     if (tdata) {
         /*TODO: move the following to a different function */
         LOCK(&loc->inode->lock);
@@ -5276,6 +5340,7 @@ posix_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     int ret = -1;
     struct posix_private *priv = NULL;
     dict_t *rsp_xdata = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
     SET_FS_ID(frame->root->uid, frame->root->gid);
@@ -5305,17 +5370,23 @@ posix_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     }
 
     if (xdata) {
-        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL, xdata,
-                                      &rsp_xdata, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            op_errno = EIO;
-            goto out;
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL,
+                                          cs_obj_status, cs_obj_repair,
+                                          &rsp_xdata, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                op_errno = EIO;
+                goto out;
+            }
         }
+        if (cs_obj_status)
+            posix_update_iatt_buf(&preop, _fd, NULL);
     }
 
-    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_ftruncate(_fd, offset);
 
     if (op_ret == -1) {
@@ -5359,6 +5430,7 @@ posix_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     dict_t *xattr_rsp = NULL;
     int ret = -1;
     struct posix_private *priv = NULL;
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     DECLARE_OLD_FS_ID_VAR;
     SET_FS_ID(frame->root->uid, frame->root->gid);
@@ -5393,16 +5465,23 @@ posix_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     if (xdata) {
         xattr_rsp = posix_xattr_fill(this, NULL, NULL, fd, _fd, xdata, &buf);
 
-        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &buf, NULL, xdata,
-                                      &xattr_rsp, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &buf, NULL,
+                                          cs_obj_status, cs_obj_repair,
+                                          &xattr_rsp, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+            }
         }
-        posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, _fd, NULL);
+        if (cs_obj_status) {
+            posix_cs_build_xattr_rsp(this, &xattr_rsp, xdata, _fd, NULL);
+            posix_update_iatt_buf(&buf, _fd, NULL);
+        }
     }
 
-    posix_update_iatt_buf(&buf, _fd, NULL, xdata);
     op_ret = 0;
 
 out:
@@ -5702,6 +5781,7 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     };
     uuid_t gfid;
     int ret = -1;
+    gf_boolean_t do_update_iatt_buf = _gf_false;
 
     if (list_empty(&entries->list))
         return 0;
@@ -5718,6 +5798,9 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     }
     len = strlen(hpath);
     hpath[len] = '/';
+
+    if (dict && (dict_get_sizen(dict, GF_CS_OBJECT_STATUS)))
+        do_update_iatt_buf = _gf_true;
 
     list_for_each_entry(entry, &entries->list, list)
     {
@@ -5738,7 +5821,8 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
             continue;
         }
 
-        posix_update_iatt_buf(&stbuf, -1, hpath, dict);
+        if (do_update_iatt_buf)
+            posix_update_iatt_buf(&stbuf, -1, hpath);
 
         if (!inode)
             inode = inode_find(itable, stbuf.ia_gfid);
@@ -5908,6 +5992,7 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     struct iatt preop = {
         0,
     };
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -5936,23 +6021,27 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     _fd = pfd->fd;
 
-    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
-                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
-        op_ret = posix_fdstat(this, fd->inode, _fd, &preop, _gf_false);
-        if (op_ret == -1) {
-            op_errno = errno;
-            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
-                   "pre-operation fstat failed on fd=%p", fd);
-            goto out;
-        }
+    if (xdata) {
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+        if (cs_obj_status || cs_obj_repair) {
+            op_ret = posix_fdstat(this, fd->inode, _fd, &preop, _gf_false);
+            if (op_ret == -1) {
+                op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
+                       "pre-operation fstat failed on fd=%p", fd);
+                goto out;
+            }
 
-        op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL, xdata,
-                                      &rsp_xdata, _gf_false);
-        if (op_ret < 0) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-                   "file state check failed, fd %p", fd);
-            op_errno = EIO;
-            goto out;
+            op_ret = posix_cs_maintenance(this, fd, NULL, &_fd, &preop, NULL,
+                                          cs_obj_status, cs_obj_repair,
+                                          &rsp_xdata, _gf_false);
+            if (op_ret < 0) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "file state check failed, fd %p", fd);
+                op_errno = EIO;
+                goto out;
+            }
         }
     }
 
