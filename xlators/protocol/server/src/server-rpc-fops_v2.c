@@ -3264,6 +3264,8 @@ err:
     server4_lookup_cbk(frame, NULL, frame->this, state->resolve.op_ret,
                        state->resolve.op_errno, NULL, NULL, NULL, NULL);
 
+    if (xdata)
+        dict_unref(xdata);
     return 0;
 }
 
@@ -4425,7 +4427,6 @@ server4_0_setxattr(rpcsvc_request_t *req)
         dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
         gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_SETXATTR_INFO, "path=%s",
                 state->loc.path, "key=%s", GF_NAMESPACE_KEY, NULL);
-        ret = -1;
         SERVER_REQ_SET_ERROR(req, ret);
         goto out;
     }
