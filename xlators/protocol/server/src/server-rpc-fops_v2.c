@@ -2769,6 +2769,15 @@ server4_removexattr_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve.op_ret != 0)
         goto err;
 
+    if (dict_get_sizen(state->xdata, GF_NAMESPACE_KEY) ||
+        !strncmp(GF_NAMESPACE_KEY, state->name, sizeof(GF_NAMESPACE_KEY))) {
+        gf_msg(bound_xl->name, GF_LOG_ERROR, ENOTSUP, 0,
+               "%s: removal of namespace is not allowed", state->loc.path);
+        state->resolve.op_errno = ENOTSUP;
+        state->resolve.op_ret = -1;
+        goto err;
+    }
+
     STACK_WIND(frame, server4_removexattr_cbk, bound_xl,
                bound_xl->fops->removexattr, &state->loc, state->name,
                state->xdata);
@@ -2789,6 +2798,15 @@ server4_fremovexattr_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve.op_ret != 0)
         goto err;
 
+    if (dict_get_sizen(state->xdata, GF_NAMESPACE_KEY) ||
+        !strncmp(GF_NAMESPACE_KEY, state->name, sizeof(GF_NAMESPACE_KEY))) {
+        gf_msg(bound_xl->name, GF_LOG_ERROR, ENOTSUP, 0,
+               "%s: removal of namespace is not allowed",
+               uuid_utoa(state->fd->inode->gfid));
+        state->resolve.op_errno = ENOTSUP;
+        state->resolve.op_ret = -1;
+        goto err;
+    }
     STACK_WIND(frame, server4_fremovexattr_cbk, bound_xl,
                bound_xl->fops->fremovexattr, state->fd, state->name,
                state->xdata);
