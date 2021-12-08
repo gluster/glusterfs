@@ -53,6 +53,8 @@
 #include <sys/statvfs.h>
 #include <stdint.h>
 #include <sys/time.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
 
 /*
  * For off64_t to be defined, we need both

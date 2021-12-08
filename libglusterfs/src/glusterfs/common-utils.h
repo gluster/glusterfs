@@ -105,6 +105,7 @@ trap(void);
 #define GF_SERVER_PROCESS 0
 #define GF_CLIENT_PROCESS 1
 #define GF_GLUSTERD_PROCESS 2
+#define GF_CLIENT_GFAPI_PROCESS 3
 
 /* Defining this here as it is needed by glusterd for setting
  * nfs port in volume status.

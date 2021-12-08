@@ -4111,10 +4111,15 @@ static void
 init_openssl_mt(void)
 {
     static gf_boolean_t initialized = _gf_false;
+    glusterfs_ctx_t *ctx = THIS->ctx;
 
-    if (initialized) {
+    if (initialized || (ctx->process_mode == GF_CLIENT_GFAPI_PROCESS)) {
         /* this only needs to be initialized once GLOBALLY no
-           matter how many translators/sockets we end up with. */
+           matter how many translators/sockets we end up with.
+           If process mode is GFAPI no need to call SSL_library_init
+           by socket.so it has been called by libgfapi.so during constructor
+           calling
+        */
         return;
     }
 
@@ -4145,6 +4150,12 @@ init_openssl_mt(void)
 
 static void __attribute__((destructor)) fini_openssl_mt(void)
 {
+    glusterfs_ctx_t *ctx = THIS->ctx;
+
+    /* No need to call destructor if process_mode is GFAPI */
+    if (ctx->process_mode == GF_CLIENT_GFAPI_PROCESS)
+        return;
+
 #if OPENSSL_VERSION_NUMBER < 0x1010000f
     int i;
 

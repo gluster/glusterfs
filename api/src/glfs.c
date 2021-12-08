@@ -51,6 +51,97 @@
 #include "glfs.h"
 #include "glfs-internal.h"
 
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
+static pthread_mutex_t *lock_array = NULL;
+
+static void
+locking_func(int mode, int type, const char *file, int line)
+{
+    if (mode & CRYPTO_UNLOCK) {
+        pthread_mutex_unlock(&lock_array[type]);
+    } else {
+        pthread_mutex_lock(&lock_array[type]);
+    }
+}
+
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+static void
+threadid_func(CRYPTO_THREADID *id)
+{
+    /*
+     * We're not supposed to know whether a pthread_t is a number or a
+     * pointer, but we definitely need an unsigned long.  Even though it
+     * happens to be an unsigned long already on Linux, do the cast just in
+     * case that's not so on another platform.  Note that this can still
+     * break if any platforms are left where a pointer is larger than an
+     * unsigned long.  In that case there's not much we can do; hopefully
+     * anyone porting to such a platform will be aware enough to notice the
+     * compile warnings about truncating the pointer value.
+     */
+    CRYPTO_THREADID_set_numeric(id, (unsigned long)pthread_self());
+}
+#else  /* older openssl */
+static unsigned long
+legacy_threadid_func(void)
+{
+    /* See comments above, it applies here too. */
+    return (unsigned long)pthread_self();
+}
+#endif /* OPENSSL_VERSION_NUMBER >= 0x1000000f */
+#endif /* OPENSSL_VERSION_NUMBER < 0x1010000f */
+
+static void __attribute__((destructor)) glfs_openssl_init(void)
+{
+    SSL_library_init();
+    SSL_load_error_strings();
+
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
+    int num_locks = CRYPTO_num_locks();
+    int i;
+
+    lock_array = CALLOC(num_locks, sizeof(pthread_mutex_t));
+    if (lock_array) {
+        for (i = 0; i < num_locks; ++i) {
+            pthread_mutex_init(&lock_array[i], NULL);
+        }
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+        CRYPTO_THREADID_set_callback(threadid_func);
+#else /* older openssl */
+        CRYPTO_set_id_callback(legacy_threadid_func);
+#endif
+        CRYPTO_set_locking_callback(locking_func);
+    }
+#endif
+}
+
+static void __attribute__((destructor)) glfs_openssl_fini(void)
+{
+#if OPENSSL_VERSION_NUMBER < 0x1010000f
+    int i;
+
+    if (!lock_array) {
+        return;
+    }
+
+    CRYPTO_set_locking_callback(NULL);
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+    CRYPTO_THREADID_set_callback(NULL);
+#else /* older openssl */
+    CRYPTO_set_id_callback(NULL);
+#endif
+
+    for (i = 0; i < CRYPTO_num_locks(); ++i) {
+        pthread_mutex_destroy(&lock_array[i]);
+    }
+
+    FREE(lock_array);
+    lock_array = NULL;
+#endif
+
+    ERR_free_strings();
+}
+
+
 static gf_boolean_t
 vol_assigned(cmd_args_t *args)
 {
@@ -874,7 +965,7 @@ label:
         goto out;
 
     fs->ctx = ctx;
-    fs->ctx->process_mode = GF_CLIENT_PROCESS;
+    fs->ctx->process_mode = GF_CLIENT_GFAPI_PROCESS;
 
     ret = glfs_set_logging(fs, "/dev/null", 0);
     if (ret)
