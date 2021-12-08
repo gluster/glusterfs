@@ -78,7 +78,6 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
     int op_ret = -1;
     char *value = NULL;
     gf_boolean_t fd_based_fop = _gf_false;
-    char gfid_str[64] = {0};
     char *real_path = NULL;
 
     if (!metadata) {
@@ -93,9 +92,8 @@ posix_fetch_mdata_xattr(xlator_t *this, const char *real_path_arg, int _fd,
         MAKE_HANDLE_PATH(real_path, this, inode->gfid, NULL);
         if (!real_path) {
             *op_errno = errno;
-            uuid_utoa_r(inode->gfid, gfid_str);
             gf_msg(this->name, GF_LOG_WARNING, *op_errno, P_MSG_LSTAT_FAILED,
-                   "lstat on gfid %s failed", gfid_str);
+                   "lstat on gfid %s failed", uuid_utoa(inode->gfid));
             goto out;
         }
     }
@@ -195,8 +193,6 @@ posix_store_mdata_xattr(xlator_t *this, const char *real_path_arg, int fd,
     char *real_path = NULL;
     int op_ret = 0;
     gf_boolean_t fd_based_fop = _gf_false;
-    char *key = GF_XATTR_MDATA_KEY;
-    char gfid_str[64] = {0};
     posix_mdata_disk_t disk_metadata;
 
     if (!metadata) {
@@ -210,9 +206,8 @@ posix_store_mdata_xattr(xlator_t *this, const char *real_path_arg, int fd,
     if (!(fd_based_fop || real_path_arg)) {
         MAKE_HANDLE_PATH(real_path, this, inode->gfid, NULL);
         if (!real_path) {
-            uuid_utoa_r(inode->gfid, gfid_str);
             gf_msg(this->name, GF_LOG_DEBUG, errno, P_MSG_LSTAT_FAILED,
-                   "lstat on gfid %s failed", gfid_str);
+                   "lstat on gfid %s failed", uuid_utoa(inode->gfid));
             op_ret = -1;
             goto out;
         }
@@ -222,21 +217,23 @@ posix_store_mdata_xattr(xlator_t *this, const char *real_path_arg, int fd,
     posix_mdata_to_disk(&disk_metadata, metadata);
 
     if (fd_based_fop) {
-        op_ret = sys_fsetxattr(fd, key, (void *)&disk_metadata,
+        op_ret = sys_fsetxattr(fd, GF_XATTR_MDATA_KEY, (void *)&disk_metadata,
                                sizeof(posix_mdata_disk_t), 0);
     } else if (real_path_arg) {
-        op_ret = sys_lsetxattr(real_path_arg, key, (void *)&disk_metadata,
+        op_ret = sys_lsetxattr(real_path_arg, GF_XATTR_MDATA_KEY,
+                               (void *)&disk_metadata,
                                sizeof(posix_mdata_disk_t), 0);
     } else if (real_path) {
-        op_ret = sys_lsetxattr(real_path, key, (void *)&disk_metadata,
+        op_ret = sys_lsetxattr(real_path, GF_XATTR_MDATA_KEY,
+                               (void *)&disk_metadata,
                                sizeof(posix_mdata_disk_t), 0);
     }
 
 #ifdef GF_DARWIN_HOST_OS
     if (real_path_arg) {
-        posix_dump_buffer(this, real_path_arg, key, value, 0);
+        posix_dump_buffer(this, real_path_arg, GF_XATTR_MDATA_KEY, value, 0);
     } else if (real_path) {
-        posix_dump_buffer(this, real_path, key, value, 0);
+        posix_dump_buffer(this, real_path, GF_XATTR_MDATA_KEY, value, 0);
     }
 #endif
 out:
@@ -244,7 +241,7 @@ out:
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                "file: %s: gfid: %s key:%s ",
                real_path ? real_path : (real_path_arg ? real_path_arg : "null"),
-               uuid_utoa(inode->gfid), key);
+               uuid_utoa(inode->gfid), GF_XATTR_MDATA_KEY);
     }
     return op_ret;
 }

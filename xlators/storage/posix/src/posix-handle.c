@@ -34,7 +34,7 @@ posix_resolve(xlator_t *this, inode_table_t *itable, inode_t *parent,
     inode_t *inode = NULL;
     int ret = -1;
 
-    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf);
+    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf, _gf_false);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_WARNING,
                "gfid: %s, bname: %s "
@@ -896,7 +896,7 @@ posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename)
     /* stat is being used only for gfid, so passing a NULL inode
      * doesn't fetch time attributes which is fine
      */
-    ret = posix_istat(this, NULL, gfid, basename, &stat);
+    ret = posix_istat(this, NULL, gfid, basename, &stat, _gf_false);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
                path);
