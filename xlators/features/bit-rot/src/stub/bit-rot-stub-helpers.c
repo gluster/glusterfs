@@ -371,10 +371,10 @@ br_stub_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     ret = sys_lstat(priv->stub_basepath, &lstatbuf);
     if (ret) {
+        op_errno = errno;
         gf_msg_debug(this->name, errno,
                      "Stat failed on stub bad "
                      "object dir");
-        op_errno = errno;
         goto done;
     } else if (!S_ISDIR(lstatbuf.st_mode)) {
         gf_msg_debug(this->name, errno,

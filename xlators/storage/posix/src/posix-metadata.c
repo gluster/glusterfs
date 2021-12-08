@@ -450,10 +450,10 @@ posix_set_mdata_xattr_legacy_files(xlator_t *this, inode_t *inode,
 
         ret = posix_store_mdata_xattr(this, realpath, -1, inode, mdata);
         if (ret) {
+            *op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STOREMDATA_FAILED,
                    "gfid: %s key:%s ", uuid_utoa(inode->gfid),
                    GF_XATTR_MDATA_KEY);
-            *op_errno = errno;
             goto unlock;
         }
     }

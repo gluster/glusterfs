@@ -820,16 +820,14 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     ret = sys_lstat(path, &lstatbuf);
     if (ret == -1) {
+        op_errno = errno;
         if (errno != ENOENT) {
-            op_errno = errno;
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
                    "lstat failed on %s", path);
-            errno = op_errno; /*gf_msg could have changed errno*/
         } else {
-            op_errno = errno;
             gf_msg_debug(this->name, errno, "lstat failed on %s ", path);
-            errno = op_errno; /*gf_msg could have changed errno*/
         }
+        errno = op_errno; /*gf_msg could have changed errno*/
         goto out;
     }
 

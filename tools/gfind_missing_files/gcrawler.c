@@ -355,8 +355,8 @@ xworker_do_crawl(struct xwork *xwork, struct dirjob *job)
         entry = sys_readdir(dirp, scratch);
         if (!entry || errno != 0) {
             if (errno != 0) {
-                err("readdir(%s): %s\n", job->dirname, strerror(errno));
                 ret = errno;
+                err("readdir(%s): %s\n", job->dirname, strerror(errno));
                 goto out;
             }
             break;

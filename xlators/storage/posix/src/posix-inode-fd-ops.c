@@ -2111,10 +2111,10 @@ overwrite:
     if (flags & (O_SYNC | O_DSYNC)) {
         ret = sys_fsync(_fd);
         if (ret) {
+            op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_WRITEV_FAILED,
                    "fsync() in writev on fd %d failed", _fd);
             op_ret = -1;
-            op_errno = errno;
             goto out;
         }
     }
@@ -4956,39 +4956,42 @@ _posix_handle_xattr_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
             size = sys_fgetxattr(filler->fdnum, k, (char *)array, count);
         }
 
-        op_errno = errno;
-        if ((size == -1) && (op_errno != ENODATA) && (op_errno != ENOATTR)) {
-            if (op_errno == ENOTSUP) {
-                GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log, this->name,
-                                    GF_LOG_WARNING,
-                                    "Extended attributes not "
-                                    "supported by filesystem");
-            } else if (op_errno != ENOENT ||
-                       !posix_special_xattr(marker_xattrs, k)) {
-                if (filler->real_path)
-                    gf_msg(this->name, fop_log_level(GF_FOP_XATTROP, op_errno),
-                           op_errno, P_MSG_XATTR_FAILED,
-                           "getxattr failed on %s while "
-                           "doing xattrop: Key:%s ",
-                           filler->real_path, k);
-                else
-                    gf_msg(
-                        this->name, GF_LOG_ERROR, op_errno, P_MSG_XATTR_FAILED,
-                        "fgetxattr failed on gfid=%s "
-                        "while doing xattrop: "
-                        "Key:%s (%s)",
-                        uuid_utoa(filler->inode->gfid), k, strerror(op_errno));
+        if (size < 0) {
+            op_errno = errno;
+            if ((op_errno != ENODATA) && (op_errno != ENOATTR)) {
+                if (op_errno == ENOTSUP) {
+                    GF_LOG_OCCASIONALLY(gf_posix_xattr_enotsup_log, this->name,
+                                        GF_LOG_WARNING,
+                                        "Extended attributes not "
+                                        "supported by filesystem");
+                } else if (op_errno != ENOENT ||
+                           !posix_special_xattr(marker_xattrs, k)) {
+                    if (filler->real_path)
+                        gf_msg(this->name,
+                               fop_log_level(GF_FOP_XATTROP, op_errno),
+                               op_errno, P_MSG_XATTR_FAILED,
+                               "getxattr failed on %s while "
+                               "doing xattrop: Key:%s ",
+                               filler->real_path, k);
+                    else
+                        gf_msg(this->name, GF_LOG_ERROR, op_errno,
+                               P_MSG_XATTR_FAILED,
+                               "fgetxattr failed on gfid=%s "
+                               "while doing xattrop: "
+                               "Key:%s (%s)",
+                               uuid_utoa(filler->inode->gfid), k,
+                               strerror(op_errno));
+                }
+
+                op_ret = -1;
+                goto unlock;
             }
 
-            op_ret = -1;
-            goto unlock;
+            if (optype == GF_XATTROP_GET_AND_SET) {
+                GF_FREE(array);
+                array = NULL;
+            }
         }
-
-        if (size == -1 && optype == GF_XATTROP_GET_AND_SET) {
-            GF_FREE(array);
-            array = NULL;
-        }
-
         /* We only write back the xattr if it has been really modified
          * (i.e. v->data is not all 0's). Otherwise we return its value
          * but we don't update anything.
@@ -5041,7 +5044,8 @@ _posix_handle_xattr_keyvalue_pair(dict_t *d, char *k, data_t *v, void *tmp)
         } else {
             size = sys_fsetxattr(filler->fdnum, k, (char *)dst_data, count, 0);
         }
-        op_errno = errno;
+        if (size < 0)
+            op_errno = errno;
     }
 unlock:
     pthread_mutex_unlock(&ctx->xattrop_lock);
@@ -5960,10 +5964,9 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
         bytes_read = sys_pread(_fd, buf, len, offset);
         if (bytes_read < 0) {
+            op_errno = errno;
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PREAD_FAILED,
                    "pread of %d bytes returned %zd", len, bytes_read);
-
-            op_errno = errno;
         }
     }
     UNLOCK(&fd->lock);

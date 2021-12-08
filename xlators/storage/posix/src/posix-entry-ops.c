@@ -270,9 +270,8 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         }
     }
 
-    op_errno = errno;
-
     if (op_ret == -1) {
+        op_errno = errno;
         if (op_errno != ENOENT) {
             gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_LSTAT_FAILED,
                    "lstat on %s failed", real_path ? real_path : "null");
@@ -1629,31 +1628,24 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     } else {
         op_ret = sys_rmdir(real_path);
     }
-    op_errno = errno;
 
     if (op_ret == 0) {
         if (posix_symlinks_match(this, loc, stbuf.ia_gfid))
             posix_handle_unset(this, stbuf.ia_gfid, NULL);
-    }
+    } else {
+        op_errno = errno;
 
-    if (op_errno == EEXIST)
-        /* Solaris sets errno = EEXIST instead of ENOTEMPTY */
-        op_errno = ENOTEMPTY;
+        if (op_errno == EEXIST)
+            /* Solaris sets errno = EEXIST instead of ENOTEMPTY */
+            op_errno = ENOTEMPTY;
 
-    /* No need to log a common error as ENOTEMPTY */
-    if (op_ret == -1 && op_errno != ENOTEMPTY) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_RMDIR_FAILED,
-               "rmdir of %s failed", real_path);
-    }
-
-    if (op_ret == -1) {
-        if (op_errno == ENOTEMPTY) {
+        /* No need to log a common error as ENOTEMPTY */
+        if (op_errno != ENOTEMPTY) {
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_RMDIR_FAILED,
+                   "rmdir of %s failed", real_path);
+        } else {
             gf_msg_debug(this->name, 0, "%s on %s failed",
                          (flags) ? "rename" : "rmdir", real_path);
-        } else {
-            gf_msg(this->name, GF_LOG_ERROR, op_errno,
-                   P_MSG_DIR_OPERATION_FAILED, "%s on %s failed",
-                   (flags) ? "rename" : "rmdir", real_path);
         }
         goto out;
     }

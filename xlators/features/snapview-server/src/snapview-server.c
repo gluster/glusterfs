@@ -363,24 +363,24 @@ svs_lookup_entry(xlator_t *this, loc_t *loc, struct iatt *buf,
 
     object = glfs_h_lookupat(fs, parent_object, loc->name, &statbuf, 0);
     if (!object) {
+        *op_errno = errno;
         /* should this be in WARNING or ERROR mode? */
         gf_msg_debug(this->name, 0,
                      "failed to do lookup and "
                      "get the handle for entry %s (path: %s)",
                      loc->name, loc->path);
         op_ret = -1;
-        *op_errno = errno;
         goto out;
     }
 
     if (gf_uuid_is_null(object->gfid)) {
+        *op_errno = errno;
         /* should this be in WARNING or ERROR mode? */
         gf_msg_debug(this->name, 0,
                      "gfid from glfs handle is "
                      "NULL for entry %s (path: %s)",
                      loc->name, loc->path);
         op_ret = -1;
-        *op_errno = errno;
         goto out;
     }
 

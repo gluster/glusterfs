@@ -1639,8 +1639,8 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
     ret = sys_lstat(path, &lstatbuf);
     if (ret) {
-        gf_msg_debug(this->name, errno, "Stat failed on %s dir ", path);
         op_errno = errno;
+        gf_msg_debug(this->name, errno, "Stat failed on %s dir ", path);
         goto done;
     } else if (!S_ISDIR(lstatbuf.st_mode) && is_dir) {
         op_errno = ENOTDIR;
