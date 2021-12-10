@@ -818,6 +818,7 @@ inode_ref
 inode_ref_reduce_by_n
 inode_rename
 inode_resolve
+inode_set_namespace_inode
 inode_set_need_lookup
 inode_table_ctx_free
 inode_table_destroy
