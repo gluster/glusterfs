@@ -719,10 +719,10 @@ inode_new(inode_table_t *table)
             __inode_ref(inode, false);
         }
         pthread_mutex_unlock(&table->lock);
-    }
 
-    /* let the dummy, 'unlinked' inodes have root as namespace */
-    inode->ns_inode = inode_ref(table->root);
+        /* let the dummy, 'unlinked' inodes have root as namespace */
+        inode->ns_inode = inode_ref(table->root);
+    }
 
     return inode;
 }
