@@ -4015,8 +4015,8 @@ glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
         goto out;
     }
 
+    char buf[8192];
     do {
-        char buf[8192];
         ret = gf_store_read_and_tokenize(fp, &missed_node_info, &value,
                                          &store_errno, buf, 8192);
         if (ret) {
