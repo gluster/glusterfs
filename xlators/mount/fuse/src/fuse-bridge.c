@@ -4328,7 +4328,7 @@ fuse_filter_xattr(char *key)
 
     /* If there are by chance any internal virtual xattrs (those starting with
      * 'glusterfs.'), filter them */
-    if (strncmp("glusterfs.", key, 10) == 0)
+    if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0)
         need_filter = 1;
     return need_filter;
 }
