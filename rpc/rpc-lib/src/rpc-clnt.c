@@ -22,15 +22,14 @@
 void
 rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool);
 
-struct saved_frame *
-__saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
-                            struct timeval *current)
+static struct saved_frame *
+__saved_frames_get_timedout(struct saved_frames *frames, time_t latest)
 {
     struct saved_frame *bailout_frame = NULL, *tmp = NULL;
 
     if (!list_empty(&frames->sf.list)) {
         tmp = list_entry(frames->sf.list.next, typeof(*tmp), list);
-        if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
+        if (tmp->saved_at <= latest) {
             bailout_frame = tmp;
             list_del_init(&bailout_frame->list);
             frames->count--;
@@ -71,7 +70,7 @@ __saved_frames_put(struct saved_frames *frames, void *frame,
     saved_frame->capital_this = THIS;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
-    gettimeofday(&saved_frame->saved_at, NULL);
+    saved_frame->saved_at = gf_time();
     memset(&saved_frame->rsp, 0, sizeof(rpc_transport_rsp_t));
 
     if (_is_lock_fop(saved_frame))
@@ -91,7 +90,7 @@ call_bail(void *data)
     rpc_transport_t *trans = NULL;
     struct rpc_clnt *clnt = NULL;
     rpc_clnt_connection_t *conn = NULL;
-    struct timeval current;
+    time_t current;
     struct list_head list;
     struct saved_frame *saved_frame = NULL;
     struct saved_frame *trav = NULL;
@@ -124,7 +123,7 @@ call_bail(void *data)
     if (!trans)
         goto out;
 
-    gettimeofday(&current, NULL);
+    current = gf_time();
     INIT_LIST_HEAD(&list);
 
     pthread_mutex_lock(&conn->lock);
@@ -150,7 +149,7 @@ call_bail(void *data)
 
         do {
             saved_frame = __saved_frames_get_timedout(
-                conn->saved_frames, conn->frame_timeout, &current);
+                conn->saved_frames, current - conn->frame_timeout);
             if (saved_frame)
                 list_add(&saved_frame->list, &list);
 
@@ -163,8 +162,8 @@ call_bail(void *data)
 
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
-        gf_time_fmt_tv(frame_sent, sizeof frame_sent, &trav->saved_at,
-                       gf_timefmt_FT);
+        gf_time_fmt(frame_sent, sizeof frame_sent, trav->saved_at,
+                    gf_timefmt_FT);
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
@@ -322,10 +321,10 @@ saved_frames_unwind(struct saved_frames *saved_frames)
 
     list_for_each_entry_safe(trav, tmp, &saved_frames->sf.list, list)
     {
-        gf_time_fmt_tv(timestr, sizeof timestr, &trav->saved_at, gf_timefmt_FT);
-
         if (!trav->rpcreq || !trav->rpcreq->prog)
             continue;
+
+        gf_time_fmt(timestr, sizeof timestr, trav->saved_at, gf_timefmt_FT);
 
         gf_log_callingfn(
             trav->rpcreq->conn->name, GF_LOG_ERROR,
@@ -920,7 +919,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_RECEIVED: {
-            timespec_now_realtime(&conn->last_received);
+            conn->last_received = gf_time();
 
             pollin = data;
             if (pollin->is_reply)
@@ -934,7 +933,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_SENT: {
-            timespec_now_realtime(&conn->last_sent);
+            conn->last_sent = gf_time();
             ret = 0;
             break;
         }
