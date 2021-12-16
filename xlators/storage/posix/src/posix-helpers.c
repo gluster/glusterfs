@@ -2958,43 +2958,49 @@ posix_override_umask(mode_t mode, mode_t mode_bit)
 }
 
 int
-posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata)
+posix_check_internal_writes(xlator_t *this, struct _inode *fd_inode, int sysfd,
+                            dict_t *xdata)
 {
     int ret = 0;
-    size_t xattrsize = 0;
     data_t *val = NULL;
 
     if (!xdata)
         return 0;
 
-    LOCK(&fd->inode->lock);
+    val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
+    if (!val) {
+        val = dict_get_sizen(xdata, GF_AVOID_OVERWRITE);
+        if (!val)  // none of the items were found in the dict, return
+            goto out;
+        else  // the 2nd item, GF_AVOID_OVERWRITE is available, we don't need
+              // val
+            val = NULL;
+    }
+
+    LOCK(&fd_inode->lock);
     {
-        val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
-        if (val) {
+        if (val) {  // GF_PROTECT_FROM_EXTERNAL_WRITES was found
             ret = sys_fsetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
                                 val->data, val->len, 0);
-            if (ret == -1) {
+            if (ret < 0) {
                 gf_msg(this->name, GF_LOG_ERROR, P_MSG_XATTR_FAILED, errno,
                        "setxattr failed key %s",
                        GF_PROTECT_FROM_EXTERNAL_WRITES);
             }
-
-            goto out;
-        }
-
-        if (dict_get_sizen(xdata, GF_AVOID_OVERWRITE)) {
-            xattrsize = sys_fgetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
-                                      NULL, 0);
-            if ((xattrsize == -1) &&
-                ((errno == ENOATTR) || (errno == ENODATA))) {
+        } else {  // GF_AVOID_OVERWRITE was found, otherwise we would not be
+                  // here
+            ret = sys_fgetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES, NULL,
+                                0);
+            if ((ret < 0) && ((errno == ENOATTR) || (errno == ENODATA))) {
                 ret = 0;
             } else {
                 ret = -1;
             }
         }
     }
+    UNLOCK(&fd_inode->lock);
+
 out:
-    UNLOCK(&fd->inode->lock);
     return ret;
 }
 

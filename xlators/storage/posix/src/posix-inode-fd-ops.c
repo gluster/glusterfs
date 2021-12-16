@@ -2004,16 +2004,15 @@ overwrite:
 
     _fd = pfd->fd;
 
-    ret = posix_check_internal_writes(this, fd, _fd, xdata);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-               "possible overwrite from internal client, fd=%p", fd);
-        op_ret = -1;
-        op_errno = EBUSY;
-        goto out;
-    }
-
     if (xdata) {
+        ret = posix_check_internal_writes(this, fd->inode, _fd, xdata);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "possible overwrite from internal client, fd=%p", fd);
+            op_ret = -1;
+            op_errno = EBUSY;
+            goto out;
+        }
         if (dict_get(xdata, GLUSTERFS_WRITE_IS_APPEND))
             write_append = _gf_true;
         if (dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC))
@@ -2243,16 +2242,17 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
      * this functon or fop does not require additional changes for
      * handling internal writes.
      */
-    ret = posix_check_internal_writes(this, fd_out, _fd_out, xdata);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, 0,
-               "possible overwrite from internal client, fd=%p", fd_out);
-        op_ret = -1;
-        op_errno = EBUSY;
-        goto out;
-    }
 
     if (xdata) {
+        ret = posix_check_internal_writes(this, fd_out->inode, _fd_out, xdata);
+        if (ret < 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "possible overwrite from internal client, fd=%p", fd_out);
+            op_ret = -1;
+            op_errno = EBUSY;
+            goto out;
+        }
+
         if (dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC))
             update_atomic = _gf_true;
     }
