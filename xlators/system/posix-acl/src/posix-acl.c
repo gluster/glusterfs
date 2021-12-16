@@ -509,29 +509,20 @@ out:
 }
 
 struct posix_acl *
-posix_acl_new(xlator_t *this, int entrycnt)
+posix_acl_new(int entrycnt)
 {
     struct posix_acl *acl = NULL;
-    struct posix_ace *ace = NULL;
 
-    acl = GF_CALLOC(1, sizeof(*acl) + (entrycnt * sizeof(*ace)),
+    acl = GF_CALLOC(1, sizeof(*acl) + (entrycnt * sizeof(struct posix_ace)),
                     gf_posix_acl_mt_posix_ace_t);
     if (!acl)
         return NULL;
 
     acl->count = entrycnt;
 
-    posix_acl_ref(this, acl);
+    acl->refcnt++;
 
     return acl;
-}
-
-void
-posix_acl_destroy(xlator_t *this, struct posix_acl *acl)
-{
-    GF_FREE(acl);
-
-    return;
 }
 
 struct posix_acl *
@@ -550,12 +541,12 @@ posix_acl_ref(xlator_t *this, struct posix_acl *acl)
     return acl;
 }
 
-struct posix_acl *
-posix_acl_dup(xlator_t *this, struct posix_acl *acl)
+static struct posix_acl *
+posix_acl_dup(struct posix_acl *acl)
 {
     struct posix_acl *dup = NULL;
 
-    dup = posix_acl_new(this, acl->count);
+    dup = posix_acl_new(acl->count);
     if (!dup)
         return NULL;
 
@@ -581,7 +572,7 @@ posix_acl_unref(xlator_t *this, struct posix_acl *acl)
     UNLOCK(&conf->acl_lock);
 out:
     if (!refcnt)
-        posix_acl_destroy(this, acl);
+        GF_FREE(acl);
 }
 
 int
@@ -772,7 +763,7 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
 
     ctx = posix_acl_ctx_new(loc->inode, this);
 
-    acl_access = posix_acl_dup(this, par_default);
+    acl_access = posix_acl_dup(par_default);
     if (!acl_access)
         goto out;
 
@@ -780,14 +771,14 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
     retmode = posix_acl_inherit_mode(acl_access, retmode);
     ctx->perm = retmode;
 
-    size_access = posix_acl_to_xattr(this, acl_access, NULL, 0);
+    size_access = posix_acl_xattr_size(acl_access->count);
     xattr_access = GF_CALLOC(1, size_access, gf_posix_acl_mt_char);
     if (!xattr_access) {
         gf_log(this->name, GF_LOG_ERROR, "out of memory");
         ret = -1;
         goto out;
     }
-    posix_acl_to_xattr(this, acl_access, xattr_access, size_access);
+    posix_acl_to_xattr(acl_access, xattr_access, size_access);
 
     ret = dict_set_bin(params, POSIX_ACL_ACCESS_XATTR, xattr_access,
                        size_access);
@@ -803,14 +794,14 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
 
     acl_default = posix_acl_ref(this, par_default);
 
-    size_default = posix_acl_to_xattr(this, acl_default, NULL, 0);
+    size_default = posix_acl_xattr_size(acl_default->count);
     xattr_default = GF_CALLOC(1, size_default, gf_posix_acl_mt_char);
     if (!xattr_default) {
         gf_log(this->name, GF_LOG_ERROR, "out of memory");
         ret = -1;
         goto out;
     }
-    posix_acl_to_xattr(this, acl_default, xattr_default, size_default);
+    posix_acl_to_xattr(acl_default, xattr_default, size_default);
 
     ret = dict_set_bin(params, POSIX_ACL_DEFAULT_XATTR, xattr_default,
                        size_default);
@@ -946,7 +937,6 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     struct posix_acl *acl_default = NULL;
     struct posix_acl *old_access = NULL;
     struct posix_acl *old_default = NULL;
-    struct posix_acl_ctx *ctx = NULL;
     data_t *data = NULL;
     int ret = 0;
     dict_t *my_xattr = NULL;
@@ -954,14 +944,12 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret != 0)
         goto unwind;
 
-    ctx = posix_acl_ctx_new(inode, this);
-    if (!ctx) {
+    ret = posix_acl_get(inode, this, &old_access, &old_default);
+    if (ret) {
         op_ret = -1;
         op_errno = ENOMEM;
         goto unwind;
     }
-
-    ret = posix_acl_get(inode, this, &old_access, &old_default);
 
     if (xattr == NULL)
         goto acl_set;
@@ -971,10 +959,10 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto acl_default;
 
     if (old_access &&
-        posix_acl_matches_xattr(this, old_access, data->data, data->len)) {
+        posix_acl_matches_xattr(old_access, data->data, data->len)) {
         acl_access = posix_acl_ref(this, old_access);
     } else {
-        acl_access = posix_acl_from_xattr(this, data->data, data->len);
+        acl_access = posix_acl_from_xattr(data->data, data->len);
     }
 
 acl_default:
@@ -983,10 +971,10 @@ acl_default:
         goto acl_set;
 
     if (old_default &&
-        posix_acl_matches_xattr(this, old_default, data->data, data->len)) {
+        posix_acl_matches_xattr(old_default, data->data, data->len)) {
         acl_default = posix_acl_ref(this, old_default);
     } else {
-        acl_default = posix_acl_from_xattr(this, data->data, data->len);
+        acl_default = posix_acl_from_xattr(data->data, data->len);
     }
 
 acl_set:
@@ -1550,7 +1538,6 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_dirent_t *entry = NULL;
     struct posix_acl *acl_access = NULL;
     struct posix_acl *acl_default = NULL;
-    struct posix_acl_ctx *ctx = NULL;
     data_t *data = NULL;
     int ret = 0;
 
@@ -1563,27 +1550,25 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (!entry->dict || !entry->inode)
             continue;
 
-        ctx = posix_acl_ctx_new(entry->inode, this);
-        if (!ctx) {
+        ret = posix_acl_get(entry->inode, this, &acl_access, &acl_default);
+        if (ret) {
             op_ret = -1;
             op_errno = ENOMEM;
             goto unwind;
         }
-
-        ret = posix_acl_get(entry->inode, this, &acl_access, &acl_default);
 
         data = dict_get(entry->dict, POSIX_ACL_ACCESS_XATTR);
         if (!data)
             goto acl_default;
 
         if (acl_access &&
-            posix_acl_matches_xattr(this, acl_access, data->data, data->len))
+            posix_acl_matches_xattr(acl_access, data->data, data->len))
             goto acl_default;
 
         if (acl_access)
             posix_acl_unref(this, acl_access);
 
-        acl_access = posix_acl_from_xattr(this, data->data, data->len);
+        acl_access = posix_acl_from_xattr(data->data, data->len);
 
     acl_default:
         data = dict_get(entry->dict, POSIX_ACL_DEFAULT_XATTR);
@@ -1591,13 +1576,13 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto acl_set;
 
         if (acl_default &&
-            posix_acl_matches_xattr(this, acl_default, data->data, data->len))
+            posix_acl_matches_xattr(acl_default, data->data, data->len))
             goto acl_set;
 
         if (acl_default)
             posix_acl_unref(this, acl_default);
 
-        acl_default = posix_acl_from_xattr(this, data->data, data->len);
+        acl_default = posix_acl_from_xattr(data->data, data->len);
 
     acl_set:
         posix_acl_ctx_update(entry->inode, this, &entry->d_stat,
@@ -1839,7 +1824,7 @@ posix_acl_xattr_update(xlator_t *this, inode_t *inode, dict_t *xattr,
 
     data = dict_get(xattr, name);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
     }
 
     if (!acl && old)
@@ -1906,7 +1891,7 @@ handling_other_acl_related_xattr(xlator_t *this, inode_t *inode, dict_t *xattr)
 
     data = dict_get(xattr, POSIX_ACL_ACCESS_XATTR);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
         if (!acl) {
             ret = -1;
             goto out;
@@ -1929,7 +1914,7 @@ handling_other_acl_related_xattr(xlator_t *this, inode_t *inode, dict_t *xattr)
 
     data = dict_get(xattr, POSIX_ACL_DEFAULT_XATTR);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
         if (!acl) {
             ret = -1;
             goto out;
@@ -2144,7 +2129,7 @@ init(xlator_t *this)
 
     this->private = conf;
 
-    minacl = posix_acl_new(this, 3);
+    minacl = posix_acl_new(3);
     if (!minacl)
         return -1;
 

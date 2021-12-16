@@ -35,14 +35,14 @@ posix_ace_cmp(const void *val1, const void *val2)
     return ret;
 }
 
-void
-posix_acl_normalize(xlator_t *this, struct posix_acl *acl)
+static void
+posix_acl_normalize(struct posix_acl *acl)
 {
     qsort(acl->entries, acl->count, sizeof(struct posix_ace *), posix_ace_cmp);
 }
 
 struct posix_acl *
-posix_acl_from_xattr(xlator_t *this, const char *xattr_buf, int xattr_size)
+posix_acl_from_xattr(const char *xattr_buf, int xattr_size)
 {
     struct posix_acl_xattr_header *header = NULL;
     struct posix_acl_xattr_entry *entry = NULL;
@@ -70,7 +70,7 @@ posix_acl_from_xattr(xlator_t *this, const char *xattr_buf, int xattr_size)
     if (header->version != htole32(POSIX_ACL_XATTR_VERSION))
         return NULL;
 
-    acl = posix_acl_new(this, count);
+    acl = posix_acl_new(count);
     if (!acl)
         return NULL;
 
@@ -101,17 +101,16 @@ posix_acl_from_xattr(xlator_t *this, const char *xattr_buf, int xattr_size)
         entry++;
     }
 
-    posix_acl_normalize(this, acl);
+    posix_acl_normalize(acl);
 
     return acl;
 err:
-    posix_acl_destroy(this, acl);
+    GF_FREE(acl);
     return NULL;
 }
 
 int
-posix_acl_to_xattr(xlator_t *this, struct posix_acl *acl, char *xattr_buf,
-                   int xattr_size)
+posix_acl_to_xattr(struct posix_acl *acl, char *xattr_buf, int xattr_size)
 {
     int size = 0;
     struct posix_acl_xattr_header *header = NULL;
@@ -119,7 +118,7 @@ posix_acl_to_xattr(xlator_t *this, struct posix_acl *acl, char *xattr_buf,
     struct posix_ace *ace = NULL;
     int i = 0;
 
-    size = sizeof(*header) + (acl->count * sizeof(*entry));
+    size = posix_acl_xattr_size(acl->count);
 
     if (xattr_size < size)
         return size;
@@ -152,13 +151,12 @@ posix_acl_to_xattr(xlator_t *this, struct posix_acl *acl, char *xattr_buf,
 }
 
 int
-posix_acl_matches_xattr(xlator_t *this, struct posix_acl *acl, const char *buf,
-                        int size)
+posix_acl_matches_xattr(struct posix_acl *acl, const char *buf, int size)
 {
     struct posix_acl *acl2 = NULL;
     int ret = 1;
 
-    acl2 = posix_acl_from_xattr(this, buf, size);
+    acl2 = posix_acl_from_xattr(buf, size);
     if (!acl2)
         return 0;
 
@@ -171,7 +169,7 @@ posix_acl_matches_xattr(xlator_t *this, struct posix_acl *acl, const char *buf,
                (acl->count * sizeof(struct posix_ace))))
         ret = 0;
 out:
-    posix_acl_destroy(this, acl2);
+    GF_FREE(acl2);
 
     return ret;
 }
