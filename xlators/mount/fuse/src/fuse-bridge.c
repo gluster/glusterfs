@@ -4323,13 +4323,13 @@ fuse_filter_xattr(char *key)
     struct fuse_private *priv = THIS->private;
 
     if ((priv->client_pid == GF_CLIENT_PID_GSYNCD) &&
-        fnmatch("*.selinux*", key, FNM_PERIOD) == 0)
+        fnmatch("*.selinux*", key, FNM_PERIOD) == 0) {
         need_filter = 1;
-
-    /* If there are by chance any internal virtual xattrs (those starting with
-     * 'glusterfs.'), filter them */
-    if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0)
+    } else if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0) {
+        /* If there are by chance any internal virtual xattrs (those starting
+         * with 'glusterfs.'), filter them */
         need_filter = 1;
+    }
     return need_filter;
 }
 
