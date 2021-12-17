@@ -20,6 +20,25 @@
         }                                                                      \
     } while (0)
 
+#define GLUSTERD_GET_UUID_NOHYPHEN(ret_string, uuid)                           \
+    do {                                                                       \
+        char *snap_volname_ptr = ret_string;                                   \
+        char tmp_uuid[64];                                                     \
+        char *snap_volid_ptr = uuid_utoa_r(uuid, tmp_uuid);                    \
+        while (*snap_volid_ptr) {                                              \
+            if (*snap_volid_ptr == '-') {                                      \
+                snap_volid_ptr++;                                              \
+            } else {                                                           \
+                (*snap_volname_ptr++) = (*snap_volid_ptr++);                   \
+            }                                                                  \
+        }                                                                      \
+        *snap_volname_ptr = '\0';                                              \
+    } while (0)
+
+void
+glusterd_snapshot_plugin_by_name(char *name,
+                                 struct glusterd_snap_ops **snap_ops);
+
 int32_t
 glusterd_snap_volinfo_find(char *volname, glusterd_snap_t *snap,
                            glusterd_volinfo_t **volinfo);
@@ -28,6 +47,34 @@ int32_t
 glusterd_snap_volinfo_find_from_parent_volname(char *origin_volname,
                                                glusterd_snap_t *snap,
                                                glusterd_volinfo_t **volinfo);
+
+gf_boolean_t
+glusterd_is_cmd_available(char *cmd);
+
+int
+glusterd_is_path_mounted(const char *path);
+
+int32_t
+glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
+                         glusterd_brickinfo_t *brickinfo, int32_t brick_count);
+
+int32_t
+glusterd_bricks_snapshot_restore(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
+                                 gf_boolean_t *retain_origin_path);
+
+gf_boolean_t
+glusterd_snapshot_probe(char *path, glusterd_brickinfo_t *brickinfo);
+
+int32_t
+glusterd_snapshot_mount(glusterd_brickinfo_t *brickinfo,
+                        char *brick_mount_path);
+
+int
+glusterd_snapshot_umount(glusterd_volinfo_t *snap_vol,
+                         glusterd_brickinfo_t *brickinfo, int32_t brick_count);
+
+int
+glusterd_remove_trashpath(char *volname);
 
 int
 glusterd_snap_volinfo_find_by_volume_id(uuid_t volume_id,
@@ -47,7 +94,8 @@ int32_t
 glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
                               glusterd_volinfo_t *new_volinfo,
                               glusterd_volinfo_t *snap_volinfo,
-                              int32_t volcount);
+                              int32_t volcount, gf_boolean_t retain_origin_path,
+                              char *snap_mount_dir);
 int32_t
 glusterd_snapobject_delete(glusterd_snap_t *snap);
 
@@ -75,14 +123,11 @@ glusterd_import_friend_missed_snap_list(dict_t *peer_data);
 int
 gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
                        glusterd_volinfo_t *orig_vol,
-                       glusterd_volinfo_t *snap_vol, int32_t volcount);
+                       glusterd_volinfo_t *snap_vol, int32_t volcount,
+                       gf_boolean_t retain_origin_path);
 
 int32_t
-glusterd_mount_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
-                            char *brick_mount_path);
-
-int32_t
-glusterd_umount(const char *path);
+glusterd_umount(const char *path, gf_boolean_t remove);
 
 int32_t
 glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo);
@@ -142,7 +187,7 @@ glusterd_snap_quorum_check(dict_t *dict, gf_boolean_t snap_volume,
 int32_t
 glusterd_snap_brick_create(glusterd_volinfo_t *snap_volinfo,
                            glusterd_brickinfo_t *brickinfo, int32_t brick_count,
-                           int32_t clone);
+                           int32_t clone, struct glusterd_snap_ops *snap_ops);
 
 int
 glusterd_snapshot_restore_cleanup(dict_t *rsp_dict, char *volname,

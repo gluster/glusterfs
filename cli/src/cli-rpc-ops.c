@@ -9105,7 +9105,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Volume Group");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Volume Group");
             cli_out("\t%-17s %s   %s", "Volume Group", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Volume Group", ":", buffer);
@@ -9117,7 +9117,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Brick Running");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Brick Running");
             cli_out("\t%-17s %s   %s", "Brick Running", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Brick Running", ":", buffer);
@@ -9129,7 +9129,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_int32(dict, key, &pid);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get pid");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get pid");
             cli_out("\t%-17s %s   %s", "Brick PID", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %d", "Brick PID", ":", pid);
@@ -9141,7 +9141,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Data Percent");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Data Percent");
             cli_out("\t%-17s %s   %s", "Data Percentage", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Data Percentage", ":", buffer);
@@ -9152,7 +9152,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
         }
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get LV Size");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get LV Size");
             cli_out("\t%-17s %s   %s", "LV Size", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "LV Size", ":", buffer);

@@ -277,6 +277,8 @@ struct glusterd_brick_proc {
 
 typedef struct glusterd_brick_proc glusterd_brick_proc_t;
 
+struct glusterd_snap_ops;
+
 struct glusterd_brickinfo {
     struct cds_list_head brick_list;
     uuid_t uuid;
@@ -288,6 +290,7 @@ struct glusterd_brickinfo {
     int decommissioned;
     gf_brick_status_t status;
     int32_t snap_status;
+    struct glusterd_snap_ops *snap;
     /*
      * The group is used to identify which bricks are part of the same
      * replica set during brick-volfile generation, so that JBR volfiles
@@ -310,11 +313,13 @@ struct glusterd_brickinfo {
     char path[VALID_GLUSTERD_PATHMAX];
     char real_path[VALID_GLUSTERD_PATHMAX];
     char device_path[VALID_GLUSTERD_PATHMAX];
+    char origin_path[VALID_GLUSTERD_PATHMAX];
     char mount_dir[VALID_GLUSTERD_PATHMAX];
-    char brick_id[1024];   /*Client xlator name, AFR changelog name*/
-    char fstype[NAME_MAX]; /* Brick file-system type */
-    char mnt_opts[1024];   /* Brick mount options */
-    char vg[PATH_MAX];     /* FIXME: Use max size for length of vg */
+    char brick_id[1024];      /*Client xlator name, AFR changelog name*/
+    char fstype[NAME_MAX];    /* Brick file-system type */
+    char snap_type[NAME_MAX]; /* Brick snapshot type */
+    char mnt_opts[1024];      /* Brick mount options */
+    char vg[PATH_MAX];        /* FIXME: Use max size for length of vg */
 };
 
 struct glusterd_gfproxyd_info {
@@ -417,6 +422,8 @@ struct glusterd_volinfo_ {
     gf_lock_t lock;
     glusterd_snap_t *snapshot;
     uuid_t restored_from_snap;
+    char restored_from_snapname_id[GD_VOLUME_NAME_MAX];
+    char restored_from_snapname[GD_VOLUME_NAME_MAX];
     int type;
     int brick_count;
     uint64_t snap_count;
@@ -511,6 +518,8 @@ struct glusterd_volinfo_ {
     /* Flag to check about volume has received updates
        from peer
     */
+
+    char snap_plugin[NAME_MAX]; /* Snapshot Plugin name */
 };
 
 typedef enum gd_snap_status_ {
