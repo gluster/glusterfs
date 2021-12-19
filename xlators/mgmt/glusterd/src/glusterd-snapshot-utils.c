@@ -1042,7 +1042,8 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                "for %s",
                key, volname);
     } else
-        strcpy(volinfo->restored_from_snapname_id, restored_snapname_id);
+        gf_strncpy(volinfo->restored_from_snapname_id, restored_snapname_id,
+                   sizeof(volinfo->restored_from_snapname_id));
 
     snprintf(key, sizeof(key), "%s.restored_from_snapname", prefix);
     ret = dict_get_str(dict, key, &restored_snapname);
@@ -1052,7 +1053,8 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                "for %s",
                key, volname);
     } else
-        strcpy(volinfo->restored_from_snapname, restored_snapname);
+        gf_strncpy(volinfo->restored_from_snapname, restored_snapname,
+                   sizeof(volinfo->restored_from_snapname));
 
     snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
     ret = dict_get_str(dict, key, &snap_plugin);
@@ -1062,7 +1064,8 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                "for %s",
                key, volname);
     } else
-        strcpy(volinfo->snap_plugin, snap_plugin);
+        gf_strncpy(volinfo->snap_plugin, snap_plugin,
+                   sizeof(volinfo->snap_plugin));
 
     snprintf(key, sizeof(key), "%s.snap-max-hard-limit", prefix);
     ret = dict_get_uint64(dict, key, &volinfo->snap_max_hard_limit);
