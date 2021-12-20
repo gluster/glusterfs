@@ -4805,9 +4805,11 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = 0;
 
     ret = fuse_interrupt_finish_fop(frame, this, _gf_true, (void **)&state);
-    GF_FREE(state->name);
-    dict_unref(state->xdata);
-    GF_FREE(state);
+    if (state) {
+        GF_FREE(state->name);
+        dict_unref(state->xdata);
+        GF_FREE(state);
+    }
     if (ret) {
         return 0;
     }
