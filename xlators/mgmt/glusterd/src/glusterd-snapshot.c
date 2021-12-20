@@ -4611,7 +4611,8 @@ glusterd_take_brick_snapshot(dict_t *dict, glusterd_volinfo_t *snap_vol,
                    "snap_plugin");
             goto out;
         }
-        strcpy(snap_vol->snap_plugin, snap_plugin);
+        gf_strncpy(snap_vol->snap_plugin, snap_plugin,
+                   sizeof(snap_vol->snap_plugin));
         glusterd_snapshot_plugin_by_name(snap_plugin, &snap_ops);
         ret = snap_ops->create(brickinfo, snap_vol->snapshot->snapname,
                                snap_volume_id, brick_count);
