@@ -949,15 +949,9 @@ glusterd_lvm_snap_clone_brick_path(char *snap_mount_dir,
         snap_brick_dir = "";
     }
 
-    if (clone) {
-        len = snprintf(brick_path, sizeof(brick_path), "%s/%s/brick%d%s",
-                       snap_mount_dir, snap_clone_volume_id, brick_num + 1,
-                       snap_brick_dir);
-    } else {
-        len = snprintf(brick_path, sizeof(brick_path), "%s/%s/brick%d%s",
-                       snap_mount_dir, snap_clone_volume_id, brick_num + 1,
-                       snap_brick_dir);
-    }
+    len = snprintf(brick_path, sizeof(brick_path), "%s/%s/brick%d%s",
+                   snap_mount_dir, snap_clone_volume_id, brick_num + 1,
+                   snap_brick_dir);
 
     if ((len < 0) || (len >= sizeof(brick_path))) {
         ret = -1;
