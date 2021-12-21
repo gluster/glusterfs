@@ -1806,7 +1806,7 @@ server4_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    gf_link_inodes_from_dirent(this, state->fd->inode, entries);
+    gf_link_inodes_from_dirent(state->fd->inode, entries);
 
 out:
     rsp.op_ret = op_ret;
