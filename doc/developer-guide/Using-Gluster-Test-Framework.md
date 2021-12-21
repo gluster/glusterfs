@@ -1,18 +1,17 @@
-# USing Gluster Test Framwork
+# Using Gluster Test Framework
 Description
 -----------
 
 The Gluster Test Framework, is a suite of scripts used for regression
 testing of Gluster.
 
-It runs well on RHEL and CentOS (possibly Fedora too, presently being
-tested), and is automatically run against every patch submitted to
-Gluster [for review](http://review.gluster.org).
+It runs well on RHEL, CentOS, and Fedora, and is run on a request basis against
+the patches submitted to Gluster [for review](https://github.com/gluster/glusterfs/pulls).
 
 The Gluster Test Framework is part of the main Gluster code base, living
 under the "tests" subdirectory:
 
-		http://git.gluster.org/?p=glusterfs.git;a=summary
+		https://github.com/gluster/glusterfs
 
 WARNING
 -------
@@ -163,7 +162,7 @@ Either install an existing set of rpms:
 
 Or compile your own ones (fairly easy):
 
-	http://www.gluster.org/community/documentation/index.php/CompilingRPMS
+	https://docs.gluster.org/en/latest/Developer-guide/compiling-rpms/
 
 ​3. Clone the GlusterFS git repository
 
@@ -218,9 +217,9 @@ Reporting bugs
 --------------
 
 If you hit a bug when running the test framework, **please** create a
-bug report for it on Bugzilla so it gets fixed:
+bug report for it on github so it gets fixed:
 
-	https://bugzilla.redhat.com/enter_bug.cgi?product=GlusterFS&component=tests
+	https://github.com/gluster/glusterfs/issues/new
 
 Creating your own tests
 -----------------------
