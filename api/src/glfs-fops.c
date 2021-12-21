@@ -4410,6 +4410,22 @@ invalid_fs:
     return ret;
 }
 
+/* filter out xattrs that need not be visible on the
+ * client application.
+ */
+static int
+gfapi_filter_xattr(char *key)
+{
+    int need_filter = 0;
+
+    /* If there are by chance any internal virtual xattrs (those starting with
+     * 'glusterfs.'), filter them */
+    if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0)
+        need_filter = 1;
+
+    return need_filter;
+}
+
 int
 glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
 {
@@ -4418,7 +4434,7 @@ glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
     if (!xattr)
         goto out;
 
-    ret = dict_keys_join(NULL, 0, xattr, NULL);
+    ret = dict_keys_join(NULL, 0, xattr, gfapi_filter_xattr);
 
     if (!value || !size)
         goto out;
@@ -4427,7 +4443,7 @@ glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
         ret = -1;
         errno = ERANGE;
     } else {
-        dict_keys_join(value, size, xattr, NULL);
+        dict_keys_join(value, size, xattr, gfapi_filter_xattr);
     }
 
 out:
