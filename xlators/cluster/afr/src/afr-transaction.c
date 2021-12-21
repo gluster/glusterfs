@@ -33,8 +33,12 @@ afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
 static void
 afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
 
-void
-__afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
+static void
+__afr_transaction_wake_shared(afr_local_t *local, afr_lock_t *lock,
+                              struct list_head *shared);
+
+static int
+afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
 
 void
 afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this);
@@ -401,15 +405,12 @@ afr_lock_fail_shared(afr_local_t *local, struct list_head *list)
 }
 
 static void
-afr_handle_lock_acquire_failure(afr_local_t *local)
+afr_handle_lock_acquire_failure(afr_local_t *local, afr_lock_t *lock)
 {
     struct list_head shared;
-    afr_lock_t *lock = NULL;
 
     if (!local->transaction.eager_lock_on)
         goto out;
-
-    lock = &local->inode_ctx->lock[local->transaction.type];
 
     INIT_LIST_HEAD(&shared);
     LOCK(&local->inode->lock);
@@ -585,15 +586,15 @@ afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
         goto fop;
     failure_count = AFR_COUNT(local->transaction.failed_subvols,
                               priv->child_count);
+    lock = &local->inode_ctx->lock[local->transaction.type];
     if (failure_count == priv->child_count) {
-        afr_handle_lock_acquire_failure(local);
+        afr_handle_lock_acquire_failure(local, lock);
         return 0;
     } else {
-        lock = &local->inode_ctx->lock[local->transaction.type];
         LOCK(&local->inode->lock);
         {
             lock->acquired = _gf_true;
-            __afr_transaction_wake_shared(local, &shared);
+            __afr_transaction_wake_shared(local, lock, &shared);
         }
         UNLOCK(&local->inode->lock);
     }
@@ -1910,6 +1911,7 @@ afr_changelog_pre_op(call_frame_t *frame, xlator_t *this)
     int idx = -1;
     gf_boolean_t pre_nop = _gf_true;
     dict_t *xdata_req = NULL;
+    afr_lock_t *lock = NULL;
 
     local = frame->local;
     int_lock = &local->internal_lock;
@@ -2011,7 +2013,8 @@ err:
     local->op_ret = -1;
     local->op_errno = op_errno;
 
-    afr_handle_lock_acquire_failure(local);
+    lock = &local->inode_ctx->lock[local->transaction.type];
+    afr_handle_lock_acquire_failure(local, lock);
 
     if (xdata_req)
         dict_unref(xdata_req);
@@ -2127,13 +2130,14 @@ afr_locals_overlap(afr_local_t *local1, afr_local_t *local2)
     return ((end1 >= start2) && (end2 >= start1));
 }
 
-gf_boolean_t
-afr_has_lock_conflict(afr_local_t *local, gf_boolean_t waitlist_check)
+static gf_boolean_t
+afr_has_lock_conflict(afr_local_t *local, afr_lock_t *lock,
+                      gf_boolean_t waitlist_check)
 {
     afr_local_t *each = NULL;
-    afr_lock_t *lock = NULL;
 
-    lock = &local->inode_ctx->lock[local->transaction.type];
+    if (lock == NULL)
+        lock = &local->inode_ctx->lock[local->transaction.type];
     /*
      * Once full file lock is acquired in eager-lock phase, overlapping
      * writes do not compete for inode-locks, instead are transferred to the
@@ -2187,19 +2191,19 @@ afr_copy_inodelk_vars(afr_internal_lock_t *dst, afr_internal_lock_t *src,
            priv->child_count * sizeof(*dl->locked_nodes));
 }
 
-void
-__afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared)
+static void
+__afr_transaction_wake_shared(afr_local_t *local, afr_lock_t *lock,
+                              struct list_head *shared)
 {
     gf_boolean_t conflict = _gf_false;
     afr_local_t *each = NULL;
-    afr_lock_t *lock = &local->inode_ctx->lock[local->transaction.type];
 
     while (!conflict) {
         if (list_empty(&lock->waiting))
             return;
         each = list_entry(lock->waiting.next, afr_local_t,
                           transaction.wait_list);
-        if (afr_has_lock_conflict(each, _gf_false)) {
+        if (afr_has_lock_conflict(each, NULL, _gf_false)) {
             conflict = _gf_true;
         }
         if (conflict && !list_empty(&lock->owners))
@@ -2224,7 +2228,7 @@ afr_lock_resume_shared(struct list_head *list)
     }
 }
 
-int
+static int
 afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = frame->local;
@@ -2240,7 +2244,7 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
     } else {
         lock = &local->inode_ctx->lock[local->transaction.type];
         if (local->internal_lock.lock_op_ret < 0) {
-            afr_handle_lock_acquire_failure(local);
+            afr_handle_lock_acquire_failure(local, lock);
         } else {
             lock->event_generation = local->event_generation;
             afr_changelog_pre_op(frame, this);
@@ -2250,12 +2254,10 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-gf_boolean_t
-afr_are_conflicting_ops_waiting(afr_local_t *local, xlator_t *this)
+static gf_boolean_t
+afr_are_conflicting_ops_waiting(afr_local_t *local, afr_lock_t *lock,
+                                xlator_t *this)
 {
-    afr_lock_t *lock = NULL;
-    lock = &local->inode_ctx->lock[local->transaction.type];
-
     /* Lets say mount1 has eager-lock(full-lock) and after the eager-lock
      * is taken mount2 opened the same file, it won't be able to
      * perform any {meta,}data operations until mount1 releases eager-lock.
@@ -2277,23 +2279,21 @@ afr_are_conflicting_ops_waiting(afr_local_t *local, xlator_t *this)
     return _gf_false;
 }
 
-gf_boolean_t
-afr_is_delayed_changelog_post_op_needed(call_frame_t *frame, xlator_t *this,
-                                        int delay)
+static gf_boolean_t
+afr_is_delayed_changelog_post_op_needed(call_frame_t *frame, afr_lock_t *lock,
+                                        xlator_t *this, int delay)
 {
     afr_local_t *local = NULL;
-    afr_lock_t *lock = NULL;
     gf_boolean_t res = _gf_false;
 
     local = frame->local;
-    lock = &local->inode_ctx->lock[local->transaction.type];
 
     if (!afr_txn_nothing_failed(frame, this)) {
         lock->release = _gf_true;
         goto out;
     }
 
-    if (afr_are_conflicting_ops_waiting(local, this)) {
+    if (afr_are_conflicting_ops_waiting(local, lock, this)) {
         lock->release = _gf_true;
         goto out;
     }
@@ -2539,7 +2539,7 @@ afr_changelog_post_op_safe(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-void
+static void
 afr_changelog_post_op(call_frame_t *frame, xlator_t *this)
 {
     struct timespec delta = {
@@ -2564,9 +2564,9 @@ afr_changelog_post_op(call_frame_t *frame, xlator_t *this)
     {
         list_del_init(&local->transaction.owner_list);
         list_add(&local->transaction.owner_list, &lock->post_op);
-        __afr_transaction_wake_shared(local, &shared);
+        __afr_transaction_wake_shared(local, lock, &shared);
 
-        if (!afr_is_delayed_changelog_post_op_needed(frame, this,
+        if (!afr_is_delayed_changelog_post_op_needed(frame, lock, this,
                                                      delta.tv_sec)) {
             if (list_empty(&lock->owners))
                 lock->release = _gf_true;
@@ -2635,11 +2635,8 @@ afr_transaction_fop_failed(call_frame_t *frame, xlator_t *this, int child_index)
 }
 
 static gf_boolean_t
-__need_previous_lock_unlocked(afr_local_t *local)
+__need_previous_lock_unlocked(afr_local_t *local, afr_lock_t *lock)
 {
-    afr_lock_t *lock = NULL;
-
-    lock = &local->inode_ctx->lock[local->transaction.type];
     if (!lock->acquired)
         return _gf_false;
     if (lock->acquired && lock->event_generation != local->event_generation)
@@ -2647,19 +2644,17 @@ __need_previous_lock_unlocked(afr_local_t *local)
     return _gf_false;
 }
 
-void
-__afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
-                        gf_boolean_t *do_pre_op, afr_local_t **timer_local)
+static void
+__afr_eager_lock_handle(xlator_t *this, afr_local_t *local, afr_lock_t *lock,
+                        gf_boolean_t *take_lock, gf_boolean_t *do_pre_op,
+                        afr_local_t **timer_local)
 {
-    afr_lock_t *lock = NULL;
     afr_local_t *owner_local = NULL;
-    xlator_t *this = local->transaction.frame->this;
 
     local->transaction.eager_lock_on = _gf_true;
     afr_set_lk_owner(local->transaction.frame, this, local->inode);
 
-    lock = &local->inode_ctx->lock[local->transaction.type];
-    if (__need_previous_lock_unlocked(local)) {
+    if (__need_previous_lock_unlocked(local, lock)) {
         if (!list_empty(&lock->owners)) {
             lock->release = _gf_true;
         } else if (lock->delay_timer) {
@@ -2698,7 +2693,7 @@ __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
     }
 
     if (!list_empty(&lock->owners)) {
-        if (!lock->acquired || afr_has_lock_conflict(local, _gf_true)) {
+        if (!lock->acquired || afr_has_lock_conflict(local, lock, _gf_true)) {
             list_add_tail(&local->transaction.wait_list, &lock->waiting);
             *take_lock = _gf_false;
             goto out;
@@ -2718,13 +2713,14 @@ out:
     return;
 }
 
-void
+static void
 afr_transaction_start(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = NULL;
     gf_boolean_t take_lock = _gf_true;
     gf_boolean_t do_pre_op = _gf_false;
     afr_local_t *timer_local = NULL;
+    afr_lock_t *lock;
 
     priv = this->private;
 
@@ -2735,9 +2731,12 @@ afr_transaction_start(afr_local_t *local, xlator_t *this)
     if (!priv->eager_lock)
         goto lock_phase;
 
+    lock = &local->inode_ctx->lock[local->transaction.type];
+
     LOCK(&local->inode->lock);
     {
-        __afr_eager_lock_handle(local, &take_lock, &do_pre_op, &timer_local);
+        __afr_eager_lock_handle(this, local, lock, &take_lock, &do_pre_op,
+                                &timer_local);
     }
     UNLOCK(&local->inode->lock);
 lock_phase:
@@ -2757,7 +2756,7 @@ lock_phase:
         afr_delayed_changelog_wake_up_cbk(timer_local);
 }
 
-int
+static int
 afr_write_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 {
     afr_local_t *local = frame->local;

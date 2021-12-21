@@ -1067,9 +1067,6 @@ afr_lock_nonblocking(call_frame_t *frame, xlator_t *this);
 int
 afr_blocking_lock(call_frame_t *frame, xlator_t *this);
 
-int
-afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
-
 afr_fd_ctx_t *
 afr_fd_ctx_get(fd_t *fd, xlator_t *this);
 
