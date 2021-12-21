@@ -279,7 +279,7 @@ afr_writev_handle_short_writes(call_frame_t *frame, xlator_t *this)
     }
 }
 
-static void
+static int
 afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -288,6 +288,7 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
     afr_local_t *local = frame->local;
     uint32_t open_fd_count = 0;
     uint32_t write_is_append = 0;
+    int call_count;
 
     LOCK(&frame->lock);
     {
@@ -311,7 +312,10 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
         }
     }
 unlock:
+    call_count = --local->call_count;
     UNLOCK(&frame->lock);
+
+    return call_count;
 }
 
 static void
@@ -345,12 +349,10 @@ afr_writev_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     call_frame_t *fop_frame = NULL;
     int child_index = (long)cookie;
-    int call_count = -1;
+    int call_count;
 
-    afr_inode_write_fill(frame, this, child_index, op_ret, op_errno, prebuf,
-                         postbuf, xdata);
-
-    call_count = afr_frame_return(frame);
+    call_count = afr_inode_write_fill(frame, this, child_index, op_ret,
+                                      op_errno, prebuf, postbuf, xdata);
 
     if (call_count == 0) {
         afr_process_post_writev(frame, this);
