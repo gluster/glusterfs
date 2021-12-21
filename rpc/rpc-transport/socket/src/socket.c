@@ -4068,7 +4068,7 @@ out:
     return ret;
 }
 
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
 static pthread_mutex_t *lock_array = NULL;
 
 static void
@@ -4081,7 +4081,7 @@ locking_func(int mode, int type, const char *file, int line)
     }
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
 static void
 threadid_func(CRYPTO_THREADID *id)
 {
@@ -4123,7 +4123,7 @@ init_openssl_mt(void)
 
     initialized = _gf_true;
 
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
     int num_locks = CRYPTO_num_locks();
     int i;
 
@@ -4133,7 +4133,7 @@ init_openssl_mt(void)
         for (i = 0; i < num_locks; ++i) {
             pthread_mutex_init(&lock_array[i], NULL);
         }
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
         CRYPTO_THREADID_set_callback(threadid_func);
 #else /* older openssl */
         CRYPTO_set_id_callback(legacy_threadid_func);
@@ -4145,7 +4145,7 @@ init_openssl_mt(void)
 
 static void __attribute__((destructor)) fini_openssl_mt(void)
 {
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
     int i;
 
     if (!lock_array) {
@@ -4153,7 +4153,7 @@ static void __attribute__((destructor)) fini_openssl_mt(void)
     }
 
     CRYPTO_set_locking_callback(NULL);
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
     CRYPTO_THREADID_set_callback(NULL);
 #else /* older openssl */
     CRYPTO_set_id_callback(NULL);
