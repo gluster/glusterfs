@@ -2958,7 +2958,7 @@ posix_override_umask(mode_t mode, mode_t mode_bit)
 }
 
 int
-posix_check_internal_writes(xlator_t *this, struct _inode *fd_inode, int sysfd,
+posix_check_internal_writes(xlator_t *this, inode_t *fd_inode, int sysfd,
                             dict_t *xdata)
 {
     int ret = 0;
