@@ -137,7 +137,7 @@ gf_dm_hashfn(const char *msg, int len)
 
     for (i = 0; i < full_quads; i++) {
         for (j = 0; j < 4; j++) {
-            word = *intmsg;
+        	word = le32toh(*intmsg);
             array[j] = word;
             intmsg++;
             full_words--;
@@ -148,7 +148,7 @@ gf_dm_hashfn(const char *msg, int len)
 
     for (j = 0; j < 4; j++) {
         if (full_words) {
-            word = *intmsg;
+        	word = le32toh(*intmsg);
             array[j] = word;
             intmsg++;
             full_words--;
