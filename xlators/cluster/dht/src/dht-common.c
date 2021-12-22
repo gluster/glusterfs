@@ -475,10 +475,10 @@ dht_lookup_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         ret = dht_layout_set(this, local->inode, layout);
     }
 
-    dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+    dht_inode_ctx_time_update(local->inode, this, NULL, &local->stbuf);
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, &local->postparent,
-                                  1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                  &local->postparent);
     }
 
     DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -1551,12 +1551,13 @@ unlock:
 
             dht_layout_set(this, local->inode, layout);
             if (local->inode) {
-                dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+                dht_inode_ctx_time_update(local->inode, this, NULL,
+                                          &local->stbuf);
             }
 
             if (local->loc.parent) {
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                          &local->postparent);
             }
         }
 
@@ -1950,8 +1951,8 @@ unlock:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2024,7 +2025,7 @@ dht_lookup_linkfile_create_cbk(call_frame_t *frame, void *cooie, xlator_t *this,
     }
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
 unwind:
@@ -2498,8 +2499,8 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
                  */
 
                 if (!local->op_ret && local->loc.parent) {
-                    dht_inode_ctx_time_update(local->loc.parent, this,
-                                              &local->postparent, 1);
+                    dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                              &local->postparent);
                 }
 
                 gf_msg_debug(this->name, 0,
@@ -2579,8 +2580,8 @@ preset_layout:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2611,8 +2612,8 @@ preset_layout:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2969,7 +2970,7 @@ dht_lookup_linkfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
 unwind:
@@ -3174,7 +3175,7 @@ out:
      */
 
     if (!op_ret && local && local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
     DHT_STRIP_PHASE1_FLAGS(stbuf);
@@ -3644,9 +3645,7 @@ dht_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         if (local->loc.parent) {
             dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->preparent, 0);
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+                                      &local->preparent, &local->postparent);
         }
     }
     UNLOCK(&frame->lock);
@@ -6869,8 +6868,8 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             entry->d_stat.ia_blocks = DHT_DIR_STAT_BLOCKS;
             entry->d_stat.ia_size = DHT_DIR_STAT_SIZE;
             if (orig_entry->inode) {
-                dht_inode_ctx_time_update(orig_entry->inode, this,
-                                          &entry->d_stat, 1);
+                dht_inode_ctx_time_update(orig_entry->inode, this, NULL,
+                                          &entry->d_stat);
 
                 if (conf->subvolume_cnt == 1) {
                     dht_populate_inode_for_dentry(this, prev, entry,
@@ -7373,8 +7372,8 @@ dht_newfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     prev = cookie;
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     ret = dht_layout_preset(this, prev, inode);
@@ -8219,8 +8218,8 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     /* Update parent on success, even if P1/2 checks are positive.
      * The second call on success will further update the parent */
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     /* Update linkto attrs, if this is the first call and non-P2,
@@ -8532,9 +8531,8 @@ dht_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     prev = cookie;
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     ret = dht_fd_ctx_set(this, fd, prev);
@@ -9174,13 +9172,10 @@ dht_mkdir_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == 0) {
         dht_layout_set(this, local->inode, layout);
 
-        dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+        dht_inode_ctx_time_update(local->inode, this, NULL, &local->stbuf);
         if (local->loc.parent) {
             dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->preparent, 0);
-
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+                                      &local->preparent, &local->postparent);
         }
     }
 
@@ -9772,10 +9767,8 @@ unlock:
         } else {
             if (local->loc.parent) {
                 dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->preparent, 0);
-
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                                          &local->preparent,
+                                          &local->postparent);
             }
 
             dht_set_fixed_dir_stat(&local->preparent);
@@ -9964,10 +9957,8 @@ unlock:
 
             if (local->loc.parent) {
                 dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->preparent, 0);
-
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                                          &local->preparent,
+                                          &local->postparent);
             }
 
             dht_set_fixed_dir_stat(&local->preparent);

@@ -1835,15 +1835,16 @@ dht_inode_ctx_time_set(inode_t *inode, xlator_t *this, struct iatt *stat)
 }
 
 int
-dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
-                          int32_t post)
+dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *prestat,
+                          struct iatt *poststat)
 {
     dht_inode_ctx_t *ctx = NULL;
     dht_stat_time_t *time = 0;
-    int ret = -1;
+    int ret;
 
-    GF_VALIDATE_OR_GOTO(this->name, stat, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    if (!prestat && !poststat)
+        goto out;
 
     ret = dht_inode_ctx_get(inode, this, &ctx);
 
@@ -1857,12 +1858,22 @@ dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
 
     LOCK(&inode->lock);
     {
-        DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, stat->ia_mtime,
-                        stat->ia_mtime_nsec, post);
-        DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, stat->ia_ctime,
-                        stat->ia_ctime_nsec, post);
-        DHT_UPDATE_TIME(time->atime, time->atime_nsec, stat->ia_atime,
-                        stat->ia_atime_nsec, post);
+        if (prestat) {
+            DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, prestat->ia_mtime,
+                            prestat->ia_mtime_nsec, 0);
+            DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, prestat->ia_ctime,
+                            prestat->ia_ctime_nsec, 0);
+            DHT_UPDATE_TIME(time->atime, time->atime_nsec, prestat->ia_atime,
+                            prestat->ia_atime_nsec, 0);
+        }
+        if (poststat) {
+            DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, poststat->ia_mtime,
+                            poststat->ia_mtime_nsec, 1);
+            DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, poststat->ia_ctime,
+                            poststat->ia_ctime_nsec, 1);
+            DHT_UPDATE_TIME(time->atime, time->atime_nsec, poststat->ia_atime,
+                            poststat->ia_atime_nsec, 1);
+        }
     }
     UNLOCK(&inode->lock);
 
