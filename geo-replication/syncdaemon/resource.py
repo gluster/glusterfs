@@ -924,7 +924,7 @@ class Mounter(object):
             t.start()
             tlim = rconf.starttime + gconf.get("connection-timeout")
             while True:
-                if not t.isAlive():
+                if not t.is_alive():
                     break
 
                 if time.time() >= tlim:

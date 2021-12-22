@@ -94,8 +94,8 @@ do
         	worker1=$(ps aux | grep feedback | grep master1 | awk '{print $2}')
         	worker2=$(ps aux | grep feedback | grep master2 | awk '{print $2}')
         	worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
-        	kill $worker1
-        	kill $worker2
+        	kill -9 $worker1
+        	kill -9 $worker2
 		fi
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_active_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
@@ -120,14 +120,14 @@ do
 				i=3
         else
         	#kill other two workers to make brick3 active
-        	worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
-        	kill $worker3
+                worker3=$(ps aux | grep feedback | grep master3 | awk '{print $2}')
+        	kill -9 $worker3
 		fi
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_passive_brick_status "master3"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
         EXPECT_WITHIN $GEO_REP_TIMEOUT 2 check_status_num_rows "Passive"
         i=$(($i + 1))
-        echo tries for making brick3 active: $i
+        echo tries for making brick3 passive: $i
 done
 
 $GEOREP_CLI $master $slave status
