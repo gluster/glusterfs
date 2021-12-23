@@ -39,26 +39,26 @@ function check_all_status_detail_num_rows()
 function check_active_brick_status()
 {
     local search_key=$1
-    $GEOREP_CLI $master $slave status | grep -F "$search_key" | grep -F "Active" | wc -l
+    $GEOREP_CLI $primary $secondary status | grep -F "$search_key" | grep -F "Active" | wc -l
 }
 
 function check_passive_brick_status()
 {
     local search_key=$1
-    $GEOREP_CLI $master $slave status | grep -F "$search_key" | grep -F "Passive" | wc -l
+    $GEOREP_CLI $primary $secondary status | grep -F "$search_key" | grep -F "Passive" | wc -l
 }
 
-function check_master3_active_status()
+function check_primary3_active_status()
 {
     local ret=0
-    ret=$($GEOREP_CLI $master $slave status | grep -F "master3" | grep -F "Active" | wc -l)
+    ret=$($GEOREP_CLI $primary $secondary status | grep -F "primary3" | grep -F "Active" | wc -l)
     echo $ret
 }
 
-function check_master3_passive_status()
+function check_primary3_passive_status()
 {
     local ret=0
-    ret=$($GEOREP_CLI $master $slave status | grep -F "master3" | grep -F "Passive" | wc -l)
+    ret=$($GEOREP_CLI $primary $secondary status | grep -F "primary3" | grep -F "Passive" | wc -l)
     echo $ret
 }
 

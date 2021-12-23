@@ -389,7 +389,7 @@ class GPrimaryCommon(object):
         return data
 
     def get_clusterstime(self):
-        data = self.slave.server.cluster_stime(".", self.uuid)
+        data = self.secondary.server.cluster_stime(".", self.uuid)
         if isinstance(data, int):
             data = None
         return data
