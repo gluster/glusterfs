@@ -2482,7 +2482,7 @@ mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_quiesce_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_quiesce_mt_end);
 
     return ret;
 }
@@ -2528,12 +2528,12 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("timeout", priv->timeout, time, out);
     GF_OPTION_INIT("failover-hosts", priv->failover_hosts, str, out);
+    LOCK_INIT(&priv->lock);
     gf_quiesce_populate_failover_hosts(this, priv, priv->failover_hosts);
 
     priv->local_pool = mem_pool_new(quiesce_local_t,
                                     GF_FOPS_EXPECTED_IN_PARALLEL);
 
-    LOCK_INIT(&priv->lock);
     priv->pass_through = _gf_false;
 
     INIT_LIST_HEAD(&priv->req);
@@ -2541,6 +2541,9 @@ init(xlator_t *this)
     this->private = priv;
     ret = 0;
 out:
+    if (ret) {
+        GF_FREE(priv);
+    }
     return ret;
 }
 

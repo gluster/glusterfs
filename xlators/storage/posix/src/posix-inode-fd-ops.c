@@ -42,7 +42,6 @@
 #include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
@@ -185,11 +184,9 @@ posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (op_ret == -1) {
         op_errno = errno;
         if (op_errno == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "lstat on gfid-handle %s (path: %s)"
-                         "failed: %s",
-                         real_path ? real_path : "<null>", loc->path,
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno,
+                         "lstat on gfid-handle %s (path: %s) failed",
+                         real_path ? real_path : "<null>", loc->path);
         } else {
             gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_LSTAT_FAILED,
                    "lstat on gfid-handle %s (path: %s) failed",
@@ -251,12 +248,16 @@ posix_do_chmod(xlator_t *this, const char *path, struct iatt *stbuf)
         mode_bit = (mode & priv->create_mask) | priv->force_create_mode;
         mode = posix_override_umask(mode, mode_bit);
     }
-    ret = lchmod(path, mode);
-    if ((ret == -1) && (errno == ENOSYS)) {
-        /* in Linux symlinks are always in mode 0777 and no
-           such call as lchmod exists.
-        */
-        gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
+    ret = sys_lchmod(path, mode);
+    /* Before glibc 2.32, lchmod() was not implemented and calling it
+     * always returned ENOSYS. Starting with glibc 2.32 this request
+     * is using fchmodat() system call to implement it. However, linux
+     * doesn't support setting the mode for symlinks, so the system
+     * call returns EOPNOTSUPP (or ENOTSUP based on man page). We need
+     * to handle all cases. */
+    if ((ret < 0) &&
+        ((errno == ENOSYS) || (errno == EOPNOTSUPP) || (errno == ENOTSUP))) {
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -339,7 +340,7 @@ posix_do_utimes(xlator_t *this, const char *path, struct iatt *stbuf, int valid)
 
     ret = PATH_SET_TIMESPEC_OR_TIMEVAL(path, tv);
     if ((ret == -1) && (errno == ENOSYS)) {
-        gf_msg_debug(this->name, 0, "%s (%s)", path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed for path: %s", path);
         if (is_symlink) {
             ret = 0;
             goto out;
@@ -509,24 +510,40 @@ out:
     return ret;
 }
 
+static inline int
+gf_futime(int fd, struct timespec ts[2])
+{
+#if defined(HAVE_FUTIMENS)
+    return sys_futimens(fd, ts);
+#elif defined(HAVE_FUTIMES)
+    struct timeval tv[2] = {
+        {.tv_sec = ts[0].tv_sec, .tv_usec = ts[0].tv_nsec / 1000},
+        {.tv_sec = ts[1].tv_sec, .tv_usec = ts[1].tv_nsec / 1000}};
+    return sys_futimes(fd, tv);
+#else
+    /* This should be catched by configure early. */
+#error "This system doesn't support neither futimens() nor futimes()"
+#endif /* HAVE_FUTIMENS */
+}
+
 static int
 posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
 {
     int32_t ret = -1;
-    struct timeval tv[2] = {{
-                                0,
-                            },
-                            {
-                                0,
-                            }};
+    struct timespec ts[2] = {{
+                                 0,
+                             },
+                             {
+                                 0,
+                             }};
     struct stat stat = {
         0,
     };
     gf_boolean_t fstat_executed = _gf_false;
 
     if ((valid & GF_SET_ATTR_ATIME) == GF_SET_ATTR_ATIME) {
-        tv[0].tv_sec = stbuf->ia_atime;
-        tv[0].tv_usec = stbuf->ia_atime_nsec / 1000;
+        ts[0].tv_sec = stbuf->ia_atime;
+        ts[0].tv_nsec = stbuf->ia_atime_nsec;
     } else {
         ret = sys_fstat(fd, &stat);
         if (ret != 0) {
@@ -536,13 +553,13 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
         }
         fstat_executed = _gf_true;
         /* atime is not given, use current values */
-        tv[0].tv_sec = ST_ATIM_SEC(&stat);
-        tv[0].tv_usec = ST_ATIM_NSEC(&stat) / 1000;
+        ts[0].tv_sec = ST_ATIM_SEC(&stat);
+        ts[0].tv_nsec = ST_ATIM_NSEC(&stat);
     }
 
     if ((valid & GF_SET_ATTR_MTIME) == GF_SET_ATTR_MTIME) {
-        tv[1].tv_sec = stbuf->ia_mtime;
-        tv[1].tv_usec = stbuf->ia_mtime_nsec / 1000;
+        ts[1].tv_sec = stbuf->ia_mtime;
+        ts[1].tv_nsec = stbuf->ia_mtime_nsec;
     } else {
         if (!fstat_executed) {
             ret = sys_fstat(fd, &stat);
@@ -553,11 +570,11 @@ posix_do_futimes(xlator_t *this, int fd, struct iatt *stbuf, int valid)
             }
         }
         /* mtime is not given, use current values */
-        tv[1].tv_sec = ST_MTIM_SEC(&stat);
-        tv[1].tv_usec = ST_MTIM_NSEC(&stat) / 1000;
+        ts[1].tv_sec = ST_MTIM_SEC(&stat);
+        ts[1].tv_nsec = ST_MTIM_NSEC(&stat);
     }
 
-    ret = sys_futimes(fd, tv);
+    ret = gf_futime(fd, ts);
     if (ret == -1)
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FUTIMES_FAILED, "%d", fd);
 
@@ -825,17 +842,19 @@ out:
     return ret;
 }
 
-char *
-_page_aligned_alloc(size_t size, char **aligned_buf)
+static char *
+_page_aligned_alloc(size_t size, char **aligned_buf, gf_boolean_t calloc)
 {
     char *alloc_buf = NULL;
     char *buf = NULL;
 
-    alloc_buf = GF_CALLOC(1, (size + ALIGN_SIZE), gf_posix_mt_char);
+    alloc_buf = GF_MALLOC((size + ALIGN_SIZE), gf_posix_mt_char);
     if (!alloc_buf)
         goto out;
     /* page aligned buffer */
     buf = GF_ALIGN_BUF(alloc_buf, ALIGN_SIZE);
+    if (calloc)
+        memset(buf, 0, size);
     *aligned_buf = buf;
 out:
     return alloc_buf;
@@ -872,7 +891,7 @@ _posix_do_zerofill(int fd, off_t offset, off_t len, int o_direct)
     if (!vector)
         return -1;
     if (o_direct) {
-        alloc_buf = _page_aligned_alloc(vect_size, &iov_base);
+        alloc_buf = _page_aligned_alloc(vect_size, &iov_base, _gf_true);
         if (!alloc_buf) {
             GF_FREE(vector);
             return -1;
@@ -1239,7 +1258,8 @@ posix_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (ret == -1) {
             ret = -errno;
@@ -1613,7 +1633,8 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     pfd->flags = flags;
     pfd->fd = _fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, pfd->fd, &preop);
         if (op_ret == -1) {
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSTAT_FAILED,
@@ -1710,7 +1731,8 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
@@ -1726,9 +1748,9 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             op_errno = EIO;
             goto out;
         }
+        posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     }
 
-    posix_update_iatt_buf(&preop, _fd, NULL, xdata);
     op_ret = sys_pread(_fd, iobuf->ptr, size, offset);
     if (op_ret == -1) {
         op_errno = errno;
@@ -1811,7 +1833,7 @@ err:
     return op_ret;
 }
 
-int32_t
+static int32_t
 __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
                int odirect)
 {
@@ -1832,7 +1854,7 @@ __posix_writev(int fd, struct iovec *vector, int count, off_t startoff,
             max_buf_size = vector[idx].iov_len;
     }
 
-    alloc_buf = _page_aligned_alloc(max_buf_size, &buf);
+    alloc_buf = _page_aligned_alloc(max_buf_size, &buf, _gf_false);
     if (!alloc_buf) {
         op_ret = -errno;
         goto err;
@@ -2519,6 +2541,39 @@ out:
     return 0;
 }
 
+static int
+posix_unlink_renamed_file(xlator_t *this, inode_t *inode)
+{
+    int ret = 0;
+    char *unlink_path = NULL;
+    uint64_t ctx_uint = 0;
+    posix_inode_ctx_t *ctx = NULL;
+    struct posix_private *priv = this->private;
+
+    ret = inode_ctx_get(inode, this, &ctx_uint);
+
+    if (ret < 0)
+        goto out;
+
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
+
+    if (ctx->unlink_flag == GF_UNLINK_TRUE) {
+        POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
+        if (!unlink_path) {
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
+                   "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
+            ret = -1;
+        } else {
+            ret = sys_unlink(unlink_path);
+            if (!ret)
+                ctx->unlink_flag = GF_UNLINK_FALSE;
+        }
+    }
+
+out:
+    return ret;
+}
+
 int32_t
 posix_release(xlator_t *this, fd_t *fd)
 {
@@ -2528,6 +2583,9 @@ posix_release(xlator_t *this, fd_t *fd)
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
+
+    if (fd->inode->active_fd_count == 0)
+        posix_unlink_renamed_file(this, fd->inode);
 
     ret = fd_ctx_del(fd, this, &tmp_pfd);
     if (ret < 0) {
@@ -2914,9 +2972,11 @@ posix_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
         goto out;
     }
 
-    ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
-    if (ret) {
-        gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+    if (xdata) {
+        ret = dict_get_int8(xdata, "sync_backend_xattrs", &sync_backend_xattrs);
+        if (ret) {
+            gf_msg_debug(this->name, -ret, "Unable to get sync_backend_xattrs");
+        }
     }
 
     if (sync_backend_xattrs) {
@@ -3431,7 +3491,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
             goto out;
         }
 
-        nlink_samepgfid = ntoh32(nlink_samepgfid);
+        nlink_samepgfid = be32toh(nlink_samepgfid);
 
         snprintf(pgfidstr, sizeof(pgfidstr), "%s",
                  key + SLEN(PGFID_XATTR_KEY_PREFIX));
@@ -4146,10 +4206,10 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
             if (size == -1) {
                 op_errno = errno;
                 if (errno == ENODATA || errno == ENOATTR) {
-                    gf_msg_debug(this->name, 0,
+                    gf_msg_debug(this->name, op_errno,
                                  "fgetxattr"
-                                 " failed on key %s (%s)",
-                                 key, strerror(op_errno));
+                                 " failed on key %s",
+                                 key);
                 } else {
                     gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                            "fgetxattr"
@@ -4742,8 +4802,8 @@ __add_array(int32_t *dest, int32_t *src, int count)
     int i = 0;
     int32_t destval = 0;
     for (i = 0; i < count; i++) {
-        destval = ntoh32(dest[i]);
-        dest[i] = hton32(destval + ntoh32(src[i]));
+        destval = be32toh(dest[i]);
+        dest[i] = htobe32(destval + be32toh(src[i]));
     }
 }
 
@@ -4752,7 +4812,7 @@ __add_long_array(int64_t *dest, int64_t *src, int count)
 {
     int i = 0;
     for (i = 0; i < count; i++) {
-        dest[i] = hton64(ntoh64(dest[i]) + ntoh64(src[i]));
+        dest[i] = htobe64(be64toh(dest[i]) + be64toh(src[i]));
     }
 }
 
@@ -4823,11 +4883,11 @@ __add_array_with_default(int32_t *dest, int32_t *src, int count)
     int32_t destval = 0;
 
     for (i = 0; i < count; i++) {
-        destval = ntoh32(dest[i]);
+        destval = be32toh(dest[i]);
         if (destval == 0)
-            dest[i] = hton32(ntoh32(src[i]) + ntoh32(src[count + i]));
+            dest[i] = htobe32(be32toh(src[i]) + be32toh(src[count + i]));
         else
-            dest[i] = hton32(destval + ntoh32(src[i]));
+            dest[i] = htobe32(destval + be32toh(src[i]));
     }
 }
 
@@ -4838,11 +4898,11 @@ __add_long_array_with_default(int64_t *dest, int64_t *src, int count)
     int64_t destval = 0;
 
     for (i = 0; i < count; i++) {
-        destval = ntoh64(dest[i]);
+        destval = be64toh(dest[i]);
         if (destval == 0)
-            dest[i] = hton64(ntoh64(src[i]) + ntoh64(src[i + count]));
+            dest[i] = htobe64(be64toh(src[i]) + be64toh(src[i + count]));
         else
-            dest[i] = hton64(destval + ntoh64(src[i]));
+            dest[i] = htobe64(destval + be64toh(src[i]));
     }
 }
 
@@ -5006,16 +5066,13 @@ unlock:
         op_ret = dict_set_bin(filler->xattr, k, array, count);
         if (op_ret) {
             if (filler->real_path)
-                gf_msg_debug(this->name, 0,
-                             "dict_set_bin failed (path=%s): "
-                             "key=%s (%s)",
-                             filler->real_path, k, strerror(-size));
+                gf_msg_debug(this->name, -size,
+                             "dict_set_bin failed (path=%s): key=%s",
+                             filler->real_path, k);
             else
-                gf_msg_debug(this->name, 0,
-                             "dict_set_bin failed (gfid=%s): "
-                             "key=%s (%s)",
-                             uuid_utoa(filler->inode->gfid), k,
-                             strerror(-size));
+                gf_msg_debug(this->name, -size,
+                             "dict_set_bin failed (gfid=%s): key=%s",
+                             uuid_utoa(filler->inode->gfid), k);
 
             op_ret = -1;
             op_errno = EINVAL;
@@ -5441,8 +5498,8 @@ posix_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume,
     return 0;
 }
 
-int
-posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
+static int
+posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
                    gf_dirent_t *entries, xlator_t *this, int32_t skip_dirs)
 {
     off_t in_case = -1;
@@ -5451,14 +5508,10 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
     int count = 0;
     int32_t this_size = -1;
     gf_dirent_t *this_entry = NULL;
-    struct posix_fd *pfd = NULL;
     struct stat stbuf = {
         0,
     };
-    char *hpath = NULL;
-    int len = 0;
-    int ret = 0;
-    int op_errno = 0;
+    int stat_ret = 1;
     struct dirent *entry = NULL;
     struct dirent scratch[2] = {
         {
@@ -5466,38 +5519,17 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         },
     };
 
-    ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
-    if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
-               "pfd is NULL, fd=%p", fd);
-        count = -1;
-        errno = op_errno;
-        goto out;
-    }
-
-    if (skip_dirs) {
-        hpath = alloca(PATH_MAX);
-        len = posix_handle_path(this, fd->inode->gfid, NULL, hpath, PATH_MAX);
-        if (len <= 0) {
-            errno = ESTALE;
-            count = -1;
-            goto out;
-        }
-        len = strlen(hpath);
-        hpath[len] = '/';
-    }
-
     if (!off) {
-        rewinddir(dir);
+        rewinddir(pfd->dir);
     } else {
-        seekdir(dir, off);
+        seekdir(pfd->dir, off);
 #ifndef GF_LINUX_HOST_OS
-        if ((u_long)telldir(dir) != off && off != pfd->dir_eof) {
+        if ((u_long)telldir(pfd->dir) != off && off != pfd->dir_eof) {
             gf_msg(THIS->name, GF_LOG_ERROR, EINVAL, P_MSG_DIR_OPERATION_FAILED,
                    "seekdir(0x%llx) failed on dir=%p: "
                    "Invalid argument (offset reused from "
                    "another DIR * structure?)",
-                   off, dir);
+                   off, pfd->dir);
             errno = EINVAL;
             count = -1;
             goto out;
@@ -5506,27 +5538,28 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
     }
 
     while (filled <= size) {
-        in_case = (u_long)telldir(dir);
+        in_case = (u_long)telldir(pfd->dir);
 
         if (in_case == -1) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno, P_MSG_DIR_OPERATION_FAILED,
-                   "telldir failed on dir=%p", dir);
+                   "telldir failed on dir=%p", pfd->dir);
             goto out;
         }
 
         errno = 0;
 
-        entry = sys_readdir(dir, scratch);
+        entry = sys_readdir(pfd->dir, scratch);
 
         if (!entry || errno != 0) {
             if (errno == EBADF) {
                 gf_msg(THIS->name, GF_LOG_WARNING, errno,
                        P_MSG_DIR_OPERATION_FAILED, "readdir failed on dir=%p",
-                       dir);
+                       pfd->dir);
                 goto out;
             }
             break;
         }
+        stat_ret = 1;
 
 #ifdef __NetBSD__
         /*
@@ -5550,10 +5583,11 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         if (skip_dirs) {
             if (DT_ISDIR(entry->d_type)) {
                 continue;
-            } else if (hpath) {
-                strcpy(&hpath[len + 1], entry->d_name);
-                ret = sys_lstat(hpath, &stbuf);
-                if (!ret && S_ISDIR(stbuf.st_mode))
+            } else if (DT_UNKNOWN == entry->d_type) {
+                memset(&stbuf, 0, sizeof(stbuf));
+                stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
+                                       AT_SYMLINK_NOFOLLOW);
+                if ((stat_ret == 0) && S_ISDIR(stbuf.st_mode))
                     continue;
             }
         }
@@ -5562,15 +5596,16 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {
-            seekdir(dir, in_case);
+            seekdir(pfd->dir, in_case);
 #ifndef GF_LINUX_HOST_OS
-            if ((u_long)telldir(dir) != in_case && in_case != pfd->dir_eof) {
+            if ((u_long)telldir(pfd->dir) != in_case &&
+                in_case != pfd->dir_eof) {
                 gf_msg(THIS->name, GF_LOG_ERROR, EINVAL,
                        P_MSG_DIR_OPERATION_FAILED,
                        "seekdir(0x%llx) failed on dir=%p: "
                        "Invalid argument (offset reused from "
                        "another DIR * structure?)",
-                       in_case, dir);
+                       in_case, pfd->dir);
                 errno = EINVAL;
                 count = -1;
                 goto out;
@@ -5589,13 +5624,31 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
                    entry->d_name);
             goto out;
         }
+
+        if (DT_UNKNOWN == entry->d_type) {
+            if (stat_ret == 1) {
+                memset(&stbuf, 0, sizeof(stbuf));
+                stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
+                                       AT_SYMLINK_NOFOLLOW);
+            }
+
+            if (stat_ret == 0) {
+                entry->d_type = gf_d_type_from_st_mode(stbuf.st_mode);
+            } else {
+                gf_msg_debug(THIS->name, errno,
+                             "fstatat failed on"
+                             " %s/%s",
+                             uuid_utoa(fd->inode->gfid), entry->d_name);
+            }
+        }
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
-         * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+         * (glfs-heal.c, afr-self-heald.c) rely on it
          * for directory read resumption.
          */
-        last_off = (u_long)telldir(dir);
+
+        last_off = (u_long)telldir(pfd->dir);
         this_entry->d_off = last_off;
         this_entry->d_ino = entry->d_ino;
         this_entry->d_type = entry->d_type;
@@ -5606,7 +5659,7 @@ posix_fill_readdir(fd_t *fd, DIR *dir, off_t off, size_t size,
         count++;
     }
 
-    if ((!sys_readdir(dir, scratch) && (errno == 0))) {
+    if ((!sys_readdir(pfd->dir, scratch) && (errno == 0))) {
         /* Indicate EOF */
         errno = ENOENT;
         /* Remember EOF offset for later detection */
@@ -5716,7 +5769,6 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t off, int whichop, dict_t *dict)
 {
     struct posix_fd *pfd = NULL;
-    DIR *dir = NULL;
     int ret = -1;
     int count = 0;
     int32_t op_ret = -1;
@@ -5737,11 +5789,10 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto out;
     }
 
-    dir = pfd->dir;
-
-    if (!dir) {
+    if ((!pfd->dir) || (pfd->fd < 0)) {
         gf_msg(this->name, GF_LOG_WARNING, EINVAL, P_MSG_PFD_NULL,
-               "dir is NULL for fd=%p", fd);
+               "posix ctx(%p, %d) is invalid for %s", pfd->dir, pfd->fd,
+               uuid_utoa(fd->inode->gfid));
         op_errno = EINVAL;
         goto out;
     }
@@ -5749,7 +5800,7 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     /* When READDIR_FILTER option is set to on, we can filter out
      * directory's entry from the entry->list.
      */
-    ret = dict_get_int32(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
+    ret = dict_get_int32_sizen(dict, GF_READDIR_SKIP_DIRS, &skip_dirs);
 
     LOCK(&fd->lock);
     {
@@ -5764,7 +5815,7 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
            It would also help, in the future, to replace the loop
            around readdir() with a single large getdents() call.
         */
-        count = posix_fill_readdir(fd, dir, off, size, &entries, this,
+        count = posix_fill_readdir(fd, pfd, off, size, &entries, this,
                                    skip_dirs);
     }
     UNLOCK(&fd->lock);
@@ -5858,7 +5909,7 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     priv = this->private;
 
-    alloc_buf = _page_aligned_alloc(len, &buf);
+    alloc_buf = _page_aligned_alloc(len, &buf, _gf_false);
     if (!alloc_buf) {
         op_errno = ENOMEM;
         goto out;
@@ -5879,7 +5930,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
 
     _fd = pfd->fd;
 
-    if (xdata) {
+    if (xdata && (dict_get_sizen(xdata, GF_CS_OBJECT_STATUS) ||
+                  dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR))) {
         op_ret = posix_fdstat(this, fd->inode, _fd, &preop);
         if (op_ret == -1) {
             op_errno = errno;
@@ -5901,7 +5953,10 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     LOCK(&fd->lock);
     {
         if (priv->aio_capable && priv->aio_init_done)
-            __posix_fd_set_odirect(fd, pfd, 0, offset, len);
+            __posix_fd_set_odirect(
+                fd, pfd, 0,
+                (DIRECT_ALIGNED(buf, priv) && DIRECT_ALIGNED(offset, priv) &&
+                 DIRECT_ALIGNED(len, priv)));
 
         bytes_read = sys_pread(_fd, buf, len, offset);
         if (bytes_read < 0) {
@@ -5929,7 +5984,8 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
             goto out;
         }
     }
-    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf, (size_t)ret);
+    weak_checksum = gf_rsync_weak_checksum((unsigned char *)buf,
+                                           (size_t)bytes_read);
 
     if (priv->fips_mode_rchecksum) {
         ret = dict_set_int32(rsp_xdata, "fips-mode-rchecksum", 1);
@@ -5970,41 +6026,33 @@ posix_forget(xlator_t *this, inode_t *inode)
     uint64_t ctx_uint1 = 0;
     uint64_t ctx_uint2 = 0;
     posix_inode_ctx_t *ctx = NULL;
-    posix_mdata_t *mdata = NULL;
-    struct posix_private *priv_posix = NULL;
-
-    priv_posix = (struct posix_private *)this->private;
-    if (!priv_posix)
-        return 0;
+    struct posix_private *priv = this->private;
 
     ret = inode_ctx_del2(inode, this, &ctx_uint1, &ctx_uint2);
+
+    if (ctx_uint2)
+        GF_FREE((posix_mdata_t *)(uintptr_t)ctx_uint2);
+
     if (!ctx_uint1)
-        goto check_ctx2;
+        return 0;
 
     ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
 
     if (ctx->unlink_flag == GF_UNLINK_TRUE) {
-        POSIX_GET_FILE_UNLINK_PATH(priv_posix->base_path, inode->gfid,
-                                   unlink_path);
+        POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
         if (!unlink_path) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
                    "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
             ret = -1;
-            goto ctx_free;
+        } else {
+            ret = sys_unlink(unlink_path);
         }
-        ret = sys_unlink(unlink_path);
     }
-ctx_free:
+
     pthread_mutex_destroy(&ctx->xattrop_lock);
     pthread_mutex_destroy(&ctx->write_atomic_lock);
     pthread_mutex_destroy(&ctx->pgfid_lock);
     GF_FREE(ctx);
 
-check_ctx2:
-    if (ctx_uint2) {
-        mdata = (posix_mdata_t *)(uintptr_t)ctx_uint2;
-    }
-
-    GF_FREE(mdata);
     return ret;
 }

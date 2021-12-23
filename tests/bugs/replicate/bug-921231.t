@@ -19,13 +19,13 @@ TEST $CLI volume set $V0 post-op-delay-secs 3
 TEST $CLI volume set $V0 client-log-level DEBUG
 TEST $CLI volume start $V0
 TEST $CLI volume profile $V0 start
-TEST $CLI volume set $V0 ensure-durability off
+TEST $CLI volume set $V0 cluster.ensure-durability off
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0 --attribute-timeout=0 --entry-timeout=0
 write_to_file &
 write_to_file &
 wait
 #Test if the MAX [F]INODELK fop latency is of the order of seconds.
-inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
+inodelk_max_latency=$($CLI volume profile $V0 info | grep INODELK | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{10,}")
 TEST [ -z $inodelk_max_latency ]
 
 cleanup;

@@ -123,10 +123,6 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
     if (!pool->stack_mem_pool)
         goto free_pool;
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool)
-        goto free_pool;
-
     ctx->dict_pool = mem_pool_new(dict_t, 32);
     if (!ctx->dict_pool)
         goto free_pool;
@@ -167,8 +163,6 @@ free_pool:
 
         GF_FREE(pool);
     }
-
-    GF_FREE(ctx->stub_mem_pool);
 
     GF_FREE(ctx->dict_pool);
 

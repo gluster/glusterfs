@@ -81,7 +81,8 @@
 #define GLUSTERD_MAX_SNAP_NAME 255
 #define GLUSTERFS_SOCKET_LISTEN_BACKLOG 1024
 #define GLUSTERD_BRICK_SERVERS "cluster.brick-vol-servers"
-#define SLEN(str) (sizeof(str) - 1)
+#define GLUSTER_STR_MUST_BE_LITERAL(__x) "" __x
+#define SLEN(str) (sizeof(GLUSTER_STR_MUST_BE_LITERAL(str)) - 1)
 
 #define ZR_MOUNTPOINT_OPT "mountpoint"
 #define ZR_ATTR_TIMEOUT_OPT "attribute-timeout"
@@ -127,6 +128,9 @@
     (strncmp(x, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) == 0)
 
 #define XATTR_IS_BD(x) (strncmp(x, BD_XATTR_KEY, SLEN(BD_XATTR_KEY)) == 0)
+
+/* required for namespace */
+#define GF_NAMESPACE_KEY "trusted.glusterfs.namespace"
 
 #define GF_XATTR_LINKINFO_KEY "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
@@ -213,6 +217,13 @@ enum gf_internal_fop_indicator {
 #define GF_XATTR_XTIME_PATTERN "trusted.glusterfs.*.xtime"
 #define GF_XATTR_TRIGGER_SYNC "glusterfs.geo-rep.trigger-sync"
 
+#define GLUSTERFS_ENTRYLK_COUNT_BIT 0
+#define GLUSTERFS_INODELK_COUNT_BIT 1
+#define GLUSTERFS_INODELK_DOM_COUNT_BIT 2
+#define GLUSTERFS_POSIXLK_COUNT_BIT 3
+#define GLUSTERFS_PARENT_ENTRYLK_BIT 4
+#define GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT 5
+
 /* quota xattrs */
 #define QUOTA_SIZE_KEY "trusted.glusterfs.quota.size"
 #define QUOTA_LIMIT_KEY "trusted.glusterfs.quota.limit-set"
@@ -250,12 +261,7 @@ enum gf_internal_fop_indicator {
 #define GF_XATTROP_PURGE_INDEX "glusterfs.xattrop-purge-index"
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
-/* replace-brick and pump related internal xattrs */
-#define RB_PUMP_CMD_START "glusterfs.pump.start"
-#define RB_PUMP_CMD_PAUSE "glusterfs.pump.pause"
-#define RB_PUMP_CMD_COMMIT "glusterfs.pump.commit"
-#define RB_PUMP_CMD_ABORT "glusterfs.pump.abort"
-#define RB_PUMP_CMD_STATUS "glusterfs.pump.status"
+#define GF_UNLINKED_LOOKUP "unlinked-lookup"
 
 #define GLUSTERFS_MARKER_DONT_ACCOUNT_KEY "glusters.marker.dont-account"
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD (2048)
@@ -312,6 +318,7 @@ enum gf_internal_fop_indicator {
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY "dht-get-iatt-in-xattr"
 #define DHT_MODE_IN_XDATA_KEY "dht-get-mode-in-xattr"
+#define GF_FORCE_REPLACE_KEY "force-replace"
 #define GET_LINK_COUNT "get-link-count"
 #define GF_GET_SIZE "get-size"
 #define GF_PRESTAT "virt-gf-prestat"
@@ -353,7 +360,7 @@ enum gf_internal_fop_indicator {
 #define GF_CHECK_XATTR_KEY_AND_GOTO(key, cmpkey, errval, lbl)                  \
     do {                                                                       \
         if (key && strcmp(key, cmpkey) == 0) {                                 \
-            errval = -EINVAL;                                                  \
+            errval = EINVAL;                                                   \
             goto lbl;                                                          \
         }                                                                      \
     } while (0)
@@ -568,6 +575,7 @@ struct _cmd_args {
     char *subdir_mount;
 
     char *process_name;
+    char *fs_display_name;
     char *event_history;
     int thin_client;
     uint32_t reader_thread_count;
@@ -583,6 +591,8 @@ struct _cmd_args {
     bool brick_mux;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
+
+    char *io_engine;
 };
 typedef struct _cmd_args cmd_args_t;
 
@@ -645,7 +655,7 @@ struct _glusterfs_ctx {
     glusterfs_graph_t *active;
 
     /* fuse or nfs (but not protocol/server) */
-    void *primary;
+    void *root;
 
     /* xlator implementing MOPs for centralized logging, volfile server */
     void *mgmt;
@@ -657,7 +667,6 @@ struct _glusterfs_ctx {
     unsigned char measure_latency;
     pthread_t sigwaiter;
     char *cmdlinestr;
-    struct mem_pool *stub_mem_pool;
     unsigned char cleanup_started;
     int graph_id;        /* Incremented per graph, value should
                             indicate how many times the graph has
@@ -747,6 +756,10 @@ struct _glusterfs_ctx {
     pthread_mutex_t xl_lock;
     pthread_cond_t xl_cond;
     pthread_t disk_space_check;
+
+    gf_boolean_t cleanup_starting;
+    gf_boolean_t destroy_ctx;
+    char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
@@ -771,11 +784,22 @@ struct gf_flock {
     gf_lkowner_t l_owner;
 };
 
+static inline void
+gf_flock_copy(struct gf_flock *dst, struct gf_flock *src)
+{
+    dst->l_type = src->l_type;
+    dst->l_whence = src->l_whence;
+    dst->l_start = src->l_start;
+    dst->l_len = src->l_len;
+    dst->l_pid = src->l_pid;
+    lk_owner_copy(&dst->l_owner, &src->l_owner);
+}
+
 typedef struct lock_migration_info {
     struct list_head list;
-    struct gf_flock flock;
     char *client_uid;
     uint32_t lk_flags;
+    struct gf_flock flock;
 } lock_migration_info_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
@@ -841,4 +865,5 @@ int
 glusterfs_read_secure_access_file(void);
 int
 glusterfs_graph_fini(glusterfs_graph_t *graph);
+
 #endif /* _GLUSTERFS_H */

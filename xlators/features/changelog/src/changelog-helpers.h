@@ -220,10 +220,10 @@ struct changelog_priv {
     int wfd;
 
     /* rollover time */
-    int32_t rollover_time;
+    time_t rollover_time;
 
     /* fsync() interval */
-    int32_t fsync_interval;
+    time_t fsync_interval;
 
     /* changelog type maps */
     const char *maps[CHANGELOG_MAX_TYPE];

@@ -20,10 +20,6 @@
 
 #include <rpc/rpc_msg.h>
 
-#ifndef MAX_IOVEC
-#define MAX_IOVEC 16
-#endif
-
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
 #endif /* AI_ADDRCONFIG */

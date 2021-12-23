@@ -33,8 +33,8 @@ TEST getfattr -n $xtime $B0/${V0}-0
 TEST getfattr -n $xtime $B0/${V0}-1
 
 #TEST stime
-slave_uuid=$(uuidgen)
-stime="trusted.glusterfs.$vol_uuid.$slave_uuid.stime"
+secondary_uuid=$(uuidgen)
+stime="trusted.glusterfs.$vol_uuid.$secondary_uuid.stime"
 TEST setfattr -n $stime -v "0xFFFE" $B0/${V0}-0
 TEST setfattr -n $stime -v "0xFFFF" $B0/${V0}-1
 

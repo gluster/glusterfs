@@ -119,11 +119,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
-        goto err;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
     if (!ctx->dict_pool)
         goto err;
@@ -159,8 +154,6 @@ err:
     }
 
     if (ret && ctx) {
-        if (ctx->stub_mem_pool)
-            mem_pool_destroy(ctx->stub_mem_pool);
         if (ctx->dict_pool)
             mem_pool_destroy(ctx->dict_pool);
         if (ctx->dict_data_pool)
@@ -207,7 +200,7 @@ create_primary(struct glfs *fs)
         goto err;
     }
 
-    fs->ctx->primary = primary;
+    fs->ctx->root = primary;
     THIS = primary;
 
     return 0;
@@ -682,6 +675,8 @@ glfs_fd_destroy(struct glfs_fd *glfd)
 
     GF_FREE(glfd->readdirbuf);
 
+    LOCK_DESTROY(&glfd->lock);
+
     GF_FREE(glfd);
 }
 
@@ -699,6 +694,8 @@ glfs_fd_new(struct glfs *fs)
     INIT_LIST_HEAD(&glfd->openfds);
 
     GF_REF_INIT(glfd, glfs_fd_destroy);
+
+    LOCK_INIT(&glfd->lock);
 
     return glfd;
 }
@@ -1175,8 +1172,6 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
     if (ctx->dict_pool)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)
@@ -1207,6 +1202,8 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     GF_FREE(ctx->cmd_args.process_name);
 
     LOCK_DESTROY(&ctx->lock);
+    LOCK_DESTROY(&ctx->volfile_lock);
+
     pthread_mutex_destroy(&ctx->notify_lock);
     pthread_cond_destroy(&ctx->notify_cond);
 
@@ -1221,6 +1218,7 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     GF_FREE(ctx->statedump_path);
+    FREE(ctx->hostname);
     FREE(ctx);
 
     return ret;
@@ -1252,7 +1250,7 @@ pub_glfs_fini(struct glfs *fs)
         goto free_fs;
     }
 
-    THIS = fs->ctx->primary;
+    THIS = fs->ctx->root;
 
     if (ctx->mgmt) {
         rpc_clnt_disable(ctx->mgmt);

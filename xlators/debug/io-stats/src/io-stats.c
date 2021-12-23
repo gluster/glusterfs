@@ -21,8 +21,9 @@
  * fd d) counts of write IO block size - since process start, last interval and
  * per fd e) counts of all FOP types passing through it
  *
- *  Usage: setfattr -n trusted.io-stats-dump /tmp/filename /mnt/gluster
- *      output is written to /tmp/filename.<iostats xlator instance name>
+ *  Usage: setfattr -n trusted.io-stats-dump -v filename /mnt/gluster
+ *      output is written to /var/run/gluster/filename.<iostats xlator instance
+ * name>
  *
  */
 
@@ -109,8 +110,8 @@ typedef struct _ios_sample_t {
     gid_t gid;
     char identifier[UNIX_PATH_MAX];
     glusterfs_fop_t fop_type;
-    struct timeval timestamp;
-    double elapsed;
+    struct timespec timestamp;
+    int64_t elapsed;
 } ios_sample_t;
 
 typedef struct _ios_sample_buf_t {
@@ -206,18 +207,13 @@ struct ios_dump_args {
 typedef int (*block_dump_func)(xlator_t *, struct ios_dump_args *, int, int,
                                uint64_t);
 
-struct ios_local {
-    struct timeval wind_at;
-    struct timeval unwind_at;
-};
-
 struct volume_options options[];
 
 static int
 is_fop_latency_started(call_frame_t *frame)
 {
     GF_ASSERT(frame);
-    struct timeval epoch = {
+    struct timespec epoch = {
         0,
     };
     return memcmp(&frame->begin, &epoch, sizeof(epoch));
@@ -281,9 +277,9 @@ is_fop_latency_started(call_frame_t *frame)
 #define BUMP_THROUGHPUT(iosstat, type)                                         \
     do {                                                                       \
         struct ios_conf *conf = NULL;                                          \
-        double elapsed;                                                        \
+        int64_t elapsed;                                                       \
         struct timespec *begin, *end;                                          \
-        double throughput;                                                     \
+        double throughput = 0;                                                 \
         int flag = 0;                                                          \
         struct timeval tv = {                                                  \
             0,                                                                 \
@@ -292,8 +288,10 @@ is_fop_latency_started(call_frame_t *frame)
         begin = &frame->begin;                                                 \
         end = &frame->end;                                                     \
                                                                                \
-        elapsed = gf_tsdiff(begin, end) / 1000.0;                              \
-        throughput = op_ret / elapsed;                                         \
+        elapsed = gf_tsdiff(begin, end);                                       \
+        if (elapsed) {                                                         \
+            throughput = op_ret / elapsed;                                     \
+        }                                                                      \
                                                                                \
         conf = this->private;                                                  \
         gettimeofday(&tv, NULL);                                               \
@@ -1059,7 +1057,6 @@ void
 _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
                                FILE *logfp)
 {
-    double epoch_time = 0.00;
     char *xlator_name = NULL;
     char *instance_name = NULL;
     char *hostname = NULL;
@@ -1071,9 +1068,6 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
     struct ios_conf *conf = NULL;
 
     conf = this->private;
-
-    epoch_time = (sample->timestamp).tv_sec +
-                 ((sample->timestamp).tv_usec / 1000000.0);
 
     if (strlen(sample->identifier) == 0) {
         hostname = "Unknown";
@@ -1120,7 +1114,8 @@ _io_stats_write_latency_sample(xlator_t *this, ios_sample_t *sample,
         sprintf(group_name, "%d", (int32_t)sample->gid);
     }
 
-    ios_log(this, logfp, "%0.6lf,%s,%s,%0.4lf,%s,%s,%s,%s,%s,%s", epoch_time,
+    ios_log(this, logfp, "%lu.%06lu,%s,%s,%" PRId64 ",%s,%s,%s,%s,%s,%s",
+            sample->timestamp.tv_sec, sample->timestamp.tv_nsec / 1000,
             fop_enum_to_pri_string(sample->fop_type),
             gf_fop_string(sample->fop_type), sample->elapsed, xlator_name,
             instance_name, username, group_name, hostname, port);
@@ -1688,7 +1683,7 @@ io_stats_dump_fd(xlator_t *this, struct ios_fd *iosfd)
 
 void
 collect_ios_latency_sample(struct ios_conf *conf, glusterfs_fop_t fop_type,
-                           double elapsed, call_frame_t *frame)
+                           int64_t elapsed, call_frame_t *frame)
 {
     ios_sample_buf_t *ios_sample_buf = NULL;
     ios_sample_t *ios_sample = NULL;
@@ -1710,7 +1705,7 @@ collect_ios_latency_sample(struct ios_conf *conf, glusterfs_fop_t fop_type,
     ios_sample->uid = root->uid;
     ios_sample->gid = root->gid;
     (ios_sample->timestamp).tv_sec = timestamp->tv_sec;
-    (ios_sample->timestamp).tv_usec = timestamp->tv_nsec / 1000;
+    (ios_sample->timestamp).tv_nsec = timestamp->tv_nsec;
     memcpy(&ios_sample->identifier, &root->identifier,
            sizeof(root->identifier));
 
@@ -1728,7 +1723,7 @@ out:
 }
 
 static void
-update_ios_latency_stats(struct ios_global_stats *stats, double elapsed,
+update_ios_latency_stats(struct ios_global_stats *stats, int64_t elapsed,
                          glusterfs_fop_t op)
 {
     double avg;
@@ -1754,13 +1749,13 @@ int
 update_ios_latency(struct ios_conf *conf, call_frame_t *frame,
                    glusterfs_fop_t op)
 {
-    double elapsed;
+    int64_t elapsed;
     struct timespec *begin, *end;
 
     begin = &frame->begin;
     end = &frame->end;
 
-    elapsed = gf_tsdiff(begin, end) / 1000.0;
+    elapsed = gf_tsdiff(begin, end);
 
     update_ios_latency_stats(&conf->cumulative, elapsed, op);
     update_ios_latency_stats(&conf->incremental, elapsed, op);
@@ -3723,7 +3718,7 @@ reconfigure(xlator_t *this, dict_t *options)
     int log_format = -1;
     int logger = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t old_dump_interval;
     int32_t threads;
 
@@ -3765,10 +3760,10 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("ios-dump-format", dump_format_str, options, str, out);
     ios_set_log_format_code(conf, dump_format_str);
     if (conf->ios_sample_interval) {
-        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
-                         int32, out);
+        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size,
+                         options, int32, out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     GF_OPTION_RECONF("sys-log-level", sys_log_str, options, str, out);
@@ -3821,7 +3816,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_io_stats_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_io_stats_mt_end);
 
     if (ret != 0) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -3885,7 +3880,7 @@ init(xlator_t *this)
     int log_level = -1;
     int ret = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t threads;
 
     if (!this)
@@ -3951,7 +3946,7 @@ init(xlator_t *this)
         GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
                        out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     ret = ios_init_sample_buf(conf);
@@ -4454,24 +4449,26 @@ struct volume_options options[] = {
     {.key = {"threads"}, .type = GF_OPTION_TYPE_INT},
     {.key = {"brick-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
      .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on bricks"},
+                    "maximum amount of threads that can be created on bricks."},
     {.key = {"client-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT |
+              OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
-     .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on clients"},
+     .description =
+         "When global threading is used, this value determines the "
+         "maximum amount of threads that can be created on clients."},
     {.key = {"volume-id"},
      .type = GF_OPTION_TYPE_STR,
      .op_version = {GD_OP_VERSION_7_1},

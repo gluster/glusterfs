@@ -907,7 +907,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_leases_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_leases_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_WARNING, ENOMEM, LEASE_MSG_NO_MEM,
@@ -972,7 +972,7 @@ reconfigure(xlator_t *this, dict_t *options)
     */
 
     GF_OPTION_RECONF("lease-lock-recall-timeout", priv->recall_lease_timeout,
-                     options, int32, out);
+                     options, time, out);
 
     ret = 0;
 out:
@@ -994,7 +994,7 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("leases", priv->leases_enabled, bool, out);
     GF_OPTION_INIT("lease-lock-recall-timeout", priv->recall_lease_timeout,
-                   int32, out);
+                   time, out);
     pthread_mutex_init(&priv->mutex, NULL);
     INIT_LIST_HEAD(&priv->client_list);
     INIT_LIST_HEAD(&priv->recall_list);

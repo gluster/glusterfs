@@ -52,7 +52,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_afr_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_afr_mt_end);
 
     if (ret != 0) {
         return ret;
@@ -141,16 +141,18 @@ afr_handle_anon_inode_options(afr_private_t *priv, dict_t *options)
     char *volfile_id_str = NULL;
     uuid_t anon_inode_gfid = {0};
 
-    /*If volume id is not present don't enable anything*/
+    /* If volume id is not present don't enable anything. */
     if (dict_get_str(options, "volume-id", &volfile_id_str))
         return;
-    GF_ASSERT(strlen(AFR_ANON_DIR_PREFIX) + strlen(volfile_id_str) <= NAME_MAX);
-    /*anon_inode_name is not supposed to change once assigned*/
+
+    /* Note anon_inode_name is not supposed to change once assigned. */
     if (!priv->anon_inode_name[0]) {
-        snprintf(priv->anon_inode_name, sizeof(priv->anon_inode_name), "%s-%s",
-                 AFR_ANON_DIR_PREFIX, volfile_id_str);
+        int nr = snprintf(priv->anon_inode_name, NAME_MAX, "%s-%s",
+                          AFR_ANON_DIR_PREFIX, volfile_id_str);
+        /* Check whether an output was not truncated. */
+        GF_ASSERT(nr < NAME_MAX);
         gf_uuid_parse(volfile_id_str, anon_inode_gfid);
-        /*Flip a bit to make sure volfile-id and anon-gfid are not same*/
+        /* Flip a bit to make sure volfile-id and anon-gfid are not same. */
         anon_inode_gfid[0] ^= 1;
         uuid_utoa_r(anon_inode_gfid, priv->anon_gfid_str);
     }
@@ -162,7 +164,7 @@ reconfigure(xlator_t *this, dict_t *options)
     afr_private_t *priv = NULL;
     xlator_t *read_subvol = NULL;
     int read_subvol_index = -1;
-    int timeout_old = 0;
+    time_t timeout_old = 0;
     int ret = -1;
     int index = -1;
     char *qtype = NULL;
@@ -275,8 +277,6 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("post-op-delay-secs", priv->post_op_delay_secs, options,
                      uint32, out);
 
-    GF_OPTION_RECONF(AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, options,
-                     size_uint64, out);
     /* Reset this so we re-discover in case the topology changed.  */
     GF_OPTION_RECONF("ensure-durability", priv->ensure_durability, options,
                      bool, out);
@@ -288,7 +288,7 @@ reconfigure(xlator_t *this, dict_t *options)
                      out);
 
     timeout_old = priv->shd.timeout;
-    GF_OPTION_RECONF("heal-timeout", priv->shd.timeout, options, int32, out);
+    GF_OPTION_RECONF("heal-timeout", priv->shd.timeout, options, time, out);
 
     GF_OPTION_RECONF("consistent-metadata", priv->consistent_metadata, options,
                      bool, out);
@@ -552,8 +552,6 @@ init(xlator_t *this)
     GF_OPTION_INIT("eager-lock", priv->eager_lock, bool, out);
     GF_OPTION_INIT("quorum-type", qtype, str, out);
     GF_OPTION_INIT("quorum-count", priv->quorum_count, uint32, out);
-    GF_OPTION_INIT(AFR_SH_READDIR_SIZE_KEY, priv->sh_readdir_size, size_uint64,
-                   out);
     fix_quorum_options(this, priv, qtype, this->options);
 
     GF_OPTION_INIT("post-op-delay-secs", priv->post_op_delay_secs, uint32, out);
@@ -562,7 +560,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("self-heal-daemon", priv->shd.enabled, bool, out);
 
     GF_OPTION_INIT("iam-self-heal-daemon", priv->shd.iamshd, bool, out);
-    GF_OPTION_INIT("heal-timeout", priv->shd.timeout, int32, out);
+    GF_OPTION_INIT("heal-timeout", priv->shd.timeout, time, out);
 
     GF_OPTION_INIT("consistent-metadata", priv->consistent_metadata, bool, out);
     GF_OPTION_INIT("consistent-io", priv->consistent_io, bool, out);
@@ -661,8 +659,6 @@ init(xlator_t *this)
         ret = -1;
         goto out;
     }
-
-    priv->root_inode = NULL;
 
     ret = 0;
 out:
@@ -987,12 +983,12 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_INT,
      .min = 1,
      .max = 1024,
-     .default_value = "1",
+     .default_value = "8",
      .op_version = {1},
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .tags = {"replicate"},
-     .description = "Maximum number blocks per file for which self-heal "
-                    "process would be applied simultaneously."},
+     .description = "Maximum number of 128KB blocks per file for which "
+                    "self-heal process would be applied simultaneously."},
     {.key = {"metadata-self-heal"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "off",
@@ -1168,9 +1164,10 @@ struct volume_options options[] = {
                        "enhance overlap of adjacent write operations.",
     },
     {
-        .key = {AFR_SH_READDIR_SIZE_KEY},
+        .key = {"self-heal-readdir-size"},
         .type = GF_OPTION_TYPE_SIZET,
-        .description = "readdirp size for performing entry self-heal",
+        .description = "This option exists only for backward compatibility "
+                       "and configuring it doesn't have any effect",
         .min = 1024,
         .max = 131072,
         .op_version = {2},
@@ -1186,7 +1183,10 @@ struct volume_options options[] = {
         .tags = {"replicate"},
         .description = "Afr performs fsyncs for transactions if this "
                        "option is on to make sure the changelogs/data is "
-                       "written to the disk",
+                       "written to the disk. Please note that disabling this "
+                       "option can lead to bad data if the data couldn't be "
+                       "synced by the brick machine's kernel, because of "
+                       "hardware failure etc.",
         .default_value = "on",
     },
     {
@@ -1240,16 +1240,17 @@ struct volume_options options[] = {
     },
     {.key = {"shd-max-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 64,
-     .default_value = "1",
+     .min = SHD_MIN_THREADS,
+     .max = SHD_MAX_THREADS,
+     .default_value = TOSTRING(SHD_DEFAULT_THREADS),
      .op_version = {GD_OP_VERSION_3_7_12},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
-     .description = "Maximum number of parallel heals SHD can do per "
-                    "local brick. This can substantially lower heal times"
-                    ", but can also crush your bricks if you don't have "
-                    "the storage hardware to support this."},
+     .description = "Maximum number of parallel heals SHD can do per local "
+                    "brick. This can substantially lower heal times, but can "
+                    "also crush your bricks if you don't have the storage "
+                    "hardware to support this."},
     {
         .key = {"shd-wait-qlength"},
         .type = GF_OPTION_TYPE_INT,

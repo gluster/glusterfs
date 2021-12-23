@@ -38,13 +38,17 @@
 #define GEO_REP_CMD_INDEX 1
 #define GEO_REP_CMD_CONFIG_INDEX 4
 
+/* Default RPC call timeout, in seconds. */
+#define CLI_DEFAULT_CONN_TIMEOUT 120
+
+/* Special timeout for volume profile, volume
+   heal and ganesha RPC calls, in seconds. */
+#define CLI_TEN_MINUTES_TIMEOUT 600
+
 enum argp_option_keys {
     ARGP_DEBUG_KEY = 133,
     ARGP_PORT_KEY = 'p',
 };
-
-extern int cli_default_conn_timeout;
-extern int cli_ten_minutes_timeout;
 
 typedef enum {
     COLD_BRICK_COUNT,
@@ -114,6 +118,13 @@ struct cli_state {
     /* for events dispatching */
     glusterfs_ctx_t *ctx;
 
+    /* Client to perform RPC calls to glusterd. */
+    struct rpc_clnt *rpc;
+
+    /* Client to perform RPC calls to quotad.
+       May be NULL if quotad is not running. */
+    struct rpc_clnt *quotad_rpc;
+
     /* registry of known commands */
     struct cli_cmd_tree tree;
 
@@ -135,6 +146,8 @@ struct cli_state {
     int remote_port;
     int mode;
     int await_connected;
+
+    time_t default_conn_timeout;
 
     char *log_file;
     gf_loglevel_t log_level;
@@ -188,13 +201,9 @@ typedef struct cli_volume_status cli_volume_status_t;
 
 typedef struct cli_local cli_local_t;
 
+typedef struct cli_state cli_state_t;
+
 typedef ssize_t (*cli_serialize_t)(struct iovec outmsg, void *args);
-
-extern struct cli_state *global_state; /* use only in readline callback */
-
-extern struct rpc_clnt *global_quotad_rpc;
-
-extern struct rpc_clnt *global_rpc;
 
 extern rpc_clnt_prog_t *cli_rpc_prog;
 

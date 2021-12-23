@@ -25,7 +25,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/events.h>
 #include <glusterfs/upcall-utils.h>
@@ -265,12 +264,12 @@ afr_add_lock_to_saved_locks(call_frame_t *frame, xlator_t *this)
     info->fd = fd_ref(local->fd);
     info->cmd = local->cont.lk.cmd;
     info->pid = frame->root->pid;
-    info->flock = local->cont.lk.user_flock;
+    gf_flock_copy(&info->flock, &local->cont.lk.user_flock);
     info->xdata_req = dict_copy_with_ref(local->xdata_req, NULL);
     if (!info->xdata_req) {
         goto cleanup;
     }
-    info->lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&info->lk_owner, &frame->root->lk_owner);
     info->locked_nodes = GF_MALLOC(
         sizeof(*info->locked_nodes) * priv->child_count, gf_afr_mt_char);
     if (!info->locked_nodes) {
@@ -329,7 +328,7 @@ static int
 afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = this->private;
-    struct gf_flock flock = local->cont.lk.user_flock;
+    struct gf_flock *user_flock;
     afr_lk_heal_info_t *info = NULL;
     afr_fd_ctx_t *fd_ctx = NULL;
     int ret = -EINVAL;
@@ -339,10 +338,11 @@ afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
         goto out;
     }
 
+    user_flock = &local->cont.lk.user_flock;
     info = fd_ctx->lk_heal_info;
-    if ((info->flock.l_start != flock.l_start) ||
-        (info->flock.l_whence != flock.l_whence) ||
-        (info->flock.l_len != flock.l_len)) {
+    if ((info->flock.l_start != user_flock->l_start) ||
+        (info->flock.l_whence != user_flock->l_whence) ||
+        (info->flock.l_len != user_flock->l_len)) {
         /*TODO: Compare lkowners too.*/
         goto out;
     }
@@ -355,7 +355,7 @@ afr_remove_lock_from_saved_locks(afr_local_t *local, xlator_t *this)
 
     afr_lk_heal_info_cleanup(info);
     fd_ctx->lk_heal_info = NULL;
-    ret = 0;
+    return 0;
 out:
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_LK_HEAL_DOM,
@@ -398,7 +398,7 @@ afr_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         gf_msg(this->name, GF_LOG_ERROR, op_errno, AFR_MSG_LK_HEAL_DOM,
                "Failed getlk for %s", uuid_utoa(local->fd->inode->gfid));
     } else {
-        local->cont.lk.getlk_rsp[i] = *lock;
+        gf_flock_copy(&local->cont.lk.getlk_rsp[i], lock);
     }
 
     syncbarrier_wake(&local->barrier);
@@ -411,16 +411,14 @@ afr_does_lk_owner_match(call_frame_t *frame, afr_private_t *priv,
 {
     int i = 0;
     afr_local_t *local = frame->local;
-    struct gf_flock flock = {
-        0,
-    };
+    struct gf_flock flock;
     gf_boolean_t ret = _gf_true;
     char *wind_on = alloca0(priv->child_count);
     unsigned char *success_replies = alloca0(priv->child_count);
     local->cont.lk.getlk_rsp = GF_CALLOC(sizeof(*local->cont.lk.getlk_rsp),
                                          priv->child_count, gf_afr_mt_gf_lock);
 
-    flock = info->flock;
+    gf_flock_copy(&flock, &info->flock);
     for (i = 0; i < priv->child_count; i++) {
         if (info->locked_nodes[i])
             wind_on[i] = 1;
@@ -1576,7 +1574,6 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
     int i = 0;
     int idx = afr_index_for_transaction_type(type);
     void *pending_raw = NULL;
-    int pending[3];
     int ret = 0;
 
     priv = this->private;
@@ -1585,9 +1582,8 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
         ret = dict_get_ptr(xdata, priv->pending_key[i], &pending_raw);
         if (ret) /* no pending flags */
             continue;
-        memcpy(pending, pending_raw, sizeof(pending));
 
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             accused[i] = 1;
     }
 
@@ -2740,6 +2736,8 @@ afr_local_cleanup(afr_local_t *local, xlator_t *this)
             dict_unref(local->cont.entrylk.xdata);
     }
 
+    GF_FREE(local->need_open);
+
     if (local->xdata_req)
         dict_unref(local->xdata_req);
 
@@ -3039,7 +3037,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         /* If we were called from glfsheal and there is still a gfid
          * mismatch, succeed the lookup and let glfsheal print the
          * response via gfid-heal-msg.*/
-        if (!dict_get_str_sizen(local->xattr_req, "gfid-heal-msg",
+        if (!dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg",
                                 &gfid_heal_msg))
             goto cant_interpret;
 
@@ -3094,7 +3092,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         goto error;
     }
 
-    ret = dict_get_str_sizen(local->xattr_req, "gfid-heal-msg", &gfid_heal_msg);
+    ret = dict_get_str_sizen(local->xattr_rsp, "gfid-heal-msg", &gfid_heal_msg);
     if (!ret) {
         ret = dict_set_str_sizen(local->replies[read_subvol].xdata,
                                  "gfid-heal-msg", gfid_heal_msg);
@@ -3303,7 +3301,6 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
     int idx = -1;
     afr_private_t *priv = NULL;
     void *pending_raw = NULL;
-    int *pending_int = NULL;
     int i = 0;
 
     priv = this->private;
@@ -3311,9 +3308,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
 
     if (dict_get_ptr(xdata, AFR_DIRTY, &pending_raw) == 0) {
         if (pending_raw) {
-            pending_int = pending_raw;
-
-            if (ntoh32(pending_int[idx]))
+            if (*((int *)pending_raw + idx))
                 return _gf_true;
         }
     }
@@ -3323,9 +3318,7 @@ afr_is_pending_set(xlator_t *this, dict_t *xdata, int type)
             continue;
         if (!pending_raw)
             continue;
-        pending_int = pending_raw;
-
-        if (ntoh32(pending_int[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
@@ -3441,9 +3434,12 @@ afr_lookup_selfheal_wrap(void *opaque)
     local = frame->local;
     this = frame->this;
     loc_pargfid(&local->loc, pargfid);
+    if (!local->xattr_rsp)
+        local->xattr_rsp = dict_new();
 
     ret = afr_selfheal_name(frame->this, pargfid, local->loc.name,
-                            &local->cont.lookup.gfid_req, local->xattr_req);
+                            &local->cont.lookup.gfid_req, local->xattr_req,
+                            local->xattr_rsp);
     if (ret == -EIO)
         goto unwind;
 
@@ -3459,7 +3455,8 @@ afr_lookup_selfheal_wrap(void *opaque)
     return 0;
 
 unwind:
-    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, NULL, NULL);
+    AFR_STACK_UNWIND(lookup, frame, -1, EIO, NULL, NULL, local->xattr_rsp,
+                     NULL);
     return 0;
 }
 
@@ -3877,9 +3874,6 @@ afr_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
     }
 
     if (__is_root_gfid(loc->inode->gfid)) {
-        if (!priv->root_inode)
-            priv->root_inode = inode_ref(loc->inode);
-
         if (priv->choose_local && !priv->did_discovery) {
             /* Logic to detect which subvolumes of AFR are
                local, in order to prefer them for reads
@@ -4062,7 +4056,7 @@ out:
     return 0;
 }
 
-void
+static void
 _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
 {
     afr_private_t *priv = this->private;
@@ -4072,6 +4066,7 @@ _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
         {
             list_del(&fd_ctx->lk_heal_info->pos);
         }
+        UNLOCK(&priv->lock);
         afr_lk_heal_info_cleanup(fd_ctx->lk_heal_info);
         fd_ctx->lk_heal_info = NULL;
     }
@@ -4109,62 +4104,17 @@ afr_release(xlator_t *this, fd_t *fd)
     return 0;
 }
 
-afr_fd_ctx_t *
-__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    uint64_t ctx = 0;
-    int ret = 0;
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret < 0) {
-        ret = __afr_fd_ctx_set(this, fd);
-        if (ret < 0)
-            goto out;
-
-        ret = __fd_ctx_get(fd, this, &ctx);
-        if (ret < 0)
-            goto out;
-    }
-
-    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
-out:
-    return fd_ctx;
-}
-
-afr_fd_ctx_t *
-afr_fd_ctx_get(fd_t *fd, xlator_t *this)
-{
-    afr_fd_ctx_t *fd_ctx = NULL;
-
-    LOCK(&fd->lock);
-    {
-        fd_ctx = __afr_fd_ctx_get(fd, this);
-    }
-    UNLOCK(&fd->lock);
-
-    return fd_ctx;
-}
-
-int
+static afr_fd_ctx_t *
 __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
 {
     afr_private_t *priv = NULL;
     int ret = -1;
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
     int i = 0;
 
     VALIDATE_OR_GOTO(this->private, out);
-    VALIDATE_OR_GOTO(fd, out);
 
     priv = this->private;
-
-    ret = __fd_ctx_get(fd, this, &ctx);
-
-    if (ret == 0)
-        goto out;
 
     fd_ctx = GF_CALLOC(1, sizeof(afr_fd_ctx_t), gf_afr_mt_afr_fd_ctx_t);
     if (!fd_ctx) {
@@ -4193,9 +4143,42 @@ __afr_fd_ctx_set(xlator_t *this, fd_t *fd)
     if (ret)
         gf_msg_debug(this->name, 0, "failed to set fd ctx (%p)", fd);
 out:
-    if (ret && fd_ctx)
+    if (ret && fd_ctx) {
         _afr_cleanup_fd_ctx(this, fd_ctx);
-    return ret;
+        fd_ctx = NULL;
+    }
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+__afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    uint64_t ctx = 0;
+    int ret = 0;
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    ret = __fd_ctx_get(fd, this, &ctx);
+
+    if (ret < 0) {
+        fd_ctx = __afr_fd_ctx_set(this, fd);
+    } else {
+        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
+    }
+    return fd_ctx;
+}
+
+afr_fd_ctx_t *
+afr_fd_ctx_get(fd_t *fd, xlator_t *this)
+{
+    afr_fd_ctx_t *fd_ctx = NULL;
+
+    LOCK(&fd->lock);
+    {
+        fd_ctx = __afr_fd_ctx_get(fd, this);
+    }
+    UNLOCK(&fd->lock);
+
+    return fd_ctx;
 }
 
 /* {{{ flush */
@@ -4525,7 +4508,8 @@ afr_fop_lock_proceed(call_frame_t *frame)
         case GF_FOP_INODELK:
         case GF_FOP_FINODELK:
             local->cont.inodelk.cmd = local->cont.inodelk.in_cmd;
-            local->cont.inodelk.flock = local->cont.inodelk.in_flock;
+            gf_flock_copy(&local->cont.inodelk.flock,
+                          &local->cont.inodelk.in_flock);
             if (local->cont.inodelk.xdata)
                 dict_unref(local->cont.inodelk.xdata);
             local->cont.inodelk.xdata = NULL;
@@ -4881,8 +4865,8 @@ afr_handle_inodelk(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
 
     local->cont.inodelk.in_cmd = cmd;
     local->cont.inodelk.cmd = cmd;
-    local->cont.inodelk.in_flock = *flock;
-    local->cont.inodelk.flock = *flock;
+    gf_flock_copy(&local->cont.inodelk.in_flock, flock);
+    gf_flock_copy(&local->cont.inodelk.flock, flock);
     if (xdata)
         local->xdata_req = dict_ref(xdata);
 
@@ -5162,7 +5146,7 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         local->op_ret = 0;
         local->op_errno = 0;
         local->cont.lk.locked_nodes[child_index] = 1;
-        local->cont.lk.ret_flock = *lock;
+        gf_flock_copy(&local->cont.lk.ret_flock, lock);
     }
 
     child_index++;
@@ -5211,7 +5195,7 @@ afr_lk_txn_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local->op_ret = 0;
         local->op_errno = 0;
         local->cont.lk.locked_nodes[child_index] = 1;
-        local->cont.lk.ret_flock = *lock;
+        gf_flock_copy(&local->cont.lk.ret_flock, lock);
     }
     syncbarrier_wake(&local->barrier);
     return 0;
@@ -5345,19 +5329,19 @@ afr_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
     local->fd = fd_ref(fd);
     local->cont.lk.cmd = cmd;
-    local->cont.lk.user_flock = *flock;
-    local->cont.lk.ret_flock = *flock;
-    if (xdata)
+    gf_flock_copy(&local->cont.lk.user_flock, flock);
+    gf_flock_copy(&local->cont.lk.ret_flock, flock);
+    if (xdata) {
         local->xdata_req = dict_ref(xdata);
-
-    if (afr_is_lock_mode_mandatory(xdata)) {
-        ret = synctask_new(this->ctx->env, afr_lk_transaction,
-                           afr_lk_transaction_cbk, frame, frame);
-        if (ret) {
-            op_errno = ENOMEM;
-            goto out;
+        if (afr_is_lock_mode_mandatory(xdata)) {
+            ret = synctask_new(this->ctx->env, afr_lk_transaction,
+                               afr_lk_transaction_cbk, frame, frame);
+            if (ret) {
+                op_errno = ENOMEM;
+                goto out;
+            }
+            return 0;
         }
-        return 0;
     }
 
     STACK_WIND_COOKIE(frame, afr_lk_cbk, (void *)(long)0, priv->children[i],
@@ -6545,6 +6529,14 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
     }
     local->is_new_entry = _gf_false;
 
+    local->need_open = GF_CALLOC(priv->child_count, sizeof(*local->need_open),
+                                 gf_afr_mt_char);
+    if (!local->need_open) {
+        if (op_errno)
+            *op_errno = ENOMEM;
+        goto out;
+    }
+
     INIT_LIST_HEAD(&local->healer);
     return 0;
 out:
@@ -6710,6 +6702,7 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     int m_idx = 0;
     int d_idx = 0;
     int ret = 0;
+    uint32_t hton32_1;
 
     m_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
     d_idx = afr_index_for_transaction_type(AFR_DATA_TRANSACTION);
@@ -6720,18 +6713,19 @@ afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
     if (!changelog)
         goto out;
 
+    hton32_1 = htobe32(1);
     for (i = 0; i < priv->child_count; i++) {
         if (!pending[i])
             continue;
 
-        changelog[i][m_idx] = hton32(1);
+        changelog[i][m_idx] = hton32_1;
         if (idx != -1)
-            changelog[i][idx] = hton32(1);
+            changelog[i][idx] = hton32_1;
         /* If the newentry marking is on a newly created directory,
          * then mark it with the full-heal indicator.
          */
         if ((IA_ISDIR(iat)) && (priv->esh_granular))
-            changelog[i][d_idx] = hton32(1);
+            changelog[i][d_idx] = hton32_1;
     }
     ret = afr_set_pending_dict(priv, xattr, changelog);
     if (ret < 0) {
@@ -7490,16 +7484,16 @@ afr_fav_child_reset_sink_xattrs(void *opaque)
  */
 int
 afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
-                                    char *buf, const char *default_str,
-                                    int32_t *serz_len, char delimiter)
+                                    char *buf, size_t size,
+                                    const char *default_str, int32_t *serz_len,
+                                    char delimiter)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     char *xattr = NULL;
     int i = 0;
-    int len = 0;
+    size_t len = 0;
     int keylen = 0;
-    size_t str_len = 0;
     int ret = -1;
 
     priv = this->private;
@@ -7508,11 +7502,8 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
     keylen = strlen(local->cont.getxattr.name);
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid || local->replies[i].op_ret) {
-            str_len = strlen(default_str);
-            buf = strncat(buf, default_str, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
+            len += snprintf(buf + len, size - len, "%s%c", default_str,
+                            delimiter);
         } else {
             ret = dict_get_strn(local->replies[i].xattr,
                                 local->cont.getxattr.name, keylen, &xattr);
@@ -7523,12 +7514,10 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
                        i);
                 goto out;
             }
-            str_len = strlen(xattr);
-            buf = strncat(buf, xattr, str_len);
-            len += str_len;
-            buf[len++] = delimiter;
-            buf[len] = '\0';
+            len += snprintf(buf + len, size - len, "%s%c", xattr, delimiter);
         }
+        /* No overflow but buffer size is not enough. */
+        GF_ASSERT(len <= size);
     }
     buf[--len] = '\0'; /*remove the last delimiter*/
     if (serz_len)
@@ -7644,9 +7633,7 @@ gf_boolean_t
 afr_ta_is_fop_called_from_synctask(xlator_t *this)
 {
     struct synctask *task = NULL;
-    gf_lkowner_t tmp_owner = {
-        0,
-    };
+    gf_lkowner_t tmp_owner;
 
     task = synctask_get();
     if (!task)
@@ -7866,8 +7853,6 @@ afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv, int child)
     ret = dict_get_ptr(dict, priv->pending_key[child], (void *)&pending);
     if (ret == 0) {
         for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
-            /* Not doing a ntoh32(pending) as we just want to check
-             * if it is non-zero or not. */
             if (pending[i]) {
                 return _gf_true;
             }

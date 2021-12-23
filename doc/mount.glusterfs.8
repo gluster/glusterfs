@@ -68,6 +68,9 @@ Enable file capability setting and retrival
 .TP
 \fBthin-client
 Enables thin mount and connects via gfproxyd daemon
+.TP
+\fBlocaltime-logging
+Use local timestamps instead of UTC in mount log entries
 
 .PP
 .SS "Advanced options"
@@ -104,9 +107,12 @@ Set the subdirectory mount option [default: NULL, ie, no subdirectory mount]
 .TP
 \fBbackup\-volfile\-servers=\fRSERVERLIST
 Provide list of backup volfile servers in the following format [default: None]
+If use IPv6 address in SERVERLIST, it is required to use '[' and ']' to surround IPv6 address.
 
 \fB$ mount \-t glusterfs \-obackup\-volfile\-servers=<server2>:\fR
 \fB       <server3>:...:<serverN> <server1>:/<volname> <mount_point>\fR
+\fB$ mount \-t glusterfs \-obackup\-volfile\-servers=<[ipv6_addr2]>:\fR
+\fB       <[ipv6_addr3]>:...:<[ipv6_addrN]> <ipv6_addr1>:/<volname> <mount_point>\fR
 
 .TP
 .TP

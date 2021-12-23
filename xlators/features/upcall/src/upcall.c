@@ -2117,7 +2117,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_upcall_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_upcall_mt_end);
 
     if (ret != 0) {
         gf_msg("upcall", GF_LOG_WARNING, 0, UPCALL_MSG_NO_MEMORY,
@@ -2226,7 +2226,7 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("cache-invalidation", priv->cache_invalidation_enabled,
                      options, bool, out);
     GF_OPTION_RECONF("cache-invalidation-timeout",
-                     priv->cache_invalidation_timeout, options, int32, out);
+                     priv->cache_invalidation_timeout, options, time, out);
 
     ret = 0;
 
@@ -2263,7 +2263,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("cache-invalidation", priv->cache_invalidation_enabled, bool,
                    out);
     GF_OPTION_INIT("cache-invalidation-timeout",
-                   priv->cache_invalidation_timeout, int32, out);
+                   priv->cache_invalidation_timeout, time, out);
 
     LOCK_INIT(&priv->inode_ctx_lk);
     INIT_LIST_HEAD(&priv->inode_ctx_list);

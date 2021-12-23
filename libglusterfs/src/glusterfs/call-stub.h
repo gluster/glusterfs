@@ -20,10 +20,6 @@
 typedef struct _call_stub {
     struct list_head list;
     call_frame_t *frame;
-    struct mem_pool *stub_mem_pool; /* pointer to stub mempool in ctx_t */
-    uint32_t jnl_meta_len;
-    uint32_t jnl_data_len;
-    void (*serialize)(struct _call_stub *, char *, char *);
     union {
         fop_lookup_t lookup;
         fop_stat_t stat;
@@ -136,8 +132,8 @@ typedef struct _call_stub {
         fop_copy_file_range_cbk_t copy_file_range;
     } fn_cbk;
     glusterfs_fop_t fop;
-    gf_boolean_t poison;
-    char wind;
+    uint32_t poison;
+    uint32_t wind;
     default_args_t args;
     default_args_cbk_t args_cbk;
 } call_stub_t;

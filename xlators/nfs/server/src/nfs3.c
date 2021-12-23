@@ -686,10 +686,6 @@ nfs3svc_submit_reply(rpcsvc_request_t *req, void *arg, nfs3_serializer sfunc)
 
     ret = 0;
 ret:
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (NULL != iob)
         iobuf_unref(iob);
     if (NULL != iobref)
@@ -745,10 +741,6 @@ nfs3svc_submit_vector_reply(rpcsvc_request_t *req, void *arg,
 
     ret = 0;
 ret:
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     if (NULL != iob)
         iobuf_unref(iob);
     if (new_iobref)
@@ -4196,7 +4188,7 @@ nfs3svc_readdir_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     stat = NFS3_OK;
 
     /* do inode linking here */
-    gf_link_inodes_from_dirent(this, cs->fd->inode, &cs->entries);
+    gf_link_inodes_from_dirent(cs->fd->inode, &cs->entries);
 
 nfs3err:
     if (cs->maxcount == 0) {

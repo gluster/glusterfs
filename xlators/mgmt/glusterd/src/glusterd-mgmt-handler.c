@@ -35,10 +35,7 @@ glusterd_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, int32_t status,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -50,7 +47,7 @@ glusterd_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, int32_t status,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
 
-    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
+    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
 
     return ret;
 }
@@ -61,11 +58,9 @@ glusterd_synctasked_mgmt_v3_lock(rpcsvc_request_t *req,
                                  glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(ctx);
     GF_ASSERT(ctx->dict);
@@ -88,16 +83,14 @@ glusterd_op_state_machine_mgmt_v3_lock(rpcsvc_request_t *req,
                                        glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
-    glusterd_txn_opinfo_init(&txn_op_info, NULL, &lock_req->op, ctx->dict, req);
+    glusterd_txn_opinfo_init(&txn_op_info, 0, &lock_req->op, ctx->dict, req);
 
     ret = glusterd_set_txn_opinfo(&lock_req->txn_id, &txn_op_info);
     if (ret) {
@@ -127,16 +120,14 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
     };
     int32_t ret = -1;
     glusterd_op_lock_ctx_t *ctx = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_synctasked = _gf_false;
     gf_boolean_t free_ctx = _gf_false;
     glusterd_conf_t *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
-    this = THIS;
     conf = this->private;
     GF_ASSERT(conf);
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &lock_req,
@@ -193,7 +184,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
      * mgmt_v3_lock_timeout should be set to default value or we
      * need to change the value according to timeout value
      * i.e, timeout + 120 seconds. */
-    ret = dict_get_uint32(ctx->dict, "timeout", &timeout);
+    ret = dict_get_time(ctx->dict, "timeout", &timeout);
     if (!ret)
         conf->mgmt_v3_lock_timeout = timeout + 120;
 
@@ -248,10 +239,8 @@ glusterd_mgmt_v3_pre_validate_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -287,14 +276,12 @@ glusterd_handle_pre_validate_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_pre_val_req op_req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
@@ -377,10 +364,8 @@ glusterd_mgmt_v3_brick_op_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -415,13 +400,11 @@ glusterd_handle_brick_op_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_brick_op_req op_req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
@@ -504,10 +487,8 @@ glusterd_mgmt_v3_commit_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -543,14 +524,12 @@ glusterd_handle_commit_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_commit_req op_req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
@@ -634,10 +613,8 @@ glusterd_mgmt_v3_post_commit_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -673,14 +650,12 @@ glusterd_handle_post_commit_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_post_commit_req op_req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
@@ -764,10 +739,8 @@ glusterd_mgmt_v3_post_validate_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -802,13 +775,11 @@ glusterd_handle_post_validate_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_post_val_req op_req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
@@ -890,10 +861,7 @@ glusterd_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, int32_t status)
         {0},
     };
     int ret = -1;
-    xlator_t *this = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     rsp.op_ret = status;
@@ -905,7 +873,7 @@ glusterd_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, int32_t status)
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
 
-    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
+    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
 
     return ret;
 }
@@ -916,10 +884,8 @@ glusterd_syctasked_mgmt_v3_unlock(rpcsvc_request_t *req,
                                   glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(ctx);
 
@@ -942,10 +908,8 @@ glusterd_op_state_machine_mgmt_v3_unlock(rpcsvc_request_t *req,
                                          glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = glusterd_op_sm_inject_event(GD_OP_EVENT_UNLOCK, &lock_req->txn_id,
@@ -969,12 +933,10 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
     };
     int32_t ret = -1;
     glusterd_op_lock_ctx_t *ctx = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_synctasked = _gf_false;
     gf_boolean_t free_ctx = _gf_false;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &lock_req,
@@ -1122,9 +1084,6 @@ static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
                                    GLUSTERD_MGMT_V3_BRICK_OP, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_COMMIT] = {"COMMIT", glusterd_handle_commit, NULL,
                                  GLUSTERD_MGMT_V3_COMMIT, DRC_NA, 0},
-    [GLUSTERD_MGMT_V3_POST_COMMIT] = {"POST_COMMIT",
-                                      glusterd_handle_post_commit, NULL,
-                                      GLUSTERD_MGMT_V3_POST_COMMIT, DRC_NA, 0},
     [GLUSTERD_MGMT_V3_POST_VALIDATE] = {"POST_VAL",
                                         glusterd_handle_post_validate, NULL,
                                         GLUSTERD_MGMT_V3_POST_VALIDATE, DRC_NA,
@@ -1132,6 +1091,10 @@ static rpcsvc_actor_t gd_svc_mgmt_v3_actors[GLUSTERD_MGMT_V3_MAXVALUE] = {
     [GLUSTERD_MGMT_V3_UNLOCK] = {"MGMT_V3_UNLOCK",
                                  glusterd_handle_mgmt_v3_unlock, NULL,
                                  GLUSTERD_MGMT_V3_UNLOCK, DRC_NA, 0},
+    [GLUSTERD_MGMT_V3_POST_COMMIT] = {"POST_COMMIT",
+                                      glusterd_handle_post_commit, NULL,
+                                      GLUSTERD_MGMT_V3_POST_COMMIT, DRC_NA, 0},
+
 };
 
 struct rpcsvc_program gd_svc_mgmt_v3_prog = {

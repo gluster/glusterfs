@@ -51,12 +51,10 @@ get_snap_volname_and_volinfo(const char *volpath, char **volname,
     char *volname_token = NULL;
     char *vol = NULL;
     glusterd_snap_t *snap = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *tmp_str_token = NULL;
     char *volfile_token = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(volpath);
     GF_ASSERT(volinfo);
 
@@ -189,7 +187,6 @@ glusterd_get_client_per_brick_volfile(glusterd_volinfo_t *volinfo,
     glusterd_conf_t *priv = NULL;
     int32_t ret = -1;
 
-    GF_VALIDATE_OR_GOTO("glusterd", THIS, out);
     priv = THIS->private;
     GF_VALIDATE_OR_GOTO(THIS->name, priv, out);
 
@@ -222,13 +219,11 @@ build_volfile_path(char *volume_id, char *path, size_t path_len,
     char path_prefix[PATH_MAX] = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     int32_t len = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(volume_id);
@@ -533,11 +528,9 @@ glusterd_get_args_from_dict(gf_getspec_req *args, peer_info_t *peerinfo,
     int client_max_op_version = 1;
     int client_min_op_version = 1;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *name = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(args);
     GF_ASSERT(peerinfo);
 
@@ -601,7 +594,7 @@ out:
 }
 
 /* Given the missed_snapinfo and snap_opinfo take the
- * missed lvm snapshot
+ * missed snapshot
  */
 int32_t
 glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
@@ -618,11 +611,9 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
     uuid_t snap_uuid = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *mnt_device = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(missed_snapinfo);
@@ -674,39 +665,6 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
         goto out;
     }
 
-    /* Fetch the device path */
-    mnt_device = glusterd_get_brick_mount_device(snap_opinfo->brick_path);
-    if (!mnt_device) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
-               "Getting device name for the"
-               "brick %s:%s failed",
-               brickinfo->hostname, snap_opinfo->brick_path);
-        ret = -1;
-        goto out;
-    }
-
-    device = glusterd_build_snap_device_path(mnt_device, snap_vol->volname,
-                                             snap_opinfo->brick_num - 1);
-    if (!device) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the snapshot "
-               "device name (volname: %s, snapname: %s)",
-               snap_vol->volname, snap->snapname);
-        ret = -1;
-        goto out;
-    }
-    if (snprintf(brickinfo->device_path, sizeof(brickinfo->device_path), "%s",
-                 device) >= sizeof(brickinfo->device_path)) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the device_path "
-               "(device_path: %s)",
-               brickinfo->device_path);
-        ret = -1;
-        goto out;
-    }
-
     /* Update the backend file-system type of snap brick in
      * snap volinfo. */
     ret = glusterd_update_mntopts(snap_opinfo->brick_path, brickinfo);
@@ -719,33 +677,28 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
          * the file-system type */
     }
 
-    ret = glusterd_take_lvm_snapshot(brickinfo, snap_opinfo->brick_path);
+    if (!glusterd_snapshot_probe(snap_opinfo->brick_path, brickinfo)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPSHOT_OP_FAILED,
+               "Volume does not support snapshots (%s)",
+               snap_opinfo->brick_path);
+        ret = -1;
+        goto out;
+    }
+
+    gf_strncpy(brickinfo->origin_path, snap_opinfo->brick_path,
+               sizeof(brickinfo->origin_path));
+
+    ret = brickinfo->snap->create(brickinfo, snap->snapname, snap_vol->volname,
+                                  snap_opinfo->brick_num - 1);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPSHOT_OP_FAILED,
                "Failed to take snapshot of %s", snap_opinfo->brick_path);
         goto out;
     }
 
-    /* After the snapshot both the origin brick (LVM brick) and
-     * the snapshot brick will have the same file-system label. This
-     * will cause lot of problems at mount time. Therefore we must
-     * generate a new label for the snapshot brick
-     */
-    ret = glusterd_update_fs_label(brickinfo);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_SET_INFO_FAIL,
-               "Failed to update "
-               "file-system label for %s brick",
-               brickinfo->path);
-        /* Failing to update label should not cause snapshot failure.
-         * Currently label is updated only for XFS and ext2/ext3/ext4
-         * file-system.
-         */
-    }
-
     /* Create and mount the snap brick */
-    ret = glusterd_snap_brick_create(snap_vol, brickinfo,
-                                     snap_opinfo->brick_num - 1, 0);
+    ret = glusterd_snap_brick_create(
+        snap_vol, brickinfo, snap_opinfo->brick_num - 1, 0, brickinfo->snap);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_CREATION_FAIL,
                "Failed to "
@@ -792,10 +745,8 @@ glusterd_take_missing_brick_snapshots(char *brick_name)
     glusterd_snap_op_t *snap_opinfo = NULL;
     int32_t ret = -1;
     gf_boolean_t update_list = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(brick_name);
@@ -929,7 +880,7 @@ __server_getspec(rpcsvc_request_t *req)
     };
     char addrstr[RPCSVC_PEER_STRLEN] = {0};
     peer_info_t *peerinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *dict = NULL;
     glusterd_peerinfo_t *peer = NULL;
     glusterd_conf_t *conf = NULL;
@@ -940,9 +891,6 @@ __server_getspec(rpcsvc_request_t *req)
         0,
     };
     int len = 0;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
@@ -1133,9 +1081,12 @@ fail:
     GF_FREE(brick_name);
 
     rsp.op_ret = ret;
-    if (rsp.op_ret < 0)
+    if (rsp.op_ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MOUNT_REQ_FAIL,
                "Failed to mount the volume");
+        if (!op_errno)
+            op_errno = ENOENT;
+    }
 
     if (op_errno)
         rsp.op_errno = gf_errno_to_error(op_errno);
@@ -1296,14 +1247,11 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
     glusterd_peerinfo_t *peer = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *uuid_str = NULL;
     uuid_t peer_uuid = {
         0,
     };
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!glusterd_have_peers() && !glusterd_have_volumes())
         return _gf_true;
@@ -1367,7 +1315,7 @@ int
 __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
 {
     dict_t *dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1381,7 +1329,6 @@ __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
     };
     dict_t *args_dict = NULL;
 
-    this = THIS;
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -1470,7 +1417,7 @@ int
 __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
 {
     dict_t *clnt_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1484,7 +1431,6 @@ __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
         0,
     };
 
-    this = THIS;
     conf = this->private;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
@@ -1565,7 +1511,6 @@ __server_get_volume_info(rpcsvc_request_t *req)
     int32_t flags = 0;
 
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &vol_info_req,
                          (xdrproc_t)xdr_gf_get_volume_info_req);
@@ -1603,7 +1548,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = dict_get_int32(dict, "flags", &flags);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=flags", NULL);
         op_errno = -ret;
         ret = -1;
@@ -1619,7 +1564,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=volname", NULL);
         op_errno = EINVAL;
         ret = -1;
@@ -1656,7 +1601,7 @@ __server_get_volume_info(rpcsvc_request_t *req)
         }
         ret = dict_set_dynstr(dict_rsp, "volume_id", volume_id_str);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=volume_id", NULL);
             op_errno = -ret;
             ret = -1;
@@ -1757,7 +1702,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg("glusterd", GF_LOG_ERROR, EINVAL, GD_MSG_DICT_GET_FAILED,
+        gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Failed to retrieve volname");
         ret = -1;
         goto out;
@@ -1965,12 +1910,6 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
         goto out;
     }
 
-    if (!this) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_XLATOR_NOT_DEFINED,
-                NULL);
-        goto out;
-    }
-
     if (!peerinfo) {
         gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
@@ -1980,21 +1919,21 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
 
     ret = dict_get_int32(dict, GD_OP_VERSION_KEY, &peer_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_OP_VERSION_KEY, NULL);
         goto out;
     }
 
     ret = dict_get_int32(dict, GD_MAX_OP_VERSION_KEY, &peer_max_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_MAX_OP_VERSION_KEY, NULL);
         goto out;
     }
 
     ret = dict_get_int32(dict, GD_MIN_OP_VERSION_KEY, &peer_min_op_version);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GD_MIN_OP_VERSION_KEY, NULL);
         goto out;
     }
@@ -2014,8 +1953,8 @@ gd_validate_peer_op_version(xlator_t *this, glusterd_peerinfo_t *peerinfo,
     ret = 0;
 out:
     if (peerinfo)
-        gf_msg_debug((this ? this->name : "glusterd"), 0, "Peer %s %s",
-                     peerinfo->hostname, ((ret < 0) ? "rejected" : "accepted"));
+        gf_msg_debug(this->name, 0, "Peer %s %s", peerinfo->hostname,
+                     ((ret < 0) ? "rejected" : "accepted"));
     return ret;
 }
 
@@ -2027,7 +1966,7 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
     gf_mgmt_hndsk_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_t *peerctx = NULL;
@@ -2035,7 +1974,6 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     frame = myframe;
     peerctx = frame->local;
 
@@ -2132,7 +2070,7 @@ __glusterd_mgmt_hndsk_version_cbk(struct rpc_req *req, struct iovec *iov,
     gf_mgmt_hndsk_req arg = {{
         0,
     }};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_t *peerctx = NULL;
@@ -2143,7 +2081,6 @@ __glusterd_mgmt_hndsk_version_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     conf = this->private;
     frame = myframe;
     peerctx = frame->local;
@@ -2281,7 +2218,7 @@ glusterd_mgmt_handshake(xlator_t *this, glusterd_peerctx_t *peerctx)
     ret = dict_set_dynstr(req_dict, GD_PEER_ID_KEY,
                           gf_strdup(uuid_utoa(MY_UUID)));
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "failed to set peer ID in dict");
         goto out;
     }
@@ -2409,7 +2346,7 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
     gf_dump_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_prog_detail *trav = NULL;
     gf_prog_detail *next = NULL;
     call_frame_t *frame = NULL;
@@ -2420,7 +2357,6 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
         0,
     };
 
-    this = THIS;
     conf = this->private;
     frame = myframe;
     peerctx = frame->local;

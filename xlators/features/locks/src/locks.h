@@ -203,10 +203,8 @@ struct __pl_inode {
 
     gf_boolean_t track_fop_wind_count;
 
-    int32_t links;           /* Number of hard links the inode has. */
     uint32_t remove_running; /* Number of remove operations running. */
     gf_boolean_t is_locked;  /* Regular locks will be blocked. */
-    gf_boolean_t removed;    /* The inode has been deleted. */
 };
 typedef struct __pl_inode pl_inode_t;
 
@@ -245,24 +243,13 @@ typedef struct {
     inode_t *inode;
     off_t offset;
     glusterfs_fop_t op;
-    gf_boolean_t entrylk_count_req;
-    gf_boolean_t inodelk_count_req;
-    gf_boolean_t posixlk_count_req;
-    gf_boolean_t parent_entrylk_req;
-    gf_boolean_t multiple_dom_lk_requests;
+    uint32_t bitfield;
     int update_mlock_enforced_flag;
 } pl_local_t;
 
 typedef struct {
     struct list_head locks_list;
 } pl_fdctx_t;
-
-struct _locker {
-    struct list_head lockers;
-    char *volume;
-    inode_t *inode;
-    gf_lkowner_t owner;
-};
 
 typedef struct _locks_ctx {
     pthread_mutex_t lock;

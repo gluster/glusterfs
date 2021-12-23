@@ -32,54 +32,27 @@ dump_mem_acct_details(xlator_t *xl, int fd)
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
         mem_rec = &xl->mem_acct->rec[i];
-        if (mem_rec->num_allocs == 0)
+        if (!GF_ATOMIC_GET(mem_rec->num_allocs))
             continue;
-        dprintf(fd, "# %s, %" PRIu64 ", %u, %" PRIu64 ", %u, %" PRIu64 "\n",
-                mem_rec->typestr, mem_rec->size, mem_rec->num_allocs,
-                mem_rec->max_size, mem_rec->max_num_allocs,
-                mem_rec->total_allocs);
-    }
-}
-
-static void
-dump_global_memory_accounting(int fd)
-{
-#if MEMORY_ACCOUNTING_STATS
-    int i = 0;
-    uint64_t count = 0;
-
-    uint64_t tcalloc = GF_ATOMIC_GET(gf_memory_stat_counts.total_calloc);
-    uint64_t tmalloc = GF_ATOMIC_GET(gf_memory_stat_counts.total_malloc);
-    uint64_t tfree = GF_ATOMIC_GET(gf_memory_stat_counts.total_free);
-
-    dprintf(fd, "memory.total.calloc %lu\n", tcalloc);
-    dprintf(fd, "memory.total.malloc %lu\n", tmalloc);
-    dprintf(fd, "memory.total.realloc %lu\n",
-            GF_ATOMIC_GET(gf_memory_stat_counts.total_realloc));
-    dprintf(fd, "memory.total.free %lu\n", tfree);
-    dprintf(fd, "memory.total.in-use %lu\n", ((tcalloc + tmalloc) - tfree));
-
-    for (i = 0; i < GF_BLK_MAX_VALUE; i++) {
-        count = GF_ATOMIC_GET(gf_memory_stat_counts.blk_size[i]);
-        dprintf(fd, "memory.total.blk_size.%s %lu\n",
-                gf_mem_stats_blk[i].blk_size_str, count);
-    }
-
-    dprintf(fd, "#----\n");
+#ifdef DEBUG
+        dprintf(fd, "# %s, %" PRIu64 ", %" PRIu64 ", %u, %" PRIu64 "\n",
+                mem_rec->typestr, mem_rec->size, mem_rec->max_size,
+                mem_rec->max_num_allocs, GF_ATOMIC_GET(mem_rec->num_allocs));
+#else
+        dprintf(fd, "# %s, %" PRIu64 "\n", mem_rec->typestr,
+                GF_ATOMIC_GET(mem_rec->num_allocs));
 #endif
-
-    /* This is not a metric to be watched in admin guide,
-       but keeping it here till we resolve all leak-issues
-       would be great */
+    }
 }
 
 static void
 dump_latency_and_count(xlator_t *xl, int fd)
 {
     int32_t index = 0;
-    uint64_t fop;
-    uint64_t cbk;
-    uint64_t count;
+    uint64_t fop = 0;
+    uint64_t cbk = 0;
+    uint64_t total_fop_count = 0;
+    uint64_t interval_fop_count = 0;
 
     if (xl->winds) {
         dprintf(fd, "%s.total.pending-winds.count %" PRIu64 "\n", xl->name,
@@ -87,49 +60,44 @@ dump_latency_and_count(xlator_t *xl, int fd)
     }
 
     /* Need 'fuse' data, and don't need all the old graph info */
-    if ((xl != xl->ctx->primary) && (xl->ctx->active != xl->graph))
+    if ((xl != xl->ctx->root) && (xl->ctx->active != xl->graph))
         return;
 
-    count = GF_ATOMIC_GET(xl->stats.total.count);
-    dprintf(fd, "%s.total.fop-count %" PRIu64 "\n", xl->name, count);
-
-    count = GF_ATOMIC_GET(xl->stats.interval.count);
-    dprintf(fd, "%s.interval.fop-count %" PRIu64 "\n", xl->name, count);
-    GF_ATOMIC_INIT(xl->stats.interval.count, 0);
-
     for (index = 0; index < GF_FOP_MAXVALUE; index++) {
-        fop = GF_ATOMIC_GET(xl->stats.total.metrics[index].fop);
+        fop = GF_ATOMIC_GET(xl->stats[index].total_fop);
         if (fop) {
             dprintf(fd, "%s.total.%s.count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], fop);
+            total_fop_count += fop;
         }
-        fop = GF_ATOMIC_GET(xl->stats.interval.metrics[index].fop);
+        fop = GF_ATOMIC_SWAP(xl->stats[index].interval_fop, 0);
         if (fop) {
             dprintf(fd, "%s.interval.%s.count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], fop);
+            interval_fop_count += fop;
         }
-        cbk = GF_ATOMIC_GET(xl->stats.interval.metrics[index].cbk);
+        cbk = GF_ATOMIC_SWAP(xl->stats[index].interval_fop_cbk, 0);
         if (cbk) {
             dprintf(fd, "%s.interval.%s.fail_count %" PRIu64 "\n", xl->name,
                     gf_fop_list[index], cbk);
         }
-        if (xl->stats.interval.latencies[index].count != 0) {
+        if (xl->stats[index].latencies.count != 0) {
             dprintf(fd, "%s.interval.%s.latency %lf\n", xl->name,
                     gf_fop_list[index],
-                    (((double)xl->stats.interval.latencies[index].total) /
-                     xl->stats.interval.latencies[index].count));
+                    (((double)xl->stats[index].latencies.total) /
+                     xl->stats[index].latencies.count));
             dprintf(fd, "%s.interval.%s.max %" PRIu64 "\n", xl->name,
-                    gf_fop_list[index],
-                    xl->stats.interval.latencies[index].max);
+                    gf_fop_list[index], xl->stats[index].latencies.max);
             dprintf(fd, "%s.interval.%s.min %" PRIu64 "\n", xl->name,
-                    gf_fop_list[index],
-                    xl->stats.interval.latencies[index].min);
+                    gf_fop_list[index], xl->stats[index].latencies.min);
         }
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[index].cbk, 0);
-        GF_ATOMIC_INIT(xl->stats.interval.metrics[index].fop, 0);
+        memset(&xl->stats[index].latencies, 0,
+               sizeof(xl->stats[index].latencies));
     }
-    memset(xl->stats.interval.latencies, 0,
-           sizeof(xl->stats.interval.latencies));
+
+    dprintf(fd, "%s.total.fop-count %" PRIu64 "\n", xl->name, total_fop_count);
+    dprintf(fd, "%s.interval.fop-count %" PRIu64 "\n", xl->name,
+            interval_fop_count);
 }
 
 static inline void
@@ -165,15 +133,13 @@ dump_inode_stats(glusterfs_ctx_t *ctx, int fd)
 static void
 dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
 {
-    struct timeval tv;
     time_t nowtime;
     struct tm *nowtm;
     char tmbuf[64] = {
         0,
     };
 
-    gettimeofday(&tv, NULL);
-    nowtime = tv.tv_sec;
+    nowtime = gf_time();
     nowtm = localtime(&nowtime);
     strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
 
@@ -183,10 +149,6 @@ dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
     dprintf(fd, "### BrickName: %s\n", ctx->cmd_args.brick_name);
     dprintf(fd, "### MountName: %s\n", ctx->cmd_args.mount_point);
     dprintf(fd, "### VolumeName: %s\n", ctx->cmd_args.volume_name);
-
-    /* Dump memory accounting */
-    dump_global_memory_accounting(fd);
-    dprintf(fd, "# -----\n");
 
     dump_call_stack_details(ctx, fd);
     dump_dict_details(ctx, fd);
@@ -211,8 +173,8 @@ dump_xl_metrics(glusterfs_ctx_t *ctx, int fd)
         xl = xl->next;
     }
 
-    if (ctx->primary) {
-        xl = ctx->primary;
+    if (ctx->root) {
+        xl = ctx->root;
 
         dump_latency_and_count(xl, fd);
         dump_mem_acct_details(xl, fd);

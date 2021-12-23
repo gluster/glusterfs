@@ -76,6 +76,8 @@ char *vol_type_str[] = {
     "Distributed-Disperse",
 };
 
+gf_boolean_t gf_signal_on_assert = false;
+
 typedef int32_t (*rw_op_t)(int32_t fd, char *buf, int32_t size);
 typedef int32_t (*rwv_op_t)(int32_t fd, const struct iovec *buf, int32_t size);
 
@@ -87,6 +89,14 @@ char *xattrs_to_heal[] = {"user.",
                           GF_SELINUX_XATTR_KEY,
                           GF_XATTR_MDATA_KEY,
                           NULL};
+
+void
+gf_assert(void)
+{
+    if (gf_signal_on_assert) {
+        raise(SIGCONT);
+    }
+}
 
 void
 gf_xxh64_wrapper(const unsigned char *data, size_t const len,
@@ -855,11 +865,6 @@ gf_dump_config_flags()
     gf_msg_plain_nomem(GF_LOG_ALERT, "setfsid 1");
 #endif
 
-/* define if found spinlock */
-#ifdef HAVE_SPINLOCK
-    gf_msg_plain_nomem(GF_LOG_ALERT, "spinlock 1");
-#endif
-
 /* Define to 1 if you have the <sys/epoll.h> header file. */
 #ifdef HAVE_SYS_EPOLL_H
     gf_msg_plain_nomem(GF_LOG_ALERT, "epoll.h 1");
@@ -887,16 +892,7 @@ gf_dump_config_flags()
 
 /* Define to the full name and version of this package. */
 #ifdef PACKAGE_STRING
-    {
-        char *msg = NULL;
-        int ret = -1;
-
-        ret = gf_asprintf(&msg, "package-string: %s", PACKAGE_STRING);
-        if (ret >= 0) {
-            gf_msg_plain_nomem(GF_LOG_ALERT, msg);
-            GF_FREE(msg);
-        }
-    }
+    gf_msg_plain_nomem(GF_LOG_ALERT, "package-string: " PACKAGE_STRING);
 #endif
 
     return;
@@ -1050,7 +1046,7 @@ gf_volume_name_validate(const char *volume_name)
 }
 
 int
-gf_string2time(const char *str, uint32_t *n)
+gf_string2time(const char *str, time_t *n)
 {
     unsigned long value = 0;
     char *tail = NULL;
@@ -1183,17 +1179,16 @@ _gf_string2long(const char *str, long *n, int base)
     old_errno = errno;
     errno = 0;
     value = strtol(str, &tail, base);
-    if (str == tail)
+    if ((str == tail) || (*tail != 0)) {
         errno = EINVAL;
+        return -1;
+    }
 
     if (errno == ERANGE || errno == EINVAL)
         return -1;
 
     if (errno == 0)
         errno = old_errno;
-
-    if (tail[0] != '\0')
-        return -1;
 
     *n = value;
 
@@ -2870,16 +2865,6 @@ lkowner_utoa(gf_lkowner_t *lkowner)
     return lkowner_buffer;
 }
 
-/*Re-entrant conversion function*/
-char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len)
-{
-    if (!dst)
-        return NULL;
-    lkowner_unparse(lkowner, dst, len);
-    return dst;
-}
-
 gf_boolean_t
 is_valid_lease_id(const char *lease_id)
 {
@@ -4027,16 +4012,8 @@ gf_thread_set_vname(pthread_t thread, const char *name, va_list args)
                 "name=%s", thread_name, NULL);
     }
 
-#ifdef GF_LINUX_HOST_OS
-    ret = pthread_setname_np(thread, thread_name);
-#elif defined(__NetBSD__)
-    ret = pthread_setname_np(thread, thread_name, NULL);
-#elif defined(__FreeBSD__)
-    pthread_set_name_np(thread, thread_name);
-    ret = 0;
-#else
-    ret = ENOSYS;
-#endif
+    ret = __gf_thread_set_name(thread, thread_name);
+
     if (ret != 0) {
         gf_smsg(THIS->name, GF_LOG_WARNING, ret, LG_MSG_SET_THREAD_FAILED,
                 "name=%s", thread_name, NULL);
@@ -4069,6 +4046,7 @@ gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
     sigdelset(&set, SIGSYS);
     sigdelset(&set, SIGFPE);
     sigdelset(&set, SIGABRT);
+    sigdelset(&set, SIGCONT);
 
     pthread_sigmask(SIG_BLOCK, &set, &old);
 
@@ -4725,10 +4703,8 @@ recursive_rmdir(const char *delete_path)
 
     dir = sys_opendir(delete_path);
     if (!dir) {
-        gf_msg_debug(this->name, 0,
-                     "Failed to open directory %s. "
-                     "Reason : %s",
-                     delete_path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to open directory %s.",
+                     delete_path);
         ret = 0;
         goto out;
     }
@@ -4739,10 +4715,7 @@ recursive_rmdir(const char *delete_path)
         snprintf(path, PATH_MAX, "%s/%s", delete_path, entry->d_name);
         ret = sys_lstat(path, &st);
         if (ret == -1) {
-            gf_msg_debug(this->name, 0,
-                         "Failed to stat entry %s :"
-                         " %s",
-                         path, strerror(errno));
+            gf_msg_debug(this->name, errno, "Failed to stat entry %s", path);
             (void)sys_closedir(dir);
             goto out;
         }
@@ -4753,10 +4726,7 @@ recursive_rmdir(const char *delete_path)
             ret = sys_unlink(path);
 
         if (ret) {
-            gf_msg_debug(this->name, 0,
-                         " Failed to remove %s. "
-                         "Reason : %s",
-                         path, strerror(errno));
+            gf_msg_debug(this->name, errno, " Failed to remove %s.", path);
         }
 
         gf_msg_debug(this->name, 0, "%s %s",
@@ -4765,16 +4735,12 @@ recursive_rmdir(const char *delete_path)
 
     ret = sys_closedir(dir);
     if (ret) {
-        gf_msg_debug(this->name, 0,
-                     "Failed to close dir %s. Reason :"
-                     " %s",
-                     delete_path, strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to close dir %s", delete_path);
     }
 
     ret = sys_rmdir(delete_path);
     if (ret) {
-        gf_msg_debug(this->name, 0, "Failed to rmdir: %s,err: %s", delete_path,
-                     strerror(errno));
+        gf_msg_debug(this->name, errno, "Failed to rmdir: %s", delete_path);
     }
 
 out:
@@ -4833,20 +4799,13 @@ glusterfs_is_local_pathinfo(char *pathinfo, gf_boolean_t *is_local)
 {
     int ret = 0;
     char pathinfohost[1024] = {0};
-    char localhost[1024] = {0};
 
     *is_local = _gf_false;
     ret = get_pathinfo_host(pathinfo, pathinfohost, sizeof(pathinfohost));
-    if (ret)
-        goto out;
-
-    ret = gethostname(localhost, sizeof(localhost));
-    if (ret)
-        goto out;
-
-    if (!strcmp(localhost, pathinfohost))
-        *is_local = _gf_true;
-out:
+    if (ret == 0) {
+        if (!strcmp(gf_gethostname(), pathinfohost))
+            *is_local = _gf_true;
+    }
     return ret;
 }
 
@@ -5159,7 +5118,8 @@ gf_fop_int(char *fop)
 }
 
 int
-close_fds_except(int *fdv, size_t count)
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm))
 {
     int i = 0;
     size_t j = 0;
@@ -5196,7 +5156,7 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
     sys_closedir(d);
 #else  /* !GF_LINUX_HOST_OS */
@@ -5216,10 +5176,22 @@ close_fds_except(int *fdv, size_t count)
             }
         }
         if (should_close)
-            sys_close(i);
+            closer(i, prm);
     }
 #endif /* !GF_LINUX_HOST_OS */
     return 0;
+}
+
+static void
+closer_close(int fd, void *prm)
+{
+    sys_close(fd);
+}
+
+int
+close_fds_except(int *fdv, size_t count)
+{
+    return close_fds_except_custom(fdv, count, NULL, closer_close);
 }
 
 /**
@@ -5424,6 +5396,30 @@ gf_d_type_from_ia_type(ia_type_t type)
 }
 
 int
+gf_d_type_from_st_mode(mode_t st_mode)
+{
+    switch (st_mode & S_IFMT) {
+        case S_IFREG:
+            return DT_REG;
+        case S_IFDIR:
+            return DT_DIR;
+        case S_IFLNK:
+            return DT_LNK;
+        case S_IFBLK:
+            return DT_BLK;
+        case S_IFCHR:
+            return DT_CHR;
+        case S_IFIFO:
+            return DT_FIFO;
+        case S_IFSOCK:
+            return DT_SOCK;
+        default:
+            return DT_UNKNOWN;
+    }
+    return DT_UNKNOWN;
+}
+
+int
 gf_nanosleep(uint64_t nsec)
 {
     struct timespec req;
@@ -5458,8 +5454,41 @@ gf_syncfs(int fd)
     return ret;
 }
 
+int
+gf_pipe(int fd[2], int flags)
+{
+    int ret = 0;
+#if defined(HAVE_PIPE2)
+    ret = pipe2(fd, flags);
+#else /* not HAVE_PIPE2 */
+    ret = pipe(fd);
+    if (ret < 0)
+        return ret;
+    if (flags) {
+        ret = fcntl(fd[0], F_SETFL, (fcntl(fd[0], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+        ret = fcntl(fd[1], F_SETFL, (fcntl(fd[1], F_GETFL) | flags));
+        if (ret < 0)
+            goto out;
+    }
+out:
+    if (ret < 0) {
+        close(fd[0]);
+        close(fd[1]);
+    }
+#endif /* HAVE_PIPE2 */
+    return ret;
+}
+
 char **
 get_xattrs_to_heal()
 {
     return xattrs_to_heal;
+}
+
+char *
+gf_gethostname(void)
+{
+    return global_ctx->hostname;
 }

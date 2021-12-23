@@ -94,25 +94,21 @@ esac
 ganesha_grace_start()
 {
 	local rc=${OCF_ERR_GENERIC}
-	local host=$(hostname -s)
+	local host=$(ocf_local_nodename)
 
-	ocf_log debug "ganesha_grace_start()"
-	# give ganesha_mon RA a chance to set the crm_attr first
+	ocf_log debug "ganesha_grace_start ${host}"
+	# give ganesha_mon RA a chance to set the attr first
 	# I mislike the sleep, but it's not clear that looping
 	# with a small sleep is necessarily better
 	# start has a 40sec timeout, so a 5sec sleep here is okay
         sleep 5
-	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+	attr=$(attrd_updater --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
         if [ $? -ne 0 ]; then
-		host=$(hostname)
-		attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null )
-                if [ $? -ne 0 ]; then
-	                ocf_log info "grace start: crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
-                fi
+	        ocf_log info "grace start: attrd_updater --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
         fi
 
 	# Three possibilities:
-	# 1. There is no attribute at all and attr_updater returns
+	# 1. There is no attribute at all and attrd_updater returns
 	#    a zero length string. This happens when
 	#    ganesha_mon::monitor hasn't run at least once to set
 	#    the attribute. The assumption here is that the system
@@ -126,15 +122,18 @@ ganesha_grace_start()
 
 	# case 1
 	if [[ -z "${attr}" ]]; then
+		ocf_log debug "grace start: returning success case 1"
 		return ${OCF_SUCCESS}
 	fi
 
 	# case 2
-	if [[ "${attr}" = *"value=1" ]]; then
+	if [[ "${attr}" = *"host=\"${host}\" value=\"1\"" ]]; then
+		ocf_log debug "grace start: returning success case 2"
 		return ${OCF_SUCCESS}
 	fi
 
 	# case 3
+	ocf_log info "grace start returning: not running case 3 (${attr})"
 	return ${OCF_NOT_RUNNING}
 }
 
@@ -164,17 +163,13 @@ ganesha_grace_notify()
 
 ganesha_grace_monitor()
 {
-	local host=$(hostname -s)
+	local host=$(ocf_local_nodename)
 
-	ocf_log debug "monitor"
+	ocf_log debug "ganesha_grace_monitor ${host}"
 
-	attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
+	attr=$(attrd_updater --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
         if [ $? -ne 0 ]; then
-		host=$(hostname)
-	        attr=$(crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} 2> /dev/null)
-                if [ $? -ne 0 ]; then
-	                ocf_log info "crm_attribute --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
-                fi
+	        ocf_log info "attrd_updater --query --node=${host} --name=${OCF_RESKEY_grace_active} failed"
         fi
 
 	# if there is no attribute (yet), maybe it's because
@@ -182,13 +177,16 @@ ganesha_grace_monitor()
 	# chance to create it. In which case we'll pretend
 	# everything is okay this time around
 	if [[ -z "${attr}" ]]; then
+		ocf_log debug "grace monitor: returning success case 1"
 		return ${OCF_SUCCESS}
 	fi
 
-	if [[ "${attr}" = *"value=1" ]]; then
+	if [[ "${attr}" = *"host=\"${host}\" value=\"1\"" ]]; then
+		ocf_log debug "grace monitor: returning success case 2"
 		return ${OCF_SUCCESS}
 	fi
 
+	ocf_log info "grace monitor: returning not running case 3 (${attr})"
 	return ${OCF_NOT_RUNNING}
 }
 

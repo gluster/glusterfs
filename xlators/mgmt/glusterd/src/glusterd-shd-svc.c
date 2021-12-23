@@ -64,12 +64,9 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_muxsvc_conn_notify_t notify = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volfileserver = NULL;
     int32_t len = 0;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO(THIS->name, this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -142,7 +139,7 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         goto out;
 
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -156,7 +153,6 @@ glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo)
     int ret = -1;
     dict_t *mod_dict = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     glusterd_svc_build_shd_volfile_path(volinfo, filepath, PATH_MAX);
     if (!glusterd_is_shd_compatible_volume(volinfo)) {
@@ -175,28 +171,28 @@ glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo)
 
     ret = dict_set_uint32(mod_dict, "cluster.background-self-heal-count", 0);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.background-self-heal-count", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.data-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.data-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.metadata-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.metadata-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.entry-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.entry-self-heal", NULL);
         goto out;
     }
@@ -363,7 +359,6 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
     char client_pid[32] = {0};
     dict_t *cmdline = NULL;
     xlator_t *this = THIS;
-    GF_ASSERT(this);
 
     cmdline = dict_new();
     if (!cmdline)
@@ -381,7 +376,7 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
 
     ret = dict_set_str(cmdline, "arg", client_pid);
     if (ret < 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg", NULL);
         goto out;
     }
@@ -391,28 +386,28 @@ glusterd_new_shd_svc_start(glusterd_svc_t *svc, int flags)
      * should be put in reverse order*/
     ret = dict_set_str(cmdline, "arg4", svc->name);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg4", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg3", GD_SHD_PROCESS_NAME);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg3", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg2", glusterd_uuid_option);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg2", NULL);
         goto out;
     }
 
     ret = dict_set_str(cmdline, "arg1", "--xlator-option");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=arg1", NULL);
         goto out;
     }
@@ -541,13 +536,10 @@ int
 glusterd_shdsvc_reconfigure(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t identical = _gf_false;
     dict_t *mod_dict = NULL;
     glusterd_svc_t *svc = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     if (!volinfo) {
         /* reconfigure will be called separately*/
@@ -582,35 +574,35 @@ glusterd_shdsvc_reconfigure(glusterd_volinfo_t *volinfo)
 
     ret = dict_set_uint32(mod_dict, "cluster.background-self-heal-count", 0);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.background-self-heal-count", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.data-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.data-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.metadata-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.metadata-self-heal", NULL);
         goto out;
     }
 
     ret = dict_set_int32(mod_dict, "graph-check", 1);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=graph-check", NULL);
         goto out;
     }
 
     ret = dict_set_str(mod_dict, "cluster.entry-self-heal", "on");
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cluster.entry-self-heal", NULL);
         goto out;
     }
@@ -660,7 +652,7 @@ out:
         glusterd_volinfo_unref(volinfo);
     if (mod_dict)
         dict_unref(mod_dict);
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -673,8 +665,6 @@ glusterd_shdsvc_restart()
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -717,8 +707,9 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     gf_boolean_t empty = _gf_false;
     glusterd_conf_t *conf = NULL;
     int pid = -1;
+    xlator_t *this = THIS;
 
-    conf = THIS->private;
+    conf = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", svc, out);
     svc_proc = svc->svc_proc;
@@ -754,7 +745,7 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     pthread_mutex_lock(&conf->attach_lock);
     {
         if (!gf_is_service_running(svc->proc.pidfile, &pid)) {
-            gf_msg_debug(THIS->name, 0, "shd isn't running");
+            gf_msg_debug(this->name, 0, "shd isn't running");
         }
         cds_list_del_init(&svc->mux_svc);
         empty = cds_list_empty(&svc_proc->svcs);
@@ -777,11 +768,11 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     if (!empty && pid != -1) {
         ret = glusterd_detach_svc(svc, volinfo, sig);
         if (ret)
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SVC_STOP_FAIL,
                    "shd service is failed to detach volume %s from pid %d",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
         else
-            gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
+            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
                    "Shd service is detached for volume %s from pid %d",
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
     }
@@ -791,6 +782,6 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
     ret = 0;
     glusterd_volinfo_unref(volinfo);
 out:
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

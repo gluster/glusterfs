@@ -227,7 +227,7 @@ gf_proc_dump_xl_latency_info(xlator_t *xl)
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
         gf_proc_dump_build_key(key, key_prefix, "%s", (char *)gf_fop_list[i]);
 
-        gf_latency_t *lat = &xl->stats.interval.latencies[i];
+        gf_latency_t *lat = &xl->stats[i].latencies;
 
         gf_latency_statedump_and_reset(key, lat);
     }
@@ -248,19 +248,22 @@ gf_proc_dump_xlator_mem_info(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (xl->mem_acct->rec[i].num_allocs == 0)
+        if (!GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs))
             continue;
 
         gf_proc_dump_add_section("%s.%s - usage-type %s memusage", xl->type,
                                  xl->name, xl->mem_acct->rec[i].typestr);
+#ifdef DEBUG
         gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
+#endif
+        gf_proc_dump_write("num_allocs", "%" PRIu64,
+                           GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs));
+#ifdef DEBUG
         gf_proc_dump_write("max_size", "%" PRIu64,
                            xl->mem_acct->rec[i].max_size);
         gf_proc_dump_write("max_num_allocs", "%u",
                            xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
+#endif
     }
 
     return;
@@ -281,47 +284,76 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (!xl->mem_acct->rec[i].size)
+        if (!GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs))
             continue;
 
         gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
                                  i);
-
+#ifdef DEBUG
         gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
         gf_proc_dump_write("max_size", "%" PRIu64,
                            xl->mem_acct->rec[i].max_size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
+#endif
+        gf_proc_dump_write("num_allocs", "%" PRIu64,
+                           GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs));
+#ifdef DEBUG
         gf_proc_dump_write("max_num_allocs", "%u",
                            xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
+#endif
     }
 
     return;
 }
 
-/* Currently this dumps only mallinfo. More can be built on here */
+/* Currently this dumps only mallinfo. More can be built on here. */
+
+#if defined(HAVE_MALLINFO2)
+
+typedef struct mallinfo2 gf_mallinfo_t;
+
+static inline void
+gf_mallinfo(gf_mallinfo_t *info)
+{
+    memset(info, 0, sizeof(gf_mallinfo_t));
+    *info = mallinfo2();
+}
+
+#define M_FMT "%zd"
+
+#elif defined(HAVE_MALLINFO)
+
+typedef struct mallinfo gf_mallinfo_t;
+
+static inline void
+gf_mallinfo(gf_mallinfo_t *info)
+{
+    memset(info, 0, sizeof(gf_mallinfo_t));
+    *info = mallinfo();
+}
+
+#define M_FMT "%d"
+
+#endif /* HAVE_MALLINFO2 */
+
 void
 gf_proc_dump_mem_info()
 {
-#ifdef HAVE_MALLINFO
-    struct mallinfo info;
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
+    gf_mallinfo_t info;
 
-    memset(&info, 0, sizeof(struct mallinfo));
-    info = mallinfo();
-
+    gf_mallinfo(&info);
     gf_proc_dump_add_section("mallinfo");
-    gf_proc_dump_write("mallinfo_arena", "%d", info.arena);
-    gf_proc_dump_write("mallinfo_ordblks", "%d", info.ordblks);
-    gf_proc_dump_write("mallinfo_smblks", "%d", info.smblks);
-    gf_proc_dump_write("mallinfo_hblks", "%d", info.hblks);
-    gf_proc_dump_write("mallinfo_hblkhd", "%d", info.hblkhd);
-    gf_proc_dump_write("mallinfo_usmblks", "%d", info.usmblks);
-    gf_proc_dump_write("mallinfo_fsmblks", "%d", info.fsmblks);
-    gf_proc_dump_write("mallinfo_uordblks", "%d", info.uordblks);
-    gf_proc_dump_write("mallinfo_fordblks", "%d", info.fordblks);
-    gf_proc_dump_write("mallinfo_keepcost", "%d", info.keepcost);
-#endif
+    gf_proc_dump_write("mallinfo_arena", M_FMT, info.arena);
+    gf_proc_dump_write("mallinfo_ordblks", M_FMT, info.ordblks);
+    gf_proc_dump_write("mallinfo_smblks", M_FMT, info.smblks);
+    gf_proc_dump_write("mallinfo_hblks", M_FMT, info.hblks);
+    gf_proc_dump_write("mallinfo_hblkhd", M_FMT, info.hblkhd);
+    gf_proc_dump_write("mallinfo_usmblks", M_FMT, info.usmblks);
+    gf_proc_dump_write("mallinfo_fsmblks", M_FMT, info.fsmblks);
+    gf_proc_dump_write("mallinfo_uordblks", M_FMT, info.uordblks);
+    gf_proc_dump_write("mallinfo_fordblks", M_FMT, info.fordblks);
+    gf_proc_dump_write("mallinfo_keepcost", M_FMT, info.keepcost);
+#endif /* MALLINFO2 || MALLINFO */
     gf_proc_dump_xlator_mem_info(&global_xlator);
 }
 
@@ -330,54 +362,52 @@ gf_proc_dump_mem_info_to_dict(dict_t *dict)
 {
     if (!dict)
         return;
-#ifdef HAVE_MALLINFO
-    struct mallinfo info;
+#if defined(HAVE_MALLINFO2) || defined(HAVE_MALLINFO)
+    gf_mallinfo_t info;
     int ret = -1;
 
-    memset(&info, 0, sizeof(struct mallinfo));
-    info = mallinfo();
+    gf_mallinfo(&info);
 
-    ret = dict_set_int32(dict, "mallinfo.arena", info.arena);
+    ret = dict_set_uint64(dict, "mallinfo.arena", info.arena);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.ordblks", info.ordblks);
+    ret = dict_set_uint64(dict, "mallinfo.ordblks", info.ordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.smblks", info.smblks);
+    ret = dict_set_uint64(dict, "mallinfo.smblks", info.smblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.hblks", info.hblks);
+    ret = dict_set_uint64(dict, "mallinfo.hblks", info.hblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.hblkhd", info.hblkhd);
+    ret = dict_set_uint64(dict, "mallinfo.hblkhd", info.hblkhd);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.usmblks", info.usmblks);
+    ret = dict_set_uint64(dict, "mallinfo.usmblks", info.usmblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.fsmblks", info.fsmblks);
+    ret = dict_set_uint64(dict, "mallinfo.fsmblks", info.fsmblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.uordblks", info.uordblks);
+    ret = dict_set_uint64(dict, "mallinfo.uordblks", info.uordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.fordblks", info.fordblks);
+    ret = dict_set_uint64(dict, "mallinfo.fordblks", info.fordblks);
     if (ret)
         return;
 
-    ret = dict_set_int32(dict, "mallinfo.keepcost", info.keepcost);
+    ret = dict_set_uint64(dict, "mallinfo.keepcost", info.keepcost);
     if (ret)
         return;
-#endif
-    return;
+#endif /* HAVE_MALLINFO2 || HAVE_MALLINFO */
 }
 
 void
@@ -902,9 +932,9 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     gf_proc_dump_add_section("dict");
     gf_proc_dump_dict_info(ctx);
 
-    if (ctx->primary) {
+    if (ctx->root) {
         gf_proc_dump_add_section("fuse");
-        gf_proc_dump_single_xlator_info(ctx->primary);
+        gf_proc_dump_single_xlator_info(ctx->root);
     }
 
     if (ctx->active) {

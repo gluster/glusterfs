@@ -41,6 +41,7 @@ EXPECT 1 count_brick_processes
 
 TEST $CLI volume set $V1 performance.io-cache-size 32MB
 TEST $CLI volume stop $V1
+EXPECT_WITHIN $PROCESS_DOWN_TIMEOUT 2 online_brick_count
 TEST $CLI volume start $V1
 
 #Check No. of brick processes after change option

@@ -12,7 +12,6 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
@@ -23,15 +22,14 @@
 void
 rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool);
 
-struct saved_frame *
-__saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
-                            struct timeval *current)
+static struct saved_frame *
+__saved_frames_get_timedout(struct saved_frames *frames, time_t latest)
 {
     struct saved_frame *bailout_frame = NULL, *tmp = NULL;
 
     if (!list_empty(&frames->sf.list)) {
         tmp = list_entry(frames->sf.list.next, typeof(*tmp), list);
-        if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
+        if (tmp->saved_at <= latest) {
             bailout_frame = tmp;
             list_del_init(&bailout_frame->list);
             frames->count--;
@@ -72,7 +70,7 @@ __saved_frames_put(struct saved_frames *frames, void *frame,
     saved_frame->capital_this = THIS;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
-    gettimeofday(&saved_frame->saved_at, NULL);
+    saved_frame->saved_at = gf_time();
     memset(&saved_frame->rsp, 0, sizeof(rpc_transport_rsp_t));
 
     if (_is_lock_fop(saved_frame))
@@ -92,7 +90,7 @@ call_bail(void *data)
     rpc_transport_t *trans = NULL;
     struct rpc_clnt *clnt = NULL;
     rpc_clnt_connection_t *conn = NULL;
-    struct timeval current;
+    time_t current;
     struct list_head list;
     struct saved_frame *saved_frame = NULL;
     struct saved_frame *trav = NULL;
@@ -125,7 +123,7 @@ call_bail(void *data)
     if (!trans)
         goto out;
 
-    gettimeofday(&current, NULL);
+    current = gf_time();
     INIT_LIST_HEAD(&list);
 
     pthread_mutex_lock(&conn->lock);
@@ -151,7 +149,7 @@ call_bail(void *data)
 
         do {
             saved_frame = __saved_frames_get_timedout(
-                conn->saved_frames, conn->frame_timeout, &current);
+                conn->saved_frames, current - conn->frame_timeout);
             if (saved_frame)
                 list_add(&saved_frame->list, &list);
 
@@ -164,12 +162,14 @@ call_bail(void *data)
 
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
-        gf_time_fmt_tv(frame_sent, sizeof frame_sent, &trav->saved_at,
-                       gf_timefmt_FT);
+        gf_time_fmt(frame_sent, sizeof frame_sent, trav->saved_at,
+                    gf_timefmt_FT);
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
-               "unique = %" PRIu64 ", sent = %s, timeout = %d for %s",
+               "unique = %" PRIu64
+               ", sent = %s, timeout = %ld "
+               "for %s",
                trav->rpcreq->prog->progname,
                (trav->rpcreq->prog->procnames)
                    ? trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
@@ -321,10 +321,10 @@ saved_frames_unwind(struct saved_frames *saved_frames)
 
     list_for_each_entry_safe(trav, tmp, &saved_frames->sf.list, list)
     {
-        gf_time_fmt_tv(timestr, sizeof timestr, &trav->saved_at, gf_timefmt_FT);
-
         if (!trav->rpcreq || !trav->rpcreq->prog)
             continue;
+
+        gf_time_fmt(timestr, sizeof timestr, trav->saved_at, gf_timefmt_FT);
 
         gf_log_callingfn(
             trav->rpcreq->conn->name, GF_LOG_ERROR,
@@ -735,7 +735,7 @@ rpc_clnt_handle_reply(struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
     clnt = rpc_clnt_ref(clnt);
     conn = &clnt->conn;
 
-    xid = ntoh32(*((uint32_t *)pollin->vector[0].iov_base));
+    xid = be32toh(*((uint32_t *)pollin->vector[0].iov_base));
     saved_frame = lookup_frame(conn, xid);
     if (saved_frame == NULL) {
         gf_log(conn->name, GF_LOG_ERROR,
@@ -919,7 +919,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_RECEIVED: {
-            timespec_now_realtime(&conn->last_received);
+            conn->last_received = gf_time();
 
             pollin = data;
             if (pollin->is_reply)
@@ -933,7 +933,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_SENT: {
-            timespec_now_realtime(&conn->last_sent);
+            conn->last_sent = gf_time();
             ret = 0;
             break;
         }
@@ -1004,9 +1004,9 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         goto out;
     }
 
-    ret = dict_get_int32(options, "frame-timeout", &conn->frame_timeout);
+    ret = dict_get_time(options, "frame-timeout", &conn->frame_timeout);
     if (ret >= 0) {
-        gf_log(name, GF_LOG_INFO, "setting frame-timeout to %d",
+        gf_log(name, GF_LOG_INFO, "setting frame-timeout to %ld",
                conn->frame_timeout);
     } else {
         gf_log(name, GF_LOG_DEBUG, "defaulting frame-timeout to 30mins");
@@ -1014,9 +1014,9 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
     }
     conn->rpc_clnt = clnt;
 
-    ret = dict_get_int32(options, "ping-timeout", &conn->ping_timeout);
+    ret = dict_get_time(options, "ping-timeout", &conn->ping_timeout);
     if (ret >= 0) {
-        gf_log(name, GF_LOG_DEBUG, "setting ping-timeout to %d",
+        gf_log(name, GF_LOG_DEBUG, "setting ping-timeout to %ld",
                conn->ping_timeout);
     } else {
         /*TODO: Once the epoll thread model is fixed,
@@ -1944,7 +1944,7 @@ rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config)
     if (config->ping_timeout) {
         if (config->ping_timeout != rpc->conn.ping_timeout)
             gf_log(rpc->conn.name, GF_LOG_INFO,
-                   "changing ping timeout to %d (from %d)",
+                   "changing ping timeout to %ld (from %ld)",
                    config->ping_timeout, rpc->conn.ping_timeout);
 
         pthread_mutex_lock(&rpc->conn.lock);
@@ -1957,7 +1957,7 @@ rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config)
     if (config->rpc_timeout) {
         if (config->rpc_timeout != rpc->conn.config.rpc_timeout)
             gf_log(rpc->conn.name, GF_LOG_INFO,
-                   "changing timeout to %d (from %d)", config->rpc_timeout,
+                   "changing timeout to %ld (from %ld)", config->rpc_timeout,
                    rpc->conn.config.rpc_timeout);
         rpc->conn.config.rpc_timeout = config->rpc_timeout;
     }

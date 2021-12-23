@@ -417,8 +417,8 @@ out:
         /* stale filehandles are possible during normal operations, no
          * need to spam the logs with these */
         if (rsp.op_errno == ESTALE) {
-            gf_msg_debug(this->name, 0, "remote operation failed: %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -474,10 +474,8 @@ client3_3_readlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -541,10 +539,8 @@ client3_3_unlink_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     if (rsp.op_ret == -1) {
         if (gf_error_to_errno(rsp.op_errno) == ENOENT) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(gf_error_to_errno(rsp.op_errno)));
+            gf_msg_debug(this->name, gf_error_to_errno(rsp.op_errno),
+                         "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, gf_error_to_errno(rsp.op_errno),
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -945,10 +941,7 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -1011,11 +1004,10 @@ out:
     if (rsp.op_ret == -1) {
         if ((op_errno == ENOTSUP) || (op_errno == ENODATA) ||
             (op_errno == ESTALE) || (op_errno == ENOENT)) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed: %s. Path: %s "
+            gf_msg_debug(this->name, op_errno,
+                         "remote operation failed. Path: %s "
                          "(%s). Key: %s",
-                         strerror(op_errno), local->loc.path,
-                         loc_gfid_utoa(&local->loc),
+                         local->loc.path, loc_gfid_utoa(&local->loc),
                          (local->name) ? local->name : "(null)");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
@@ -1083,8 +1075,7 @@ out:
     if (rsp.op_ret == -1) {
         if ((op_errno == ENOTSUP) || (op_errno == ERANGE) ||
             (op_errno == ENODATA) || (op_errno == ENOENT)) {
-            gf_msg_debug(this->name, 0, "remote operation failed: %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -1781,10 +1772,7 @@ out:
     op_errno = gf_error_to_errno(rsp.op_errno);
     if (rsp.op_ret == -1) {
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(this->name, 0,
-                         "remote operation failed:"
-                         " %s",
-                         strerror(op_errno));
+            gf_msg_debug(this->name, op_errno, "remote operation failed");
         } else {
             gf_smsg(this->name, GF_LOG_WARNING, rsp.op_errno,
                     PC_MSG_REMOTE_OP_FAILED, NULL);
@@ -2417,6 +2405,13 @@ client3_3_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 rsp.op_errno = -ret;
             }
         }
+    }
+
+    if (local->check_reopen) {
+        if (lock.l_type == F_WRLCK)
+            set_fd_reopen_status(this, xdata, FD_REOPEN_NOT_ALLOWED);
+        else
+            set_fd_reopen_status(this, xdata, FD_REOPEN_ALLOWED);
     }
 
 out:
@@ -4163,7 +4158,7 @@ client3_3_flush(call_frame_t *frame, xlator_t *this, void *data)
     frame->local = local;
 
     local->fd = fd_ref(args->fd);
-    local->owner = frame->root->lk_owner;
+    lk_owner_copy(&local->owner, &frame->root->lk_owner);
     ret = client_pre_flush(this, &req, args->fd, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -5061,6 +5056,7 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
             0,
         },
     };
+    dict_t *xdata = NULL;
     int32_t gf_cmd = 0;
     clnt_local_t *local = NULL;
     clnt_conf_t *conf = NULL;
@@ -5087,7 +5083,11 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    local->owner = frame->root->lk_owner;
+    ret = dict_get_int32(args->xdata, "fd-reopen-status", &local->check_reopen);
+    if (ret)
+        local->check_reopen = 0;
+
+    lk_owner_copy(&local->owner, &frame->root->lk_owner);
     local->cmd = args->cmd;
     local->fd = fd_ref(args->fd);
 
@@ -5100,6 +5100,13 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
             client_is_setlk(local->cmd)) {
             client_add_lock_for_recovery(local->fd, args->flock, &local->owner,
                                          local->cmd);
+        } else if (local->check_reopen) {
+            xdata = dict_new();
+            if (xdata == NULL) {
+                op_errno = ENOMEM;
+                goto unwind;
+            }
+            set_fd_reopen_status(this, xdata, FD_BAD);
         }
 
         goto unwind;
@@ -5116,8 +5123,10 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(lk, frame, -1, op_errno, NULL, NULL);
+    CLIENT_STACK_UNWIND(lk, frame, -1, op_errno, NULL, xdata);
     GF_FREE(req.xdata.xdata_val);
+    if (xdata)
+        dict_unref(xdata);
 
     return 0;
 }
@@ -5866,8 +5875,7 @@ client3_3_getactivelk(call_frame_t *frame, xlator_t *this, void *data)
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req.gfid)),
                                   unwind, op_errno, EINVAL);
     conf = this->private;
 
@@ -5917,8 +5925,7 @@ client3_3_setactivelk(call_frame_t *frame, xlator_t *this, void *data)
     else
         memcpy(req.gfid, args->loc->gfid, 16);
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name,
-                                  !gf_uuid_is_null(*((uuid_t *)req.gfid)),
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req.gfid)),
                                   unwind, op_errno, EINVAL);
     conf = this->private;
 

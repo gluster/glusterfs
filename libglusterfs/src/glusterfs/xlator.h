@@ -13,6 +13,7 @@
 
 #include <stdint.h>                    // for int32_t
 #include <sys/types.h>                 // for off_t, mode_t, off64_t, dev_t
+#include <urcu/arch.h>                 // CAA_CACHE_LINE_SIZE
 #include "glusterfs/glusterfs-fops.h"  // for GF_FOP_MAXVALUE, entrylk_cmd
 #include "glusterfs/atomic.h"          // for gf_atomic_t
 #include "glusterfs/glusterfs.h"       // for gf_boolean_t, glusterfs_ctx_t
@@ -796,22 +797,12 @@ struct _xlator {
     gf_loglevel_t loglevel; /* Log level for translator */
 
     struct {
-        struct {
-            /* for latency measurement */
-            fop_metrics_t metrics[GF_FOP_MAXVALUE];
-
-            gf_atomic_t count;
-        } total;
-
-        struct {
-            /* for latency measurement */
-            gf_latency_t latencies[GF_FOP_MAXVALUE];
-            /* for latency measurement */
-            fop_metrics_t metrics[GF_FOP_MAXVALUE];
-
-            gf_atomic_t count;
-        } interval;
-    } stats;
+        gf_atomic_t total_fop;
+        gf_atomic_t interval_fop;
+        gf_atomic_t total_fop_cbk;
+        gf_atomic_t interval_fop_cbk;
+        gf_latency_t latencies;
+    } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 
     /* Misc */
     eh_t *history; /* event history context */

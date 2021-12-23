@@ -9,3 +9,4 @@ performance.nl-cache=on
 performance.nl-cache-timeout=600
 performance.readdir-ahead=on
 performance.parallel-readdir=on
+performance.write-behind=off

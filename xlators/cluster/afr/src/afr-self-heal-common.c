@@ -10,7 +10,6 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
@@ -245,7 +244,8 @@ int
 afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
                             inode_t *inode, uuid_t pargfid, const char *bname,
                             int src_idx, int child_idx,
-                            unsigned char *locked_on, int *src, dict_t *xdata)
+                            unsigned char *locked_on, int *src, dict_t *req,
+                            dict_t *rsp)
 {
     afr_private_t *priv = NULL;
     char g1[64] = {
@@ -266,8 +266,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                "All the bricks should be up to resolve the gfid split "
                "barin");
-        if (xdata) {
-            ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+        if (rsp) {
+            ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                            SALL_BRICKS_UP_TO_RESOLVE);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_DICT_SET_FAILED,
@@ -277,8 +277,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
         goto out;
     }
 
-    if (xdata) {
-        ret = dict_get_int32_sizen(xdata, "heal-op", &heal_op);
+    if (req) {
+        ret = dict_get_int32_sizen(req, "heal-op", &heal_op);
         if (ret)
             goto fav_child;
     } else {
@@ -292,8 +292,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SNO_BIGGER_FILE);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SNO_BIGGER_FILE);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -310,8 +310,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SNO_DIFF_IN_MTIME);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SNO_DIFF_IN_MTIME);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -323,7 +323,7 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             break;
 
         case GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK:
-            ret = dict_get_str_sizen(xdata, "child-name", &src_brick);
+            ret = dict_get_str_sizen(req, "child-name", &src_brick);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        "Error getting the source "
@@ -335,8 +335,8 @@ afr_gfid_split_brain_source(xlator_t *this, struct afr_reply *replies,
             if (*src == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        SERROR_GETTING_SRC_BRICK);
-                if (xdata) {
-                    ret = dict_set_sizen_str_sizen(xdata, "gfid-heal-msg",
+                if (rsp) {
+                    ret = dict_set_sizen_str_sizen(rsp, "gfid-heal-msg",
                                                    SERROR_GETTING_SRC_BRICK);
                     if (ret)
                         gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -400,7 +400,7 @@ out:
                  uuid_utoa_r(replies[child_idx].poststat.ia_gfid, g1), src_idx,
                  priv->children[src_idx]->name, src_idx,
                  uuid_utoa_r(replies[src_idx].poststat.ia_gfid, g2));
-        return -1;
+        return -EIO;
     }
     return 0;
 }
@@ -548,7 +548,7 @@ afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
     if (!raw)
         goto err;
 
-    raw[idx] = hton32(output_dirty[subvol]);
+    raw[idx] = htobe32(output_dirty[subvol]);
     ret = dict_set_bin(xattr, AFR_DIRTY, raw,
                        sizeof(int) * AFR_NUM_CHANGE_LOGS);
     if (ret) {
@@ -562,9 +562,9 @@ afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
         if (!raw)
             goto err;
 
-        raw[idx] = hton32(output_matrix[subvol][j]);
+        raw[idx] = htobe32(output_matrix[subvol][j]);
         if (is_full_crawl)
-            raw[d_idx] = hton32(full_heal_mtx_out[subvol][j]);
+            raw[d_idx] = htobe32(full_heal_mtx_out[subvol][j]);
 
         ret = dict_set_bin(xattr, priv->pending_key[j], raw,
                            sizeof(int) * AFR_NUM_CHANGE_LOGS);
@@ -732,9 +732,6 @@ afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
                         dict_t *xdata)
 {
     void *pending_raw = NULL;
-    int pending[3] = {
-        0,
-    };
 
     if (!dirty)
         return 0;
@@ -745,11 +742,27 @@ afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
     if (!pending_raw)
         return -1;
 
-    memcpy(pending, pending_raw, sizeof(pending));
-
-    dirty[subvol] = ntoh32(pending[idx]);
+    dirty[subvol] = be32toh(*((int *)pending_raw + idx));
 
     return 0;
+}
+
+void
+afr_selfheal_fill_cell(afr_private_t *priv, dict_t *src_xdata, int *cell,
+                       int sink, int idx)
+{
+    void *pending_raw = NULL;
+
+    *cell = 0;
+    if (dict_get_ptr(src_xdata, priv->pending_key[sink], &pending_raw))
+        goto out;
+
+    if (!pending_raw)
+        goto out;
+
+    *cell = be32toh(*((int *)pending_raw + idx));
+out:
+    return;
 }
 
 int
@@ -757,10 +770,6 @@ afr_selfheal_fill_matrix(xlator_t *this, int **matrix, int subvol, int idx,
                          dict_t *xdata)
 {
     int i = 0;
-    void *pending_raw = NULL;
-    int pending[3] = {
-        0,
-    };
     afr_private_t *priv = NULL;
 
     priv = this->private;
@@ -769,15 +778,7 @@ afr_selfheal_fill_matrix(xlator_t *this, int **matrix, int subvol, int idx,
         return 0;
 
     for (i = 0; i < priv->child_count; i++) {
-        if (dict_get_ptr(xdata, priv->pending_key[i], &pending_raw))
-            continue;
-
-        if (!pending_raw)
-            continue;
-
-        memcpy(pending, pending_raw, sizeof(pending));
-
-        matrix[subvol][i] = ntoh32(pending[idx]);
+        afr_selfheal_fill_cell(priv, xdata, &matrix[subvol][i], i, idx);
     }
 
     return 0;

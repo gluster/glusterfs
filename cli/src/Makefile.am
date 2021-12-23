@@ -6,9 +6,9 @@ gluster_SOURCES = cli.c registry.c input.c cli-cmd.c cli-rl.c cli-cmd-global.c \
 
 gluster_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD) \
 		$(top_builddir)/libglusterd/src/libglusterd.la \
-		$(RLLIBS) $(top_builddir)/rpc/xdr/src/libgfxdr.la \
+		$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 		$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-		$(XML_LIBS)
+		$(READLINE_LIBS) $(XML_LIBS)
 
 gluster_LDFLAGS = $(GF_LDFLAGS)
 noinst_HEADERS = cli.h cli-mem-types.h cli-cmd.h cli-quotad-client.h
@@ -23,7 +23,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DGLFSHEAL_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\"\
 	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE)
 
-AM_CFLAGS = -Wall $(GF_CFLAGS) $(XML_CFLAGS)
+AM_CFLAGS = -Wall $(GF_CFLAGS) $(XML_CFLAGS) $(READLINE_CFLAGS)
 
 CLEANFILES =
 

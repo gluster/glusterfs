@@ -96,7 +96,7 @@ dht_set_lkowner(dht_lock_t **lk_array, int count, gf_lkowner_t *lkowner)
         goto out;
 
     for (i = 0; i < count; i++) {
-        lk_array[i]->lk_owner = *lkowner;
+        lk_owner_copy(&lk_array[i]->lk_owner, lkowner);
     }
 
 out:
@@ -402,8 +402,8 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
         if (!local->lock[0].ns.directory_ns.locks[i]->locked)
             continue;
 
-        lock_frame->root
-            ->lk_owner = local->lock[0].ns.directory_ns.locks[i]->lk_owner;
+        lk_owner_copy(&lock_frame->root->lk_owner,
+                      &local->lock[0].ns.directory_ns.locks[i]->lk_owner);
         STACK_WIND_COOKIE(
             lock_frame, dht_unlock_entrylk_cbk, (void *)(long)i,
             local->lock[0].ns.directory_ns.locks[i]->xl,
@@ -786,8 +786,8 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
         if (!local->lock[0].layout.my_layout.locks[i]->locked)
             continue;
 
-        lock_frame->root
-            ->lk_owner = local->lock[0].layout.my_layout.locks[i]->lk_owner;
+        lk_owner_copy(&lock_frame->root->lk_owner,
+                      &local->lock[0].layout.my_layout.locks[i]->lk_owner);
         STACK_WIND_COOKIE(
             lock_frame, dht_unlock_inodelk_cbk, (void *)(long)i,
             local->lock[0].layout.my_layout.locks[i]->xl,
@@ -905,37 +905,35 @@ dht_nonblocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     dht_local_t *local = NULL;
     int lk_index = 0, call_cnt = 0;
     char gfid[GF_UUID_BUF_SIZE] = {0};
+    dht_ilock_wrap_t *my_layout;
 
     local = frame->local;
     lk_index = (long)cookie;
 
+    my_layout = &(local->lock[0].layout.my_layout);
+
     if (op_ret == -1) {
-        local->lock[0].layout.my_layout.op_ret = -1;
-        local->lock[0].layout.my_layout.op_errno = op_errno;
+        my_layout->op_ret = -1;
+        my_layout->op_errno = op_errno;
 
-        if (local && local->lock[0].layout.my_layout.locks[lk_index]) {
-            uuid_utoa_r(local->lock[0]
-                            .layout.my_layout.locks[lk_index]
-                            ->loc.inode->gfid,
-                        gfid);
+        if (my_layout->locks[lk_index]) {
+            uuid_utoa_r(my_layout->locks[lk_index]->loc.inode->gfid, gfid);
 
-            gf_msg_debug(
-                this->name, op_errno,
-                "inodelk failed on gfid: %s "
-                "subvolume: %s",
-                gfid,
-                local->lock[0].layout.my_layout.locks[lk_index]->xl->name);
+            gf_msg_debug(this->name, op_errno,
+                         "inodelk failed on gfid: %s "
+                         "subvolume: %s",
+                         gfid, my_layout->locks[lk_index]->xl->name);
         }
 
         goto out;
     }
 
-    local->lock[0].layout.my_layout.locks[lk_index]->locked = _gf_true;
+    my_layout->locks[lk_index]->locked = _gf_true;
 
 out:
     call_cnt = dht_frame_return(frame);
     if (is_last_call(call_cnt)) {
-        if (local->lock[0].layout.my_layout.op_ret < 0) {
+        if (my_layout->op_ret < 0) {
             dht_inodelk_cleanup(frame);
             return 0;
         }

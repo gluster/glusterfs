@@ -58,12 +58,9 @@ int32_t
 glusterd_mgmt_v3_lock_init()
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     priv->mgmt_v3_lock = dict_new();
@@ -80,12 +77,9 @@ out:
 void
 glusterd_mgmt_v3_lock_fini()
 {
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
     if (priv->mgmt_v3_lock)
@@ -98,11 +92,8 @@ int32_t
 glusterd_mgmt_v3_lock_timer_init()
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -121,11 +112,8 @@ out:
 void
 glusterd_mgmt_v3_lock_timer_fini()
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
@@ -142,10 +130,8 @@ glusterd_get_mgmt_v3_lock_owner(char *key, uuid_t *uuid)
     int32_t ret = -1;
     glusterd_mgmt_v3_lock_obj *lock_obj = NULL;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -177,10 +163,8 @@ glusterd_release_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
     int32_t i = -1;
     int32_t op_ret = 0;
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -232,10 +216,8 @@ glusterd_acquire_multiple_locks_per_entity(dict_t *dict, uuid_t uuid,
     int32_t i = -1;
     int32_t ret = -1;
     int32_t locked_count = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -296,10 +278,8 @@ glusterd_mgmt_v3_unlock_entity(dict_t *dict, uuid_t uuid, char *type,
     int32_t count = -1;
     int32_t ret = -1;
     gf_boolean_t hold_locks = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -366,10 +346,8 @@ glusterd_mgmt_v3_lock_entity(dict_t *dict, uuid_t uuid, uint32_t *op_errno,
     int32_t count = -1;
     int32_t ret = -1;
     gf_boolean_t hold_locks = _gf_false;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(type);
 
@@ -430,10 +408,7 @@ glusterd_multiple_mgmt_v3_unlock(dict_t *dict, uuid_t uuid)
     int32_t i = -1;
     int32_t ret = -1;
     int32_t op_ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     if (!dict) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY, "dict is null.");
@@ -466,10 +441,7 @@ glusterd_multiple_mgmt_v3_lock(dict_t *dict, uuid_t uuid, uint32_t *op_errno)
     int32_t i = -1;
     int32_t ret = -1;
     int32_t locked_count = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     if (!dict) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY, "dict is null.");
@@ -524,15 +496,11 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     glusterd_conf_t *priv = NULL;
     gf_boolean_t is_valid = _gf_true;
     uuid_t owner = {0};
-    xlator_t *this = NULL;
-    char *bt = NULL;
+    xlator_t *this = THIS;
     struct timespec delay = {0};
     char *key_dup = NULL;
     glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -609,8 +577,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     }
 
     mgmt_lock_timer->xl = THIS;
-    /*changing to default timeout value*/
-    priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
 
     ret = -1;
     mgmt_lock_timer_xl = mgmt_lock_timer->xl;
@@ -629,6 +595,9 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     delay.tv_sec = priv->mgmt_v3_lock_timeout;
     delay.tv_nsec = 0;
 
+    /*changing to default timeout value*/
+    priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
+
     mgmt_lock_timer->timer = gf_timer_call_after(
         mgmt_lock_timer_ctx, delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);
 
@@ -642,6 +611,9 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
         goto out;
     }
 
+#ifdef DEBUG
+    char *bt = NULL;
+
     /* Saving the backtrace into the pre-allocated buffer, ctx->btbuf*/
     if ((bt = gf_backtrace_save(NULL))) {
         snprintf(key, sizeof(key), "debug.last-success-bt-%s", key_dup);
@@ -653,6 +625,8 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
                    key_dup, uuid_utoa(uuid));
         ret = 0;
     }
+
+#endif
 
     gf_msg_debug(this->name, 0, "Lock for %s successfully held by %s", key_dup,
                  uuid_utoa(uuid));
@@ -669,20 +643,15 @@ out:
 void
 gd_mgmt_v3_unlock_timer_cbk(void *data)
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_mgmt_v3_lock_timer *mgmt_lock_timer = NULL;
     char *key = NULL;
     int keylen;
-    char bt_key[PATH_MAX] = "";
-    int bt_key_len = 0;
     int32_t ret = -1;
     glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
     gf_timer_t *timer = NULL;
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
@@ -693,6 +662,10 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     keylen = strlen(key);
     dict_deln(conf->mgmt_v3_lock, key, keylen);
 
+#ifdef DEBUG
+    char bt_key[PATH_MAX] = "";
+    int bt_key_len = 0;
+
     bt_key_len = snprintf(bt_key, PATH_MAX, "debug.last-success-bt-%s", key);
     if (bt_key_len != SLEN("debug.last-success-bt-") + keylen) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CREATE_KEY_FAIL,
@@ -702,6 +675,7 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     }
 
     dict_deln(conf->mgmt_v3_lock, bt_key, bt_key_len);
+#endif
 
     ret = dict_get_bin(conf->mgmt_v3_lock_timer, key,
                        (void **)&mgmt_lock_timer);
@@ -721,7 +695,9 @@ out:
         timer = mgmt_lock_timer->timer;
         GF_FREE(timer->data);
         gf_timer_call_cancel(mgmt_lock_timer_ctx, mgmt_lock_timer->timer);
+#ifdef DEBUG
         dict_deln(conf->mgmt_v3_lock_timer, bt_key, bt_key_len);
+#endif
         mgmt_lock_timer->timer = NULL;
         gf_log(this->name, GF_LOG_INFO,
                "unlock timer is cancelled for volume_type"
@@ -746,13 +722,10 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_mgmt_v3_lock_timer *mgmt_lock_timer = NULL;
     uuid_t owner = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterfs_ctx_t *mgmt_lock_timer_ctx = NULL;
     xlator_t *mgmt_lock_timer_xl = NULL;
     gf_timer_t *timer = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -821,6 +794,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
 
     (void)snprintf(key_dup, sizeof(key_dup), "%s", key);
 
+#ifdef DEBUG
     /* Remove the backtrace key as well */
     ret = snprintf(key, sizeof(key), "debug.last-success-bt-%s", key_dup);
     if (ret != SLEN("debug.last-success-bt-") + keylen) {
@@ -831,6 +805,7 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         goto out;
     }
     dict_deln(priv->mgmt_v3_lock, key, ret);
+#endif
 
     gf_msg_debug(this->name, 0, "Lock for %s %s successfully released", type,
                  name);

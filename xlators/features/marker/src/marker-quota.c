@@ -12,7 +12,6 @@
 #include <glusterfs/defaults.h>
 #include "libxlator.h"
 #include <glusterfs/common-utils.h>
-#include <glusterfs/byte-order.h>
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include <glusterfs/syncop.h>
@@ -319,13 +318,13 @@ quota_dict_set_size_meta(xlator_t *this, dict_t *dict, const quota_meta_t *meta)
     if (value == NULL) {
         goto out;
     }
-    value[0].size = hton64(meta->size);
-    value[0].file_count = hton64(meta->file_count);
-    value[0].dir_count = hton64(meta->dir_count);
+    value[0].size = htobe64(meta->size);
+    value[0].file_count = htobe64(meta->file_count);
+    value[0].dir_count = htobe64(meta->dir_count);
 
     value[1].size = 0;
     value[1].file_count = 0;
-    value[1].dir_count = hton64(1);
+    value[1].dir_count = htobe64(1);
 
     GET_SIZE_KEY(this, size_key, ret);
     if (ret < 0)
@@ -644,7 +643,7 @@ out:
     return ret;
 }
 
-int32_t
+void
 mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
 {
     int32_t ret = -1;
@@ -660,13 +659,11 @@ mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
                "failed to get inode ctx for "
                "%s",
                loc->path);
-        ret = 0;
         goto out;
     }
 
     dict = dict_new();
     if (!dict) {
-        ret = -1;
         gf_log(this->name, GF_LOG_ERROR, "dict_new failed");
         goto out;
     }
@@ -697,8 +694,6 @@ mq_mark_dirty(xlator_t *this, loc_t *loc, int32_t dirty)
 out:
     if (dict)
         dict_unref(dict);
-
-    return ret;
 }
 
 int32_t
@@ -1017,17 +1012,17 @@ mq_update_size(xlator_t *this, loc_t *loc, quota_meta_t *delta)
     GF_VALIDATE_OR_GOTO("marker", loc->inode, out);
     GF_VALIDATE_OR_GOTO("marker", delta, out);
 
-    if (quota_meta_is_null(delta)) {
-        ret = 0;
-        goto out;
-    }
-
     ret = mq_inode_ctx_get(loc->inode, this, &ctx);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_ERROR,
                "failed to get inode ctx for "
                "%s",
                loc->path);
+        goto out;
+    }
+
+    if (quota_meta_is_null(delta) && (ctx->dir_count != 0)) {
+        ret = 0;
         goto out;
     }
 
@@ -1431,7 +1426,7 @@ out:
             if (ret == 0)
                 mq_set_ctx_dirty_status(parent_ctx, _gf_false);
         } else {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
+            mq_mark_dirty(this, &parent_loc, 0);
         }
     }
 
@@ -1686,7 +1681,7 @@ mq_initiate_quota_task(void *opaque)
         }
 
         if (prev_dirty == 0) {
-            ret = mq_mark_dirty(this, &parent_loc, 0);
+            mq_mark_dirty(this, &parent_loc, 0);
         } else {
             ret = mq_inode_ctx_get(parent_loc.inode, this, &parent_ctx);
             if (ret == 0)

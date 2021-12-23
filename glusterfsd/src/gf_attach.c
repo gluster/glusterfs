@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include <glusterfs/glusterfs.h>
+#include <glusterfs/syscall.h>
 #include "glfs-internal.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"
@@ -163,6 +164,54 @@ usage(char *prog)
     return EXIT_FAILURE;
 }
 
+static int
+sanitize_args(int argc, char **argv)
+{
+    int ret = 0;
+    struct stat statbuf = {
+        0,
+    };
+
+    ret = sys_lstat(argv[optind], &statbuf);
+    if (ret == -1) {
+        fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind],
+                strerror(errno));
+        goto err;
+    }
+    if (!S_ISSOCK(statbuf.st_mode)) {
+        fprintf(stderr, "%s: Invalid socket file.\n", argv[optind]);
+        goto err;
+    }
+
+    ret = sys_lstat(argv[optind + 1], &statbuf);
+    if (ret == -1) {
+        fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind + 1],
+                strerror(errno));
+        goto err;
+    }
+
+    switch (argc) {
+        case 3:
+            /* attach request */
+            if (!S_ISREG(statbuf.st_mode)) {
+                fprintf(stderr, "%s: Invalid volfile.\n", argv[optind + 1]);
+                goto err;
+            }
+            break;
+        case 4:
+            /* detach request */
+            if (!S_ISDIR(statbuf.st_mode)) {
+                fprintf(stderr, "%s: Invalid brick path.\n", argv[optind + 1]);
+                goto err;
+            }
+            break;
+    }
+
+    return 0;
+err:
+    return -1;
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -186,6 +235,11 @@ main(int argc, char *argv[])
 done_parsing:
     if (optind != (argc - 2)) {
         return usage(argv[0]);
+    }
+
+    ret = sanitize_args(argc, argv);
+    if (ret != 0) {
+        return EXIT_FAILURE;
     }
 
     fs = glfs_new("gf-attach");
@@ -221,7 +275,7 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    rpc = rpc_clnt_new(options, fs->ctx->primary, "gf-attach-rpc", 0);
+    rpc = rpc_clnt_new(options, fs->ctx->root, "gf-attach-rpc", 0);
     if (!rpc) {
         fprintf(stderr, "rpc_clnt_new failed\n");
         return EXIT_FAILURE;
@@ -237,5 +291,5 @@ done_parsing:
         return EXIT_FAILURE;
     }
 
-    return send_brick_req(fs->ctx->primary, rpc, argv[optind + 1], op);
+    return send_brick_req(fs->ctx->root, rpc, argv[optind + 1], op);
 }

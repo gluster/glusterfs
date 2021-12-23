@@ -10,8 +10,6 @@
 
 #include <libgen.h>
 
-#include <glusterfs/byte-order.h>
-
 #include "ec.h"
 #include "ec-mem-types.h"
 #include "ec-messages.h"
@@ -195,7 +193,7 @@ ec_dict_set_array(dict_t *dict, char *key, uint64_t value[], int32_t size)
         return -ENOMEM;
     }
     for (vindex = 0; vindex < size; vindex++) {
-        ptr[vindex] = hton64(value[vindex]);
+        ptr[vindex] = htobe64(value[vindex]);
     }
     ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t) * size);
     if (ret)
@@ -228,7 +226,7 @@ ec_dict_get_array(dict_t *dict, char *key, uint64_t value[], int32_t size)
      * metadata versions same as data*/
     old_size = min(size, len / sizeof(uint64_t));
     for (vindex = 0; vindex < old_size; vindex++) {
-        value[vindex] = ntoh64(*((uint64_t *)ptr + vindex));
+        value[vindex] = be64toh(*((uint64_t *)ptr + vindex));
     }
 
     if (old_size < size) {
@@ -263,7 +261,7 @@ ec_dict_set_number(dict_t *dict, char *key, uint64_t value)
         return -ENOMEM;
     }
 
-    *ptr = hton64(value);
+    *ptr = htobe64(value);
 
     ret = dict_set_bin(dict, key, ptr, sizeof(value));
     if (ret)
@@ -289,7 +287,7 @@ ec_dict_del_number(dict_t *dict, char *key, uint64_t *value)
         return -EINVAL;
     }
 
-    *value = ntoh64(*(uint64_t *)ptr);
+    *value = be64toh(*(uint64_t *)ptr);
 
     dict_del(dict, key);
 
@@ -323,7 +321,7 @@ ec_dict_set_config(dict_t *dict, char *key, ec_config_t *config)
     data |= ((uint64_t)config->redundancy) << 24;
     data |= config->chunk_size;
 
-    *ptr = hton64(data);
+    *ptr = htobe64(data);
 
     ret = dict_set_bin(dict, key, ptr, sizeof(uint64_t));
     if (ret)
@@ -350,7 +348,7 @@ ec_dict_del_config(dict_t *dict, char *key, ec_config_t *config)
         return -EINVAL;
     }
 
-    data = ntoh64(*(uint64_t *)ptr);
+    data = be64toh(*(uint64_t *)ptr);
     /* Currently we need to get the config xattr for entries of type IA_INVAL.
      * These entries can later become IA_DIR entries (after inode_link()),
      * which don't have a config xattr. However, since the xattr is requested

@@ -67,7 +67,23 @@ parse_backup_volfile_servers ()
     local servers=""
     local new_servers=""
 
-    servers=$(echo ${server_list} | sed 's/\:/ /g')
+    servers=$(echo ${server_list} | \
+              sed 's/./& /g' | \
+              awk 'BEGIN{sk=0;sep=0;err=0}{\
+                   for(i=1;i<=NF;i++){\
+                   if((sk!=0)&&(sk!=1)){err=1;break;}\
+                   if(sk && $i==":"){sep++;}\
+                   if($i=="["){sk++;sep=0;continue;}\
+                   if($i=="]"){sk--;if(sep){continue;}else{err=1;break;}}\
+                   if(sk){printf $i;}else{if($i==":")printf " ";else printf $i;}}}\
+                   END{if(sk!=0 || err){printf " SyntaxError";}else{printf " SyntaxOK";}}')
+
+    servers=$(echo $servers)
+    if [ "$servers" == "SyntaxOK" ]; then
+        echo ""
+        return
+    fi
+
     for server in ${servers}; do
         is_valid_hostname ${server}
         if [ $? -eq 1 ]; then
@@ -267,6 +283,13 @@ start_glusterfs ()
 
             if [ -n "$backup_volfile_servers" ]; then
                 backup_servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
+                syntax_status=$(echo ${backup_servers##*' '})
+                if [ "$syntax_status" == "SyntaxError" ]; then
+                    warn "ERROR: Invalid backup-volfile-servers specified.. exiting"
+                    exit 1
+                fi
+                backup_servers=$(echo ${backup_servers%' '*})
+
                 for i in $(echo ${backup_servers}); do
                     cmd_line=$(echo "$cmd_line --volfile-server=$i");
                 done

@@ -41,7 +41,7 @@ gf_latency_update(gf_latency_t *lat, struct timespec *begin,
         return;
     }
 
-    double elapsed = gf_tsdiff(begin, end);
+    int64_t elapsed = gf_tsdiff(begin, end);
 
     if (lat->max < elapsed)
         lat->max = elapsed;
@@ -79,6 +79,6 @@ gf_frame_latency_update(call_frame_t *frame)
         return;
     }
 
-    lat = &frame->this->stats.interval.latencies[frame->op];
+    lat = &frame->this->stats[frame->op].latencies;
     gf_latency_update(lat, &frame->begin, &frame->end);
 }

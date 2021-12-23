@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/statvfs.h>
 #include <dirent.h>
 #include <time.h>
 
@@ -119,6 +120,18 @@
         }                                                                      \
     } while (0)
 
+/* On Linux, O_DIRECT requires the buffer to be aligned at logical sector
+   size boundary, and both buffer size and file offset should be multiple
+   of the logical sector size as well. Usually it is equal to 512 bytes and
+   may be obtained by BLKBSZGET ioctl() on a device special file. On the
+   other side O_DIRECT may give better performance with chunks aligned/sized
+   to multiple of the logical filesystem block size. The latter is obtained
+   via statvfs() in posix_init() and used to check whether the chunk is
+   suitable for O_DIRECT where applicable. */
+
+#define DIRECT_ALIGNED(x, priv)                                                \
+    ((((unsigned long)(x)) & ((priv)->base_bsize - 1)) == 0)
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -145,6 +158,9 @@ struct posix_diskxl {
 struct posix_private {
     char *base_path;
     int32_t base_path_length;
+
+    long base_bsize;
+
     int32_t path_max;
 
     gf_lock_t lock;
@@ -182,7 +198,7 @@ struct posix_private {
     pthread_cond_t fd_cond;
     pthread_cond_t disk_cond;
     int fsync_queue_count;
-    int32_t janitor_sleep_duration;
+    time_t janitor_sleep_duration;
 
     enum {
         BATCH_NONE = 0,
@@ -196,9 +212,9 @@ struct posix_private {
     char gfid2path_sep[8];
 
     /* seconds to sleep between health checks */
-    uint32_t health_check_interval;
+    time_t health_check_interval;
     /* seconds to sleep to wait for aio write finish for health checks */
-    uint32_t health_check_timeout;
+    time_t health_check_timeout;
     pthread_t health_check;
 
     double disk_reserve;
@@ -368,8 +384,6 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
 void
 posix_janitor_timer_start(xlator_t *this);
 int
-posix_acl_xattr_set(xlator_t *this, const char *path, dict_t *xattr_req);
-int
 posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc,
                 dict_t *xattr_req);
 int
@@ -386,8 +400,8 @@ gf_boolean_t
 posix_special_xattr(char **pattern, char *key);
 
 void
-__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
-                       off_t offset, size_t size);
+__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags, int direct);
+
 int
 posix_spawn_health_check_thread(xlator_t *this);
 

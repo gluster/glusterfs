@@ -14,9 +14,11 @@
 #include "glusterfs/glusterfs.h"
 #include "timer-wheel.h"
 
+glusterfs_ctx_t *global_ctx = NULL;
 glusterfs_ctx_t *
 glusterfs_ctx_new()
 {
+    long namelen = 0;
     glusterfs_ctx_t *ctx = NULL;
 
     /* no GF_CALLOC here, gf_acct_mem_set_enable is not
@@ -45,16 +47,31 @@ glusterfs_ctx_new()
     ctx->cmd_args.vgtool = _gf_none;
 #endif
 
-    /* lock is never destroyed! */
-    if (LOCK_INIT(&ctx->lock)) {
-        free(ctx);
+    GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, 0);
+    GF_ATOMIC_INIT(ctx->stats.total_pairs_used, 0);
+    GF_ATOMIC_INIT(ctx->stats.total_dicts_used, 0);
+
+    namelen = sysconf(_SC_HOST_NAME_MAX);
+    if (namelen < 0)
+        namelen = _POSIX_HOST_NAME_MAX;
+    ctx->hostname = MALLOC(namelen + 1);
+    if (!ctx->hostname) {
+        FREE(ctx);
+        ctx = NULL;
+        goto out;
+    }
+    if (gethostname(ctx->hostname, namelen + 1)) {
+        FREE(ctx->hostname);
+        FREE(ctx);
         ctx = NULL;
         goto out;
     }
 
-    GF_ATOMIC_INIT(ctx->stats.max_dict_pairs, 0);
-    GF_ATOMIC_INIT(ctx->stats.total_pairs_used, 0);
-    GF_ATOMIC_INIT(ctx->stats.total_dicts_used, 0);
+    LOCK_INIT(&ctx->lock);
+    LOCK_INIT(&ctx->volfile_lock);
+
+    if (!global_ctx)
+        global_ctx = ctx;
 out:
     return ctx;
 }

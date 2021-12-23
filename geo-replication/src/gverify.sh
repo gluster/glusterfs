@@ -1,14 +1,14 @@
 #!/bin/bash
 
-# Script to verify the Master and Slave Gluster compatibility.
-# To use ./gverify <master volume> <slave user> <slave host> <slave volume> <ssh port> <log file>
-# Returns 0 if master and slave compatible.
+# Script to verify the Primary and Secondary Gluster compatibility.
+# To use ./gverify <primary volume> <secondary user> <secondary host> <secondary volume> <ssh port> <log file>
+# Returns 0 if primary and secondary compatible.
 
 # Considering buffer_size 100MB
 BUFFER_SIZE=104857600;
 SSH_PORT=$5;
-master_log_file=`gluster --print-logdir`/geo-replication/gverify-mastermnt.log
-slave_log_file=`gluster --print-logdir`/geo-replication/gverify-slavemnt.log
+primary_log_file=`gluster --print-logdir`/geo-replication/gverify-primarymnt.log
+secondary_log_file=`gluster --print-logdir`/geo-replication/gverify-secondarymnt.log
 
 function SSHM()
 {
@@ -76,7 +76,7 @@ function disk_usage()
 
 }
 
-function cmd_slave()
+function cmd_secondary()
 {
     local cmd_line;
     cmd_line=$(cat <<EOF
@@ -91,9 +91,9 @@ EOF
 echo $cmd_line;
 }
 
-function master_stats()
+function primary_stats()
 {
-    MASTERVOL=$1;
+    PRIMARYVOL=$1;
     local inet6=$2;
     local d;
     local i;
@@ -104,9 +104,9 @@ function master_stats()
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
     if [ "$inet6" = "inet6" ]; then
-        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-id $MASTERVOL -l $master_log_file $d;
+        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-id $PRIMARYVOL -l $primary_log_file $d;
     else
-        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $MASTERVOL -l $master_log_file $d;
+        glusterfs -s localhost --xlator-option="*dht.lookup-unhashed=off" --volfile-id $PRIMARYVOL -l $primary_log_file $d;
     fi
 
     i=$(get_inode_num $d);
@@ -125,11 +125,12 @@ function master_stats()
 }
 
 
-function slave_stats()
+function secondary_stats()
 {
-    SLAVEUSER=$1;
-    SLAVEHOST=$2;
-    SLAVEVOL=$3;
+set -x
+    SECONDARYUSER=$1;
+    SECONDARYHOST=$2;
+    SECONDARYVOL=$3;
     local inet6=$4;
     local cmd_line;
     local ver;
@@ -137,9 +138,9 @@ function slave_stats()
 
     d=$(mktemp -d -t ${0##*/}.XXXXXX 2>/dev/null);
     if [ "$inet6" = "inet6" ]; then
-        glusterfs --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
+        glusterfs --xlator-option="*dht.lookup-unhashed=off" --xlator-option="transport.address-family=inet6" --volfile-server $SECONDARYHOST --volfile-id $SECONDARYVOL -l $secondary_log_file $d;
     else
-        glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SLAVEHOST --volfile-id $SLAVEVOL -l $slave_log_file $d;
+        glusterfs --xlator-option="*dht.lookup-unhashed=off" --volfile-server $SECONDARYHOST --volfile-id $SECONDARYVOL -l $secondary_log_file $d;
     fi
 
     i=$(get_inode_num $d);
@@ -154,10 +155,11 @@ function slave_stats()
     umount_lazy $d;
     rmdir $d;
 
-    cmd_line=$(cmd_slave);
-    ver=`SSHM $SLAVEUSER@$SLAVEHOST bash -c "'$cmd_line'"`;
+    cmd_line=$(cmd_secondary);
+    ver=`SSHM $SECONDARYUSER@$SECONDARYHOST bash -c "'$cmd_line'"`;
     status=$disk_size:$used_size:$ver:$no_of_files;
     echo $status
+set +x
 }
 
 function ping_host ()
@@ -208,7 +210,7 @@ function main()
         exit 1;
     fi;
 
-    cmd_line=$(cmd_slave);
+    cmd_line=$(cmd_secondary);
     if [[ -z "${GR_SSH_IDENTITY_KEY}" ]]; then
         ver=$(ssh -p ${SSH_PORT} -oNumberOfPasswordPrompts=0 -oStrictHostKeyChecking=no $2@$3 bash -c "'$cmd_line'")
     else
@@ -221,23 +223,23 @@ function main()
     fi;
 
     ERRORS=0;
-    master_data=$(master_stats $1 ${inet6});
-    slave_data=$(slave_stats $2 $3 $4 ${inet6});
-    master_disk_size=$(echo $master_data | cut -f1 -d':');
-    slave_disk_size=$(echo $slave_data | cut -f1 -d':');
-    master_used_size=$(echo $master_data | cut -f2 -d':');
-    slave_used_size=$(echo $slave_data | cut -f2 -d':');
-    master_version=$(echo $master_data | cut -f3 -d':');
-    slave_version=$(echo $slave_data | cut -f3 -d':');
-    slave_no_of_files=$(echo $slave_data | cut -f4 -d':');
+    primary_data=$(primary_stats $1 ${inet6});
+    secondary_data=$(secondary_stats $2 $3 $4 ${inet6});
+    primary_disk_size=$(echo $primary_data | cut -f1 -d':');
+    secondary_disk_size=$(echo $secondary_data | cut -f1 -d':');
+    primary_used_size=$(echo $primary_data | cut -f2 -d':');
+    secondary_used_size=$(echo $secondary_data | cut -f2 -d':');
+    primary_version=$(echo $primary_data | cut -f3 -d':');
+    secondary_version=$(echo $secondary_data | cut -f3 -d':');
+    secondary_no_of_files=$(echo $secondary_data | cut -f4 -d':');
 
-    if [[ "x$master_disk_size" = "x" || "x$master_version" = "x" || "$master_disk_size" -eq "0" ]]; then
-        echo "FORCE_BLOCKER|Unable to mount and fetch master volume details. Please check the log: $master_log_file" > $log_file;
+    if [[ "x$primary_disk_size" = "x" || "x$primary_version" = "x" || "$primary_disk_size" -eq "0" ]]; then
+        echo "FORCE_BLOCKER|Unable to mount and fetch primary volume details. Please check the log: $primary_log_file" > $log_file;
 	exit 1;
     fi;
 
-    if [[ "x$slave_disk_size" = "x" || "x$slave_version" = "x" || "$slave_disk_size" -eq "0" ]]; then
-	echo "FORCE_BLOCKER|Unable to mount and fetch slave volume details. Please check the log: $slave_log_file" > $log_file;
+    if [[ "x$secondary_disk_size" = "x" || "x$secondary_version" = "x" || "$secondary_disk_size" -eq "0" ]]; then
+	echo "FORCE_BLOCKER|Unable to mount and fetch secondary volume details. Please check the log: $secondary_log_file" > $log_file;
 	exit 1;
     fi;
 
@@ -245,27 +247,27 @@ function main()
     # if they fail. The checks below can be bypassed if force option is
     # provided hence no FORCE_BLOCKER flag.
 
-    if [ "$slave_disk_size" -lt "$master_disk_size" ]; then
-        echo "Total disk size of master is greater than disk size of slave." >> $log_file;
+    if [ "$secondary_disk_size" -lt "$primary_disk_size" ]; then
+        echo "Total disk size of primary is greater than disk size of secondary." >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi
 
-    effective_master_used_size=$(( $master_used_size + $BUFFER_SIZE ))
-    slave_available_size=$(( $slave_disk_size - $slave_used_size ))
-    master_available_size=$(( $master_disk_size - $effective_master_used_size ));
+    effective_primary_used_size=$(( $primary_used_size + $BUFFER_SIZE ))
+    secondary_available_size=$(( $secondary_disk_size - $secondary_used_size ))
+    primary_available_size=$(( $primary_disk_size - $effective_primary_used_size ));
 
-    if [ "$slave_available_size" -lt "$master_available_size" ]; then
-        echo "Total available size of master is greater than available size of slave" >> $log_file;
+    if [ "$secondary_available_size" -lt "$primary_available_size" ]; then
+        echo "Total available size of primary is greater than available size of secondary" >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi
 
-    if [ ! -z $slave_no_of_files ]; then
+    if [ ! -z $secondary_no_of_files ]; then
         echo "$3::$4 is not empty. Please delete existing files in $3::$4 and retry, or use force to continue without deleting the existing files." >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi;
 
-    if [[ $master_version != $slave_version ]]; then
-        echo "Gluster version mismatch between master and slave. Master version: $master_version Slave version: $slave_version" >> $log_file;
+    if [[ $primary_version != $secondary_version ]]; then
+        echo "Gluster version mismatch between primary and secondary. Primary version: $primary_version Secondary version: $secondary_version" >> $log_file;
         ERRORS=$(($ERRORS + 1));
     fi;
 

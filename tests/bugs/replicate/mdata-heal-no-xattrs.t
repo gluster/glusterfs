@@ -2,6 +2,7 @@
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
+. $(dirname $0)/../../afr.rc
 cleanup;
 
 TEST glusterd
@@ -23,10 +24,7 @@ TEST [ $ret -eq 0 ]
 TEST chmod +x $B0/$V0"0"/FILE
 
 # Add gfid to xattrop
-xattrop_b0=$(afr_get_index_path $B0/$V0"0")
-base_entry_b0=`ls $xattrop_b0`
-gfid_str_FILE=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $B0/$V0"0"/FILE))
-TEST ln $xattrop_b0/$base_entry_b0 $xattrop_b0/$gfid_str_FILE
+TEST create_brick_xattrop_entry $B0/$V0"0" FILE
 EXPECT_WITHIN $HEAL_TIMEOUT "^1$" get_pending_heal_count $V0
 
 TEST $CLI volume set $V0 cluster.self-heal-daemon on

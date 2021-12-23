@@ -18,7 +18,6 @@
 #include <glusterfs/run.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "glusterd.h"
 #include "rpcsvc.h"
 
@@ -37,7 +36,6 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_STATUS "status"
 #define GLUSTERD_STORE_KEY_VOL_PORT "port"
 #define GLUSTERD_STORE_KEY_VOL_SUB_COUNT "sub_count"
-#define GLUSTERD_STORE_KEY_VOL_STRIPE_CNT "stripe_count"
 #define GLUSTERD_STORE_KEY_VOL_REPLICA_CNT "replica_count"
 #define GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT "disperse_count"
 #define GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT "redundancy_count"
@@ -49,6 +47,8 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_TRANSPORT "transport-type"
 #define GLUSTERD_STORE_KEY_VOL_ID "volume-id"
 #define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAP "restored_from_snap"
+#define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME_ID "restored_from_snapname_id"
+#define GLUSTERD_STORE_KEY_VOL_RESTORED_SNAPNAME "restored_from_snapname"
 #define GLUSTERD_STORE_KEY_RB_STATUS "rb_status"
 #define GLUSTERD_STORE_KEY_RB_SRC_BRICK "rb_src"
 #define GLUSTERD_STORE_KEY_RB_DST_BRICK "rb_dst"
@@ -62,6 +62,7 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_OP_VERSION "op-version"
 #define GLUSTERD_STORE_KEY_VOL_CLIENT_OP_VERSION "client-op-version"
 #define GLUSTERD_STORE_KEY_VOL_QUOTA_VERSION "quota-version"
+#define GLUSTERD_STORE_KEY_VOL_SNAP_PLUGIN "snap_plugin"
 
 #define GLUSTERD_STORE_KEY_SNAP_NAME "name"
 #define GLUSTERD_STORE_KEY_SNAP_ID "snap-id"
@@ -78,6 +79,7 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_BRICK_HOSTNAME "hostname"
 #define GLUSTERD_STORE_KEY_BRICK_PATH "path"
 #define GLUSTERD_STORE_KEY_BRICK_REAL_PATH "real_path"
+#define GLUSTERD_STORE_KEY_BRICK_ORIGIN_PATH "origin_path"
 #define GLUSTERD_STORE_KEY_BRICK_PORT "listen-port"
 #define GLUSTERD_STORE_KEY_BRICK_RDMA_PORT "rdma.listen-port"
 #define GLUSTERD_STORE_KEY_BRICK_DECOMMISSIONED "decommissioned"
@@ -86,6 +88,7 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_BRICK_MOUNT_DIR "mount_dir"
 #define GLUSTERD_STORE_KEY_BRICK_SNAP_STATUS "snap-status"
 #define GLUSTERD_STORE_KEY_BRICK_FSTYPE "fs-type"
+#define GLUSTERD_STORE_KEY_BRICK_SNAPTYPE "snap-type"
 #define GLUSTERD_STORE_KEY_BRICK_MNTOPTS "mnt-opts"
 #define GLUSTERD_STORE_KEY_BRICK_ID "brick-id"
 #define GLUSTERD_STORE_KEY_BRICK_FSID "brick-fsid"

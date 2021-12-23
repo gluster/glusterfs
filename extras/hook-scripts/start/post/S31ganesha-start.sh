@@ -1,6 +1,6 @@
 #!/bin/bash
 PROGNAME="Sganesha-start"
-OPTSPEC="volname:,gd-workdir:"
+OPTSPEC="volname:,gd-workdir:,version:,volume-op:,first:"
 VOL=
 declare -i EXPORT_ID
 ganesha_key="ganesha.enable"
@@ -10,7 +10,7 @@ GLUSTERD_WORKDIR=
 
 function parse_args ()
 {
-        ARGS=$(getopt -l $OPTSPEC  -o "o" -name $PROGNAME $@)
+        ARGS=$(getopt -l $OPTSPEC  -o "o" -name $PROGNAME "$@")
         eval set -- "$ARGS"
 
         while true; do
@@ -22,6 +22,15 @@ function parse_args ()
                 --gd-workdir)
                     shift
                     GLUSTERD_WORKDIR=$1
+                    ;;
+                --version)
+                    shift
+                    ;;
+                --volume-op)
+                    shift
+                    ;;
+                --first)
+                    shift
                     ;;
                 *)
                     shift
@@ -64,8 +73,8 @@ echo "}"
 function export_add()
 {
         dbus-send --print-reply --system --dest=org.ganesha.nfsd \
-/org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
-string:$GANESHA_DIR/exports/export.$VOL.conf string:"EXPORT(Export_Id=$EXPORT_ID)"
+          /org/ganesha/nfsd/ExportMgr org.ganesha.nfsd.exportmgr.AddExport \
+          string:"$GANESHA_DIR/exports/export.$VOL.conf" string:"EXPORT(Export_Id=$EXPORT_ID)"
 
 }
 
@@ -90,33 +99,33 @@ function ganesha_enabled()
         local info_file="${GLUSTERD_WORKDIR}/vols/${VOL}/info"
         local enabled="off"
 
-        enabled=$(grep -w ${ganesha_key} ${info_file} | cut -d"=" -f2)
+        enabled=$(grep -w "$ganesha_key" "$info_file" | cut -d"=" -f2)
 
         [ "${enabled}" == "on" ]
 
         return $?
 }
 
-parse_args $@
+parse_args "$@"
 
-if ganesha_enabled ${VOL} && ! is_exported ${VOL}
+if ganesha_enabled "$VOL" && ! is_exported "$VOL"
 then
-        if [ ! -e ${GANESHA_DIR}/exports/export.${VOL}.conf ]
+        if [ ! -e "${GANESHA_DIR}/exports/export.${VOL}.conf" ]
         then
                 #Remove export entry from nfs-ganesha.conf
-                sed -i /$VOL.conf/d  $CONF1
-                write_conf ${VOL} > ${GANESHA_DIR}/exports/export.${VOL}.conf
-                EXPORT_ID=`cat $GANESHA_DIR/.export_added`
-                EXPORT_ID=EXPORT_ID+1
+                sed -i "/$VOL.conf/d"  $CONF1
+                write_conf "$VOL" > "${GANESHA_DIR}/exports/export.${VOL}.conf"
+                EXPORT_ID=$(cat $GANESHA_DIR/.export_added)
+                EXPORT_ID=$((EXPORT_ID+1))
                 echo $EXPORT_ID > $GANESHA_DIR/.export_added
                 sed -i s/Export_Id.*/"Export_Id=$EXPORT_ID;"/ \
-                        $GANESHA_DIR/exports/export.$VOL.conf
+                        "$GANESHA_DIR/exports/export.$VOL.conf"
                 echo "%include \"$GANESHA_DIR/exports/export.$VOL.conf\"" >> $CONF1
         else
-                EXPORT_ID=$(grep ^[[:space:]]*Export_Id $GANESHA_DIR/exports/export.$VOL.conf |\
-                          awk -F"[=,;]" '{print $2}' | tr -d '[[:space:]]')
+                EXPORT_ID=$(grep '^[[:space:]]*Export_Id' "$GANESHA_DIR/exports/export.$VOL.conf" |\
+                          awk -F"[=,;]" '{print $2}' | tr -d '[:space:]')
         fi
-        export_add $VOL
+        export_add "$VOL"
 fi
 
 exit 0

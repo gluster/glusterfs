@@ -39,17 +39,12 @@ out:
 
 void
 eh_dump(eh_t *history, void *data,
-        int(dump_fn)(circular_buffer_t *buffer, void *data))
+        void (*dumper)(circular_buffer_t *buffer, void *data))
 {
-    if (!history) {
+    if (history)
+        cb_buffer_dump(history->buffer, data, dumper);
+    else
         gf_msg_debug("event-history", 0, "history is NULL");
-        goto out;
-    }
-
-    cb_buffer_dump(history->buffer, data, dump_fn);
-
-out:
-    return;
 }
 
 int

@@ -708,7 +708,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_nfs_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_nfs_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, NFS_MSG_NO_MEMORY,
@@ -2068,15 +2068,14 @@ struct volume_options options[] = {
     {
         .key = {"nfs.event-threads"},
         .type = GF_OPTION_TYPE_SIZET,
-        .min = 1,
-        .max = 32,
-        .default_value = "2",
-        .description = "Specifies the number of event threads to execute in"
-                       "in parallel. Larger values would help process"
-                       " responses faster, depending on available processing"
-                       " power. Range 1-32 threads.",
+        .min = NFS_MIN_EVENT_THREADS,
+        .max = NFS_MAX_EVENT_THREADS,
+        .default_value = TOSTRING(STARTING_EVENT_THREADS),
+        .description = "Specifies the number of event threads to execute in "
+                       "parallel. Larger values would help process responses "
+                       "faster, depending on available processing power.",
         .op_version = {GD_OP_VERSION_4_0_0},
-        .flags = OPT_FLAG_SETTABLE,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_RANGE,
     },
     {.key = {NULL}},
 };

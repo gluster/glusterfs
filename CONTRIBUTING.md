@@ -59,7 +59,7 @@ About two tasks are one time for the life time. You can continue to use the same
 3. Tests:
    - All the required smoke tests would be auto-triggered.
      - Developers get a chance to retrigger the smoke tests using **"/recheck smoke"** as comment.
-   - The "regression" tests would be triggered by a comment **"/run regression"** from developers in the [@gluster-maintainers](https://github.com/orgs/gluster/teams/gluster-maintainers) group.
+   - The "regression" tests would be triggered by a comment **"/run regression"** from developers in the [@gluster](https://github.com/orgs/gluster/people) organization.
      - Ask for help as comment in PR if you have any questions about the process!
 
 4. Review Process:
@@ -83,6 +83,39 @@ About two tasks are one time for the life time. You can continue to use the same
      - It can be done when all the tests (smoke and regression) pass.
      - When the PR has 'Approved' flag from corresponding maintainer.
    - If you feel there is delay, feel free to add a comment, discuss the same in Slack channel, or send email.
+
+## Becoming member of gluster.org team in github
+
+This section details the process of becoming part of gluster.org team.
+The member list is reviewed by the current maintainers along with infra team time to time.
+
+### How to create a presence/identity in the Gluster.org projects
+
+Words 'MUST', 'SHOULD' etc to be referred from [RFC2119](https://tools.ietf.org/html/rfc2119)
+
+* MUST have enabled [two-factor authentication](https://help.github.com/articles/about-two-factor-authentication) on their GitHub account
+* MUST have read the [contributor guide](#)
+* SHOULD have made multiple contributions to the project or community. Contribution may include, but is not limited to:
+  - Authoring or reviewing PRs on GitHub
+  - Filing or commenting on issues on GitHub
+  - Contributing to subproject, or community discussions (e.g. meetings, Slack, email discussion forums, Stack Overflow)
+* SHOULD be subscribed to [gluster-users](https://lists.gluster.org/mailman/listinfo/gluster-users), [gluster-devel](https://lists.gluster.org/mailman/listinfo/gluster-devel) mailing lists.
+* SHOULD be actively contributing to 1 or more subprojects for 30 days.
+* Sponsored by 2 gluster-maintainers. Note the following requirements for sponsors:
+  - Sponsors must have close interactions with the prospective member - e.g. code/design/proposal review, coordinating on issues, etc.
+  - Sponsors must be the maintainer of an active repo in the Gluster org
+  - An approver/reviewer in the Gluster org may sponsor someone for the Gluster org; as long as it's a project they're involved with.
+
+
+### Request Process
+
+* Open an issue against the [project-infrastructure](https://github.com/gluster/project-infrastructure) repo
+  - With your github handle
+  - Ensure your sponsors are @mentioned on the issue or may be as approvers
+  - Have your sponsoring reviewers reply confirmation of sponsorship: +1
+* Once your sponsors have responded, your request will be reviewed by the admin. Any missing information will be requested.
+
+
 
 ## By contributing to this project, the contributor would need to agree to below.
 

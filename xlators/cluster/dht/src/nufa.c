@@ -180,7 +180,7 @@ nufa_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         if (layout->gen && (layout->gen < conf->gen)) {
             gf_msg_debug(this->name, 0, "incomplete layout failure for path=%s",
                          loc->path);
-            dht_layout_unref(this, local->layout);
+            dht_layout_unref(local->layout);
             goto do_fresh_lookup;
         }
 
@@ -554,7 +554,6 @@ nufa_init(xlator_t *this)
     data_t *data = NULL;
     char *local_volname = NULL;
     int ret = -1;
-    char my_hostname[256];
     gf_boolean_t addr_match = _gf_false;
     nufa_args_t args = {
         0,
@@ -570,14 +569,7 @@ nufa_init(xlator_t *this)
 
     } else {
         addr_match = _gf_true;
-        local_volname = "localhost";
-        ret = gethostname(my_hostname, 256);
-        if (ret == 0)
-            local_volname = my_hostname;
-
-        else
-            gf_msg(this->name, GF_LOG_WARNING, errno,
-                   DHT_MSG_GET_HOSTNAME_FAILED, "could not find hostname");
+        local_volname = gf_gethostname();
     }
 
     args.this = this;

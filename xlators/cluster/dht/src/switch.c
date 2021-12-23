@@ -264,7 +264,7 @@ switch_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc,
         if (layout->gen && (layout->gen < conf->gen)) {
             gf_msg_debug(this->name, 0, "incomplete layout failure for path=%s",
                          loc->path);
-            dht_layout_unref(this, local->layout);
+            dht_layout_unref(local->layout);
             goto do_fresh_lookup;
         }
 

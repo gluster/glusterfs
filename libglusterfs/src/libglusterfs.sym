@@ -432,6 +432,7 @@ dict_clear_flag
 dict_check_flag
 dict_unref
 dict_unserialize
+dict_unserialize_specific_keys
 drop_token
 eh_destroy
 eh_dump
@@ -603,11 +604,13 @@ gf_fop_string
 __gf_free
 gf_free_mig_locks
 gf_getgrouplist
+gf_gethostname
 gf_get_hostname_from_ip
 gf_get_index_by_elem
 gf_global_mem_acct_enable_set
 gfid_to_ino
 gf_inode_type_to_str
+gf_io_run
 gf_is_ip_in_net
 gf_is_local_addr
 gf_is_same_address
@@ -769,7 +772,6 @@ glusterfs_is_local_pathinfo
 glusterfs_leaf_position
 glusterfs_reachable_leaves
 __glusterfs_this_location
-glusterfs_this_set
 glusterfs_volfile_reconfigure
 glusterfs_xlator_link
 graph_reconf_validateopt
@@ -816,6 +818,7 @@ inode_ref
 inode_ref_reduce_by_n
 inode_rename
 inode_resolve
+inode_set_namespace_inode
 inode_set_need_lookup
 inode_table_ctx_free
 inode_table_destroy
@@ -871,13 +874,13 @@ loc_wipe
 log_base2
 _mask_cancellation
 mask_match
-mem_get
-mem_get0
+mem_get_malloc
+mem_get_calloc
 mem_pool_destroy
 mem_pool_new_fn
 mem_pools_fini
 mem_pools_init
-mem_put
+mem_put_pool
 mkdir_p
 next_token
 nwstrtail
@@ -1023,6 +1026,7 @@ synctask_new1
 synctask_set
 synctask_setid
 synctask_sleep
+synctask_usleep
 synctask_wake
 synctask_yield
 sys_access
@@ -1044,7 +1048,9 @@ sys_fstat
 sys_fstatat
 sys_fsync
 sys_ftruncate
+sys_futimens
 sys_futimes
+sys_lchmod
 sys_lchown
 sys_lgetxattr
 sys_link
@@ -1176,6 +1182,7 @@ gf_changelog_register_generic
 gf_gfid_generate_from_xxh64
 find_xlator_option_in_cmd_args_t
 gf_d_type_from_ia_type
+gf_d_type_from_st_mode
 glusterfs_graph_fini
 glusterfs_process_svc_attach_volfp
 glusterfs_mux_volfile_reconfigure
@@ -1184,6 +1191,7 @@ mgmt_is_multiplexed_daemon
 xlator_is_cleanup_starting
 gf_nanosleep
 gf_syncfs
+gf_pipe
 graph_total_client_xlator
 get_xattrs_to_heal
 gf_latency_statedump_and_reset
@@ -1191,3 +1199,4 @@ gf_latency_new
 gf_latency_reset
 gf_latency_update
 gf_frame_latency_update
+gf_assert

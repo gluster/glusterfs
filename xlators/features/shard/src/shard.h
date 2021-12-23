@@ -122,7 +122,7 @@ shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
         __bs = GF_MALLOC(sizeof(uint64_t), gf_shard_mt_uint64_t);              \
         if (!__bs)                                                             \
             goto label;                                                        \
-        *__bs = hton64(block_size);                                            \
+        *__bs = htobe64(block_size);                                           \
         __ret = dict_set_bin(xattr_req, GF_XATTR_SHARD_BLOCK_SIZE, __bs,       \
                              sizeof(*__bs));                                   \
         if (__ret) {                                                           \
@@ -207,6 +207,16 @@ typedef enum {
 
 /* rm = "remove me" */
 
+typedef struct shard_unlink_thread {
+    pthread_mutex_t mutex;
+    pthread_cond_t cond;
+    pthread_t thread;
+    gf_boolean_t running;
+    gf_boolean_t rerun;
+    gf_boolean_t stop;
+    xlator_t *this;
+} shard_unlink_thread_t;
+
 typedef struct shard_priv {
     uint64_t block_size;
     uuid_t dot_shard_gfid;
@@ -220,6 +230,7 @@ typedef struct shard_priv {
     shard_bg_deletion_state_t bg_del_state;
     gf_boolean_t first_lookup_done;
     uint64_t lru_limit;
+    shard_unlink_thread_t thread_info;
 } shard_priv_t;
 
 typedef struct {

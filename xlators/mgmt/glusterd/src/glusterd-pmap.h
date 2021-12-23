@@ -17,41 +17,41 @@
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "rpcsvc.h"
 
-struct pmap_port_status {
+struct pmap_ports {
+    struct cds_list_head port_list;
     char *brickname;
     void *xprt;
-    gf_pmap_port_type_t type;
+    int port;
 };
 
 struct pmap_registry {
-    struct pmap_port_status ports[GF_PORT_MAX + 1];
+    struct cds_list_head ports;
     int base_port;
     int max_port;
-    int last_alloc;
 };
 
 int
-pmap_assign_port(xlator_t *this, int port, const char *path);
-int
-pmap_mark_port_leased(xlator_t *this, int port);
-int
-pmap_registry_alloc(xlator_t *this);
-int
-pmap_registry_bind(xlator_t *this, int port, const char *brickname,
-                   gf_pmap_port_type_t type, void *xprt);
-int
-pmap_registry_extend(xlator_t *this, int port, const char *brickname);
-int
-pmap_registry_remove(xlator_t *this, int port, const char *brickname,
-                     gf_pmap_port_type_t type, void *xprt,
-                     gf_boolean_t brick_disconnect);
-int
-pmap_registry_search(xlator_t *this, const char *brickname,
-                     gf_pmap_port_type_t type, gf_boolean_t destroy);
+pmap_port_alloc(xlator_t *this);
 struct pmap_registry *
 pmap_registry_get(xlator_t *this);
+int
+pmap_add_port_to_list(xlator_t *this, int port, char *brickname, void *xprt);
+int
+pmap_port_new(xlator_t *this, int port, char *brickname, void *xprt,
+              struct pmap_ports **new_port);
+int
+pmap_port_remove(xlator_t *this, int port, char *brickname, void *xprt,
+                 gf_boolean_t brick_disconnect);
+int
+pmap_registry_search(xlator_t *this, char *brickname, gf_boolean_t destroy);
+int
+port_brick_bind(xlator_t *this, int port, char *brickname, void *xprt,
+                gf_boolean_t attach_req);
+int
+pmap_registry_search_by_xprt(xlator_t *this, void *xprt);
+int
+pmap_assign_port(xlator_t *this, int old_port, char *path);
 
 #endif

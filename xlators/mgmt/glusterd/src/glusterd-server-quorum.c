@@ -89,7 +89,7 @@ glusterd_validate_quorum(xlator_t *this, glusterd_op_t op, dict_t *dict,
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=volname", NULL);
         ret = 0;
         goto out;
@@ -97,7 +97,6 @@ glusterd_validate_quorum(xlator_t *this, glusterd_op_t op, dict_t *dict,
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL, NULL);
         ret = 0;
         goto out;
     }
@@ -146,9 +145,7 @@ glusterd_is_quorum_changed(dict_t *options, char *option, char *value)
     char *newquorum = NULL;
     char *oldratio = NULL;
     char *newratio = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
+    xlator_t *this = THIS;
 
     if ((strcmp("all", option) != 0) && !glusterd_is_quorum_option(option))
         goto out;
@@ -256,7 +253,7 @@ glusterd_is_volume_in_server_quorum(glusterd_volinfo_t *volinfo)
 
     ret = dict_get_str(volinfo->dict, GLUSTERD_QUORUM_TYPE_KEY, &quorum_type);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GLUSTERD_QUORUM_TYPE_KEY, NULL);
         goto out;
     }
@@ -427,7 +424,7 @@ out:
 int
 glusterd_do_quorum_action()
 {
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int ret = 0;
@@ -435,7 +432,6 @@ glusterd_do_quorum_action()
     int quorum_count = 0;
     gf_boolean_t meets = _gf_false;
 
-    this = THIS;
     conf = this->private;
 
     conf->pending_quorum_action = _gf_true;

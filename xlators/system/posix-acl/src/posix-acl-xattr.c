@@ -10,7 +10,11 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
 #include "posix-acl.h"
 #include "posix-acl-xattr.h"
 
@@ -73,8 +77,8 @@ posix_acl_from_xattr(xlator_t *this, const char *xattr_buf, int xattr_size)
     ace = acl->entries;
 
     for (i = 0; i < count; i++) {
-        ace->tag = letoh16(entry->tag);
-        ace->perm = letoh16(entry->perm);
+        ace->tag = le16toh(entry->tag);
+        ace->perm = le16toh(entry->perm);
 
         switch (ace->tag) {
             case POSIX_ACL_USER_OBJ:
@@ -86,7 +90,7 @@ posix_acl_from_xattr(xlator_t *this, const char *xattr_buf, int xattr_size)
             case POSIX_ACL_GROUP:
             case POSIX_ACL_USER:
             case POSIX_ACL_GROUP_OBJ:
-                ace->id = letoh32(entry->id);
+                ace->id = le32toh(entry->id);
                 break;
 
             default:

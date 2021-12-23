@@ -54,9 +54,9 @@ static struct meta_dirent root_dir_dirents[] = {
         .hook = meta_mallinfo_file_hook,
     },
     {
-        .name = "primary",
+        .name = "root",
         .type = IA_IFDIR,
-        .hook = meta_primary_dir_hook,
+        .hook = meta_root_hook,
     },
     {
         .name = "measure_latency",

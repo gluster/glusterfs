@@ -418,7 +418,7 @@ cli_xml_output_vol_status_detail(xmlTextWriterPtr writer, dict_t *dict,
     ret = dict_get_str(dict, key, &inode_size);
     if (!ret) {
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"inodeSize",
-                                              "%s", fs_name);
+                                              "%s", inode_size);
         XML_RET_CHECK_AND_GOTO(ret, out);
     }
     snprintf(key, sizeof(key), "brick%d.total_inodes", brick_index);
@@ -560,16 +560,16 @@ cli_xml_output_vol_status_mem(xmlTextWriterPtr writer, dict_t *dict,
                               int brick_index)
 {
     int ret = -1;
-    int arena = 0;
-    int ordblks = 0;
-    int smblks = 0;
-    int hblks = 0;
-    int hblkhd = 0;
-    int usmblks = 0;
-    int fsmblks = 0;
-    int uordblks = 0;
-    int fordblks = 0;
-    int keepcost = 0;
+    uint64_t arena = 0;
+    uint64_t ordblks = 0;
+    uint64_t smblks = 0;
+    uint64_t hblks = 0;
+    uint64_t hblkhd = 0;
+    uint64_t usmblks = 0;
+    uint64_t fsmblks = 0;
+    uint64_t uordblks = 0;
+    uint64_t fordblks = 0;
+    uint64_t keepcost = 0;
     char key[1024] = {
         0,
     };
@@ -583,83 +583,83 @@ cli_xml_output_vol_status_mem(xmlTextWriterPtr writer, dict_t *dict,
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.arena", brick_index);
-    ret = dict_get_int32(dict, key, &arena);
+    ret = dict_get_uint64(dict, key, &arena);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"arena", "%d",
-                                          arena);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"arena",
+                                          "%" PRIu64, arena);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.ordblks", brick_index);
-    ret = dict_get_int32(dict, key, &ordblks);
+    ret = dict_get_uint64(dict, key, &ordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"ordblks", "%d",
-                                          ordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"ordblks",
+                                          "%" PRIu64, ordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.smblks", brick_index);
-    ret = dict_get_int32(dict, key, &smblks);
+    ret = dict_get_uint64(dict, key, &smblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"smblks", "%d",
-                                          smblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"smblks",
+                                          "%" PRIu64, smblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.hblks", brick_index);
-    ret = dict_get_int32(dict, key, &hblks);
+    ret = dict_get_uint64(dict, key, &hblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblks", "%d",
-                                          hblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblks",
+                                          "%" PRIu64, hblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.hblkhd", brick_index);
-    ret = dict_get_int32(dict, key, &hblkhd);
+    ret = dict_get_uint64(dict, key, &hblkhd);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblkhd", "%d",
-                                          hblkhd);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"hblkhd",
+                                          "%" PRIu64, hblkhd);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.usmblks", brick_index);
-    ret = dict_get_int32(dict, key, &usmblks);
+    ret = dict_get_uint64(dict, key, &usmblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"usmblks", "%d",
-                                          usmblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"usmblks",
+                                          "%" PRIu64, usmblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.fsmblks", brick_index);
-    ret = dict_get_int32(dict, key, &fsmblks);
+    ret = dict_get_uint64(dict, key, &fsmblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fsmblks", "%d",
-                                          fsmblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fsmblks",
+                                          "%" PRIu64, fsmblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.uordblks", brick_index);
-    ret = dict_get_int32(dict, key, &uordblks);
+    ret = dict_get_uint64(dict, key, &uordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uordblks", "%d",
-                                          uordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uordblks",
+                                          "%" PRIu64, uordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.fordblks", brick_index);
-    ret = dict_get_int32(dict, key, &fordblks);
+    ret = dict_get_uint64(dict, key, &fordblks);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fordblks", "%d",
-                                          fordblks);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"fordblks",
+                                          "%" PRIu64, fordblks);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "brick%d.mallinfo.keepcost", brick_index);
-    ret = dict_get_int32(dict, key, &keepcost);
+    ret = dict_get_uint64(dict, key, &keepcost);
     if (ret)
         goto out;
-    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"keepcost", "%d",
-                                          keepcost);
+    ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"keepcost",
+                                          "%" PRIu64, keepcost);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     /* </mallinfo> */
@@ -2429,7 +2429,6 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
     int status = 0;
     int brick_count = 0;
     int dist_count = 0;
-    int stripe_count = 0;
     int replica_count = 0;
     int arbiter_count = 0;
     int snap_count = 0;
@@ -2509,14 +2508,6 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
                                               (brick_count / dist_count));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        snprintf(key, sizeof(key), "volume%d.stripe_count", i);
-        ret = dict_get_int32(dict, key, &stripe_count);
-        if (ret)
-            goto out;
-        ret = xmlTextWriterWriteFormatElement(
-            local->writer, (xmlChar *)"stripeCount", "%d", stripe_count);
-        XML_RET_CHECK_AND_GOTO(ret, out);
-
         snprintf(key, sizeof(key), "volume%d.replica_count", i);
         ret = dict_get_int32(dict, key, &replica_count);
         if (ret)
@@ -2554,7 +2545,7 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
         ret = dict_get_int32(dict, key, &type);
         if (ret)
             goto out;
-        /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
+        /* For Distributed-(replicate,disperse)
            types
          */
         type = get_vol_type(type, dist_count, brick_count);
@@ -3496,9 +3487,9 @@ cli_xml_generate_gsync_config(dict_t *dict, xmlTextWriterPtr writer)
     };
     char *subop = NULL;
     char *gwd = NULL;
-    char *slave = NULL;
+    char *secondary = NULL;
     char *confpath = NULL;
-    char *master = NULL;
+    char *primary = NULL;
     char *op_name = NULL;
     int ret = -1;
     char conf_path[PATH_MAX] = "";
@@ -3518,13 +3509,13 @@ cli_xml_generate_gsync_config(dict_t *dict, xmlTextWriterPtr writer)
     }
 
     if (dict_get_str(dict, "glusterd_workdir", &gwd) != 0 ||
-        dict_get_str(dict, "slave", &slave) != 0) {
+        dict_get_str(dict, "secondary", &secondary) != 0) {
         ret = -1;
         goto out;
     }
 
-    if (dict_get_str(dict, "master", &master) != 0)
-        master = NULL;
+    if (dict_get_str(dict, "primary", &primary) != 0)
+        primary = NULL;
 
     if (dict_get_str(dict, "op_name", &op_name) != 0)
         op_name = NULL;
@@ -3542,10 +3533,10 @@ cli_xml_generate_gsync_config(dict_t *dict, xmlTextWriterPtr writer)
     runner_argprintf(&runner, "%s", confpath);
     runner_argprintf(&runner, "--iprefix=%s", DATADIR);
 
-    if (master)
-        runner_argprintf(&runner, ":%s", master);
+    if (primary)
+        runner_argprintf(&runner, ":%s", primary);
 
-    runner_add_arg(&runner, slave);
+    runner_add_arg(&runner, secondary);
     runner_argprintf(&runner, "--config-%s", subop);
 
     if (op_name)
@@ -3575,17 +3566,17 @@ cli_xml_output_vol_gsync_status(dict_t *dict, xmlTextWriterPtr writer)
     char *tmp = NULL;
     char *volume = NULL;
     char *volume_next = NULL;
-    char *slave = NULL;
-    char *slave_next = NULL;
+    char *secondary = NULL;
+    char *secondary_next = NULL;
     static const char *title_values[] = {
-        "master_node", "", "master_brick", "slave_user", "slave", "slave_node",
-        "status", "crawl_status",
+        "primary_node", "", "primary_brick", "secondary_user", "secondary",
+        "secondary_node", "status", "crawl_status",
         /* last_synced */
         "", "entry", "data", "meta", "failures",
         /* checkpoint_time */
         "", "checkpoint_completed",
         /* checkpoint_completion_time */
-        "", "master_node_uuid",
+        "", "primary_node_uuid",
         /* last_synced_utc */
         "last_synced",
         /* checkpoint_time_utc */
@@ -3664,7 +3655,7 @@ cli_xml_output_vol_gsync_status(dict_t *dict, xmlTextWriterPtr writer)
             }
 
             ret = xmlTextWriterWriteFormatElement(
-                writer, (xmlChar *)"session_slave", "%s", tmp);
+                writer, (xmlChar *)"session_secondary", "%s", tmp);
             XML_RET_CHECK_AND_GOTO(ret, out);
         }
 
@@ -3692,11 +3683,11 @@ cli_xml_output_vol_gsync_status(dict_t *dict, xmlTextWriterPtr writer)
         XML_RET_CHECK_AND_GOTO(ret, out);
 
         if (i + 1 < count) {
-            slave = get_struct_variable(20, status_values[i]);
-            slave_next = get_struct_variable(20, status_values[i + 1]);
+            secondary = get_struct_variable(20, status_values[i]);
+            secondary_next = get_struct_variable(20, status_values[i + 1]);
             volume = get_struct_variable(1, status_values[i]);
             volume_next = get_struct_variable(1, status_values[i + 1]);
-            if (!slave || !slave_next || !volume || !volume_next) {
+            if (!secondary || !secondary_next || !volume || !volume_next) {
                 gf_log("cli", GF_LOG_ERROR, "struct member empty.");
                 ret = -1;
                 goto out;
@@ -3714,7 +3705,7 @@ cli_xml_output_vol_gsync_status(dict_t *dict, xmlTextWriterPtr writer)
 
                 ret = xmlTextWriterEndElement(writer);
                 XML_RET_CHECK_AND_GOTO(ret, out);
-            } else if (strcmp(slave, slave_next) != 0) {
+            } else if (strcmp(secondary, secondary_next) != 0) {
                 session_closed = 1;
 
                 ret = xmlTextWriterEndElement(writer);
@@ -3747,8 +3738,8 @@ cli_xml_output_vol_gsync(dict_t *dict, int op_ret, int op_errno,
     int ret = -1;
     xmlTextWriterPtr writer = NULL;
     xmlDocPtr doc = NULL;
-    char *master = NULL;
-    char *slave = NULL;
+    char *primary = NULL;
+    char *secondary = NULL;
     int type = 0;
 
     GF_ASSERT(dict);
@@ -3778,17 +3769,17 @@ cli_xml_output_vol_gsync(dict_t *dict, int op_ret, int op_errno,
         case GF_GSYNC_OPTION_TYPE_RESUME:
         case GF_GSYNC_OPTION_TYPE_CREATE:
         case GF_GSYNC_OPTION_TYPE_DELETE:
-            if (dict_get_str(dict, "master", &master) != 0)
-                master = "???";
-            if (dict_get_str(dict, "slave", &slave) != 0)
-                slave = "???";
+            if (dict_get_str(dict, "primary", &primary) != 0)
+                primary = "???";
+            if (dict_get_str(dict, "secondary", &secondary) != 0)
+                secondary = "???";
 
-            ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"master",
-                                                  "%s", master);
+            ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"primary",
+                                                  "%s", primary);
             XML_RET_CHECK_AND_GOTO(ret, out);
 
-            ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"slave",
-                                                  "%s", slave);
+            ret = xmlTextWriterWriteFormatElement(
+                writer, (xmlChar *)"secondary", "%s", secondary);
             XML_RET_CHECK_AND_GOTO(ret, out);
 
             break;

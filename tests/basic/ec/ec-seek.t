@@ -54,5 +54,5 @@ EXPECT "^ENXIO$" ${SEEK} scan ${M0}/test hole $((${BSIZE} * 6))
 rm -f ${SEEK}
 cleanup
 
-# Centos6 regression slaves seem to not support SEEK_DATA/SEEK_HOLE
+# Centos6 regression machines seem to not support SEEK_DATA/SEEK_HOLE
 #G_TESTDEF_TEST_STATUS_CENTOS6=BAD_TEST,BUG=000000

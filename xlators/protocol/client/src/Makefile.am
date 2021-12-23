@@ -16,6 +16,7 @@ noinst_HEADERS = client.h client-mem-types.h client-messages.h client-common.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
+	-I$(top_srcdir)/rpc/rpc-transport/socket/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src/
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)

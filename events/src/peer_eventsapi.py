@@ -174,9 +174,9 @@ def sync_to_peers(args):
             sync_file_to_peers(WEBHOOKS_FILE_TO_SYNC)
         except GlusterCmdException as e:
             # Print stdout if stderr is empty
-            errmsg = e.message[2] if e.message[2] else e.message[1]
+            errmsg = e.args[0][2] if e.args[0][2] else e.args[0][1]
             handle_output_error("Failed to sync Webhooks file: [Error: {0}]"
-                                "{1}".format(e.message[0], errmsg),
+                                "{1}".format(e.args[0][0], errmsg),
                                 errcode=ERROR_WEBHOOK_SYNC_FAILED,
                                 json_output=args.json)
 
@@ -185,9 +185,9 @@ def sync_to_peers(args):
             sync_file_to_peers(CUSTOM_CONFIG_FILE_TO_SYNC)
         except GlusterCmdException as e:
             # Print stdout if stderr is empty
-            errmsg = e.message[2] if e.message[2] else e.message[1]
+            errmsg = e.args[0][2] if e.args[0][2] else e.args[0][1]
             handle_output_error("Failed to sync Config file: [Error: {0}]"
-                                "{1}".format(e.message[0], errmsg),
+                                "{1}".format(e.args[0][0], errmsg),
                                 errcode=ERROR_CONFIG_SYNC_FAILED,
                                 json_output=args.json)
 

@@ -9,7 +9,6 @@
 */
 
 #include "dht-common.h"
-#include <glusterfs/byte-order.h>
 #include "unittest/unittest.h"
 
 #define layout_base_size (sizeof(dht_layout_t))
@@ -87,7 +86,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
     UNLOCK(&conf->layout_lock);
 
     if (!oldret) {
-        dht_layout_unref(this, old_layout);
+        dht_layout_unref(old_layout);
     }
     if (ret)
         GF_ATOMIC_DEC(layout->ref);
@@ -97,11 +96,11 @@ out:
 }
 
 void
-dht_layout_unref(xlator_t *this, dht_layout_t *layout)
+dht_layout_unref(dht_layout_t *layout)
 {
     int ref = 0;
 
-    if (!layout || layout->preset || !this->private)
+    if (!layout || layout->preset)
         return;
 
     ref = GF_ATOMIC_DEC(layout->ref);
@@ -221,10 +220,10 @@ dht_disk_layout_extract(xlator_t *this, dht_layout_t *layout, int pos,
         goto out;
     }
 
-    disk_layout[0] = hton32(layout->list[pos].commit_hash);
-    disk_layout[1] = hton32(layout->type);
-    disk_layout[2] = hton32(layout->list[pos].start);
-    disk_layout[3] = hton32(layout->list[pos].stop);
+    disk_layout[0] = htobe32(layout->list[pos].commit_hash);
+    disk_layout[1] = htobe32(layout->type);
+    disk_layout[2] = htobe32(layout->list[pos].start);
+    disk_layout[3] = htobe32(layout->list[pos].stop);
 
     if (disk_layout_p)
         *disk_layout_p = disk_layout;
@@ -274,7 +273,7 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
 
     memcpy(disk_layout, disk_layout_raw, disk_layout_len);
 
-    type = ntoh32(disk_layout[1]);
+    type = be32toh(disk_layout[1]);
     switch (type) {
         case DHT_HASH_TYPE_DM_USER:
             gf_msg_debug(this->name, 0, "found user-set layout");
@@ -288,9 +287,9 @@ dht_disk_layout_merge(xlator_t *this, dht_layout_t *layout, int pos,
             return -1;
     }
 
-    commit_hash = ntoh32(disk_layout[0]);
-    start_off = ntoh32(disk_layout[2]);
-    stop_off = ntoh32(disk_layout[3]);
+    commit_hash = be32toh(disk_layout[0]);
+    start_off = be32toh(disk_layout[2]);
+    stop_off = be32toh(disk_layout[3]);
 
     layout->list[pos].commit_hash = commit_hash;
     layout->list[pos].start = start_off;
@@ -370,34 +369,6 @@ out:
 }
 
 void
-dht_layout_entry_swap(dht_layout_t *layout, int i, int j)
-{
-    uint32_t start_swap = 0;
-    uint32_t stop_swap = 0;
-    uint32_t commit_hash_swap = 0;
-    xlator_t *xlator_swap = 0;
-    int err_swap = 0;
-
-    start_swap = layout->list[i].start;
-    stop_swap = layout->list[i].stop;
-    xlator_swap = layout->list[i].xlator;
-    err_swap = layout->list[i].err;
-    commit_hash_swap = layout->list[i].commit_hash;
-
-    layout->list[i].start = layout->list[j].start;
-    layout->list[i].stop = layout->list[j].stop;
-    layout->list[i].xlator = layout->list[j].xlator;
-    layout->list[i].err = layout->list[j].err;
-    layout->list[i].commit_hash = layout->list[j].commit_hash;
-
-    layout->list[j].start = start_swap;
-    layout->list[j].stop = stop_swap;
-    layout->list[j].xlator = xlator_swap;
-    layout->list[j].err = err_swap;
-    layout->list[j].commit_hash = commit_hash_swap;
-}
-
-void
 dht_layout_range_swap(dht_layout_t *layout, int i, int j)
 {
     uint32_t start_swap = 0;
@@ -411,11 +382,6 @@ dht_layout_range_swap(dht_layout_t *layout, int i, int j)
 
     layout->list[j].start = start_swap;
     layout->list[j].stop = stop_swap;
-}
-static int64_t
-dht_layout_entry_cmp_volname(dht_layout_t *layout, int i, int j)
-{
-    return (strcmp(layout->list[i].xlator->name, layout->list[j].xlator->name));
 }
 
 gf_boolean_t
@@ -435,58 +401,40 @@ dht_is_subvol_in_layout(dht_layout_t *layout, xlator_t *xlator)
     return _gf_false;
 }
 
-static int64_t
-dht_layout_entry_cmp(dht_layout_t *layout, int i, int j)
+static int
+dht_layout_entry_cmp(const void *p, const void *q)
 {
+    const dht_layout_entry_t *x = p, *y = q;
     int64_t diff = 0;
 
-    /* swap zero'ed out layouts to front, if needed */
-    if (!layout->list[j].start && !layout->list[j].stop) {
-        diff = (int64_t)layout->list[i].stop - (int64_t)layout->list[j].stop;
-        goto out;
-    }
-    diff = (int64_t)layout->list[i].start - (int64_t)layout->list[j].start;
+    if (!y->start && !y->stop)
+        diff = (int64_t)x->stop - (int64_t)y->stop;
+    else
+        diff = (int64_t)x->start - (int64_t)y->start;
 
-out:
-    return diff;
+    return (diff == 0 ? 0 : (diff < 0 ? -1 : 1));
 }
 
-int
+static int
+dht_layout_entry_cmp_volname(const void *p, const void *q)
+{
+    const dht_layout_entry_t *x = p, *y = q;
+
+    return strcmp(x->xlator->name, y->xlator->name);
+}
+
+void
 dht_layout_sort(dht_layout_t *layout)
 {
-    int i = 0;
-    int j = 0;
-    int64_t ret = 0;
-
-    /* TODO: O(n^2) -- bad bad */
-
-    for (i = 0; i < layout->cnt - 1; i++) {
-        for (j = i + 1; j < layout->cnt; j++) {
-            ret = dht_layout_entry_cmp(layout, i, j);
-            if (ret > 0)
-                dht_layout_entry_swap(layout, i, j);
-        }
-    }
-
-    return 0;
+    qsort(layout->list, layout->cnt, sizeof(dht_layout_entry_t),
+          dht_layout_entry_cmp);
 }
 
 void
 dht_layout_sort_volname(dht_layout_t *layout)
 {
-    int i = 0;
-    int j = 0;
-    int64_t ret = 0;
-
-    /* TODO: O(n^2) -- bad bad */
-
-    for (i = 0; i < layout->cnt - 1; i++) {
-        for (j = i + 1; j < layout->cnt; j++) {
-            ret = dht_layout_entry_cmp_volname(layout, i, j);
-            if (ret > 0)
-                dht_layout_entry_swap(layout, i, j);
-        }
-    }
+    qsort(layout->list, layout->cnt, sizeof(dht_layout_entry_t),
+          dht_layout_entry_cmp_volname);
 }
 
 void
@@ -617,12 +565,7 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
     uint32_t misc = 0, missing_dirs = 0;
     char gfid[GF_UUID_BUF_SIZE] = {0};
 
-    ret = dht_layout_sort(layout);
-    if (ret == -1) {
-        gf_smsg(this->name, GF_LOG_WARNING, 0, DHT_MSG_LAYOUT_SORT_FAILED,
-                NULL);
-        goto out;
-    }
+    dht_layout_sort(layout);
 
     gf_uuid_unparse(loc->gfid, gfid);
 
@@ -652,7 +595,6 @@ dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout)
             ret += missing_dirs;
     }
 
-out:
     return ret;
 }
 
@@ -736,9 +678,9 @@ dht_layout_dir_mismatch(xlator_t *this, dht_layout_t *layout, xlator_t *subvol,
 
     memcpy(disk_layout, disk_layout_raw, sizeof(disk_layout));
 
-    start_off = ntoh32(disk_layout[2]);
-    stop_off = ntoh32(disk_layout[3]);
-    commit_hash = ntoh32(disk_layout[0]);
+    start_off = be32toh(disk_layout[2]);
+    stop_off = be32toh(disk_layout[3]);
+    commit_hash = be32toh(disk_layout[0]);
 
     if ((layout->list[pos].start != start_off) ||
         (layout->list[pos].stop != stop_off) ||

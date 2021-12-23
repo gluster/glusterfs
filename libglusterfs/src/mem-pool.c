@@ -35,19 +35,55 @@ gf_mem_acct_enable_set(void *data)
     return;
 }
 
+/* Calculate the total allocation size required, taking alignment
+ * requirements into consideration.
+ */
+static size_t
+__gf_total_alloc_size(size_t req_size)
+{
+    return req_size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+}
+
+/* Byte by byte read/write of the trailer, because the trailer may not be
+ * placed on a naturally aligned address - some platforms require memory
+ * accesses to be aligned with the word size.
+ */
+static void
+__gf_mem_trailer_write(uint8_t *trailer)
+{
+    int i = 0;
+    for (i = GF_MEM_TRAILER_SIZE - 1; i > 0; i--) {
+        *trailer++ = (uint8_t)(GF_MEM_TRAILER_MAGIC >> (i * 8));
+    }
+    *trailer = (uint8_t)GF_MEM_TRAILER_MAGIC;
+}
+
+static gf_mem_magic_t
+__gf_mem_trailer_read(uint8_t *trailer)
+{
+    gf_mem_magic_t magic = 0;
+
+    int i;
+    for (i = GF_MEM_TRAILER_SIZE - 1; i > 0; i--) {
+        magic |= (gf_mem_magic_t)(*trailer++ << (i * 8));
+    }
+    magic |= (gf_mem_magic_t)*trailer;
+
+    return magic;
+}
+
 static void *
 gf_mem_header_prepare(struct mem_header *header, size_t size)
 {
-    void *ptr;
-
     header->size = size;
 
-    ptr = header + 1;
-
     /* data follows in this gap of 'size' bytes */
-    *(uint32_t *)(ptr + size) = GF_MEM_TRAILER_MAGIC;
+    uint8_t *end = ((uint8_t *)header) + __gf_total_alloc_size(header->size);
+    uint8_t *trailer = end - GF_MEM_TRAILER_SIZE;
 
-    return ptr;
+    __gf_mem_trailer_write(trailer);
+
+    return header->data;
 }
 
 static void *
@@ -55,39 +91,31 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
                      size_t size, uint32_t type, const char *typestr)
 {
     struct mem_acct_rec *rec = NULL;
-    bool new_ref = false;
+    uint64_t num_allocs;
 
     if (mem_acct != NULL) {
         GF_ASSERT(type <= mem_acct->num_types);
 
         rec = &mem_acct->rec[type];
+        num_allocs = GF_ATOMIC_INC(rec->num_allocs);
+        if (num_allocs == 1) {
+            GF_ATOMIC_INC(mem_acct->refcnt);
+            rec->typestr = typestr;
+        }
+#ifdef DEBUG
         LOCK(&rec->lock);
         {
-            if (!rec->typestr) {
-                rec->typestr = typestr;
-            }
             rec->size += size;
-            new_ref = (rec->num_allocs == 0);
-            rec->num_allocs++;
-            rec->total_allocs++;
-            rec->max_size = max(rec->max_size, rec->size);
-            rec->max_num_allocs = max(rec->max_num_allocs, rec->num_allocs);
-
-#ifdef DEBUG
+            rec->max_size = max(rec->max_size, (num_allocs * size));
+            rec->max_num_allocs = max(rec->max_num_allocs, num_allocs);
             list_add(&header->acct_list, &rec->obj_list);
-#endif
         }
         UNLOCK(&rec->lock);
-
-        /* We only take a reference for each memory type used, not for each
-         * allocation. This minimizes the use of atomic operations. */
-        if (new_ref) {
-            GF_ATOMIC_INC(mem_acct->refcnt);
-        }
+#endif
     }
 
-    header->type = type;
     header->mem_acct = mem_acct;
+    header->type = type;
     header->magic = GF_MEM_HEADER_MAGIC;
 
     return gf_mem_header_prepare(header, size);
@@ -101,13 +129,11 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 
     if (mem_acct != NULL) {
         rec = &mem_acct->rec[header->type];
+#ifdef DEBUG
         LOCK(&rec->lock);
         {
             rec->size += size - header->size;
-            rec->total_allocs++;
             rec->max_size = max(rec->max_size, rec->size);
-
-#ifdef DEBUG
             /* The old 'header' already was present in 'obj_list', but
              * realloc() could have changed its address. We need to remove
              * the old item from the list and add the new one. This can be
@@ -115,9 +141,9 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
              * to the old location (which are not valid anymore) already
              * present in the list, it simply overwrites them. */
             list_move(&header->acct_list, &rec->obj_list);
-#endif
         }
         UNLOCK(&rec->lock);
+#endif
     }
 
     return gf_mem_header_prepare(header, size);
@@ -146,11 +172,11 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
     xl = THIS;
 
     req_size = nmemb * size;
-    tot_size = req_size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(req_size);
 
     ptr = calloc(1, tot_size);
 
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -170,10 +196,10 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
 
     xl = THIS;
 
-    tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(size);
 
     ptr = malloc(tot_size);
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -195,9 +221,9 @@ __gf_realloc(void *ptr, size_t size)
     header = (struct mem_header *)(ptr - GF_MEM_HEADER_SIZE);
     GF_ASSERT(header->magic == GF_MEM_HEADER_MAGIC);
 
-    tot_size = size + GF_MEM_HEADER_SIZE + GF_MEM_TRAILER_SIZE;
+    tot_size = __gf_total_alloc_size(size);
     header = realloc(header, tot_size);
-    if (!header) {
+    if (caa_unlikely(!header)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -262,7 +288,7 @@ __gf_mem_invalidate(void *ptr)
     };
 
     /* calculate the last byte of the allocated area */
-    end = ptr + GF_MEM_HEADER_SIZE + inval.size + GF_MEM_TRAILER_SIZE;
+    end = ptr + __gf_total_alloc_size(inval.size);
 
     /* overwrite the old mem_header */
     memcpy(ptr, &inval, sizeof(inval));
@@ -308,15 +334,15 @@ __gf_free(void *free_ptr)
     void *ptr = NULL;
     struct mem_acct *mem_acct;
     struct mem_header *header = NULL;
-    bool last_ref = false;
+    uint64_t num_allocs = 0;
+
+    if (caa_unlikely(!free_ptr))
+        return;
 
     if (!gf_mem_acct_enabled()) {
         FREE(free_ptr);
         return;
     }
-
-    if (!free_ptr)
-        return;
 
     gf_free_sanitize(free_ptr);
     ptr = free_ptr - GF_MEM_HEADER_SIZE;
@@ -331,26 +357,21 @@ __gf_free(void *free_ptr)
     }
 
     // This points to a memory overrun
-    GF_ASSERT(GF_MEM_TRAILER_MAGIC ==
-              *(uint32_t *)((char *)free_ptr + header->size));
+    {
+        void *end = ((char *)ptr) + __gf_total_alloc_size(header->size);
+        uint8_t *trailer = end - GF_MEM_TRAILER_SIZE;
+        GF_ASSERT(GF_MEM_TRAILER_MAGIC == __gf_mem_trailer_read(trailer));
+    }
 
+    num_allocs = GF_ATOMIC_DEC(mem_acct->rec[header->type].num_allocs);
+#ifdef DEBUG
     LOCK(&mem_acct->rec[header->type].lock);
     {
-        mem_acct->rec[header->type].size -= header->size;
-        mem_acct->rec[header->type].num_allocs--;
-        /* If all the instances are freed up then ensure typestr is set
-         * to NULL */
-        if (!mem_acct->rec[header->type].num_allocs) {
-            last_ref = true;
-            mem_acct->rec[header->type].typestr = NULL;
-        }
-#ifdef DEBUG
         list_del(&header->acct_list);
-#endif
     }
     UNLOCK(&mem_acct->rec[header->type].lock);
-
-    if (last_ref) {
+#endif
+    if (!num_allocs) {
         xlator_mem_acct_unref(mem_acct);
     }
 
@@ -368,20 +389,12 @@ struct mem_pool *
 mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
                 unsigned long count, char *name)
 {
-    struct mem_pool *new;
-
-    new = GF_MALLOC(sizeof(struct mem_pool), gf_common_mt_mem_pool);
-    if (!new)
-        return NULL;
-
-    new->sizeof_type = sizeof_type;
-    return new;
+    return (struct mem_pool *)(sizeof_type);
 }
 
 void
 mem_pool_destroy(struct mem_pool *pool)
 {
-    GF_FREE(pool);
 }
 
 #else /* !GF_DISABLE_MEMPOOL */
@@ -557,11 +570,6 @@ mem_pools_preinit(void)
 
     for (i = 0; i < NPOOLS; ++i) {
         pools[i].power_of_two = POOL_SMALLEST + i;
-
-        GF_ATOMIC_INIT(pools[i].allocs_hot, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_cold, 0);
-        GF_ATOMIC_INIT(pools[i].allocs_stdc, 0);
-        GF_ATOMIC_INIT(pools[i].frees_to_list, 0);
     }
 
     pool_list_size = sizeof(per_thread_pool_list_t) +
@@ -806,16 +814,13 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     if (retval) {
         pt_pool->hot_list = retval->next;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->allocs_hot);
     } else {
         retval = pt_pool->cold_list;
         if (retval) {
             pt_pool->cold_list = retval->next;
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_cold);
         } else {
             (void)pthread_spin_unlock(&pool_list->lock);
-            GF_ATOMIC_INC(pt_pool->parent->allocs_stdc);
             retval = malloc(1 << pt_pool->parent->power_of_two);
 #ifdef DEBUG
             hit = _gf_false;
@@ -839,25 +844,19 @@ mem_get_from_pool(struct mem_pool *mem_pool)
     return retval;
 }
 
-#endif /* GF_DISABLE_MEMPOOL */
-
 void *
-mem_get0(struct mem_pool *mem_pool)
+mem_get_calloc(struct mem_pool *mem_pool)
 {
     void *ptr = mem_get(mem_pool);
     if (ptr) {
-#if defined(GF_DISABLE_MEMPOOL)
-        memset(ptr, 0, mem_pool->sizeof_type);
-#else
         memset(ptr, 0, AVAILABLE_SIZE(mem_pool->pool->power_of_two));
-#endif
     }
 
     return ptr;
 }
 
 void *
-mem_get(struct mem_pool *mem_pool)
+mem_get_malloc(struct mem_pool *mem_pool)
 {
     if (!mem_pool) {
         gf_msg_callingfn("mem-pool", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -865,9 +864,6 @@ mem_get(struct mem_pool *mem_pool)
         return NULL;
     }
 
-#if defined(GF_DISABLE_MEMPOOL)
-    return GF_MALLOC(mem_pool->sizeof_type, gf_common_mt_mem_pool);
-#else
     pooled_obj_hdr_t *retval = mem_get_from_pool(mem_pool);
     if (!retval) {
         return NULL;
@@ -876,15 +872,11 @@ mem_get(struct mem_pool *mem_pool)
     GF_ATOMIC_INC(mem_pool->active);
 
     return retval + 1;
-#endif /* GF_DISABLE_MEMPOOL */
 }
 
 void
-mem_put(void *ptr)
+mem_put_pool(void *ptr)
 {
-#if defined(GF_DISABLE_MEMPOOL)
-    GF_FREE(ptr);
-#else
     pooled_obj_hdr_t *hdr;
     per_thread_pool_list_t *pool_list;
     per_thread_pool_t *pt_pool;
@@ -921,12 +913,12 @@ mem_put(void *ptr)
         hdr->next = pt_pool->hot_list;
         pt_pool->hot_list = hdr;
         (void)pthread_spin_unlock(&pool_list->lock);
-        GF_ATOMIC_INC(pt_pool->parent->frees_to_list);
     } else {
         /* If the owner thread of this element has terminated, we simply
          * release its memory. */
         (void)pthread_spin_unlock(&pool_list->lock);
         free(hdr);
     }
-#endif /* GF_DISABLE_MEMPOOL */
 }
+
+#endif /* GF_DISABLE_MEMPOOL */

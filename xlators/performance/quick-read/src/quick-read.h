@@ -42,7 +42,7 @@ struct qr_inode {
     time_t last_refresh;
     struct list_head lru;
     uint64_t gen;
-    uint64_t invalidation_time;
+    time_t invalidation_time;
 };
 typedef struct qr_inode qr_inode_t;
 
@@ -55,7 +55,7 @@ typedef struct qr_priority qr_priority_t;
 
 struct qr_conf {
     uint64_t max_file_size;
-    int32_t cache_timeout;
+    time_t cache_timeout;
     uint64_t cache_size;
     int max_pri;
     gf_boolean_t qr_invalidation;

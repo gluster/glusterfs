@@ -11,8 +11,16 @@
 #include "glusterfs/syncop.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+#ifdef HAVE_ASAN_API
+#include <sanitizer/common_interface_defs.h>
+#endif
+
 #ifdef HAVE_TSAN_API
 #include <sanitizer/tsan_interface.h>
+#endif
+
+#ifdef HAVE_VALGRIND_API
+#include <valgrind/valgrind.h>
 #endif
 
 int
@@ -151,7 +159,7 @@ syncopctx_setfslkowner(gf_lkowner_t *lk_owner)
 
     opctx = syncopctx_getctx();
 
-    opctx->lk_owner = *lk_owner;
+    lk_owner_copy(&opctx->lk_owner, lk_owner);
     opctx->valid |= SYNCOPCTX_LKOWNER;
 
 out:
@@ -271,10 +279,20 @@ synctask_yield(struct synctask *task, struct timespec *delta)
     __tsan_switch_to_fiber(task->proc->tsan.fiber, 0);
 #endif
 
+#ifdef HAVE_ASAN_API
+    __sanitizer_start_switch_fiber(&task->fake_stack,
+                                   task->proc->sched.uc_stack.ss_sp,
+                                   task->proc->sched.uc_stack.ss_size);
+#endif
+
     if (swapcontext(&task->ctx, &task->proc->sched) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
     }
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->proc->fake_stack, NULL, NULL);
+#endif
 
     THIS = oldTHIS;
 }
@@ -292,6 +310,24 @@ synctask_sleep(int32_t secs)
     } else {
         delta.tv_sec = secs;
         delta.tv_nsec = 0;
+
+        synctask_yield(task, &delta);
+    }
+}
+
+void
+synctask_usleep(int32_t usecs)
+{
+    struct timespec delta;
+    struct synctask *task;
+
+    task = synctask_get();
+
+    if (task == NULL) {
+        usleep(usecs);
+    } else {
+        delta.tv_sec = usecs / 1000000;
+        delta.tv_nsec = (usecs % 1000000) * 1000;
 
         synctask_yield(task, &delta);
     }
@@ -341,6 +377,11 @@ synctask_wrap(void)
        wrong and can lead to crashes. */
 
     task = synctask_get();
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->fake_stack, NULL, NULL);
+#endif
+
     task->ret = task->syncfn(task->opaque);
     if (task->synccbk)
         task->synccbk(task->ret, task->frame, task->opaque);
@@ -368,6 +409,10 @@ synctask_destroy(struct synctask *task)
 
 #ifdef HAVE_TSAN_API
     __tsan_destroy_fiber(task->tsan.fiber);
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    VALGRIND_STACK_DEREGISTER(task->stackid);
 #endif
 
     GF_FREE(task);
@@ -485,6 +530,12 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     snprintf(newtask->tsan.name, TSAN_THREAD_NAMELEN, "<synctask of %s>",
              this->name);
     __tsan_set_fiber_name(newtask->tsan.fiber, newtask->tsan.name);
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    newtask->stackid = VALGRIND_STACK_REGISTER(
+        newtask->ctx.uc_stack.ss_sp,
+        newtask->ctx.uc_stack.ss_sp + newtask->ctx.uc_stack.ss_size);
 #endif
 
     newtask->state = SYNCTASK_INIT;
@@ -662,10 +713,20 @@ synctask_switchto(struct synctask *task)
     __tsan_switch_to_fiber(task->tsan.fiber, 0);
 #endif
 
+#ifdef HAVE_ASAN_API
+    __sanitizer_start_switch_fiber(&task->proc->fake_stack,
+                                   task->ctx.uc_stack.ss_sp,
+                                   task->ctx.uc_stack.ss_size);
+#endif
+
     if (swapcontext(&task->proc->sched, &task->ctx) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
     }
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->fake_stack, NULL, NULL);
+#endif
 
     if (task->state == SYNCTASK_DONE) {
         synctask_done(task);
@@ -691,6 +752,27 @@ synctask_switchto(struct synctask *task)
     pthread_mutex_unlock(&env->mutex);
 }
 
+#ifdef HAVE_VALGRIND_API
+
+static unsigned
+__valgrind_register_current_stack(void)
+{
+    pthread_attr_t attr;
+    size_t stacksize;
+    void *stack;
+    int ret;
+
+    ret = pthread_getattr_np(pthread_self(), &attr);
+    GF_ASSERT(ret == 0);
+
+    ret = pthread_attr_getstack(&attr, &stack, &stacksize);
+    GF_ASSERT(ret == 0);
+
+    return VALGRIND_STACK_REGISTER(stack, stack + stacksize);
+}
+
+#endif /* HAVE_VALGRIND_API */
+
 void *
 syncenv_processor(void *thdata)
 {
@@ -706,12 +788,20 @@ syncenv_processor(void *thdata)
     __tsan_set_fiber_name(proc->tsan.fiber, proc->tsan.name);
 #endif
 
+#ifdef HAVE_VALGRIND_API
+    proc->stackid = __valgrind_register_current_stack();
+#endif
+
     while ((task = syncenv_task(proc)) != NULL) {
         synctask_switchto(task);
     }
 
 #ifdef HAVE_TSAN_API
     __tsan_destroy_fiber(proc->tsan.fiber);
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    VALGRIND_STACK_DEREGISTER(proc->stackid);
 #endif
 
     return NULL;
@@ -3164,7 +3254,7 @@ syncop_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         args->xdata = dict_ref(xdata);
 
     if (flock)
-        args->flock = *flock;
+        gf_flock_copy(&args->flock, flock);
     __wake(args);
 
     return 0;
@@ -3181,7 +3271,7 @@ syncop_lk(xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock,
     SYNCOP(subvol, (&args), syncop_lk_cbk, subvol->fops->lk, fd, cmd, flock,
            xdata_in);
 
-    *flock = args.flock;
+    gf_flock_copy(flock, &args.flock);
 
     if (xdata_out)
         *xdata_out = args.xdata;
@@ -3370,6 +3460,7 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret > 0) {
         list_for_each_entry(tmp, &locklist->list, list)
         {
+            /* TODO: move to GF_MALLOC() */
             entry = GF_CALLOC(1, sizeof(lock_migration_info_t),
                               gf_common_mt_char);
 
@@ -3383,7 +3474,7 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
             INIT_LIST_HEAD(&entry->list);
 
-            entry->flock = tmp->flock;
+            gf_flock_copy(&entry->flock, &tmp->flock);
 
             entry->lk_flags = tmp->lk_flags;
 

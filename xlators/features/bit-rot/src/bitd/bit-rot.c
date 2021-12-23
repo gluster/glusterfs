@@ -452,10 +452,8 @@ br_log_object(xlator_t *this, char *op, uuid_t gfid, int32_t op_errno)
 {
     int softerror = br_object_sign_softerror(op_errno);
     if (softerror) {
-        gf_msg_debug(this->name, 0,
-                     "%s() failed on object %s "
-                     "[reason: %s]",
-                     op, uuid_utoa(gfid), strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "%s() failed on object %s", op,
+                     uuid_utoa(gfid));
     } else {
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
                 op, "gfid=%s", uuid_utoa(gfid), NULL);
@@ -467,10 +465,8 @@ br_log_object_path(xlator_t *this, char *op, const char *path, int32_t op_errno)
 {
     int softerror = br_object_sign_softerror(op_errno);
     if (softerror) {
-        gf_msg_debug(this->name, 0,
-                     "%s() failed on object %s "
-                     "[reason: %s]",
-                     op, path, strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "%s() failed on object %s", op,
+                     path);
     } else {
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, BRB_MSG_OP_FAILED, "op=%s",
                 op, "path=%s", path, NULL);
@@ -1503,7 +1499,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_br_stub_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_br_stub_mt_end);
 
     if (ret != 0) {
         gf_smsg(this->name, GF_LOG_WARNING, 0, BRB_MSG_MEM_ACNT_FAILED, NULL);
@@ -1853,12 +1849,12 @@ static int32_t
 br_signer_handle_options(xlator_t *this, br_private_t *priv, dict_t *options)
 {
     if (options) {
-        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, uint32,
+        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, time,
                          error_return);
         GF_OPTION_RECONF("signer-threads", priv->signer_th_count, options,
                          uint32, error_return);
     } else {
-        GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+        GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
         GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                        error_return);
     }
@@ -1875,7 +1871,7 @@ br_signer_init(xlator_t *this, br_private_t *priv)
     int32_t ret = 0;
     int numbricks = 0;
 
-    GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+    GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
     GF_OPTION_INIT("brick-count", numbricks, int32, error_return);
     GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                    error_return);
@@ -2158,7 +2154,7 @@ struct volume_options options[] = {
     {
         .key = {"expiry-time"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = SIGNING_TIMEOUT,
+        .default_value = TOSTRING(SIGNING_TIMEOUT),
         .op_version = {GD_OP_VERSION_3_7_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Waiting time for an object on which it waits "
@@ -2208,7 +2204,7 @@ struct volume_options options[] = {
     {
         .key = {"signer-threads"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = BR_WORKERS,
+        .default_value = TOSTRING(BR_DEFAULT_THREADS),
         .op_version = {GD_OP_VERSION_8_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Number of signing process threads. As a best "

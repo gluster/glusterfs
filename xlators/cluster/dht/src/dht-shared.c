@@ -231,7 +231,7 @@ mem_acct_init(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
 
-    ret = xlator_mem_acct_init(this, gf_dht_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_dht_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_NO_MEMORY,
@@ -299,6 +299,7 @@ dht_decommissioned_remove(xlator_t *this, dht_conf_t *conf)
             conf->decommission_subvols_cnt--;
         }
     }
+    conf->decommission_in_progress = 0;
 }
 
 static void
@@ -475,6 +476,9 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("force-migration", conf->force_migration, options, bool,
                      out);
 
+    GF_OPTION_RECONF("ensure-durability", conf->ensure_durability, options,
+                     bool, out);
+
     if (conf->defrag) {
         if (dict_get_str(options, "rebal-throttle", &temp_str) == 0) {
             ret = dht_configure_throttle(this, conf, temp_str);
@@ -493,9 +497,11 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     }
 
     if (dict_get_str(options, "decommissioned-bricks", &temp_str) == 0) {
-        ret = dht_parse_decommissioned_bricks(this, conf, temp_str);
-        if (ret == -1)
-            goto out;
+        if (!(conf->decommission_in_progress)) {
+            ret = dht_parse_decommissioned_bricks(this, conf, temp_str);
+            if (ret == -1)
+                goto out;
+        }
     } else {
         dht_decommissioned_remove(this, conf);
     }
@@ -744,6 +750,8 @@ dht_init(xlator_t *this)
     GF_OPTION_INIT("lock-migration", conf->lock_migration_enabled, bool, err);
 
     GF_OPTION_INIT("force-migration", conf->force_migration, bool, err);
+
+    GF_OPTION_INIT("ensure-durability", conf->ensure_durability, bool, err);
 
     if (defrag) {
         defrag->lock_migration_enabled = conf->lock_migration_enabled;
@@ -1066,8 +1074,7 @@ struct volume_options dht_options[] = {
      .default_value = "normal",
      .description = " Sets the maximum number of parallel file migrations "
                     "allowed on a node during the rebalance operation. The"
-                    " default value is normal and allows a max of "
-                    "[($(processing units) - 4) / 2), 2]  files to be "
+                    " default value is normal and allows 2 files to be "
                     "migrated at a time. Lazy will allow only one file to "
                     "be migrated at a time and aggressive will allow "
                     "max of [($(processing units) - 4) / 2), 4]",
@@ -1092,6 +1099,17 @@ struct volume_options dht_options[] = {
      .description = "If disabled, rebalance will not migrate files that "
                     "are being written to by an application",
      .op_version = {GD_OP_VERSION_4_0_0},
+     .level = OPT_STATUS_ADVANCED,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+
+    {.key = {"ensure-durability"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "on",
+     .description = "If disabled, rebalance will not fsync files after "
+                    "migration. Please note that this can lead to bad data if "
+                    "the data couldn't be synced by the brick machine's "
+                    "kernel, because of hardware failure etc.",
+     .op_version = {GD_OP_VERSION_10_0},
      .level = OPT_STATUS_ADVANCED,
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
 

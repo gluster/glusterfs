@@ -1377,8 +1377,6 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     } else
         local->ctr_link_count_req = _gf_true;
 
-    LOCK_INIT(&frame->lock);
-
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
@@ -2002,8 +2000,6 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         goto out;
     }
 
-    LOCK_INIT(&frame->lock);
-
     local = mem_get0(this->local_pool);
     if (!local) {
         gf_log(this->name, GF_LOG_DEBUG, "out of memory");
@@ -2399,7 +2395,7 @@ mem_acct_init(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("trash", this, out);
 
-    ret = xlator_mem_acct_init(this, gf_trash_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_trash_mt_end);
     if (ret != 0) {
         gf_log(this->name, GF_LOG_ERROR,
                "Memory accounting init"

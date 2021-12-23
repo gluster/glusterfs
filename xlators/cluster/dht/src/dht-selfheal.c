@@ -125,10 +125,9 @@ done:
     return 0;
 }
 
-int
+static int
 dht_refresh_layout_done(call_frame_t *frame)
 {
-    int ret = -1;
     dht_layout_t *refreshed = NULL, *heal = NULL;
     dht_local_t *local = NULL;
     dht_need_heal_t should_heal = NULL;
@@ -142,12 +141,7 @@ dht_refresh_layout_done(call_frame_t *frame)
     healer = local->selfheal.healer;
     should_heal = local->selfheal.should_heal;
 
-    ret = dht_layout_sort(refreshed);
-    if (ret == -1) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
-                DHT_MSG_LAYOUT_SORT_FAILED, NULL);
-        goto err;
-    }
+    dht_layout_sort(refreshed);
 
     if (should_heal(frame, &heal, &refreshed)) {
         healer(frame, &local->loc, heal);
@@ -156,15 +150,11 @@ dht_refresh_layout_done(call_frame_t *frame)
         local->selfheal.refreshed_layout = NULL;
         local->selfheal.layout = refreshed;
 
-        dht_layout_unref(frame->this, heal);
+        dht_layout_unref(heal);
 
         dht_selfheal_dir_finish(frame, frame->this, 0, 1);
     }
 
-    return 0;
-
-err:
-    dht_selfheal_dir_finish(frame, frame->this, -1, 1);
     return 0;
 }
 
@@ -256,7 +246,7 @@ dht_refresh_layout(call_frame_t *frame)
     local->op_ret = -1;
 
     if (local->selfheal.refreshed_layout) {
-        dht_layout_unref(this, local->selfheal.refreshed_layout);
+        dht_layout_unref(local->selfheal.refreshed_layout);
         local->selfheal.refreshed_layout = NULL;
     }
 
@@ -545,7 +535,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
 
     tmp = local->selfheal.layout;
     local->selfheal.layout = dht_layout_ref(frame->this, layout);
-    dht_layout_unref(frame->this, tmp);
+    dht_layout_unref(tmp);
 
     if (!newdir) {
         count = conf->subvolume_cnt;
@@ -856,7 +846,7 @@ dht_fix_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         }
     }
 
-    dht_layout_unref(this, dummy);
+    dht_layout_unref(dummy);
 out:
     return 0;
 }
@@ -933,7 +923,7 @@ dht_selfheal_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
         }
     }
 
-    dht_layout_unref(this, dummy);
+    dht_layout_unref(dummy);
 out:
     return 0;
 }
@@ -1708,7 +1698,7 @@ dht_fix_layout_of_directory(call_frame_t *frame, loc_t *loc,
 done:
     if (new_layout) {
         /* Make sure the extra 'ref' for existing layout is removed */
-        dht_layout_unref(this, local->layout);
+        dht_layout_unref(local->layout);
 
         local->layout = new_layout;
     }
@@ -1792,7 +1782,7 @@ dht_selfheal_layout_new_directory(call_frame_t *frame, loc_t *loc,
                      chunk);
     } else {
         weight_by_size = _gf_false;
-        chunk = ((unsigned long)0xffffffff) / bricks_to_use;
+        chunk = ((double)0xffffffff) / ((double)bricks_to_use);
     }
 
     start_subvol = dht_selfheal_layout_alloc_start(this, loc, layout);

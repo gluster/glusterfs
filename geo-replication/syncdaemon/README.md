@@ -4,14 +4,14 @@ gsycnd, the Gluster Syncdaemon
 REQUIREMENTS
 ------------
 
-_gsyncd_ is a program which can operate either in _master_ or in _slave_ mode.
+_gsyncd_ is a program which can operate either in _primary_ or in _secondary_ mode.
 Requirements are categorized according to this.
 
 * supported OS is GNU/Linux
 * Python >= 2.5, or 2.4 with Ctypes (see below) (both)
-* OpenSSH >= 4.0 (master) / SSH2 compliant sshd (eg. openssh) (slave)
+* OpenSSH >= 4.0 (primary) / SSH2 compliant sshd (eg. openssh) (secondary)
 * rsync (both)
-* glusterfs: with marker and changelog support (master & slave);
+* glusterfs: with marker and changelog support (primary & secondary);
 * FUSE: glusterfs fuse module with auxiliary gfid based access support
 
 INSTALLATION
@@ -44,7 +44,7 @@ in the source tree.
 USAGE
 -----
 
-gsyncd is a utilitly for continuous mirroring, ie. it mirrors master to slave incrementally.
+gsyncd is a utilitly for continuous mirroring, ie. it mirrors primary to secondary incrementally.
 Assume we have a gluster volume _pop_ at localhost. We try to set up the mirroring for volume
 _pop_ using gsyncd for gluster volume _moz_ on remote machine/cluster @ example.com. The
 respective gsyncd invocations are (demoing some syntax sugaring):

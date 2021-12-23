@@ -15,7 +15,6 @@
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include "marker-common.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syscall.h>
 
@@ -3068,6 +3067,7 @@ marker_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = -1;
     char *resolvedpath = NULL;
     quota_inode_ctx_t *ctx = NULL;
+    int no_found_entry = 1;
 
     if (op_ret <= 0)
         goto unwind;
@@ -3084,6 +3084,9 @@ marker_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if ((strcmp(entry->d_name, ".") == 0) ||
             (strcmp(entry->d_name, "..") == 0) || entry->inode == NULL)
             continue;
+
+        if (no_found_entry)
+            no_found_entry = 0;
 
         loc.parent = inode_ref(local->loc.inode);
         loc.inode = inode_ref(entry->inode);
@@ -3117,6 +3120,9 @@ marker_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto unwind;
         }
     }
+
+    if (no_found_entry && loc_is_root(&local->loc))
+        mq_create_xattrs_txn(this, &local->loc, NULL);
 
 unwind:
     MARKER_STACK_UNWIND(readdirp, frame, op_ret, op_errno, entries, xdata);
@@ -3178,7 +3184,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_marker_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_marker_mt_end);
 
     if (ret != 0) {
         gf_log(this->name, GF_LOG_ERROR,

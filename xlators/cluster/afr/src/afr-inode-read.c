@@ -15,12 +15,13 @@
 #include <stdlib.h>
 #include <signal.h>
 
+#include <urcu/uatomic.h>
+
 #include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
@@ -806,8 +807,9 @@ unlock:
             goto unwind;
         }
 
-        ret = afr_serialize_xattrs_with_delimiter(frame, this, xattr_serz,
-                                                  UUID0_STR, &tlen, ' ');
+        ret = afr_serialize_xattrs_with_delimiter(
+            frame, this, xattr_serz, local->cont.getxattr.xattr_len, UUID0_STR,
+            &tlen, ' ');
         if (ret) {
             local->op_ret = -1;
             local->op_errno = ENOMEM;
@@ -866,212 +868,180 @@ afr_getxattr_quota_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
+afr_update_local_dicts(call_frame_t *frame, dict_t *dict, dict_t *xdata)
+{
+    afr_local_t *local;
+    dict_t *local_dict;
+    dict_t *local_xdata;
+    int32_t ret;
+
+    local = frame->local;
+    local_dict = NULL;
+    local_xdata = NULL;
+
+    ret = -ENOMEM;
+
+    if ((dict != NULL) && (local->dict == NULL)) {
+        local_dict = dict_new();
+        if (local_dict == NULL) {
+            goto done;
+        }
+    }
+
+    if ((xdata != NULL) && (local->xdata_rsp == NULL)) {
+        local_xdata = dict_new();
+        if (local_xdata == NULL) {
+            goto done;
+        }
+    }
+
+    if ((local_dict != NULL) || (local_xdata != NULL)) {
+        /* TODO: Maybe it would be better to preallocate both dicts before
+         *       sending the requests. This way we don't need to use a LOCK()
+         *       here. */
+        LOCK(&frame->lock);
+
+        if ((local_dict != NULL) && (local->dict == NULL)) {
+            local->dict = local_dict;
+            local_dict = NULL;
+        }
+
+        if ((local_xdata != NULL) && (local->xdata_rsp == NULL)) {
+            local->xdata_rsp = local_xdata;
+            local_xdata = NULL;
+        }
+
+        UNLOCK(&frame->lock);
+    }
+
+    if (dict != NULL) {
+        if (dict_copy(dict, local->dict) == NULL) {
+            goto done;
+        }
+    }
+
+    if (xdata != NULL) {
+        if (dict_copy(xdata, local->xdata_rsp) == NULL) {
+            goto done;
+        }
+    }
+
+    ret = 0;
+
+done:
+    if (local_dict != NULL) {
+        dict_unref(local_dict);
+    }
+
+    if (local_xdata != NULL) {
+        dict_unref(local_xdata);
+    }
+
+    return ret;
+}
+
+static void
+afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
+                                 int32_t op_errno, dict_t *dict, dict_t *xdata,
+                                 bool is_fgetxattr)
+{
+    int len = 0;
+    char *lockinfo_buf = NULL;
+    dict_t *lockinfo = NULL, *newdict = NULL;
+    afr_local_t *local = NULL;
+
+    local = frame->local;
+
+    if ((op_ret >= 0) && (dict != NULL)) {
+        op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
+                                      (void **)&lockinfo_buf, &len);
+        if (lockinfo_buf != NULL) {
+            lockinfo = dict_new();
+            if (lockinfo == NULL) {
+                op_ret = -1;
+            } else {
+                op_ret = dict_unserialize(lockinfo_buf, len, &lockinfo);
+            }
+        }
+    }
+
+    if ((op_ret >= 0) && ((lockinfo != NULL) || (xdata != NULL))) {
+        op_ret = afr_update_local_dicts(frame, lockinfo, xdata);
+        if (lockinfo != NULL) {
+            dict_unref(lockinfo);
+        }
+    }
+
+    if (op_ret < 0) {
+        local->op_ret = -1;
+        local->op_errno = ENOMEM;
+    }
+
+    if (uatomic_sub_return(&local->call_count, 1) == 0) {
+        newdict = dict_new();
+        if (!newdict) {
+            local->op_ret = -1;
+            local->op_errno = op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        op_ret = dict_allocate_and_serialize(
+            local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
+        if (op_ret != 0) {
+            local->op_ret = -1;
+            local->op_errno = op_errno = ENOMEM;
+            goto unwind;
+        }
+
+        op_ret = dict_set_dynptr(newdict, GF_XATTR_LOCKINFO_KEY,
+                                 (void *)lockinfo_buf, len);
+        if (op_ret < 0) {
+            GF_FREE(lockinfo_buf);
+            local->op_ret = op_ret = -1;
+            local->op_errno = op_errno = -op_ret;
+            goto unwind;
+        }
+
+    unwind:
+        /* TODO: These unwinds use op_ret and op_errno instead of local->op_ret
+         *       and local->op_errno. This doesn't seem right because any
+         *       failure during processing of each answer could be silently
+         *       ignored. This is kept this was the old behavior and because
+         *       local->op_ret is initialized as -1 and local->op_errno is
+         *       initialized as EUCLEAN, which makes these values useless. */
+        if (is_fgetxattr) {
+            AFR_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, newdict,
+                             local->xdata_rsp);
+        } else {
+            AFR_STACK_UNWIND(getxattr, frame, op_ret, op_errno, newdict,
+                             local->xdata_rsp);
+        }
+
+        if (newdict != NULL) {
+            dict_unref(newdict);
+        }
+    }
+}
+
+static int32_t
 afr_getxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *dict,
                           dict_t *xdata)
 {
-    int call_cnt = 0, len = 0;
-    char *lockinfo_buf = NULL;
-    dict_t *lockinfo = NULL, *newdict = NULL;
-    afr_local_t *local = NULL;
-
-    LOCK(&frame->lock);
-    {
-        local = frame->local;
-
-        call_cnt = --local->call_count;
-
-        if ((op_ret < 0) || (!dict && !xdata)) {
-            goto unlock;
-        }
-
-        if (xdata) {
-            if (!local->xdata_rsp) {
-                local->xdata_rsp = dict_new();
-                if (!local->xdata_rsp) {
-                    local->op_ret = -1;
-                    local->op_errno = ENOMEM;
-                    goto unlock;
-                }
-            }
-        }
-
-        if (!dict) {
-            goto unlock;
-        }
-
-        op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
-                                      (void **)&lockinfo_buf, &len);
-
-        if (!lockinfo_buf) {
-            goto unlock;
-        }
-
-        if (!local->dict) {
-            local->dict = dict_new();
-            if (!local->dict) {
-                local->op_ret = -1;
-                local->op_errno = ENOMEM;
-                goto unlock;
-            }
-        }
-    }
-unlock:
-    UNLOCK(&frame->lock);
-
-    if (lockinfo_buf != NULL) {
-        lockinfo = dict_new();
-        if (lockinfo == NULL) {
-            local->op_ret = -1;
-            local->op_errno = ENOMEM;
-        } else {
-            op_ret = dict_unserialize(lockinfo_buf, len, &lockinfo);
-
-            if (lockinfo && local->dict) {
-                dict_copy(lockinfo, local->dict);
-            }
-        }
-    }
-
-    if (xdata && local->xdata_rsp) {
-        dict_copy(xdata, local->xdata_rsp);
-    }
-
-    if (!call_cnt) {
-        newdict = dict_new();
-        if (!newdict) {
-            local->op_ret = -1;
-            local->op_errno = ENOMEM;
-            goto unwind;
-        }
-
-        op_ret = dict_allocate_and_serialize(
-            local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
-        if (op_ret != 0) {
-            local->op_ret = -1;
-            goto unwind;
-        }
-
-        op_ret = dict_set_dynptr(newdict, GF_XATTR_LOCKINFO_KEY,
-                                 (void *)lockinfo_buf, len);
-        if (op_ret < 0) {
-            local->op_ret = -1;
-            local->op_errno = -op_ret;
-            goto unwind;
-        }
-
-    unwind:
-        AFR_STACK_UNWIND(getxattr, frame, op_ret, op_errno, newdict,
-                         local->xdata_rsp);
-    }
-
-    dict_unref(lockinfo);
+    afr_getxattr_lockinfo_cbk_common(frame, op_ret, op_errno, dict, xdata,
+                                     false);
 
     return 0;
 }
 
-int32_t
+static int32_t
 afr_fgetxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *dict,
                            dict_t *xdata)
 {
-    int call_cnt = 0, len = 0;
-    char *lockinfo_buf = NULL;
-    dict_t *lockinfo = NULL, *newdict = NULL;
-    afr_local_t *local = NULL;
-
-    LOCK(&frame->lock);
-    {
-        local = frame->local;
-
-        call_cnt = --local->call_count;
-
-        if ((op_ret < 0) || (!dict && !xdata)) {
-            goto unlock;
-        }
-
-        if (xdata) {
-            if (!local->xdata_rsp) {
-                local->xdata_rsp = dict_new();
-                if (!local->xdata_rsp) {
-                    local->op_ret = -1;
-                    local->op_errno = ENOMEM;
-                    goto unlock;
-                }
-            }
-        }
-
-        if (!dict) {
-            goto unlock;
-        }
-
-        op_ret = dict_get_ptr_and_len(dict, GF_XATTR_LOCKINFO_KEY,
-                                      (void **)&lockinfo_buf, &len);
-
-        if (!lockinfo_buf) {
-            goto unlock;
-        }
-
-        if (!local->dict) {
-            local->dict = dict_new();
-            if (!local->dict) {
-                local->op_ret = -1;
-                local->op_errno = ENOMEM;
-                goto unlock;
-            }
-        }
-    }
-unlock:
-    UNLOCK(&frame->lock);
-
-    if (lockinfo_buf != NULL) {
-        lockinfo = dict_new();
-        if (lockinfo == NULL) {
-            local->op_ret = -1;
-            local->op_errno = ENOMEM;
-        } else {
-            op_ret = dict_unserialize(lockinfo_buf, len, &lockinfo);
-
-            if (lockinfo && local->dict) {
-                dict_copy(lockinfo, local->dict);
-            }
-        }
-    }
-
-    if (xdata && local->xdata_rsp) {
-        dict_copy(xdata, local->xdata_rsp);
-    }
-
-    if (!call_cnt) {
-        newdict = dict_new();
-        if (!newdict) {
-            local->op_ret = -1;
-            local->op_errno = ENOMEM;
-            goto unwind;
-        }
-
-        op_ret = dict_allocate_and_serialize(
-            local->dict, (char **)&lockinfo_buf, (unsigned int *)&len);
-        if (op_ret != 0) {
-            local->op_ret = -1;
-            goto unwind;
-        }
-
-        op_ret = dict_set_dynptr(newdict, GF_XATTR_LOCKINFO_KEY,
-                                 (void *)lockinfo_buf, len);
-        if (op_ret < 0) {
-            local->op_ret = -1;
-            local->op_errno = -op_ret;
-            goto unwind;
-        }
-
-    unwind:
-        AFR_STACK_UNWIND(fgetxattr, frame, op_ret, op_errno, newdict,
-                         local->xdata_rsp);
-    }
-
-    dict_unref(lockinfo);
+    afr_getxattr_lockinfo_cbk_common(frame, op_ret, op_errno, dict, xdata,
+                                     true);
 
     return 0;
 }
@@ -1581,7 +1551,6 @@ afr_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
      * Heal daemons don't have IO threads ... and as a result they
      * send this getxattr down and eventually crash :(
      */
-    op_errno = -1;
     GF_CHECK_XATTR_KEY_AND_GOTO(name, IO_THREADS_QUEUE_SIZE_KEY, op_errno, out);
 
     /*
@@ -1609,6 +1578,7 @@ no_name:
 out:
     if (ret < 0)
         AFR_STACK_UNWIND(getxattr, frame, -1, op_errno, NULL, NULL);
+
     return 0;
 }
 

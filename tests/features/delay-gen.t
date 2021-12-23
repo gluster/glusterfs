@@ -28,10 +28,10 @@ TEST $GFS -s $H0 --volfile-id $V0 $M0
 TEST dd if=/dev/zero of=$M0/1 count=1 bs=128k oflag=sync
 
 #Write should take at least a second
-write_max_latency=$($CLI volume profile $V0 info | grep WRITE | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
+write_max_latency=$($CLI volume profile $V0 info | grep WRITE | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{10,}")
 
 #Create should not take a second
-create_max_latency=$($CLI volume profile $V0 info | grep CREATE | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{7,}")
+create_max_latency=$($CLI volume profile $V0 info | grep CREATE | awk 'BEGIN {max = 0} {if ($6 > max) max=$6;} END {print max}' | cut -d. -f 1 | egrep "[0-9]{10,}")
 
 TEST [ ! -z $write_max_latency ];
 TEST [ -z $create_max_latency ];

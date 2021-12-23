@@ -14,7 +14,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/common-utils.h>
 
 int
@@ -561,7 +560,7 @@ mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_ta_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_ta_mt_end);
     if (ret)
         gf_log(this->name, GF_LOG_ERROR,
                "Memory accounting "

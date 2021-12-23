@@ -53,10 +53,8 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
     gf_cli_rsp rsp = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
 
     GF_ASSERT(conf);
@@ -229,15 +227,13 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_probe_ctx_t *ctx = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
     if (-1 == req->rpc_status) {
         goto out;
     }
 
-    this = THIS;
-    GF_ASSERT(this != NULL);
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
@@ -321,7 +317,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto reply;
         }
 
-        ret = gd_add_address_to_peer(peerinfo, rsp.hostname);
+        ret = glusterd_peer_hostname_update(peerinfo, rsp.hostname, _gf_false);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    GD_MSG_HOSTNAME_ADD_TO_PEERLIST_FAIL,
@@ -359,7 +355,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto unlock;
 
     } else if (strncasecmp(rsp.hostname, peerinfo->hostname, 1024)) {
-        gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_HOST_PRESENT_ALREADY,
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_HOST_PRESENT_ALREADY,
                "Host: %s  with uuid: %s "
                "already present in cluster with alias hostname: %s",
                rsp.hostname, uuid_utoa(rsp.uuid), peerinfo->hostname);
@@ -663,10 +659,9 @@ __glusterd_friend_update_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gd1_mgmt_friend_update_rsp rsp = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
     GF_ASSERT(req);
-    this = THIS;
 
     if (-1 == req->rpc_status) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_RPC_FAILURE, "RPC Error");
@@ -709,13 +704,11 @@ __glusterd_cluster_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = -1;
     int32_t op_ret = -1;
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_conf_t *priv = NULL;
     char *err_str = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -783,7 +776,7 @@ out:
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -824,13 +817,11 @@ glusterd_mgmt_v3_lock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
     int ret = -1;
     int32_t op_ret = -1;
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     uuid_t *txn_id = NULL;
     char *err_str = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     frame = myframe;
@@ -899,7 +890,7 @@ out:
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -932,13 +923,11 @@ glusterd_mgmt_v3_unlock_peers_cbk_fn(struct rpc_req *req, struct iovec *iov,
     int ret = -1;
     int32_t op_ret = -1;
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     call_frame_t *frame = NULL;
     uuid_t *txn_id = NULL;
     char *err_str = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
 
     frame = myframe;
@@ -1007,7 +996,7 @@ out:
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -1041,13 +1030,11 @@ __glusterd_cluster_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = -1;
     int32_t op_ret = -1;
     glusterd_op_sm_event_type_t event_type = GD_OP_EVENT_NONE;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_conf_t *priv = NULL;
     char *err_str = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -1108,7 +1095,7 @@ out:
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -1144,13 +1131,11 @@ __glusterd_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_peerinfo_t *peerinfo = NULL;
     dict_t *dict = NULL;
     char *peer_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     call_frame_t *frame = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     priv = this->private;
     GF_ASSERT(priv);
@@ -1241,7 +1226,7 @@ out:
 
     ret = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -1286,16 +1271,14 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_peerinfo_t *peerinfo = NULL;
     dict_t *dict = NULL;
     char *peer_str = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     call_frame_t *frame = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     priv = this->private;
     GF_ASSERT(priv);
@@ -1461,8 +1444,8 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
 
-    if (!frame || !this || !data) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+    if (!frame || !data) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -1473,20 +1456,20 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     GF_ASSERT(priv);
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=hostname", NULL);
         goto out;
     }
     ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_DEBUG, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=port", NULL);
         port = GF_DEFAULT_BASE_PORT;
     }
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1501,7 +1484,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
 
 out:
     GF_FREE(req.hostname);
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1517,8 +1500,8 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_friend_sm_event_t *event = NULL;
     dict_t *peer_data = NULL;
 
-    if (!frame || !this || !data) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+    if (!frame || !data) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         ret = -1;
         goto out;
     }
@@ -1558,7 +1541,7 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     ret = dict_set_dynstr_with_alloc(peer_data, "hostname_in_cluster",
                                      peerinfo->hostname);
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                "Unable to add hostname of the peer");
         goto out;
     }
@@ -1614,7 +1597,7 @@ out:
     if (peer_data)
         dict_unref(peer_data);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1629,7 +1612,7 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_conf_t *priv = NULL;
     glusterd_friend_sm_event_t *event = NULL;
 
-    if (!frame || !this || !data) {
+    if (!frame || !data) {
         ret = -1;
         goto out;
     }
@@ -1664,7 +1647,7 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
 out:
     GF_FREE(req.hostname);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1712,7 +1695,7 @@ out:
     if (ret && dummy_frame)
         STACK_DESTROY(dummy_frame->root);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -1726,9 +1709,6 @@ glusterd_cluster_lock(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_conf_t *priv = NULL;
     call_frame_t *dummy_frame = NULL;
-
-    if (!this)
-        goto out;
 
     peerinfo = data;
 
@@ -1746,7 +1726,7 @@ glusterd_cluster_lock(call_frame_t *frame, xlator_t *this, void *data)
                                   NULL, this, glusterd_cluster_lock_cbk,
                                   (xdrproc_t)xdr_gd1_mgmt_cluster_lock_req);
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     if (ret && dummy_frame)
         STACK_DESTROY(dummy_frame->root);
@@ -1765,9 +1745,6 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
-    if (!this)
-        goto out;
-
     dict = data;
 
     priv = this->private;
@@ -1775,7 +1752,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1824,7 +1801,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
                                   glusterd_mgmt_v3_lock_peers_cbk,
                                   (xdrproc_t)xdr_gd1_mgmt_v3_lock_req);
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     if (dict)
         dict_unref(dict);
     if (req.dict.dict_val)
@@ -1844,9 +1821,6 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
-    if (!this)
-        goto out;
-
     dict = data;
 
     priv = this->private;
@@ -1854,7 +1828,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -1903,7 +1877,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
                                   glusterd_mgmt_v3_unlock_peers_cbk,
                                   (xdrproc_t)xdr_gd1_mgmt_v3_unlock_req);
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     if (dict)
         dict_unref(dict);
 
@@ -1923,10 +1897,6 @@ glusterd_cluster_unlock(call_frame_t *frame, xlator_t *this, void *data)
     glusterd_conf_t *priv = NULL;
     call_frame_t *dummy_frame = NULL;
 
-    if (!this) {
-        ret = -1;
-        goto out;
-    }
     peerinfo = data;
     priv = this->private;
     GF_ASSERT(priv);
@@ -1942,7 +1912,7 @@ glusterd_cluster_unlock(call_frame_t *frame, xlator_t *this, void *data)
                                   NULL, this, glusterd_cluster_unlock_cbk,
                                   (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_req);
 out:
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
 
     if (ret && dummy_frame)
         STACK_DESTROY(dummy_frame->root);
@@ -1964,10 +1934,6 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
-    if (!this) {
-        goto out;
-    }
-
     dict = data;
 
     priv = this->private;
@@ -1975,7 +1941,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -2026,7 +1992,7 @@ out:
     if (req.buf.buf_val)
         GF_FREE(req.buf.buf_val);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -2044,17 +2010,13 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
-    if (!this) {
-        goto out;
-    }
-
     dict = data;
     priv = this->private;
     GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=peerinfo", NULL);
         goto out;
     }
@@ -2105,7 +2067,7 @@ out:
     if (req.buf.buf_val)
         GF_FREE(req.buf.buf_val);
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -2123,12 +2085,10 @@ __glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int index = 0;
     glusterd_req_ctx_t *req_ctx = NULL;
     glusterd_pending_node_t *node = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *txn_id = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
     GF_ASSERT(req);
@@ -2256,10 +2216,6 @@ glusterd_brick_op(call_frame_t *frame, xlator_t *this, void *data)
     dict_t *op_ctx = NULL;
     uuid_t *txn_id = NULL;
 
-    if (!this) {
-        ret = -1;
-        goto out;
-    }
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -2373,7 +2329,7 @@ out:
 
     ret1 = glusterd_set_txn_opinfo(txn_id, &opinfo);
     if (ret1)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
                "Unable to set "
                "transaction's opinfo");
 
@@ -2382,7 +2338,7 @@ out:
         opinfo.op_ret = ret;
     }
 
-    gf_msg_debug(this ? this->name : "glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 

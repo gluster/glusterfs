@@ -706,7 +706,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 err:
     if (nframe) {
         rda_local_wipe(nframe->local);
-        FRAME_DESTROY(nframe);
+        FRAME_DESTROY(nframe, frame->root->ctx->measure_latency);
     }
 
     return -1;
@@ -1181,7 +1181,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         goto out;
 
-    ret = xlator_mem_acct_init(this, gf_rda_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_rda_mt_end);
 
     if (ret != 0)
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, READDIR_AHEAD_MSG_NO_MEMORY,

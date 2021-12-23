@@ -187,7 +187,8 @@ void
 server4_post_lease(gfx_lease_rsp *rsp, struct gf_lease *lease);
 void
 server4_post_lookup(gfx_common_2iatt_rsp *rsp, call_frame_t *frame,
-                    server_state_t *state, inode_t *inode, struct iatt *stbuf);
+                    server_state_t *state, inode_t *inode, struct iatt *stbuf,
+                    dict_t *xdata);
 void
 server4_post_link(server_state_t *state, gfx_common_3iatt_rsp *rsp,
                   inode_t *inode, struct iatt *stbuf, struct iatt *pre,

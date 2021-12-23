@@ -61,8 +61,6 @@
     delaycompress
     notifempty
     postrotate
-    for pid in `ps -aef | grep glusterfs | egrep "snapd" | awk '{print $2}'`; do
-        /usr/bin/kill -HUP $pid > /dev/null 2>&1 || true
-    done
+    /usr/bin/killall -HUP `pgrep -f "glusterfs.*snapd"` > /dev/null 2>&1 || true
     endscript
 }

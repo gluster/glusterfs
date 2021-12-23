@@ -89,6 +89,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_PEER_ATTACH, "host=%s", (char *)words[2]);
@@ -176,6 +178,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_PEER_DETACH, "host=%s", (char *)words[2]);

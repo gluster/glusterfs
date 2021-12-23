@@ -67,17 +67,16 @@ struct _call_frame {
     call_stack_t *root;   /* stack root */
     call_frame_t *parent; /* previous BP */
     struct list_head frames;
-    void *local;    /* local variables */
-    xlator_t *this; /* implicit object */
-    ret_fn_t ret;   /* op_return address */
-    int32_t ref_count;
-    gf_lock_t lock;
-    void *cookie; /* unique cookie */
-    gf_boolean_t complete;
-
-    glusterfs_fop_t op;
     struct timespec begin; /* when this frame was created */
     struct timespec end;   /* when this frame completed */
+    void *local;           /* local variables */
+    gf_lock_t lock;
+    void *cookie;   /* unique cookie */
+    xlator_t *this; /* implicit object */
+    ret_fn_t ret;   /* op_return address */
+
+    glusterfs_fop_t op;
+    int32_t complete;
     const char *wind_from;
     const char *wind_to;
     const char *unwind_from;
@@ -154,11 +153,11 @@ struct _call_stack {
 struct xlator_fops;
 
 static inline void
-FRAME_DESTROY(call_frame_t *frame)
+FRAME_DESTROY(call_frame_t *frame, const gf_boolean_t measure_latency)
 {
     void *local = NULL;
 
-    if (frame->root->ctx->measure_latency)
+    if (measure_latency)
         gf_frame_latency_update(frame);
 
     list_del_init(&frame->frames);
@@ -179,6 +178,7 @@ STACK_DESTROY(call_stack_t *stack)
 {
     call_frame_t *frame = NULL;
     call_frame_t *tmp = NULL;
+    gf_boolean_t measure_latency;
 
     LOCK(&stack->pool->lock);
     {
@@ -189,9 +189,10 @@ STACK_DESTROY(call_stack_t *stack)
 
     LOCK_DESTROY(&stack->stack_lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &stack->myframes, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 
     GF_FREE(stack->groups_large);
@@ -206,6 +207,7 @@ STACK_RESET(call_stack_t *stack)
     call_frame_t *tmp = NULL;
     call_frame_t *last = NULL;
     struct list_head toreset = {0};
+    gf_boolean_t measure_latency;
 
     INIT_LIST_HEAD(&toreset);
 
@@ -222,9 +224,10 @@ STACK_RESET(call_stack_t *stack)
     }
     UNLOCK(&stack->pool->lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &toreset, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 }
 
@@ -289,10 +292,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
                      frame->root, old_THIS->name, THIS->name);                 \
         /* Need to capture counts at leaf node */                              \
         if (!next_xl->pass_through && !next_xl->children) {                    \
-            GF_ATOMIC_INC(next_xl->stats.total.metrics[opn].fop);              \
-            GF_ATOMIC_INC(next_xl->stats.interval.metrics[opn].fop);           \
-            GF_ATOMIC_INC(next_xl->stats.total.count);                         \
-            GF_ATOMIC_INC(next_xl->stats.interval.count);                      \
+            GF_ATOMIC_INC(next_xl->stats[opn].total_fop);                      \
+            GF_ATOMIC_INC(next_xl->stats[opn].interval_fop);                   \
         }                                                                      \
                                                                                \
         if (next_xl->pass_through) {                                           \
@@ -340,7 +341,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
             list_add(&_new->frames, &frame->root->myframes);                   \
-            frame->ref_count++;                                                \
         }                                                                      \
         UNLOCK(&frame->root->stack_lock);                                      \
         fn##_cbk = rfn;                                                        \
@@ -354,10 +354,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             timespec_now(&_new->begin);                                        \
         _new->op = get_fop_index_from_fn((_new->this), (fn));                  \
         if (!obj->pass_through) {                                              \
-            GF_ATOMIC_INC(obj->stats.total.metrics[_new->op].fop);             \
-            GF_ATOMIC_INC(obj->stats.interval.metrics[_new->op].fop);          \
-            GF_ATOMIC_INC(obj->stats.total.count);                             \
-            GF_ATOMIC_INC(obj->stats.interval.count);                          \
+            GF_ATOMIC_INC(obj->stats[_new->op].total_fop);                     \
+            GF_ATOMIC_INC(obj->stats[_new->op].interval_fop);                  \
         } else {                                                               \
             /* we want to get to the actual fop to call */                     \
             next_xl_fn = get_the_pt_fop(&obj->pass_through_fops->stat,         \
@@ -396,7 +394,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         _parent = frame->parent;                                               \
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
-            _parent->ref_count--;                                              \
             if ((op_ret) < 0 && (op_errno) != frame->root->error) {            \
                 frame->root->err_xl = frame->this;                             \
                 frame->root->error = (op_errno);                               \
@@ -417,8 +414,8 @@ get_the_pt_fop(void *base_fop, int fop_idx)
                 timespec_now(&_parent->end);                                   \
         }                                                                      \
         if (op_ret < 0) {                                                      \
-            GF_ATOMIC_INC(THIS->stats.total.metrics[frame->op].cbk);           \
-            GF_ATOMIC_INC(THIS->stats.interval.metrics[frame->op].cbk);        \
+            GF_ATOMIC_INC(THIS->stats[frame->op].total_fop_cbk);               \
+            GF_ATOMIC_INC(THIS->stats[frame->op].interval_fop_cbk);            \
         }                                                                      \
         fn(_parent, frame->cookie, _parent->this, op_ret, op_errno, params);   \
         THIS = old_THIS;                                                       \
@@ -520,7 +517,7 @@ copy_frame(call_frame_t *frame)
     memcpy(newstack->groups, oldstack->groups, sizeof(gid_t) * oldstack->ngrps);
     newstack->unique = oldstack->unique;
     newstack->pool = oldstack->pool;
-    newstack->lk_owner = oldstack->lk_owner;
+    lk_owner_copy(&newstack->lk_owner, &oldstack->lk_owner);
     newstack->ctx = oldstack->ctx;
 
     if (newstack->ctx->measure_latency) {

@@ -710,7 +710,7 @@ dht_deitransform(xlator_t *this, uint64_t y, xlator_t **subvol_p)
 }
 
 void
-dht_local_wipe(xlator_t *this, dht_local_t *local)
+dht_local_wipe(dht_local_t *local)
 {
     int i = 0;
 
@@ -728,7 +728,7 @@ dht_local_wipe(xlator_t *this, dht_local_t *local)
         inode_unref(local->inode);
 
     if (local->layout) {
-        dht_layout_unref(this, local->layout);
+        dht_layout_unref(local->layout);
         local->layout = NULL;
     }
 
@@ -758,12 +758,12 @@ dht_local_wipe(xlator_t *this, dht_local_t *local)
         dict_unref(local->xdata);
 
     if (local->selfheal.layout) {
-        dht_layout_unref(this, local->selfheal.layout);
+        dht_layout_unref(local->selfheal.layout);
         local->selfheal.layout = NULL;
     }
 
     if (local->selfheal.refreshed_layout) {
-        dht_layout_unref(this, local->selfheal.refreshed_layout);
+        dht_layout_unref(local->selfheal.refreshed_layout);
         local->selfheal.refreshed_layout = NULL;
     }
 
@@ -950,7 +950,7 @@ dht_subvol_get_hashed(xlator_t *this, loc_t *loc)
 
 out:
     if (layout) {
-        dht_layout_unref(this, layout);
+        dht_layout_unref(layout);
     }
 
     return subvol;
@@ -975,7 +975,7 @@ dht_subvol_get_cached(xlator_t *this, inode_t *inode)
 
 out:
     if (layout) {
-        dht_layout_unref(this, layout);
+        dht_layout_unref(layout);
     }
 
     return subvol;
@@ -1380,7 +1380,7 @@ dht_migration_complete_check_task(void *data)
 
     /* update local. A layout is set in inode-ctx in lookup already */
 
-    dht_layout_unref(this, local->layout);
+    dht_layout_unref(local->layout);
 
     local->layout = dht_layout_get(frame->this, inode);
     local->cached_subvol = dst_node;

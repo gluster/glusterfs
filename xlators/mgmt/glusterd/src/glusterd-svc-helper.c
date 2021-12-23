@@ -35,8 +35,6 @@ glusterd_svcs_reconfigure(glusterd_volinfo_t *volinfo)
     glusterd_conf_t *conf = NULL;
     char *svc_name = NULL;
 
-    GF_ASSERT(this);
-
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -78,13 +76,9 @@ int
 glusterd_svcs_stop(glusterd_volinfo_t *volinfo)
 {
     int ret = 0;
-    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
-
-    priv = this->private;
+    priv = THIS->private;
     GF_ASSERT(priv);
 
 #ifdef BUILD_GNFS
@@ -116,12 +110,9 @@ int
 glusterd_svcs_manager(glusterd_volinfo_t *volinfo)
 {
     int ret = 0;
-    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    GF_ASSERT(this);
-
-    conf = this->private;
+    conf = THIS->private;
     GF_ASSERT(conf);
 
     if (volinfo && volinfo->is_snap_volume)
@@ -174,14 +165,11 @@ glusterd_svc_check_volfile_identical(char *svc_name,
     };
     char *tmpvol = NULL;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     int need_unlink = 0;
     int tmp_fd = -1;
 
-    this = THIS;
-
-    GF_ASSERT(this);
     GF_ASSERT(identical);
     conf = this->private;
 
@@ -239,7 +227,7 @@ glusterd_svc_check_topology_identical(char *svc_name,
     int tmpclean = 0;
     int tmpfd = -1;
 
-    if ((!identical) || (!this) || (!this->private)) {
+    if ((!identical) || (!this->private)) {
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
@@ -295,14 +283,11 @@ glusterd_volume_svc_check_volfile_identical(
         0,
     };
     char *tmpvol = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int ret = -1;
     int need_unlink = 0;
     int tmp_fd = -1;
 
-    this = THIS;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     GF_VALIDATE_OR_GOTO(this->name, identical, out);
 
     /* This builds volfile for volume level dameons */
@@ -360,8 +345,8 @@ glusterd_volume_svc_check_topology_identical(
     int tmpclean = 0;
     int tmpfd = -1;
 
-    if ((!identical) || (!this) || (!this->private)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+    if ((!identical) || (!this->private)) {
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
         goto out;
     }
 
@@ -663,7 +648,6 @@ glusterd_svc_attach_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
 
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
     conf = this->private;
     GF_VALIDATE_OR_GOTO("glusterd", conf, out);
     GF_VALIDATE_OR_GOTO("glusterd", frame, out);
@@ -825,7 +809,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
         }
         spec_fd = open(path, O_RDONLY);
         if (spec_fd < 0) {
-            gf_msg(THIS->name, GF_LOG_WARNING, 0, GD_MSG_SVC_ATTACH_FAIL,
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_SVC_ATTACH_FAIL,
                    "failed to read volfile %s", path);
             ret = -EIO;
             goto err;

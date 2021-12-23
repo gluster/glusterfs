@@ -11,7 +11,6 @@
 #include "rpcsvc.h"
 #include "rpc-transport.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include "xdr-rpc.h"
@@ -464,7 +463,6 @@ rpcsvc_request_init(rpcsvc_t *svc, rpc_transport_t *trans,
     req->svc = svc;
     req->trans_private = msg->private;
 
-    INIT_LIST_HEAD(&req->txlist);
     INIT_LIST_HEAD(&req->request_list);
     req->payloadsize = 0;
 
@@ -1499,15 +1497,16 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
     char new_iobref = 0;
     rpcsvc_drc_globals_t *drc = NULL;
     gf_latency_t *lat = NULL;
+    struct timespec end;
 
     if ((!req) || (!req->trans))
         return -1;
 
     if (req->prog && req->begin.tv_sec) {
         if ((req->procnum >= 0) && (req->procnum < req->prog->numactors)) {
-            timespec_now(&req->end);
+            timespec_now(&end);
             lat = &req->prog->latencies[req->procnum];
-            gf_latency_update(lat, &req->begin, &req->end);
+            gf_latency_update(lat, &req->begin, &end);
         }
     }
     trans = req->trans;
@@ -2256,8 +2255,7 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     int ret = -1, i = 0;
     rpcsvc_program_t *newprog = NULL;
     char already_registered = 0;
-    pthread_mutexattr_t attr[EVENT_MAX_THREADS];
-    pthread_mutexattr_t thr_attr;
+    pthread_mutexattr_t attr;
 
     if (!svc) {
         goto out;
@@ -2298,20 +2296,18 @@ rpcsvc_program_register(rpcsvc_t *svc, rpcsvc_program_t *program,
     }
 
     INIT_LIST_HEAD(&newprog->program);
-    pthread_mutexattr_init(&thr_attr);
-    pthread_mutexattr_settype(&thr_attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
 
     for (i = 0; i < EVENT_MAX_THREADS; i++) {
-        pthread_mutexattr_init(&attr[i]);
-        pthread_mutexattr_settype(&attr[i], PTHREAD_MUTEX_ADAPTIVE_NP);
         INIT_LIST_HEAD(&newprog->request_queue[i].request_queue);
-        pthread_mutex_init(&newprog->request_queue[i].queue_lock, &attr[i]);
+        pthread_mutex_init(&newprog->request_queue[i].queue_lock, &attr);
         pthread_cond_init(&newprog->request_queue[i].queue_cond, NULL);
         newprog->request_queue[i].program = newprog;
     }
 
-    pthread_mutex_init(&newprog->thr_lock, &thr_attr);
-    pthread_cond_init(&newprog->thr_cond, NULL);
+    pthread_mutex_init(&newprog->thr_lock, &attr);
+    pthread_mutexattr_destroy(&attr);
 
     newprog->alive = _gf_true;
 

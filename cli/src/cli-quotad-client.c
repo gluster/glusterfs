@@ -11,66 +11,6 @@
 #include "cli-quotad-client.h"
 
 int
-cli_quotad_submit_request(void *req, call_frame_t *frame, rpc_clnt_prog_t *prog,
-                          int procnum, struct iobref *iobref, xlator_t *this,
-                          fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
-{
-    int ret = -1;
-    int count = 0;
-    struct iovec iov = {
-        0,
-    };
-    struct iobuf *iobuf = NULL;
-    char new_iobref = 0;
-    ssize_t xdr_size = 0;
-
-    GF_ASSERT(this);
-
-    if (req) {
-        xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
-        if (!iobuf) {
-            goto out;
-        };
-
-        if (!iobref) {
-            iobref = iobref_new();
-            if (!iobref) {
-                goto out;
-            }
-
-            new_iobref = 1;
-        }
-
-        iobref_add(iobref, iobuf);
-
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len = iobuf_size(iobuf);
-
-        /* Create the xdr payload */
-        ret = xdr_serialize_generic(iov, req, xdrproc);
-        if (ret == -1) {
-            goto out;
-        }
-        iov.iov_len = ret;
-        count = 1;
-    }
-
-    /* Send the msg */
-    ret = rpc_clnt_submit(global_quotad_rpc, prog, procnum, cbkfn, &iov, count,
-                          NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
-    ret = 0;
-
-out:
-    if (new_iobref)
-        iobref_unref(iobref);
-    if (iobuf)
-        iobuf_unref(iobuf);
-
-    return ret;
-}
-
-int
 cli_quotad_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                   void *data)
 {

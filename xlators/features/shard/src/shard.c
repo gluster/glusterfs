@@ -12,9 +12,10 @@
 
 #include "shard.h"
 #include "shard-mem-types.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
+
+#define SHARD_PATH_MAX (sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE + 16)
 
 static gf_boolean_t
 __is_shard_dir(uuid_t gfid)
@@ -49,15 +50,19 @@ shard_make_block_bname(int block_num, uuid_t gfid, char *buf, size_t len)
     snprintf(buf, len, "%s.%d", gfid_str, block_num);
 }
 
-void
-shard_make_block_abspath(int block_num, uuid_t gfid, char *filepath, size_t len)
+static int
+shard_make_base_path(char *path, uuid_t gfid)
 {
-    char gfid_str[GF_UUID_BUF_SIZE] = {
-        0,
-    };
+    strcpy(path, "/" GF_SHARD_DIR "/");
+    uuid_utoa_r(gfid, path + sizeof(GF_SHARD_DIR) + 1);
+    return (sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE);
+}
 
-    gf_uuid_unparse(gfid, gfid_str);
-    snprintf(filepath, len, "/%s/%s.%d", GF_SHARD_DIR, gfid_str, block_num);
+static inline void
+shard_append_index(char *path, int path_size, int prefix_len,
+                   int shard_idx_iter)
+{
+    snprintf(path + prefix_len, path_size - prefix_len, ".%d", shard_idx_iter);
 }
 
 int
@@ -547,8 +552,9 @@ shard_local_wipe(shard_local_t *local)
         SHARD_STACK_DESTROY(local->entrylk_frame);
 }
 
-int
-shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict)
+static int
+shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
+                                  gf_boolean_t logerror)
 {
     int ret = -1;
     void *size_attr = NULL;
@@ -556,18 +562,18 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict)
 
     ret = dict_get_ptr(dict, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
-        gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
-                         SHARD_MSG_INTERNAL_XATTR_MISSING,
-                         "Failed to "
-                         "get " GF_XATTR_SHARD_FILE_SIZE " for %s",
-                         uuid_utoa(stbuf->ia_gfid));
+        if (logerror)
+            gf_msg_callingfn(
+                THIS->name, GF_LOG_ERROR, 0, SHARD_MSG_INTERNAL_XATTR_MISSING,
+                "Failed to get " GF_XATTR_SHARD_FILE_SIZE " for %s",
+                uuid_utoa(stbuf->ia_gfid));
         return ret;
     }
 
     memcpy(size_array, size_attr, sizeof(size_array));
 
-    stbuf->ia_size = ntoh64(size_array[0]);
-    stbuf->ia_blocks = ntoh64(size_array[2]);
+    stbuf->ia_size = be64toh(size_array[0]);
+    stbuf->ia_blocks = be64toh(size_array[2]);
 
     return 0;
 }
@@ -876,6 +882,9 @@ shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
         case GF_FOP_SEEK:
             SHARD_STACK_UNWIND(seek, frame, op_ret, op_errno, 0, NULL);
             break;
+        case GF_FOP_OPENDIR:
+            SHARD_STACK_UNWIND(opendir, frame, op_ret, op_errno, 0, NULL);
+            break;
         default:
             gf_msg(THIS->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
                    "Invalid fop id = %d", fop);
@@ -953,8 +962,8 @@ shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     {
         __shard_inode_ctx_get(shard_inode, this, &ctx);
         if ((list_empty(&ctx->to_fsync_list)) && (list_empty(&ctx->ilist))) {
-            shard_make_block_bname(ctx->block_num, shard_inode->gfid,
-                                   block_bname, sizeof(block_bname));
+            shard_make_block_bname(ctx->block_num, ctx->base_gfid, block_bname,
+                                   sizeof(block_bname));
             inode_unlink(shard_inode, priv->dot_shard_inode, block_bname);
             /* The following unref corresponds to the ref held by
              * inode_link() at the time the shard was created or
@@ -1013,9 +1022,8 @@ shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
 {
     int i = -1;
     uint32_t shard_idx_iter = 0;
-    char path[PATH_MAX] = {
-        0,
-    };
+    int prefix_len = 0;
+    char path[SHARD_PATH_MAX];
     uuid_t gfid = {
         0,
     };
@@ -1064,6 +1072,9 @@ shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
     else
         gf_uuid_copy(gfid, local->base_gfid);
 
+    /* Build base shard path before appending index of the shard */
+    prefix_len = shard_make_base_path(path, gfid);
+
     while (shard_idx_iter <= resolve_count) {
         i++;
         if (shard_idx_iter == 0) {
@@ -1071,16 +1082,13 @@ shard_common_resolve_shards(call_frame_t *frame, xlator_t *this,
             shard_idx_iter++;
             continue;
         }
-
-        shard_make_block_abspath(shard_idx_iter, gfid, path, sizeof(path));
-
+        shard_append_index(path, SHARD_PATH_MAX, prefix_len, shard_idx_iter);
         inode = NULL;
         inode = inode_resolve(this->itable, path);
         if (inode) {
             gf_msg_debug(this->name, 0,
-                         "Shard %d already "
-                         "present. gfid=%s. Saving inode for future.",
-                         shard_idx_iter, uuid_utoa(inode->gfid));
+                         "Shard %s already present. Saving inode for future.",
+                         path);
             local->inode_list[i] = inode;
             /* Let the ref on the inodes that are already present
              * in inode table still be held so that they don't get
@@ -1133,7 +1141,7 @@ shard_update_file_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto err;
     }
 
-    if (shard_modify_size_and_block_count(&local->postbuf, dict)) {
+    if (shard_modify_size_and_block_count(&local->postbuf, dict, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = ENOMEM;
         goto err;
@@ -1156,13 +1164,13 @@ shard_set_size_attrs(int64_t size, int64_t block_count, int64_t **size_attr_p)
     if (!size_attr)
         goto out;
 
-    size_attr[0] = hton64(size);
+    size_attr[0] = htobe64(size);
     /* As sharding evolves, it _may_ be necessary to embed more pieces of
      * information within the same xattr. So allocating slots for them in
      * advance. For now, only bytes 0-63 and 128-191 which would make up the
      * current size and block count respectively of the file are valid.
      */
-    size_attr[2] = hton64(block_count);
+    size_attr[2] = htobe64(block_count);
 
     *size_attr_p = size_attr;
 
@@ -1246,7 +1254,8 @@ out:
 
 static inode_t *
 shard_link_internal_dir_inode(shard_local_t *local, inode_t *inode,
-                              struct iatt *buf, shard_internal_dir_type_t type)
+                              xlator_t *this, struct iatt *buf,
+                              shard_internal_dir_type_t type)
 {
     inode_t *linked_inode = NULL;
     shard_priv_t *priv = NULL;
@@ -1254,7 +1263,7 @@ shard_link_internal_dir_inode(shard_local_t *local, inode_t *inode,
     inode_t **priv_inode = NULL;
     inode_t *parent = NULL;
 
-    priv = THIS->private;
+    priv = this->private;
 
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
@@ -1298,7 +1307,7 @@ shard_refresh_internal_dir_cbk(call_frame_t *frame, void *cookie,
     /* To-Do: Fix refcount increment per call to
      * shard_link_internal_dir_inode().
      */
-    linked_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    linked_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     shard_inode_ctx_mark_dir_refreshed(linked_inode, this);
 out:
     shard_common_resolve_shards(frame, this, local->post_res_handler);
@@ -1387,7 +1396,7 @@ shard_lookup_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
     }
 
-    link_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    link_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     if (link_inode != inode) {
         shard_refresh_internal_dir(frame, this, type);
     } else {
@@ -1483,7 +1492,7 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
         /* Fresh lookup */
         ret = dict_get_ptr(xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
         if (!ret)
-            size = ntoh64(*((uint64_t *)bsize));
+            size = be64toh(*((uint64_t *)bsize));
         /* If the file is sharded, set its block size, otherwise just
          * set 0.
          */
@@ -1590,9 +1599,8 @@ shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      * and store them in the stbuf appropriately.
      */
 
-    if (dict_get(xdata, GF_XATTR_SHARD_FILE_SIZE) &&
-        frame->root->pid != GF_CLIENT_PID_GSYNCD)
-        shard_modify_size_and_block_count(buf, xdata);
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        shard_modify_size_and_block_count(buf, xdata, _gf_false);
 
     /* If this was a fresh lookup, there are two possibilities:
      * 1) If the file is sharded (indicated by the presence of block size
@@ -1716,7 +1724,7 @@ shard_set_iattr_invoke_post_handler(call_frame_t *frame, xlator_t *this,
     }
 
     local->prebuf = *buf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
@@ -1885,7 +1893,7 @@ shard_common_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     local->prebuf = *buf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
@@ -1917,6 +1925,12 @@ shard_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         return 0;
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_stat_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->stat, loc, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -1926,7 +1940,7 @@ shard_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto err;
     }
 
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_stat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->stat, loc, xdata);
         return 0;
@@ -1968,6 +1982,12 @@ shard_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         return 0;
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_fstat_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fstat, fd, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -1976,8 +1996,7 @@ shard_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
                uuid_utoa(fd->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_fstat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
         return 0;
@@ -2162,9 +2181,8 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
     int call_count = 0;
     uint32_t cur_block = 0;
     uint32_t last_block = 0;
-    char path[PATH_MAX] = {
-        0,
-    };
+    int prefix_len = 0;
+    char path[SHARD_PATH_MAX];
     char *bname = NULL;
     loc_t loc = {
         0,
@@ -2225,6 +2243,10 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
         return 0;
     }
 
+    /* Build base shard path before appending index of the shard */
+    prefix_len = shard_make_base_path(path, inode->gfid);
+    bname = path + sizeof(GF_SHARD_DIR) + 1;
+
     SHARD_SET_ROOT_FS_ID(frame, local);
     while (cur_block <= last_block) {
         if (!local->inode_list[i]) {
@@ -2238,15 +2260,12 @@ shard_truncate_htol(call_frame_t *frame, xlator_t *this, inode_t *inode)
             goto next;
         }
 
-        shard_make_block_abspath(cur_block, inode->gfid, path, sizeof(path));
-        bname = strrchr(path, '/') + 1;
+        shard_append_index(path, SHARD_PATH_MAX, prefix_len, cur_block);
         loc.parent = inode_ref(priv->dot_shard_inode);
         ret = inode_path(loc.parent, bname, (char **)&(loc.path));
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
-                   "Inode path failed"
-                   " on %s. Base file gfid = %s",
-                   bname, uuid_utoa(inode->gfid));
+                   "Inode path failed on %s.", bname);
             local->op_ret = -1;
             local->op_errno = ENOMEM;
             loc_wipe(&loc);
@@ -2474,13 +2493,8 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     int call_count = 0;
     int32_t shard_idx_iter = 0;
     int lookup_count = 0;
-    char path[PATH_MAX] = {
-        0,
-    };
+    char path[SHARD_PATH_MAX];
     char *bname = NULL;
-    uuid_t gfid = {
-        0,
-    };
     loc_t loc = {
         0,
     };
@@ -2498,10 +2512,16 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     if (local->lookup_shards_barriered)
         local->barrier.waitfor = local->call_count;
 
+    /* Build base shard path before appending index of the shard */
+    strcpy(path, "/" GF_SHARD_DIR "/");
+
     if (inode)
-        gf_uuid_copy(gfid, inode->gfid);
+        uuid_utoa_r(inode->gfid, path + sizeof(GF_SHARD_DIR) + 1);
     else
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_utoa_r(local->base_gfid, path + sizeof(GF_SHARD_DIR) + 1);
+
+    int prefix_len = sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE;
+    bname = path + sizeof(GF_SHARD_DIR) + 1;
 
     while (shard_idx_iter <= lookup_count) {
         if (local->inode_list[i]) {
@@ -2517,18 +2537,14 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
             goto next;
         }
 
-        shard_make_block_abspath(shard_idx_iter, gfid, path, sizeof(path));
-
-        bname = strrchr(path, '/') + 1;
+        shard_append_index(path, SHARD_PATH_MAX, prefix_len, shard_idx_iter);
         loc.inode = inode_new(this->itable);
         loc.parent = inode_ref(priv->dot_shard_inode);
         gf_uuid_copy(loc.pargfid, priv->dot_shard_gfid);
         ret = inode_path(loc.parent, bname, (char **)&(loc.path));
         if (ret < 0 || !(loc.inode)) {
             gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
-                   "Inode path failed"
-                   " on %s, base file gfid = %s",
-                   bname, uuid_utoa(gfid));
+                   "Inode path failed on %s", bname);
             local->op_ret = -1;
             local->op_errno = ENOMEM;
             loc_wipe(&loc);
@@ -2761,6 +2777,12 @@ shard_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_truncate_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -2769,8 +2791,7 @@ shard_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                uuid_utoa(loc->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_truncate_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         return 0;
@@ -2815,6 +2836,12 @@ shard_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_ftruncate_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -2823,8 +2850,7 @@ shard_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                uuid_utoa(fd->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_ftruncate_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         return 0;
@@ -3177,12 +3203,7 @@ shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
     uint32_t cur_block = 0;
     uint32_t cur_block_idx = 0; /*this is idx into inode_list[] array */
     char *bname = NULL;
-    char path[PATH_MAX] = {
-        0,
-    };
-    uuid_t gfid = {
-        0,
-    };
+    char path[SHARD_PATH_MAX];
     loc_t loc = {
         0,
     };
@@ -3193,10 +3214,16 @@ shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
     priv = this->private;
     local = frame->local;
 
+    /* Build base shard path before appending index of the shard */
+    strcpy(path, "/" GF_SHARD_DIR "/");
+
     if (inode)
-        gf_uuid_copy(gfid, inode->gfid);
+        uuid_utoa_r(inode->gfid, path + sizeof(GF_SHARD_DIR) + 1);
     else
-        gf_uuid_copy(gfid, local->base_gfid);
+        uuid_utoa_r(local->base_gfid, path + sizeof(GF_SHARD_DIR) + 1);
+
+    int prefix_len = sizeof(GF_SHARD_DIR) + GF_UUID_BUF_SIZE;
+    bname = path + sizeof(GF_SHARD_DIR) + 1;
 
     for (i = 0; i < local->num_blocks; i++) {
         if (!local->inode_list[i])
@@ -3212,7 +3239,7 @@ shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
         gf_msg_debug(this->name, 0,
                      "All shards that need to be "
                      "unlinked are non-existent: %s",
-                     uuid_utoa(gfid));
+                     path);
         return 0;
     }
 
@@ -3230,15 +3257,12 @@ shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
             goto next;
         }
 
-        shard_make_block_abspath(cur_block, gfid, path, sizeof(path));
-        bname = strrchr(path, '/') + 1;
+        shard_append_index(path, SHARD_PATH_MAX, prefix_len, cur_block);
         loc.parent = inode_ref(priv->dot_shard_inode);
         ret = inode_path(loc.parent, bname, (char **)&(loc.path));
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_PATH_FAILED,
-                   "Inode path failed"
-                   " on %s, base file gfid = %s",
-                   bname, uuid_utoa(gfid));
+                   "Inode path failed on %s", bname);
             local->op_ret = -1;
             local->op_errno = ENOMEM;
             loc_wipe(&loc);
@@ -3390,7 +3414,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
                "Failed to get dict value: key:%s", GF_XATTR_SHARD_BLOCK_SIZE);
         goto err;
     }
-    block_size = ntoh64(*((uint64_t *)bsize));
+    block_size = be64toh(*((uint64_t *)bsize));
 
     ret = dict_get_ptr(xattr_rsp, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
@@ -3400,7 +3424,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
     }
 
     memcpy(size_array, size_attr, sizeof(size_array));
-    size = ntoh64(size_array[0]);
+    size = be64toh(size_array[0]);
 
     shard_count = (size / block_size) - 1;
     if (shard_count < 0) {
@@ -3595,7 +3619,8 @@ shard_resolve_internal_dir(xlator_t *this, shard_local_t *local,
                        "Lookup on %s failed, exiting", bname);
             goto err;
         } else {
-            shard_link_internal_dir_inode(local, loc->inode, &stbuf, type);
+            shard_link_internal_dir_inode(local, loc->inode, this, &stbuf,
+                                          type);
         }
     }
     ret = 0;
@@ -3639,6 +3664,45 @@ shard_lookup_marker_entry(xlator_t *this, shard_local_t *local,
     ret = 0;
 err:
     loc_wipe(&loc);
+    return ret;
+}
+
+static int
+shard_nameless_lookup_base_file(xlator_t *this, char *gfid)
+{
+    int ret = 0;
+    loc_t loc = {
+        0,
+    };
+    dict_t *xattr_req = dict_new();
+    if (!xattr_req) {
+        ret = -1;
+        goto out;
+    }
+
+    loc.inode = inode_new(this->itable);
+    if (loc.inode == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = gf_uuid_parse(gfid, loc.gfid);
+    if (ret < 0)
+        goto out;
+
+    ret = dict_set_uint32(xattr_req, GF_UNLINKED_LOOKUP, 1);
+    if (ret < 0)
+        goto out;
+
+    ret = syncop_lookup(FIRST_CHILD(this), &loc, NULL, NULL, xattr_req, NULL);
+    if (ret < 0)
+        goto out;
+
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+    loc_wipe(&loc);
+
     return ret;
 }
 
@@ -3743,6 +3807,11 @@ shard_delete_shards(void *opaque)
                     if (ret < 0)
                         continue;
                 }
+
+                ret = shard_nameless_lookup_base_file(this, entry->d_name);
+                if (!ret)
+                    continue;
+
                 link_inode = inode_link(entry->inode, local->fd->inode,
                                         entry->d_name, &entry->d_stat);
 
@@ -4087,6 +4156,16 @@ shard_create_marker_file_under_remove_me(call_frame_t *frame, xlator_t *this,
     SHARD_INODE_CREATE_INIT(this, bs, xattr_req, &local->newloc,
                             local->prebuf.ia_size, 0, err);
 
+    /* Mark this as an internal operation, so that in case of disk full,
+     * the marker file will be created as part of reserve space */
+    ret = dict_set_int32_sizen(xattr_req, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to set key: %s on path %s", GLUSTERFS_INTERNAL_FOP_KEY,
+               local->newloc.path);
+        goto err;
+    }
+
     STACK_WIND(frame, shard_create_marker_file_under_remove_me_cbk,
                FIRST_CHILD(this), FIRST_CHILD(this)->fops->mknod,
                &local->newloc, 0, 0, 0644, xattr_req);
@@ -4103,6 +4182,9 @@ err:
 
 int
 shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
+
+static int
+shard_unlink_handler_spawn(xlator_t *this);
 
 int
 shard_unlink_base_file_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
@@ -4125,7 +4207,7 @@ shard_unlink_base_file_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (xdata)
             local->xattr_rsp = dict_ref(xdata);
         if (local->cleanup_required)
-            shard_start_background_deletion(this);
+            shard_unlink_handler_spawn(this);
     }
 
     if (local->entrylk_frame) {
@@ -4483,6 +4565,12 @@ shard_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_unlink_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
     if ((ret) && (!IA_ISLNK(loc->inode->ia_type))) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -4491,8 +4579,7 @@ shard_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflag,
                uuid_utoa(loc->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_unlink_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->unlink, loc, xflag, xdata);
         return 0;
@@ -4764,11 +4851,56 @@ shard_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int
+shard_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
+{
+    SHARD_STACK_UNWIND(open, frame, op_ret, op_errno, fd, xdata);
+    return 0;
+}
+
+int
 shard_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
            fd_t *fd, dict_t *xdata)
 {
     STACK_WIND(frame, shard_open_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->open, loc, flags, fd, xdata);
+    return 0;
+}
+
+int
+shard_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+              dict_t *xdata)
+{
+    int ret;
+
+    xdata = xdata ? dict_ref(xdata) : dict_new();
+    if (!xdata) {
+        ret = -1;
+        goto err;
+    }
+
+    /* if the file is sharded then server will return the below
+     * xattr as part of dict that is used to update the ia_size
+     * in d_stat. This is helpful incase readdir-ahead is enabled
+     */
+    ret = dict_set_uint64(xdata, GF_XATTR_SHARD_FILE_SIZE, 8 * 4);
+    if (ret) {
+        gf_msg_debug(this->name, -ret,
+                     "Unable to set GF_XATTR_SHARD_FILE_SIZE in the dict ");
+        goto err;
+    }
+
+    STACK_WIND(frame, shard_opendir_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->opendir, loc, fd, xdata);
+
+    dict_unref(xdata);
+    return 0;
+
+err:
+    if (xdata)
+        dict_unref(xdata);
+
+    shard_common_failure_unwind(GF_FOP_OPENDIR, frame, -1, ENOMEM);
     return 0;
 }
 
@@ -4951,10 +5083,8 @@ shard_common_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             local->op_ret = op_ret;
             local->op_errno = op_errno;
         }
-        gf_msg_debug(this->name, 0,
-                     "mknod of shard %d "
-                     "failed: %s",
-                     shard_block_num, strerror(op_errno));
+        gf_msg_debug(this->name, op_errno, "mknod of shard %d failed",
+                     shard_block_num);
         goto done;
     }
 
@@ -4980,9 +5110,8 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
     int last_block = 0;
     int ret = 0;
     int call_count = 0;
-    char path[PATH_MAX] = {
-        0,
-    };
+    int prefix_len = 0;
+    char path[SHARD_PATH_MAX];
     mode_t mode = 0;
     char *bname = NULL;
     shard_priv_t *priv = NULL;
@@ -5004,6 +5133,10 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
     last_block = local->last_block;
     call_count = local->call_count = local->create_count;
     local->post_mknod_handler = post_mknod_handler;
+
+    /* Build base shard path before appending index of the shard */
+    prefix_len = shard_make_base_path(path, fd->inode->gfid);
+    bname = path + sizeof(GF_SHARD_DIR) + 1;
 
     SHARD_SET_ROOT_FS_ID(frame, local);
 
@@ -5031,10 +5164,7 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
                                    -1, ENOMEM, NULL, NULL, NULL, NULL, NULL);
             goto next;
         }
-
-        shard_make_block_abspath(shard_idx_iter, fd->inode->gfid, path,
-                                 sizeof(path));
-
+        shard_append_index(path, SHARD_PATH_MAX, prefix_len, shard_idx_iter);
         xattr_req = shard_create_gfid_dict(local->xattr_req);
         if (!xattr_req) {
             local->op_ret = -1;
@@ -5045,7 +5175,6 @@ shard_common_resume_mknod(call_frame_t *frame, xlator_t *this,
             goto next;
         }
 
-        bname = strrchr(path, '/') + 1;
         loc.inode = inode_new(this->itable);
         loc.parent = inode_ref(priv->dot_shard_inode);
         ret = inode_path(loc.parent, bname, (char **)&(loc.path));
@@ -5278,6 +5407,13 @@ shard_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_readv_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
+                   xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -5286,11 +5422,7 @@ shard_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                uuid_utoa(fd->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
-        /* block_size = 0 means that the file was created before
-         * sharding was enabled on the volume.
-         */
+    if (!block_size) {
         STACK_WIND(frame, default_readv_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,
                    xdata);
@@ -5781,7 +5913,7 @@ shard_mkdir_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    link_inode = shard_link_internal_dir_inode(local, inode, buf, type);
+    link_inode = shard_link_internal_dir_inode(local, inode, this, buf, type);
     if (link_inode != inode) {
         shard_refresh_internal_dir(frame, this, type);
     } else {
@@ -5848,6 +5980,16 @@ shard_mkdir_internal_dir(call_frame_t *frame, xlator_t *this,
     }
 
     SHARD_SET_ROOT_FS_ID(frame, local);
+
+    /* Mark this as an internal operation, so that in case of disk full
+     * the internal dir will be created as part of reserve space */
+    ret = dict_set_int32_sizen(xattr_req, GLUSTERFS_INTERNAL_FOP_KEY, 1);
+    if (ret < 0) {
+        gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+               "Failed to set key: %s on path %s", GLUSTERFS_INTERNAL_FOP_KEY,
+               loc->path);
+        goto err;
+    }
 
     STACK_WIND_COOKIE(frame, shard_mkdir_internal_dir_cbk, (void *)(long)type,
                       FIRST_CHILD(this), FIRST_CHILD(this)->fops->mkdir, loc,
@@ -6090,6 +6232,12 @@ shard_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_fsync_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fsync, fd, datasync, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6098,8 +6246,7 @@ shard_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
                uuid_utoa(fd->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_fsync_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fsync, fd, datasync, xdata);
         return 0;
@@ -6158,8 +6305,9 @@ shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE))
-            shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+        shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
+                                          _gf_false);
+
         if (!entry->inode)
             continue;
 
@@ -6216,9 +6364,9 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (dict_get(entry->dict, GF_XATTR_SHARD_FILE_SIZE) &&
-            frame->root->pid != GF_CLIENT_PID_GSYNCD)
-            shard_modify_size_and_block_count(&entry->d_stat, entry->dict);
+        if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+            shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
+                                              _gf_false);
 
         if (!entry->inode)
             continue;
@@ -6452,6 +6600,18 @@ shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
         dict_del(xdata, GF_XATTR_SHARD_FILE_SIZE);
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        if (loc)
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->removexattr, loc, name,
+                            xdata);
+        else
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fremovexattr, fd, name,
+                            xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6459,8 +6619,7 @@ shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
                uuid_utoa(inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         if (loc)
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->removexattr, loc, name,
@@ -6691,6 +6850,18 @@ shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
         GF_IF_INTERNAL_XATTR_GOTO(SHARD_XATTR_PREFIX "*", dict, op_errno, err);
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        if (loc)
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
+                            xdata);
+        else
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fsetxattr, fd, dict, flags,
+                            xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6698,8 +6869,7 @@ shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
                uuid_utoa(inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         if (loc)
             STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                             FIRST_CHILD(this)->fops->setxattr, loc, dict, flags,
@@ -6802,7 +6972,7 @@ shard_common_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     local->prebuf = *prebuf;
-    if (shard_modify_size_and_block_count(&local->prebuf, xdata)) {
+    if (shard_modify_size_and_block_count(&local->prebuf, xdata, _gf_true)) {
         local->op_ret = -1;
         local->op_errno = EINVAL;
         goto unwind;
@@ -6832,6 +7002,12 @@ shard_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
         return 0;
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_setattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(loc->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6839,8 +7015,7 @@ shard_setattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                uuid_utoa(loc->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_setattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->setattr, loc, stbuf, valid, xdata);
         return 0;
@@ -6885,6 +7060,12 @@ shard_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
         return 0;
     }
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        STACK_WIND(frame, default_fsetattr_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
+        return 0;
+    }
+
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6892,8 +7073,7 @@ shard_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                uuid_utoa(fd->inode->gfid));
         goto err;
     }
-
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+    if (!block_size) {
         STACK_WIND(frame, default_fsetattr_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
         return 0;
@@ -6927,6 +7107,41 @@ err:
     return 0;
 }
 
+static inline void
+shard_common_unwind_based_on_fop(call_frame_t *frame, xlator_t *this,
+                                 glusterfs_fop_t fop, fd_t *fd,
+                                 struct iovec *vector, int32_t count,
+                                 off_t offset, uint32_t flags, size_t len,
+                                 struct iobref *iobref, dict_t *xdata)
+{
+    switch (fop) {
+        case GF_FOP_WRITE:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->writev, fd, vector, count,
+                            offset, flags, iobref, xdata);
+            break;
+        case GF_FOP_FALLOCATE:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->fallocate, fd, flags,
+                            offset, len, xdata);
+            break;
+        case GF_FOP_ZEROFILL:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->zerofill, fd, offset, len,
+                            xdata);
+            break;
+        case GF_FOP_DISCARD:
+            STACK_WIND_TAIL(frame, FIRST_CHILD(this),
+                            FIRST_CHILD(this)->fops->discard, fd, offset, len,
+                            xdata);
+            break;
+        default:
+            gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
+                   "Invalid fop id = %d", fop);
+            break;
+    }
+}
+
 int
 shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
                                glusterfs_fop_t fop, fd_t *fd,
@@ -6939,6 +7154,11 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     uint64_t block_size = 0;
     shard_local_t *local = NULL;
 
+    if (frame->root->pid == GF_CLIENT_PID_GSYNCD) {
+        shard_common_unwind_based_on_fop(frame, this, fop, fd, vector, count,
+                                         offset, flags, len, iobref, xdata);
+        return 0;
+    }
     ret = shard_inode_ctx_get_block_size(fd->inode, this, &block_size);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_INODE_CTX_GET_FAILED,
@@ -6948,36 +7168,9 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
         goto out;
     }
 
-    if (!block_size || frame->root->pid == GF_CLIENT_PID_GSYNCD) {
-        /* block_size = 0 means that the file was created before
-         * sharding was enabled on the volume.
-         */
-        switch (fop) {
-            case GF_FOP_WRITE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->writev, fd, vector,
-                                count, offset, flags, iobref, xdata);
-                break;
-            case GF_FOP_FALLOCATE:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->fallocate, fd, flags,
-                                offset, len, xdata);
-                break;
-            case GF_FOP_ZEROFILL:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->zerofill, fd, offset,
-                                len, xdata);
-                break;
-            case GF_FOP_DISCARD:
-                STACK_WIND_TAIL(frame, FIRST_CHILD(this),
-                                FIRST_CHILD(this)->fops->discard, fd, offset,
-                                len, xdata);
-                break;
-            default:
-                gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_INVALID_FOP,
-                       "Invalid fop id = %d", fop);
-                break;
-        }
+    if (!block_size) {
+        shard_common_unwind_based_on_fop(frame, this, fop, fd, vector, count,
+                                         offset, flags, len, iobref, xdata);
         return 0;
     }
 
@@ -7084,6 +7277,132 @@ shard_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 }
 
+static void
+shard_unlink_wait(shard_unlink_thread_t *ti)
+{
+    struct timespec wait_till = {
+        0,
+    };
+
+    pthread_mutex_lock(&ti->mutex);
+    {
+        /* shard_unlink_handler() runs every 10 mins of interval */
+        wait_till.tv_sec = time(NULL) + 600;
+
+        while (!ti->rerun) {
+            if (pthread_cond_timedwait(&ti->cond, &ti->mutex, &wait_till) ==
+                ETIMEDOUT)
+                break;
+        }
+        ti->rerun = _gf_false;
+    }
+    pthread_mutex_unlock(&ti->mutex);
+}
+
+static void *
+shard_unlink_handler(void *data)
+{
+    shard_unlink_thread_t *ti = data;
+    xlator_t *this = ti->this;
+
+    THIS = this;
+
+    while (!ti->stop) {
+        shard_start_background_deletion(this);
+        shard_unlink_wait(ti);
+    }
+    return NULL;
+}
+
+static int
+shard_unlink_handler_spawn(xlator_t *this)
+{
+    int ret = 0;
+    shard_priv_t *priv = this->private;
+    shard_unlink_thread_t *ti = &priv->thread_info;
+
+    ti->this = this;
+
+    pthread_mutex_lock(&ti->mutex);
+    {
+        if (ti->running) {
+            pthread_cond_signal(&ti->cond);
+        } else {
+            ret = gf_thread_create(&ti->thread, NULL, shard_unlink_handler, ti,
+                                   "shard_unlink");
+            if (ret < 0) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Failed to create \"shard_unlink\" thread");
+                goto unlock;
+            }
+            ti->running = _gf_true;
+        }
+
+        ti->rerun = _gf_true;
+    }
+unlock:
+    pthread_mutex_unlock(&ti->mutex);
+    return ret;
+}
+
+static int
+shard_unlink_handler_init(shard_unlink_thread_t *ti)
+{
+    int ret = 0;
+    xlator_t *this = THIS;
+
+    ret = pthread_mutex_init(&ti->mutex, NULL);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to init mutex for \"shard_unlink\" thread");
+        goto out;
+    }
+
+    ret = pthread_cond_init(&ti->cond, NULL);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to init cond var for \"shard_unlink\" thread");
+        pthread_mutex_destroy(&ti->mutex);
+        goto out;
+    }
+
+    ti->running = _gf_false;
+    ti->rerun = _gf_false;
+    ti->stop = _gf_false;
+
+out:
+    return -ret;
+}
+
+static void
+shard_unlink_handler_fini(shard_unlink_thread_t *ti)
+{
+    int ret = 0;
+    xlator_t *this = THIS;
+    if (!ti)
+        return;
+
+    pthread_mutex_lock(&ti->mutex);
+    if (ti->running) {
+        ti->rerun = _gf_true;
+        ti->stop = _gf_true;
+        pthread_cond_signal(&ti->cond);
+    }
+    pthread_mutex_unlock(&ti->mutex);
+
+    if (ti->running) {
+        ret = pthread_join(ti->thread, NULL);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, 0,
+                   "Failed to clean up shard unlink thread.");
+        ti->running = _gf_false;
+    }
+    ti->thread = 0;
+
+    pthread_cond_destroy(&ti->cond);
+    pthread_mutex_destroy(&ti->mutex);
+}
+
 int32_t
 mem_acct_init(xlator_t *this)
 {
@@ -7092,7 +7411,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_shard_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_shard_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, SHARD_MSG_MEM_ACCT_INIT_FAILED,
@@ -7150,6 +7469,14 @@ init(xlator_t *this)
     this->private = priv;
     LOCK_INIT(&priv->lock);
     INIT_LIST_HEAD(&priv->ilist_head);
+
+    ret = shard_unlink_handler_init(&priv->thread_info);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to initialize resources for \"shard_unlink\" thread");
+        goto out;
+    }
+
     ret = 0;
 out:
     if (ret) {
@@ -7176,6 +7503,8 @@ fini(xlator_t *this)
     priv = this->private;
     if (!priv)
         goto out;
+
+    shard_unlink_handler_fini(&priv->thread_info);
 
     this->private = NULL;
     LOCK_DESTROY(&priv->lock);
@@ -7276,6 +7605,7 @@ shard_releasedir(xlator_t *this, fd_t *fd)
 struct xlator_fops fops = {
     .lookup = shard_lookup,
     .open = shard_open,
+    .opendir = shard_opendir,
     .flush = shard_flush,
     .fsync = shard_fsync,
     .stat = shard_stat,

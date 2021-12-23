@@ -43,9 +43,9 @@ EXPECT "aggressive" echo `$CLI volume info | grep rebal-throttle | awk '{print $
 
 EXPECT "success" set_throttle $cores
 
-#Setting thorttle number to be more than the number of cores should fail
-THORTTLE_LEVEL=$((cores+1))
-TEST echo $THORTTLE_LEVEL
+#Setting throttle number to be more than the number of cores should fail
+THROTTLE_LEVEL=$((cores+1))
+TEST echo $THROTTLE_LEVEL
 EXPECT "failed" set_throttle $THROTTLE_LEVEL
 EXPECT "$cores" echo `$CLI volume info | grep rebal-throttle | awk '{print $2}'`
 

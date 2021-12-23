@@ -63,6 +63,8 @@ out:
         cli_out("Snapshot command failed");
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -71,7 +73,7 @@ struct cli_cmd snapshot_cmds[] = {
     {"snapshot help", cli_cmd_snapshot_help_cbk,
      "display help for snapshot commands"},
     {"snapshot create <snapname> <volname> [no-timestamp] "
-     "[description <description>] [force]",
+     "[description <description>]",
      cli_cmd_snapshot_cbk, "Snapshot Create."},
     {"snapshot clone <clonename> <snapname>", cli_cmd_snapshot_cbk,
      "Snapshot Clone."},

@@ -271,7 +271,7 @@ cs_mem_acct_init(xlator_t *this)
 
     GF_VALIDATE_OR_GOTO("cloudsync", this, out);
 
-    ret = xlator_mem_acct_init(this, gf_cs_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_cs_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0, "Memory accounting init failed");

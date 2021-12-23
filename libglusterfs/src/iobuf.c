@@ -80,7 +80,7 @@ __iobuf_arena_init_iobufs(struct iobuf_arena *iobuf_arena)
 
         iobuf->ptr = iobuf_arena->mem_base + offset;
 
-        list_add(&iobuf->list, &iobuf_arena->passive.list);
+        list_add(&iobuf->list, &iobuf_arena->passive_list);
         iobuf_arena->passive_cnt++;
 
         offset += iobuf_arena->page_size;
@@ -124,9 +124,6 @@ __iobuf_arena_destroy(struct iobuf_pool *iobuf_pool,
 {
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_arena, out);
 
-    if (iobuf_pool->rdma_deregistration)
-        iobuf_pool->rdma_deregistration(iobuf_pool->mr_list, iobuf_arena);
-
     __iobuf_arena_destroy_iobufs(iobuf_arena);
 
     if (iobuf_arena->mem_base && iobuf_arena->mem_base != MAP_FAILED)
@@ -153,8 +150,8 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     INIT_LIST_HEAD(&iobuf_arena->list);
     INIT_LIST_HEAD(&iobuf_arena->all_list);
-    INIT_LIST_HEAD(&iobuf_arena->active.list);
-    INIT_LIST_HEAD(&iobuf_arena->passive.list);
+    INIT_LIST_HEAD(&iobuf_arena->passive_list);
+    INIT_LIST_HEAD(&iobuf_arena->active_list);
     iobuf_arena->iobuf_pool = iobuf_pool;
 
     rounded_size = gf_iobuf_get_pagesize(page_size, &index);
@@ -170,10 +167,6 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
     if (iobuf_arena->mem_base == MAP_FAILED) {
         gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
         goto err;
-    }
-
-    if (iobuf_pool->rdma_registration) {
-        iobuf_pool->rdma_registration(iobuf_pool->device, iobuf_arena);
     }
 
     list_add_tail(&iobuf_arena->all_list, &iobuf_pool->all_arenas);
@@ -303,8 +296,8 @@ iobuf_create_stdalloc_arena(struct iobuf_pool *iobuf_pool)
         goto err;
 
     INIT_LIST_HEAD(&iobuf_arena->list);
-    INIT_LIST_HEAD(&iobuf_arena->active.list);
-    INIT_LIST_HEAD(&iobuf_arena->passive.list);
+    INIT_LIST_HEAD(&iobuf_arena->passive_list);
+    INIT_LIST_HEAD(&iobuf_arena->active_list);
 
     iobuf_arena->iobuf_pool = iobuf_pool;
 
@@ -338,14 +331,6 @@ iobuf_pool_new(void)
     }
 
     iobuf_pool->default_page_size = 128 * GF_UNIT_KB;
-
-    iobuf_pool->rdma_registration = NULL;
-    iobuf_pool->rdma_deregistration = NULL;
-
-    for (i = 0; i < GF_RDMA_DEVICE_COUNT; i++) {
-        iobuf_pool->device[i] = NULL;
-        iobuf_pool->mr_list[i] = NULL;
-    }
 
     /* No locking required here
      * as no one else can use this pool yet
@@ -459,12 +444,12 @@ __iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
     if (!iobuf_arena)
         return NULL;
 
-    list_for_each_entry(iobuf, &iobuf_arena->passive.list, list) break;
+    iobuf = list_first_entry(&iobuf_arena->passive_list, struct iobuf, list);
 
     list_del(&iobuf->list);
     iobuf_arena->passive_cnt--;
 
-    list_add(&iobuf->list, &iobuf_arena->active.list);
+    list_add(&iobuf->list, &iobuf_arena->active_list);
     iobuf_arena->active_cnt++;
 
     /* no resetting requied for this element */
@@ -478,6 +463,7 @@ __iobuf_get(struct iobuf_pool *iobuf_pool, const size_t page_size,
         list_add(&iobuf_arena->list, &iobuf_pool->filled[index]);
     }
 
+    iobuf->page_size = page_size;
     return iobuf;
 }
 
@@ -508,8 +494,42 @@ iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
 
     iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
     iobuf->iobuf_arena = iobuf_arena;
+    iobuf->page_size = page_size;
     LOCK_INIT(&iobuf->lock);
 
+    /* Hold a ref because you are allocating and using it */
+    GF_ATOMIC_INIT(iobuf->ref, 1);
+
+    ret = 0;
+out:
+    if (ret && iobuf) {
+        GF_FREE(iobuf->free_ptr);
+        GF_FREE(iobuf);
+        iobuf = NULL;
+    }
+
+    return iobuf;
+}
+
+static struct iobuf *
+iobuf_get_from_small(const size_t page_size)
+{
+    struct iobuf *iobuf = NULL;
+    int ret = -1;
+
+    iobuf = GF_MALLOC(sizeof(*iobuf), gf_common_mt_iobuf);
+    if (!iobuf)
+        goto out;
+
+    iobuf->free_ptr = GF_MALLOC(page_size, gf_common_mt_iobuf_pool);
+    if (!iobuf->free_ptr)
+        goto out;
+
+    iobuf->ptr = iobuf->free_ptr;
+    iobuf->page_size = page_size;
+    INIT_LIST_HEAD(&iobuf->list);
+    iobuf->iobuf_arena = NULL;
+    LOCK_INIT(&iobuf->lock);
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
 
@@ -533,6 +553,19 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
 
     if (page_size == 0) {
         page_size = iobuf_pool->default_page_size;
+    }
+
+    /* During smallfile testing we have observed the performance
+       is improved significantly while use standard allocation if
+       page size is less than equal to 128KB, the data is available
+       on the link https://github.com/gluster/glusterfs/issues/2771
+    */
+    if (page_size <= USE_IOBUF_POOL_IF_SIZE_GREATER_THAN) {
+        iobuf = iobuf_get_from_small(page_size);
+        if (!iobuf)
+            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
+                    NULL);
+        return iobuf;
     }
 
     rounded_size = gf_iobuf_get_pagesize(page_size, &index);
@@ -564,7 +597,6 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
                     NULL);
             goto post_unlock;
         }
-
         iobuf_ref(iobuf);
     }
     pthread_mutex_unlock(&iobuf_pool->mutex);
@@ -585,7 +617,8 @@ iobuf_get_page_aligned(struct iobuf_pool *iobuf_pool, size_t page_size,
         req_size = iobuf_pool->default_page_size;
     }
 
-    iobuf = iobuf_get2(iobuf_pool, req_size + align_size);
+    req_size = req_size + align_size;
+    iobuf = iobuf_get2(iobuf_pool, req_size);
     if (!iobuf)
         return NULL;
     /* If std allocation was used, then free_ptr will be non-NULL. In this
@@ -608,30 +641,12 @@ struct iobuf *
 iobuf_get(struct iobuf_pool *iobuf_pool)
 {
     struct iobuf *iobuf = NULL;
-    int index = 0;
+    size_t page_size = 0;
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
 
-    index = gf_iobuf_get_arena_index(iobuf_pool->default_page_size);
-    if (index == -1) {
-        gf_smsg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
-                "page_size=%zu", iobuf_pool->default_page_size, NULL);
-        return NULL;
-    }
-
-    pthread_mutex_lock(&iobuf_pool->mutex);
-    {
-        iobuf = __iobuf_get(iobuf_pool, iobuf_pool->default_page_size, index);
-        if (!iobuf) {
-            pthread_mutex_unlock(&iobuf_pool->mutex);
-            gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
-                    NULL);
-            goto out;
-        }
-
-        iobuf_ref(iobuf);
-    }
-    pthread_mutex_unlock(&iobuf_pool->mutex);
+    page_size = iobuf_pool->default_page_size;
+    iobuf = iobuf_get2(iobuf_pool, page_size);
 
 out:
     return iobuf;
@@ -672,7 +687,7 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
         iobuf->free_ptr = NULL;
     }
 
-    list_add(&iobuf->list, &iobuf_arena->passive.list);
+    list_add(&iobuf->list, &iobuf_arena->passive_list);
     iobuf_arena->passive_cnt++;
 
     if (iobuf_arena->active_cnt == 0) {
@@ -695,7 +710,9 @@ iobuf_put(struct iobuf *iobuf)
 
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
+        LOCK_DESTROY(&iobuf->lock);
+        GF_FREE(iobuf->free_ptr);
+        GF_FREE(iobuf);
         return;
     }
 
@@ -792,6 +809,8 @@ iobref_destroy(struct iobref *iobref)
         if (iobuf)
             iobuf_unref(iobuf);
     }
+
+    LOCK_DESTROY(&iobref->lock);
 
     GF_FREE(iobref->iobrefs);
     GF_FREE(iobref);
@@ -939,18 +958,8 @@ iobuf_size(struct iobuf *iobuf)
     size_t size = 0;
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+    size = iobuf_pagesize(iobuf);
 
-    if (!iobuf->iobuf_arena) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_ARENA_NOT_FOUND, NULL);
-        goto out;
-    }
-
-    if (!iobuf->iobuf_arena->iobuf_pool) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_POOL_NOT_FOUND, NULL);
-        goto out;
-    }
-
-    size = iobuf->iobuf_arena->page_size;
 out:
     return size;
 }
@@ -1022,7 +1031,7 @@ iobuf_arena_info_dump(struct iobuf_arena *iobuf_arena, const char *key_prefix)
     gf_proc_dump_write(key, "%d", iobuf_arena->max_active);
     gf_proc_dump_build_key(key, key_prefix, "page_size");
     gf_proc_dump_write(key, "%" GF_PRI_SIZET, iobuf_arena->page_size);
-    list_for_each_entry(trav, &iobuf_arena->active.list, list)
+    list_for_each_entry(trav, &iobuf_arena->active_list, list)
     {
         gf_proc_dump_build_key(key, key_prefix, "active_iobuf.%d", i++);
         gf_proc_dump_add_section("%s", key);

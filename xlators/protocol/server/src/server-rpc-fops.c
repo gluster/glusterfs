@@ -963,7 +963,7 @@ server_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dict_foreach(state->dict, _gf_server_log_setxattr_failure, frame);
 
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed");
         } else {
             gf_msg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                    "client: %s, "
@@ -1033,7 +1033,7 @@ server_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dict_foreach(state->dict, _gf_server_log_fsetxattr_failure, frame);
         }
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed");
         } else {
             gf_msg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                    "client: %s, "
@@ -1995,7 +1995,7 @@ server_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    gf_link_inodes_from_dirent(this, state->fd->inode, entries);
+    gf_link_inodes_from_dirent(state->fd->inode, entries);
 
 out:
     rsp.op_ret = op_ret;

@@ -106,16 +106,6 @@ enum gf_aggregator_procnum {
     GF_AGGREGATOR_MAXVALUE,
 };
 
-enum gf_pmap_port_type {
-    GF_PMAP_PORT_FREE = 0,
-    GF_PMAP_PORT_FOREIGN, /* it actually means, not sure who is using it, but it
-                             is in-use */
-    GF_PMAP_PORT_LEASED,
-    GF_PMAP_PORT_ANY,
-    GF_PMAP_PORT_BRICKSERVER, /* port used by brick process */
-};
-typedef enum gf_pmap_port_type gf_pmap_port_type_t;
-
 enum gf_probe_resp {
     GF_PROBE_SUCCESS,
     GF_PROBE_LOCALHOST,
@@ -169,7 +159,7 @@ enum gluster_cli_procnum {
     GLUSTER_CLI_DELETE_VOLUME,
     GLUSTER_CLI_START_VOLUME,
     GLUSTER_CLI_STOP_VOLUME,
-    GLUSTER_CLI_RENAME_VOLUME,
+    GLUSTER_CLI_RENAME_VOLUME,  // This option is obsolete and not used anymore
     GLUSTER_CLI_DEFRAG_VOLUME,
     GLUSTER_CLI_SET_VOLUME,
     GLUSTER_CLI_ADD_BRICK,
@@ -280,11 +270,11 @@ typedef enum {
 
 struct gf_gsync_detailed_status_ {
     char node[NAME_MAX];
-    char master[NAME_MAX];
+    char primary[NAME_MAX];
     char brick[PATH_MAX];
-    char slave_user[NAME_MAX];
-    char slave[NAME_MAX];
-    char slave_node[NAME_MAX];
+    char secondary_user[NAME_MAX];
+    char secondary[NAME_MAX];
+    char secondary_node[NAME_MAX];
     char worker_status[NAME_MAX];
     char crawl_status[NAME_MAX];
     char last_synced[NAME_MAX];
@@ -299,8 +289,8 @@ struct gf_gsync_detailed_status_ {
     char checkpoint_completion_time[NAME_MAX];
     char checkpoint_completion_time_utc[NAME_MAX];
     char brick_host_uuid[NAME_MAX];
-    char slavekey[NAME_MAX];
-    char session_slave[NAME_MAX];
+    char secondarykey[NAME_MAX];
+    char session_secondary[NAME_MAX];
 };
 
 enum glusterd_mgmt_v3_procnum {
@@ -309,10 +299,17 @@ enum glusterd_mgmt_v3_procnum {
     GLUSTERD_MGMT_V3_PRE_VALIDATE,
     GLUSTERD_MGMT_V3_BRICK_OP,
     GLUSTERD_MGMT_V3_COMMIT,
-    GLUSTERD_MGMT_V3_POST_COMMIT,
     GLUSTERD_MGMT_V3_POST_VALIDATE,
     GLUSTERD_MGMT_V3_UNLOCK,
+    GLUSTERD_MGMT_V3_POST_COMMIT,
+    /* Always add new proc just before the MGMT_V3_MAXVALUE declartion */
     GLUSTERD_MGMT_V3_MAXVALUE,
+};
+
+enum gf_fd_reopen_status {
+    FD_REOPEN_ALLOWED = 0,
+    FD_REOPEN_NOT_ALLOWED,
+    FD_BAD,
 };
 
 typedef struct gf_gsync_detailed_status_ gf_gsync_status_t;
@@ -371,11 +368,7 @@ typedef enum gf_getspec_flags_type gf_getspec_flags_type;
 #define GD_MGMT_HNDSK_PROGRAM 1239873 /* Completely random */
 #define GD_MGMT_HNDSK_VERSION 1
 
-#define GD_VOLUME_NAME_MAX                                                     \
-    ((NAME_MAX + 1) - 5) /* Maximum size of volume name */
-#define GD_VOLUME_NAME_MAX_TIER                                                \
-    (GD_VOLUME_NAME_MAX + 5) /* +5 needed for '-hot'                           \
-                                and '-cold' suffixes*/
+#define GD_VOLUME_NAME_MAX (NAME_MAX + 1) /* Maximum size of volume name */
 
 #define GLUSTER_PROCESS_UUID_FMT                                               \
     "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"

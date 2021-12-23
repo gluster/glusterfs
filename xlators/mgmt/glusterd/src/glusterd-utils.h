@@ -17,7 +17,6 @@
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "glusterd.h"
 #include "rpc-clnt.h"
 #include "protocol-common.h"
@@ -90,6 +89,44 @@ typedef struct glusterd_hostname_ {
     char *hostname;
     struct list_head hostname_list;
 } glusterd_hostname_t;
+
+struct glusterd_snap_ops {
+    const char *name;
+
+    gf_boolean_t (*const probe)(char *brick_path);
+    int (*const details)(dict_t *rsp_dict, glusterd_brickinfo_t *snap_brickinfo,
+                         char *snapname, char *snap_volume_id,
+                         int32_t brick_num, char *key_prefix);
+    int32_t (*const create)(glusterd_brickinfo_t *snap_brickinfo,
+                            char *snapname, char *snap_volume_id,
+                            int32_t brick_num);
+    int32_t (*const clone)(glusterd_brickinfo_t *snap_brickinfo, char *snapname,
+                           char *snap_volume_id, char *clonename,
+                           char *clone_volume_id, int32_t brick_num);
+    int32_t (*const remove)(glusterd_brickinfo_t *snap_brickinfo,
+                            char *snapname, char *snap_volume_id,
+                            int32_t brick_num);
+    int32_t (*const activate)(glusterd_brickinfo_t *snap_brickinfo,
+                              char *snapname, char *snap_volume_id,
+                              int32_t brick_num);
+    int32_t (*const deactivate)(glusterd_brickinfo_t *snap_brickinfo,
+                                char *snapname, char *snap_volume_id,
+                                int32_t brick_num);
+    int32_t (*const restore)(glusterd_brickinfo_t *snap_brickinfo,
+                             char *snapname, char *snap_volume_id,
+                             int32_t brick_num,
+                             gf_boolean_t *retain_origin_path);
+    int32_t (*const brick_path)(char *snap_mount_dir, char *origin_brick_path,
+                                int clone, char *snap_clone_name,
+                                char *snap_clone_volume_id,
+                                char *snap_brick_dir, int brick_num,
+                                char **snap_brick_path, int restore);
+};
+
+extern struct glusterd_snap_ops lvm_snap_ops;
+
+gf_boolean_t
+glusterd_mntopts_exists(const char *str, const char *opts);
 
 gf_boolean_t
 is_brick_mx_enabled(void);
@@ -214,7 +251,7 @@ glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
 int
 send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
                 glusterd_brickinfo_t *brick, glusterd_brickinfo_t *other_brick,
-                int op);
+                int op, gf_boolean_t graceful_cleanup);
 
 glusterd_volinfo_t *
 glusterd_volinfo_ref(glusterd_volinfo_t *volinfo);
@@ -241,7 +278,7 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
                                     u_int *length);
 
 int32_t
-glusterd_compare_friend_data(dict_t *peer_data, int32_t *status,
+glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
                              char *hostname);
 
 int
@@ -370,7 +407,7 @@ int
 glusterd_restart_gsyncds(glusterd_conf_t *conf);
 
 int
-glusterd_start_gsync(glusterd_volinfo_t *master_vol, char *slave,
+glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
                      char *path_list, char *conf_path, char *glusterd_uuid_str,
                      char **op_errstr, gf_boolean_t is_pause);
 int
@@ -460,9 +497,6 @@ glusterd_add_bricks_hname_path_to_dict(dict_t *dict,
 int
 glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
                           dict_t *vol_opts);
-
-int
-glusterd_calc_dist_leaf_count(int rcount, int scount);
 
 int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo);
@@ -577,17 +611,19 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                                       dict_t *dict, glusterd_volinfo_t *volinfo,
                                       char **errstr, gf_cli_defrag_type);
 int
-glusterd_get_slave_details_confpath(glusterd_volinfo_t *volinfo, dict_t *dict,
-                                    char **slave_url, char **slave_host,
-                                    char **slave_vol, char **conf_path,
-                                    char **op_errstr);
+glusterd_get_secondary_details_confpath(glusterd_volinfo_t *volinfo,
+                                        dict_t *dict, char **secondary_url,
+                                        char **secondary_host,
+                                        char **secondary_vol, char **conf_path,
+                                        char **op_errstr);
 
 int
-glusterd_get_slave_info(char *slave, char **slave_url, char **hostname,
-                        char **slave_vol, char **op_errstr);
+glusterd_get_secondary_info(char *secondary, char **secondary_url,
+                            char **hostname, char **secondary_vol,
+                            char **op_errstr);
 
 int
-glusterd_get_statefile_name(glusterd_volinfo_t *volinfo, char *slave,
+glusterd_get_statefile_name(glusterd_volinfo_t *volinfo, char *secondary,
                             char *conf_path, char **statefile,
                             gf_boolean_t *is_template_in_use);
 
@@ -595,17 +631,18 @@ int
 glusterd_gsync_read_frm_status(char *path, char *buf, size_t blen);
 
 int
-glusterd_create_status_file(char *master, char *slave, char *slave_url,
-                            char *slave_vol, char *status);
+glusterd_create_status_file(char *primary, char *secondary, char *secondary_url,
+                            char *secondary_vol, char *status);
 
 int
-glusterd_check_restart_gsync_session(glusterd_volinfo_t *volinfo, char *slave,
-                                     dict_t *resp_dict, char *path_list,
-                                     char *conf_path, gf_boolean_t is_force);
+glusterd_check_restart_gsync_session(glusterd_volinfo_t *volinfo,
+                                     char *secondary, dict_t *resp_dict,
+                                     char *path_list, char *conf_path,
+                                     gf_boolean_t is_force);
 
 int
-glusterd_check_gsync_running_local(char *master, char *slave, char *conf_path,
-                                   gf_boolean_t *is_run);
+glusterd_check_gsync_running_local(char *primary, char *secondary,
+                                   char *conf_path, gf_boolean_t *is_run);
 
 gf_boolean_t
 glusterd_is_status_tasks_op(glusterd_op_t op, dict_t *dict);
@@ -653,9 +690,6 @@ glusterd_get_mnt_entry_info(char *mnt_pt, char *buff, int buflen,
 int
 glusterd_get_brick_root(char *path, char **mount_point);
 
-int32_t
-glusterd_lvm_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol);
-
 gf_boolean_t
 gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo);
 
@@ -665,11 +699,7 @@ glusterd_get_brick_mount_dir(char *brickpath, char *hostname, char *mount_dir);
 int32_t
 glusterd_aggr_brick_mount_dirs(dict_t *aggr, dict_t *rsp_dict);
 
-int32_t
-glusterd_take_lvm_snapshot(glusterd_brickinfo_t *brickinfo,
-                           char *origin_brick_path);
-
-void
+int
 glusterd_launch_synctask(synctask_fn_t fn, void *opaque);
 
 int
@@ -692,7 +722,7 @@ int
 glusterd_update_mntopts(char *brick_path, glusterd_brickinfo_t *brickinfo);
 
 int
-glusterd_update_fs_label(glusterd_brickinfo_t *brickinfo);
+glusterd_update_fs_label(char *brick_path, char *fstype, char *device_path);
 
 int
 glusterd_get_volopt_content(dict_t *dict, gf_boolean_t xml_out);
@@ -865,7 +895,13 @@ glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
 int32_t
 glusterd_check_brick_order(dict_t *dict, char *err_str, int32_t type,
                            char **volname, char **bricks, int32_t *brick_count,
-                           int32_t sub_count);
+                           int32_t sub_count, int flag);
 gf_boolean_t
 glusterd_gf_is_local_addr(char *hostname);
+
+int
+glusterd_defrag_ref(glusterd_defrag_info_t *defrag);
+
+int
+glusterd_defrag_unref(glusterd_defrag_info_t *defrag);
 #endif

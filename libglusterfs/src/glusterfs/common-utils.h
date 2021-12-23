@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <fnmatch.h>
 #include <uuid/uuid.h>
+#include <urcu/compiler.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG
@@ -124,12 +125,21 @@ trap(void);
 #define GF_MS_IN_NS 1000000
 #define GF_US_IN_NS 1000
 
-/* Default timeout for both barrier and changelog translator */
-#define BARRIER_TIMEOUT "120"
+/* Default timeout for both barrier and changelog translator, in seconds. */
+#define BARRIER_TIMEOUT 120
 
-/* Default value of signing waiting time to sign a file for bitrot */
-#define SIGNING_TIMEOUT "120"
-#define BR_WORKERS "4"
+/* Default signing waiting time to sign a file for bitrot, in seconds. */
+#define SIGNING_TIMEOUT 120
+
+/* Threading parameters for bitrot. */
+#define BR_MIN_THREADS 1
+#define BR_MAX_THREADS 16
+#define BR_DEFAULT_THREADS 4
+
+/* Threading parameters for parallel heal, both for AFR and EC xlators. */
+#define SHD_MIN_THREADS 1
+#define SHD_MAX_THREADS 64
+#define SHD_DEFAULT_THREADS SHD_MIN_THREADS
 
 /* xxhash */
 #define GF_XXH64_DIGEST_LENGTH 8
@@ -194,6 +204,9 @@ extern char *xattrs_to_heal[];
 
 char **
 get_xattrs_to_heal();
+
+char *
+gf_gethostname(void);
 
 /* The DHT file rename operation is not a straightforward rename.
  * It involves creating linkto and linkfiles, and can unlink or rename the
@@ -322,7 +335,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define VALIDATE_OR_GOTO(arg, label)                                           \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             errno = EINVAL;                                                    \
             gf_msg_callingfn((this ? (this->name) : "(Govinda! Govinda!)"),    \
                              GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,       \
@@ -333,7 +346,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_VALIDATE_OR_GOTO(name, arg, label)                                  \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
             errno = EINVAL;                                                    \
             gf_msg_callingfn(name, GF_LOG_ERROR, errno, LG_MSG_INVALID_ARG,    \
                              "invalid argument: " #arg);                       \
@@ -341,10 +354,10 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error)         \
+#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, op_errno, error)      \
     do {                                                                       \
-        if (!arg) {                                                            \
-            errno = error;                                                     \
+        if (caa_unlikely(!arg)) {                                              \
+            op_errno = error;                                                  \
             gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
                              "invalid argument: " #arg);                       \
             goto label;                                                        \
@@ -353,7 +366,7 @@ BIT_VALUE(unsigned char *array, unsigned int index)
 
 #define GF_CHECK_ALLOC(arg, retval, label)                                     \
     do {                                                                       \
-        if (!(arg)) {                                                          \
+        if (caa_unlikely(!(arg))) {                                            \
             retval = -ENOMEM;                                                  \
             goto label;                                                        \
         }                                                                      \
@@ -368,22 +381,11 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error)          \
+#define GF_ASSERT_AND_GOTO_WITH_ERROR(arg, label, op_errno, error)             \
     do {                                                                       \
-        if (!arg) {                                                            \
+        if (caa_unlikely(!arg)) {                                              \
+            op_errno = error;                                                  \
             GF_ASSERT(0);                                                      \
-            errno = error;                                                     \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
-
-#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name, arg, label)                    \
-    do {                                                                       \
-        GF_VALIDATE_OR_GOTO(name, arg, label);                                 \
-        if ((arg[0]) != '/') {                                                 \
-            errno = EINVAL;                                                    \
-            gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
-                             "invalid argument: " #arg);                       \
             goto label;                                                        \
         }                                                                      \
     } while (0)
@@ -443,14 +445,20 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
+void
+gf_assert(void);
+
 #ifdef DEBUG
 #define GF_ASSERT(x) assert(x);
 #else
 #define GF_ASSERT(x)                                                           \
     do {                                                                       \
-        if (!(x)) {                                                            \
+        if (caa_unlikely(!(x))) {                                              \
+            gf_assert();                                                       \
             gf_msg_callingfn("", GF_LOG_ERROR, 0, LG_MSG_ASSERTION_FAILED,     \
-                             "Assertion failed: " #x);                         \
+                             "Assertion failed: To attach gdb and coredump,"   \
+                             " Run the script under "                          \
+                             "\"glusterfs/extras/debug/gfcore.py\"");          \
         }                                                                      \
     } while (0)
 #endif
@@ -492,7 +500,7 @@ union gf_sock_union {
 #define GF_UNLINK_PATH GF_HIDDEN_PATH "/unlink"
 #define GF_LANDFILL_PATH GF_HIDDEN_PATH "/landfill"
 
-#define IOV_MIN(n) min(IOV_MAX, n)
+#define MAX_IOVEC 16
 
 static inline gf_boolean_t
 gf_irrelevant_entry(struct dirent *entry)
@@ -955,7 +963,7 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b);
 int
 gf_string2percent(const char *str, double *n);
 int
-gf_string2time(const char *str, uint32_t *n);
+gf_string2time(const char *str, time_t *n);
 
 int
 gf_lockfd(int fd);
@@ -1022,8 +1030,6 @@ uuid_utoa_r(uuid_t uuid, char *dst);
 char *
 lkowner_utoa(gf_lkowner_t *lkowner);
 char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len);
-char *
 leaseid_utoa(const char *lease_id);
 gf_boolean_t
 is_valid_lease_id(const char *lease_id);
@@ -1074,6 +1080,21 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key);
 
 int
 gf_set_timestamp(const char *src, const char *dest);
+
+static inline int
+__gf_thread_set_name(pthread_t thread, const char *name)
+{
+#if defined(HAVE_PTHREAD_SETNAME_NP_TWO_ARGS)
+    return pthread_setname_np(thread, name);
+#elif defined(HAVE_PTHREAD_SETNAME_NP_THREE_ARGS)
+    return pthread_setname_np(thread, name, NULL);
+#elif defined(HAVE_PTHREAD_SET_NAME_NP)
+    pthread_set_name_np(thread, name);
+    return 0;
+#else  /* none found */
+    return -ENOSYS;
+#endif /* set name */
+}
 
 int
 gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
@@ -1182,6 +1203,10 @@ char *
 get_ip_from_addrinfo(struct addrinfo *addr, char **ip);
 
 int
+close_fds_except_custom(int *fdv, size_t count, void *prm,
+                        void closer(int fd, void *prm));
+
+int
 close_fds_except(int *fdv, size_t count);
 
 int
@@ -1213,6 +1238,9 @@ int
 gf_syncfs(int fd);
 
 int
+gf_pipe(int fd[2], int flags);
+
+int
 gf_nanosleep(uint64_t nsec);
 
 static inline time_t
@@ -1239,18 +1267,13 @@ gf_tvdiff(struct timeval *start, struct timeval *end)
 
 /* Return delta value in nanoseconds. */
 
-static inline double
+static inline int64_t
 gf_tsdiff(struct timespec *start, struct timespec *end)
 {
-    struct timespec t;
-
-    if (start->tv_nsec > end->tv_nsec)
-        t.tv_sec = end->tv_sec - 1, t.tv_nsec = end->tv_nsec + 1000000000;
-    else
-        t.tv_sec = end->tv_sec, t.tv_nsec = end->tv_nsec;
-
-    return (double)(t.tv_sec - start->tv_sec) * 1e9 +
-           (double)(t.tv_nsec - start->tv_nsec);
+    return (int64_t)(end->tv_sec - start->tv_sec) * GF_SEC_IN_NS +
+           (int64_t)(end->tv_nsec - start->tv_nsec);
 }
 
+int
+gf_d_type_from_st_mode(mode_t st_mode);
 #endif /* _COMMON_UTILS_H */

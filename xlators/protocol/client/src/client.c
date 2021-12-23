@@ -779,9 +779,11 @@ static int32_t
 client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
             fd_t *fd, dict_t *xdata)
 {
-    int ret = -1;
+    int ret = 0;
+    int op_errno = ENOTCONN;
     clnt_conf_t *conf = NULL;
     rpc_clnt_procedure_t *proc = NULL;
+    clnt_fd_ctx_t *fdctx = NULL;
     clnt_args_t args = {
         0,
     };
@@ -789,6 +791,21 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     conf = this->private;
     if (!conf || !conf->fops)
         goto out;
+
+    if (conf->strict_locks) {
+        pthread_spin_lock(&conf->fd_lock);
+        {
+            fdctx = this_fd_get_ctx(fd, this);
+            if (fdctx && !fdctx_lock_lists_empty(fdctx)) {
+                ret = -1;
+                op_errno = EBADFD;
+            }
+        }
+        pthread_spin_unlock(&conf->fd_lock);
+
+        if (ret)
+            goto out;
+    }
 
     proc = &conf->fops->proctable[GF_FOP_OPEN];
     if (proc->fn) {
@@ -801,7 +818,7 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     }
 out:
     if (ret)
-        STACK_UNWIND_STRICT(open, frame, -1, ENOTCONN, NULL, NULL);
+        STACK_UNWIND_STRICT(open, frame, -1, op_errno, NULL, NULL);
 
     return 0;
 }
@@ -2394,11 +2411,11 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 {
     int ret = -1;
 
-    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, int32, out);
+    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, time, out);
 
     GF_OPTION_INIT("remote-port", conf->rpc_conf.remote_port, int32, out);
 
-    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, int32, out);
+    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, time, out);
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
     if (!conf->opt.remote_subvolume)
@@ -2431,7 +2448,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_client_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_client_mt_end);
 
     if (ret != 0) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, PC_MSG_NO_MEMORY, NULL);
@@ -2538,10 +2555,10 @@ reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options,
-                     int32, out);
+    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options, time,
+                     out);
 
-    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, int32,
+    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, time,
                      out);
 
     GF_OPTION_RECONF("event-threads", new_nthread, options, int32, out);
@@ -2795,7 +2812,7 @@ client_priv_dump(xlator_t *this)
         conn = &conf->rpc->conn;
         gf_proc_dump_write("total_bytes_read", "%" PRIu64,
                            conn->trans->total_bytes_read);
-        gf_proc_dump_write("ping_timeout", "%" PRIu32, conn->ping_timeout);
+        gf_proc_dump_write("ping_timeout", "%ld", conn->ping_timeout);
         gf_proc_dump_write("total_bytes_written", "%" PRIu64,
                            conn->trans->total_bytes_write);
         gf_proc_dump_write("ping_msgs_sent", "%" PRIu64, conn->pingcnt);
@@ -2952,15 +2969,14 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_SETTABLE},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
-     .description = "Specifies the number of event threads to execute "
-                    "in parallel. Larger values would help process"
-                    " responses faster, depending on available processing"
-                    " power. Range 1-32 threads.",
+     .min = CLIENT_MIN_EVENT_THREADS,
+     .max = CLIENT_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
+     .description = "Specifies the number of event threads to execute in "
+                    "parallel. Larger values would help process responses "
+                    "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
 
     /* This option is required for running code-coverage tests with
        old protocol */

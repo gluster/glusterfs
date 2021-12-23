@@ -35,6 +35,7 @@ VERSION_ID=""
 PCS9OR10_PCS_CNAME_OPTION=""
 PCS9OR10_PCS_CLONE_OPTION="clone"
 SECRET_PEM="/var/lib/glusterd/nfs/secret.pem"
+CRMADM_TIMEOUT_OPTION="5000"
 
 # UNBLOCK RA uses shared_storage which may become unavailable
 # during any of the nodes reboot. Hence increase timeout value.
@@ -195,8 +196,21 @@ setup_cluster()
     local servers=${3}
     local unclean=""
     local quorum_policy="stop"
+    local dfresult=""
 
     logger "setting up cluster ${name} with the following ${servers}"
+
+    # check that shared_storage is mounted
+    dfresult=$(df -T ${HA_VOL_MNT})
+    if [[ -z "${dfresult}" ]]; then
+        logger "gluster shared_storage is not mounted, exiting..."
+        exit 1
+    fi
+
+    if [[ "${dfresult}" != *"fuse.glusterfs"* ]]; then
+        logger "gluster shared_storage is not mounted, exiting..."
+        exit 1
+    fi
 
     # pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} ${servers}
     pcs cluster setup --force ${PCS9OR10_PCS_CNAME_OPTION} ${name} --enable ${servers}
@@ -222,9 +236,9 @@ setup_cluster()
     sleep 1
     # wait for the cluster to elect a DC before querying or writing
     # to the CIB. BZ 1334092
-    crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+    crmadmin --dc_lookup --timeout=${CRMADM_TIMEOUT_OPTION} > /dev/null 2>&1
     while [ $? -ne 0 ]; do
-        crmadmin --dc_lookup --timeout=5000 > /dev/null 2>&1
+        crmadmin --dc_lookup --timeout=${CRMADM_TIMEOUT_OPTION} > /dev/null 2>&1
     done
 
     unclean=$(pcs status | grep -u "UNCLEAN")
@@ -1059,6 +1073,12 @@ main()
                 PCS9OR10_PCS_CNAME_OPTION="--name"
                 PCS9OR10_PCS_CLONE_OPTION="--clone"
             fi
+        fi
+        # pacemaker 2.1.0 changed --timeout=value
+        echo ${crmadmin_vers}
+        crmadmin_vers=`crmadmin --version | grep -o "[12]\.[0-9]\.." | cut -c 1-3`
+        if [[ "${crmadmin_vers}" > "2.0" ]]; then
+            CRMADM_TIMEOUT_OPTION="5sec"
         fi
 
         if [[ "${HA_NUM_SERVERS}X" != "1X" ]]; then

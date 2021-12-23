@@ -34,8 +34,6 @@ gd_synctask_barrier_wait(struct syncargs *args, int count)
     synclock_unlock(&conf->big_lock);
     synctask_barrier_wait(args, count);
     synclock_lock(&conf->big_lock);
-
-    syncbarrier_destroy(&args->barrier);
 }
 
 static void
@@ -110,11 +108,32 @@ gd_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     return;
 }
 
-void
+int
 gd_syncargs_init(struct syncargs *args, dict_t *op_ctx)
 {
+    int ret = 0;
+
+    ret = pthread_mutex_init(&args->lock_dict, NULL);
+    if (ret)
+        return ret;
+
+    ret = synctask_barrier_init(args);
+    if (ret) {
+        pthread_mutex_destroy(&args->lock_dict);
+        return ret;
+    }
+
     args->dict = op_ctx;
-    pthread_mutex_init(&args->lock_dict, NULL);
+    return 0;
+}
+
+void
+gd_syncargs_fini(struct syncargs *args)
+{
+    if (args->barrier.initialized) {
+        pthread_mutex_destroy(&args->lock_dict);
+        syncbarrier_destroy(&args->barrier);
+    }
 }
 
 static void
@@ -221,10 +240,6 @@ int
 glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
 {
     int ret = 0;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     switch (op) {
         case GD_OP_CREATE_VOLUME:
@@ -232,7 +247,7 @@ glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
         case GD_OP_START_VOLUME:
             ret = glusterd_aggr_brick_mount_dirs(aggr, rsp);
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0,
+                gf_msg(THIS->name, GF_LOG_ERROR, 0,
                        GD_MSG_BRICK_MOUNDIRS_AGGR_FAIL,
                        "Failed to "
                        "aggregate brick mount dirs");
@@ -338,11 +353,8 @@ gd_syncop_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
-    xlator_t *this = NULL;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -357,7 +369,7 @@ gd_syncop_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(THIS->name, iov, out, op_errno, EINVAL);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
     if (ret < 0)
@@ -442,11 +454,8 @@ gd_syncop_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov,
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
-    xlator_t *this = NULL;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -461,7 +470,7 @@ gd_syncop_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov,
         goto out;
     }
 
-    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(THIS->name, iov, out, op_errno, EINVAL);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
     if (ret < 0)
@@ -546,11 +555,8 @@ _gd_syncop_mgmt_lock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -647,11 +653,8 @@ _gd_syncop_mgmt_unlock_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -743,15 +746,12 @@ _gd_syncop_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         {0},
     };
     struct syncargs *args = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *rsp_dict = NULL;
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
     uuid_t *peerid = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -886,10 +886,7 @@ _gd_syncop_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     call_frame_t *frame = NULL;
-    xlator_t *this = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
+    xlator_t *this = THIS;
 
     frame = myframe;
     args = frame->local;
@@ -966,9 +963,7 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
     };
     gd1_mgmt_brick_op_req *req = NULL;
     int ret = 0;
-    xlator_t *this = NULL;
 
-    this = THIS;
     args.op_ret = -1;
     args.op_errno = ENOTCONN;
 
@@ -997,7 +992,7 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
     if (GD_OP_STATUS_VOLUME == op) {
         ret = dict_set_int32(args.dict, "index", pnode->index);
         if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Error setting index on brick status"
                    " rsp dict");
             args.op_ret = -1;
@@ -1053,16 +1048,13 @@ _gd_syncop_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
         {0},
     };
     struct syncargs *args = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     dict_t *rsp_dict = NULL;
     call_frame_t *frame = NULL;
     int op_ret = -1;
     int op_errno = -1;
     int type = GF_QUOTA_OPTION_TYPE_NONE;
     uuid_t *peerid = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     frame = myframe;
     args = frame->local;
@@ -1205,12 +1197,9 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
     int ret = -1;
     int peer_cnt = 0;
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
-
-    this = THIS;
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
 
     ret = synctask_barrier_init((&args));
     if (ret)
@@ -1285,7 +1274,7 @@ gd_stage_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     int peer_cnt = 0;
     dict_t *rsp_dict = NULL;
     char *hostname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     uuid_t tmp_uuid = {0};
@@ -1293,8 +1282,6 @@ gd_stage_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     struct syncargs args = {0};
     dict_t *aggr_dict = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1346,8 +1333,7 @@ stage_done:
         goto out;
     }
 
-    gd_syncargs_init(&args, aggr_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, aggr_dict);
     if (ret)
         goto out;
 
@@ -1403,6 +1389,8 @@ out:
 
     if (rsp_dict)
         dict_unref(rsp_dict);
+
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1415,7 +1403,7 @@ gd_commit_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     int ret = -1;
     char *hostname = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     uuid_t tmp_uuid = {0};
     char *errstr = NULL;
@@ -1424,8 +1412,6 @@ gd_commit_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     uint32_t cmd = 0;
     gf_boolean_t origin_glusterd = _gf_false;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1478,8 +1464,7 @@ commit_done:
         goto out;
     }
 
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
 
@@ -1489,7 +1474,7 @@ commit_done:
     if (op == GD_OP_STATUS_VOLUME) {
         ret = dict_get_uint32(req_dict, "cmd", &cmd);
         if (ret) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                     "Key=cmd", NULL);
             goto out;
         }
@@ -1549,6 +1534,7 @@ out:
     GF_FREE(args.errstr);
     args.errstr = NULL;
 
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1562,13 +1548,10 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
     uuid_t tmp_uuid = {0};
     int peer_cnt = 0;
     int ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     struct syncargs args = {0};
     int32_t global = 0;
     char *type = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     /* If the lock has not been held during this
      * transaction, do not send unlock requests */
@@ -1712,7 +1695,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     struct cds_list_head selected = {
         0,
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     int brick_count = 0;
     int ret = -1;
     rpc_clnt_t *rpc = NULL;
@@ -1720,7 +1703,6 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     int32_t cmd = GF_OP_CMD_NONE;
     glusterd_volinfo_t *volinfo = NULL;
 
-    this = THIS;
     rsp_dict = dict_new();
     if (!rsp_dict) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
@@ -1758,6 +1740,7 @@ gd_brick_op_phase(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         if (!rpc) {
             if (pending_node->type == GD_NODE_REBALANCE && pending_node->node) {
                 volinfo = pending_node->node;
+                glusterd_defrag_ref(volinfo->rebal.defrag);
                 ret = glusterd_rebalance_rpc_create(volinfo);
                 if (ret) {
                     ret = 0;
@@ -1820,19 +1803,17 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     char *tmp = NULL;
     char *global = NULL;
     char *volname = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_acquired = _gf_false;
     gf_boolean_t is_global = _gf_false;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_opinfo = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     uint32_t op_errno = 0;
     gf_boolean_t cluster_lock = _gf_false;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1854,8 +1835,8 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
         goto out;
     }
 
-    /* Save opinfo for this transaction with the transaction id */
-    glusterd_txn_opinfo_init(&txn_opinfo, NULL, &op, NULL, NULL);
+    /* Save opinfo for this transaction with the transaction id. */
+    glusterd_txn_opinfo_init(&txn_opinfo, 0, (int *)&op, NULL, NULL);
     ret = glusterd_set_txn_opinfo(txn_id, &txn_opinfo);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_TRANS_OPINFO_SET_FAIL,
@@ -1891,7 +1872,7 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
          * mgmt_v3_lock_timeout should be set to default value or we
          * need to change the value according to timeout value
          * i.e, timeout + 120 seconds. */
-        ret = dict_get_uint32(op_ctx, "timeout", &timeout);
+        ret = dict_get_time(op_ctx, "timeout", &timeout);
         if (!ret)
             conf->mgmt_v3_lock_timeout = timeout + 120;
 

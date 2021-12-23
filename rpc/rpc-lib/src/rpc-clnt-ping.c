@@ -10,7 +10,6 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
 #include "protocol-common.h"
@@ -108,9 +107,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
     rpc_transport_t *trans = NULL;
     rpc_clnt_connection_t *conn = NULL;
     int disconnect = 0;
-    struct timespec current = {
-        0,
-    };
+    time_t current = 0;
     int unref = 0;
 
     rpc = (struct rpc_clnt *)rpc_ptr;
@@ -122,14 +119,13 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
         goto out;
     }
 
-    timespec_now_realtime(&current);
+    current = gf_time();
     pthread_mutex_lock(&conn->lock);
     {
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
 
-        if (((current.tv_sec - conn->last_received.tv_sec) <
-             conn->ping_timeout) ||
-            ((current.tv_sec - conn->last_sent.tv_sec) < conn->ping_timeout)) {
+        if (((current - conn->last_received) < conn->ping_timeout) ||
+            ((current - conn->last_sent) < conn->ping_timeout)) {
             gf_log(trans->name, GF_LOG_TRACE,
                    "ping timer expired but transport activity "
                    "detected - not bailing transport");
@@ -150,7 +146,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
 
     if (disconnect) {
         gf_log(trans->name, GF_LOG_CRITICAL,
-               "server %s has not responded in the last %d "
+               "server %s has not responded in the last %ld "
                "seconds, disconnecting.",
                trans->peerinfo.identifier, conn->ping_timeout);
 

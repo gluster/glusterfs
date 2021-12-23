@@ -168,15 +168,15 @@ int
 glusterd_dump_priv(xlator_t *this)
 {
     glusterd_conf_t *priv = NULL;
-    char key[GF_DUMP_MAX_BUF_LEN] = "";
-    int port = 0;
     struct pmap_registry *pmap = NULL;
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
+    struct pmap_ports *tmp_port = NULL;
+    char key[GF_DUMP_MAX_BUF_LEN] = "";
 
     priv = this->private;
     if (!priv)
         return 0;
+
+    pmap = priv->pmap;
 
     gf_proc_dump_build_key(key, "xlator.glusterd", "priv");
     gf_proc_dump_add_section("%s", key);
@@ -199,7 +199,7 @@ glusterd_dump_priv(xlator_t *this)
         gf_proc_dump_write(key, "%d", priv->op_version);
 
         gf_proc_dump_build_key(key, "glusterd", "ping-timeout");
-        gf_proc_dump_write(key, "%d", priv->ping_timeout);
+        gf_proc_dump_write(key, "%ld", priv->ping_timeout);
 #ifdef BUILD_GNFS
         gf_proc_dump_build_key(key, "glusterd", "nfs.online");
         gf_proc_dump_write(key, "%d", priv->nfs_svc.online);
@@ -216,19 +216,17 @@ glusterd_dump_priv(xlator_t *this)
         /* Dump peer details */
         GLUSTERD_DUMP_PEERS(&priv->peers, uuid_list, _gf_false);
 
-        /* Dump pmap data structure from base port to last alloc */
-        pmap = priv->pmap;
         if (pmap) {
-            for (port = pmap->base_port; port <= pmap->last_alloc; port++) {
-                gf_proc_dump_build_key(key, "glusterd", "pmap_port");
-                gf_proc_dump_write(key, "%d", port);
-                gf_proc_dump_build_key(key, "glusterd", "pmap[%d].type", port);
-                gf_proc_dump_write(key, "%d", pmap->ports[port].type);
-                gf_proc_dump_build_key(key, "glusterd", "pmap[%d].brickname",
-                                       port);
-                gf_proc_dump_write(key, "%s", pmap->ports[port].brickname);
+            /* Dump brick name and port associated with it */
+            cds_list_for_each_entry(tmp_port, &pmap->ports, port_list)
+            {
+                gf_proc_dump_build_key(key, "glusterd", "brick_port");
+                gf_proc_dump_write(key, "%d", tmp_port->port);
+                gf_proc_dump_build_key(key, "glusterd", "brickname");
+                gf_proc_dump_write(key, "%s", tmp_port->brickname);
             }
         }
+
         /* Dump client details */
         glusterd_dump_client_details(priv);
 
@@ -238,6 +236,5 @@ glusterd_dump_priv(xlator_t *this)
     }
     pthread_mutex_unlock(&priv->mutex);
 
-out:
     return 0;
 }

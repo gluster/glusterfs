@@ -559,7 +559,7 @@ wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
             req->ordering.append = 1;
     }
 
-    req->lk_owner = stub->frame->root->lk_owner;
+    lk_owner_copy(&req->lk_owner, &stub->frame->root->lk_owner);
     req->client_pid = stub->frame->root->pid;
 
     switch (stub->fop) {
@@ -1146,7 +1146,7 @@ wb_fulfill_head(wb_inode_t *wb_inode, wb_request_t *head)
     if (!frame)
         goto err;
 
-    frame->root->lk_owner = head->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &head->lk_owner);
     frame->root->pid = head->client_pid;
     frame->local = head;
 
@@ -3012,7 +3012,7 @@ mem_acct_init(xlator_t *this)
         goto out;
     }
 
-    ret = xlator_mem_acct_init(this, gf_wb_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_wb_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, WRITE_BEHIND_MSG_NO_MEMORY,
@@ -3191,15 +3191,13 @@ struct volume_options options[] = {
         .op_version = {GD_OP_VERSION_6_0},
         .flags = OPT_FLAG_SETTABLE,
     },
-    {
-        .key = {"pass-through"},
-        .type = GF_OPTION_TYPE_BOOL,
-        .default_value = "false",
-        .op_version = {GD_OP_VERSION_9_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
-        .tags = {"write-behind"},
-        .description = "Enable/disable write-behind pass-through"
-    },
+    {.key = {"pass-through"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "false",
+     .op_version = {GD_OP_VERSION_9_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .tags = {"write-behind"},
+     .description = "Enable/disable write-behind pass-through"},
     {.key = {"flush-behind"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",

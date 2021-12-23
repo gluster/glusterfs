@@ -11,7 +11,6 @@
 #include <fnmatch.h>
 
 #include "libxlator.h"
-#include <glusterfs/byte-order.h>
 
 #include "ec-types.h"
 #include "ec-helpers.h"

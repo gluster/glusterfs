@@ -41,7 +41,6 @@
 #include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
@@ -86,6 +85,9 @@ extern char *marker_xattrs[];
 
 #endif
 
+static int
+posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
+                          const char *real_path, int32_t *op_errno, loc_t *loc);
 static gf_boolean_t
 posix_symlinks_match(xlator_t *this, loc_t *loc, uuid_t gfid)
 {
@@ -177,6 +179,11 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     posix_inode_ctx_t *ctx = NULL;
     int ret = 0;
     int dfd = -1;
+    uint32_t lookup_unlink_dir = 0;
+    char *unlink_path = NULL;
+    struct stat lstatbuf = {
+        0,
+    };
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -215,7 +222,36 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     op_ret = -1;
     if (gf_uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
         /* nameless lookup */
+        op_ret = op_errno = errno = 0;
         MAKE_INODE_HANDLE(real_path, this, loc, &buf);
+
+        /* The gfid will be renamed to ".glusterfs/unlink" in case
+         * there are any open fds on the file in posix_unlink path.
+         * So client can request server to do nameless lookup with
+         * xdata = GF_UNLINKED_LOOKUP in ".glusterfs/unlink"
+         * dir if a client wants to know the status of the all open fds
+         * on the unlinked file. If the file still present in the
+         * ".glusterfs/unlink" dir then it indicates there still
+         * open fds present on the file and the file is still under
+         * unlink process */
+        if (op_ret < 0 && errno == ENOENT) {
+            ret = dict_get_uint32(xdata, GF_UNLINKED_LOOKUP,
+                                  &lookup_unlink_dir);
+            if (!ret && lookup_unlink_dir) {
+                op_ret = op_errno = errno = 0;
+                POSIX_GET_FILE_UNLINK_PATH(priv->base_path, loc->gfid,
+                                           unlink_path);
+                ret = sys_lstat(unlink_path, &lstatbuf);
+                if (ret) {
+                    op_ret = -1;
+                    op_errno = errno;
+                } else {
+                    iatt_from_stat(&buf, &lstatbuf);
+                    buf.ia_nlink = 0;
+                }
+                goto nameless_lookup_unlink_dir_out;
+            }
+        }
     } else {
         MAKE_ENTRY_HANDLE(real_path, par_path, this, loc, &buf);
         if (!real_path || !par_path) {
@@ -326,15 +362,28 @@ parent:
 out:
     if (!op_ret && !gfidless && gf_uuid_is_null(buf.ia_gfid)) {
         gf_msg(this->name, GF_LOG_ERROR, ENODATA, P_MSG_NULL_GFID,
-               "buf->ia_gfid is null for "
-               "%s",
-               (real_path) ? real_path : "");
+               "buf->ia_gfid is null for %s",
+               (real_path) ? real_path : "(null)");
         op_ret = -1;
         op_errno = ENODATA;
     }
 
+    /* TODO: get the path */
+    /* In the full run of regression, I was not able to hit this case, hence
+       leaving it as TODO. Good to have logic of resolving GFID only access
+       to a path for many other features too. But initial version can just
+       be knowning that we are hitting the scenario in certain usecases */
+    if ((op_ret == 0) && (dict_get_sizen(xdata, "get-full-path"))) {
+        /* Get the path */
+        gf_log(this->name, GF_LOG_INFO,
+               "%s: inode path not completely resolved. Asking for full path",
+               loc->path);
+    }
+
     if (op_ret == 0)
         op_errno = 0;
+
+nameless_lookup_unlink_dir_out:
     STACK_UNWIND_STRICT(lookup, frame, op_ret, op_errno,
                         (loc) ? loc->inode : NULL, &buf, xattr, &postparent);
 
@@ -373,6 +422,43 @@ posix_set_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
                "setting gfid2path xattr failed on %s: key = %s ", path, key);
     }
 
+    return ret;
+}
+
+static int
+posix_acl_xattr_from_dict(const char *path, char *key, dict_t *xattr_req)
+{
+    int ret = 0;
+    data_t *data = NULL;
+
+    data = dict_get(xattr_req, key);
+    if (data) {
+        ret = sys_lsetxattr(path, key, data->data, data->len, 0);
+#ifdef __FreeBSD__
+        if (ret != -1) {
+            ret = 0;
+        }
+#endif /* __FreeBSD__ */
+    }
+
+    return ret;
+}
+
+static int
+posix_acl_xattr_set(const char *path, dict_t *xattr_req)
+{
+    int ret = 0;
+
+    if (!xattr_req)
+        goto out;
+
+    ret = posix_acl_xattr_from_dict(path, POSIX_ACL_ACCESS_XATTR, xattr_req);
+    if (ret)
+        goto out;
+
+    ret = posix_acl_xattr_from_dict(path, POSIX_ACL_DEFAULT_XATTR, xattr_req);
+
+out:
     return ret;
 }
 
@@ -495,9 +581,20 @@ real_op:
             }
             sys_close(tmp_fd);
         } else {
-            if (op_errno == EEXIST)
+            if (op_errno == EEXIST) {
                 level = GF_LOG_DEBUG;
-            else
+
+                if (dict_get_sizen(xdata, GF_FORCE_REPLACE_KEY)) {
+                    dict_del_sizen(xdata, GF_FORCE_REPLACE_KEY);
+                    op_ret = posix_unlink_stale_linkto(frame, this, real_path,
+                                                       &op_errno, loc);
+                    if (op_ret == 0)
+                        goto real_op;
+
+                    level = GF_LOG_ERROR;
+                }
+
+            } else
                 level = GF_LOG_ERROR;
             gf_msg(this->name, level, errno, P_MSG_MKNOD_FAILED,
                    "mknod on %s failed", real_path);
@@ -518,7 +615,7 @@ real_op:
 #endif
 
 post_op:
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);
@@ -899,7 +996,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
         goto out;
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed ", real_path);
@@ -1096,10 +1193,12 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
         posix_set_ctime(frame, this, NULL, -1, loc->inode, stbuf);
     }
 
-    ret = dict_set_uint32(rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
-    if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
-               "failed to set " GET_LINK_COUNT " for %s", real_path);
+    if (rsp_dict) {
+        ret = dict_set_uint32(rsp_dict, GET_LINK_COUNT, prebuf.ia_nlink);
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
+                   "failed to set " GET_LINK_COUNT " for %s", real_path);
+    }
 
     return 0;
 
@@ -1109,6 +1208,48 @@ err:
         locked = _gf_false;
     }
     return -1;
+}
+
+static int
+posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
+                          const char *real_path, int32_t *op_errno, loc_t *loc)
+{
+    int ret = 0;
+    struct iatt stbuf = {
+        0,
+    };
+
+    /* get the stale file gfid and stat-info */
+    ret = posix_pstat(this, NULL, NULL, real_path, &stbuf, _gf_false);
+    if (ret) {
+        if (errno == ENOENT) {
+            ret = 0; /* retry creation if file doesn't exist */
+            gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_LSTAT_FAILED,
+                   "lstat on %s failed: file unlinked by another client",
+                   real_path);
+        } else {
+            gf_msg(this->name, GF_LOG_INFO, errno, P_MSG_LSTAT_FAILED,
+                   "lstat on %s failed", real_path);
+        }
+        goto out;
+    }
+    /* unlink only if linkto file*/
+    if (IS_DHT_LINKFILE_MODE(&stbuf)) {
+        gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_HANDLE_CREATE,
+               "unlinking stale linkto: %s gfid: %s", real_path,
+               uuid_utoa(stbuf.ia_gfid));
+        ret = posix_unlink_gfid_handle_and_entry(
+            frame, this, real_path, &stbuf, op_errno, loc, _gf_false, NULL);
+
+    } else {
+        gf_msg(this->name, GF_LOG_DEBUG, 0, P_MSG_HANDLE_CREATE,
+               "skip unlinking stale data-file: %s gfid: %s", real_path,
+               uuid_utoa(stbuf.ia_gfid));
+        ret = -1;
+    }
+
+out:
+    return ret;
 }
 
 static gf_boolean_t
@@ -1622,7 +1763,7 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
         goto out;
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);
@@ -1864,10 +2005,10 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         if (op_ret == -1) {
             op_errno = errno;
             if (op_errno == ENOTEMPTY) {
-                gf_msg_debug(this->name, 0,
+                gf_msg_debug(this->name, op_errno,
                              "rename of %s to"
-                             " %s failed: %s",
-                             real_oldpath, real_newpath, strerror(op_errno));
+                             " %s failed",
+                             real_oldpath, real_newpath);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_RENAME_FAILED,
                        "rename of %s to %s failed", real_oldpath, real_newpath);
@@ -2058,10 +2199,20 @@ posix_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         goto out;
     }
 
+real_op:
     op_ret = sys_link(real_oldpath, real_newpath);
 
     if (op_ret == -1) {
         op_errno = errno;
+        if (op_errno == EEXIST) {
+            if (dict_get_sizen(xdata, GF_FORCE_REPLACE_KEY)) {
+                dict_del_sizen(xdata, GF_FORCE_REPLACE_KEY);
+                op_ret = posix_unlink_stale_linkto(frame, this, real_newpath,
+                                                   &op_errno, newloc);
+                if (op_ret == 0)
+                    goto real_op;
+            }
+        }
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_LINK_FAILED,
                "link %s to %s failed", real_oldpath, real_newpath);
         goto out;
@@ -2288,7 +2439,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                "chown on %s failed", real_path);
     }
 #endif
-    op_ret = posix_acl_xattr_set(this, real_path, xdata);
+    op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
                "setting ACLs on %s failed", real_path);

@@ -564,7 +564,7 @@ __qr_cache_is_fresh(xlator_t *this, qr_inode_t *qr_inode)
     return _gf_true;
 }
 
-int
+static int
 qr_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, inode_t *inode_ret, struct iatt *buf,
               dict_t *xdata, struct iatt *postparent)
@@ -582,12 +582,7 @@ qr_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         goto out;
     }
 
-    if (dict_get(xdata, GLUSTERFS_BAD_INODE)) {
-        qr_inode_prune(this, inode, local->incident_gen);
-        goto out;
-    }
-
-    if (dict_get(xdata, "sh-failed")) {
+    else if (dict_get_sizen(xdata, GLUSTERFS_BAD_INODE)) {
         qr_inode_prune(this, inode, local->incident_gen);
         goto out;
     }
@@ -619,18 +614,16 @@ out:
     return 0;
 }
 
-int
+static int
 qr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     qr_private_t *priv = NULL;
     qr_conf_t *conf = NULL;
     qr_inode_t *qr_inode = NULL;
-    int ret = -1;
+    int ret;
     dict_t *new_xdata = NULL;
     qr_local_t *local = NULL;
 
-    priv = this->private;
-    conf = &priv->conf;
     local = qr_local_get(this, loc->inode);
     local->inode = inode_ref(loc->inode);
     frame->local = local;
@@ -640,19 +633,22 @@ qr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         /* cached. only validate in qr_lookup_cbk */
         goto wind;
 
-    if (!xdata)
+    if (!xdata) {
         xdata = new_xdata = dict_new();
+        if (!xdata)
+            goto wind;
+    }
 
-    if (!xdata)
-        goto wind;
-
-    ret = 0;
-    if (conf->max_file_size)
-        ret = dict_set(xdata, GF_CONTENT_KEY,
-                       data_from_uint64(conf->max_file_size));
-    if (ret)
-        gf_msg(this->name, GF_LOG_WARNING, 0, QUICK_READ_MSG_DICT_SET_FAILED,
-               "cannot set key in request dict (%s)", loc->path);
+    priv = this->private;
+    conf = &priv->conf;
+    if (conf->max_file_size) {
+        ret = dict_set_sizen(xdata, GF_CONTENT_KEY,
+                             data_from_uint64(conf->max_file_size));
+        if (ret)
+            gf_msg(this->name, GF_LOG_WARNING, 0,
+                   QUICK_READ_MSG_DICT_SET_FAILED,
+                   "cannot set key in request dict (%s)", loc->path);
+    }
 wind:
     STACK_WIND(frame, qr_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, loc, xdata);
@@ -1074,7 +1070,7 @@ qr_priv_dump(xlator_t *this)
     gf_proc_dump_add_section("%s", key_prefix);
 
     gf_proc_dump_write("max_file_size", "%" PRIu64, conf->max_file_size);
-    gf_proc_dump_write("cache_timeout", "%d", conf->cache_timeout);
+    gf_proc_dump_write("cache_timeout", "%ld", conf->cache_timeout);
 
     if (!table) {
         goto out;
@@ -1132,7 +1128,7 @@ qr_mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_qr_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_qr_mt_end);
 
     if (ret != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, QUICK_READ_MSG_NO_MEMORY,
@@ -1199,7 +1195,7 @@ qr_reconfigure(xlator_t *this, dict_t *options)
         goto out;
     }
 
-    GF_OPTION_RECONF("cache-timeout", conf->cache_timeout, options, int32, out);
+    GF_OPTION_RECONF("cache-timeout", conf->cache_timeout, options, time, out);
 
     GF_OPTION_RECONF("quick-read-cache-invalidation", conf->qr_invalidation,
                      options, bool, out);
@@ -1346,11 +1342,12 @@ qr_init(xlator_t *this)
     }
 
     LOCK_INIT(&priv->table.lock);
+    LOCK_INIT(&priv->lock);
     conf = &priv->conf;
 
     GF_OPTION_INIT("max-file-size", conf->max_file_size, size_uint64, out);
 
-    GF_OPTION_INIT("cache-timeout", conf->cache_timeout, int32, out);
+    GF_OPTION_INIT("cache-timeout", conf->cache_timeout, time, out);
 
     GF_OPTION_INIT("quick-read-cache-invalidation", conf->qr_invalidation, bool,
                    out);
@@ -1534,6 +1531,7 @@ qr_fini(xlator_t *this)
 
     qr_inode_table_destroy(priv);
     qr_conf_destroy(&priv->conf);
+    LOCK_DESTROY(&priv->lock);
 
     this->private = NULL;
 

@@ -65,14 +65,14 @@ S: Maintained
 F: xlators/system/posix-acl/
 
 Arbiter
-M: Ravishankar N <ravishankar@redhat.com>
+M: Ravishankar N <ravishankar.n@pavilion.io>
 P: Pranith Karampuri <pranith.karampuri@phonepe.com>
 S: Maintained
 F: xlators/features/arbiter/
 
 Automatic File Replication (AFR)
 M: Pranith Karampuri <pranith.karampuri@phonepe.com>
-M: Ravishankar N <ravishankar@redhat.com>
+M: Ravishankar N <ravishankar.n@pavilion.io>
 P: Karthik US <ksubrahm@redhat.com>
 S: Maintained
 F: xlators/cluster/afr/
@@ -124,7 +124,7 @@ F: xlators/mount/
 
 Index
 M: Pranith Karampuri <pranith.karampuri@phonepe.com>
-P: Ravishankar N <ravishankar@redhat.com>
+P: Ravishankar N <ravishankar.n@pavilion.io>
 S: Maintained
 F: xlators/features/index/
 
@@ -141,7 +141,7 @@ F: xlators/debug/io-stats/
 
 IO threads
 M: Pranith Karampuri <pranith.karampuri@phonepe.com>
-P: Ravishankar N <ravishankar@redhat.com>
+P: Ravishankar N <ravishankar.n@pavilion.io>
 S: Maintained
 F: xlators/performance/io-threads/
 
@@ -305,7 +305,7 @@ Management Daemon - glusterd
 M: Atin Mukherjee <amukherj@redhat.com>
 M: Mohit Agrawal <moagrawa@redhat.com>
 M: Sanju Rakonde <srakonde@redhat.com>
-P: Srijan Sivakumar <ssivakum@redhat.com>
+P: Nikhil Ladha <nladha@redhat.com>
 S: Maintained
 F: cli/
 F: xlators/mgmt/glusterd/
@@ -353,6 +353,7 @@ F: extras/
 
 Events APIs
 M: Aravinda Vishwanathapura <aravinda@kadalu.io>
+P: Srijan Sivakumar <ssivakum@redhat.com>
 S: Maintained
 F: events/
 F: libglusterfs/src/events*

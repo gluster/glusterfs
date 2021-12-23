@@ -34,7 +34,6 @@
 
 #endif /* URCU_OLD */
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/common-utils.h"
 #include "glusterfs/list.h"
 #include "glusterfs/libglusterfs-messages.h"
@@ -43,7 +42,9 @@
  * be added to differentiate them. */
 #define GF_ASYNC_THREAD_NAME "tpw"
 
-/* This value determines the maximum number of threads that are allowed. */
+/* Threading parameters for async framework. */
+#define GF_ASYNC_MIN_THREADS 1
+#define GF_ASYNC_DEFAULT_THREADS 16
 #define GF_ASYNC_MAX_THREADS 128
 
 /* This value determines how many additional threads will be started but will
@@ -91,11 +92,9 @@ typedef struct _gf_async_queue gf_async_queue_t;
 struct _gf_async_control;
 typedef struct _gf_async_control gf_async_control_t;
 
-typedef void (*gf_async_callback_f)(xlator_t *xl, gf_async_t *async);
+typedef void (*gf_async_callback_f)(gf_async_t *async);
 
 struct _gf_async {
-    /* TODO: remove dependency on xl/THIS. */
-    xlator_t *xl;
     gf_async_callback_f cbk;
     struct cds_wfcq_node queue;
 };
@@ -183,14 +182,13 @@ void
 gf_async_adjust_threads(int32_t threads);
 
 static inline void
-gf_async(gf_async_t *async, xlator_t *xl, gf_async_callback_f cbk)
+gf_async(gf_async_t *async, gf_async_callback_f cbk)
 {
     if (!gf_async_ctrl.enabled) {
-        cbk(xl, async);
+        cbk(async);
         return;
     }
 
-    async->xl = xl;
     async->cbk = cbk;
     cds_wfcq_node_init(&async->queue);
     if (caa_unlikely(!cds_wfcq_enqueue(&gf_async_ctrl.queue.head,

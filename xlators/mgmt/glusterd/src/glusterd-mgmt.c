@@ -37,14 +37,11 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
     char *peer_str = NULL;
     char err_str[PATH_MAX] = "Please check log file for details.";
     char op_err[PATH_MAX] = "";
-    xlator_t *this = NULL;
     int is_operrstr_blk = 0;
     char *err_string = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     int32_t len = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(args);
     GF_ASSERT(uuid);
 
@@ -118,7 +115,7 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
         } else
             snprintf(err_str, sizeof(err_str), "%s", op_err);
 
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_OP_FAIL, "%s",
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_OP_FAIL, "%s",
                op_err);
         args->errstr = gf_strdup(err_str);
     }
@@ -133,10 +130,8 @@ gd_mgmt_v3_pre_validate_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                            dict_t *rsp_dict, uint32_t *op_errno)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -250,10 +245,8 @@ gd_mgmt_v3_brick_op_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                        dict_t *rsp_dict)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -296,10 +289,8 @@ gd_mgmt_v3_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                      uint32_t *op_errno, dict_t *rsp_dict)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -414,10 +405,8 @@ gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
                           uint32_t *op_errno, dict_t *rsp_dict)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
@@ -455,12 +444,10 @@ gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                             char **op_errstr, dict_t *rsp_dict)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
     GF_ASSERT(rsp_dict);
@@ -566,11 +553,8 @@ gd_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     int32_t op_ret = -1;
     int32_t op_errno = -1;
-    xlator_t *this = NULL;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -593,7 +577,7 @@ gd_mgmt_v3_lock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(THIS->name, iov, out, op_errno, EINVAL);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
     if (ret < 0)
@@ -636,11 +620,9 @@ gd_mgmt_v3_lock(glusterd_op_t op, dict_t *op_ctx, glusterd_peerinfo_t *peerinfo,
         {0},
     };
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -684,12 +666,10 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     int32_t peer_cnt = 0;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -702,7 +682,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
      * mgmt_v3_lock_timeout should be set to default value or we
      * need to change the value according to timeout value
      * i.e, timeout + 120 seconds. */
-    ret = dict_get_uint32(dict, "timeout", &timeout);
+    ret = dict_get_time(dict, "timeout", &timeout);
     if (!ret)
         conf->mgmt_v3_lock_timeout = timeout + 120;
 
@@ -717,8 +697,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
     *is_acquired = _gf_true;
 
     /* Sending mgmt_v3 lock req to other nodes in the cluster */
-    gd_syncargs_init(&args, NULL);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, NULL);
     if (ret)
         goto out;
 
@@ -777,6 +756,7 @@ out:
         ret = -1;
     }
 
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -784,10 +764,8 @@ int
 glusterd_pre_validate_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
 {
     int32_t ret = 0;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(aggr);
     GF_ASSERT(rsp);
 
@@ -861,11 +839,9 @@ gd_mgmt_v3_pre_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
     int32_t op_ret = -1;
     int32_t op_errno = -1;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -958,11 +934,9 @@ gd_mgmt_v3_pre_validate_req(glusterd_op_t op, dict_t *op_ctx,
     gd1_mgmt_v3_pre_val_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1006,11 +980,9 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1073,8 +1045,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     }
 
     /* Sending Pre Validation req to other nodes in the cluster */
-    gd_syncargs_init(&args, req_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, req_dict);
     if (ret)
         goto out;
 
@@ -1124,6 +1095,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1133,11 +1105,9 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
 {
     int32_t ret = -1;
     dict_t *req_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     char *volname = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(op_errstr);
     GF_ASSERT(dict);
@@ -1161,7 +1131,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
         case GD_OP_PROFILE_VOLUME: {
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_msg(this->name, GF_LOG_CRITICAL, errno,
+                gf_msg(this->name, GF_LOG_CRITICAL, -ret,
                        GD_MSG_DICT_GET_FAILED,
                        "volname is not present in "
                        "operation ctx");
@@ -1183,7 +1153,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
             }
             ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
             if (ret) {
-                gf_msg(this->name, GF_LOG_CRITICAL, errno,
+                gf_msg(this->name, GF_LOG_CRITICAL, -ret,
                        GD_MSG_DICT_GET_FAILED,
                        "volname is not present in "
                        "operation ctx");
@@ -1221,11 +1191,9 @@ gd_mgmt_v3_brick_op_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     int32_t op_ret = -1;
     int32_t op_errno = -1;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1324,13 +1292,11 @@ gd_mgmt_v3_brick_op_req(glusterd_op_t op, dict_t *op_ctx,
     gd1_mgmt_v3_brick_op_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = {
         0,
     };
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1373,11 +1339,9 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1426,8 +1390,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending brick op req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
 
@@ -1476,6 +1439,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1492,11 +1456,9 @@ gd_mgmt_v3_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     int32_t op_ret = -1;
     int32_t op_errno = -1;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1589,11 +1551,9 @@ gd_mgmt_v3_commit_req(glusterd_op_t op, dict_t *op_ctx,
     gd1_mgmt_v3_commit_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1637,11 +1597,9 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1711,8 +1669,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending commit req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -1762,6 +1719,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  gd_op_list[op], peer_cnt, ret);
 out:
     glusterd_op_modify_op_ctx(op, op_ctx);
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -1778,11 +1736,9 @@ gd_mgmt_v3_post_commit_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     int32_t op_ret = -1;
     int32_t op_errno = -1;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -1876,11 +1832,9 @@ gd_mgmt_v3_post_commit_req(glusterd_op_t op, dict_t *op_ctx,
     gd1_mgmt_v3_post_commit_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -1924,11 +1878,9 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -1979,8 +1931,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
     rsp_dict = NULL;
 
     /* Sending post commit req to other nodes in the cluster */
-    gd_syncargs_init(&args, op_ctx);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -2030,6 +1981,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  gd_op_list[op], peer_cnt, ret);
 out:
     glusterd_op_modify_op_ctx(op, op_ctx);
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -2045,11 +1997,8 @@ gd_mgmt_v3_post_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
     call_frame_t *frame = NULL;
     int32_t op_ret = -1;
     int32_t op_errno = -1;
-    xlator_t *this = NULL;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -2064,7 +2013,7 @@ gd_mgmt_v3_post_validate_cbk_fn(struct rpc_req *req, struct iovec *iov,
         goto out;
     }
 
-    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(THIS->name, iov, out, op_errno, EINVAL);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_v3_post_val_rsp);
     if (ret < 0)
@@ -2112,11 +2061,9 @@ gd_mgmt_v3_post_validate_req(glusterd_op_t op, int32_t op_ret, dict_t *op_ctx,
     gd1_mgmt_v3_post_val_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -2161,11 +2108,9 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2207,8 +2152,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     rsp_dict = NULL;
 
     /* Sending Post Validation req to other nodes in the cluster */
-    gd_syncargs_init(&args, req_dict);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, req_dict);
     if (ret)
         goto out;
 
@@ -2257,6 +2201,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -2272,11 +2217,8 @@ gd_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     int32_t op_ret = -1;
     int32_t op_errno = -1;
-    xlator_t *this = NULL;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(myframe);
 
@@ -2291,7 +2233,7 @@ gd_mgmt_v3_unlock_cbk_fn(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, iov, out, op_errno, EINVAL);
+    GF_VALIDATE_OR_GOTO_WITH_ERROR(THIS->name, iov, out, op_errno, EINVAL);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
     if (ret < 0)
@@ -2334,11 +2276,9 @@ gd_mgmt_v3_unlock(glusterd_op_t op, dict_t *op_ctx,
     gd1_mgmt_v3_unlock_req req = {
         {0},
     };
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     uuid_t *peerid = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(op_ctx);
     GF_ASSERT(peerinfo);
     GF_ASSERT(args);
@@ -2380,13 +2320,11 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
     int32_t ret = -1;
     int32_t peer_cnt = 0;
     uuid_t peer_uuid = {0};
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_peerinfo_t *peerinfo = NULL;
     struct syncargs args = {0};
     glusterd_conf_t *conf = NULL;
 
-    this = THIS;
-    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -2399,8 +2337,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
         goto out;
 
     /* Sending mgmt_v3 unlock req to other nodes in the cluster */
-    gd_syncargs_init(&args, NULL);
-    ret = synctask_barrier_init((&args));
+    ret = gd_syncargs_init(&args, NULL);
     if (ret)
         goto out;
     peer_cnt = 0;
@@ -2447,6 +2384,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
                  gd_op_list[op], peer_cnt, ret);
 
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
@@ -2461,14 +2399,12 @@ glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(rpcsvc_request_t *req,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     uint32_t txn_generation = 0;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;
@@ -2627,14 +2563,12 @@ glusterd_mgmt_v3_initiate_all_phases(rpcsvc_request_t *req, glusterd_op_t op,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     uint32_t txn_generation = 0;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;
@@ -2788,12 +2722,9 @@ int32_t
 glusterd_set_barrier_value(dict_t *dict, char *option)
 {
     int32_t ret = -1;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     glusterd_volinfo_t *vol = NULL;
     char *volname = NULL;
-
-    this = THIS;
-    GF_ASSERT(this);
 
     GF_ASSERT(dict);
     GF_ASSERT(option);
@@ -2859,7 +2790,7 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = NULL;
+    xlator_t *this = THIS;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     gf_boolean_t success = _gf_false;
@@ -2867,8 +2798,6 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     uint32_t txn_generation = 0;
     uint32_t op_errno = 0;
 
-    this = THIS;
-    GF_ASSERT(this);
     GF_ASSERT(req);
     GF_ASSERT(dict);
     conf = this->private;

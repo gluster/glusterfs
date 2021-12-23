@@ -11,28 +11,12 @@
 #ifndef _REFCOUNT_H
 #define _REFCOUNT_H
 
-/* check for compiler support for __sync_*_and_fetch()
- *
- * a more comprehensive feature test is shown at
- * http://lists.iptel.org/pipermail/semsdev/2010-October/005075.html
- * this is sufficient for RHEL5 i386 builds
- */
-#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 1)) &&                \
-    !defined(__i386__)
-#undef REFCOUNT_NEEDS_LOCK
-#else
-#define REFCOUNT_NEEDS_LOCK
-#include "glusterfs/locking.h"
-#endif /* compiler support for __sync_*_and_fetch() */
+#include "glusterfs/atomic.h"
 
 typedef void (*gf_ref_release_t)(void *data);
 
 struct _gf_ref {
-#ifdef REFCOUNT_NEEDS_LOCK
-    gf_lock_t lk; /* lock for atomically adjust cnt */
-#endif
-    unsigned int cnt; /* number of users, free on 0 */
-
+    gf_atomic_uint32_t cnt;
     gf_ref_release_t release; /* cleanup when cnt == 0 */
     void *data;               /* parameter passed to release() */
 };

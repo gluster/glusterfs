@@ -184,11 +184,6 @@ free_state(server_state_t *state)
         state->iobref = NULL;
     }
 
-    if (state->iobuf) {
-        iobuf_unref(state->iobuf);
-        state->iobuf = NULL;
-    }
-
     if (state->dict) {
         dict_unref(state->dict);
         state->dict = NULL;
@@ -487,6 +482,18 @@ get_frame_from_request(rpcsvc_request_t *req)
     for (i = 0; i < clienttable->max_clients; i++) {
         tmp_client = clienttable->cliententries[i].client;
         if (client == tmp_client) {
+            /* For nfs clients the server processes will be running
+               within the trusted storage pool machines. So if we
+               do not do root-squashing and all-squashing for nfs
+               servers, thinking that its a trusted client, then
+               root-squashing and all-squashing won't work for nfs
+               clients.
+            */
+            if (req->pid == NFS_PID) {
+                RPC_AUTH_ROOT_SQUASH(req);
+                RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
+            }
             /* for non trusted clients username and password
                would not have been set. So for non trusted clients
                (i.e clients not from the same machine as the brick,
@@ -497,9 +504,10 @@ get_frame_from_request(rpcsvc_request_t *req)
                other machine's ip/hostname from the same pool)
                is present treat it as a trusted client
             */
-            if (!client->auth.username && req->pid != NFS_PID) {
+            else if (!client->auth.username) {
                 RPC_AUTH_ROOT_SQUASH(req);
                 RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
             }
 
             /* Problem: If we just check whether the client is
@@ -515,30 +523,19 @@ get_frame_from_request(rpcsvc_request_t *req)
                --no-root-squash option. But for defrag client and
                gsyncd client do not do root-squashing and all-squashing.
             */
-            if (client->auth.username &&
-                req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
-                req->pid != GF_CLIENT_PID_GSYNCD &&
-                req->pid != GF_CLIENT_PID_DEFRAG &&
-                req->pid != GF_CLIENT_PID_SELF_HEALD &&
-                req->pid != GF_CLIENT_PID_QUOTA_MOUNT) {
+            else if (req->pid != GF_CLIENT_PID_NO_ROOT_SQUASH &&
+                     req->pid != GF_CLIENT_PID_GSYNCD &&
+                     req->pid != GF_CLIENT_PID_DEFRAG &&
+                     req->pid != GF_CLIENT_PID_SELF_HEALD &&
+                     req->pid != GF_CLIENT_PID_QUOTA_MOUNT) {
                 RPC_AUTH_ROOT_SQUASH(req);
                 RPC_AUTH_ALL_SQUASH(req);
-            }
-
-            /* For nfs clients the server processes will be running
-               within the trusted storage pool machines. So if we
-               do not do root-squashing and all-squashing for nfs
-               servers, thinking that its a trusted client, then
-               root-squashing and all-squashing won't work for nfs
-               clients.
-            */
-            if (req->pid == NFS_PID) {
-                RPC_AUTH_ROOT_SQUASH(req);
-                RPC_AUTH_ALL_SQUASH(req);
+                goto after_squash;
             }
         }
     }
 
+after_squash:
     /* Add a ref for this fop */
     if (client)
         gf_client_ref(client);
@@ -547,7 +544,7 @@ get_frame_from_request(rpcsvc_request_t *req)
     frame->root->gid = req->gid;
     frame->root->pid = req->pid;
     frame->root->client = client;
-    frame->root->lk_owner = req->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &req->lk_owner);
 
     if (priv->server_manage_gids)
         server_resolve_groups(frame, req);
@@ -589,16 +586,6 @@ server_build_config(xlator_t *this, server_conf_t *conf)
         conf->inode_lru_limit = 16384;
     }
 
-    conf->verify_volfile = 1;
-    data = dict_get(this->options, "verify-volfile-checksum");
-    if (data) {
-        ret = gf_string2boolean(data->data, &conf->verify_volfile);
-        if (ret != 0) {
-            gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_WRONG_VALUE,
-                    NULL);
-        }
-    }
-
     data = dict_get(this->options, "trace");
     if (data) {
         ret = gf_string2boolean(data->data, &conf->trace);
@@ -606,17 +593,6 @@ server_build_config(xlator_t *this, server_conf_t *conf)
             gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PS_MSG_INVALID_ENTRY,
                     NULL);
         }
-    }
-
-    /* TODO: build_rpc_config (); */
-    ret = dict_get_int32(this->options, "limits.transaction-size",
-                         &conf->rpc_conf.max_block_size);
-    if (ret < 0) {
-        gf_msg_trace(this->name, 0,
-                     "defaulting limits.transaction-"
-                     "size to %d",
-                     DEFAULT_BLOCK_SIZE);
-        conf->rpc_conf.max_block_size = DEFAULT_BLOCK_SIZE;
     }
 
     data = dict_get(this->options, "config-directory");
@@ -735,9 +711,6 @@ server_print_params(char *str, int size, server_state_t *state)
     if (state->flags)
         filled += snprintf(str + filled, size - filled, "flags=%d,",
                            state->flags);
-    if (state->wbflags)
-        filled += snprintf(str + filled, size - filled, "wbflags=%d,",
-                           state->wbflags);
     if (state->size)
         filled += snprintf(str + filled, size - filled, "size=%zu,",
                            state->size);
@@ -1133,6 +1106,7 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
 
     list_for_each_entry(tmp, &locklist->list, list)
     {
+        /* TODO: move to GF_MALLOC() */
         trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_lock_mig_t);
         if (!trav)
             goto out;
@@ -1445,6 +1419,7 @@ unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
     INIT_LIST_HEAD(&lmi->list);
 
     while (trav) {
+        /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
@@ -1482,6 +1457,7 @@ unserialize_req_locklist_v2(gfx_setactivelk_req *req,
     INIT_LIST_HEAD(&lmi->list);
 
     while (trav) {
+        /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);

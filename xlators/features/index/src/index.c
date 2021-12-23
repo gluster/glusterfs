@@ -11,6 +11,7 @@
 #include <glusterfs/options.h>
 #include "glusterfs3-xdr.h"
 #include <glusterfs/syscall.h>
+#include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/common-utils.h>
 #include "index-messages.h"
@@ -422,15 +423,24 @@ index_get_link_count(index_priv_t *priv, int64_t *count,
 }
 
 static void
-index_dec_link_count(index_priv_t *priv, index_xattrop_type_t type)
+index_update_link_count_cache(index_priv_t *priv, index_xattrop_type_t type,
+                              int link_count_delta)
 {
     switch (type) {
         case XATTROP:
             LOCK(&priv->lock);
             {
-                priv->pending_count--;
-                if (priv->pending_count == 0)
-                    priv->pending_count--;
+                if (priv->pending_count >= 0) {
+                    if (link_count_delta == -1) {
+                        priv->pending_count--;
+                    }
+                    /*If this is the first xattrop, then pending_count needs to
+                     * be updated for the next lstat/lookup with link-count
+                     * xdata*/
+                    if (priv->pending_count == 0) {
+                        priv->pending_count--; /*Invalidate cache*/
+                    }
+                }
             }
             UNLOCK(&priv->lock);
             break;
@@ -555,7 +565,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
-         * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+         * (glfs-heal.c, afr-self-heald.c) rely on it
          * for directory read resumption.
          */
         last_off = (u_long)telldir(dir);
@@ -664,6 +674,9 @@ index_add(xlator_t *this, uuid_t gfid, const char *subdir,
     if (!ret)
         goto out;
     ret = index_link_to_base(this, gfid_path, subdir);
+    if (ret == 0) {
+        index_update_link_count_cache(priv, type, 1);
+    }
 out:
     return ret;
 }
@@ -681,8 +694,8 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
     uuid_t uuid;
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, op_errno,
+                                  EINVAL);
     make_gfid_path(priv->index_basepath, subdir, gfid, gfid_path,
                    sizeof(gfid_path));
 
@@ -717,7 +730,10 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
         goto out;
     }
 
-    index_dec_link_count(priv, type);
+    /* If errno is ENOENT then ret won't be zero */
+    if (ret == 0) {
+        index_update_link_count_cache(priv, type, -1);
+    }
     ret = 0;
 out:
     return ret;
@@ -777,7 +793,12 @@ index_fill_zero_array(dict_t *d, char *k, data_t *v, void *adata)
     idx = index_find_xattr_type(d, k, v);
     if (idx == -1)
         return 0;
-    zfilled[idx] = 0;
+
+    /* If an xattr value is all-zero leave zfilled[idx] as -1 so that xattrop
+     * index add/del won't happen */
+    if (!memeqzero((const char *)v->data, v->len)) {
+        zfilled[idx] = 0;
+    }
     return 0;
 }
 
@@ -797,7 +818,7 @@ _check_key_is_zero_filled(dict_t *d, char *k, data_t *v, void *tmp)
      * zfilled[idx] will be 0(false) if value not zero.
      *              will be 1(true) if value is zero.
      */
-    if (mem_0filled((const char *)v->data, v->len)) {
+    if (!memeqzero((const char *)v->data, v->len)) {
         zfilled[idx] = 0;
         return 0;
     }
@@ -824,9 +845,9 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(inode->gfid),
-                                  out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(inode->gfid), out, op_errno,
+                                  EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(filename, out, op_errno, EINVAL);
 
     ret = index_inode_ctx_get(inode, this, &ctx);
     if (ret) {
@@ -885,9 +906,9 @@ index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(pgfid), out,
-                                  op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(pgfid), out, op_errno,
+                                  EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(filename, out, op_errno, EINVAL);
 
     make_gfid_path(priv->index_basepath, ENTRY_CHANGES_SUBDIR, pgfid,
                    pgfid_path, sizeof(pgfid_path));
@@ -1284,21 +1305,21 @@ index_xattrop_do(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     else
         x_cbk = index_xattrop64_cbk;
 
-    // In wind phase bring the gfid into index. This way if the brick crashes
-    // just after posix performs xattrop before _cbk reaches index xlator
-    // we will still have the gfid in index.
+    /* In wind phase bring the gfid into index. This way if the brick crashes
+     * just after posix performs xattrop before _cbk reaches index xlator
+     * we will still have the gfid in index.
+     */
     memset(zfilled, -1, sizeof(zfilled));
 
-    /* Foreach xattr, set corresponding index of zfilled to 1
-     * zfilled[index] = 1 implies the xattr's value is zero filled
-     * and should be added in its corresponding subdir.
+    /* zfilled[index] = 0 implies the xattr's value is not zero filled
+     * and should be added in its corresponding index subdir.
      *
-     * zfilled should be set to 1 only for those index that
-     * exist in xattr variable. This is to distinguish
+     * zfilled should be set to 0 only for those index that
+     * exist in xattr variable and xattr value non-zero. This is to distinguish
      * between different types of volumes.
      * For e.g., if the check is not made,
-     * zfilled[DIRTY] is set to 1 for EC volumes,
-     * index file will be tried to create in indices/dirty dir
+     * zfilled[DIRTY] is set to 0 for EC volumes,
+     * index file will be created in indices/dirty dir
      * which doesn't exist for an EC volume.
      */
     ret = dict_foreach(xattr, index_fill_zero_array, zfilled);
@@ -1961,7 +1982,7 @@ out:
     return 0;
 }
 
-int64_t
+static int64_t
 index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
 {
     index_priv_t *priv = this->private;
@@ -2023,6 +2044,7 @@ index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
 out:
     if (dirp)
         (void)sys_closedir(dirp);
+
     return count;
 }
 
@@ -2134,7 +2156,7 @@ index_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     int ret = -1;
     char *flag = NULL;
 
-    ret = dict_get_str(xdata, "link-count", &flag);
+    ret = dict_get_str_sizen(xdata, "link-count", &flag);
     if ((ret == 0) && (strcmp(flag, GF_XATTROP_INDEX_COUNT) == 0)) {
         STACK_WIND(frame, index_fstat_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->fstat, fd, xdata);
@@ -2311,12 +2333,28 @@ out:
     return ret;
 }
 
+static int
+index_priv_dump(xlator_t *this)
+{
+    index_priv_t *priv = NULL;
+    char key_prefix[GF_DUMP_MAX_BUF_LEN];
+
+    priv = this->private;
+
+    snprintf(key_prefix, GF_DUMP_MAX_BUF_LEN, "%s.%s", this->type, this->name);
+    gf_proc_dump_add_section("%s", key_prefix);
+    gf_proc_dump_write("xattrop-pending-count", "%" PRId64,
+                       priv->pending_count);
+
+    return 0;
+}
+
 int32_t
 mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_index_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_index_mt_end);
 
     return ret;
 }
@@ -2641,7 +2679,9 @@ struct xlator_fops fops = {
     .fstat = index_fstat,
 };
 
-struct xlator_dumpops dumpops;
+struct xlator_dumpops dumpops = {
+    .priv = index_priv_dump,
+};
 
 struct xlator_cbks cbks = {.forget = index_forget,
                            .release = index_release,

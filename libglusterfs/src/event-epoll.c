@@ -50,11 +50,8 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
     if (!table)
         return NULL;
 
-    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
+    for (i = 0; i < EVENT_EPOLL_SLOTS; i++)
         table[i].fd = -1;
-        LOCK_INIT(&table[i].lock);
-        INIT_LIST_HEAD(&table[i].poller_death);
-    }
 
     event_pool->ereg[table_idx] = table;
     event_pool->slots_used[table_idx] = 0;
@@ -184,6 +181,7 @@ __event_slot_dealloc(struct event_pool *event_pool, int idx)
     slot->fd = -1;
     slot->handled_error = 0;
     slot->in_handler = 0;
+    LOCK_DESTROY(&slot->lock);
     list_del_init(&slot->poller_death);
     if (fd != -1)
         event_pool->slots_used[table_idx]--;
@@ -946,7 +944,8 @@ event_pool_destroy_epoll(struct event_pool *event_pool)
             table = event_pool->ereg[i];
             event_pool->ereg[i] = NULL;
             for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
-                LOCK_DESTROY(&table[j].lock);
+                if (table[j].fd != -1)
+                    LOCK_DESTROY(&table[j].lock);
             }
             GF_FREE(table);
         }

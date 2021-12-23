@@ -25,7 +25,7 @@
 
 #define SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label)          \
     do {                                                                       \
-        value = hton32(value);                                                 \
+        value = htobe32(value);                                                \
         op_ret = sys_lsetxattr(path, key, &value, sizeof(value), flags);       \
         if (op_ret == -1) {                                                    \
             op_errno = errno;                                                  \
@@ -82,7 +82,7 @@
                 goto label;                                                    \
             }                                                                  \
         } else {                                                               \
-            value = ntoh32(value);                                             \
+            value = be32toh(value);                                            \
             value++;                                                           \
         }                                                                      \
         SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label);         \
@@ -101,7 +101,7 @@
                    path, key);                                                 \
             goto label;                                                        \
         } else {                                                               \
-            value = ntoh32(value);                                             \
+            value = be32toh(value);                                            \
             value--;                                                           \
             if (value > 0) {                                                   \
                 SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label); \

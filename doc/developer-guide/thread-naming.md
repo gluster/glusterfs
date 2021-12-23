@@ -68,7 +68,6 @@ such that it can be matched with a table below without ambiguity.
 - dhtfcnt  - dht rebalance file counter
 - ecshd    - ec heal daemon
 - epollN   -  epoll thread
-- fdlwrker - fdl worker
 - fusenoti - fuse notify
 - fuseproc - fuse main thread
 - gdhooks  - glusterd hooks
@@ -76,7 +75,6 @@ such that it can be matched with a table below without ambiguity.
 - idxwrker - index worker
 - iosdump  - io stats dump
 - iotwr    - io thread worker
-- jbrflush - jbr flush
 - leasercl - lease recall
 - memsweep - sweeper thread for mem pools
 - nfsauth  - nfs auth

@@ -287,6 +287,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
     };
     uuid_t gfid;
     dict_t *xattr_req = NULL;
+    dict_t *xattr_rsp = NULL;
     uint64_t ctx_value = LOOKUP_NOT_NEEDED;
 
     loc.parent = inode_ref(parent);
@@ -395,6 +396,11 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             errno = ENOMEM;
             goto out;
         }
+        ret = dict_set_int32_sizen(xattr_req, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            errno = ENOMEM;
+            goto out;
+        }
     }
 
     glret = priv_glfs_loc_touchup(&loc);
@@ -403,7 +409,7 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
         goto out;
     }
 
-    ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, NULL);
+    ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, &xattr_rsp);
     if (ret && reval) {
         /*
          * A stale mapping might exist for a dentry/inode that has been
@@ -423,6 +429,16 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
 
+        if (xattr_rsp) {
+            /* It is possible that this is set in previous call */
+            dict_unref(xattr_rsp);
+            xattr_rsp = NULL;
+        }
+        if (xattr_req) {
+            /* It is possible that this is created earlier */
+            dict_unref(xattr_req);
+            xattr_req = NULL;
+        }
         xattr_req = dict_new();
         if (!xattr_req) {
             errno = ENOMEM;
@@ -437,7 +453,13 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
             goto out;
         }
 
-        ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, NULL);
+        ret = dict_set_int32_sizen(xattr_req, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            errno = ENOMEM;
+            goto out;
+        }
+
+        ret = syncop_lookup(subvol, &loc, &ciatt, NULL, xattr_req, &xattr_rsp);
     }
     DECODE_SYNCOP_ERR(ret);
     if (ret)
@@ -455,12 +477,18 @@ found:
     if (inode) {
         ciatt.ia_type = inode->ia_type;
         inode_lookup(inode);
+        if (xattr_rsp && dict_get_sizen(xattr_rsp, GF_NAMESPACE_KEY)) {
+            /* This inode onwards we will set namespace */
+            inode_set_namespace_inode(inode, inode);
+        }
     }
     if (iatt)
         *iatt = ciatt;
 out:
     if (xattr_req)
         dict_unref(xattr_req);
+    if (xattr_rsp)
+        dict_unref(xattr_rsp);
     loc_wipe(&loc);
 
     return inode;

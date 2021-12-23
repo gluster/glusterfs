@@ -912,7 +912,7 @@ mem_acct_init(xlator_t *this)
 {
     int ret = -1;
 
-    ret = xlator_mem_acct_init(this, gf_ob_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_ob_mt_end);
 
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, OPEN_BEHIND_MSG_NO_MEMORY,

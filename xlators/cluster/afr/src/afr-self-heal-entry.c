@@ -10,9 +10,9 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include <glusterfs/byte-order.h>
 #include "afr-transaction.h"
 #include "afr-messages.h"
+#include <glusterfs/glusterfs.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 
@@ -179,6 +179,67 @@ out:
     return ret;
 }
 
+static int
+afr_new_entry_mark_status(call_frame_t *frame, loc_t *loc,
+                          struct afr_reply *lookup_replies,
+                          unsigned char *sources, int source, int dst)
+{
+    xlator_t *this = frame->this;
+    afr_private_t *priv = this->private;
+    int pending = 0;
+    int metadata_idx = 0;
+    int idx = -1;
+    int ret = 0;
+    int i = 0;
+
+    if (source == -1) {
+        goto lookup;
+    }
+
+    if (IA_ISDIR(lookup_replies[source].poststat.ia_type)) {
+        goto lookup;
+    }
+
+    metadata_idx = afr_index_for_transaction_type(AFR_METADATA_TRANSACTION);
+    if (IA_ISREG(lookup_replies[source].poststat.ia_type)) {
+        idx = afr_index_for_transaction_type(AFR_DATA_TRANSACTION);
+    }
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!sources[i]) {
+            continue;
+        }
+
+        if (uuid_compare(lookup_replies[i].poststat.ia_gfid, loc->gfid)) {
+            /*Future proofing this call's input arguments*/
+            GF_ASSERT(!"gfids don't match for call to new entry marking");
+            goto lookup;
+        }
+        afr_selfheal_fill_cell(frame->this->private, lookup_replies[i].xdata,
+                               &pending, dst, metadata_idx);
+        if (pending == 0) {
+            goto lookup;
+        }
+
+        if (idx == -1) {
+            continue;
+        }
+
+        afr_selfheal_fill_cell(frame->this->private, lookup_replies[i].xdata,
+                               &pending, dst, idx);
+        if (pending == 0) {
+            goto lookup;
+        }
+    }
+    /*Pending is marked on all source bricks, we definitely know that new entry
+     * marking is not needed*/
+    return 0;
+
+lookup:
+    ret = syncop_lookup(priv->children[dst], loc, 0, 0, 0, 0);
+    return ret;
+}
+
 int
 afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
                             unsigned char *sources, inode_t *dir,
@@ -241,7 +302,8 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
 
     srcloc.inode = inode_ref(inode);
     gf_uuid_copy(srcloc.gfid, iatt->ia_gfid);
-    ret = syncop_lookup(priv->children[dst], &srcloc, 0, 0, 0, 0);
+    ret = afr_new_entry_mark_status(frame, &srcloc, replies, sources, source,
+                                    dst);
     if (ret == -ENOENT || ret == -ESTALE) {
         newentry[dst] = 1;
         ret = afr_selfheal_newentry_mark(frame, this, inode, source, replies,
@@ -399,7 +461,7 @@ afr_selfheal_detect_gfid_and_type_mismatch(xlator_t *this,
             (ia_type == replies[i].poststat.ia_type)) {
             ret = afr_gfid_split_brain_source(this, replies, inode, pargfid,
                                               bname, src_idx, i, locked_on, src,
-                                              NULL);
+                                              NULL, NULL);
             if (ret)
                 gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SPLIT_BRAIN,
                        "Skipping conservative merge on the "
@@ -474,7 +536,7 @@ __afr_selfheal_merge_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
         return ret;
 
     /* In case of type mismatch / unable to resolve gfid mismatch on the
-     * entry, return -1.*/
+     * entry, return -EIO.*/
     ret = afr_selfheal_detect_gfid_and_type_mismatch(
         this, replies, inode, fd->inode->gfid, name, source, locked_on, &src);
 
@@ -532,9 +594,6 @@ static gf_boolean_t
 is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
 {
     int i = 0;
-    int pending[3] = {
-        0,
-    };
     void *pending_raw = NULL;
     afr_private_t *priv = NULL;
 
@@ -554,8 +613,7 @@ is_full_heal_marker_present(xlator_t *this, dict_t *xdata, int idx)
         if (!pending_raw)
             continue;
 
-        memcpy(pending, pending_raw, sizeof(pending));
-        if (ntoh32(pending[idx]))
+        if (*((int *)pending_raw + idx))
             return _gf_true;
     }
 
@@ -905,7 +963,7 @@ afr_selfheal_entry_do_subvol(call_frame_t *frame, xlator_t *this, fd_t *fd,
                 break;
             }
 
-            if (ret == -1) {
+            if (ret == -EIO) {
                 /* gfid or type mismatch. */
                 mismatch = _gf_true;
                 ret = 0;
@@ -933,36 +991,7 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
                                    loc_t *parent, void *data)
 {
     int ret = 0;
-    loc_t loc = {
-        0,
-    };
-    struct iatt iatt = {
-        0,
-    };
     afr_granular_esh_args_t *args = data;
-
-    /* Look up the actual inode associated with entry. If the lookup returns
-     * ESTALE or ENOENT, then it means we have a stale index. Remove it.
-     * This is analogous to the check in afr_shd_index_heal() except that
-     * here it is achieved through LOOKUP and in afr_shd_index_heal() through
-     * a GETXATTR.
-     */
-
-    loc.inode = inode_new(args->xl->itable);
-    loc.parent = inode_ref(args->heal_fd->inode);
-    gf_uuid_copy(loc.pargfid, loc.parent->gfid);
-    loc.name = entry->d_name;
-
-    ret = syncop_lookup(args->xl, &loc, &iatt, NULL, NULL, NULL);
-    if ((ret == -ENOENT) || (ret == -ESTALE)) {
-        /* The name indices under the pgfid index dir are guaranteed
-         * to be regular files. Hence the hardcoding.
-         */
-        afr_shd_entry_purge(subvol, parent->inode, entry->d_name, IA_IFREG);
-        ret = 0;
-        goto out;
-    }
-    /* TBD: afr_shd_zero_xattrop? */
 
     ret = afr_selfheal_entry_dirent(args->frame, args->xl, args->heal_fd,
                                     entry->d_name, parent->inode, subvol,
@@ -974,8 +1003,6 @@ afr_selfheal_entry_granular_dirent(xlator_t *subvol, gf_dirent_t *entry,
     if (ret == -1)
         args->mismatch = _gf_true;
 
-out:
-    loc_wipe(&loc);
     return ret;
 }
 
@@ -1050,7 +1077,9 @@ afr_selfheal_entry_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
     local = frame->local;
 
     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SELF_HEAL_INFO,
-           "performing entry selfheal on %s", uuid_utoa(fd->inode->gfid));
+           "performing %s entry selfheal on %s",
+           (local->need_full_crawl ? "full" : "granular"),
+           uuid_utoa(fd->inode->gfid));
 
     for (i = 0; i < priv->child_count; i++) {
         /* Expunge */
@@ -1072,7 +1101,7 @@ afr_selfheal_entry_do(call_frame_t *frame, xlator_t *this, fd_t *fd, int source,
         else
             ret = afr_selfheal_entry_do_subvol(frame, this, fd, i);
 
-        if (ret == -1) {
+        if (ret == -EIO) {
             /* gfid or type mismatch. */
             mismatch = _gf_true;
             ret = 0;
@@ -1112,6 +1141,7 @@ __afr_selfheal_entry(call_frame_t *frame, xlator_t *this, fd_t *fd,
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     gf_boolean_t did_sh = _gf_true;
+    char *heal_type = "granular entry";
 
     priv = this->private;
     local = frame->local;
@@ -1194,11 +1224,15 @@ postop_unlock:
     afr_selfheal_unentrylk(frame, this, fd->inode, this->name, NULL,
                            postop_lock, NULL);
 out:
-    if (did_sh)
-        afr_log_selfheal(fd->inode->gfid, this, ret, "entry", source, sources,
+    if (did_sh) {
+        if (local->need_full_crawl) {
+            heal_type = "full entry";
+        }
+        afr_log_selfheal(fd->inode->gfid, this, ret, heal_type, source, sources,
                          healed_sinks);
-    else
+    } else {
         ret = 1;
+    }
 
     if (locked_replies)
         afr_replies_wipe(locked_replies, priv->child_count);

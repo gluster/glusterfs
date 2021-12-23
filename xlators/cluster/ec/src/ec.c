@@ -205,7 +205,7 @@ __ec_destroy_private(xlator_t *this)
 int32_t
 mem_acct_init(xlator_t *this)
 {
-    if (xlator_mem_acct_init(this, ec_mt_end + 1) != 0) {
+    if (xlator_mem_acct_init(this, ec_mt_end) != 0) {
         gf_msg(this->name, GF_LOG_ERROR, ENOMEM, EC_MSG_NO_MEMORY,
                "Memory accounting initialization "
                "failed.");
@@ -262,16 +262,16 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("other-eager-lock", ec->other_eager_lock, options, bool,
                      failed);
     GF_OPTION_RECONF("eager-lock-timeout", ec->eager_lock_timeout, options,
-                     uint32, failed);
+                     time, failed);
     GF_OPTION_RECONF("other-eager-lock-timeout", ec->other_eager_lock_timeout,
-                     options, uint32, failed);
+                     options, time, failed);
     GF_OPTION_RECONF("background-heals", background_heals, options, uint32,
                      failed);
     GF_OPTION_RECONF("heal-wait-qlength", heal_wait_qlen, options, uint32,
                      failed);
     GF_OPTION_RECONF("self-heal-window-size", ec->self_heal_window_size,
                      options, uint32, failed);
-    GF_OPTION_RECONF("heal-timeout", ec->shd.timeout, options, int32, failed);
+    GF_OPTION_RECONF("heal-timeout", ec->shd.timeout, options, time, failed);
     ec_configure_background_heal_opts(ec, background_heals, heal_wait_qlen);
     GF_OPTION_RECONF("shd-max-threads", ec->shd.max_threads, options, uint32,
                      failed);
@@ -848,10 +848,9 @@ init(xlator_t *this)
     GF_OPTION_INIT("iam-self-heal-daemon", ec->shd.iamshd, bool, failed);
     GF_OPTION_INIT("eager-lock", ec->eager_lock, bool, failed);
     GF_OPTION_INIT("other-eager-lock", ec->other_eager_lock, bool, failed);
-    GF_OPTION_INIT("eager-lock-timeout", ec->eager_lock_timeout, uint32,
-                   failed);
+    GF_OPTION_INIT("eager-lock-timeout", ec->eager_lock_timeout, time, failed);
     GF_OPTION_INIT("other-eager-lock-timeout", ec->other_eager_lock_timeout,
-                   uint32, failed);
+                   time, failed);
     GF_OPTION_INIT("background-heals", ec->background_heals, uint32, failed);
     GF_OPTION_INIT("heal-wait-qlength", ec->heal_wait_qlen, uint32, failed);
     GF_OPTION_INIT("self-heal-window-size", ec->self_heal_window_size, uint32,
@@ -862,7 +861,7 @@ init(xlator_t *this)
     if (ec_assign_read_policy(ec, read_policy))
         goto failed;
 
-    GF_OPTION_INIT("heal-timeout", ec->shd.timeout, int32, failed);
+    GF_OPTION_INIT("heal-timeout", ec->shd.timeout, time, failed);
     GF_OPTION_INIT("shd-max-threads", ec->shd.max_threads, uint32, failed);
     GF_OPTION_INIT("shd-wait-qlength", ec->shd.wait_qlength, uint32, failed);
     GF_OPTION_INIT("optimistic-change-log", ec->optimistic_changelog, bool,
@@ -1761,16 +1760,16 @@ struct volume_options options[] = {
     },
     {.key = {"shd-max-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 64,
-     .default_value = "1",
+     .min = SHD_MIN_THREADS,
+     .max = SHD_MAX_THREADS,
+     .default_value = TOSTRING(SHD_DEFAULT_THREADS),
      .op_version = {GD_OP_VERSION_3_9_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"disperse"},
      .description = "Maximum number of parallel heals SHD can do per local "
-                    "brick.  This can substantially lower heal times, "
-                    "but can also crush your bricks if you don't have "
-                    "the storage hardware to support this."},
+                    "brick. This can substantially lower heal times, but can "
+                    "also crush your bricks if you don't have the storage "
+                    "hardware to support this."},
     {.key = {"shd-wait-qlength"},
      .type = GF_OPTION_TYPE_INT,
      .min = 1,
@@ -1794,7 +1793,7 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_INT,
      .min = 1,
      .max = 1024,
-     .default_value = "1",
+     .default_value = "32",
      .op_version = {GD_OP_VERSION_3_11_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
      .tags = {"disperse"},

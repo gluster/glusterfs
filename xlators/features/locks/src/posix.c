@@ -38,6 +38,8 @@ int
 pl_lockinfo_get_brickname(xlator_t *, inode_t *, int32_t *);
 static int
 fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
+static void
+set_bit(uint32_t *byte, uint32_t bit_number);
 
 /*
  * The client is always requesting data, but older
@@ -93,9 +95,12 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
             dict_unref(__unref);                                               \
     } while (0)
 
+#define IS_BIT_SET(byte, bit_number) (byte & (1 << bit_number))
+
 #define PL_LOCAL_GET_REQUESTS(frame, this, xdata, __fd, __loc, __newloc)       \
     do {                                                                       \
-        if (pl_has_xdata_requests(xdata)) {                                    \
+        uint32_t bitfield = pl_has_xdata_requests(xdata);                      \
+        if (bitfield > 0) {                                                    \
             if (!frame->local)                                                 \
                 frame->local = mem_get0(this->local_pool);                     \
             pl_local_t *__local = frame->local;                                \
@@ -110,6 +115,7 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
                         loc_copy(&__local->loc[1], __newloc);                  \
                     __local->inode = inode_ref(__local->loc[0].inode);         \
                 }                                                              \
+                __local->bitfield = bitfield;                                  \
                 pl_get_xdata_requests(__local, xdata);                         \
             }                                                                  \
         }                                                                      \
@@ -171,33 +177,40 @@ fetch_pathinfo(xlator_t *, inode_t *, int32_t *, char **);
         __error;                                                               \
     })
 
-gf_boolean_t
+static void
+set_bit(uint32_t *byte, uint32_t bit_number)
+{
+    *byte = (*byte | (1 << bit_number));
+}
+
+static uint32_t
 pl_has_xdata_requests(dict_t *xdata)
 {
-    static char *reqs[] = {GLUSTERFS_ENTRYLK_COUNT,
-                           GLUSTERFS_INODELK_COUNT,
-                           GLUSTERFS_INODELK_DOM_COUNT,
-                           GLUSTERFS_POSIXLK_COUNT,
-                           GLUSTERFS_PARENT_ENTRYLK,
-                           GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS,
-                           NULL};
-    static int reqs_size[] = {SLEN(GLUSTERFS_ENTRYLK_COUNT),
-                              SLEN(GLUSTERFS_INODELK_COUNT),
-                              SLEN(GLUSTERFS_INODELK_DOM_COUNT),
-                              SLEN(GLUSTERFS_POSIXLK_COUNT),
-                              SLEN(GLUSTERFS_PARENT_ENTRYLK),
-                              SLEN(GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS),
-                              0};
-    int i = 0;
+    uint32_t bitfield = 0;
 
     if (!xdata)
         return _gf_false;
 
-    for (i = 0; reqs[i]; i++)
-        if (dict_getn(xdata, reqs[i], reqs_size[i]))
-            return _gf_true;
+    if (dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT))
+        set_bit(&bitfield, GLUSTERFS_ENTRYLK_COUNT_BIT);
 
-    return _gf_false;
+    if (dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT))
+        set_bit(&bitfield, GLUSTERFS_INODELK_COUNT_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS))
+        set_bit(&bitfield, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT);
+
+    if (dict_getn(xdata, GLUSTERFS_INODELK_DOM_COUNT,
+                  SLEN(GLUSTERFS_INODELK_DOM_COUNT)))
+        set_bit(&bitfield, GLUSTERFS_INODELK_DOM_COUNT_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_POSIXLK_COUNT))
+        set_bit(&bitfield, GLUSTERFS_POSIXLK_COUNT_BIT);
+
+    if (dict_del_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK))
+        set_bit(&bitfield, GLUSTERFS_PARENT_ENTRYLK_BIT);
+
+    return bitfield;
 }
 
 static int
@@ -207,7 +220,7 @@ dict_delete_domain_key(dict_t *dict, char *key, data_t *value, void *data)
     return 0;
 }
 
-void
+static void
 pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
 {
     if (!local || !xdata)
@@ -216,17 +229,8 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
     GF_ASSERT(local->xdata == NULL);
     local->xdata = dict_copy_with_ref(xdata, NULL);
 
-    if (dict_get_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT)) {
-        local->entrylk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_ENTRYLK_COUNT);
-    }
-    if (dict_get_sizen(xdata, GLUSTERFS_INODELK_COUNT)) {
-        local->inodelk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_INODELK_COUNT);
-    }
-    if (dict_get_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS)) {
-        local->multiple_dom_lk_requests = 1;
-        dict_del_sizen(xdata, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS);
+    if (IS_BIT_SET(local->bitfield,
+                   GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT)) {
         dict_foreach_fnmatch(xdata, GLUSTERFS_INODELK_DOM_PREFIX "*",
                              dict_delete_domain_key, NULL);
     }
@@ -237,16 +241,6 @@ pl_get_xdata_requests(pl_local_t *local, dict_t *xdata)
         data_ref(local->inodelk_dom_count_req);
         dict_del_sizen(xdata, GLUSTERFS_INODELK_DOM_COUNT);
     }
-
-    if (dict_get_sizen(xdata, GLUSTERFS_POSIXLK_COUNT)) {
-        local->posixlk_count_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_POSIXLK_COUNT);
-    }
-
-    if (dict_get_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK)) {
-        local->parent_entrylk_req = 1;
-        dict_del_sizen(xdata, GLUSTERFS_PARENT_ENTRYLK);
-    }
 }
 
 gf_boolean_t
@@ -255,9 +249,7 @@ pl_needs_xdata_response(pl_local_t *local)
     if (!local)
         return _gf_false;
 
-    if (local->parent_entrylk_req || local->entrylk_count_req ||
-        local->inodelk_dom_count_req || local->inodelk_count_req ||
-        local->posixlk_count_req || local->multiple_dom_lk_requests)
+    if (local->bitfield)
         return _gf_true;
 
     return _gf_false;
@@ -538,13 +530,14 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
     if (!xdata || !local)
         return;
 
-    if (local->parent_entrylk_req && parent && name && name[0] != '\0')
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_PARENT_ENTRYLK_BIT) && parent &&
+        name && name[0] != '\0')
         pl_parent_entrylk_xattr_fill(this, parent, name, xdata, max_lock);
 
     if (!inode)
         return;
 
-    if (local->entrylk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_ENTRYLK_COUNT_BIT))
         pl_entrylk_xattr_fill(this, inode, xdata, max_lock);
 
     if (local->inodelk_dom_count_req)
@@ -552,13 +545,13 @@ pl_set_xdata_response(xlator_t *this, pl_local_t *local, inode_t *parent,
                               data_to_str(local->inodelk_dom_count_req),
                               max_lock);
 
-    if (local->inodelk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_INODELK_COUNT_BIT))
         pl_inodelk_xattr_fill(this, inode, xdata, NULL, max_lock);
 
-    if (local->posixlk_count_req)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_POSIXLK_COUNT_BIT))
         pl_posixlk_xattr_fill(this, inode, xdata, max_lock);
 
-    if (local->multiple_dom_lk_requests)
+    if (IS_BIT_SET(local->bitfield, GLUSTERFS_MULTIPLE_DOM_LK_CNT_REQUESTS_BIT))
         pl_fill_multiple_dom_lk_requests(this, local, inode, xdata, max_lock);
 }
 
@@ -712,7 +705,7 @@ pl_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -838,7 +831,7 @@ pl_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -984,7 +977,7 @@ truncate_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(local->fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
         pthread_mutex_lock(&pl_inode->mutex);
         {
             allowed = pl_is_fop_allowed(pl_inode, &region, local->fd, local->op,
@@ -2074,7 +2067,8 @@ do_blocked_rw(pl_inode_t *pl_inode)
     Note: There is no IO blocking with mandatory lock enforced as it may be
     a stale data from an old client.
  */
-gf_boolean_t static within_range(posix_lock_t *existing, posix_lock_t *new)
+static gf_boolean_t
+within_range(posix_lock_t *existing, posix_lock_t *new)
 {
     if (existing->fl_start <= new->fl_start && existing->fl_end >= new->fl_end)
         return _gf_true;
@@ -2208,7 +2202,7 @@ pl_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -2326,7 +2320,7 @@ pl_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         region.client = frame->root->client;
         region.fd_num = fd_to_fdnum(fd);
         region.client_pid = frame->root->pid;
-        region.owner = frame->root->lk_owner;
+        lk_owner_copy(&region.owner, &frame->root->lk_owner);
 
         pthread_mutex_lock(&pl_inode->mutex);
         {
@@ -2483,11 +2477,11 @@ __set_next_lock_fd(pl_fdctx_t *fdctx, posix_lock_t *reqlock)
         goto out;
     }
 
-    reqlock->user_flock = lock->user_flock;
+    gf_flock_copy(&reqlock->user_flock, &lock->user_flock);
     reqlock->fl_start = lock->fl_start;
     reqlock->fl_type = lock->fl_type;
     reqlock->fl_end = lock->fl_end;
-    reqlock->owner = lock->owner;
+    lk_owner_copy(&reqlock->owner, &lock->owner);
 
 out:
     if (lock)
@@ -2577,18 +2571,21 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
     posix_locks_private_t *priv = this->private;
     pl_local_t *local = NULL;
     short lock_type = 0;
+    int ret = 0;
 
-    int ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
-    if (ret == 0) {
-        if (priv->mandatory_mode == MLK_NONE)
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "Lock flags received "
-                   "in a non-mandatory locking environment, "
-                   "continuing");
-        else
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "Lock flags received, "
-                   "continuing");
+    if (xdata) {
+        ret = dict_get_uint32(xdata, GF_LOCK_MODE, &lk_flags);
+        if (ret == 0) {
+            if (priv->mandatory_mode == MLK_NONE)
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "Lock flags received "
+                       "in a non-mandatory locking environment, "
+                       "continuing");
+            else
+                gf_log(this->name, GF_LOG_DEBUG,
+                       "Lock flags received, "
+                       "continuing");
+        }
     }
 
     if ((flock->l_start < 0) || ((flock->l_start + flock->l_len) < 0)) {
@@ -2988,104 +2985,24 @@ out:
     return ret;
 }
 
-static int32_t
-pl_request_link_count(dict_t **pxdata)
-{
-    dict_t *xdata;
-
-    xdata = *pxdata;
-    if (xdata == NULL) {
-        xdata = dict_new();
-        if (xdata == NULL) {
-            return ENOMEM;
-        }
-    } else {
-        dict_ref(xdata);
-    }
-
-    if (dict_set_uint32(xdata, GET_LINK_COUNT, 0) != 0) {
-        dict_unref(xdata);
-        return ENOMEM;
-    }
-
-    *pxdata = xdata;
-
-    return 0;
-}
-
-static int32_t
-pl_check_link_count(dict_t *xdata)
-{
-    int32_t count;
-
-    /* In case we are unable to read the link count from xdata, we take a
-     * conservative approach and return -2, which will prevent the inode from
-     * being considered deleted. In fact it will cause link tracking for this
-     * inode to be disabled completely to avoid races. */
-
-    if (xdata == NULL) {
-        return -2;
-    }
-
-    if (dict_get_int32(xdata, GET_LINK_COUNT, &count) != 0) {
-        return -2;
-    }
-
-    return count;
-}
-
 int32_t
 pl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
               struct iatt *postparent)
 {
-    pl_inode_t *pl_inode;
-
-    if (op_ret >= 0) {
-        pl_inode = pl_inode_get(this, inode, NULL);
-        if (pl_inode == NULL) {
-            PL_STACK_UNWIND(lookup, xdata, frame, -1, ENOMEM, NULL, NULL, NULL,
-                            NULL);
-            return 0;
-        }
-
-        pthread_mutex_lock(&pl_inode->mutex);
-
-        /* We only update the link count if we previously didn't know it.
-         * Doing it always can lead to races since lookup is not executed
-         * atomically most of the times. */
-        if (pl_inode->links == -2) {
-            pl_inode->links = pl_check_link_count(xdata);
-            if (buf->ia_type == IA_IFDIR) {
-                /* Directories have at least 2 links. To avoid special handling
-                 * for directories, we simply decrement the value here to make
-                 * them equivalent to regular files. */
-                pl_inode->links--;
-            }
-        }
-
-        pthread_mutex_unlock(&pl_inode->mutex);
-    }
-
     PL_STACK_UNWIND(lookup, xdata, frame, op_ret, op_errno, inode, buf, xdata,
                     postparent);
+
     return 0;
 }
 
 int32_t
 pl_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
-    int32_t error;
+    PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
+    STACK_WIND(frame, pl_lookup_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->lookup, loc, xdata);
 
-    error = pl_request_link_count(&xdata);
-    if (error == 0) {
-        PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), loc, NULL);
-        STACK_WIND(frame, pl_lookup_cbk, FIRST_CHILD(this),
-                   FIRST_CHILD(this)->fops->lookup, loc, xdata);
-        dict_unref(xdata);
-    } else {
-        STACK_UNWIND_STRICT(lookup, frame, -1, error, NULL, NULL, NULL, NULL);
-    }
     return 0;
 }
 
@@ -3900,9 +3817,7 @@ unlock:
             __dump_posixlks(pl_inode);
         }
 
-        gf_proc_dump_write("links", "%d", pl_inode->links);
         gf_proc_dump_write("removes_pending", "%u", pl_inode->remove_running);
-        gf_proc_dump_write("removed", "%u", pl_inode->removed);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
 
@@ -3931,7 +3846,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, gf_locks_mt_end + 1);
+    ret = xlator_mem_acct_init(this, gf_locks_mt_end);
 
     if (ret != 0) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -4300,7 +4215,7 @@ gf_lkmig_info_to_posix_lock(call_frame_t *frame, lock_migration_info_t *lmi)
     }
 
     lock->client_pid = lmi->flock.l_pid;
-    lock->owner = lmi->flock.l_owner;
+    lk_owner_copy(&lock->owner, &lmi->flock.l_owner);
 
     INIT_LIST_HEAD(&lock->list);
 
@@ -4527,21 +4442,9 @@ pl_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno, inode_t *inode, struct iatt *buf,
             struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-    pl_inode_t *pl_inode = (pl_inode_t *)cookie;
-
-    if (op_ret >= 0) {
-        pthread_mutex_lock(&pl_inode->mutex);
-
-        /* TODO: can happen pl_inode->links == 0 ? */
-        if (pl_inode->links >= 0) {
-            pl_inode->links++;
-        }
-
-        pthread_mutex_unlock(&pl_inode->mutex);
-    }
-
     PL_STACK_UNWIND_FOR_CLIENT(link, xdata, frame, op_ret, op_errno, inode, buf,
                                preparent, postparent, xdata);
+
     return 0;
 }
 
@@ -4549,18 +4452,10 @@ int
 pl_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         dict_t *xdata)
 {
-    pl_inode_t *pl_inode;
-
-    pl_inode = pl_inode_get(this, oldloc->inode, NULL);
-    if (pl_inode == NULL) {
-        STACK_UNWIND_STRICT(link, frame, -1, ENOMEM, NULL, NULL, NULL, NULL,
-                            NULL);
-        return 0;
-    }
-
     PL_LOCAL_GET_REQUESTS(frame, this, xdata, ((fd_t *)NULL), oldloc, newloc);
-    STACK_WIND_COOKIE(frame, pl_link_cbk, pl_inode, FIRST_CHILD(this),
-                      FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+    STACK_WIND(frame, pl_link_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->link, oldloc, newloc, xdata);
+
     return 0;
 }
 
@@ -4963,6 +4858,7 @@ struct xlator_fops fops = {
     .rchecksum = pl_rchecksum,
     .statfs = pl_statfs,
     .fsyncdir = pl_fsyncdir,
+    .fsync = pl_fsync,
     .readdir = pl_readdir,
     .symlink = pl_symlink,
     .link = pl_link,

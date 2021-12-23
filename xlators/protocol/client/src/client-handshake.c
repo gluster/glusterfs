@@ -644,7 +644,7 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
         list_for_each_entry_safe(fdctx, tmp, &conf->saved_fds, sfd_pos)
         {
             if (fdctx->remote_fd != -1 ||
-                (!list_empty(&fdctx->lock_list) && conf->strict_locks))
+                (!fdctx_lock_lists_empty(fdctx) && conf->strict_locks))
                 continue;
 
             fdctx->reopen_done = client_child_up_reopen_done;
@@ -793,7 +793,7 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
            just debug message */
         gf_msg_debug(this->name, EINVAL,
                      "failed to get 'volume-id' from reply dict");
-    } else if (ctx->primary && strncmp("snapd", remote_subvol, 5)) {
+    } else if (ctx->root && strncmp("snapd", remote_subvol, 5)) {
         /* TODO: if it is a fuse mount or a snapshot enabled client, don't
            bother */
         /* If any value is set, the first element will be non-0.
@@ -809,7 +809,8 @@ client_setvolume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 goto out;
             }
         } else {
-            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE);
+            strncpy(ctx->volume_id, volume_id, GF_UUID_BUF_SIZE - 1);
+            ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
     }
 
@@ -914,9 +915,6 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     clnt_conf_t *conf = this->private;
     dict_t *options = this->options;
     char counter_str[32] = {0};
-    char hostname[256] = {
-        0,
-    };
 
     if (conf->fops) {
         ret = dict_set_int32_sizen(options, "fops-version",
@@ -948,16 +946,9 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
     snprintf(counter_str, sizeof(counter_str), "-%" PRIu64, conf->setvol_count);
     conf->setvol_count++;
 
-    if (gethostname(hostname, 256) == -1) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, PC_MSG_GETHOSTNAME_FAILED,
-                NULL);
-
-        goto fail;
-    }
-
     ret = gf_asprintf(&process_uuid_xl, GLUSTER_PROCESS_UUID_FMT,
                       this->ctx->process_uuid, this->graph->id, getpid(),
-                      hostname, this->name, counter_str);
+                      gf_gethostname(), this->name, counter_str);
     if (-1 == ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_PROCESS_UUID_SET_FAIL,
                 NULL);
@@ -999,7 +990,8 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
            It would be '0', but not '\0' :-) */
         if (!this->ctx->volume_id[0]) {
             strncpy(this->ctx->volume_id, this->graph->volume_id,
-                    GF_UUID_BUF_SIZE);
+                    GF_UUID_BUF_SIZE - 1);
+            this->ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
         if (this->ctx->volume_id[0]) {
             ret = dict_set_str(options, "volume-id", this->ctx->volume_id);
@@ -1368,7 +1360,7 @@ client_handshake(xlator_t *this, struct rpc_clnt *rpc)
     if (!frame)
         goto out;
 
-    req.gfs_id = 0xbabe;
+    req.gfs_id = 0xcaed;
     ret = client_submit_request(this, &req, frame, conf->dump, GF_DUMP_DUMP,
                                 client_dump_version_cbk, NULL,
                                 (xdrproc_t)xdr_gf_dump_req);

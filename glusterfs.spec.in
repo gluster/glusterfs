@@ -53,10 +53,29 @@
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --with ipv6default
 %{?_with_ipv6default:%global _with_ipv6default --with-ipv6-default}
 
+# linux-io_uring
+# If you wish to compile an rpm without linux-io_uring support...
+# rpmbuild -ta  @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --disable-linux-io_uring
+%{?_without_linux_io_uring:%global _without_linux_io_uring --disable-linux-io_uring}
+
+# Disable linux-io_uring on unsupported distros.
+%if ( 0%{?fedora} && 0%{?fedora} <= 32 ) || ( 0%{?rhel} && 0%{?rhel} <= 7 )
+%global _without_linux_io_uring --disable-linux-io_uring
+%endif
+
 # libtirpc
 # if you wish to compile an rpm without TIRPC (i.e. use legacy glibc rpc)
 # rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without libtirpc
 %{?_without_libtirpc:%global _without_libtirpc --without-libtirpc}
+
+# libtcmalloc
+# if you wish to compile an rpm without tcmalloc (i.e. use gluster mempool)
+# rpmbuild -ta @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without tcmalloc
+%{?_without_tcmalloc:%global _without_tcmalloc --without-tcmalloc}
+
+%ifnarch x86_64
+%global _without_tcmalloc --without-tcmalloc
+%endif
 
 # Do not use libtirpc on EL6, it does not have xdr_uint64_t() and xdr_uint32_t
 # Do not use libtirpc on EL7, it does not have xdr_sizeof()
@@ -135,6 +154,7 @@
 %if 0%{?_without_server:1}
 %global _without_events --disable-events
 %global _without_georeplication --disable-georeplication
+%global _without_linux_io_uring --disable-linux-io_uring
 %global _with_gnfs %{nil}
 %global _without_ocf --without-ocf
 %endif
@@ -237,6 +257,10 @@ Requires(pre):    shadow-utils
 BuildRequires:    systemd
 %endif
 
+%if ( 0%{!?_without_tcmalloc:1} )
+Requires:         gperftools-libs%{?_isa}
+%endif
+
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 Requires:         libgfrpc0%{?_isa} = %{version}-%{release}
 Requires:         libgfxdr0%{?_isa} = %{version}-%{release}
@@ -255,6 +279,9 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
+%if ( 0%{!?_without_tcmalloc:1} )
+BuildRequires:    gperftools-devel
+%endif
 %if ( 0%{?rhel} && 0%{?rhel} < 8 )
 BuildRequires:    python-ctypes
 %endif
@@ -280,9 +307,12 @@ BuildRequires:    libattr-devel
 BuildRequires:    firewalld
 %endif
 
+%if ( 0%{!?_without_linux_io_uring:1} )
+BuildRequires:    liburing-devel
+%endif
+
 Obsoletes:        %{name}-common < %{version}-%{release}
 Obsoletes:        %{name}-core < %{version}-%{release}
-Obsoletes:        %{name}-ganesha
 Obsoletes:        %{name}-rdma < %{version}-%{release}
 %if ( 0%{!?_with_gnfs:1} )
 Obsoletes:        %{name}-gnfs < %{version}-%{release}
@@ -428,6 +458,8 @@ Requires:         python%{_pythonver}-gluster = %{version}-%{release}
 
 Requires:         rsync
 Requires:         util-linux
+Requires:         tar
+
 # required for setting selinux bools
 %if ( 0%{?rhel} && 0%{?rhel} >= 8 )
 Requires(post):      policycoreutils-python-utils
@@ -841,7 +873,9 @@ done
         %{?_without_server} \
         %{?_without_syslog} \
         %{?_with_ipv6default} \
-        %{?_without_libtirpc}
+        %{?_without_linux_io_uring} \
+        %{?_without_libtirpc} \
+        %{?_without_tcmalloc}
 
 # fix hardening and remove rpath in shlibs
 %if ( 0%{?fedora} && 0%{?fedora} > 17 ) || ( 0%{?rhel} && 0%{?rhel} > 6 )
@@ -988,7 +1022,10 @@ exit 0
 %if ( 0%{!?_without_server:1} )
 %if ( 0%{?fedora} && 0%{?fedora} > 25 || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
 %post ganesha
-semanage boolean -m ganesha_use_fusefs --on
+# first install
+if [ $1 -eq 1 ]; then
+  %selinux_set_booleans ganesha_use_fusefs=1
+fi
 exit 0
 %endif
 %endif
@@ -996,7 +1033,9 @@ exit 0
 %if ( 0%{!?_without_georeplication:1} )
 %post geo-replication
 %if ( 0%{?rhel} && 0%{?rhel} >= 8 )
-%selinux_set_booleans %{selinuxbooleans}
+if [ $1 -eq 1 ]; then
+  %selinux_set_booleans %{selinuxbooleans}
+fi
 %endif
 if [ $1 -ge 1 ]; then
     %systemd_postun_with_restart glusterd
@@ -1168,7 +1207,20 @@ exit 0
 %if ( 0%{!?_without_server:1} )
 %if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
 %postun ganesha
-semanage boolean -m ganesha_use_fusefs --off
+if [ $1 -eq 0 ]; then
+  # use the value of ganesha_use_fusefs from before glusterfs-ganesha was installed
+  %selinux_unset_booleans ganesha_use_fusefs=1
+fi
+exit 0
+%endif
+%endif
+
+%if ( 0%{!?_without_georeplication:1} )
+%postun geo-replication
+%if ( 0%{?rhel} && 0%{?rhel} >= 8 )
+if [ $1 -eq 0 ]; then
+  %selinux_unset_booleans %{selinuxbooleans}
+fi
 exit 0
 %endif
 %endif
@@ -1178,19 +1230,9 @@ exit 0
 ##
 %if ( 0%{!?_without_server:1} )
 %if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
-%trigger ganesha -- selinux-policy-targeted
-semanage boolean -m ganesha_use_fusefs --on
-exit 0
-%endif
-%endif
-
-##-----------------------------------------------------------------------------
-## All %%triggerun should be placed here and keep them sorted
-##
-%if ( 0%{!?_without_server:1} )
-%if ( 0%{?fedora} && 0%{?fedora} > 25  || ( 0%{?rhel} && 0%{?rhel} > 6 ) )
-%triggerun ganesha -- selinux-policy-targeted
-semanage boolean -m ganesha_use_fusefs --off
+# ensure ganesha_use_fusefs is on in case of policy mode switch (eg. mls->targeted)
+%triggerin ganesha -- selinux-policy-targeted
+semanage boolean -m ganesha_use_fusefs --on -S targeted
 exit 0
 %endif
 %endif
@@ -1365,7 +1407,7 @@ exit 0
      %{_libexecdir}/glusterfs/python/syncdaemon/*
 %dir %{_libexecdir}/glusterfs/scripts
      %{_libexecdir}/glusterfs/scripts/get-gfid.sh
-     %{_libexecdir}/glusterfs/scripts/slave-upgrade.sh
+     %{_libexecdir}/glusterfs/scripts/secondary-upgrade.sh
      %{_libexecdir}/glusterfs/scripts/gsync-upgrade.sh
      %{_libexecdir}/glusterfs/scripts/generate-gfid-file.sh
      %{_libexecdir}/glusterfs/scripts/gsync-sync-gfid
@@ -1621,6 +1663,18 @@ exit 0
 %endif
 
 %changelog
+* Mon Nov 1 2021 Kaleb S. KEITHLEY <kkeithle [at] redhat.com>
+- tcmalloc issues
+
+* Fri Jan 29 2021 Ravishankar N <ravishankar@redhat.com>
+- add liburing-devel as a requirement.
+
+* Thu Nov 26 2020 Shwetha K Acharya <sacharya@redhat.com>
+- Add tar as dependency to georeplication rpm for RHEL version >= 8.3
+
+* Fri Nov 20 2020 Shwetha K Acharya <sacharya@redhat.com>
+- remove ganesha from Obsoletes
+
 * Thu May 14 2020 Kaleb S. KEITHLEY <kkeithle@redhat.com>
 - refactor, common practice, Issue #1126
 

@@ -335,7 +335,7 @@ glfs_fini(glfs_t *fs) __THROW GFAPI_PUBLIC(glfs_fini, 3.4.0);
 /*
   SYNOPSIS
 
-      glfs_getvol: Get the volfile associated with a 'virtual mount'
+      glfs_get_volfile: Get the volfile associated with a 'virtual mount'
 
   DESCRIPTION
 

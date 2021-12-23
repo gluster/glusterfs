@@ -20,8 +20,6 @@
 
 #define GF_VARIABLE_IOBUF_COUNT 32
 
-#define GF_RDMA_DEVICE_COUNT 8
-
 /* Lets try to define the new anonymous mapping
  * flag, in case the system is still using the
  * now deprecated MAP_ANON flag.
@@ -37,6 +35,7 @@
     ((void *)((unsigned long)(ptr + bound - 1) & (unsigned long)(~(bound - 1))))
 
 #define GF_IOBUF_ALIGN_SIZE 512
+#define USE_IOBUF_POOL_IF_SIZE_GREATER_THAN 131072
 
 /* one allocatable unit for the consumers of the IOBUF API */
 /* each unit hosts @page_size bytes of memory */
@@ -70,8 +69,9 @@ struct iobuf {
 
     void *ptr; /* usable memory region by the consumer */
 
-    void *free_ptr; /* in case of stdalloc, this is the
-                       one to be freed */
+    void *free_ptr;   /* in case of stdalloc, this is the
+                         one to be freed */
+    size_t page_size;
 };
 
 struct iobuf_arena {
@@ -95,11 +95,9 @@ struct iobuf_arena {
     void *mem_base;
     struct iobuf *iobufs; /* allocated iobufs list */
 
-    struct iobuf active;  /* head node iobuf
-                             (unused by itself) */
-    struct iobuf passive; /* head node iobuf
-                             (unused by itself) */
-    uint64_t alloc_cnt;   /* total allocs in this pool */
+    struct list_head passive_list;
+    struct list_head active_list;
+    uint64_t alloc_cnt; /* total allocs in this pool */
     int active_cnt;
     int passive_cnt;
     int max_active; /* max active buffers at a given time */
@@ -125,11 +123,6 @@ struct iobuf_pool {
     uint64_t request_misses; /* mostly the requests for higher
                                value of iobufs */
     int arena_cnt;
-    int rdma_device_count;
-    struct list_head *mr_list[GF_RDMA_DEVICE_COUNT];
-    void *device[GF_RDMA_DEVICE_COUNT];
-    int (*rdma_registration)(void **, void *);
-    int (*rdma_deregistration)(struct list_head **, struct iobuf_arena *);
 };
 
 struct iobuf_pool *
@@ -149,7 +142,7 @@ iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
 #define iobpool_default_pagesize(iobpool) ((iobpool)->default_page_size)
-#define iobuf_pagesize(iob) (iob->iobuf_arena->page_size)
+#define iobuf_pagesize(iob) (iob->page_size)
 
 struct iobref {
     gf_lock_t lock;

@@ -139,7 +139,7 @@ server4_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    server4_post_lookup(&rsp, frame, state, inode, stbuf);
+    server4_post_lookup(&rsp, frame, state, inode, stbuf, xdata);
 out:
     rsp.op_ret = op_ret;
     rsp.op_errno = gf_errno_to_error(op_errno);
@@ -852,19 +852,28 @@ server4_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     dict_to_xdr(xdata, &rsp.xdata);
 
+    state = CALL_STATE(frame);
+
     if (op_ret == -1) {
-        state = CALL_STATE(frame);
         if (op_errno != ENOTSUP)
             dict_foreach(state->dict, _gf_server_log_setxattr_failure, frame);
 
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed");
         } else {
             gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                     "client=%s", STACK_CLIENT_NAME(frame->root),
                     "error-xlator=%s", STACK_ERR_XL_NAME(frame->root), NULL);
         }
         goto out;
+    }
+
+    if (dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
+        /* This inode onwards we will set namespace */
+        gf_msg(THIS->name, GF_LOG_DEBUG, 0, PS_MSG_SETXATTR_INFO,
+               "client=%s, path=%s", STACK_CLIENT_NAME(frame->root),
+               state->loc.path);
+        inode_set_namespace_inode(state->loc.inode, state->loc.inode);
     }
 
 out:
@@ -898,7 +907,7 @@ server4_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             dict_foreach(state->dict, _gf_server_log_setxattr_failure, frame);
         }
         if (op_errno == ENOTSUP) {
-            gf_msg_debug(THIS->name, 0, "%s", strerror(op_errno));
+            gf_msg_debug(THIS->name, op_errno, "Failed");
         } else {
             gf_smsg(THIS->name, GF_LOG_INFO, op_errno, PS_MSG_SETXATTR_INFO,
                     "client=%s", STACK_CLIENT_NAME(frame->root),
@@ -1797,7 +1806,7 @@ server4_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         }
     }
 
-    gf_link_inodes_from_dirent(this, state->fd->inode, entries);
+    gf_link_inodes_from_dirent(state->fd->inode, entries);
 
 out:
     rsp.op_ret = op_ret;
@@ -2356,6 +2365,16 @@ server4_rename_resume(call_frame_t *frame, xlator_t *bound_xl)
         goto err;
     }
 
+    if (state->loc.parent->ns_inode != state->loc2.parent->ns_inode) {
+        /* lets not allow rename across namespaces */
+        op_ret = -1;
+        op_errno = EXDEV;
+        gf_msg(THIS->name, GF_LOG_ERROR, EXDEV, 0,
+               "%s: rename across different namespaces not supported",
+               state->loc.path);
+        goto err;
+    }
+
     STACK_WIND(frame, server4_rename_cbk, bound_xl, bound_xl->fops->rename,
                &state->loc, &state->loc2, state->xdata);
     return 0;
@@ -2383,6 +2402,16 @@ server4_link_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve2.op_ret != 0) {
         op_ret = state->resolve2.op_ret;
         op_errno = state->resolve2.op_errno;
+        goto err;
+    }
+
+    if (state->loc.inode->ns_inode != state->loc2.parent->ns_inode) {
+        /* lets not allow linking across namespaces */
+        op_ret = -1;
+        op_errno = EXDEV;
+        gf_msg(THIS->name, GF_LOG_ERROR, EXDEV, 0,
+               "%s: linking across different namespaces not supported",
+               state->loc.path);
         goto err;
     }
 
@@ -2740,6 +2769,15 @@ server4_removexattr_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve.op_ret != 0)
         goto err;
 
+    if (dict_get_sizen(state->xdata, GF_NAMESPACE_KEY) ||
+        !strncmp(GF_NAMESPACE_KEY, state->name, sizeof(GF_NAMESPACE_KEY))) {
+        gf_msg(bound_xl->name, GF_LOG_ERROR, ENOTSUP, 0,
+               "%s: removal of namespace is not allowed", state->loc.path);
+        state->resolve.op_errno = ENOTSUP;
+        state->resolve.op_ret = -1;
+        goto err;
+    }
+
     STACK_WIND(frame, server4_removexattr_cbk, bound_xl,
                bound_xl->fops->removexattr, &state->loc, state->name,
                state->xdata);
@@ -2760,6 +2798,15 @@ server4_fremovexattr_resume(call_frame_t *frame, xlator_t *bound_xl)
     if (state->resolve.op_ret != 0)
         goto err;
 
+    if (dict_get_sizen(state->xdata, GF_NAMESPACE_KEY) ||
+        !strncmp(GF_NAMESPACE_KEY, state->name, sizeof(GF_NAMESPACE_KEY))) {
+        gf_msg(bound_xl->name, GF_LOG_ERROR, ENOTSUP, 0,
+               "%s: removal of namespace is not allowed",
+               uuid_utoa(state->fd->inode->gfid));
+        state->resolve.op_errno = ENOTSUP;
+        state->resolve.op_ret = -1;
+        goto err;
+    }
     STACK_WIND(frame, server4_fremovexattr_cbk, bound_xl,
                bound_xl->fops->fremovexattr, state->fd, state->name,
                state->xdata);
@@ -3186,25 +3233,57 @@ int
 server4_lookup_resume(call_frame_t *frame, xlator_t *bound_xl)
 {
     server_state_t *state = NULL;
+    dict_t *xdata = NULL;
 
     state = CALL_STATE(frame);
 
     if (state->resolve.op_ret != 0)
         goto err;
 
-    if (!state->loc.inode)
+    xdata = state->xdata ? dict_ref(state->xdata) : dict_new();
+    if (!xdata) {
+        state->resolve.op_ret = -1;
+        state->resolve.op_errno = ENOMEM;
+        goto err;
+    }
+    if (!state->loc.inode) {
         state->loc.inode = server_inode_new(state->itable, state->loc.gfid);
-    else
+        int ret = dict_set_int32(xdata, GF_NAMESPACE_KEY, 1);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_ERROR, ENOMEM, 0,
+                   "dict set (namespace) failed (path: %s), continuing",
+                   state->loc.path);
+            state->resolve.op_ret = -1;
+            state->resolve.op_errno = ENOMEM;
+            goto err;
+        }
+        if (state->loc.path && (state->loc.path[0] == '<')) {
+            /* This is a lookup on gfid : get full-path */
+            /* TODO: handle gfid based lookup in a better way. Ref GH PR #1763
+             */
+            ret = dict_set_int32(xdata, "get-full-path", 1);
+            if (ret) {
+                gf_msg(THIS->name, GF_LOG_INFO, ENOMEM, 0,
+                       "%s: dict set (full-path) failed, continuing",
+                       state->loc.path);
+            }
+        }
+    } else {
         state->is_revalidate = 1;
+    }
 
     STACK_WIND(frame, server4_lookup_cbk, bound_xl, bound_xl->fops->lookup,
-               &state->loc, state->xdata);
+               &state->loc, xdata);
+
+    dict_unref(xdata);
 
     return 0;
 err:
     server4_lookup_cbk(frame, NULL, frame->this, state->resolve.op_ret,
                        state->resolve.op_errno, NULL, NULL, NULL, NULL);
 
+    if (xdata)
+        dict_unref(xdata);
     return 0;
 }
 
@@ -4356,6 +4435,16 @@ server4_0_setxattr(rpcsvc_request_t *req)
     gf_server_check_setxattr_cmd(frame, state->dict);
 
     if (xdr_to_dict(&args.xdata, &state->xdata)) {
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+
+    /* Let the namespace setting can happen only from special mounts, this
+       should prevent all mounts creating fake namespace. */
+    if ((frame->root->pid >= 0) &&
+        dict_get_sizen(state->dict, GF_NAMESPACE_KEY)) {
+        gf_smsg("server", GF_LOG_ERROR, 0, PS_MSG_SETXATTR_INFO, "path=%s",
+                state->loc.path, "key=%s", GF_NAMESPACE_KEY, NULL);
         SERVER_REQ_SET_ERROR(req, ret);
         goto out;
     }

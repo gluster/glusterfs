@@ -50,8 +50,6 @@ frames_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
                     strprintf(strfd, "\t\t\t\"Creation_time\": %d.%09d,\n",
                               (int)frame->begin.tv_sec,
                               (int)frame->begin.tv_nsec);
-                strprintf(strfd, " \t\t\t\"Refcount\": %d,\n",
-                          frame->ref_count);
                 if (frame->parent)
                     strprintf(strfd, "\t\t\t\"Parent\": \"%s\",\n",
                               frame->parent->this->name);

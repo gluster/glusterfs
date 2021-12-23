@@ -14,7 +14,6 @@
 #include "protocol-common.h"
 #include <glusterfs/syncop-utils.h>
 #include "afr-messages.h"
-#include <glusterfs/byte-order.h>
 
 #define AFR_EH_SPLIT_BRAIN_LIMIT 1024
 #define AFR_STATISTICS_HISTORY_SIZE 50
@@ -295,7 +294,7 @@ afr_shd_selfheal_name(struct subvol_healer *healer, int child, uuid_t parent,
 {
     int ret = -1;
 
-    ret = afr_selfheal_name(THIS, parent, bname, NULL, NULL);
+    ret = afr_selfheal_name(THIS, parent, bname, NULL, NULL, NULL);
 
     return ret;
 }
@@ -673,9 +672,6 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
     gf_boolean_t need_xattrop = _gf_false;
     void *pending_raw = NULL;
     int *raw = NULL;
-    int pending[AFR_NUM_CHANGE_LOGS] = {
-        0,
-    };
     int i = 0;
     int j = 0;
     int val = 0;
@@ -704,9 +700,8 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
             goto out;
         }
 
-        memcpy(pending, pending_raw, sizeof(pending));
         for (j = 0; j < AFR_NUM_CHANGE_LOGS; j++) {
-            val = ntoh32(pending[j]);
+            val = be32toh(*((int *)pending_raw + j));
             if (val) {
                 if (i == healer) {
                     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_THIN_ARB,
@@ -719,7 +714,7 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
                     goto out;
                 }
                 need_xattrop = _gf_true;
-                raw[j] = hton32(-val);
+                raw[j] = htobe32(-val);
             }
         }
 
@@ -915,7 +910,7 @@ afr_shd_anon_inode_cleaner(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     }
 
     /*Inode is deleted from subvol*/
-    if (count == 1 || (iatt->ia_type != IA_IFDIR && multiple_links)) {
+    if (count == 1 || (iatt && iatt->ia_type != IA_IFDIR && multiple_links)) {
         gf_msg(healer->this->name, GF_LOG_WARNING, 0,
                AFR_MSG_EXPUNGING_FILE_OR_DIR, "expunging %s %s/%s on %s", type,
                priv->anon_inode_name, entry->d_name, subvol->name);
@@ -1323,89 +1318,7 @@ out:
     return ret;
 }
 
-int
-afr_shd_dict_add_path(xlator_t *this, dict_t *output, int child, char *path,
-                      struct timeval *tv)
-{
-    int ret = -1;
-    uint64_t count = 0;
-    char key[64] = {0};
-    int keylen = 0;
-    char xl_id_child_str[32] = {0};
-    int xl_id = 0;
-
-    ret = dict_get_int32(output, this->name, &xl_id);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_GET_FAILED,
-               "xl does not have id");
-        goto out;
-    }
-
-    snprintf(xl_id_child_str, sizeof(xl_id_child_str), "%d-%d", xl_id, child);
-    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
-    ret = dict_get_uint64(output, key, &count);
-
-    keylen = snprintf(key, sizeof(key), "%s-%" PRIu64, xl_id_child_str, count);
-    ret = dict_set_dynstrn(output, key, keylen, path);
-
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-               "%s: Could not add to output", path);
-        goto out;
-    }
-
-    if (tv) {
-        snprintf(key, sizeof(key), "%s-%" PRIu64 "-time", xl_id_child_str,
-                 count);
-        ret = dict_set_uint32(output, key, tv->tv_sec);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-                   "%s: Could not set time", path);
-            goto out;
-        }
-    }
-
-    snprintf(key, sizeof(key), "%s-count", xl_id_child_str);
-
-    ret = dict_set_uint64(output, key, count + 1);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, -ret, AFR_MSG_DICT_SET_FAILED,
-               "Could not increment count");
-        goto out;
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
-
-int
-afr_add_shd_event(circular_buffer_t *cb, void *data)
-{
-    dict_t *output = NULL;
-    xlator_t *this = THIS;
-    afr_private_t *priv = NULL;
-    afr_self_heald_t *shd = NULL;
-    shd_event_t *shd_event = NULL;
-    char *path = NULL;
-
-    output = data;
-    priv = this->private;
-    shd = &priv->shd;
-    shd_event = cb->data;
-
-    if (!shd->index_healers[shd_event->child].local)
-        return 0;
-
-    path = gf_strdup(shd_event->path);
-    if (!path)
-        return -ENOMEM;
-
-    afr_shd_dict_add_path(this, output, shd_event->child, path, &cb->tv);
-    return 0;
-}
-
-int
+static void
 afr_add_crawl_event(circular_buffer_t *cb, void *data)
 {
     dict_t *output = NULL;
@@ -1419,12 +1332,8 @@ afr_add_crawl_event(circular_buffer_t *cb, void *data)
     shd = &priv->shd;
     crawl_event = cb->data;
 
-    if (!shd->index_healers[crawl_event->child].local)
-        return 0;
-
-    afr_shd_dict_add_crawl_event(this, output, crawl_event);
-
-    return 0;
+    if (shd->index_healers[crawl_event->child].local)
+        afr_shd_dict_add_crawl_event(this, output, crawl_event);
 }
 
 int
@@ -1659,10 +1568,8 @@ afr_xl_op(xlator_t *this, dict_t *input, dict_t *output)
             }
             break;
         case GF_SHD_OP_INDEX_SUMMARY:
-            /* this case has been handled in glfs-heal.c */
-            break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
-            eh_dump(shd->split_brain, output, afr_add_shd_event);
+            /* this case has been handled in glfs-heal.c */
             break;
         case GF_SHD_OP_STATISTICS:
             for (i = 0; i < priv->child_count; i++) {

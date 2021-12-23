@@ -192,6 +192,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -262,6 +264,9 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
@@ -338,6 +343,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0 && GF_ANSWER_YES == answer) {
         gf_event(EVENT_VOLUME_DELETE, "name=%s", (char *)words[2]);
@@ -418,6 +425,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_VOLUME_START, "name=%s;force=%d", (char *)words[2],
@@ -572,63 +581,6 @@ out:
 }
 
 int
-cli_cmd_volume_rename_cbk(struct cli_state *state, struct cli_cmd_word *word,
-                          const char **words, int wordcount)
-{
-    int ret = -1;
-    rpc_clnt_procedure_t *proc = NULL;
-    call_frame_t *frame = NULL;
-    dict_t *dict = NULL;
-    int sent = 0;
-    int parse_error = 0;
-
-    if (wordcount != 4) {
-        cli_usage_out(word->pattern);
-        parse_error = 1;
-        goto out;
-    }
-
-    dict = dict_new();
-    if (!dict)
-        goto out;
-
-    ret = dict_set_str(dict, "old-volname", (char *)words[2]);
-
-    if (ret)
-        goto out;
-
-    ret = dict_set_str(dict, "new-volname", (char *)words[3]);
-
-    if (ret)
-        goto out;
-
-    proc = &cli_rpc_prog->proctable[GLUSTER_CLI_RENAME_VOLUME];
-
-    if (proc->fn) {
-        frame = create_frame(THIS, THIS->ctx->pool);
-        if (!frame) {
-            ret = -1;
-            goto out;
-        }
-        ret = proc->fn(frame, THIS, dict);
-    }
-
-out:
-    if (dict)
-        dict_unref(dict);
-
-    if (ret) {
-        cli_cmd_sent_status_get(&sent);
-        if ((sent == 0) && (parse_error == 0))
-            cli_out("Volume rename on '%s' failed", (char *)words[2]);
-    }
-
-    CLI_STACK_DESTROY(frame);
-
-    return ret;
-}
-
-int
 cli_cmd_volume_defrag_cbk(struct cli_state *state, struct cli_cmd_word *word,
                           const char **words, int wordcount)
 {
@@ -689,6 +641,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -749,6 +703,8 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -797,6 +753,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -911,6 +869,8 @@ out:
 
 end:
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1038,7 +998,6 @@ cli_cmd_volume_add_brick_cbk(struct cli_state *state, struct cli_cmd_word *word,
     dict_t *options = NULL;
     int sent = 0;
     int parse_error = 0;
-    gf_answer_t answer = GF_ANSWER_NO;
     cli_local_t *local = NULL;
 
 #if (USE_EVENTS)
@@ -1047,29 +1006,11 @@ cli_cmd_volume_add_brick_cbk(struct cli_state *state, struct cli_cmd_word *word,
     const char *eventstrformat = "volume=%s;bricks=%s";
 #endif
 
-    const char *question =
-        "Changing the 'stripe count' of the volume is "
-        "not a supported feature. In some cases it may result in data "
-        "loss on the volume. Also there may be issues with regular "
-        "filesystem operations on the volume after the change. Do you "
-        "really want to continue with 'stripe' count option ? ";
-
     ret = cli_cmd_volume_add_brick_parse(state, words, wordcount, &options, 0);
     if (ret) {
         cli_usage_out(word->pattern);
         parse_error = 1;
         goto out;
-    }
-
-    /* TODO: there are challenges in supporting changing of
-       stripe-count, until it is properly supported give warning to user */
-    if (dict_get(options, "stripe-count")) {
-        answer = cli_cmd_get_confirmation(state, question);
-
-        if (GF_ANSWER_NO == answer) {
-            ret = 0;
-            goto out;
-        }
     }
 
 #if (USE_EVENTS)
@@ -1125,10 +1066,13 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
-int
+static int
 cli_get_soft_limit(dict_t *options, const char **words, dict_t *xdata)
 {
     call_frame_t *frame = NULL;
@@ -1144,10 +1088,8 @@ cli_get_soft_limit(dict_t *options, const char **words, dict_t *xdata)
         goto out;
     }
 
-    // We need a ref on @options to prevent CLI_STACK_DESTROY
-    // from destroying it prematurely.
-    dict_ref(options);
     CLI_LOCAL_INIT(local, words, frame, options);
+
     proc = &cli_rpc_prog->proctable[GLUSTER_CLI_QUOTA];
     ret = proc->fn(frame, THIS, options);
 
@@ -1231,8 +1173,9 @@ out:
     return limits_set;
 }
 
-int
-cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
+static int
+cli_cmd_quota_handle_list_all(cli_state_t *state, const char **words,
+                              dict_t *options)
 {
     int all_failed = 1;
     int count = 0;
@@ -1296,7 +1239,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
                  "No%s quota configured on"
                  " volume %s",
                  (type == GF_QUOTA_OPTION_TYPE_LIST) ? "" : " inode", volname);
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             xml_err_flag = _gf_true;
         } else {
             cli_out("quota: %s", err_str);
@@ -1418,7 +1361,7 @@ cli_cmd_quota_handle_list_all(const char **words, dict_t *options)
         all_failed = all_failed && ret;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_quota_limit_list_end(local);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -1443,8 +1386,6 @@ out:
                    "xml format");
         }
     }
-    if (xdata)
-        dict_unref(xdata);
 
     if (fd != -1) {
         sys_close(fd);
@@ -1455,7 +1396,11 @@ out:
                "Could not fetch and display quota"
                " limits");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (xdata)
+        dict_unref(xdata);
+
     return ret;
 }
 
@@ -1571,6 +1516,9 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
 out2:
     return ret;
 }
@@ -1633,7 +1581,7 @@ cli_cmd_quota_cbk(struct cli_state *state, struct cli_cmd_word *word,
         case GF_QUOTA_OPTION_TYPE_LIST_OBJECTS:
             if (wordcount != 4)
                 break;
-            ret = cli_cmd_quota_handle_list_all(words, options);
+            ret = cli_cmd_quota_handle_list_all(state, words, options);
             goto out;
         default:
             break;
@@ -1665,8 +1613,6 @@ out:
                 "Quota command failed. Please check the cli "
                 "logs for more details");
     }
-    if (options)
-        dict_unref(options);
 
     /* Events for Quota */
     if (ret == 0) {
@@ -1727,6 +1673,9 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
@@ -1917,7 +1866,10 @@ out:
                      (char *)words[2], (char *)words[3]);
         }
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -1971,18 +1923,12 @@ out:
                  "Volume=%s;source-brick=%s;destination-brick=%s",
                  (char *)words[2], (char *)words[3], (char *)words[4]);
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
-}
-
-int
-cli_cmd_volume_set_transport_cbk(struct cli_state *state,
-                                 struct cli_cmd_word *word, const char **words,
-                                 int wordcount)
-{
-    cli_cmd_broadcast_response(0);
-    return 0;
 }
 
 int
@@ -2028,6 +1974,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2081,7 +2029,10 @@ out:
         if ((sent == 0) && (parse_error == 0))
             cli_out("Volume log rotate failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2293,16 +2244,16 @@ out:
                 gf_asprintf_append(&events_str, "%sreset_sync_time=%d;",
                                    events_str, tmpi);
             }
-            /* Capture Master and Slave Info */
-            ret1 = dict_get_str(options, "master", &tmp);
+            /* Capture Primary and Secondary Info */
+            ret1 = dict_get_str(options, "primary", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf_append(&events_str, "%smaster=%s;", events_str, tmp);
+            gf_asprintf_append(&events_str, "%sprimary=%s;", events_str, tmp);
 
-            ret1 = dict_get_str(options, "slave", &tmp);
+            ret1 = dict_get_str(options, "secondary", &tmp);
             if (ret1)
                 tmp = "";
-            gf_asprintf_append(&events_str, "%sslave=%s", events_str, tmp);
+            gf_asprintf_append(&events_str, "%ssecondary=%s", events_str, tmp);
 
             gf_event(event_type, "%s", events_str);
         }
@@ -2314,6 +2265,8 @@ out:
 #endif
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2366,6 +2319,8 @@ cli_cmd_volume_status_cbk(struct cli_state *state, struct cli_cmd_word *word,
 
 out:
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     return ret;
 }
@@ -2546,7 +2501,7 @@ cli_print_brick_status(cli_volume_status_t *status)
      (op == GF_SHD_OP_HEAL_SUMMARY))
 
 int
-cli_launch_glfs_heal(int heal_op, dict_t *options)
+cli_launch_glfs_heal(cli_state_t *state, int heal_op, dict_t *options)
 {
     char buff[PATH_MAX] = {0};
     runner_t runner = {0};
@@ -2564,7 +2519,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
 
     switch (heal_op) {
         case GF_SHD_OP_INDEX_SUMMARY:
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2586,7 +2541,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             break;
         case GF_SHD_OP_SPLIT_BRAIN_FILES:
             runner_add_args(&runner, "split-brain-info", NULL);
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2596,7 +2551,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             break;
         case GF_SHD_OP_HEAL_SUMMARY:
             runner_add_args(&runner, "info-summary", NULL);
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 runner_add_args(&runner, "--xml", NULL);
             }
             break;
@@ -2604,7 +2559,7 @@ cli_launch_glfs_heal(int heal_op, dict_t *options)
             ret = -1;
             goto out;
     }
-    if (global_state->mode & GLUSTER_MODE_GLFSHEAL_NOLOG)
+    if (state->mode & GLUSTER_MODE_GLFSHEAL_NOLOG)
         runner_add_args(&runner, "--nolog", NULL);
     ret = runner_start(&runner);
     if (ret == -1)
@@ -2651,7 +2606,7 @@ cli_cmd_volume_heal_cbk(struct cli_state *state, struct cli_cmd_word *word,
     if (ret < 0)
         goto out;
     if (NEEDS_GLFS_HEAL(heal_op)) {
-        ret = cli_launch_glfs_heal(heal_op, options);
+        ret = cli_launch_glfs_heal(state, heal_op, options);
         if (ret < 0)
             goto out;
         if (heal_op != GF_SHD_OP_GRANULAR_ENTRY_HEAL_ENABLE)
@@ -2675,15 +2630,14 @@ out:
     if (ret) {
         cli_cmd_sent_status_get(&sent);
         if ((sent == 0) && (parse_error == 0) &&
-            !(global_state->mode & GLUSTER_MODE_XML)) {
+            !(state->mode & GLUSTER_MODE_XML)) {
             cli_out("Volume heal failed.");
         }
     }
 
+    CLI_STACK_DESTROY(frame);
     if (options)
         dict_unref(options);
-
-    CLI_STACK_DESTROY(frame);
 
     return ret;
 }
@@ -2745,6 +2699,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2837,6 +2793,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2891,7 +2849,10 @@ out:
         if ((sent == 0) && (parse_error == 0))
             cli_err("Volume barrier failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }
@@ -2945,7 +2906,11 @@ out:
         if ((sent == 0) && (parse_err == 0))
             cli_err("Volume get option failed");
     }
+
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
+
     return ret;
 }
 
@@ -3039,7 +3004,7 @@ struct cli_cmd volume_cmds[] = {
     {"volume info [all|<VOLNAME>]", cli_cmd_volume_info_cbk,
      "list information of all volumes"},
 
-    {"volume create <NEW-VOLNAME> [stripe <COUNT>] "
+    {"volume create <NEW-VOLNAME> "
      "[[replica <COUNT> [arbiter <COUNT>]]|[replica 2 thin-arbiter 1]] "
      "[disperse [<COUNT>]] [disperse-data <COUNT>] [redundancy <COUNT>] "
      "[transport <tcp|rdma|tcp,rdma>] <NEW-BRICK> <TA-BRICK>"
@@ -3057,11 +3022,7 @@ struct cli_cmd volume_cmds[] = {
     {"volume stop <VOLNAME> [force]", cli_cmd_volume_stop_cbk,
      "stop volume specified by <VOLNAME>"},
 
-    /*{ "volume rename <VOLNAME> <NEW-VOLNAME>",
-      cli_cmd_volume_rename_cbk,
-      "rename volume <VOLNAME> to <NEW-VOLNAME>"},*/
-
-    {"volume add-brick <VOLNAME> [<stripe|replica> <COUNT> "
+    {"volume add-brick <VOLNAME> [<replica> <COUNT> "
      "[arbiter <COUNT>]] <NEW-BRICK> ... [force]",
      cli_cmd_volume_add_brick_cbk, "add brick to volume <VOLNAME>"},
 
@@ -3076,10 +3037,6 @@ struct cli_cmd volume_cmds[] = {
     {"volume replace-brick <VOLNAME> <SOURCE-BRICK> <NEW-BRICK> "
      "{commit force}",
      cli_cmd_volume_replace_brick_cbk, "replace-brick operations"},
-
-    /*{ "volume set-transport <VOLNAME> <TRANSPORT-TYPE> [<TRANSPORT-TYPE>]
-      ...", cli_cmd_volume_set_transport_cbk, "set transport type for volume
-      <VOLNAME>"},*/
 
     {"volume set <VOLNAME> <KEY> <VALUE>", cli_cmd_volume_set_cbk,
      "set options for volume <VOLNAME>"},
@@ -3099,7 +3056,8 @@ struct cli_cmd volume_cmds[] = {
      "reset all the reconfigured options"},
 
 #if (SYNCDAEMON_COMPILE)
-    {"volume " GEOREP " [<MASTER-VOLNAME>] [<SLAVE-IP>]::[<SLAVE-VOLNAME>] {"
+    {"volume " GEOREP
+     " [<PRIMARY-VOLNAME>] [<SECONDARY-IP>]::[<SECONDARY-VOLNAME>] {"
      "\\\n create [[ssh-port n] [[no-verify] \\\n | [push-pem]]] [force] \\\n"
      " | start [force] \\\n | stop [force] \\\n | pause [force] \\\n | resume "
      "[force] \\\n"
@@ -3271,7 +3229,7 @@ gf_asprintf_append(char **string_ptr, const char *format, ...)
     rv = gf_vasprintf(string_ptr, format, arg);
     va_end(arg);
 
-    if (tmp)
+    if (rv >= 0)
         GF_FREE(tmp);
 
     return rv;

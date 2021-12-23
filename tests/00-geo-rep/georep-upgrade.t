@@ -47,11 +47,7 @@ EXPECT '1' echo $(ls /bricks/brick1/.glusterfs/changelogs/htime/HTIME.$epoch2 | 
 ###############################################################################################
 #Upgrade
 ###############################################################################################
-### This needed to be fixed as this very vague finding a file with name in '/'
-### multiple file with same name can exist
-### for temp fix picking only 1st result
-TEST upgrade_script=$(find / -type f -name glusterfs-georep-upgrade.py -print | head -n 1)
-TEST python3 $upgrade_script $brick
+TEST python3 extras/glusterfs-georep-upgrade.py $brick
 
 ###############################################################################################
 #After upgrade

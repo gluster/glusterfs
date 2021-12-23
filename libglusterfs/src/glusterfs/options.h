@@ -46,13 +46,27 @@ typedef enum {
 
 typedef enum {
     OPT_FLAG_NONE = 0,
-    OPT_FLAG_SETTABLE = 1 << 0,   /* can be set using volume set */
-    OPT_FLAG_CLIENT_OPT = 1 << 1, /* affects clients */
-    OPT_FLAG_GLOBAL = 1
-                      << 2, /* affects all instances of the particular xlator */
-    OPT_FLAG_FORCE = 1 << 3,       /* needs force to be reset */
-    OPT_FLAG_NEVER_RESET = 1 << 4, /* which should not be reset */
-    OPT_FLAG_DOC = 1 << 5,         /* can be shown in volume set help */
+
+    /* Can be set using 'gluster volume set' command. */
+    OPT_FLAG_SETTABLE = 1 << 0,
+
+    /* Affects clients. */
+    OPT_FLAG_CLIENT_OPT = 1 << 1,
+
+    /* Affects all instances of the particular xlator. */
+    OPT_FLAG_GLOBAL = 1 << 2,
+
+    /* Needs to be forced for reset. */
+    OPT_FLAG_FORCE = 1 << 3,
+
+    /* Should be never reset. */
+    OPT_FLAG_NEVER_RESET = 1 << 4,
+
+    /* Documented to be shown in 'gluster volume set help'. */
+    OPT_FLAG_DOC = 1 << 5,
+
+    /* Numerical with specified mininum and maximum values. */
+    OPT_FLAG_RANGE = 1 << 6
 } opt_flags_t;
 
 typedef enum {
@@ -198,7 +212,7 @@ DECLARE_INIT_OPT(gf_boolean_t, bool);
 DECLARE_INIT_OPT(xlator_t *, xlator);
 DECLARE_INIT_OPT(char *, path);
 DECLARE_INIT_OPT(double, double);
-DECLARE_INIT_OPT(uint32_t, time);
+DECLARE_INIT_OPT(time_t, time);
 
 #define DEFINE_INIT_OPT(type_t, type, conv)                                    \
     int xlator_option_init_##type(xlator_t *this, dict_t *options, char *key,  \
@@ -209,7 +223,6 @@ DECLARE_INIT_OPT(uint32_t, time);
         char *def_value = NULL;                                                \
         char *set_value = NULL;                                                \
         char *value = NULL;                                                    \
-        xlator_t *old_THIS = NULL;                                             \
                                                                                \
         opt = xlator_volume_option_get(this, key);                             \
         if (!opt) {                                                            \
@@ -241,10 +254,7 @@ DECLARE_INIT_OPT(uint32_t, time);
                          " value %s",                                          \
                          key, value);                                          \
         }                                                                      \
-        old_THIS = THIS;                                                       \
-        THIS = this;                                                           \
         ret = conv(value, val_p);                                              \
-        THIS = old_THIS;                                                       \
         if (ret) {                                                             \
             gf_msg(this->name, GF_LOG_INFO, 0, LG_MSG_CONVERSION_FAILED,       \
                    "option %s conversion failed value %s", key, value);        \
@@ -257,7 +267,8 @@ DECLARE_INIT_OPT(uint32_t, time);
 #define GF_OPTION_INIT(key, val, type, err_label)                              \
     do {                                                                       \
         int val_ret = 0;                                                       \
-        val_ret = xlator_option_init_##type(THIS, THIS->options, key, &(val)); \
+        xlator_t *this = THIS;                                                 \
+        val_ret = xlator_option_init_##type(this, this->options, key, &(val)); \
         if (val_ret)                                                           \
             goto err_label;                                                    \
     } while (0)
@@ -279,7 +290,7 @@ DECLARE_RECONF_OPT(gf_boolean_t, bool);
 DECLARE_RECONF_OPT(xlator_t *, xlator);
 DECLARE_RECONF_OPT(char *, path);
 DECLARE_RECONF_OPT(double, double);
-DECLARE_RECONF_OPT(uint32_t, time);
+DECLARE_RECONF_OPT(time_t, time);
 
 #define DEFINE_RECONF_OPT(type_t, type, conv)                                  \
     int xlator_option_reconf_##type(xlator_t *this, dict_t *options,           \
@@ -287,7 +298,6 @@ DECLARE_RECONF_OPT(uint32_t, time);
     {                                                                          \
         int ret = 0;                                                           \
         char *value = NULL;                                                    \
-        xlator_t *old_THIS = NULL;                                             \
                                                                                \
         volume_option_t *opt = xlator_volume_option_get(this, key);            \
         if (!opt) {                                                            \
@@ -309,10 +319,7 @@ DECLARE_RECONF_OPT(uint32_t, time);
             return 0;                                                          \
         }                                                                      \
                                                                                \
-        old_THIS = THIS;                                                       \
-        THIS = this;                                                           \
         ret = conv(value, val_p);                                              \
-        THIS = old_THIS;                                                       \
         if (ret)                                                               \
             return ret;                                                        \
         return xlator_option_validate(this, key, value, opt, NULL);            \
@@ -320,7 +327,7 @@ DECLARE_RECONF_OPT(uint32_t, time);
 
 #define GF_OPTION_RECONF(key, val, opt, type, err_label)                       \
     do {                                                                       \
-        if (xlator_option_reconf_##type(THIS, opt, key, SLEN(key), &(val)))    \
+        if (xlator_option_reconf_##type(THIS, opt, key, strlen(key), &(val)))  \
             goto err_label;                                                    \
     } while (0)
 

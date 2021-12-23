@@ -24,7 +24,6 @@
 
 #define SHD_INODE_LRU_LIMIT 1
 #define AFR_PATHINFO_HEADER "REPLICATE:"
-#define AFR_SH_READDIR_SIZE_KEY "self-heal-readdir-size"
 #define AFR_SH_DATA_DOMAIN_FMT "%s:self-heal"
 #define AFR_DIRTY_DEFAULT AFR_XATTR_PREFIX ".dirty"
 #define AFR_DIRTY (((afr_private_t *)(THIS->private))->afr_dirty)
@@ -177,8 +176,6 @@ typedef struct _afr_private {
 
     xlator_t **children;
 
-    inode_t *root_inode;
-
     int favorite_child; /* subvolume to be preferred in resolving
                                     split-brain cases */
     /* For thin-arbiter. */
@@ -260,7 +257,6 @@ typedef struct _afr_private {
     gf_boolean_t consistent_metadata;
     gf_boolean_t need_heal;
     gf_boolean_t granular_locks;
-    uint64_t sh_readdir_size;
     char *sh_domain;
     char *afr_dirty;
 
@@ -334,13 +330,12 @@ afr_index_from_ia_type(ia_type_t type)
 }
 
 typedef struct {
-    struct gf_flock flock;
     loc_t loc;
     fd_t *fd;
     char *basename;
     unsigned char *locked_nodes;
     int locked_count;
-
+    struct gf_flock flock;
 } afr_lockee_t;
 
 int
@@ -780,9 +775,9 @@ typedef struct _afr_local {
             char *volume;
             int32_t cmd;
             int32_t in_cmd;
+            void *xdata;
             struct gf_flock in_flock;
             struct gf_flock flock;
-            void *xdata;
         } inodelk;
 
         struct {
@@ -943,6 +938,9 @@ typedef struct _afr_local {
     gf_boolean_t need_full_crawl;
     gf_boolean_t is_read_txn;
     gf_boolean_t is_new_entry;
+
+    /* For fix_open */
+    unsigned char *need_open;
 } afr_local_t;
 
 typedef struct afr_spbc_timeout {
@@ -1071,9 +1069,6 @@ afr_blocking_lock(call_frame_t *frame, xlator_t *this);
 
 int
 afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
-
-int
-__afr_fd_ctx_set(xlator_t *this, fd_t *fd);
 
 afr_fd_ctx_t *
 afr_fd_ctx_get(fd_t *fd, xlator_t *this);
@@ -1343,8 +1338,9 @@ afr_is_inode_refresh_reqd(inode_t *inode, xlator_t *this, int event_gen1,
 
 int
 afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
-                                    char *buf, const char *default_str,
-                                    int32_t *serz_len, char delimiter);
+                                    char *buf, size_t size,
+                                    const char *default_str, int32_t *serz_len,
+                                    char delimiter);
 gf_boolean_t
 afr_is_symmetric_error(call_frame_t *frame, xlator_t *this);
 

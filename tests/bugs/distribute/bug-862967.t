@@ -29,7 +29,7 @@ TEST $CLI volume set $V0 stat-prefetch off
 TEST $CLI volume start $V0
 
 ## Mount FUSE
-TEST glusterfs --attribute-timeout=0 --entry-timeout=0 --gid-timeout=-1 -s $H0 --volfile-id $V0 $M0;
+TEST glusterfs --attribute-timeout=0 --entry-timeout=0 --gid-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
 # change dir permissions
 mkdir $M0/dir;

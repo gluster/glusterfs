@@ -39,7 +39,6 @@
 #include "posix-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
@@ -135,8 +134,9 @@ posix_handle_georep_xattrs(call_frame_t *frame, const char *name, int *op_errno,
     int pid = 1;
     gf_boolean_t filter_xattr = _gf_true;
     static const char *georep_xattr[] = {
-        "*.glusterfs.*.stime", "*.glusterfs.*.xtime",
-        "*.glusterfs.*.entry_stime", "*.glusterfs.volume-mark.*", NULL};
+        "*.glusterfs.*.stime",       "*.glusterfs.*.xtime",
+        "*.glusterfs.lockinfo",      "*.glusterfs.*.entry_stime",
+        "*.glusterfs.volume-mark.*", NULL};
 
     if (!name) {
         /* No need to do anything here */
@@ -827,8 +827,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
             errno = op_errno; /*gf_msg could have changed errno*/
         } else {
             op_errno = errno;
-            gf_msg_debug(this->name, 0, "lstat failed on %s (%s)", path,
-                         strerror(errno));
+            gf_msg_debug(this->name, errno, "lstat failed on %s ", path);
             errno = op_errno; /*gf_msg could have changed errno*/
         }
         goto out;
@@ -1229,7 +1228,9 @@ posix_handle_pair(xlator_t *this, loc_t *loc, const char *real_path, char *key,
                         SLEN(POSIX_ACL_ACCESS_XATTR)) &&
                stbuf && IS_DHT_LINKFILE_MODE(stbuf)) {
         goto out;
-    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY))) {
+    } else if (!strncmp(key, GF_INTERNAL_CTX_KEY, SLEN(GF_INTERNAL_CTX_KEY)) ||
+               !strncmp(key, GF_FORCE_REPLACE_KEY,
+                        SLEN(GF_FORCE_REPLACE_KEY))) {
         /* ignore this key value pair */
         ret = 0;
         goto out;
@@ -1314,10 +1315,7 @@ posix_fhandle_pair(call_frame_t *frame, xlator_t *this, int fd, char *key,
         } else {
 #ifdef GF_DARWIN_HOST_OS
             if (errno == EINVAL) {
-                gf_msg_debug(this->name, 0,
-                             "fd=%d: key:%s "
-                             "error:%s",
-                             fd, key, strerror(errno));
+                gf_msg_debug(this->name, errno, "fd=%d: key:%s error", fd, key);
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
                        "fd=%d: key:%s", fd, key);
@@ -1362,10 +1360,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
     /* check that it is valid directory handle */
     size = sys_lstat(hpath, &stbuf);
     if (size < 0) {
-        gf_msg_debug(this->name, 0,
-                     "%s: Handle stat failed: "
-                     "%s",
-                     hpath, strerror(errno));
+        gf_msg_debug(this->name, errno, "%s: Handle stat failed", hpath);
         goto out;
     }
 
@@ -1379,7 +1374,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
     size = posix_handle_path(this, gfid, NULL, newpath, sizeof(newpath));
     if (size <= 0) {
         if (errno == ENOENT) {
-            gf_msg_debug(this->name, 0, "%s: %s", newpath, strerror(ENOENT));
+            gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
             stale = _gf_true;
         }
         goto out;
@@ -1387,7 +1382,7 @@ del_stale_dir_handle(xlator_t *this, uuid_t gfid)
 
     size = sys_lgetxattr(newpath, GFID_XATTR_KEY, gfid_curr, 16);
     if (size < 0 && errno == ENOENT) {
-        gf_msg_debug(this->name, 0, "%s: %s", newpath, strerror(ENOENT));
+        gf_msg_debug(this->name, ENOENT, "Failed for path: %s", newpath);
         stale = _gf_true;
     } else if (size == 16 && gf_uuid_compare(gfid, gfid_curr)) {
         gf_msg_debug(this->name, 0,
@@ -1693,7 +1688,7 @@ is_fresh_file(struct timespec *ts)
     int64_t elapsed;
 
     timespec_now_realtime(&now);
-    elapsed = (int64_t)gf_tsdiff(ts, &now);
+    elapsed = gf_tsdiff(ts, &now);
 
     if (elapsed < 0) {
         /* The file has been modified in the future !!!
@@ -1703,7 +1698,7 @@ is_fresh_file(struct timespec *ts)
     }
 
     /* If the file is newer than a second, we consider it fresh. */
-    return elapsed < 1000000;
+    return elapsed < 1000000000;
 }
 
 int
@@ -1792,51 +1787,6 @@ posix_gfid_heal(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req)
 
     (void)posix_gfid_set(this, path, loc, xattr_req, GF_CLIENT_PID_MAX, &ret);
     return 0;
-}
-
-int
-posix_acl_xattr_set(xlator_t *this, const char *path, dict_t *xattr_req)
-{
-    int ret = 0;
-    data_t *data = NULL;
-    struct stat stat = {
-        0,
-    };
-
-    if (!xattr_req)
-        goto out;
-
-    if (sys_lstat(path, &stat) != 0)
-        goto out;
-
-    data = dict_get(xattr_req, POSIX_ACL_ACCESS_XATTR);
-    if (data) {
-        ret = sys_lsetxattr(path, POSIX_ACL_ACCESS_XATTR, data->data, data->len,
-                            0);
-#ifdef __FreeBSD__
-        if (ret != -1) {
-            ret = 0;
-        }
-#endif /* __FreeBSD__ */
-        if (ret != 0)
-            goto out;
-    }
-
-    data = dict_get(xattr_req, POSIX_ACL_DEFAULT_XATTR);
-    if (data) {
-        ret = sys_lsetxattr(path, POSIX_ACL_DEFAULT_XATTR, data->data,
-                            data->len, 0);
-#ifdef __FreeBSD__
-        if (ret != -1) {
-            ret = 0;
-        }
-#endif /* __FreeBSD__ */
-        if (ret != 0)
-            goto out;
-    }
-
-out:
-    return ret;
 }
 
 static int
@@ -2027,7 +1977,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
     char *op = NULL;
     int op_errno = 0;
     int cnt;
-    int timeout = 0;
+    time_t timeout = 0;
     struct aiocb aiocb;
 
     priv = this->private;
@@ -2135,7 +2085,7 @@ out:
             ret = 0;
         } else {
             gf_event(EVENT_POSIX_HEALTH_CHECK_FAILED,
-                     "op=%s;path=%s;error=%s;brick=%s:%s timeout is %d", op,
+                     "op=%s;path=%s;error=%s;brick=%s:%s timeout is %ld", op,
                      file_path, strerror(op_errno), priv->hostname,
                      priv->base_path, timeout);
         }
@@ -2276,7 +2226,13 @@ posix_spawn_health_check_thread(xlator_t *xl)
     {
         /* cancel the running thread  */
         if (priv->health_check_active == _gf_true) {
-            pthread_cancel(priv->health_check);
+            ret = gf_thread_cleanup_xint(priv->health_check);
+            if (ret != 0) {
+                gf_msg(xl->name, GF_LOG_ERROR, ret, P_MSG_HEALTHCHECK_FAILED,
+                       "failed to terminate health-check thread");
+                ret = -1;
+                goto unlock;
+            }
             priv->health_check_active = _gf_false;
         }
 

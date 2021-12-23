@@ -53,7 +53,7 @@ struct saved_frame {
     void *capital_this;
     void *frame;
     struct rpc_req *rpcreq;
-    struct timeval saved_at;
+    time_t saved_at;
     rpc_transport_rsp_t rsp;
 };
 
@@ -117,10 +117,10 @@ typedef struct rpc_auth_data {
 } rpc_auth_data_t;
 
 struct rpc_clnt_config {
-    int rpc_timeout;
+    time_t rpc_timeout;
     int remote_port;
     char *remote_host;
-    int ping_timeout;
+    time_t ping_timeout;
 };
 
 #define rpc_auth_flavour(au) ((au).flavour)
@@ -135,15 +135,15 @@ struct rpc_clnt_connection {
     gf_timer_t *ping_timer;
     struct rpc_clnt *rpc_clnt;
     struct saved_frames *saved_frames;
-    struct timespec last_sent;
-    struct timespec last_received;
+    time_t last_sent;
+    time_t last_received;
     uint64_t pingcnt;
     uint64_t msgcnt;
     uint64_t cleanup_gen;
     char *name;
     int32_t ping_started;
-    int32_t frame_timeout;
-    int32_t ping_timeout;
+    time_t frame_timeout;
+    time_t ping_timeout;
     gf_boolean_t disconnected;
     char connected;
 };
