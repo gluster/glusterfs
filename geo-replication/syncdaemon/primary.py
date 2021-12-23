@@ -388,6 +388,12 @@ class GPrimaryCommon(object):
             data = None
         return data
 
+    def get_clusterstime(self):
+        data = self.slave.server.cluster_stime(".", self.uuid)
+        if isinstance(data, int):
+            data = None
+        return data
+
     def xtime(self, path, *a, **opts):
         """get amended xtime
 
@@ -570,20 +576,23 @@ class GPrimaryCommon(object):
             self.update_worker_remote_node()
             if not crawl:
                 self.status.set_passive()
+                # trigger the crawl for the passive process to sync the
+                # self-heal data.
+                self.crawl()
                 # bring up _this_ brick to the cluster stime
                 # which is min of cluster (but max of the replicas)
                 brick_stime = self.xtime('.', self.secondary)
                 cluster_stime = self.primary.server.aggregated.stime_mnt(
                     '.', '.'.join([str(self.uuid), rconf.args.secondary_id]))
+
                 logging.debug(lf("Crawl info",
                                  cluster_stime=cluster_stime,
                                  brick_stime=brick_stime))
 
                 if not isinstance(cluster_stime, int):
                     if brick_stime < cluster_stime:
-                        self.secondary.server.set_stime(
+                        self.secondary.server.set_clusterstime(
                             self.FLAT_DIR_HIERARCHY, self.uuid, cluster_stime)
-                        self.upd_stime(cluster_stime)
                         # Purge all changelogs available in processing dir
                         # less than cluster_stime
                         proc_dir = os.path.join(self.tempdir,
@@ -986,7 +995,7 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                 for failure in failures1:
                     logging.error("Failed to fix entry ops %s", repr(failure))
 
-    def process_change(self, change, done, retry):
+    def process_change(self, change, done, retry, is_passive):
         pfx = gauxpfx()
         clist = []
         entries = []
@@ -1043,7 +1052,39 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                ec[self.POS_TYPE] not in ["UNLINK", "RMDIR", "MKNOD"]:
                 continue
 
-            if et == self.TYPE_ENTRY:
+            # Passive syncs the MKNOD operation alone.
+            if is_passive and et == self.TYPE_ENTRY:
+                ty = ec[self.POS_TYPE]
+
+                if ty in ['MKNOD']:
+                    self.update_fop_batch_stats(ec[self.POS_TYPE])
+
+                    # PARGFID/BNAME
+                    en = unescape_space_newline(
+                        os.path.join(pfx, ec[self.POS_ENTRY1]))
+                    # GFID of the entry
+                    gfid = ec[self.POS_GFID]
+
+                    mode = int(ec[2])
+                    if mode & 0o1000:
+                        # Avoid stat'ing the file as it
+                        # may be deleted in the interim
+                        st = FreeObject(st_mode=int(ec[2]),
+                                st_uid=int(ec[3]),
+                                st_gid=int(ec[4]),
+                                st_atime=0,
+                                st_mtime=0)
+
+                        # So, it may be deleted, but still we
+                        # append LINK Because, the file will be
+                        # CREATED if source does not exist.
+                        entries.append(edct('LINK', stat=st, entry=en,
+                            gfid=gfid))
+
+                        # Here, we have the assumption that only
+                        # tier-gfid.linkto causes this mknod. Add data
+                        datas.add(os.path.join(pfx, ec[0]))
+            elif et == self.TYPE_ENTRY:
                 # extract information according to the type of
                 # the entry operation. create(), mkdir() and mknod()
                 # have mode, uid, gid information in the changelog
@@ -1340,12 +1381,20 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                     self.a_syncdata(self.datas_in_batch)
             else:
                 for change in changes:
-                    logging.debug(lf('processing change',
+                    if self.status.default_values["worker_status"] == "Passive":
+                        logging.debug(lf('processing change for active worker',
+                            changelog=change))
+                        self.process_change(change, done, retry, True)
+                        if not retry:
+                            # number of changelogs processed in the batch
+                            self.turns += 1
+                    else:
+                        logging.debug(lf('processing change for active worker',
                                      changelog=change))
-                    self.process_change(change, done, retry)
-                    if not retry:
-                        # number of changelogs processed in the batch
-                        self.turns += 1
+                        self.process_change(change, done, retry, False)
+                        if not retry:
+                            # number of changelogs processed in the batch
+                            self.turns += 1
 
             # Now we wait for all the data transfers fired off in the above
             # step to complete. Note that this is not ideal either. Ideally
@@ -1371,7 +1420,19 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                 self.unlinked_gfids = set()
                 if done:
                     xtl = (int(change.split('.')[-1]) - 1, 0)
-                    self.upd_stime(xtl)
+                    if self.status.default_values["worker_status"] == "Passive":
+                        cluster_stime = self.get_clusterstime()
+                        logging.debug(lf('cluster_stime and stime',
+                                     cluster_stime=cluster_stime, stime=xtl))
+                        if cluster_stime is not None:
+                            # compared to avoid the passive worker going ahead
+                            # of active worker.
+                            stime = min(xtl[0],cluster_stime[0])
+                        else:
+                            stime = xtl
+                    else:
+                        stime = xtl
+                    self.upd_stime(stime)
                     list(map(self.changelog_done_func, changes))
                     self.archive_and_purge_changelogs(changes)
 
