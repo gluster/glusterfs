@@ -162,7 +162,7 @@ Either install an existing set of rpms:
 
 Or compile your own ones (fairly easy):
 
-	https://docs.gluster.org/en/latest/Developer-guide/compiling-rpms/
+	https://docs.gluster.org/Developer-guide/compiling-rpms/
 
 ​3. Clone the GlusterFS git repository
 
