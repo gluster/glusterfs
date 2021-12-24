@@ -3684,7 +3684,7 @@ glusterd_mount_brick_paths(glusterd_volinfo_t *volinfo,
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     struct glusterd_snap_ops *snap_ops = NULL;
-    char snap_volume_id[64] = "";
+    char snap_volume_id[256] = "";
     char snapname[NAME_MAX] = "";
 
     GF_ASSERT(brickinfo);
