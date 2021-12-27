@@ -4847,7 +4847,7 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                    "snap_plugin");
             goto out;
         }
-        strcpy(snap_vol->snap_plugin, snap_plugin);
+        gf_strncpy(snap_vol->snap_plugin, snap_plugin, sizeof(snap_vol->snap_plugin));
     }
     /* To use generic functions from the plugin */
     glusterd_snapshot_plugin_by_name(snap_vol->snap_plugin, &snap_ops);
