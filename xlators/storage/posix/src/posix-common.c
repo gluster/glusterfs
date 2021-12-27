@@ -419,9 +419,9 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("reserve", priv->disk_reserve, options, percent_or_size,
                      out);
     /* option can be any one of percent or bytes */
-    priv->disk_unit = 0;
+    priv->disk_unit_percent = _gf_false;
     if (priv->disk_reserve < 100.0)
-        priv->disk_unit = 'p';
+        priv->disk_unit_percent = _gf_true;
 
     /* Delete a pxl object from a list of disk_reserve while something
        is changed for reserve option during graph reconfigure
@@ -1113,10 +1113,10 @@ posix_init(xlator_t *this)
     GF_OPTION_INIT("reserve", _private->disk_reserve, percent_or_size, out);
 
     /* option can be any one of percent or bytes */
-    _private->disk_unit = 0;
+    _private->disk_unit_percent = _gf_false;
     pthread_cond_init(&_private->fd_cond, NULL);
     if (_private->disk_reserve < 100.0)
-        _private->disk_unit = 'p';
+        _private->disk_unit_percent = _gf_true;
 
     if (_private->disk_reserve) {
         ret = posix_spawn_disk_space_check_thread(this);
