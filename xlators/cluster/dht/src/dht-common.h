@@ -590,7 +590,7 @@ struct dht_conf {
 
     char vol_uuid[UUID_SIZE + 1];
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
 
     gf_boolean_t lock_migration_enabled;
 

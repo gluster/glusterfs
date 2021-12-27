@@ -2468,7 +2468,7 @@ posix_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto out;
     }
 
-    if (priv->disk_unit == 'p') {
+    if (priv->disk_unit_percent) {
         percent = priv->disk_reserve;
         reserved_blocks = (((buf.f_blocks * percent) / 100) + 0.5);
     } else {

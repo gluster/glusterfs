@@ -2263,9 +2263,7 @@ posix_disk_space_check(struct posix_private *priv)
     char *subvol_path = NULL;
     int op_ret = 0;
     double size = 0;
-    double percent = 0;
     struct statvfs buf = {0};
-    double totsz = 0;
     double freesz = 0;
 
     GF_VALIDATE_OR_GOTO("posix-helpers", priv, out);
@@ -2274,21 +2272,20 @@ posix_disk_space_check(struct posix_private *priv)
 
     op_ret = sys_statvfs(subvol_path, &buf);
 
-    if (op_ret == -1) {
+    if (op_ret != 0) {
         gf_msg("posix-disk", GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
                "statvfs failed on %s", subvol_path);
         goto out;
     }
 
-    if (priv->disk_unit == 'p') {
-        percent = priv->disk_reserve;
-        totsz = (buf.f_blocks * buf.f_bsize);
-        size = ((totsz * percent) / 100);
+    if (priv->disk_unit_percent) {
+        size = ((buf.f_blocks * priv->disk_reserve) / 100);
+        freesz = buf.f_bfree;
     } else {
         size = priv->disk_reserve;
+        freesz = (buf.f_bfree * buf.f_bsize);
     }
 
-    freesz = (buf.f_bfree * buf.f_bsize);
     if (freesz <= size) {
         priv->disk_space_full = 1;
     } else {
