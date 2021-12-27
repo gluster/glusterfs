@@ -57,13 +57,13 @@ TEST $GEOREP_CLI $primary $secondary config use_meta_volume true
 EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_common_secret_file
 EXPECT_WITHIN $GEO_REP_TIMEOUT  0 check_keys_distributed
 
-#Start_georep check if fine and stop it
+#Start_georep check if fine
 TEST $GEOREP_CLI $primary $secondary start
 TEST $CLI volume set $GMV0 changelog.rollover-time 1
 EXPECT_WITHIN $GEO_REP_TIMEOUT  1 check_status_num_rows "Active"
 EXPECT_WITHIN $GEO_REP_TIMEOUT  2 check_status_num_rows "Passive"
-TEST $GEOREP_CLI $primary $secondary stop
-EXPECT_WITHIN $GEO_REP_TIMEOUT  3 check_status_num_rows "Stopped"
+#TEST $GEOREP_CLI $primary $secondary stop
+#EXPECT_WITHIN $GEO_REP_TIMEOUT  3 check_status_num_rows "Stopped"
 
 #create files and kill a brick and create files to be healed.
 for i in {1..10}; do echo "hey"  >> $M0/dir/file$i; done
@@ -75,7 +75,7 @@ TEST $CLI volume start $GMV0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" volume_online_brick_count
 
 # start geo rep and make the brick3 active
-TEST $GEOREP_CLI $primary $secondary start
+#TEST $GEOREP_CLI $primary $secondary start
 
 #wait till b3 becomes active
 EXPECT_WITHIN $GEO_REP_TIMEOUT 1 check_status_num_rows "Active"
