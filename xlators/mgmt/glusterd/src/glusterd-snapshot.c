@@ -8471,6 +8471,13 @@ glusterd_snapshot_restore_postop(dict_t *dict, int32_t op_ret, char **op_errstr,
         /* After restore fails, we have to remove mount point for
          * deactivated snaps which was created at start of restore op.
          */
+        if (!volinfo) {
+            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOLINFO_GET_FAIL,
+                   "Unable to fetch volinfo");
+            ret = -1;
+            goto out;
+        }
+
         if (volinfo->status == GLUSTERD_STATUS_STOPPED) {
             ret = glusterd_snap_unmount(this, volinfo);
             if (ret) {
