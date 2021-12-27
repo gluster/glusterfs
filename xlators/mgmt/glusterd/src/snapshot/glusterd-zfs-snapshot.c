@@ -480,6 +480,10 @@ glusterd_zfs_snap_clone_brick_path(char *snap_mount_dir,
     char *origin_brick = NULL;
 
     origin_brick = gf_strdup(origin_brick_path);
+    if (!origin_brick) {
+        ret = -1;
+        goto out;
+    }
     origin_brick_mount = dirname(origin_brick);
 
     if (clone)
