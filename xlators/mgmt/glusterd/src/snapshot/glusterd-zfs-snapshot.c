@@ -499,12 +499,23 @@ glusterd_zfs_snap_clone_brick_path(char *snap_mount_dir,
 
     if ((len < 0) || (len >= sizeof(brick_path))) {
         ret = -1;
+        goto out;
     }
 
-    *snap_brick_path = brick_path;
+    *snap_brick_path = gf_strdup(brick_path);
+    if (!*snap_brick_path) {
+        ret = -1;
+        goto out;
+    }
 
+out:
     if (origin_brick)
         GF_FREE(origin_brick);
+
+    if (ret && *snap_brick_path) {
+        GF_FREE(*snap_brick_path);
+        *snap_brick_path = NULL;
+    }
 
     return ret;
 }
