@@ -4343,7 +4343,10 @@ ssl_setup_connection_params(rpc_transport_t *this)
             dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
             BIO_free(bio);
             if (dh != NULL) {
+#if SSL_OP_SINGLE_DH_USE != 0
+                /* Has no effect in never versions of OpenSSL. */
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_DH_USE);
+#endif /* SSL_OP_SINGLE_DH_USE */
                 SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
                 DH_free(dh);
             } else {
@@ -4370,7 +4373,10 @@ ssl_setup_connection_params(rpc_transport_t *this)
                 ecdh = EC_KEY_new_by_curve_name(nid);
 
             if (ecdh != NULL) {
+#if SSL_OP_SINGLE_ECDH_USE != 0
+                /* Has no effect in never versions of OpenSSL. */
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+#endif /* SSL_OP_SINGLE_ECDH_USE */
                 SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
                 EC_KEY_free(ecdh);
             } else {
