@@ -818,7 +818,7 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
     return 0;
 }
 
-int
+static int
 rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 rpc_transport_event_t event, void *data, ...)
 {
@@ -1337,13 +1337,7 @@ rpc_clnt_fill_request(struct rpc_clnt *clnt, int prognum, int progver,
                       int procnum, const uint32_t xid, call_frame_t *fr,
                       struct rpc_msg *request, char *auth_data)
 {
-    int ret = -1;
-
-    if (!request) {
-        goto out;
-    }
-
-    memset(request, 0, sizeof(*request));
+    int ret;
 
     request->rm_xid = xid;
     request->rm_direction = CALL;
@@ -1358,6 +1352,7 @@ rpc_clnt_fill_request(struct rpc_clnt *clnt, int prognum, int progver,
         request->rm_call.cb_cred.oa_base = NULL;
         request->rm_call.cb_cred.oa_length = 0;
     } else {
+        memset(auth_data, 0, GF_MAX_AUTH_BYTES);
         ret = xdr_serialize_glusterfs_auth(clnt, fr, auth_data);
         if (ret == -1) {
             gf_log("rpc-clnt", GF_LOG_WARNING,
@@ -1431,9 +1426,7 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
     size_t pagesize = 0;
     int ret = -1;
     size_t xdr_size = 0;
-    char auth_data[GF_MAX_AUTH_BYTES] = {
-        0,
-    };
+    char auth_data[GF_MAX_AUTH_BYTES];
 
     if ((!clnt) || (!recbuf)) {
         goto out;
