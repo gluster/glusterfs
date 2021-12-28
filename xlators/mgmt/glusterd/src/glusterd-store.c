@@ -822,18 +822,27 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
     ret = snprintf(buf + total_len, sizeof(buf) - total_len,
-                   "%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n",
+                   "%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n",
                    GLUSTERD_STORE_KEY_VOL_TYPE, volinfo->type,
                    GLUSTERD_STORE_KEY_VOL_COUNT, volinfo->brick_count,
                    GLUSTERD_STORE_KEY_VOL_STATUS, volinfo->status,
                    GLUSTERD_STORE_KEY_VOL_SUB_COUNT, volinfo->sub_count,
-                   GLUSTERD_STORE_KEY_VOL_STRIPE_CNT, STRIPE_COUNT,
                    GLUSTERD_STORE_KEY_VOL_REPLICA_CNT, volinfo->replica_count);
     if (ret < 0 || ret >= sizeof(buf) - total_len) {
         ret = -1;
         goto out;
     }
     total_len += ret;
+
+    if (conf->op_version < GD_OP_VERSION_10_0) {
+        ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%d\n",
+                       GLUSTERD_STORE_KEY_VOL_STRIPE_CNT, STRIPE_COUNT);
+        if (ret < 0 || ret >= sizeof(buf) - total_len) {
+            ret = -1;
+            goto out;
+        }
+        total_len += ret;
+    }
 
     if ((conf->op_version >= GD_OP_VERSION_3_7_6) && volinfo->arbiter_count) {
         ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%d\n",
