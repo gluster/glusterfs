@@ -66,7 +66,7 @@ __saved_frames_put(struct rpc_clnt *rpc_clnt, struct saved_frames *frames,
 
     INIT_LIST_HEAD(&saved_frame->list);
 
-    saved_frame->capital_this = THIS;
+    saved_frame->capital_this = rpc_clnt->owner;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
     saved_frame->saved_at = gf_time();
