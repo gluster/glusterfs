@@ -1045,10 +1045,25 @@ enum gf_hdsk_event_notify_op {
     GF_EN_DEFRAG_STATUS,
     GF_EN_MAX,
 };
+
 gf_boolean_t
 is_graph_topology_equal(glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
+
 int
 glusterfs_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx);
+
+int
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+                                  gf_volfile_t *volfile_obj, char *checksum,
+                                  dict_t *dict);
+
+int
+glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
+                                   char *volfile_id, char *checksum,
+                                   dict_t *dict);
+
+int
+glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
 
 int
 gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
