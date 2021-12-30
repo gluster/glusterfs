@@ -214,7 +214,8 @@ posix_create_link_if_gfid_exists(xlator_t *this, uuid_t gfid, char *real_path,
                                  inode_table_t *itable);
 
 int
-posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata);
+posix_check_internal_writes(xlator_t *this, inode_t *fd_inode, int sysfd,
+                            dict_t *xdata);
 
 void
 posix_disk_space_check(struct posix_private *priv);
