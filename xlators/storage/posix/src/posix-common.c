@@ -1564,11 +1564,12 @@ struct volume_options posix_options[] = {
     {.key = {"max-hardlinks"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,
+     .max = MAX_GFID2PATH_LINK_SUP - 1,
      .default_value = "100",
      .op_version = {GD_OP_VERSION_4_0_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
      .tags = {"posix"},
-     .validate = GF_OPT_VALIDATE_MIN,
+     .validate = GF_OPT_VALIDATE_BOTH,
      .description = "max number of hardlinks allowed on any one inode.\n"
                     "0 is unlimited, 1 prevents any hardlinking at all."},
     {.key = {"fips-mode-rchecksum"},
