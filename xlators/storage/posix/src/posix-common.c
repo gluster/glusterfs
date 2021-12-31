@@ -1564,6 +1564,7 @@ struct volume_options posix_options[] = {
     {.key = {"max-hardlinks"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,
+     .max = MAX_GFID2PATH_LINK_SUP - 1,
      .default_value = "100",
      .op_version = {GD_OP_VERSION_4_0_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
