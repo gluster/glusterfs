@@ -254,11 +254,11 @@ sys_rename(const char *oldpath, const char *newpath)
 }
 
 int
-sys_renameat(int olddirfd, const char *oldpath, int newdirfd, const char *newpath)
+sys_renameat(int olddirfd, const char *oldpath, int newdirfd,
+             const char *newpath)
 {
     return FS_RET_CHECK0(renameat(olddirfd, oldpath, newdirfd, newpath), errno);
 }
-
 
 int
 sys_link(const char *oldpath, const char *newpath)

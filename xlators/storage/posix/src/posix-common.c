@@ -647,7 +647,9 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
     struct posix_private *priv = this->private;
     struct dirent *dentry = NULL;
     DIR *drptr = NULL;
-    char tmp_gfid[64] = { 0, };
+    char tmp_gfid[64] = {
+        0,
+    };
     uuid_t exp_gfid = {
         0,
     };
@@ -657,7 +659,7 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
     char dst_path[NAME_MAX] = {
         0,
     };
-    char gfid_link_path[NAME_MAX*2] = {
+    char gfid_link_path[NAME_MAX * 2] = {
         0,
     };
     int unlink_flag = 0;
@@ -683,9 +685,6 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
           fop was not succeeded completly so need to validate gfid and
           heal if it was not linked properly
         */
-        snprintf(tmp_gfid, (dentry_len - UUID_CANONICAL_FORM_LEN),
-                 "%s", dentry->d_name);
-        gf_uuid_parse(tmp_gfid, exp_gfid);
         if (dentry_len == UUID_CANONICAL_FORM_LEN_RENAME) {
             /* Need to follow below steps to heal the gfid link
             1) Read trusted.gfid xattr from linked directory
@@ -696,32 +695,37 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
                before call rename by posix_rename so need to delete tmpgfid
                only
             */
-            snprintf(gfid_link_path, sizeof gfid_link_path, "%s/%s",
-                     dirname, dentry->d_name);
+            snprintf(gfid_link_path, sizeof gfid_link_path, "%s/%s", dirname,
+                     dentry->d_name);
             size = sys_lgetxattr(gfid_link_path, "trusted.gfid", gfid_curr, 16);
             if (size == 16) {
+                snprintf(tmp_gfid, (dentry_len - UUID_CANONICAL_FORM_LEN), "%s",
+                         dentry->d_name);
+                gf_uuid_parse(tmp_gfid, exp_gfid);
                 if (!gf_uuid_compare(gfid_curr, exp_gfid)) {
                     (void)posix_handle_unset(this, exp_gfid, NULL);
                     unlink_flag = 0;
                     index = exp_gfid[0];
-                    snprintf(dst_path, sizeof dst_path, "%02x/%s", exp_gfid[1], uuid_utoa(exp_gfid));
-                    ret = sys_renameat(dirfd(drptr), dentry->d_name, priv->arrdfd[index],
-                                       dst_path);
+                    snprintf(dst_path, sizeof dst_path, "%02x/%s", exp_gfid[1],
+                             uuid_utoa(exp_gfid));
+                    ret = sys_renameat(dirfd(drptr), dentry->d_name,
+                                       priv->arrdfd[index], dst_path);
                     if (ret) {
                         gf_log(this->name, GF_LOG_ERROR,
                                "rename gfid %s src %s to expected gfid path %s"
-                               "is failed", uuid_utoa(exp_gfid),
-                                dentry->d_name, dst_path);
+                               "is failed",
+                               uuid_utoa(exp_gfid), dentry->d_name, dst_path);
                     } else {
                         gf_log(this->name, GF_LOG_INFO,
                                "rename gfid %s src %s to expected gfid path %s "
-                               "is passed", uuid_utoa(exp_gfid),
-                               dentry->d_name, dst_path);
+                               "is passed",
+                               uuid_utoa(exp_gfid), dentry->d_name, dst_path);
                     }
                 } else {
                     gf_log(this->name, GF_LOG_INFO,
                            "rename was not happened during crash so "
-                           "unlink %s path", dentry->d_name);
+                           "unlink %s path",
+                           dentry->d_name);
                 }
             }
         }
@@ -730,8 +734,8 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
             ret = sys_unlinkat(dirfd(drptr), dentry->d_name);
             if (ret) {
                 gf_log(this->name, GF_LOG_INFO,
-                       "Unlink entry %s is failing in directory %s", dentry->d_name,
-                       dirname);
+                       "Unlink entry %s is failing in directory %s",
+                       dentry->d_name, dirname);
             }
         }
     }

@@ -472,7 +472,8 @@ rename_two_path(xlator_t *this, const char *old, const char *new)
 {
     if (sys_rename(old, new)) {
         gf_log(this->name, GF_LOG_ERROR,
-               "rename is failing old_path %s new_path %s", old, new);
+               "rename is failing old_path %s new_path %s error is %s", old,
+               new, strerror(errno));
         return -1;
     }
 
@@ -509,7 +510,6 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     gf_loglevel_t level = GF_LOG_NONE;
     mode_t mode_bit = 0;
     posix_inode_ctx_t *ctx = NULL;
-    char *uuid_str = NULL;
     char gfid_tmp_path[PATH_MAX] = {
         0,
     };
@@ -558,9 +558,9 @@ posix_mknod(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
     strcpy(orig_real_path, real_path);
     if (frame->root->pid != GF_SERVER_PID_TRASH) {
-        uuid_str = uuid_utoa(uuid_req);
         snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/tt/%s",
-                 priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
+                 priv->base_path, GF_HIDDEN_PATH, uuid_req[0],
+                 uuid_utoa(uuid_req));
         real_path = gfid_tmp_path;
         atomic_creation = _gf_true;
     }
@@ -1779,7 +1779,6 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
     char orig_real_path[PATH_MAX] = {
         0,
     };
-    char *uuid_str = NULL;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1819,9 +1818,8 @@ posix_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
         gid = preparent.ia_gid;
     }
 
-    uuid_str = uuid_utoa(uuid_req);
     snprintf(gfid_tmp_path, sizeof(gfid_tmp_path), "%s/%s/%02x/tt/%s",
-             priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_str);
+             priv->base_path, GF_HIDDEN_PATH, uuid_req[0], uuid_utoa(uuid_req));
     real_path = gfid_tmp_path;
 
     op_ret = sys_symlink(linkname, real_path);

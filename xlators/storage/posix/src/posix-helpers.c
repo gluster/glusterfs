@@ -736,7 +736,8 @@ posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
             } else {
                 gf_msg_debug(this->name, 0,
                              "Can not create handle path for path %s "
-                             " because inode is NULL", real_path);
+                             " because inode is NULL",
+                             real_path);
                 goto out;
             }
         }
@@ -745,7 +746,6 @@ posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
 out:
     return ret;
 }
-
 
 /* The inode here is expected to update posix_mdata stored on disk.
  * Don't use it as a general purpose inode and don't expect it to
@@ -786,7 +786,8 @@ again:
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
                        "lstat failed on %s", real_path);
             } else {
-                ret = posix_gfid_heal_inode_is_valid(this, inode, gfid, loc, real_path);
+                ret = posix_gfid_heal_inode_is_valid(this, inode, gfid, loc,
+                                                     real_path);
                 if (!ret)
                     goto again;
             }
