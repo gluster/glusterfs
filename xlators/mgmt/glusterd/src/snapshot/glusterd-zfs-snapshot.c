@@ -471,7 +471,7 @@ glusterd_zfs_snap_clone_brick_path(char *snap_mount_dir,
                                    char *snap_clone_name,
                                    char *snap_clone_volume_id,
                                    char *snap_brick_dir, int brick_num,
-                                   char **snap_brick_path, int restore)
+                                   glusterd_brickinfo_t *brickinfo, int restore)
 {
     int32_t len = 0;
     int ret = 0;
@@ -483,25 +483,24 @@ glusterd_zfs_snap_clone_brick_path(char *snap_mount_dir,
     origin_brick_mount = dirname(origin_brick);
 
     if (clone)
-        len = snprintf(brick_path, sizeof(brick_path), "%s/%s_%d/%s",
+        len = snprintf(brickinfo->path, sizeof(brickinfo->path), "%s/%s_%d/%s",
                        origin_brick_mount, snap_clone_volume_id, brick_num,
                        snap_brick_dir);
     else {
         if (restore)
-            len = snprintf(brick_path, sizeof(brick_path), "%s/%s/brick%d%s",
+            len = snprintf(brickinfo->path, sizeof(brickinfo->path), "%s/%s/brick%d%s",
                            snap_mount_dir, snap_clone_volume_id, brick_num,
                            snap_brick_dir);
         else
-            len = snprintf(brick_path, sizeof(brick_path),
+            len = snprintf(brickinfo->path, sizeof(brickinfo->path),
                            "%s/.zfs/snapshot/%s_%d/%s", origin_brick_mount,
                            snap_clone_volume_id, brick_num, snap_brick_dir);
     }
 
     if ((len < 0) || (len >= sizeof(brick_path))) {
+        brickinfo->path[0] = 0;
         ret = -1;
     }
-
-    *snap_brick_path = brick_path;
 
     if (origin_brick)
         GF_FREE(origin_brick);

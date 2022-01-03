@@ -249,10 +249,8 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             snap_ops->brick_path(snap_mount_dir, brickinfo->origin_path, 0,
                                  snap_volinfo->snapshot->snapname,
                                  snap_volinfo->volname, brickinfo->mount_dir,
-                                 brick_count - 1, &value, 1);
+                                 brick_count - 1, new_brickinfo, 1);
         }
-        if (!ret)
-            gf_strncpy(new_brickinfo->path, value, sizeof(new_brickinfo->path));
 
         snprintf(key, sizeof(key), "snap%d.brick%d.snap_status", volcount,
                  brick_count);
