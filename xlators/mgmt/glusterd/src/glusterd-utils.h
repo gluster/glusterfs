@@ -120,7 +120,7 @@ struct glusterd_snap_ops {
                                 int clone, char *snap_clone_name,
                                 char *snap_clone_volume_id,
                                 char *snap_brick_dir, int brick_num,
-                                char **snap_brick_path, int restore);
+                                glusterd_brickinfo_t *brickinfo, int restore);
 };
 
 extern struct glusterd_snap_ops lvm_snap_ops;

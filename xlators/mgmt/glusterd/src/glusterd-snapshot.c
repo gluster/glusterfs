@@ -4318,7 +4318,6 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
     int keylen;
     char *value = NULL;
     char *snap_brick_dir = NULL;
-    char *snap_brick_path = NULL;
     char clone_uuid[64] = "";
     glusterd_brickinfo_t *snap_brickinfo = NULL;
     gf_boolean_t add_missed_snap = _gf_false;
@@ -4480,17 +4479,17 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
         ret = snap_ops->brick_path(snap_mount_dir, snap_brickinfo->origin_path,
                                    clone, snap_vol->volname, clone_uuid,
                                    snap_brick_dir, brick_count,
-                                   &snap_brick_path, 0);
+                                   snap_brickinfo, 0);
     } else
         ret = snap_ops->brick_path(snap_mount_dir, snap_brickinfo->origin_path,
                                    clone, snap_vol->snapshot->snapname,
                                    snap_vol->volname, snap_brick_dir,
-                                   brick_count, &snap_brick_path, 0);
+                                   brick_count, snap_brickinfo, 0);
 
     if (ret)
         goto out;
 
-    ret = gf_canonicalize_path(snap_brick_path);
+    ret = gf_canonicalize_path(snap_brickinfo->path);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CANONICALIZE_FAIL,
                "Failed to canonicalize path");
@@ -4499,10 +4498,8 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
 
     gf_strncpy(snap_brickinfo->hostname, original_brickinfo->hostname,
                sizeof(snap_brickinfo->hostname));
-    gf_strncpy(snap_brickinfo->path, snap_brick_path,
-               sizeof(snap_brickinfo->path));
 
-    if (!realpath(snap_brick_path, abspath)) {
+    if (!realpath(snap_brickinfo->path, abspath)) {
         /* ENOENT indicates that brick path has not been created which
          * is a valid scenario */
         if (errno != ENOENT) {
@@ -4511,7 +4508,7 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
                    "realpath () "
                    "failed for brick %s. The underlying filesystem"
                    " may be in bad state",
-                   snap_brick_path);
+                   snap_brickinfo->path);
             ret = -1;
             goto out;
         }
