@@ -552,31 +552,30 @@ glusterd_lvm_brick_details(dict_t *rsp_dict,
         if (ptr == NULL)
             break;
         token = strtok(buf, ":");
-        if (token != NULL) {
-            while (token && token[0] == ' ')
-                token++;
-            if (!token) {
-                ret = -1;
-                gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                       "Invalid vg entry");
-                goto end;
-            }
-            value = gf_strdup(token);
-            if (!value) {
-                ret = -1;
-                goto end;
-            }
-            ret = snprintf(key, sizeof(key), "%s.vgname", key_prefix);
-            if (ret < 0) {
-                goto end;
-            }
 
-            ret = dict_set_dynstr(rsp_dict, key, value);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                       "Could not save vgname ");
-                goto end;
-            }
+        while (token && token[0] == ' ')
+            token++;
+        if (!token) {
+            ret = -1;
+            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
+                    "Invalid vg entry");
+            goto end;
+        }
+        value = gf_strdup(token);
+        if (!value) {
+            ret = -1;
+            goto end;
+        }
+        ret = snprintf(key, sizeof(key), "%s.vgname", key_prefix);
+        if (ret < 0) {
+            goto end;
+        }
+
+        ret = dict_set_dynstr(rsp_dict, key, value);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                    "Could not save vgname ");
+            goto end;
         }
 
         token = strtok(NULL, ":");
