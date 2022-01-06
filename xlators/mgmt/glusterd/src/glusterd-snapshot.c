@@ -4478,8 +4478,8 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
         GLUSTERD_GET_UUID_NOHYPHEN(clone_uuid, snap_vol->volume_id);
         ret = snap_ops->brick_path(snap_mount_dir, snap_brickinfo->origin_path,
                                    clone, snap_vol->volname, clone_uuid,
-                                   snap_brick_dir, brick_count,
-                                   snap_brickinfo, 0);
+                                   snap_brick_dir, brick_count, snap_brickinfo,
+                                   0);
     } else
         ret = snap_ops->brick_path(snap_mount_dir, snap_brickinfo->origin_path,
                                    clone, snap_vol->snapshot->snapname,
@@ -4844,7 +4844,8 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
                    "snap_plugin");
             goto out;
         }
-        gf_strncpy(snap_vol->snap_plugin, snap_plugin, sizeof(snap_vol->snap_plugin));
+        gf_strncpy(snap_vol->snap_plugin, snap_plugin,
+                   sizeof(snap_vol->snap_plugin));
     }
     /* To use generic functions from the plugin */
     glusterd_snapshot_plugin_by_name(snap_vol->snap_plugin, &snap_ops);
@@ -8294,9 +8295,6 @@ glusterd_snapshot_revert_partial_restored_vol(glusterd_volinfo_t *volinfo)
         }
     }
 
-    /* Since we retrieved the volinfo from store now we don't
-     * want the older volinfo. Therefore delete the older volinfo */
-    glusterd_volinfo_unref(volinfo);
     ret = 0;
 out:
     return ret;
@@ -8343,6 +8341,11 @@ glusterd_snapshot_revert_restore_from_snap(glusterd_snap_t *snap)
                volname);
         goto out;
     }
+
+    /* The above function retrieves the volinfo from store now we don't
+     * want the older volinfo. Therefore delete the older volinfo */
+    glusterd_volinfo_unref(volinfo);
+
 out:
     return ret;
 }
@@ -8468,12 +8471,6 @@ glusterd_snapshot_restore_postop(dict_t *dict, int32_t op_ret, char **op_errstr,
         /* After restore fails, we have to remove mount point for
          * deactivated snaps which was created at start of restore op.
          */
-        if (!volinfo) {
-            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOLINFO_GET_FAIL,
-                   "Unable to fetch volinfo");
-            ret = -1;
-            goto out;
-        }
 
         if (volinfo->status == GLUSTERD_STATUS_STOPPED) {
             ret = glusterd_snap_unmount(this, volinfo);
@@ -8482,6 +8479,11 @@ glusterd_snapshot_restore_postop(dict_t *dict, int32_t op_ret, char **op_errstr,
                        "Failed to unmounts for %s", snap->snapname);
             }
         }
+
+        /* The function glusterd_snapshot_revert_partial_restored_vol()
+         * retrieves the volinfo from store now we don't want the older
+         * volinfo. Therefore delete the older volinfo */
+        glusterd_volinfo_unref(volinfo);
     }
 
     ret = 0;
