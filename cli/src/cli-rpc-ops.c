@@ -917,9 +917,9 @@ xml_output:
             type, brick_count, dist_count, stripe_count, replica_count,
             disperse_count, redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s",
-                ((transport == 0) ? "tcp"
-                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
+        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
+                                       : (transport == 1) ? "rdma"
+                                                          : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -6120,7 +6120,7 @@ cli_print_volume_status_mem(dict_t *dict, gf_boolean_t notbrick)
     int brick_index_max = -1;
     int other_count = 0;
     int index_max = 0;
-    int val = 0;
+    uint64_t val = 0;
     int i = 0;
 
     GF_ASSERT(dict);
@@ -6170,64 +6170,64 @@ cli_print_volume_status_mem(dict_t *dict, gf_boolean_t notbrick)
         cli_out("Mallinfo\n--------");
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.arena", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Arena", val);
+        cli_out("%-8s : %" PRIu64, "Arena", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.ordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Ordblks", val);
+        cli_out("%-8s : %" PRIu64, "Ordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.smblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Smblks", val);
+        cli_out("%-8s : %" PRIu64, "Smblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.hblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Hblks", val);
+        cli_out("%-8s : %" PRIu64, "Hblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.hblkhd", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Hblkhd", val);
+        cli_out("%-8s : %" PRIu64, "Hblkhd", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.usmblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Usmblks", val);
+        cli_out("%-8s : %" PRIu64, "Usmblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.fsmblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Fsmblks", val);
+        cli_out("%-8s : %" PRIu64, "Fsmblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.uordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Uordblks", val);
+        cli_out("%-8s : %" PRIu64, "Uordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.fordblks", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Fordblks", val);
+        cli_out("%-8s : %" PRIu64, "Fordblks", val);
 
         snprintf(key, sizeof(key), "brick%d.mallinfo.keepcost", i);
-        ret = dict_get_int32(dict, key, &val);
+        ret = dict_get_uint64(dict, key, &val);
         if (ret)
             goto out;
-        cli_out("%-8s : %d", "Keepcost", val);
+        cli_out("%-8s : %" PRIu64, "Keepcost", val);
 
         cli_out(" ");
         snprintf(key, sizeof(key), "brick%d", i);
