@@ -7,11 +7,9 @@ CLI_SETGFID2PATH="gluster-setgfid2path";
 
 cleanup;
 
-XXHSUM_SOURCE="$(dirname $0)/../../contrib/xxhash/xxhsum.c $(dirname $0)/../../contrib/xxhash/xxhash.c"
-XXHSUM_EXEC=$(dirname $0)/xxhsum
+# xxhash package is downloaded and installed separately during vagrant setup
+XXHSUM_EXEC=/usr/bin/xxhsum
 
-## Build xxhsum C source
-build_tester $XXHSUM_SOURCE -o $XXHSUM_EXEC -I$(dirname $0)/../../contrib/xxhash
 TEST [ -e $XXHSUM_EXEC ]
 
 TEST glusterd

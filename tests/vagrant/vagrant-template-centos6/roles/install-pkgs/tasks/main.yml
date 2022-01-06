@@ -77,6 +77,7 @@
     - which
     - xfsprogs
     - yajl-devel
+    - xxhash
 
 - name: install dev help packages, not required by Gluster
   yum:  name={{ item }} state=present

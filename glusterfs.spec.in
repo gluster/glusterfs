@@ -279,6 +279,7 @@ BuildRequires:    ncurses-devel readline-devel
 BuildRequires:    libxml2-devel openssl-devel
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
+BuildRequires:    xxhash-devel
 %if ( 0%{!?_without_tcmalloc:1} )
 BuildRequires:    gperftools-devel
 %endif
@@ -1663,6 +1664,9 @@ exit 0
 %endif
 
 %changelog
+* Thu Jan 6 2022 Sachidananda Urs <sacchi@gmail.com>
+- Add xxhash-devel as a requirement
+
 * Mon Nov 1 2021 Kaleb S. KEITHLEY <kkeithle [at] redhat.com>
 - tcmalloc issues
 

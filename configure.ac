@@ -587,6 +587,8 @@ AC_CHECK_HEADERS([openssl/ecdh.h])
 
 AC_CHECK_LIB([ssl], [SSL_CTX_get0_param], [AC_DEFINE([HAVE_SSL_CTX_GET0_PARAM], [1], [define if found OpenSSL SSL_CTX_get0_param])])
 
+AC_CHECK_LIB([xxhash], [XXH_versionNumber], , AC_MSG_ERROR([xxhash library is required to build glusterfs]))
+
 dnl Math library
 AC_CHECK_LIB([m], [pow], [MATH_LIB='-lm'], [MATH_LIB=''])
 AC_SUBST(MATH_LIB)

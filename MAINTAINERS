@@ -293,14 +293,6 @@ P: Shyamsundar Ranganathan <srangana@redhat.com>
 S: Maintained
 F: libglusterfs/
 
-xxhash
-M: Aravinda Vishwanathapura <aravinda@kadalu.io>
-M: Kotresh HR <khiremat@redhat.com>
-P: Yaniv Kaul <ykaul@redhat.com>
-S: Maintained
-F: contrib/xxhash/
-T: https://github.com/Cyan4973/xxHash.git
-
 Management Daemon - glusterd
 M: Atin Mukherjee <amukherj@redhat.com>
 M: Mohit Agrawal <moagrawa@redhat.com>

@@ -6,11 +6,10 @@ libglusterfs_la_CFLAGS = $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-DXLATORPARENTDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)\" \
-	-DXXH_NAMESPACE=GF_ -D__USE_LARGEFILE64 \
 	-I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel \
-	-I$(CONTRIBDIR)/xxhash
+	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
+
 
 libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) $(LIB_DL) \
 	$(URCU_LIBS) $(URCU_CDS_LIBS)
@@ -36,7 +35,6 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c \
-	$(CONTRIBDIR)/xxhash/xxhash.c \
 	throttle-tbf.c monitoring.c async.c gf-io.c gf-io-common.c gf-io-legacy.c
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
@@ -88,7 +86,6 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.h \
-	$(CONTRIBDIR)/xxhash/xxhash.h \
 	$(CONTRIBDIR)/userspace-rcu/wfcqueue.h \
 	$(CONTRIBDIR)/userspace-rcu/wfstack.h \
 	$(CONTRIBDIR)/userspace-rcu/static-wfcqueue.h \
