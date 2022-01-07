@@ -5342,7 +5342,7 @@ glusterd_get_global_server_quorum_ratio(dict_t *opts, double *quorum)
     ret = dict_get_strn(opts, GLUSTERD_QUORUM_RATIO_KEY,
                         SLEN(GLUSTERD_QUORUM_RATIO_KEY), &quorum_str);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GLUSTERD_QUORUM_RATIO_KEY, NULL);
         goto out;
     }
