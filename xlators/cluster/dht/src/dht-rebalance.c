@@ -990,6 +990,46 @@ out:
     return ret;
 }
 
+static int32_t
+dht_rebalance_sparse_segment(xlator_t *subvol, fd_t *fd, off_t *offset,
+                             size_t *size)
+{
+    off_t hole;
+    int32_t ret;
+
+    do {
+        ret = syncop_seek(subvol, fd, *offset, GF_SEEK_DATA, NULL, offset);
+        if (ret >= 0) {
+            /* Starting at the offset of the last data segment, find the
+             * next hole. After a data segment there should always be a
+             * hole, since EOF is considered a hole. */
+            ret = syncop_seek(subvol, fd, *offset, GF_SEEK_HOLE, NULL, &hole);
+        }
+
+        if (ret < 0) {
+            if (ret == -ENXIO) {
+                /* This can happen if there are no more data segments (i.e.
+                 * the offset is at EOF), or there was a data segment but the
+                 * file has been truncated to a smaller size between both
+                 * seek requests. In both cases we are done. The file doesn't
+                 * contain more data. */
+                ret = 0;
+            }
+            return ret;
+        }
+
+        /* It could happen that at the same offset we detected data in the
+         * first seek, there could be a hole in the second seek if user is
+         * modifying the file concurrently. In this case we need to find a
+         * new data segment to migrate. */
+    } while (hole <= *offset);
+
+    /* Calculate the total size of the current data block */
+    *size = hole - *offset;
+
+    return 1;
+}
+
 static int
 __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
                              xlator_t *from, xlator_t *to, fd_t *src, fd_t *dst,
@@ -998,8 +1038,6 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
     int ret = 0;
     int count = 0;
     off_t offset = 0;
-    off_t data_offset = 0;
-    off_t hole_offset = 0;
     struct iovec *vector = NULL;
     struct iobref *iobref = NULL;
     uint64_t total = 0;
@@ -1014,70 +1052,35 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
     while (total < ia_size) {
         /* This is a regular file - read it sequentially */
         if (!hole_exists) {
-            read_size = (((ia_size - total) > DHT_REBALANCE_BLKSIZE)
-                             ? DHT_REBALANCE_BLKSIZE
-                             : (ia_size - total));
+            data_block_size = ia_size - total;
         } else {
             /* This is a sparse file - read only the data segments in the file
              */
 
             /* If the previous data block is fully copied, find the next data
-             * segment
-             * starting at the offset of the last read and written byte,  */
+             * segment starting at the offset of the last read and written
+             * byte. */
             if (data_block_size <= 0) {
-                ret = syncop_seek(from, src, offset, GF_SEEK_DATA, NULL,
-                                  &data_offset);
-                if (ret) {
-                    if (ret == -ENXIO)
-                        ret = 0; /* No more data segments */
-                    else
-                        *fop_errno = -ret; /* Error occurred */
-
+                ret = dht_rebalance_sparse_segment(from, src, &offset,
+                                                   &data_block_size);
+                if (ret <= 0) {
+                    *fop_errno = -ret;
                     break;
                 }
-
-                /* If the position of the current data segment is greater than
-                 * the position of the next hole, find the next hole in order to
-                 * calculate the length of the new data segment */
-                if (data_offset > hole_offset) {
-                    /* Starting at the offset of the last data segment, find the
-                     * next hole */
-                    ret = syncop_seek(from, src, data_offset, GF_SEEK_HOLE,
-                                      NULL, &hole_offset);
-                    if (ret) {
-                        /* If an error occurred here it's a real error because
-                         * if the seek for a data segment was successful then
-                         * necessarily another hole must exist (EOF is a hole)
-                         */
-                        *fop_errno = -ret;
-                        break;
-                    }
-
-                    /* Calculate the total size of the current data block */
-                    data_block_size = hole_offset - data_offset;
-                }
-            } else {
-                /* There is still data in the current segment, move the
-                 * data_offset to the position of the last written byte */
-                data_offset = offset;
             }
-
-            /* Calculate how much data needs to be read and written. If the data
-             * segment's length is bigger than DHT_REBALANCE_BLKSIZE, read and
-             * write DHT_REBALANCE_BLKSIZE data length and the rest in the
-             * next iteration(s) */
-            read_size = ((data_block_size > DHT_REBALANCE_BLKSIZE)
-                             ? DHT_REBALANCE_BLKSIZE
-                             : data_block_size);
-
-            /* Calculate the remaining size of the data block - maybe there's no
-             * need to seek for data in the next iteration */
-            data_block_size -= read_size;
-
-            /* Set offset to the offset of the data segment so read and write
-             * will have the correct position */
-            offset = data_offset;
         }
+
+        /* Calculate how much data needs to be read and written. If the data
+         * segment's length is bigger than DHT_REBALANCE_BLKSIZE, read and
+         * write DHT_REBALANCE_BLKSIZE data length and the rest in the
+         * next iteration(s) */
+        read_size = ((data_block_size > DHT_REBALANCE_BLKSIZE)
+                         ? DHT_REBALANCE_BLKSIZE
+                         : data_block_size);
+
+        /* Calculate the remaining size of the data block - maybe there's no
+         * need to seek for data in the next iteration */
+        data_block_size -= read_size;
 
         ret = syncop_readv(from, src, read_size, offset, 0, &vector, &count,
                            &iobref, NULL, NULL, NULL);
@@ -1141,6 +1144,7 @@ __dht_rebalance_migrate_data(xlator_t *this, gf_defrag_info_t *defrag,
         iobref = NULL;
         vector = NULL;
     }
+
     if (iobref)
         iobref_unref(iobref);
     GF_FREE(vector);
