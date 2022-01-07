@@ -1485,15 +1485,28 @@ init(xlator_t *this)
     if (len < 0 || len >= PATH_MAX)
         exit(2);
 
-    dir_data = dict_get(this->options, "cluster-test-mode");
+    dir_data = dict_get(this->options, "logging-directory");
     if (!dir_data) {
-        /* Use default working dir */
-        len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
-                       DEFAULT_LOG_FILE_DIRECTORY);
+        // Check for deprecated 'cluster-test-mode' option
+        dir_data = dict_get(this->options, "cluster-test-mode");
+        if (dir_data) {
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           dir_data->data);
+            gf_msg(
+                this->name, GF_LOG_WARNING, 0, GD_MSG_CLUSTER_RC_ENABLE,
+                "gluster log directory is set to %s. The option "
+                "'cluster-test-mode' is deprecated and will be removed soon. "
+                "Please use the new option 'logging-directory' instead.",
+                dir_data->data);
+        } else {
+            /* Use default working dir */
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           DEFAULT_LOG_FILE_DIRECTORY);
+        }
     } else {
         len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s", dir_data->data);
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLUSTER_RC_ENABLE,
-               "cluster-test-mode is enabled logdir is %s", dir_data->data);
+               "gluster log directory is set to %s", dir_data->data);
     }
     if (len < 0 || len >= PATH_MAX)
         exit(2);
