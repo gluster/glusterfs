@@ -97,7 +97,6 @@ glusterd_validate_quorum(xlator_t *this, glusterd_op_t op, dict_t *dict,
 
     ret = glusterd_volinfo_find(volname, &volinfo);
     if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_VOLINFO_GET_FAIL, NULL);
         ret = 0;
         goto out;
     }
@@ -254,7 +253,7 @@ glusterd_is_volume_in_server_quorum(glusterd_volinfo_t *volinfo)
 
     ret = dict_get_str(volinfo->dict, GLUSTERD_QUORUM_TYPE_KEY, &quorum_type);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(THIS->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", GLUSTERD_QUORUM_TYPE_KEY, NULL);
         goto out;
     }
