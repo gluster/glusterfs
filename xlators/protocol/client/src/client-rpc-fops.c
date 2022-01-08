@@ -299,7 +299,6 @@ client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
     fdctx->reopen_done = client_default_reopen_done;
 
     INIT_LIST_HEAD(&fdctx->sfd_pos);
-    INIT_LIST_HEAD(&fdctx->lock_list);
 
     pthread_spin_lock(&conf->fd_lock);
     {
@@ -789,7 +788,6 @@ client3_3_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
                     void *myframe)
 {
     call_frame_t *frame = NULL;
-    clnt_local_t *local = NULL;
     xlator_t *this = NULL;
     dict_t *xdata = NULL;
 
@@ -800,7 +798,6 @@ client3_3_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     frame = myframe;
     this = THIS;
-    local = frame->local;
 
     if (-1 == req->rpc_status) {
         rsp.op_ret = -1;
@@ -814,14 +811,6 @@ client3_3_flush_cbk(struct rpc_req *req, struct iovec *iov, int count,
         rsp.op_ret = -1;
         rsp.op_errno = EINVAL;
         goto out;
-    }
-
-    if ((rsp.op_ret >= 0 || (rsp.op_errno == ENOTCONN)) &&
-        !fd_is_anonymous(local->fd)) {
-        /* Delete all saved locks of the owner issuing flush */
-        ret = delete_granted_locks_owner(local->fd, &local->owner);
-        gf_msg_trace(this->name, 0, "deleting locks of owner (%s) returned %d",
-                     lkowner_utoa(&local->owner), ret);
     }
 
     ret = client_post_flush(this, &rsp, &xdata);
@@ -2393,18 +2382,6 @@ client3_3_lk_cbk(struct rpc_req *req, struct iovec *iov, int count,
         ret = client_post_lk(this, &rsp, &lock, &xdata);
         if (ret < 0)
             goto out;
-
-        /* Save the lock to the client lock cache to be able
-           to recover in the case of server reboot.*/
-
-        if (client_is_setlk(local->cmd)) {
-            ret = client_add_lock_for_recovery(local->fd, &lock, &local->owner,
-                                               local->cmd);
-            if (ret < 0) {
-                rsp.op_ret = -1;
-                rsp.op_errno = -ret;
-            }
-        }
     }
 
     if (local->check_reopen) {
@@ -4162,12 +4139,6 @@ client3_3_flush(call_frame_t *frame, xlator_t *this, void *data)
     ret = client_pre_flush(this, &req, args->fd, args->xdata);
     if (ret) {
         op_errno = -ret;
-        if (op_errno == EBADF) {
-            ret = delete_granted_locks_owner(local->fd, &local->owner);
-            gf_msg_trace(this->name, 0,
-                         "deleting locks of owner (%s) returned %d",
-                         lkowner_utoa(&local->owner), ret);
-        }
 
         goto unwind;
     }
@@ -4667,30 +4638,6 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    if (args && args->name) {
-        if (is_client_dump_locks_cmd((char *)args->name)) {
-            dict = dict_new();
-
-            if (!dict) {
-                op_errno = ENOMEM;
-                goto unwind;
-            }
-
-            ret = client_dump_locks((char *)args->name, args->loc->inode, dict);
-            if (ret) {
-                gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
-                        PC_MSG_CLIENT_DUMP_LOCKS_FAILED, NULL);
-                op_errno = ENOMEM;
-                goto unwind;
-            }
-
-            GF_ASSERT(dict);
-            op_ret = 0;
-            op_errno = 0;
-            goto unwind;
-        }
-    }
-
     ret = client_pre_getxattr(this, &req, args->loc, args->name, args->xdata);
     if (ret) {
         op_errno = -ret;
@@ -5098,8 +5045,7 @@ client3_3_lk(call_frame_t *frame, xlator_t *this, void *data)
 
         if ((op_errno == EBADF) && (args->flock->l_type == F_UNLCK) &&
             client_is_setlk(local->cmd)) {
-            client_add_lock_for_recovery(local->fd, args->flock, &local->owner,
-                                         local->cmd);
+            /*Let it pass*/
         } else if (local->check_reopen) {
             xdata = dict_new();
             if (xdata == NULL) {

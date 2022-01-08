@@ -15,15 +15,6 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/common-utils.h>
 
-gf_boolean_t
-fdctx_lock_lists_empty(clnt_fd_ctx_t *fdctx)
-{
-    if (list_empty(&fdctx->lock_list) && fd_lk_ctx_empty(fdctx->lk_ctx))
-        return _gf_true;
-
-    return _gf_false;
-}
-
 int
 client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t try_lock)
 {
@@ -444,7 +435,7 @@ client_get_remote_fd(xlator_t *this, fd_t *fd, int flags, int64_t *remote_fd,
                 *remote_fd = fdctx->remote_fd;
             }
 
-            locks_involved = !fdctx_lock_lists_empty(fdctx);
+            locks_involved = !fd_lk_ctx_empty(fdctx->lk_ctx);
         }
     }
     pthread_spin_unlock(&conf->fd_lock);
@@ -869,14 +860,11 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     int32_t ret = -1;
     char parent_down = 0;
     fd_lk_ctx_t *lk_ctx = NULL;
-    gf_lkowner_t null_owner;
-    struct list_head deleted_list;
 
     GF_VALIDATE_OR_GOTO("client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fdctx, out);
 
     conf = (clnt_conf_t *)this->private;
-    INIT_LIST_HEAD(&deleted_list);
 
     if (fdctx->remote_fd == -1) {
         gf_msg_debug(this->name, 0, "not a valid fd");
@@ -890,14 +878,6 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
     pthread_mutex_unlock(&conf->lock);
     lk_ctx = fdctx->lk_ctx;
     fdctx->lk_ctx = NULL;
-    null_owner.len = 0; /* pass null owner to function */
-    pthread_spin_lock(&conf->fd_lock);
-    {
-        __delete_granted_locks_owner_from_fdctx(fdctx, &null_owner,
-                                                &deleted_list);
-    }
-    pthread_spin_unlock(&conf->fd_lock);
-    destroy_client_locks_from_list(&deleted_list);
 
     if (lk_ctx)
         fd_lk_ctx_unref(lk_ctx);

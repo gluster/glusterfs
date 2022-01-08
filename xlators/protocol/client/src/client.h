@@ -174,22 +174,8 @@ typedef struct _client_fd_ctx {
     fd_lk_ctx_t *lk_ctx;
     uuid_t gfid;
     void (*reopen_done)(struct _client_fd_ctx *, int64_t rfd, xlator_t *);
-    struct list_head lock_list; /* List of all granted locks on this fd */
     int32_t reopen_attempts;
 } clnt_fd_ctx_t;
-
-typedef struct _client_posix_lock {
-    fd_t *fd; /* The fd on which the lk operation was made */
-
-    struct gf_flock user_flock; /* the flock supplied by the user */
-    off_t fl_start;
-    off_t fl_end;
-    short fl_type;
-    int32_t cmd;        /* the cmd for the lock call */
-    gf_lkowner_t owner; /* lock owner from fuse */
-    struct list_head
-        list; /* reference used to add to the fdctx list of locks */
-} client_posix_lock_t;
 
 typedef struct client_local {
     loc_t loc;
@@ -200,7 +186,6 @@ typedef struct client_local {
     uint32_t flags;
     struct iobref *iobref;
 
-    client_posix_lock_t *client_lock;
     gf_lkowner_t owner;
     int32_t cmd;
     int32_t check_reopen;
@@ -306,26 +291,6 @@ clnt_readdir_rsp_cleanup(gfs3_readdir_rsp *rsp);
 int
 clnt_readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp);
 int
-client_attempt_lock_recovery(xlator_t *this, clnt_fd_ctx_t *fdctx);
-int32_t
-delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner);
-void
-__delete_granted_locks_owner_from_fdctx(clnt_fd_ctx_t *fdctx,
-                                        gf_lkowner_t *owner,
-                                        struct list_head *deleted);
-void
-destroy_client_locks_from_list(struct list_head *deleted);
-int32_t
-client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
-void
-client_save_number_fds(clnt_conf_t *conf, int count);
-int
-dump_client_locks(inode_t *inode);
-int32_t
-is_client_dump_locks_cmd(char *name);
-int32_t
-client_dump_locks(char *name, inode_t *inode, dict_t *dict);
-int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
 
 int
@@ -399,7 +364,6 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
 int
 client_is_setlk(int32_t cmd);
 
-gf_boolean_t
-fdctx_lock_lists_empty(clnt_fd_ctx_t *fdctx);
-
+int32_t
+client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
 #endif /* !_CLIENT_H */
