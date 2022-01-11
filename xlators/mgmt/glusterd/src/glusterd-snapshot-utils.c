@@ -233,7 +233,7 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             goto out;
         }
 
-        /* Fetch values if present in dict These values won't
+        /* Fetch values if present in dict. These values won't
          * be present in case of a missed restore. In that case
          * it's fine to use the local node's value
          */
@@ -241,6 +241,9 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             snprintf(key, sizeof(key), "snap%d.brick%d.origin_path", volcount,
                      brick_count);
             ret = dict_get_str(dict, key, &value);
+            if (!ret)
+                gf_strncpy(new_brickinfo->path, value,
+                           sizeof(new_brickinfo->path));
         } else {
             /* To use generic functions from the plugin */
             glusterd_snapshot_plugin_by_name(snap_volinfo->snap_plugin,
