@@ -9,8 +9,11 @@ libglusterfs_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
 	-DXXH_NAMESPACE=GF_ -D__USE_LARGEFILE64 \
 	-I$(CONTRIBDIR)/rbtree \
 	-I$(CONTRIBDIR)/libexecinfo ${ARGP_STANDALONE_CPPFLAGS} \
-	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel \
-	-I$(CONTRIBDIR)/xxhash
+	-DSBIN_DIR=\"$(sbindir)\" -I$(CONTRIBDIR)/timer-wheel
+
+if !HAVE_LIBXXHASH
+libglusterfs_la_CPPFLAGS += -I$(CONTRIBDIR)/xxhash
+endif
 
 libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) $(LIB_DL) \
 	$(URCU_LIBS) $(URCU_CDS_LIBS)
@@ -36,8 +39,11 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	$(CONTRIBDIR)/libexecinfo/execinfo.c quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
 	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c \
-	$(CONTRIBDIR)/xxhash/xxhash.c \
 	throttle-tbf.c monitoring.c async.c gf-io.c gf-io-common.c gf-io-legacy.c
+
+if !HAVE_LIBXXHASH
+libglusterfs_la_SOURCES += $(CONTRIBDIR)/xxhash/xxhash.c
+endif
 
 nodist_libglusterfs_la_SOURCES = y.tab.c graph.lex.c defaults.c
 nodist_libglusterfs_la_HEADERS = y.tab.h
@@ -88,11 +94,14 @@ noinst_HEADERS = unittest/unittest.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h \
 	$(CONTRIBDIR)/libexecinfo/execinfo_compat.h \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.h \
-	$(CONTRIBDIR)/xxhash/xxhash.h \
 	$(CONTRIBDIR)/userspace-rcu/wfcqueue.h \
 	$(CONTRIBDIR)/userspace-rcu/wfstack.h \
 	$(CONTRIBDIR)/userspace-rcu/static-wfcqueue.h \
 	$(CONTRIBDIR)/userspace-rcu/static-wfstack.h
+
+if !HAVE_LIBXXHASH
+noinst_HEADERS += $(CONTRIBDIR)/xxhash/xxhash.h
+endif
 
 eventtypes.h: $(top_srcdir)/events/eventskeygen.py
 	$(PYTHON) $(top_srcdir)/events/eventskeygen.py C_HEADER
