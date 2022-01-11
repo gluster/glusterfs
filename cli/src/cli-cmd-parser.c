@@ -21,9 +21,6 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 
-#include "protocol-common.h"
-#include "cli1-xdr.h"
-
 #define MAX_SNAP_DESCRIPTION_LEN 1024
 
 static struct snap_config_opt_vals_ snap_confopt_vals[] = {

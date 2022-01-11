@@ -11,15 +11,11 @@
 #ifndef __QUICK_READ_H
 #define __QUICK_READ_H
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/common-utils.h>
-#include <glusterfs/call-stub.h>
 #include <glusterfs/defaults.h>
 #include <libgen.h>
 #include <sys/time.h>

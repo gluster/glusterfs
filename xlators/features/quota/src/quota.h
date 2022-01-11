@@ -12,7 +12,6 @@
 
 #include <glusterfs/call-stub.h>
 #include "quota-mem-types.h"
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
@@ -20,7 +19,6 @@
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
 #include "glusterfs3.h"
-#include "xdr-generic.h"
 #include <glusterfs/compat-errno.h>
 #include "protocol-common.h"
 #include <glusterfs/quota-common-utils.h>

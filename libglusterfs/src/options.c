@@ -10,7 +10,6 @@
 
 #include <fnmatch.h>
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
 #include "glusterfs/libglusterfs-messages.h"
 

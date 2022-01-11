@@ -17,8 +17,6 @@
 #ifndef __TIMER_WHEEL_H
 #define __TIMER_WHEEL_H
 
-#include "glusterfs/locking.h"
-
 #include "glusterfs/list.h"
 
 #define TVR_BITS  8

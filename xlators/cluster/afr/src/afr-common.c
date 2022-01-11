@@ -15,14 +15,10 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/hashfn.h>
 #include <glusterfs/list.h>
-#include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/statedump.h>

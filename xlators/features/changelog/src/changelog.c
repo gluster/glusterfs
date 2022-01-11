@@ -8,8 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/iobuf.h>

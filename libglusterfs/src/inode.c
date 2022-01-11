@@ -9,7 +9,6 @@
 */
 
 #include "glusterfs/inode.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/statedump.h"
 #include <pthread.h>
 #include <sys/types.h>

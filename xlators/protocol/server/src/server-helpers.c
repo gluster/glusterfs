@@ -10,10 +10,8 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include <glusterfs/gidcache.h>
 #include "server-messages.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/default-args.h>
 #include "server-common.h"
 

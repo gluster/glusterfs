@@ -15,8 +15,6 @@
 #include <glusterfs/compat-errno.h>
 #include "afr-mem-types.h"
 
-#include "libxlator.h"
-#include <glusterfs/timer.h>
 #include <glusterfs/syncop.h>
 
 #include "afr-self-heald.h"

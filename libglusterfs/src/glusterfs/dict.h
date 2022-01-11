@@ -12,7 +12,6 @@
 #define _DICT_H
 
 #include <inttypes.h>
-#include <sys/uio.h>
 #include <pthread.h>
 
 #include "glusterfs/common-utils.h"

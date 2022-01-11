@@ -12,7 +12,6 @@
 #define __CHANGELOG_EV_HANDLE_H
 
 #include <glusterfs/list.h>
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 
 #include <glusterfs/rot-buffs.h>

@@ -15,7 +15,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include "glusterfs/glusterfs.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/fd-lk.h"
 
 #define GF_ANON_FD_NO -2

@@ -11,6 +11,8 @@
 #ifndef _PROTOCOL_COMMON_H
 #define _PROTOCOL_COMMON_H
 
+#include <glusterfs/compat.h>
+
 enum gf_fop_procnum {
     GFS3_OP_NULL, /* 0 */
     GFS3_OP_STAT,

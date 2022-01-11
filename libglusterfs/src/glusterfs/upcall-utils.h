@@ -14,6 +14,7 @@
 #include "glusterfs/iatt.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/compat.h"
+#include <glusterfs/dict.h>
 
 /* Flags sent for cache_invalidation */
 #define UP_NLINK 0x00000001 /* update nlink */

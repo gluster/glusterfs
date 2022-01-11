@@ -9,9 +9,7 @@
 */
 
 #include "portmap-xdr.h"
-#include "protocol-common.h"
 #include "rpc-clnt.h"
-#include "xdr-generic.h"
 
 /* Defining a minimal RPC client program for portmap signout
  */

@@ -23,9 +23,7 @@
 #include <string.h>
 
 #include <glusterfs/globals.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 
 #include "gf-changelog-rpc.h"

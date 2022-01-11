@@ -9,10 +9,8 @@
 */
 
 #include <stdarg.h>
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/statedump.h"
-#include "glusterfs/stack.h"
 #include "glusterfs/syscall.h"
 
 #ifdef HAVE_MALLOC_H

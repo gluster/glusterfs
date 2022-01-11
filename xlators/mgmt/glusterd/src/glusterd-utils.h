@@ -13,15 +13,6 @@
 #include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
-#include "glusterd.h"
-#include "rpc-clnt.h"
-#include "protocol-common.h"
-
-#include "glusterfs4-xdr.h"
 #include "glusterd-peer-utils.h"
 
 #define GLUSTERD_SOCK_DIR "/var/run/gluster"

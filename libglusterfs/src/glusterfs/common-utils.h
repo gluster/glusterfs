@@ -12,14 +12,11 @@
 #define _COMMON_UTILS_H
 
 #include <stdint.h>
-#include <sys/uio.h>
-#include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
 #include <unistd.h>
-#include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif

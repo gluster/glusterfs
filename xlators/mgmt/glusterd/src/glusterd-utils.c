@@ -20,14 +20,11 @@
 #include <libxml/xmlwriter.h>
 #endif
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include "glusterd-messages.h"
 #include <glusterfs/timer.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/run.h>
@@ -62,7 +59,6 @@
 #include <glusterfs/common-utils.h>
 #include "glusterd-shd-svc-helper.h"
 
-#include "xdr-generic.h"
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <signal.h>

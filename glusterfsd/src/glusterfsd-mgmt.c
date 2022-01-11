@@ -10,17 +10,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/monitoring.h>
-
+#include "glusterd1-xdr.h"
 #include "rpc-clnt.h"
 #include "glusterfsd-messages.h"
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
 #include "glusterfsd.h"
-#include "rpcsvc.h"
 #include "cli1-xdr.h"
 #include "server.h"
 

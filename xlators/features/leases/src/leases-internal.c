@@ -13,6 +13,7 @@
 #include "config.h"
 #endif
 
+#include <glusterfs/upcall-utils.h>
 #include "leases.h"
 
 /* Mutex locks used in this xlator and their order of acquisition:

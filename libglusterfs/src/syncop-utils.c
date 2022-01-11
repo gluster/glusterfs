@@ -10,7 +10,6 @@
 
 #include "glusterfs/syncop.h"
 #include "glusterfs/syncop-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 struct syncop_dir_scan_data {

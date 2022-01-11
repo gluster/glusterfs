@@ -10,20 +10,14 @@
 #ifndef __BIT_ROT_STUB_H__
 #define __BIT_ROT_STUB_H__
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/call-stub.h>
 #include "bit-rot-stub-mem-types.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/common-utils.h>
 #include "bit-rot-common.h"
 #include "bit-rot-stub-messages.h"
 #include "glusterfs4-xdr.h"
-#include <glusterfs/syncop.h>
-#include <glusterfs/syncop-utils.h>
 
 #define BAD_OBJECT_THREAD_STACK_SIZE ((size_t)(1024 * 1024))
 #define BR_STUB_DUMP_STR_SIZE 65536

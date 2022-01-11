@@ -26,11 +26,9 @@
 #ifdef USE_LIBGLUSTERFS
 #include <glusterfs/defaults.h>
 #include <glusterfs/globals.h>
-#include <glusterfs/glusterfs.h>
 #endif
 
 #include "procdiggy.h"
-#include <glusterfs/common-utils.h>
 #include <glusterfs/run.h>
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"

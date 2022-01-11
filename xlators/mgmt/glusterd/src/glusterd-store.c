@@ -8,18 +8,14 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "glusterd-op-sm.h"
 #include <inttypes.h>
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/dict.h>
-#include "protocol-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/timer.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>

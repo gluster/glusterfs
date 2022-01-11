@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/upcall-utils.h>

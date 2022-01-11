@@ -8,6 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/event-history.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/circ-buff.h>
+#include <glusterfs/statedump.h>
 #include "trace.h"
 #include "trace-mem-types.h"
 

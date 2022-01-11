@@ -13,13 +13,9 @@
 #include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/run.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd.h"
-#include "rpcsvc.h"
 
 typedef enum glusterd_store_ver_ac_ {
     GLUSTERD_VOLINFO_VER_AC_NONE = 0,

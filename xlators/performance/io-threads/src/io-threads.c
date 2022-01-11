@@ -8,12 +8,12 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/statedump.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "io-threads.h"
 #include <signal.h>
 #include <stdlib.h>

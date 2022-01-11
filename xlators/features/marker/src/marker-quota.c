@@ -8,10 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include "libxlator.h"
-#include <glusterfs/common-utils.h>
+#include <glusterfs/compat-errno.h>
 #include "marker-quota.h"
 #include "marker-quota-helper.h"
 #include <glusterfs/syncop.h>

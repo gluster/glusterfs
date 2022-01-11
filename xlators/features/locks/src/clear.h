@@ -11,8 +11,6 @@
 #define __CLEAR_H__
 
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/stack.h>
-#include <glusterfs/call-stub.h>
 #include "locks.h"
 
 typedef enum {

@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <glusterfs/api/glfs.h>
-#include <glusterfs/api/glfs-handles.h>
 #include <string.h>
 #include <time.h>
 

@@ -17,13 +17,10 @@
 
 #include <urcu/uatomic.h>
 
-#include <glusterfs/glusterfs.h>
-#include "afr.h"
+#include "libxlator.h"  // for gf_get_max_stime()
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/quota-common-utils.h>

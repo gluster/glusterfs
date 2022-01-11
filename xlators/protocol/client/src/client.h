@@ -14,15 +14,12 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "socket.h"
 #include "rpc-clnt.h"
 #include <glusterfs/list.h>
-#include <glusterfs/inode.h>
 #include "client-mem-types.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
 #include "glusterfs4-xdr.h"
-#include <glusterfs/fd-lk.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/default-args.h>
 #include "client-messages.h"

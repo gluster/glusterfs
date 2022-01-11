@@ -38,22 +38,15 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
-
-#include "xdr-generic.h"
 
 /* using argp for command line parsing */
 

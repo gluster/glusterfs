@@ -9,7 +9,6 @@
 */
 
 #include <glusterfs/common-utils.h>
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"

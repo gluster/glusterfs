@@ -22,10 +22,8 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "cli1-xdr.h"
 #include <glusterfs/run.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/common-utils.h>
 
 int
 cli_cmd_global_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,

@@ -11,11 +11,8 @@
 #ifndef __BIT_ROT_H__
 #define __BIT_ROT_H__
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include "changelog.h"

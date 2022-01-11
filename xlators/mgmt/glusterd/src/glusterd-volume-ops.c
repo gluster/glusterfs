@@ -9,8 +9,6 @@
 */
 #include <glusterfs/common-utils.h>
 #include <glusterfs/syscall.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"

@@ -8,6 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/syncop.h>
+#include <glusterfs/syncop-utils.h>
 #include "bit-rot-stub.h"
 
 br_stub_fd_t *

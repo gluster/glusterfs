@@ -38,7 +38,6 @@
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
 #include "glusterfs/logging.h"
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/timer.h"
 #include "glusterfs/libglusterfs-messages.h"
 

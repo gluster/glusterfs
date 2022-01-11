@@ -16,8 +16,6 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "cli1-xdr.h"
-#include "protocol-common.h"
 #include <glusterfs/events.h>
 
 int

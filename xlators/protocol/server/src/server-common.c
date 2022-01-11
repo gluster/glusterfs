@@ -1,14 +1,13 @@
 #include "server.h"
-#include <glusterfs/defaults.h>
-#include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
 #include <glusterfs/compat-errno.h>
 #include "server-messages.h"
 #include "server-helpers.h"
-#include <glusterfs/defaults.h>
-#include <glusterfs/fd.h>
+#include <openssl/md5.h>
+
+#ifdef BUILD_GNFS
 #include "xdr-nfs3.h"
+#endif
 
 /* Version 4 helpers */
 

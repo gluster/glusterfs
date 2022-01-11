@@ -10,10 +10,8 @@
 #ifndef __GFID_ACCESS_H__
 #define __GFID_ACCESS_H__
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 #include "gfid-access-mem-types.h"
 

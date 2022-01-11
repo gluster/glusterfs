@@ -16,7 +16,6 @@
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
-#include <glusterfs/common-utils.h>
 
 #include <sys/time.h>
 #include <libgen.h>

@@ -11,9 +11,6 @@
 #define __CLI_H__
 
 #include "rpc-clnt.h"
-#include <glusterfs/glusterfs.h>
-#include "protocol-common.h"
-#include <glusterfs/logging.h>
 #include <glusterfs/quota-common-utils.h>
 
 #include "cli1-xdr.h"

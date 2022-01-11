@@ -33,7 +33,6 @@
 
 #include "glusterfs/glusterfs-fops.h"
 #include "glusterfs/list.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/lkowner.h"
 #include "glusterfs/compat-uuid.h"

@@ -17,19 +17,13 @@
 
 #include <glusterfs/compat-uuid.h>
 
-#include "rpc-clnt.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd-mem-types.h"
-#include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-shd-svc.h"
 #include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
-#include "protocol-common.h"
 #include "glusterd-pmap.h"
 #include "cli1-xdr.h"
 #include <glusterfs/syncop.h>

@@ -15,7 +15,11 @@
 #ifndef _DEFAULTS_H
 #define _DEFAULTS_H
 
-#include "glusterfs/xlator.h"
+#include <glusterfs/dict.h>
+#include <glusterfs/iatt.h>
+#include <glusterfs/locking.h>
+#include <glusterfs/glusterfs-fops.h>
+#include <glusterfs/stack.h>
 
 typedef struct {
     int op_ret;

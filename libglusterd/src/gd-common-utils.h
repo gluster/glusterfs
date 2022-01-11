@@ -11,13 +11,7 @@
 #ifndef _GD_COMMON_UTILS_H
 #define _GD_COMMON_UTILS_H
 
-#include <fcntl.h>
-#include <unistd.h>
-#include <limits.h>
-#include <stddef.h>
-
 #include "protocol-common.h"
-#include "rpcsvc.h"
 
 int
 get_vol_type(int type, int dist_count, int brick_count);

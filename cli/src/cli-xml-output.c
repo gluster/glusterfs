@@ -13,7 +13,6 @@
 #include <glusterfs/run.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/upcall-utils.h>
 
 enum gf_task_types { GF_TASK_TYPE_REBALANCE, GF_TASK_TYPE_REMOVE_BRICK };
 

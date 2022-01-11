@@ -9,12 +9,9 @@
 */
 
 #include "client.h"
-#include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
 #include <glusterfs/compat-errno.h>
 #include "client-messages.h"
-#include <glusterfs/defaults.h>
 #include "client-common.h"
 
 extern int32_t

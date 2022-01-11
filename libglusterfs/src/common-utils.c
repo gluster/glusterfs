@@ -46,9 +46,7 @@
 #include "glusterfs/revision.h"
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/stack.h"
-#include "glusterfs/lkowner.h"
 #include "glusterfs/syscall.h"
-#include "glusterfs/globals.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #include <ifaddrs.h>
@@ -295,7 +293,8 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key)
     }
 
     gf_msg_debug(this->name, 0,
-                 "gfid generated is %s (hash1: %" XXH64_FMT ") "
+                 "gfid generated is %s (hash1: %" XXH64_FMT
+                 ") "
                  "hash2: %" XXH64_FMT ", xxh64_1: %s xxh64_2: %s",
                  uuid_utoa(gfid), hash_1, hash_2, xxh64_1, xxh64_2);
 
@@ -5466,7 +5465,7 @@ gf_pipe(int fd[2], int flags)
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;

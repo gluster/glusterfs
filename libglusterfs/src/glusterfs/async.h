@@ -36,7 +36,6 @@
 
 #include "glusterfs/common-utils.h"
 #include "glusterfs/list.h"
-#include "glusterfs/libglusterfs-messages.h"
 
 /* This is the name prefix that all worker threads will have. A number will
  * be added to differentiate them. */

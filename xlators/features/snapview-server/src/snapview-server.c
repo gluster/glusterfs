@@ -11,9 +11,7 @@
 #include "snapview-server-mem-types.h"
 #include <glusterfs/compat-errno.h>
 
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
-#include "xdr-generic.h"
 #include "protocol-common.h"
 #include <glusterfs/syscall.h>
 #include <pthread.h>

@@ -30,7 +30,6 @@
 #endif
 
 #include <glusterfs/compat.h>
-#include <glusterfs/timer.h>
 #include "posix-mem-types.h"
 #include <glusterfs/call-stub.h>
 

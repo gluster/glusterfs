@@ -18,7 +18,6 @@
 
 #include "glusterfs/gf-event.h"
 #include "glusterfs/timespec.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/syscall.h"
 

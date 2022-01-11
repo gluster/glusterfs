@@ -12,18 +12,14 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/dict.h>
-#include "protocol-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/run.h>
 #include "glusterd-mem-types.h"
-#include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
@@ -34,10 +30,6 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-geo-rep.h"
 
-#include "glusterd1-xdr.h"
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "rpc-clnt.h"
 #include "glusterd-volgen.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-messages.h"
@@ -45,8 +37,6 @@
 
 #include <sys/resource.h>
 #include <inttypes.h>
-
-#include <glusterfs/common-utils.h>
 
 #include "glusterd-syncop.h"
 #include "glusterd-messages.h"

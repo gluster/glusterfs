@@ -13,7 +13,7 @@
  * latencies of FOPs broken down by subvolumes.
  */
 
-#include "glusterfs/glusterfs.h"
+#include <glusterfs/logging.h>
 #include "glusterfs/statedump.h"
 
 gf_latency_t *

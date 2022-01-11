@@ -10,7 +10,6 @@
 
 #include "glusterfs/iobuf.h"
 #include "glusterfs/statedump.h"
-#include <stdio.h>
 #include "glusterfs/libglusterfs-messages.h"
 
 /*

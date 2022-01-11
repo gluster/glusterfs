@@ -14,7 +14,6 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include "xdr-rpc.h"
-#include <glusterfs/iobuf.h>
 #include "xdr-common.h"
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"

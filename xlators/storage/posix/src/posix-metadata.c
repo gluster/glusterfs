@@ -8,9 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
+#include "posix.h"
 #include "posix-metadata.h"
-#include "posix-metadata-disk.h"
 #include "posix-handle.h"
 #include "posix-messages.h"
 #include <glusterfs/syscall.h>

@@ -16,7 +16,6 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 extern struct cli_cmd volume_cmds[];
 extern struct cli_cmd bitrot_cmds[];

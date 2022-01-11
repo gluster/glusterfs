@@ -10,8 +10,6 @@
 
 #include <sys/uio.h>
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
 
 #include "cdc.h"

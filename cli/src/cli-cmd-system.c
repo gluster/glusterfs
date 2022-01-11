@@ -16,7 +16,6 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 int
 cli_cmd_system_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,

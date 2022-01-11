@@ -13,11 +13,8 @@
 #include "dht-mem-types.h"
 #include "dht-messages.h"
 #include <glusterfs/call-stub.h>
-#include "libxlator.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/refcount.h>
-#include <glusterfs/timer.h>
-#include "protocol-common.h"
 #include <glusterfs/glusterfs-acl.h>
 
 #ifndef _DHT_H

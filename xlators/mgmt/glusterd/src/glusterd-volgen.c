@@ -13,9 +13,7 @@
 #include <dlfcn.h>
 #include <utime.h>
 
-#include <glusterfs/xlator.h>
 #include "glusterd.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
@@ -25,7 +23,6 @@
 #include "glusterd-hooks.h"
 #include <glusterfs/trie.h>
 #include "glusterd-mem-types.h"
-#include "cli1-xdr.h"
 #include "glusterd-volgen.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-utils.h"

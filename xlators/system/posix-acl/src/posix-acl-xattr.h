@@ -11,9 +11,7 @@
 #ifndef _POSIX_ACL_XATTR_H
 #define _POSIX_ACL_XATTR_H
 
-#include <glusterfs/common-utils.h>
 #include "posix-acl.h"
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/glusterfs-acl.h>
 
 struct posix_acl *
