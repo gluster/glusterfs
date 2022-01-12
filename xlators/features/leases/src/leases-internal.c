@@ -127,18 +127,7 @@ static int
 __lease_ctx_set(inode_t *inode, xlator_t *this)
 {
     lease_inode_ctx_t *inode_ctx = NULL;
-    int ret = -1;
-    uint64_t ctx = 0;
-
-    GF_VALIDATE_OR_GOTO("leases", inode, out);
-    GF_VALIDATE_OR_GOTO("leases", this, out);
-
-    ret = __inode_ctx_get(inode, this, &ctx);
-    if (!ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, LEASE_MSG_INVAL_INODE_CTX,
-               "inode_ctx_get failed");
-        goto out;
-    }
+    int ret;
 
     inode_ctx = GF_CALLOC(1, sizeof(*inode_ctx),
                           gf_leases_mt_lease_inode_ctx_t);
@@ -166,9 +155,6 @@ __lease_ctx_get(inode_t *inode, xlator_t *this)
     lease_inode_ctx_t *inode_ctx = NULL;
     uint64_t ctx = 0;
     int ret = 0;
-
-    GF_VALIDATE_OR_GOTO("leases", inode, out);
-    GF_VALIDATE_OR_GOTO("leases", this, out);
 
     ret = __inode_ctx_get(inode, this, &ctx);
     if (ret < 0) {
