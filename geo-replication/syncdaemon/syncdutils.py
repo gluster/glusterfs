@@ -850,7 +850,7 @@ class Popen(subprocess.Popen):
         def logerr(l):
             logging.error(self.args[0] + "> " + l)
         for l in self.elines:
-            ls = l.split('\n')
+            ls = l.split(b'\n')
             ls[0] = lp + ls[0]
             lp = ls.pop()
             for ll in ls:
