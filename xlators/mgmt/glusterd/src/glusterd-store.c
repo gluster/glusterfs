@@ -1319,7 +1319,7 @@ glusterd_store_node_state_write(int fd, glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     char buf[PATH_MAX];
-    char uuid[UUID_SIZE + 1];
+    char uuid[GF_UUID_BUF_SIZE];
     uint total_len = 0;
     glusterd_volinfo_data_store_t *dict_data = NULL;
     gf_store_handle_t shandle;
@@ -4151,7 +4151,7 @@ out:
 int32_t
 glusterd_store_write_missed_snapinfo(int32_t fd)
 {
-    char key[(UUID_SIZE * 2) + 2];
+    char key[GF_UUID_BUF_SIZE * 2];
     char value[PATH_MAX];
     int32_t ret = -1;
     glusterd_conf_t *priv = NULL;

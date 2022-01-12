@@ -248,7 +248,7 @@ typedef struct _afr_private {
        important as we might have had a network split brain.
     */
     uint32_t event_generation;
-    char vol_uuid[UUID_SIZE + 1];
+    char vol_uuid[GF_UUID_BUF_SIZE];
 
     gf_boolean_t choose_local;
     gf_boolean_t did_discovery;
@@ -281,7 +281,7 @@ typedef struct _afr_private {
 
     /*For anon-inode handling */
     char anon_inode_name[NAME_MAX + 1];
-    char anon_gfid_str[UUID_SIZE + 1];
+    char anon_gfid_str[GF_UUID_BUF_SIZE];
 } afr_private_t;
 
 typedef enum {

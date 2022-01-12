@@ -27,7 +27,6 @@ typedef enum glusterd_store_ver_ac_ {
     GLUSTERD_VOLINFO_VER_AC_DECREMENT = 2,
 } glusterd_volinfo_ver_ac_t;
 
-#define UUID_SIZE 36
 #define VOLINFO_BUFFER_SIZE 4093
 #define GLUSTERD_STORE_UUID_KEY "UUID"
 
