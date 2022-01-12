@@ -131,6 +131,14 @@ if [ "$option" == "enable" ]; then
     mkdir -p /run/gluster/shared_storage
     $mount_cmd
     cp /etc/fstab /run/gluster/fstab.tmp
-    echo "$local_node_hostname:/gluster_shared_storage /run/gluster/shared_storage/ glusterfs defaults        0 0" >> /run/gluster/fstab.tmp
+
+    # Check if systemd is our init
+    init_process=$(basename $(readlink -e /proc/1/exe) 2>/dev/null )
+    if [ "$init_process" == "systemd" ]
+    then
+         # Add dependency for glusterd.service, as we use $local_node_hostname
+         extra_mount_options=",x-systemd.requires=glusterd.service"
+    fi
+    echo "$local_node_hostname:/gluster_shared_storage /run/gluster/shared_storage/ glusterfs defaults$extra_mount_options        0 0" >> /run/gluster/fstab.tmp
     mv /run/gluster/fstab.tmp /etc/fstab
 fi
