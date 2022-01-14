@@ -761,7 +761,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     }
 
     conn = &rpc->conn;
-    if (!conn->connected || conn->disconnected) {
+    if (rpc_clnt_connection_status(conn) != RPC_STATUS_CONNECTED) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CONNECT_RETURNED,
                "not connected yet");
         return -1;

@@ -306,11 +306,15 @@ rpc_clnt_start_ping(void *rpc_ptr)
             frame_count = conn->saved_frames->count;
         }
 
-        if ((frame_count == 0) || !conn->connected) {
+        if ((frame_count == 0) || conn->status != RPC_STATUS_CONNECTED) {
             gf_log(THIS->name, GF_LOG_DEBUG,
-                   "returning as transport is already disconnected"
-                   " OR there are no frames (%d || %d)",
-                   !conn->connected, frame_count);
+                   "returning because transport is %s %s there are %s\n",
+                   ((conn->status == RPC_STATUS_CONNECTED) ? "connected"
+                                                           : "disconnected"),
+                   ((!frame_count && conn->status != RPC_STATUS_CONNECTED)
+                        ? "and"
+                        : "but"),
+                   (frame_count ? "some frames" : "no frames"));
 
             pthread_mutex_unlock(&conn->lock);
             if (unref)

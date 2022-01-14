@@ -6099,7 +6099,7 @@ send_attach_req(xlator_t *this, struct rpc_clnt *rpc, char *path,
     }
 
     conn = &rpc->conn;
-    if (!conn->connected || conn->disconnected) {
+    if (rpc_clnt_connection_status(conn) != RPC_STATUS_CONNECTED) {
         gf_log(this->name, GF_LOG_INFO, "not connected yet");
         return -1;
     }

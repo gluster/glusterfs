@@ -76,7 +76,7 @@ glusterd_dump_peer_rpcstat(glusterd_peerinfo_t *peerinfo, char *input_key,
             gf_proc_dump_write(key, "%s", rpcsvc_peername);
         }
         gf_proc_dump_build_key(key, subkey, "rpc.connected");
-        gf_proc_dump_write(key, "%d", conn->connected);
+        gf_proc_dump_write(key, "%d", (conn->status == RPC_STATUS_CONNECTED));
 
         gf_proc_dump_build_key(key, subkey, "rpc.total-bytes-read");
         gf_proc_dump_write(key, "%" PRIu64, conn->trans->total_bytes_read);
