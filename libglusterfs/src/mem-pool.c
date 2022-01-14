@@ -334,7 +334,6 @@ __gf_free(void *free_ptr)
     void *ptr = NULL;
     struct mem_acct *mem_acct;
     struct mem_header *header = NULL;
-    uint64_t num_allocs = 0;
 
     if (caa_unlikely(!free_ptr))
         return;
@@ -363,7 +362,7 @@ __gf_free(void *free_ptr)
         GF_ASSERT(GF_MEM_TRAILER_MAGIC == __gf_mem_trailer_read(trailer));
     }
 
-    num_allocs = GF_ATOMIC_DEC(mem_acct->rec[header->type].num_allocs);
+    GF_ATOMIC_DEC(mem_acct->rec[header->type].num_allocs);
 #ifdef DEBUG
     LOCK(&mem_acct->rec[header->type].lock);
     {
@@ -371,9 +370,6 @@ __gf_free(void *free_ptr)
     }
     UNLOCK(&mem_acct->rec[header->type].lock);
 #endif
-    if (!num_allocs) {
-        xlator_mem_acct_unref(mem_acct);
-    }
 
 free:
 #ifdef DEBUG

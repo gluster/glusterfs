@@ -754,7 +754,7 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     return 0;
 }
 
-void
+static void
 xlator_mem_acct_unref(struct mem_acct *mem_acct)
 {
     uint32_t i;
