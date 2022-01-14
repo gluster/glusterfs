@@ -1760,7 +1760,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_add_brick_status_to_dict(dict_t *dict, glusterd_volinfo_t *volinfo,
                                   glusterd_brickinfo_t *brickinfo,
                                   char *key_prefix)
@@ -7342,7 +7342,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_handle_snap_limit(dict_t *dict, dict_t *rsp_dict)
 {
     int32_t ret = -1;

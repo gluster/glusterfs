@@ -14,6 +14,42 @@
 
 #include "glusterd-peer-utils.h"
 
+typedef struct glusterd_add_dict_args {
+    xlator_t *this;
+    dict_t *voldict;
+    int start;
+    int end;
+} glusterd_add_dict_args_t;
+
+typedef struct glusterd_friend_synctask_args {
+    dict_t *peer_data;
+    dict_t *peer_ver_data;  // Dictionary to save peer version data
+    /* This status_arr[1] is not a real size, real size of the array
+       is dynamically allocated
+    */
+    uint64_t status_arr[1];
+} glusterd_friend_synctask_args_t;
+
+enum glusterd_vol_comp_status_ {
+    GLUSTERD_VOL_COMP_NONE = 0,
+    GLUSTERD_VOL_COMP_SCS = 1,
+    GLUSTERD_VOL_COMP_UPDATE_REQ,
+    GLUSTERD_VOL_COMP_RJT,
+};
+
+typedef struct addrinfo_list {
+    struct cds_list_head list;
+    struct addrinfo *info;
+} addrinfo_list_t;
+
+typedef enum {
+    GF_AI_COMPARE_NO_MATCH = 0,
+    GF_AI_COMPARE_MATCH = 1,
+    GF_AI_COMPARE_ERROR = 2
+} gf_ai_compare_t;
+
+#define GLUSTERD_CKSUM_FILE "cksum"
+
 #define GLUSTERD_SOCK_DIR "/var/run/gluster"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid)      \
     do {                                                                       \
@@ -142,9 +178,6 @@ glusterd_unlock(uuid_t owner);
 int32_t
 glusterd_get_uuid(uuid_t *uuid);
 
-char *
-gd_get_shd_key(int type);
-
 int
 glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
                       int payloadcount, struct iobref *iobref,
@@ -180,12 +213,6 @@ glusterd_auth_set_username(glusterd_volinfo_t *volinfo, char *username);
 int32_t
 glusterd_auth_set_password(glusterd_volinfo_t *volinfo, char *password);
 
-void
-glusterd_auth_cleanup(glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_brickprocess_new(glusterd_brick_proc_t **brickprocess);
-
 int32_t
 glusterd_brickinfo_new(glusterd_brickinfo_t **brickinfo);
 
@@ -196,17 +223,6 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
 
 int32_t
 glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo);
-
-gf_boolean_t
-glusterd_volume_exists(const char *volname);
-
-int
-glusterd_volinfo_find_by_volume_id(uuid_t volume_id,
-                                   glusterd_volinfo_t **volinfo);
-
-int32_t
-glusterd_service_stop(const char *service, char *pidfile, int sig,
-                      gf_boolean_t force_kill);
 
 int32_t
 glusterd_service_stop_nolock(const char *service, char *pidfile, int sig,
@@ -219,20 +235,8 @@ int32_t
 glusterd_resolve_brick(glusterd_brickinfo_t *brickinfo);
 
 int
-glusterd_brick_process_add_brick(glusterd_brickinfo_t *brickinfo,
-                                 glusterd_brickinfo_t *parent_brickinfo);
-
-int
 glusterd_brick_process_remove_brick(glusterd_brickinfo_t *brickinfo,
                                     int *last_brick);
-
-int
-glusterd_brick_proc_for_port(int port, glusterd_brick_proc_t **brickprocess);
-
-int32_t
-glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
-                                glusterd_brickinfo_t *brickinfo,
-                                gf_boolean_t wait);
 
 int32_t
 glusterd_volume_stop_glusterfs(glusterd_volinfo_t *volinfo,
@@ -255,9 +259,6 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo);
 
 int32_t
 glusterd_brickinfo_delete(glusterd_brickinfo_t *brickinfo);
-
-gf_boolean_t
-glusterd_is_cli_op_req(int32_t op);
 
 int32_t
 glusterd_volume_brickinfo_get_by_brick(char *brick, glusterd_volinfo_t *volinfo,
@@ -287,23 +288,13 @@ glusterd_pending_node_put_rpc(glusterd_pending_node_t *pending_node);
 int
 glusterd_remote_hostname_get(rpcsvc_request_t *req, char *remote_host, int len);
 
-int32_t
-glusterd_import_friend_volumes_synctask(void *opaque);
-
-int32_t
-glusterd_import_friend_volumes(dict_t *peer_data);
 void
 glusterd_set_volume_status(glusterd_volinfo_t *volinfo,
                            glusterd_volume_status status);
 
 int32_t
-glusterd_volume_count_get(void);
-int32_t
 glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
                             int32_t count, char *prefix);
-int
-glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
-                       glusterd_brickinfo_t **brickinfo);
 
 void
 glusterd_set_brick_status(glusterd_brickinfo_t *brickinfo,
@@ -312,12 +303,6 @@ glusterd_set_brick_status(glusterd_brickinfo_t *brickinfo,
 gf_boolean_t
 glusterd_is_brick_started(glusterd_brickinfo_t *brickinfo);
 
-int
-glusterd_friend_brick_belongs(glusterd_volinfo_t *volinfo,
-                              glusterd_brickinfo_t *brickinfo, void *uuid);
-int
-glusterd_all_volume_cond_check(glusterd_condition_func func, int status,
-                               void *ctx);
 int
 glusterd_brick_start(glusterd_volinfo_t *volinfo,
                      glusterd_brickinfo_t *brickinfo, gf_boolean_t wait,
@@ -329,32 +314,9 @@ glusterd_brick_stop(glusterd_volinfo_t *volinfo,
 int
 glusterd_is_defrag_on(glusterd_volinfo_t *volinfo);
 
-int32_t
-glusterd_volinfo_bricks_delete(glusterd_volinfo_t *volinfo);
-
 int
 glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
                             char *op_errstr, size_t len, char *op);
-int32_t
-glusterd_volume_brickinfos_delete(glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_volume_brickinfo_get(uuid_t uuid, char *hostname, char *path,
-                              glusterd_volinfo_t *volinfo,
-                              glusterd_brickinfo_t **brickinfo);
-
-int
-glusterd_brickinfo_get(uuid_t uuid, char *hostname, char *path,
-                       glusterd_brickinfo_t **brickinfo);
-
-int
-glusterd_rb_check_bricks(glusterd_volinfo_t *volinfo,
-                         glusterd_brickinfo_t *src_brick,
-                         glusterd_brickinfo_t *dst_brick);
-
-int
-glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
-                                   char **op_errstr, gf_boolean_t is_force);
 
 int
 glusterd_validate_and_create_brickpath(glusterd_brickinfo_t *brickinfo,
@@ -373,29 +335,14 @@ glusterd_sm_tr_log_delete(glusterd_sm_tr_log_t *log);
 int
 glusterd_sm_tr_log_add_to_dict(dict_t *dict,
                                glusterd_sm_tr_log_t *circular_log);
-int
-glusterd_remove_pending_entry(struct cds_list_head *list, void *elem);
-int
-glusterd_clear_pending_nodes(struct cds_list_head *list);
-int32_t
-glusterd_brick_connect(glusterd_volinfo_t *volinfo,
-                       glusterd_brickinfo_t *brickinfo, char *socketpath);
-int32_t
-glusterd_brick_disconnect(glusterd_brickinfo_t *brickinfo);
 int32_t
 glusterd_delete_volume(glusterd_volinfo_t *volinfo);
 int32_t
 glusterd_delete_brick(glusterd_volinfo_t *volinfo,
                       glusterd_brickinfo_t *brickinfo);
 
-int32_t
-glusterd_delete_all_bricks(glusterd_volinfo_t *volinfo);
-
 int
 glusterd_spawn_daemons(void *opaque);
-
-int
-glusterd_restart_gsyncds(glusterd_conf_t *conf);
 
 int
 glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
@@ -404,8 +351,6 @@ glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
 int
 glusterd_get_local_brickpaths(glusterd_volinfo_t *volinfo, char **pathlist);
 
-int32_t
-glusterd_recreate_bricks(glusterd_conf_t *conf);
 int32_t
 glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
                                   gf_boolean_t upgrade, gf_boolean_t downgrade);
@@ -431,11 +376,6 @@ glusterd_brick_statedump(glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo, char *options,
                          int option_cnt, char **op_errstr);
 
-int
-glusterd_brick_terminate(glusterd_volinfo_t *volinfo,
-                         glusterd_brickinfo_t *brickinfo, char *options,
-                         int option_cnt, char **op_errstr);
-
 #ifdef BUILD_GNFS
 int
 glusterd_nfs_statedump(char *options, int option_cnt, char **op_errstr);
@@ -458,9 +398,6 @@ int
 glusterd_friend_contains_vol_bricks(glusterd_volinfo_t *volinfo,
                                     uuid_t friend_uuid);
 
-int
-glusterd_friend_contains_snap_bricks(glusterd_snap_t *snapinfo,
-                                     uuid_t friend_uuid);
 int
 glusterd_friend_remove_cleanup_vols(uuid_t uuid);
 

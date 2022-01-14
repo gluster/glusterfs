@@ -1852,7 +1852,12 @@ out:
     return stub;
 }
 
-void
+/*
+ * Sometimes we might want to call just this, perhaps repeatedly, without
+ * having (or being able) to destroy and recreate it.
+ */
+
+static void
 call_resume_wind(call_stub_t *stub)
 {
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);

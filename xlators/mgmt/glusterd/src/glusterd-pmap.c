@@ -485,6 +485,52 @@ gluster_pmap_brickbyport(rpcsvc_request_t *req)
     return glusterd_big_locked_handler(req, __gluster_pmap_brickbyport);
 }
 
+static int
+glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
+                       glusterd_brickinfo_t **brickinfo)
+{
+    glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *tmpbrkinfo = NULL;
+    glusterd_snap_t *snap = NULL;
+    int ret = -1;
+
+    GF_ASSERT(brickname);
+
+    priv = this->private;
+    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
+    {
+        cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+        {
+            if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
+                continue;
+            if ((tmpbrkinfo->port == port) &&
+                !strcmp(tmpbrkinfo->path, brickname)) {
+                *brickinfo = tmpbrkinfo;
+                return 0;
+            }
+        }
+    }
+    /* In case normal volume is not found, check for snapshot volumes */
+    cds_list_for_each_entry(snap, &priv->snapshots, snap_list)
+    {
+        cds_list_for_each_entry(volinfo, &snap->volumes, vol_list)
+        {
+            cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+            {
+                if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
+                    continue;
+                if (!strcmp(tmpbrkinfo->path, brickname)) {
+                    *brickinfo = tmpbrkinfo;
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return ret;
+}
+
 int
 __gluster_pmap_signin(rpcsvc_request_t *req)
 {

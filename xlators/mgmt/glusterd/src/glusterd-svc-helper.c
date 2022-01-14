@@ -891,6 +891,31 @@ err:
     return ret;
 }
 
+static gf_boolean_t
+glusterd_volume_exists(const char *volname)
+{
+    glusterd_volinfo_t *tmp_volinfo = NULL;
+    gf_boolean_t volume_found = _gf_false;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+
+    GF_ASSERT(volname);
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
+    {
+        if (!strcmp(tmp_volinfo->volname, volname)) {
+            gf_msg_debug(this->name, 0, "Volume %s found", volname);
+            volume_found = _gf_true;
+            break;
+        }
+    }
+
+    return volume_found;
+}
+
 int
 glusterd_attach_svc(glusterd_svc_t *svc, glusterd_volinfo_t *volinfo, int flags)
 {

@@ -36,6 +36,17 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 #define TRUSTED_PREFIX "trusted-"
 #define GD_PEER_ID_KEY "peer-id"
 
+enum glusterd_mgmt_hndsk_procnum {
+    GD_MGMT_HNDSK_NULL,
+    GD_MGMT_HNDSK_VERSIONS,
+    GD_MGMT_HNDSK_VERSIONS_ACK,
+    GD_MGMT_HNDSK_MAXVALUE,
+};
+
+/* OP-VERSION handshake */
+#define GD_MGMT_HNDSK_PROGRAM 1239873 /* Completely random */
+#define GD_MGMT_HNDSK_VERSION 1
+
 typedef ssize_t (*gfs_serialize_t)(struct iovec outmsg, void *data);
 
 static int

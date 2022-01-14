@@ -35,6 +35,8 @@
 #include "glusterfs/options.h"                // for xlator_tree_reconfigure
 #include "glusterfs/syscall.h"                // for sys_close, sys_stat
 
+#define xlator_has_parent(xl) (xl->parents != NULL)
+
 #if 0
 static void
 _gf_dump_details (int argc, char **argv)

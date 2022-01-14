@@ -39,9 +39,47 @@
 #include "glusterd-messages.h"
 
 #include "gd-common-utils.h"
+#define STATUS_STRLEN 128
 
-extern glusterd_op_info_t opinfo;
+enum gf_deprobe_resp {
+    GF_DEPROBE_SUCCESS,
+    GF_DEPROBE_LOCALHOST,
+    GF_DEPROBE_NOT_FRIEND,
+    GF_DEPROBE_BRICK_EXIST,
+    GF_DEPROBE_FRIEND_DOWN,
+    GF_DEPROBE_QUORUM_NOT_MET,
+    GF_DEPROBE_FRIEND_DETACHING,
+    GF_DEPROBE_SNAP_BRICK_EXIST,
+};
+
 static int volcount;
+
+static int
+glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
+                         rpc_clnt_event_t event, void *data);
+
+static int
+glusterd_handle_tier(rpcsvc_request_t *req);
+
+static int32_t
+glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags);
+
+static int32_t
+glusterd_list_friends(rpcsvc_request_t *req, dict_t *dict, int32_t flags);
+
+static int
+glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
+                       uuid_t uuid, dict_t *dict, int *op_errno);
+
+static int
+glusterd_friend_add(const char *hoststr, int port,
+                    glusterd_friend_sm_state_t state, uuid_t *uuid,
+                    glusterd_peerinfo_t **friend, gf_boolean_t restore,
+                    glusterd_peerctx_args_t *args);
+
+static int
+glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
+                     dict_t *dict, int *op_errno);
 
 int
 glusterd_big_locked_notify(struct rpc_clnt *rpc, void *mydata,
@@ -343,7 +381,7 @@ glusterd_add_arbiter_info_to_bricks(glusterd_volinfo_t *volinfo,
     return 0;
 }
 
-int
+static int
 glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
                                    int count)
 {
@@ -830,7 +868,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cluster_lock(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cluster_lock);
@@ -981,7 +1019,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_stage_op(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_stage_op);
@@ -1047,7 +1085,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_commit_op(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_commit_op);
@@ -1179,10 +1217,47 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_probe(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cli_probe);
+}
+
+/* Checks if the given peer contains bricks belonging to the given volume.
+ * Returns,
+ *   2 - if peer contains all the bricks
+ *   1 - if peer contains at least 1 brick
+ *   0 - if peer contains no bricks
+ */
+static int
+glusterd_friend_contains_snap_bricks(glusterd_snap_t *snapinfo,
+                                     uuid_t friend_uuid)
+{
+    int ret = -1;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    int count = 0;
+
+    GF_VALIDATE_OR_GOTO("glusterd", snapinfo, out);
+
+    cds_list_for_each_entry(volinfo, &snapinfo->volumes, vol_list)
+    {
+        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+        {
+            if (!gf_uuid_compare(brickinfo->uuid, friend_uuid)) {
+                count++;
+            }
+        }
+    }
+
+    if (count > 0)
+        ret = 1;
+    else
+        ret = 0;
+
+out:
+    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
+    return ret;
 }
 
 int
@@ -1346,7 +1421,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cli_deprobe);
@@ -1405,7 +1480,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_list_friends(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cli_list_friends);
@@ -1471,7 +1546,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_get_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cli_get_volume);
@@ -1778,7 +1853,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cli_list_volume);
@@ -1946,7 +2021,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_reset_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_reset_volume);
@@ -2063,7 +2138,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_set_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_set_volume);
@@ -2168,7 +2243,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_sync_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_sync_volume);
@@ -2268,7 +2343,7 @@ out:
     return 0;  // send 0 to avoid double reply
 }
 
-int
+static int
 glusterd_handle_fsm_log(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_fsm_log);
@@ -2428,7 +2503,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cluster_unlock(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_cluster_unlock);
@@ -2554,7 +2629,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_incoming_friend_req(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req,
@@ -2607,7 +2682,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_incoming_unfriend_req(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req,
@@ -2870,7 +2945,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_friend_update(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_friend_update);
@@ -2987,7 +3062,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_probe_query(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_probe_query);
@@ -3083,7 +3158,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req,
@@ -3119,7 +3194,7 @@ __glusterd_handle_getwd(rpcsvc_request_t *req)
     return ret;
 }
 
-int
+static int
 glusterd_handle_getwd(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_getwd);
@@ -3543,7 +3618,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_friend_add(const char *hoststr, int port,
                     glusterd_friend_sm_state_t state, uuid_t *uuid,
                     glusterd_peerinfo_t **friend, gf_boolean_t restore,
@@ -3648,7 +3723,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
                      dict_t *dict, int *op_errno)
 {
@@ -4538,11 +4613,39 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_handle_cli_clearlocks_volume(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req,
                                        __glusterd_handle_cli_clearlocks_volume);
+}
+
+static int
+glusterd_volinfo_find_by_volume_id(uuid_t volume_id,
+                                   glusterd_volinfo_t **volinfo)
+{
+    int32_t ret = -1;
+    xlator_t *this = THIS;
+    glusterd_volinfo_t *voliter = NULL;
+    glusterd_conf_t *priv = NULL;
+
+    if (!volume_id) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        return -1;
+    }
+
+    priv = this->private;
+
+    cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
+    {
+        if (gf_uuid_compare(volume_id, voliter->volume_id))
+            continue;
+        *volinfo = voliter;
+        ret = 0;
+        gf_msg_debug(this->name, 0, "Volume %s found", voliter->volname);
+        break;
+    }
+    return ret;
 }
 
 static int

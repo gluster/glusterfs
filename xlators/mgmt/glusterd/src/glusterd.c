@@ -126,6 +126,14 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
     [GD_OP_MAX_OPVERSION] = "Maximum supported op-version",
     [GD_OP_MAX] = "Invalid op"};
 
+#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR "/gluster/snaps"
+#define GLUSTERD_BITD_RUN_DIR "/bitd"
+#define GLUSTERD_SCRUB_RUN_DIR "/scrub"
+#define GLUSTERD_NFS_RUN_DIR "/nfs"
+#define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
+#define GLUSTERD_VAR_RUN_DIR "/var/run"
+#define GLUSTERD_RUN_DIR "/run"
+
 static int
 glusterd_opinfo_init()
 {

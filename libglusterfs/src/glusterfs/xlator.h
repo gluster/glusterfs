@@ -36,13 +36,6 @@
 #define GF_ATTR_ATIME_NOW 0x80
 #define GF_ATTR_MTIME_NOW 0x100
 
-#define gf_attr_mode_set(mode) ((mode)&GF_SET_ATTR_MODE)
-#define gf_attr_uid_set(mode) ((mode)&GF_SET_ATTR_UID)
-#define gf_attr_gid_set(mode) ((mode)&GF_SET_ATTR_GID)
-#define gf_attr_size_set(mode) ((mode)&GF_SET_ATTR_SIZE)
-#define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
-#define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
-
 struct _xlator;
 typedef struct _xlator xlator_t;
 struct _dir_entry;
@@ -407,15 +400,6 @@ typedef int32_t (*fop_create_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 int32_t flags, mode_t mode, mode_t umask,
                                 fd_t *fd, dict_t *xdata);
 
-/* Tell subsequent writes on the fd_t to fsync after every writev fop without
- * requiring a fsync fop.
- */
-#define GF_OPEN_FSYNC 0x01
-
-/* Tell write-behind to disable writing behind despite O_SYNC not being set.
- */
-#define GF_OPEN_NOWB 0x02
-
 typedef int32_t (*fop_open_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                               int32_t flags, fd_t *fd, dict_t *xdata);
 
@@ -762,11 +746,6 @@ typedef struct xlator_list {
     struct xlator_list *next;
 } xlator_list_t;
 
-typedef struct fop_metrics {
-    gf_atomic_t fop;
-    gf_atomic_t cbk; /* only updaed when there is failure */
-} fop_metrics_t;
-
 struct _xlator {
     /* Built during parsing */
     char *name;
@@ -931,8 +910,6 @@ typedef struct {
     struct xlator_fops *pass_through_fops;
 } xlator_api_t;
 
-#define xlator_has_parent(xl) (xl->parents != NULL)
-
 #define XLATOR_NOTIFY(ret, _xl, params...)                                     \
     do {                                                                       \
         xlator_t *_old_THIS = NULL;                                            \
@@ -954,9 +931,6 @@ xlator_set_type(xlator_t *xl, const char *type);
 int32_t
 xlator_dynload(xlator_t *xl);
 
-xlator_t *
-file_to_xlator_tree(glusterfs_ctx_t *ctx, FILE *fp);
-
 int
 xlator_notify(xlator_t *this, int32_t event, void *data, ...);
 int
@@ -964,8 +938,6 @@ xlator_init(xlator_t *this);
 int
 xlator_destroy(xlator_t *xl);
 
-int32_t
-xlator_tree_init(xlator_t *xl);
 int32_t
 xlator_tree_free_members(xlator_t *xl);
 int32_t
@@ -992,9 +964,6 @@ get_xlator_by_type(xlator_t *this, char *target);
 void
 xlator_set_inode_lru_limit(xlator_t *this, void *data);
 
-void
-inode_destroy_notify(inode_t *inode, const char *xlname);
-
 int
 loc_copy(loc_t *dst, loc_t *src);
 int
@@ -1012,8 +981,6 @@ char *
 loc_gfid_utoa(loc_t *loc);
 gf_boolean_t
 loc_is_root(loc_t *loc);
-int32_t
-loc_build_child(loc_t *child, loc_t *parent, char *name);
 gf_boolean_t
 loc_is_nameless(loc_t *loc);
 int
@@ -1076,8 +1043,6 @@ copy_opts_to_child(xlator_t *src, xlator_t *dst, char *glob);
 
 int
 glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id);
-int
-xlator_memrec_free(xlator_t *xl);
 
 void
 xlator_mem_cleanup(xlator_t *this);

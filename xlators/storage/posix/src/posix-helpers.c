@@ -2434,6 +2434,23 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
     call_unwind_error(stub, 0, 0);
 }
 
+static int
+gf_syncfs(int fd)
+{
+    int ret = 0;
+#if defined(HAVE_SYNCFS)
+    /* Linux with glibc recent enough. */
+    ret = syncfs(fd);
+#elif defined(HAVE_SYNCFS_SYS)
+    /* Linux with no library function. */
+    ret = syscall(SYS_syncfs, fd);
+#else
+    /* Fallback to generic UNIX stuff. */
+    sync();
+#endif
+    return ret;
+}
+
 static void
 posix_fsyncer_syncfs(xlator_t *this, struct list_head *head)
 {

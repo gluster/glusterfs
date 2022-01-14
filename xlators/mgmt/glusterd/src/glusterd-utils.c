@@ -99,6 +99,27 @@
         }                                                                      \
     } while (0)
 
+static int
+glusterd_brick_terminate(glusterd_volinfo_t *volinfo,
+                         glusterd_brickinfo_t *brickinfo, char *options,
+                         int option_cnt, char **op_errstr);
+
+static int
+glusterd_restart_gsyncds(glusterd_conf_t *conf);
+
+static int32_t
+glusterd_delete_all_bricks(glusterd_volinfo_t *volinfo);
+
+static int
+glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
+                                   char **op_errstr, gf_boolean_t is_force);
+
+static int
+glusterd_brick_proc_for_port(int port, glusterd_brick_proc_t **brickprocess);
+
+static int
+glusterd_restart_bricks(void *opaque);
+
 int
 glusterd_defrag_ref(glusterd_defrag_info_t *defrag)
 {
@@ -166,7 +187,7 @@ is_brick_mx_enabled(void)
     return ret ? _gf_false : enabled;
 }
 
-gf_boolean_t
+static gf_boolean_t
 is_brick_graceful_cleanup_enabled(dict_t *opts)
 {
     char *value = NULL;
@@ -264,7 +285,7 @@ out:
     return found;
 }
 
-int
+static int
 get_mux_limit_per_process(int *mux_limit)
 {
     char *value = NULL;
@@ -300,7 +321,7 @@ out:
     return ret;
 }
 
-int
+static int
 get_gd_vol_thread_limit(int *thread_limit)
 {
     char *value = NULL;
@@ -596,7 +617,7 @@ out:
     return ret;
 }
 
-struct iobuf *
+static struct iobuf *
 glusterd_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
                          xdrproc_t xdrproc)
 {
@@ -939,7 +960,7 @@ gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo)
     return active;
 }
 
-void
+static void
 glusterd_auth_cleanup(glusterd_volinfo_t *volinfo)
 {
     GF_ASSERT(volinfo);
@@ -1004,7 +1025,7 @@ glusterd_brickinfo_delete(glusterd_brickinfo_t *brickinfo)
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_volume_brickinfos_delete(glusterd_volinfo_t *volinfo)
 {
     glusterd_brickinfo_t *brickinfo = NULL;
@@ -1079,7 +1100,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_brickprocess_new(glusterd_brick_proc_t **brickprocess)
 {
     glusterd_brick_proc_t *new_brickprocess = NULL;
@@ -1228,6 +1249,17 @@ out:
 
     gf_msg_trace(this->name, 0, "Returning %d", ret);
     return ret;
+}
+
+static char *
+get_path_name(char *word, char **path)
+{
+    char *delimiter = NULL;
+    delimiter = strchr(word, '/');
+    if (!delimiter)
+        return NULL;
+    *path = delimiter;
+    return *path;
 }
 
 int32_t
@@ -1606,7 +1638,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_volume_brickinfo_get(uuid_t uuid, char *hostname, char *path,
                               glusterd_volinfo_t *volinfo,
                               glusterd_brickinfo_t **brickinfo)
@@ -1717,34 +1749,6 @@ out:
     return decommissioned;
 }
 
-int
-glusterd_volinfo_find_by_volume_id(uuid_t volume_id,
-                                   glusterd_volinfo_t **volinfo)
-{
-    int32_t ret = -1;
-    xlator_t *this = THIS;
-    glusterd_volinfo_t *voliter = NULL;
-    glusterd_conf_t *priv = NULL;
-
-    if (!volume_id) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
-        return -1;
-    }
-
-    priv = this->private;
-
-    cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
-    {
-        if (gf_uuid_compare(volume_id, voliter->volume_id))
-            continue;
-        *volinfo = voliter;
-        ret = 0;
-        gf_msg_debug(this->name, 0, "Volume %s found", voliter->volname);
-        break;
-    }
-    return ret;
-}
-
 int32_t
 glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
 {
@@ -1772,32 +1776,7 @@ glusterd_volinfo_find(const char *volname, glusterd_volinfo_t **volinfo)
     return ret;
 }
 
-gf_boolean_t
-glusterd_volume_exists(const char *volname)
-{
-    glusterd_volinfo_t *tmp_volinfo = NULL;
-    gf_boolean_t volume_found = _gf_false;
-    xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
-
-    GF_ASSERT(volname);
-
-    priv = this->private;
-    GF_ASSERT(priv);
-
-    cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
-    {
-        if (!strcmp(tmp_volinfo->volname, volname)) {
-            gf_msg_debug(this->name, 0, "Volume %s found", volname);
-            volume_found = _gf_true;
-            break;
-        }
-    }
-
-    return volume_found;
-}
-
-int32_t
+static int32_t
 glusterd_service_stop(const char *service, char *pidfile, int sig,
                       gf_boolean_t force_kill)
 {
@@ -1968,7 +1947,7 @@ glusterd_set_brick_socket_filepath(glusterd_volinfo_t *volinfo,
 /* connection happens only if it is not already connected,
  * reconnections are taken care by rpc-layer
  */
-int32_t
+static int32_t
 glusterd_brick_connect(glusterd_volinfo_t *volinfo,
                        glusterd_brickinfo_t *brickinfo, char *socketpath)
 {
@@ -2037,7 +2016,7 @@ _mk_rundir_p(glusterd_volinfo_t *volinfo)
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
                                 glusterd_brickinfo_t *brickinfo,
                                 gf_boolean_t wait)
@@ -2402,7 +2381,7 @@ glusterd_brick_unlink_socket_file(glusterd_volinfo_t *volinfo,
     return glusterd_unlink_file(socketpath);
 }
 
-int32_t
+static int32_t
 glusterd_brick_disconnect(glusterd_brickinfo_t *brickinfo)
 {
     rpc_clnt_t *rpc = NULL;
@@ -2541,7 +2520,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_brick_process_add_brick(glusterd_brickinfo_t *brickinfo,
                                  glusterd_brickinfo_t *parent_brickinfo)
 {
@@ -2584,7 +2563,7 @@ out:
 /* ret = 0 only when you get a brick process associated with the port
  * ret = -1 otherwise
  */
-int
+static int
 glusterd_brick_proc_for_port(int port, glusterd_brick_proc_t **brickprocess)
 {
     int ret = -1;
@@ -2812,6 +2791,89 @@ glusterd_sort_and_redirect(const char *src_filepath, int dest_fd)
     ret = 0;
 out:
     GF_FREE(lines);
+
+    return ret;
+}
+
+static void
+compute_checksum(char *buf, const ssize_t size, uint32_t *checksum)
+{
+    int ret = -1;
+    char *checksum_buf = NULL;
+
+    checksum_buf = (char *)(checksum);
+
+    if (!(*checksum)) {
+        checksum_buf[0] = 0xba;
+        checksum_buf[1] = 0xbe;
+        checksum_buf[2] = 0xb0;
+        checksum_buf[3] = 0x0b;
+    }
+
+    for (ret = 0; ret < (size - 4); ret += 4) {
+        checksum_buf[0] ^= (buf[ret]);
+        checksum_buf[1] ^= (buf[ret + 1] << 1);
+        checksum_buf[2] ^= (buf[ret + 2] << 2);
+        checksum_buf[3] ^= (buf[ret + 3] << 3);
+    }
+
+    for (ret = 0; ret <= (size % 4); ret++) {
+        checksum_buf[ret] ^= (buf[(size - 4) + ret] << ret);
+    }
+
+    return;
+}
+
+#define GF_CHECKSUM_BUF_SIZE 1024
+
+static int
+get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
+{
+    int ret = -1;
+    char buf[GF_CHECKSUM_BUF_SIZE] = {
+        0,
+    };
+
+    /* goto first place */
+    sys_lseek(fd, 0L, SEEK_SET);
+    do {
+        ret = sys_read(fd, &buf, GF_CHECKSUM_BUF_SIZE);
+        if (ret > 0) {
+            if (op_version < GD_OP_VERSION_5_4)
+                compute_checksum(buf, GF_CHECKSUM_BUF_SIZE, checksum);
+            else
+                compute_checksum(buf, ret, checksum);
+        }
+    } while (ret > 0);
+
+    /* set it back */
+    sys_lseek(fd, 0L, SEEK_SET);
+
+    return ret;
+}
+
+static int
+get_checksum_for_path(char *path, uint32_t *checksum, int op_version)
+{
+    int ret = -1;
+    int fd = -1;
+
+    GF_ASSERT(path);
+    GF_ASSERT(checksum);
+
+    fd = open(path, O_RDWR);
+
+    if (fd == -1) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_PATH_OPEN_FAILED,
+                "path=%s", path, NULL);
+        goto out;
+    }
+
+    ret = get_checksum_for_file(fd, checksum, op_version);
+
+out:
+    if (fd != -1)
+        sys_close(fd);
 
     return ret;
 }
@@ -5201,7 +5263,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_import_friend_volumes_synctask(void *opaque)
 {
     int32_t ret = -1;
@@ -5270,7 +5332,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_import_friend_volumes(dict_t *peer_data)
 {
     int32_t ret = -1;
@@ -5896,44 +5958,6 @@ glusterd_have_volumes()
     volumes_exist = !cds_list_empty(&priv->volumes);
 out:
     return volumes_exist;
-}
-
-int
-glusterd_volume_count_get(void)
-{
-    glusterd_volinfo_t *tmp_volinfo = NULL;
-    int32_t ret = 0;
-    glusterd_conf_t *priv = NULL;
-
-    priv = THIS->private;
-
-    cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list) { ret++; }
-
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
-    return ret;
-}
-
-int
-glusterd_brickinfo_get(uuid_t uuid, char *hostname, char *path,
-                       glusterd_brickinfo_t **brickinfo)
-{
-    glusterd_volinfo_t *volinfo = NULL;
-    glusterd_conf_t *priv = NULL;
-    int ret = -1;
-
-    GF_ASSERT(path);
-    priv = THIS->private;
-
-    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
-    {
-        ret = glusterd_volume_brickinfo_get(uuid, hostname, path, volinfo,
-                                            brickinfo);
-        if (ret == 0)
-            /*Found*/
-            goto out;
-    }
-out:
-    return ret;
 }
 
 static int32_t
@@ -6946,7 +6970,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_restart_bricks(void *opaque)
 {
     int ret = 0;
@@ -7278,7 +7302,7 @@ glusterd_volume_restart_gsyncds(glusterd_volinfo_t *volinfo)
     return 0;
 }
 
-int
+static int
 glusterd_restart_gsyncds(glusterd_conf_t *conf)
 {
     glusterd_volinfo_t *volinfo = NULL;
@@ -7300,52 +7324,6 @@ glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo)
         return volinfo->replica_count;
 
     return 1;
-}
-
-int
-glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
-                       glusterd_brickinfo_t **brickinfo)
-{
-    glusterd_conf_t *priv = NULL;
-    glusterd_volinfo_t *volinfo = NULL;
-    glusterd_brickinfo_t *tmpbrkinfo = NULL;
-    glusterd_snap_t *snap = NULL;
-    int ret = -1;
-
-    GF_ASSERT(brickname);
-
-    priv = this->private;
-    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
-    {
-        cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
-        {
-            if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
-                continue;
-            if ((tmpbrkinfo->port == port) &&
-                !strcmp(tmpbrkinfo->path, brickname)) {
-                *brickinfo = tmpbrkinfo;
-                return 0;
-            }
-        }
-    }
-    /* In case normal volume is not found, check for snapshot volumes */
-    cds_list_for_each_entry(snap, &priv->snapshots, snap_list)
-    {
-        cds_list_for_each_entry(volinfo, &snap->volumes, vol_list)
-        {
-            cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
-            {
-                if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
-                    continue;
-                if (!strcmp(tmpbrkinfo->path, brickname)) {
-                    *brickinfo = tmpbrkinfo;
-                    return 0;
-                }
-            }
-        }
-    }
-
-    return ret;
 }
 
 glusterd_brickinfo_t *
@@ -7386,29 +7364,6 @@ glusterd_is_brick_started(glusterd_brickinfo_t *brickinfo)
 {
     GF_ASSERT(brickinfo);
     return (brickinfo->status == GF_BRICK_STARTED);
-}
-
-int
-glusterd_friend_brick_belongs(glusterd_volinfo_t *volinfo,
-                              glusterd_brickinfo_t *brickinfo, void *uuid)
-{
-    int ret = -1;
-
-    GF_ASSERT(volinfo);
-    GF_ASSERT(brickinfo);
-    GF_ASSERT(uuid);
-
-    if (gf_uuid_is_null(brickinfo->uuid)) {
-        ret = glusterd_resolve_brick(brickinfo);
-        if (ret) {
-            GF_ASSERT(0);
-            goto out;
-        }
-    }
-    if (!gf_uuid_compare(brickinfo->uuid, *((uuid_t *)uuid)))
-        return 0;
-out:
-    return -1;
 }
 
 int
@@ -8008,34 +7963,6 @@ out:
 }
 
 int
-glusterd_all_volume_cond_check(glusterd_condition_func func, int status,
-                               void *ctx)
-{
-    glusterd_conf_t *priv = NULL;
-    glusterd_volinfo_t *volinfo = NULL;
-    glusterd_brickinfo_t *brickinfo = NULL;
-    int ret = -1;
-
-    priv = THIS->private;
-
-    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
-    {
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
-        {
-            ret = func(volinfo, brickinfo, ctx);
-            if (ret != status) {
-                ret = -1;
-                goto out;
-            }
-        }
-    }
-    ret = 0;
-out:
-    gf_msg_debug("glusterd", 0, "returning %d", ret);
-    return ret;
-}
-
-int
 glusterd_brick_stop(glusterd_volinfo_t *volinfo,
                     glusterd_brickinfo_t *brickinfo, gf_boolean_t del_brick)
 {
@@ -8180,38 +8107,6 @@ out:
     return ret;
 }
 
-int
-glusterd_rb_check_bricks(glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src,
-                         glusterd_brickinfo_t *dst)
-{
-    glusterd_replace_brick_t *rb = NULL;
-
-    GF_ASSERT(volinfo);
-
-    rb = &volinfo->rep_brick;
-
-    if (!rb->src_brick || !rb->dst_brick) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
-        return -1;
-    }
-
-    if (strcmp(rb->src_brick->hostname, src->hostname) ||
-        strcmp(rb->src_brick->path, src->path)) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RB_SRC_BRICKS_MISMATCH,
-               "Replace brick src bricks differ");
-        return -1;
-    }
-
-    if (strcmp(rb->dst_brick->hostname, dst->hostname) ||
-        strcmp(rb->dst_brick->path, dst->path)) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RB_DST_BRICKS_MISMATCH,
-               "Replace brick dst bricks differ");
-        return -1;
-    }
-
-    return 0;
-}
-
 /*path needs to be absolute; works only on gfid, volume-id*/
 static int
 glusterd_is_uuid_present(char *path, char *xattr, gf_boolean_t *present)
@@ -8331,7 +8226,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
                                    char **op_errstr, gf_boolean_t is_force)
 {
@@ -8561,42 +8456,6 @@ out:
     return ret;
 }
 
-int
-glusterd_remove_pending_entry(struct cds_list_head *list, void *elem)
-{
-    glusterd_pending_node_t *pending_node = NULL;
-    glusterd_pending_node_t *tmp = NULL;
-    int ret = 0;
-
-    cds_list_for_each_entry_safe(pending_node, tmp, list, list)
-    {
-        if (elem == pending_node->node) {
-            cds_list_del_init(&pending_node->list);
-            GF_FREE(pending_node);
-            ret = 0;
-            goto out;
-        }
-    }
-out:
-    gf_msg_debug(THIS->name, 0, "returning %d", ret);
-    return ret;
-}
-
-int
-glusterd_clear_pending_nodes(struct cds_list_head *list)
-{
-    glusterd_pending_node_t *pending_node = NULL;
-    glusterd_pending_node_t *tmp = NULL;
-
-    cds_list_for_each_entry_safe(pending_node, tmp, list, list)
-    {
-        cds_list_del_init(&pending_node->list);
-        GF_FREE(pending_node);
-    }
-
-    return 0;
-}
-
 int32_t
 glusterd_delete_volume(glusterd_volinfo_t *volinfo)
 {
@@ -8633,7 +8492,7 @@ glusterd_delete_brick(glusterd_volinfo_t *volinfo,
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_delete_all_bricks(glusterd_volinfo_t *volinfo)
 {
     int ret = 0;
@@ -9071,7 +8930,7 @@ glusterd_brick_statedump(glusterd_volinfo_t *volinfo,
                                  op_errstr, SIGUSR1);
 }
 
-int
+static int
 glusterd_brick_terminate(glusterd_volinfo_t *volinfo,
                          glusterd_brickinfo_t *brickinfo, char *options,
                          int option_cnt, char **op_errstr)
@@ -9330,43 +9189,6 @@ glusterd_friend_contains_vol_bricks(glusterd_volinfo_t *volinfo,
         else
             ret = 1;
     }
-    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
-    return ret;
-}
-
-/* Checks if the given peer contains bricks belonging to the given volume.
- * Returns,
- *   2 - if peer contains all the bricks
- *   1 - if peer contains at least 1 brick
- *   0 - if peer contains no bricks
- */
-int
-glusterd_friend_contains_snap_bricks(glusterd_snap_t *snapinfo,
-                                     uuid_t friend_uuid)
-{
-    int ret = -1;
-    glusterd_volinfo_t *volinfo = NULL;
-    glusterd_brickinfo_t *brickinfo = NULL;
-    int count = 0;
-
-    GF_VALIDATE_OR_GOTO("glusterd", snapinfo, out);
-
-    cds_list_for_each_entry(volinfo, &snapinfo->volumes, vol_list)
-    {
-        cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
-        {
-            if (!gf_uuid_compare(brickinfo->uuid, friend_uuid)) {
-                count++;
-            }
-        }
-    }
-
-    if (count > 0)
-        ret = 1;
-    else
-        ret = 0;
-
-out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
 }
@@ -14032,25 +13854,6 @@ glusterd_count_connected_peers(int32_t *count)
     ret = 0;
 out:
     return ret;
-}
-
-char *
-gd_get_shd_key(int type)
-{
-    char *key = NULL;
-
-    switch (type) {
-        case GF_CLUSTER_TYPE_REPLICATE:
-            key = "cluster.self-heal-daemon";
-            break;
-        case GF_CLUSTER_TYPE_DISPERSE:
-            key = "cluster.disperse-self-heal-daemon";
-            break;
-        default:
-            key = NULL;
-            break;
-    }
-    return key;
 }
 
 int

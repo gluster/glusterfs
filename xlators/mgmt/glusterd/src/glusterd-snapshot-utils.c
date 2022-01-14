@@ -31,6 +31,8 @@
 #include "glusterd-messages.h"
 #include "glusterd-errno.h"
 
+#define GANESHA_EXPORT_DIRECTORY CONFDIR "/exports"
+
 extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
 /*

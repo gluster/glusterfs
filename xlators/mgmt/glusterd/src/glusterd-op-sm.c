@@ -5305,6 +5305,27 @@ out:
 }
 
 static int
+glusterd_remove_pending_entry(struct cds_list_head *list, void *elem)
+{
+    glusterd_pending_node_t *pending_node = NULL;
+    glusterd_pending_node_t *tmp = NULL;
+    int ret = 0;
+
+    cds_list_for_each_entry_safe(pending_node, tmp, list, list)
+    {
+        if (elem == pending_node->node) {
+            cds_list_del_init(&pending_node->list);
+            GF_FREE(pending_node);
+            ret = 0;
+            goto out;
+        }
+    }
+out:
+    gf_msg_debug(THIS->name, 0, "returning %d", ret);
+    return ret;
+}
+
+static int
 glusterd_op_ac_brick_op_failed(glusterd_op_sm_event_t *event, void *ctx)
 {
     int ret = 0;
@@ -7320,6 +7341,21 @@ glusterd_bricks_select_barrier(dict_t *dict, struct cds_list_head *selected)
 out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
+}
+
+static int
+glusterd_clear_pending_nodes(struct cds_list_head *list)
+{
+    glusterd_pending_node_t *pending_node = NULL;
+    glusterd_pending_node_t *tmp = NULL;
+
+    cds_list_for_each_entry_safe(pending_node, tmp, list, list)
+    {
+        cds_list_del_init(&pending_node->list);
+        GF_FREE(pending_node);
+    }
+
+    return 0;
 }
 
 static int

@@ -56,7 +56,6 @@ There are 2 interfaces provided to log messages,
 
     *gf_msg_plain(levl, fmt...)*
     *gf_msg_plain_nomem(levl, msg)*
-    *gf_msg_vplain(levl, fmt, va)*
     *gf_msg_backtrace_nomem*
       - The above interfaces are provided to log messages without any typical
       headers (like the time stamp, dom, errnum etc.). The primary users of

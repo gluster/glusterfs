@@ -2710,9 +2710,3 @@ glusterd_handle_attach_tier(rpcsvc_request_t *req)
 {
     return 0;
 }
-
-int
-glusterd_handle_detach_tier(rpcsvc_request_t *req)
-{
-    return 0;
-}
