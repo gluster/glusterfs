@@ -13,7 +13,7 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/defaults.h>
@@ -1265,19 +1265,6 @@ server_init(xlator_t *this)
         goto err;
     }
 
-    glusterfs3_3_fop_prog.options = this->options;
-    /* make sure we register the fop program at the head to optimize
-     * lookup
-     */
-    ret = rpcsvc_program_register(conf->rpc, &glusterfs3_3_fop_prog, _gf_true);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED, "name=%s",
-                glusterfs3_3_fop_prog.progname, "prognum=%d",
-                glusterfs3_3_fop_prog.prognum, "progver=%d",
-                glusterfs3_3_fop_prog.progver, NULL);
-        goto err;
-    }
-
     glusterfs4_0_fop_prog.options = this->options;
     ret = rpcsvc_program_register(conf->rpc, &glusterfs4_0_fop_prog, _gf_true);
     if (ret) {
@@ -1286,7 +1273,6 @@ server_init(xlator_t *this)
                "progver:%d) failed",
                glusterfs4_0_fop_prog.progname, glusterfs4_0_fop_prog.prognum,
                glusterfs4_0_fop_prog.progver);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         goto err;
     }
 
@@ -1298,7 +1284,6 @@ server_init(xlator_t *this)
                 gluster_handshake_prog.progname, "prognum=%d",
                 gluster_handshake_prog.prognum, "progver=%d",
                 gluster_handshake_prog.progver, NULL);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         rpcsvc_program_unregister(conf->rpc, &glusterfs4_0_fop_prog);
         goto err;
     }

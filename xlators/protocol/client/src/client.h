@@ -21,7 +21,7 @@
 #include "client-mem-types.h"
 #include "protocol-common.h"
 #include "glusterfs3.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/fd-lk.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/default-args.h>
@@ -47,14 +47,6 @@ typedef enum {
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
     } while (0)
 
-#define CLIENT_POST_FOP_TYPE(fop, this_rsp_u, this_args_cbk, params...)        \
-    do {                                                                       \
-        gfs3_##fop##_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);         \
-                                                                               \
-        int _op_ret = _this_rsp->op_ret;                                       \
-        int _op_errno = gf_error_to_errno(_this_rsp->op_errno);                \
-        args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
-    } while (0)
 
 #define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, fop, label)   \
     do {                                                                       \
@@ -280,17 +272,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       client_payload_t *cp, xdrproc_t xdrproc);
 
 int
-unserialize_rsp_dirent(xlator_t *this, struct gfs3_readdir_rsp *rsp,
-                       gf_dirent_t *entries);
-int
-unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
-                        gf_dirent_t *entries);
-
-int
-clnt_readdir_rsp_cleanup(gfs3_readdir_rsp *rsp);
-int
-clnt_readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp);
-int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
 
 int
@@ -317,18 +298,6 @@ client_is_reopen_needed(fd_t *fd, xlator_t *this, int64_t remote_fd);
 int
 client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
                            int64_t remote_fd, int is_dir);
-int
-clnt_unserialize_rsp_locklist(xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
-                              lock_migration_info_t *lmi);
-void
-clnt_getactivelk_rsp_cleanup(gfs3_getactivelk_rsp *rsp);
-
-void
-clnt_setactivelk_req_cleanup(gfs3_setactivelk_req *req);
-
-int
-serialize_req_locklist(lock_migration_info_t *locklist,
-                       gfs3_setactivelk_req *req);
 
 void
 clnt_getactivelk_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp);

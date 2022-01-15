@@ -9,7 +9,7 @@
 */
 #include "index.h"
 #include <glusterfs/options.h>
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
@@ -533,7 +533,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             continue;
         }
 
-        this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+        this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {

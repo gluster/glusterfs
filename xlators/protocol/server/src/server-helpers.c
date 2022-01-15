@@ -859,60 +859,6 @@ out:
     return;
 }
 
-int
-serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
-{
-    gf_dirent_t *entry = NULL;
-    gfs3_dirplist *trav = NULL;
-    gfs3_dirplist *prev = NULL;
-    int ret = -1;
-
-    GF_VALIDATE_OR_GOTO("server", entries, out);
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
-        if (!trav)
-            goto out;
-
-        trav->d_ino = entry->d_ino;
-        trav->d_off = entry->d_off;
-        trav->d_len = entry->d_len;
-        trav->d_type = entry->d_type;
-        trav->name = entry->d_name;
-
-        gf_stat_from_iatt(&trav->stat, &entry->d_stat);
-
-        /* if 'dict' is present, pack it */
-        if (entry->dict) {
-            ret = dict_allocate_and_serialize(entry->dict,
-                                              (char **)&trav->dict.dict_val,
-                                              &trav->dict.dict_len);
-            if (ret != 0) {
-                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
-                        NULL);
-                errno = -ret;
-                trav->dict.dict_len = 0;
-                goto out;
-            }
-        }
-
-        if (prev)
-            prev->nextentry = trav;
-        else
-            rsp->reply = trav;
-
-        prev = trav;
-        trav = NULL;
-    }
-
-    ret = 0;
-out:
-    GF_FREE(trav);
-
-    return ret;
-}
 
 int
 serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
@@ -957,40 +903,6 @@ out:
 }
 
 int
-serialize_rsp_dirent(gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
-{
-    gf_dirent_t *entry = NULL;
-    gfs3_dirlist *trav = NULL;
-    gfs3_dirlist *prev = NULL;
-    int ret = -1;
-
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-    GF_VALIDATE_OR_GOTO("server", entries, out);
-
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
-        if (!trav)
-            goto out;
-        trav->d_ino = entry->d_ino;
-        trav->d_off = entry->d_off;
-        trav->d_len = entry->d_len;
-        trav->d_type = entry->d_type;
-        trav->name = entry->d_name;
-        if (prev)
-            prev->nextentry = trav;
-        else
-            rsp->reply = trav;
-
-        prev = trav;
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
-
-int
 serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
 {
     gf_dirent_t *entry = NULL;
@@ -1022,41 +934,6 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
     ret = 0;
 out:
     return ret;
-}
-
-int
-readdir_rsp_cleanup(gfs3_readdir_rsp *rsp)
-{
-    gfs3_dirlist *prev = NULL;
-    gfs3_dirlist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
-}
-
-int
-readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp)
-{
-    gfs3_dirplist *prev = NULL;
-    gfs3_dirplist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev->dict.dict_val);
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
 }
 
 int
@@ -1150,17 +1027,6 @@ out:
 }
 
 int
-serialize_rsp_locklist(lock_migration_info_t *locklist,
-                       gfs3_getactivelk_rsp *rsp)
-{
-    int ret = 0;
-
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-    ret = common_rsp_locklist(locklist, &rsp->reply);
-out:
-    return ret;
-}
-int
 serialize_rsp_locklist_v2(lock_migration_info_t *locklist,
                           gfx_getactivelk_rsp *rsp)
 {
@@ -1172,23 +1038,6 @@ out:
     return ret;
 }
 
-int
-getactivelkinfo_rsp_cleanup(gfs3_getactivelk_rsp *rsp)
-{
-    gfs3_locklist *prev = NULL;
-    gfs3_locklist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
-}
 int
 getactivelkinfo_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp)
 {
@@ -1407,42 +1256,6 @@ server_inode_new(inode_table_t *itable, uuid_t gfid)
         return inode_new(itable);
 }
 
-int
-unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
-{
-    struct gfs3_locklist *trav = NULL;
-    lock_migration_info_t *temp = NULL;
-    int ret = -1;
-
-    trav = req->request;
-
-    INIT_LIST_HEAD(&lmi->list);
-
-    while (trav) {
-        /* TODO: move to GF_MALLOC() */
-        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
-        if (temp == NULL) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
-            goto out;
-        }
-
-        INIT_LIST_HEAD(&temp->list);
-
-        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
-
-        temp->lk_flags = trav->lk_flags;
-
-        temp->client_uid = gf_strdup(trav->client_uid);
-
-        list_add_tail(&temp->list, &lmi->list);
-
-        trav = trav->nextentry;
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
 
 int
 unserialize_req_locklist_v2(gfx_setactivelk_req *req,

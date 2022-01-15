@@ -23,7 +23,7 @@
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include "protocol-common.h"
 #include <glusterfs/defaults.h>
 

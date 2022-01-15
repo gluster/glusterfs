@@ -30,9 +30,6 @@
         ret = RPCSVC_ACTOR_ERROR;                                              \
     } while (0)
 
-extern int
-server3_3_getxattr(rpcsvc_request_t *req);
-
 extern void
 set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid);
 extern int
@@ -41,6 +38,95 @@ extern int
 rpc_receive_common(rpcsvc_request_t *req, call_frame_t **fr,
                    server_state_t **st, ssize_t *xdrlen, void *args,
                    void *xdrfn, glusterfs_fop_t fop);
+
+int
+_gf_server_log_setxattr_failure(dict_t *d, char *k, data_t *v, void *tmp)
+{
+    server_state_t *state = NULL;
+    call_frame_t *frame = NULL;
+
+    frame = tmp;
+    state = CALL_STATE(frame);
+
+    gf_msg(THIS->name, GF_LOG_INFO, 0, PS_MSG_SETXATTR_INFO,
+           "%" PRId64
+           ": SETXATTR %s (%s) ==> %s, client: %s, "
+           "error-xlator: %s",
+           frame->root->unique, state->loc.path, uuid_utoa(state->resolve.gfid),
+           k, STACK_CLIENT_NAME(frame->root), STACK_ERR_XL_NAME(frame->root));
+    return 0;
+}
+
+void
+forget_inode_if_no_dentry(inode_t *inode)
+{
+    if (!inode) {
+        return;
+    }
+
+    if (!inode_has_dentry(inode))
+        inode_forget(inode, 0);
+
+    return;
+}
+
+void
+set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid)
+{
+    if (client->subdir_mount && __is_root_gfid((unsigned char *)on_wire_gfid)) {
+        /* set the subdir_mount's gfid for proper resolution */
+        gf_uuid_copy(resolve_gfid, client->subdir_gfid);
+    } else {
+        memcpy(resolve_gfid, on_wire_gfid, 16);
+    }
+}
+
+int
+rpc_receive_common(rpcsvc_request_t *req, call_frame_t **fr,
+                   server_state_t **st, ssize_t *xdrlen, void *args,
+                   void *xdrfn, glusterfs_fop_t fop)
+{
+    int ret = -1;
+    ssize_t len = 0;
+
+    len = xdr_to_generic(req->msg[0], args, (xdrproc_t)xdrfn);
+    if (len < 0) {
+        /* failed to decode msg; */
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+
+    /* Few fops use the xdr size to get the vector sizes */
+    if (xdrlen)
+        *xdrlen = len;
+
+    *fr = get_frame_from_request(req);
+    if (!(*fr)) {
+        /* something wrong, mostly no memory */
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+    (*fr)->root->op = fop;
+
+    *st = CALL_STATE((*fr));
+    if (!(*fr)->root->client->bound_xl) {
+        /* auth failure, mostly setvolume is not successful */
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+
+    if (!(*fr)->root->client->bound_xl->itable) {
+        /* inode_table is not allocated successful in server_setvolume */
+        SERVER_REQ_SET_ERROR(req, ret);
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
 
 /* Callback function section */
 int
@@ -6013,6 +6099,22 @@ server4_0_copy_file_range(rpcsvc_request_t *req)
 out:
 
     return ret;
+}
+
+int
+server_null(rpcsvc_request_t *req)
+{
+    gf_common_rsp rsp = {
+        0,
+    };
+
+    /* Accepted */
+    rsp.op_ret = 0;
+
+    server_submit_reply(NULL, req, &rsp, NULL, 0, NULL,
+                        (xdrproc_t)xdr_gf_common_rsp);
+
+    return 0;
 }
 
 static rpcsvc_actor_t glusterfs4_0_fop_actors[] = {

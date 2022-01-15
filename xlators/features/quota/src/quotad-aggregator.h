@@ -13,7 +13,6 @@
 
 #include "quota.h"
 #include <glusterfs/stack.h>
-#include "glusterfs3-xdr.h"
 #include <glusterfs/inode.h>
 
 typedef struct {

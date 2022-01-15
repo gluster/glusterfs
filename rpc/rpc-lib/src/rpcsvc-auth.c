@@ -18,10 +18,6 @@ extern rpcsvc_auth_t *
 rpcsvc_auth_unix_init(rpcsvc_t *svc, dict_t *options);
 
 extern rpcsvc_auth_t *
-rpcsvc_auth_glusterfs_init(rpcsvc_t *svc, dict_t *options);
-extern rpcsvc_auth_t *
-rpcsvc_auth_glusterfs_v2_init(rpcsvc_t *svc, dict_t *options);
-extern rpcsvc_auth_t *
 rpcsvc_auth_glusterfs_v3_init(rpcsvc_t *svc, dict_t *options);
 
 int
@@ -49,22 +45,6 @@ int
 rpcsvc_auth_add_initers(rpcsvc_t *svc)
 {
     int ret = -1;
-
-    ret = rpcsvc_auth_add_initer(
-        &svc->authschemes, "auth-glusterfs",
-        (rpcsvc_auth_initer_t)rpcsvc_auth_glusterfs_init);
-    if (ret == -1) {
-        gf_log(GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_GLUSTERFS");
-        goto err;
-    }
-
-    ret = rpcsvc_auth_add_initer(
-        &svc->authschemes, "auth-glusterfs-v2",
-        (rpcsvc_auth_initer_t)rpcsvc_auth_glusterfs_v2_init);
-    if (ret == -1) {
-        gf_log(GF_RPCSVC, GF_LOG_ERROR, "Failed to add AUTH_GLUSTERFS-v2");
-        goto err;
-    }
 
     ret = rpcsvc_auth_add_initer(
         &svc->authschemes, "auth-glusterfs-v3",
@@ -544,8 +524,6 @@ rpcsvc_auth_unix_auxgids(rpcsvc_request_t *req, int *arrlen)
     /* In case of AUTH_NULL auxgids are not used */
     switch (req->cred.flavour) {
         case AUTH_UNIX:
-        case AUTH_GLUSTERFS:
-        case AUTH_GLUSTERFS_v2:
         case AUTH_GLUSTERFS_v3:
             break;
         default:

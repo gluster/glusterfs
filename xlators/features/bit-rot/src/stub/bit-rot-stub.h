@@ -21,7 +21,7 @@
 #include <glusterfs/common-utils.h>
 #include "bit-rot-common.h"
 #include "bit-rot-stub-messages.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 
