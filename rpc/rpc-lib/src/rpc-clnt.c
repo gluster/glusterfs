@@ -238,29 +238,29 @@ saved_frames_new(void)
     return saved_frames;
 }
 
-static int
-__saved_frame_copy(struct saved_frames *frames, const uint32_t callid,
-                   struct saved_frame *saved_frame)
+static struct rpc_req *
+__saved_frame_copy(struct saved_frames *frames, uint32_t callid,
+                   rpc_transport_rsp_t *saved_frame_rsp)
 {
     struct saved_frame *tmp = NULL;
 
     list_for_each_entry(tmp, &frames->sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            *saved_frame = *tmp;
-            return 0;
+            memcpy(&saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            return tmp->rpcreq;
         }
     }
 
     list_for_each_entry(tmp, &frames->lk_sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            *saved_frame = *tmp;
-            return 0;
+            memcpy(&saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            return tmp->rpcreq;
         }
     }
 
-    return -1;
+    return NULL;
 }
 
 static struct saved_frame *
@@ -397,31 +397,29 @@ static int
 rpc_clnt_fill_request_info(rpc_clnt_connection_t *conn,
                            rpc_request_info_t *info)
 {
-    struct saved_frame saved_frame;
-    int ret;
+    struct rpc_req *saved_frame_rpcreq = NULL;
 
     pthread_mutex_lock(&conn->lock);
     {
-        ret = __saved_frame_copy(conn->saved_frames, info->xid, &saved_frame);
+        saved_frame_rpcreq = __saved_frame_copy(conn->saved_frames, info->xid,
+                                                &info->rsp);
     }
     pthread_mutex_unlock(&conn->lock);
 
-    if (ret != 0) {
+    if (caa_unlikely(!saved_frame_rpcreq)) {
         gf_log(conn->name, GF_LOG_CRITICAL,
                "cannot lookup the saved "
-               "frame corresponding to xid (%u)",
+               "frame corresponding to xid (%" PRIu32 ")",
                info->xid);
-        goto out;
+        return -1;
     }
 
-    info->prognum = saved_frame.rpcreq->prog->prognum;
-    info->procnum = saved_frame.rpcreq->procnum;
-    info->progver = saved_frame.rpcreq->prog->progver;
-    info->rpc_req = saved_frame.rpcreq;
-    info->rsp = saved_frame.rsp;
+    info->rpc_req = saved_frame_rpcreq;
+    info->prognum = saved_frame_rpcreq->prog->prognum;
+    info->procnum = saved_frame_rpcreq->procnum;
+    info->progver = saved_frame_rpcreq->prog->progver;
 
-out:
-    return ret;
+    return 0;
 }
 
 int
