@@ -350,8 +350,6 @@ xlator_dynload_apis(xlator_t *xl)
         list_add_tail(&vol_opt->list, &xl->volume_options);
     }
 
-    xl->id = xlapi->xlator_id;
-    xl->flags = xlapi->flags;
     xl->identifier = xlapi->identifier;
     xl->category = xlapi->category;
 

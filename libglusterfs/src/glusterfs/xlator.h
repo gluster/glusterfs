@@ -796,6 +796,30 @@ struct _xlator {
 
     gf_loglevel_t loglevel; /* Log level for translator */
 
+    /* Its used as an index to inode_ctx*/
+    uint32_t xl_id;
+
+    /* Misc */
+    eh_t *history; /* event history context */
+    glusterfs_ctx_t *ctx;
+    glusterfs_graph_t *graph; /* not set for fuse */
+    inode_table_t *itable;
+    uint32_t init_succeeded;
+    uint32_t switched;
+    void *private;
+    struct mem_acct *mem_acct;
+    uint64_t winds;
+
+    /* for the memory pool of 'frame->local' */
+
+    struct mem_pool *local_pool;
+
+    uint32_t is_autoloaded;
+
+    /* Is this pass_through? */
+    uint32_t pass_through;
+    struct xlator_fops *pass_through_fops;
+
     struct {
         gf_atomic_t total_fop;
         gf_atomic_t interval_fop;
@@ -804,42 +828,18 @@ struct _xlator {
         gf_latency_t latencies;
     } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
 
-    /* Misc */
-    eh_t *history; /* event history context */
-    glusterfs_ctx_t *ctx;
-    glusterfs_graph_t *graph; /* not set for fuse */
-    inode_table_t *itable;
-    char init_succeeded;
-    void *private;
-    struct mem_acct *mem_acct;
-    uint64_t winds;
-    char switched;
-
-    /* for the memory pool of 'frame->local' */
-    struct mem_pool *local_pool;
-    gf_boolean_t is_autoloaded;
-
-    /* Saved volfile ID (used for multiplexing) */
-    char *volfile_id;
-
-    /* Its used as an index to inode_ctx*/
-    uint32_t xl_id;
 
     /* op_version: initialized in xlator code itself */
     uint32_t op_version[GF_MAX_RELEASES];
 
-    /* flags: initialized in xlator code itself */
-    uint32_t flags;
-
-    /* id: unique, initialized in xlator code itself */
-    uint32_t id;
+    /* Saved volfile ID (used for multiplexing) */
+    char *volfile_id;
 
     /* identifier: a full string which can unique identify the xlator */
     char *identifier;
 
-    /* Is this pass_through? */
-    gf_boolean_t pass_through;
-    struct xlator_fops *pass_through_fops;
+    /* Variable to save xprt associated for detach brick */
+    gf_atomic_t xprtrefcnt;
 
     /* cleanup flag to avoid races during xlator cleanup */
     uint32_t cleanup_starting;
@@ -849,9 +849,6 @@ struct _xlator {
 
     /* Flag to understand how this xlator is categorized */
     gf_category_t category;
-
-    /* Variable to save xprt associated for detach brick */
-    gf_atomic_t xprtrefcnt;
 
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
@@ -873,15 +870,6 @@ typedef struct {
        operating version.
        default value: 0, which means good to insert always */
     uint32_t op_version[GF_MAX_RELEASES];
-
-    /* flags: will be used by volume generation logic to optimize the
-       placements etc.
-       default value: 0, which means don't treat it specially */
-    uint32_t flags;
-
-    /* xlator_id: unique per xlator. make sure to have no collission
-       in this ID */
-    uint32_t xlator_id;
 
     /* identifier: a string constant */
     char *identifier;
