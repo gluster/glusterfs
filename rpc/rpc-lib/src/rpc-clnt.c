@@ -221,7 +221,7 @@ out:
     return saved_frame;
 }
 
-struct saved_frames *
+static struct saved_frames *
 saved_frames_new(void)
 {
     struct saved_frames *saved_frames = NULL;
@@ -329,7 +329,7 @@ saved_frames_unwind(struct saved_frames *saved_frames)
     }
 }
 
-void
+static void
 saved_frames_destroy(struct saved_frames *frames)
 {
     if (!frames)
@@ -340,7 +340,7 @@ saved_frames_destroy(struct saved_frames *frames)
     GF_FREE(frames);
 }
 
-void
+static void
 rpc_clnt_reconnect(void *conn_ptr)
 {
     rpc_transport_t *trans = NULL;
@@ -619,7 +619,7 @@ out:
     return ret;
 }
 
-int
+static int
 rpc_clnt_handle_cbk(struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
 {
     char *msgbuf = NULL;
@@ -678,7 +678,7 @@ out:
     return ret;
 }
 
-int
+static int
 rpc_clnt_handle_reply(struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
 {
     rpc_clnt_connection_t *conn = NULL;
@@ -1371,40 +1371,31 @@ out:
     return ret;
 }
 
-struct iovec
+static int
 rpc_clnt_record_build_header(char *recordstart, size_t rlen,
-                             struct rpc_msg *request, size_t payload)
+                             struct rpc_msg *request, size_t payload,
+                             struct iovec *recbuf)
 {
-    struct iovec requesthdr = {
-        0,
-    };
-    struct iovec txrecord = {0, 0};
-    int ret = -1;
-    size_t fraglen = 0;
+    int ret;
 
-    ret = rpc_request_to_xdr(request, recordstart, rlen, &requesthdr);
-    if (ret == -1) {
+    ret = rpc_request_to_xdr(request, recordstart, rlen, recbuf);
+    if (ret < 0) {
         gf_log("rpc-clnt", GF_LOG_DEBUG, "Failed to create RPC request");
         goto out;
     }
 
-    fraglen = payload + requesthdr.iov_len;
     gf_log("rpc-clnt", GF_LOG_TRACE,
-           "Request fraglen %zu, payload: %zu, "
+           "Request payload: %zu, "
            "rpc hdr: %zu",
-           fraglen, payload, requesthdr.iov_len);
+           payload, recbuf->iov_len);
 
-    txrecord.iov_base = recordstart;
-
-    /* Remember, this is only the vec for the RPC header and does not
+    /* Remember, recbuf->iov_len is only the vec for the RPC header and does not
      * include the payload above. We needed the payload only to calculate
      * the size of the full fragment. This size is sent in the fragment
      * header.
      */
-    txrecord.iov_len = requesthdr.iov_len;
-
 out:
-    return txrecord;
+    return ret;
 }
 
 static struct iobuf *
@@ -1418,17 +1409,10 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
     };
     struct iobuf *request_iob = NULL;
     char *record = NULL;
-    struct iovec recordhdr = {
-        0,
-    };
     size_t pagesize = 0;
-    int ret = -1;
+    int ret;
     size_t xdr_size = 0;
     char auth_data[GF_MAX_AUTH_BYTES];
-
-    if ((!clnt) || (!recbuf)) {
-        goto out;
-    }
 
     /* Fill the rpc structure and XDR it into the buffer got above. */
     ret = rpc_clnt_fill_request(clnt, prognum, progver, procnum, xid, fr,
@@ -1454,19 +1438,15 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
 
     record = iobuf_ptr(request_iob); /* Now we have it. */
 
-    recordhdr = rpc_clnt_record_build_header(record, pagesize, &request,
-                                             hdrsize);
+    ret = rpc_clnt_record_build_header(record, pagesize, &request, hdrsize,
+                                       recbuf);
 
-    if (!recordhdr.iov_base) {
+    if (ret) {
         gf_log(clnt->conn.name, GF_LOG_ERROR, "Failed to build record header");
         iobuf_unref(request_iob);
         request_iob = NULL;
         recbuf->iov_base = NULL;
-        goto out;
     }
-
-    recbuf->iov_base = recordhdr.iov_base;
-    recbuf->iov_len = recordhdr.iov_len;
 
 out:
     return request_iob;
@@ -1477,10 +1457,6 @@ rpc_clnt_record(struct rpc_clnt *clnt, call_frame_t *call_frame,
                 rpc_clnt_prog_t *prog, int procnum, size_t hdrlen,
                 struct iovec *rpchdr, const uint32_t callid)
 {
-    if (!prog || !rpchdr || !call_frame) {
-        return NULL;
-    }
-
     return rpc_clnt_record_build_record(clnt, call_frame, prog->prognum,
                                         prog->progver, procnum, hdrlen, callid,
                                         rpchdr);

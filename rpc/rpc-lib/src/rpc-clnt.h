@@ -244,9 +244,6 @@ rpc_clnt_status_t
 rpc_clnt_connection_status(rpc_clnt_connection_t *conn);
 
 void
-rpc_clnt_reconnect(void *trans_ptr);
-
-void
 rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config);
 
 /* All users of RPC services should use this API to register their
