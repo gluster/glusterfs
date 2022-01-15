@@ -814,10 +814,13 @@ struct _xlator {
 
     struct mem_pool *local_pool;
 
-    uint32_t is_autoloaded;
+    /* Flag to avoid throw duplicate PARENT_DOWN event */
+    uint32_t parent_down;
+
+    gf_boolean_t is_autoloaded;
 
     /* Is this pass_through? */
-    uint32_t pass_through;
+    gf_boolean_t pass_through;
     struct xlator_fops *pass_through_fops;
 
     struct {
@@ -827,7 +830,6 @@ struct _xlator {
         gf_atomic_t interval_fop_cbk;
         gf_latency_t latencies;
     } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
-
 
     /* op_version: initialized in xlator code itself */
     uint32_t op_version[GF_MAX_RELEASES];
@@ -852,9 +854,6 @@ struct _xlator {
 
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
-
-    /* Flag to avoid throw duplicate PARENT_DOWN event */
-    uint32_t parent_down;
 };
 
 /* This would be the only structure which needs to be exported by
