@@ -164,33 +164,37 @@ afr_validate_read_subvol(inode_t *inode, xlator_t *this, int par_read_subvol)
 }
 
 static int32_t
-afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
-                              int subvol, gf_dirent_t *entries, fd_t *fd)
+afr_readdir_transform_entries(pid_t pid, xlator_t *this,
+                              gf_dirent_t *subvol_entries, int subvol,
+                              gf_dirent_t *entries, fd_t *fd)
 {
-    int ret = -1;
+    int ret;
     gf_dirent_t *entry = NULL;
     gf_dirent_t *tmp = NULL;
-    xlator_t *this = NULL;
     afr_private_t *priv = NULL;
     gf_boolean_t need_heal = _gf_false;
     gf_boolean_t validate_subvol = _gf_false;
     int32_t count = 0;
+    gf_boolean_t is_root_gfid = __is_root_gfid(fd->inode->gfid);
 
-    this = THIS;
     priv = this->private;
 
-    need_heal = afr_get_need_heal(this);
+    need_heal = afr_get_need_heal(priv);
     validate_subvol = need_heal | priv->consistent_metadata;
 
     list_for_each_entry_safe(entry, tmp, &subvol_entries->list, list)
     {
-        if (afr_is_private_directory(priv, fd->inode->gfid, entry->d_name,
-                                     frame->root->pid)) {
-            continue;
+        /* we can skip afr_is_private_directory() check unless it's root gfid
+         * which we check once (above) for all entries
+         */
+        if (is_root_gfid) {
+            if (afr_is_private_directory(priv, fd->inode->gfid, entry->d_name,
+                                         pid)) {
+                continue;
+            }
         }
 
-        list_del_init(&entry->list);
-        list_add_tail(&entry->list, &entries->list);
+        list_move_tail(&entry->list, &entries->list);
         count++;
 
         if (!validate_subvol)
@@ -198,7 +202,7 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
 
         if (entry->inode) {
             ret = afr_validate_read_subvol(entry->inode, this, subvol);
-            if (ret == -1) {
+            if (ret != 0) {
                 inode_unref(entry->inode);
                 entry->inode = NULL;
                 continue;
@@ -209,7 +213,7 @@ afr_readdir_transform_entries(call_frame_t *frame, gf_dirent_t *subvol_entries,
     return count;
 }
 
-int32_t
+static int32_t
 afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, gf_dirent_t *subvol_entries,
                 dict_t *xdata)
@@ -232,9 +236,9 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (op_ret >= 0)
-        op_ret = afr_readdir_transform_entries(frame, subvol_entries,
-                                               (long)cookie, &entries,
-                                               local->fd);
+        op_ret = afr_readdir_transform_entries(frame->root->pid, this,
+                                               subvol_entries, (long)cookie,
+                                               &entries, local->fd);
 
     AFR_STACK_UNWIND(readdir, frame, op_ret, op_errno, &entries, xdata);
 
@@ -243,7 +247,7 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -280,7 +284,7 @@ afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
+static int
 afr_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                off_t offset, int whichop, dict_t *dict)
 {

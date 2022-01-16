@@ -7358,9 +7358,8 @@ afr_set_need_heal(xlator_t *this, afr_local_t *local)
 }
 
 gf_boolean_t
-afr_get_need_heal(xlator_t *this)
+afr_get_need_heal(afr_private_t *priv)
 {
-    afr_private_t *priv = this->private;
     gf_boolean_t need_heal = _gf_true;
 
     LOCK(&priv->lock);

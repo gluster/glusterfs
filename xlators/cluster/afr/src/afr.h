@@ -1288,7 +1288,7 @@ int
 afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque);
 
 gf_boolean_t
-afr_get_need_heal(xlator_t *this);
+afr_get_need_heal(afr_private_t *priv);
 
 void
 afr_set_need_heal(xlator_t *this, afr_local_t *local);
