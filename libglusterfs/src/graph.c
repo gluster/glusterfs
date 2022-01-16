@@ -1247,10 +1247,13 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
     }
 
     ret = fread(volfile_content, sizeof(char), file_len, fp);
+    int sha_ret = 0;
     if (ret == file_len) {
-        glusterfs_compute_sha256((const unsigned char *)volfile_content,
-                                 file_len, sha256_hash);
-    } else {
+        sha_ret = glusterfs_compute_sha256(
+            (const unsigned char *)volfile_content, file_len, sha256_hash);
+    }
+
+    if (ret != file_len || !sha_ret) {
         gf_log(THIS->name, GF_LOG_ERROR,
                "read failed on path %s. File size=%" GF_PRI_SIZET
                "read size=%d",

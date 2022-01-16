@@ -271,7 +271,7 @@ out:
  */
 static int32_t
 br_object_read_block_and_sign(xlator_t *this, fd_t *fd, br_child_t *child,
-                              off_t offset, size_t size, SHA256_CTX *sha256)
+                              off_t offset, size_t size, EVP_MD_CTX *ctx)
 {
     int32_t ret = -1;
     tbf_t *tbf = NULL;
@@ -308,8 +308,11 @@ br_object_read_block_and_sign(xlator_t *this, fd_t *fd, br_child_t *child,
     for (i = 0; i < count; i++) {
         TBF_THROTTLE_BEGIN(tbf, TBF_OP_HASH, iovec[i].iov_len);
         {
-            SHA256_Update(sha256, (const unsigned char *)(iovec[i].iov_base),
-                          iovec[i].iov_len);
+            if (1 !=
+                EVP_DigestUpdate(ctx, iovec[i].iov_base, iovec[i].iov_len)) {
+                ret = -1;
+                goto out;
+            }
         }
         TBF_THROTTLE_BEGIN(tbf, TBF_OP_HASH, iovec[i].iov_len);
     }
@@ -333,7 +336,7 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
     size_t block = BR_HASH_CALC_READ_SIZE;
     xlator_t *this = NULL;
 
-    SHA256_CTX sha256;
+    EVP_MD_CTX *ctx;
 
     GF_VALIDATE_OR_GOTO("bit-rot", child, out);
     GF_VALIDATE_OR_GOTO("bit-rot", iatt, out);
@@ -341,11 +344,16 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
 
     this = child->this;
 
-    SHA256_Init(&sha256);
+    ctx = EVP_MD_CTX_new();
+    if (ctx == NULL)
+        return -1;
+
+    if (1 != EVP_DigestInit(ctx, EVP_sha256()))
+        return -1;
 
     while (1) {
         ret = br_object_read_block_and_sign(this, fd, child, offset, block,
-                                            &sha256);
+                                            ctx);
         if (ret < 0) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_BLOCK_READ_FAILED,
                     "offset=%" PRIu64, offset, "object-gfid=%s",
@@ -360,9 +368,13 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
     }
 
     if (ret == 0)
-        SHA256_Final(md, &sha256);
+        if (1 != EVP_DigestFinal(ctx, md, NULL))
+            return -1;
 
 out:
+    if (ctx != NULL)
+        EVP_MD_CTX_free(ctx);
+
     return ret;
 }
 

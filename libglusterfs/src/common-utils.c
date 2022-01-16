@@ -5271,13 +5271,34 @@ int
 glusterfs_compute_sha256(const unsigned char *content, size_t size,
                          char *sha256_hash)
 {
-    SHA256_CTX sha256;
+    int ret = 0;
 
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, (const unsigned char *)(content), size);
-    SHA256_Final((unsigned char *)sha256_hash, &sha256);
+    EVP_MD_CTX *ctx;
+    ctx = EVP_MD_CTX_new();
 
-    return 0;
+    if (ctx == NULL)
+        goto out;
+
+    // EVP_X methods return 1 on success, so does this function
+    // Any values other than 1 denote error
+    ret = EVP_DigestInit(ctx, EVP_sha256());
+    if (!ret)
+        goto out;
+
+    ret = EVP_DigestUpdate(ctx, content, size);
+    if (!ret)
+        goto out;
+
+    // Provide uint* instead of NULL to get nBytes written, 32 for SHA256
+    ret = EVP_DigestFinal(ctx, (unsigned char *)sha256_hash, NULL);
+    if (!ret)
+        goto out;
+
+out:
+    if (ctx != NULL)
+        EVP_MD_CTX_free(ctx);
+
+    return ret;
 }
 
 /* * Safe wrapper function for strncpy.
@@ -5460,7 +5481,7 @@ gf_pipe(int fd[2], int flags)
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;

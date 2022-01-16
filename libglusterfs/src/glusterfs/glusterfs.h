@@ -30,6 +30,7 @@
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
 #include <openssl/sha.h>
+#include <openssl/evp.h>
 
 #include "glusterfs/glusterfs-fops.h"
 #include "glusterfs/list.h"

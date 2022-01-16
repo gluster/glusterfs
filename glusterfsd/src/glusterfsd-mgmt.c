@@ -55,7 +55,12 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
     int tmp_fd = -1;
     char template[] = "/tmp/glfs.volfile.XXXXXX";
 
-    glusterfs_compute_sha256((const unsigned char *)volfile, size, sha256_hash);
+    if (!glusterfs_compute_sha256((const unsigned char *)volfile, size,
+                                  sha256_hash)) {
+        ret = -1;
+        goto out;
+    }
+
     ctx = THIS->ctx;
     LOCK(&ctx->volfile_lock);
     {
@@ -2341,8 +2346,11 @@ volfile:
     }
 
     ret = 0;
-    glusterfs_compute_sha256((const unsigned char *)rsp.spec, size,
-                             sha256_hash);
+    if (!glusterfs_compute_sha256((const unsigned char *)rsp.spec, size,
+                                  sha256_hash)) {
+        ret = -1;
+        goto out;
+    }
 
     LOCK(&ctx->volfile_lock);
     {
