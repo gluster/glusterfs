@@ -16,6 +16,31 @@
 #include "glusterfs3.h"
 #include "client.h"
 
+int32_t
+client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd)
+{
+    int ret = 0;
+
+    if (cmd == F_GETLK || cmd == F_GETLK64)
+        *gf_cmd = GF_LK_GETLK;
+    else if (cmd == F_SETLK || cmd == F_SETLK64)
+        *gf_cmd = GF_LK_SETLK;
+    else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+        *gf_cmd = GF_LK_SETLKW;
+    else if (cmd == F_RESLK_LCK)
+        *gf_cmd = GF_LK_RESLK_LCK;
+    else if (cmd == F_RESLK_LCKW)
+        *gf_cmd = GF_LK_RESLK_LCKW;
+    else if (cmd == F_RESLK_UNLCK)
+        *gf_cmd = GF_LK_RESLK_UNLCK;
+    else if (cmd == F_GETLK_FD)
+        *gf_cmd = GF_LK_GETLK_FD;
+    else
+        ret = -1;
+
+    return ret;
+}
+
 /* processing to be done before fops are woudn down */
 int
 client_pre_stat(xlator_t *this, gfs3_stat_req *req, loc_t *loc, dict_t *xdata)

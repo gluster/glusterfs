@@ -27,6 +27,16 @@ extern rpc_clnt_prog_t clnt3_3_fop_prog;
 extern rpc_clnt_prog_t clnt4_0_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
+void
+client_save_number_fds(clnt_conf_t *conf, int count)
+{
+    LOCK(&conf->rec_lock);
+    {
+        conf->reopen_fd_count = count;
+    }
+    UNLOCK(&conf->rec_lock);
+}
+
 int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data)
 {
@@ -644,7 +654,7 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
         list_for_each_entry_safe(fdctx, tmp, &conf->saved_fds, sfd_pos)
         {
             if (fdctx->remote_fd != -1 ||
-                (!fdctx_lock_lists_empty(fdctx) && conf->strict_locks))
+                (!fd_lk_ctx_empty(fdctx->lk_ctx) && conf->strict_locks))
                 continue;
 
             fdctx->reopen_done = client_child_up_reopen_done;

@@ -796,7 +796,7 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         pthread_spin_lock(&conf->fd_lock);
         {
             fdctx = this_fd_get_ctx(fd, this);
-            if (fdctx && !fdctx_lock_lists_empty(fdctx)) {
+            if (fdctx && !fd_lk_ctx_empty(fdctx->lk_ctx)) {
                 ret = -1;
                 op_errno = EBADFD;
             }
