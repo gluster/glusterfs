@@ -446,7 +446,7 @@ static int32_t
 ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         dict_t *xdata)
 {
-    ob_inode_t *ob_inode=NULL;
+    ob_inode_t *ob_inode = NULL;
     call_frame_t *open_frame;
     call_stub_t *stub;
     fd_t *first_fd;
@@ -464,7 +464,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
          * or because this request triggered it). We try to create a new stub
          * to retry the operation once the initial open completes. */
         stub = fop_open_stub(frame, ob_open, loc, flags, fd, xdata);
-        if (stub != NULL && ob_inode!=NULL) {
+        if (stub != NULL && ob_inode != NULL) {
             return ob_stub_dispatch(this, ob_inode, first_fd, stub);
         }
 
@@ -479,7 +479,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         if (open_frame != NULL) {
             stub = fop_open_stub(open_frame, ob_open_resume, loc, flags, fd,
                                  xdata);
-            if (stub != NULL) {
+            if (stub != NULL && ob_inode != NULL) {
                 open_frame->local = ob_inode;
 
                 /* TODO: Previous version passed xdata back to the caller, but
@@ -506,7 +506,9 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
 
     LOCK(&fd->inode->lock);
     {
-        ob_inode->open_count--;
+        if (ob_inode != NULL) {
+            ob_inode->open_count--;
+        }
     }
     UNLOCK(&fd->inode->lock);
 
