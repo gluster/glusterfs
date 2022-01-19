@@ -464,7 +464,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
          * or because this request triggered it). We try to create a new stub
          * to retry the operation once the initial open completes. */
         stub = fop_open_stub(frame, ob_open, loc, flags, fd, xdata);
-        if (stub != NULL && ob_inode != NULL) {
+        if (stub != NULL) {
             return ob_stub_dispatch(this, ob_inode, first_fd, stub);
         }
 
@@ -479,7 +479,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         if (open_frame != NULL) {
             stub = fop_open_stub(open_frame, ob_open_resume, loc, flags, fd,
                                  xdata);
-            if (stub != NULL && ob_inode != NULL) {
+            if (stub != NULL) {
                 open_frame->local = ob_inode;
 
                 /* TODO: Previous version passed xdata back to the caller, but
@@ -503,15 +503,13 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
 
     /* In case of failure we need to decrement the number of open files because
      * ob_fdclose() won't be called. */
-
-    LOCK(&fd->inode->lock);
-    {
-        if (ob_inode != NULL) {
+    if (ob_inode != NULL) {
+        LOCK(&fd->inode->lock);
+        {
             ob_inode->open_count--;
         }
+        UNLOCK(&fd->inode->lock);
     }
-    UNLOCK(&fd->inode->lock);
-
     gf_smsg(this->name, GF_LOG_ERROR, -state, OPEN_BEHIND_MSG_FAILED, "fop=%s",
             "open", "path=%s", loc->path, NULL);
 
