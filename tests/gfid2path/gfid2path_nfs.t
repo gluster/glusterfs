@@ -8,13 +8,17 @@
 
 cleanup;
 
-XXHSUM_SOURCE="$(dirname $0)/../../contrib/xxhash/xxhsum.c $(dirname $0)/../../contrib/xxhash/xxhash.c"
-XXHSUM_EXEC=$(dirname $0)/xxhsum
+if test -z $(type -p xxhsum); then
+    # Build xxhsum from contrib.
+    XXHSUM_SOURCE="$(dirname $0)/../../contrib/xxhash/xxhsum.c $(dirname $0)/../../contrib/xxhash/xxhash.c"
+    XXHSUM_EXEC=$(dirname $0)/xxhsum
+    build_tester $XXHSUM_SOURCE -o $XXHSUM_EXEC -I$(dirname $0)/../../contrib/xxhash
+else
+    # Use xxhsum found in PATH.
+    XXHSUM_EXEC=$(type -p xxhsum)
+fi
 
-## Build xxhsum C source
-build_tester $XXHSUM_SOURCE -o $XXHSUM_EXEC -I$(dirname $0)/../../contrib/xxhash
-TEST [ -e $XXHSUM_EXEC ]
-
+TEST [ -x $XXHSUM_EXEC ]
 TEST glusterd
 TEST pidof glusterd
 

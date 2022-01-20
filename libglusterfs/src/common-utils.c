@@ -59,6 +59,12 @@
 #undef BIT_SET
 #endif
 
+#if defined(HAVE_LIBXXHASH)
+#define XXH64_FMT PRIx64
+#else /* use from contrib */
+#define XXH64_FMT "llx"
+#endif /* HAVE_LIBXXHASH */
+
 #ifndef AI_ADDRCONFIG
 #define AI_ADDRCONFIG 0
 #endif /* AI_ADDRCONFIG */
@@ -272,8 +278,8 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key)
     if (gf_gfid_from_xxh64(this, gfid, hash_2, 0)) {
         gf_msg_callingfn(this->name, GF_LOG_WARNING, 0,
                          LG_MSG_XXH64_TO_GFID_FAILED,
-                         "failed to encode the hash %llx into the 1st"
-                         "half of gfid",
+                         "failed to encode the hash %" XXH64_FMT
+                         " into the 1st half of gfid",
                          hash_2);
         goto out;
     }
@@ -282,15 +288,15 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key)
     if (gf_gfid_from_xxh64(this, gfid, hash_1, 8)) {
         gf_msg_callingfn(this->name, GF_LOG_WARNING, 0,
                          LG_MSG_XXH64_TO_GFID_FAILED,
-                         "failed to encode the hash %llx into the 2nd"
-                         "half of gfid",
+                         "failed to encode the hash %" XXH64_FMT
+                         " into the 2nd half of gfid",
                          hash_1);
         goto out;
     }
 
     gf_msg_debug(this->name, 0,
-                 "gfid generated is %s (hash1: %llx) "
-                 "hash2: %llx, xxh64_1: %s xxh64_2: %s",
+                 "gfid generated is %s (hash1: %" XXH64_FMT ") "
+                 "hash2: %" XXH64_FMT ", xxh64_1: %s xxh64_2: %s",
                  uuid_utoa(gfid), hash_1, hash_2, xxh64_1, xxh64_2);
 
     ret = 0;
