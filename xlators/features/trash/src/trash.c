@@ -2070,8 +2070,8 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
      * ftruncate will be performed
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((pathbuf!=NULL && strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf != NULL && strncmp(pathbuf, priv->newtrash_dir,
+                                    strlen(priv->newtrash_dir)) == 0) ||
         match || !retval) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
