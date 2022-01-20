@@ -28,7 +28,7 @@ list_add(struct list_head *new, struct list_head *head)
     new->next = head->next;
 
     new->prev->next = new;
-    if (new.next != NULL) {
+    if (new->next != NULL) {
         new->next->prev = new;
     }
 }
