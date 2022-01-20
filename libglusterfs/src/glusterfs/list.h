@@ -10,6 +10,7 @@
 
 #ifndef _LLIST_H
 #define _LLIST_H
+#include <stddef.h>
 
 struct list_head {
     struct list_head *next;
