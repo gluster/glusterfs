@@ -28,7 +28,9 @@ list_add(struct list_head *new, struct list_head *head)
     new->next = head->next;
 
     new->prev->next = new;
-    new->next->prev = new;
+    if (new.next != NULL) {
+        new->next->prev = new;
+    }
 }
 
 static inline void
@@ -122,11 +124,17 @@ list_empty(struct list_head *head)
 static inline void
 __list_splice(struct list_head *list, struct list_head *head)
 {
-    (list->prev)->next = (head->next);
-    (head->next)->prev = (list->prev);
+    if (list->prev != NULL) {
+        (list->prev)->next = (head->next);
+    }
+    if (head->next != NULL) {
+        (head->next)->prev = (list->prev);
+    }
 
     (head)->next = (list->next);
-    (list->next)->prev = (head);
+    if (list->next != NULL) {
+        (list->next)->prev = (head);
+    }
 }
 
 static inline void
