@@ -6279,7 +6279,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
                                  int32_t op_errno, gf_dirent_t *orig_entries,
@@ -6296,8 +6296,7 @@ shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
 
     list_for_each_entry_safe(entry, tmp, (&orig_entries->list), list)
     {
-        list_del_init(&entry->list);
-        list_add_tail(&entry->list, &local->entries_head.list);
+        list_move_tail(&entry->list, &local->entries_head.list);
 
         if (!entry->dict)
             continue;
@@ -6325,7 +6324,7 @@ unwind:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries,
                   dict_t *xdata)
@@ -6335,28 +6334,34 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_dirent_t *tmp = NULL;
     shard_local_t *local = NULL;
     gf_boolean_t last_entry = _gf_false;
+    gf_boolean_t is_root_gfid = _gf_false;
+    gf_boolean_t is_client_pid_not_gsyncd = _gf_false;
 
     local = frame->local;
-    fd = local->fd;
 
     if (op_ret < 0)
         goto unwind;
+
+    fd = local->fd;
+
+    is_root_gfid = __is_root_gfid(fd->inode->gfid);
+
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        is_client_pid_not_gsyncd = _gf_true;
 
     list_for_each_entry_safe(entry, tmp, (&orig_entries->list), list)
     {
         if (last_entry)
             last_entry = _gf_false;
 
-        if (__is_root_gfid(fd->inode->gfid) &&
-            !(strcmp(entry->d_name, GF_SHARD_DIR))) {
+        if (is_root_gfid && !(strcmp(entry->d_name, GF_SHARD_DIR))) {
             local->offset = entry->d_off;
             op_ret--;
             last_entry = _gf_true;
             continue;
         }
 
-        list_del_init(&entry->list);
-        list_add_tail(&entry->list, &local->entries_head.list);
+        list_move_tail(&entry->list, &local->entries_head.list);
 
         if (!entry->dict)
             continue;
@@ -6364,7 +6369,7 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        if (is_client_pid_not_gsyncd)
             shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
                                               _gf_false);
 
@@ -6400,7 +6405,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 shard_readdir_do(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset, int whichop, dict_t *xdata)
 {
@@ -6448,7 +6453,7 @@ err:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
               off_t offset, dict_t *xdata)
 {
@@ -6456,7 +6461,7 @@ shard_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                off_t offset, dict_t *xdata)
 {
