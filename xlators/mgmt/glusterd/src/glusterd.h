@@ -650,8 +650,6 @@ typedef enum {
 #define RB_DSTBRICK_PIDFILE "rb_dst_brick.pid"
 #define RB_DSTBRICKVOL_FILENAME "rb_dst_brick.vol"
 
-#define GLUSTERD_UUID_LEN 50
-
 typedef ssize_t (*gd_serialize_t)(struct iovec outmsg, void *args);
 
 #define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv)                           \

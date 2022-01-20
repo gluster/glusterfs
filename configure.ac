@@ -632,6 +632,22 @@ GF_CFLAGS="${GF_CFLAGS} ${UUID_CFLAGS}"
 dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
 AC_SUBST(PKGCONFIG_UUID)
 
+dnl Check for xxhash library.
+PKG_CHECK_MODULES([XXHASH], [libxxhash],
+  [have_libxxhash=yes
+   AC_DEFINE(HAVE_LIBXXHASH, 1, [Define to 1 if you have libxxhash.so.])],
+  [have_libxxhash=no])
+AM_CONDITIONAL([HAVE_LIBXXHASH], [test x$have_libxxhash = xyes])
+
+dnl Note xxhsum binary is required to run gfid2path tests.
+if test "x$have_libxxhash" = "xyes"; then
+    AC_CHECK_PROG([XXHSUM], [xxhsum], [yes], [no])
+    if test "x$XXHSUM" = "xno"; then
+        AC_MSG_WARN([install 'xxhsum' binary if you plan to run the tests.])
+    fi
+    GF_CFLAGS="${GF_CFLAGS} ${XXHASH_CFLAGS}"
+fi
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd* | darwin*)

@@ -680,7 +680,7 @@ struct _ec {
     struct mem_pool *cbk_pool;
     struct mem_pool *lock_pool;
     ec_self_heald_t shd;
-    char vol_uuid[UUID_SIZE + 1];
+    char vol_uuid[GF_UUID_BUF_SIZE];
     dict_t *leaf_to_subvolid;
     ec_read_policy_t read_policy;
     ec_matrix_list_t matrix;

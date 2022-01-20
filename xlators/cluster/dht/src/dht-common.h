@@ -588,7 +588,7 @@ struct dht_conf {
      */
     uint32_t vol_commit_hash;
 
-    char vol_uuid[UUID_SIZE + 1];
+    char vol_uuid[GF_UUID_BUF_SIZE];
 
     gf_boolean_t disk_unit_percent;
 
