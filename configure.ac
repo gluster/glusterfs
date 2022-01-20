@@ -1024,6 +1024,7 @@ if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
 AC_SUBST(HAVE_BACKTRACE)
+AM_CONDITIONAL([HAVE_BACKTRACE], [test x$have_backtrace = xyes])
 
 dnl Old (before C11) compiler can compile (but not link) this:
 dnl
