@@ -4578,7 +4578,6 @@ client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data)
             0,
         },
     };
-    dict_t *dict = NULL;
     int ret = 0;
     int32_t op_ret = -1;
     int op_errno = ESTALE;
@@ -4662,11 +4661,7 @@ unwind:
     if (rsp_iobref)
         iobref_unref(rsp_iobref);
 
-    CLIENT_STACK_UNWIND(getxattr, frame, op_ret, op_errno, dict, NULL);
-
-    if (dict) {
-        dict_unref(dict);
-    }
+    CLIENT_STACK_UNWIND(getxattr, frame, op_ret, op_errno, NULL, NULL);
 
     GF_FREE(req.xdata.xdata_val);
 
