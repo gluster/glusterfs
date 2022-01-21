@@ -343,18 +343,11 @@ afr_entry_lockee_cmp(const void *l1, const void *l2);
 
 typedef struct {
     loc_t *lk_loc;
-
     afr_lockee_t lockee[AFR_LOCKEE_COUNT_MAX];
-
-    const char *lk_basename;
-    const char *lower_basename;
-    const char *higher_basename;
-
-    unsigned char *lower_locked_nodes;
-
     afr_lock_cbk_t lock_cbk;
 
-    int lockee_count;
+    int32_t lock_count;
+    int32_t lockee_count;
 
     int32_t lk_call_count;
     int32_t lk_expected_count;
@@ -362,10 +355,7 @@ typedef struct {
 
     int32_t lock_op_ret;
     int32_t lock_op_errno;
-    char *domain; /* Domain on which inode/entry lock/unlock in progress.*/
-    int32_t lock_count;
-    char lower_locked;
-    char higher_locked;
+    char *domain; /* Domain on which inode/entry lock/unlock in progress. */
 } afr_internal_lock_t;
 
 struct afr_reply {
@@ -1196,9 +1186,6 @@ afr_marker_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int
 afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno);
-
-int
-afr_internal_lock_init(afr_internal_lock_t *lk, size_t child_count);
 
 int
 afr_higher_errno(int32_t old_errno, int32_t new_errno);

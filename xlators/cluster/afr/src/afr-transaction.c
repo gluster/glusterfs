@@ -2092,7 +2092,6 @@ afr_lock(call_frame_t *frame, xlator_t *this)
             break;
 
         case AFR_ENTRY_TRANSACTION:
-            int_lock->lk_basename = local->transaction.basename;
             if (local->transaction.parent_loc.path)
                 int_lock->lk_loc = &local->transaction.parent_loc;
             else
