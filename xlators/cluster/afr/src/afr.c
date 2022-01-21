@@ -171,7 +171,6 @@ reconfigure(xlator_t *this, dict_t *options)
     char *fav_child_policy = NULL;
     char *data_self_heal = NULL;
     char *data_self_heal_algorithm = NULL;
-    char *locking_scheme = NULL;
     gf_boolean_t consistent_io = _gf_false;
     gf_boolean_t choose_local_old = _gf_false;
     gf_boolean_t enabled_old = _gf_false;
@@ -258,8 +257,6 @@ reconfigure(xlator_t *this, dict_t *options)
     }
 
     GF_OPTION_RECONF("pre-op-compat", priv->pre_op_compat, options, bool, out);
-    GF_OPTION_RECONF("locking-scheme", locking_scheme, options, str, out);
-    priv->granular_locks = (strcmp(locking_scheme, "granular") == 0);
     GF_OPTION_RECONF("full-lock", priv->full_lock, options, bool, out);
     GF_OPTION_RECONF("granular-entry-heal", priv->esh_granular, options, bool,
                      out);
@@ -424,7 +421,6 @@ init(xlator_t *this)
     char *fav_child_policy = NULL;
     char *thin_arbiter = NULL;
     char *data_self_heal = NULL;
-    char *locking_scheme = NULL;
     char *data_self_heal_algorithm = NULL;
 
     if (!this->children) {
@@ -544,8 +540,6 @@ init(xlator_t *this)
                    out);
 
     GF_OPTION_INIT("pre-op-compat", priv->pre_op_compat, bool, out);
-    GF_OPTION_INIT("locking-scheme", locking_scheme, str, out);
-    priv->granular_locks = (strcmp(locking_scheme, "granular") == 0);
     GF_OPTION_INIT("full-lock", priv->full_lock, bool, out);
     GF_OPTION_INIT("granular-entry-heal", priv->esh_granular, bool, out);
 
@@ -1269,11 +1263,12 @@ struct volume_options options[] = {
         .value = {"full", "granular"},
         .default_value = "full",
         .op_version = {GD_OP_VERSION_3_7_12},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+                 OPT_FLAG_NOEFFECT,
         .tags = {"replicate"},
         .description = "If this option is set to granular, self-heal will "
                        "stop being compatible with afr-v1, which helps afr "
-                       "be more granular while self-healing",
+                       "be more granular while self-healing.",
     },
     {.key = {"full-lock"},
      .type = GF_OPTION_TYPE_BOOL,

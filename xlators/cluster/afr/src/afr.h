@@ -256,7 +256,7 @@ typedef struct _afr_private {
     gf_boolean_t halo_enabled;
     gf_boolean_t consistent_metadata;
     gf_boolean_t need_heal;
-    gf_boolean_t granular_locks;
+
     char *sh_domain;
     char *afr_dirty;
 

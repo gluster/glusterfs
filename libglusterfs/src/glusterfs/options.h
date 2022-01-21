@@ -66,7 +66,10 @@ typedef enum {
     OPT_FLAG_DOC = 1 << 5,
 
     /* Numerical with specified mininum and maximum values. */
-    OPT_FLAG_RANGE = 1 << 6
+    OPT_FLAG_RANGE = 1 << 6,
+
+    /* Has no effect but retained for the backward compatibility. */
+    OPT_FLAG_NOEFFECT = 1 << 7
 } opt_flags_t;
 
 typedef enum {
