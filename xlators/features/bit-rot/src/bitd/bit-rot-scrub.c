@@ -1292,21 +1292,23 @@ br_scrubber_scale_up(xlator_t *this, struct br_scrubber *fsscrub,
            "Scaling up scrubbers [%d => %d]", v1, v2);
 
     for (i = 0; i < diff; i++) {
-        scrub = GF_CALLOC(diff, sizeof(*scrub), gf_br_mt_br_scrubber_t);
+        scrub = GF_CALLOC(1, sizeof(*scrub), gf_br_mt_br_scrubber_t);
         if (!scrub)
             break;
 
         INIT_LIST_HEAD(&scrub->list);
         ret = gf_thread_create(&scrub->scrubthread, NULL, br_scrubber_proc,
                                fsscrub, "brsproc");
-        if (ret)
+        if (ret) {
+            GF_FREE(scrub);
             break;
+        }
 
         fsscrub->nr_scrubbers++;
         list_add_tail(&scrub->list, &fsscrub->scrubbers);
     }
 
-    if ((i != diff) && !scrub)
+    if (ret && i == 0)
         goto error_return;
 
     if (i != diff) /* degraded scaling.. */
