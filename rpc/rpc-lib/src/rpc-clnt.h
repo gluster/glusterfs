@@ -25,6 +25,12 @@ typedef enum {
     RPC_CLNT_DESTROY
 } rpc_clnt_event_t;
 
+typedef enum {
+    RPC_STATUS_INITIALIZED,
+    RPC_STATUS_CONNECTED,
+    RPC_STATUS_DISCONNECTED
+} rpc_clnt_status_t;
+
 #define SFRAME_GET_PROGNUM(sframe) (sframe->rpcreq->prog->prognum)
 #define SFRAME_GET_PROGVER(sframe) (sframe->rpcreq->prog->progver)
 #define SFRAME_GET_PROCNUM(sframe) (sframe->rpcreq->procnum)
@@ -144,8 +150,7 @@ struct rpc_clnt_connection {
     int32_t ping_started;
     time_t frame_timeout;
     time_t ping_timeout;
-    gf_boolean_t disconnected;
-    char connected;
+    rpc_clnt_status_t status;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
@@ -235,8 +240,8 @@ int
 rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn);
 int
 rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn);
-gf_boolean_t
-is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn);
+rpc_clnt_status_t
+rpc_clnt_connection_status(rpc_clnt_connection_t *conn);
 
 void
 rpc_clnt_reconnect(void *trans_ptr);

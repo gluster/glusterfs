@@ -383,7 +383,7 @@ rpc_clnt_reconnect(void *conn_ptr)
         }
         conn->reconnect = 0;
 
-        if ((conn->connected == 0) && !clnt->disabled) {
+        if ((conn->status != RPC_STATUS_CONNECTED) && !clnt->disabled) {
             ts.tv_sec = 3;
             ts.tv_nsec = 0;
 
@@ -517,8 +517,7 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
             conn->reconnect = NULL;
         }
 
-        conn->connected = 0;
-        conn->disconnected = 1;
+        conn->status = RPC_STATUS_DISCONNECTED;
 
         unref = rpc_clnt_remove_ping_timer_locked(clnt);
         /*reset rpc msgs stats*/
@@ -771,21 +770,21 @@ out:
     return ret;
 }
 
-gf_boolean_t
-is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn)
+rpc_clnt_status_t
+rpc_clnt_connection_status(rpc_clnt_connection_t *conn)
 {
-    gf_boolean_t disconnected = _gf_true;
+    rpc_clnt_status_t status = RPC_STATUS_INITIALIZED;
 
     if (!conn)
-        return disconnected;
+        return status;
 
     pthread_mutex_lock(&conn->lock);
     {
-        disconnected = conn->disconnected;
+        status = conn->status;
     }
     pthread_mutex_unlock(&conn->lock);
 
-    return disconnected;
+    return status;
 }
 
 static void
@@ -948,8 +947,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 /* Below code makes sure the (re-)configured port lasts
                  * for just one successful attempt */
                 conn->config.remote_port = 0;
-                conn->connected = 1;
-                conn->disconnected = 0;
+                conn->status = RPC_STATUS_CONNECTED;
                 pthread_cond_broadcast(&conn->cond);
             }
             pthread_mutex_unlock(&conn->lock);
@@ -1684,7 +1682,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     pthread_mutex_lock(&conn->lock);
     {
-        if (conn->connected == 0) {
+        if (conn->status != RPC_STATUS_CONNECTED) {
             if (rpc->disabled)
                 goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
@@ -1900,7 +1898,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
                 reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
-        conn->connected = 0;
+        conn->status = RPC_STATUS_INITIALIZED;
 
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
         trans = conn->trans;
