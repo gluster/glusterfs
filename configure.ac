@@ -424,7 +424,8 @@ fi
 
 case $host_os in
   darwin*)
-    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7; then
+    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7 -o \
+       "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f1`" -ge 10; then
        AC_MSG_ERROR([You need at least OS X 10.7 (Lion) to build Glusterfs])
     fi
     # OSX version lesser than 9 has llvm/clang optimization issues which leads to various segfaults
