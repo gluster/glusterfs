@@ -2444,8 +2444,6 @@ afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
 
     afr_matrix_cleanup(local->pending, priv->child_count);
 
-    GF_FREE(local->internal_lock.lower_locked_nodes);
-
     afr_lockees_cleanup(&local->internal_lock);
 
     GF_FREE(local->transaction.pre_op);
@@ -6543,22 +6541,11 @@ out:
     return -1;
 }
 
-int
+static inline void
 afr_internal_lock_init(afr_internal_lock_t *lk, size_t child_count)
 {
-    int ret = -ENOMEM;
-
-    lk->lower_locked_nodes = GF_CALLOC(sizeof(*lk->lower_locked_nodes),
-                                       child_count, gf_afr_mt_char);
-    if (NULL == lk->lower_locked_nodes)
-        goto out;
-
     lk->lock_op_ret = -1;
     lk->lock_op_errno = EUCLEAN;
-
-    ret = 0;
-out:
-    return ret;
 }
 
 void
@@ -6609,9 +6596,7 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
     INIT_LIST_HEAD(&local->transaction.owner_list);
     INIT_LIST_HEAD(&local->ta_waitq);
     INIT_LIST_HEAD(&local->ta_onwireq);
-    ret = afr_internal_lock_init(&local->internal_lock, priv->child_count);
-    if (ret < 0)
-        goto out;
+    afr_internal_lock_init(&local->internal_lock, priv->child_count);
 
     ret = -ENOMEM;
     local->pre_op_compat = priv->pre_op_compat;
