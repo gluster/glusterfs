@@ -52,7 +52,7 @@ free_fuse_state(fuse_state_t *state)
     xlator_t *this = NULL;
     fuse_private_t *priv = NULL;
     uint64_t winds = 0;
-    char switched = 0;
+    uint32_t switched = 0;
 
     this = state->this;
 
