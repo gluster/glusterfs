@@ -147,7 +147,8 @@ check_whether_eliminate_path(trash_elim_path *trav, const char *path)
     int match = 0;
 
     while (trav) {
-        if (path != NULL && strncmp(path, trav->path, strlen(trav->path)) == 0) {
+        if (path != NULL &&
+            strncmp(path, trav->path, strlen(trav->path)) == 0) {
             match++;
             break;
         }
@@ -1325,8 +1326,8 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
      * file to trash directory. Instead delete it permanently
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((pathbuf != NULL && strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf != NULL && strncmp(pathbuf, priv->newtrash_dir,
+                                    strlen(priv->newtrash_dir)) == 0) ||
         (match)) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
@@ -1982,8 +1983,8 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
 
-    if ((pathbuf != NULL && strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf != NULL && strncmp(pathbuf, priv->newtrash_dir,
+                                    strlen(priv->newtrash_dir)) == 0) ||
         (match)) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
