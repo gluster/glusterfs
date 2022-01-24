@@ -1169,7 +1169,7 @@ xlator_option_info_list(volume_opt_list_t *list, char *key, char **def_val,
     if (descr) {
         if (opt->flags & OPT_FLAG_NOEFFECT)
             gf_asprintf(descr,
-                        "%s This option has no effect but retained for the "
+                        "%s This option has no effect but retained for "
                         "backward compatibility.", opt->description);
         else if (opt->flags & OPT_FLAG_RANGE)
             gf_asprintf(descr,
