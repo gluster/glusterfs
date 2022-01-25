@@ -500,7 +500,7 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
             continue;
         }
 
-        this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+        this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {

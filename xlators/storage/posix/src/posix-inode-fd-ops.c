@@ -46,7 +46,7 @@
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-messages.h"
 #include "posix-metadata.h"
@@ -5592,7 +5592,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             }
         }
 
-        this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+        this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {

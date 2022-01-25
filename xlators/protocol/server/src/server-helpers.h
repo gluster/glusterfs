@@ -50,14 +50,6 @@ int
 server_build_config(xlator_t *this, server_conf_t *conf);
 
 int
-serialize_rsp_dirent(gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
-int
-serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
-int
-readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp);
-int
-readdir_rsp_cleanup(gfs3_readdir_rsp *rsp);
-int
 readdirp_rsp_cleanup_v2(gfx_readdirp_rsp *rsp);
 int
 readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp);
@@ -74,29 +66,15 @@ inode_t *
 server_inode_new(inode_table_t *itable, uuid_t gfid);
 
 int
-serialize_rsp_locklist(lock_migration_info_t *locklist,
-                       gfs3_getactivelk_rsp *rsp);
-int
 serialize_rsp_locklist_v2(lock_migration_info_t *locklist,
                           gfx_getactivelk_rsp *rsp);
 
 int
-getactivelkinfo_rsp_cleanup(gfs3_getactivelk_rsp *rsp);
-int
 getactivelkinfo_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp);
-
-int
-unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi);
 
 int
 unserialize_req_locklist_v2(gfx_setactivelk_req *req,
                             lock_migration_info_t *lmi);
-
-int
-serialize_rsp_dirent(gf_dirent_t *entries, gfs3_readdir_rsp *rsp);
-
-int
-serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp);
 
 int
 serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp);

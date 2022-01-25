@@ -22,7 +22,7 @@
 #include "glfs.h"
 #include "glfs-handles.h"
 #include "glfs-internal.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/list.h>

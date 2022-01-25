@@ -21,7 +21,7 @@
 #include "rpc-clnt.h"
 #include "protocol-common.h"
 
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include "glusterd-peer-utils.h"
 
 #define GLUSTERD_SOCK_DIR "/var/run/gluster"
