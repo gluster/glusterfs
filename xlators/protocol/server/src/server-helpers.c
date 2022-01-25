@@ -859,7 +859,6 @@ out:
     return;
 }
 
-
 int
 serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
 {
@@ -1255,7 +1254,6 @@ server_inode_new(inode_table_t *itable, uuid_t gfid)
     else
         return inode_new(itable);
 }
-
 
 int
 unserialize_req_locklist_v2(gfx_setactivelk_req *req,

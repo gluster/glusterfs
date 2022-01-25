@@ -10,7 +10,6 @@
 #include <glusterfs/fd.h>
 #include "xdr-nfs3.h"
 
-
 /* Version 4 helpers */
 
 void

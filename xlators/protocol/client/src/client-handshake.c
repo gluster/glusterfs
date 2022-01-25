@@ -439,7 +439,7 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
         list_for_each_entry_safe(fdctx, tmp, &reopen_head, sfd_pos)
         {
             list_del_init(&fdctx->sfd_pos);
-	    protocol_client_reopen_v2(fdctx, this);
+            protocol_client_reopen_v2(fdctx, this);
         }
     } else {
         gf_msg_debug(this->name, 0,

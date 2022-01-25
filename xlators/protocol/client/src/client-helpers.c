@@ -240,7 +240,6 @@ clnt_readdirp_rsp_cleanup_v2(gfx_readdirp_rsp *rsp)
     return 0;
 }
 
-
 int
 clnt_readdir_rsp_cleanup_v2(gfx_readdir_rsp *rsp)
 {
@@ -359,7 +358,6 @@ out:
     return ret;
 }
 
-
 void
 clnt_getactivelk_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp)
 {
@@ -416,7 +414,6 @@ clnt_unserialize_rsp_locklist_v2(xlator_t *this,
 out:
     return ret;
 }
-
 
 void
 clnt_setactivelk_req_cleanup_v2(gfx_setactivelk_req *req)
@@ -545,7 +542,6 @@ send_release4_0_over_wire(xlator_t *this, clnt_fd_ctx_t *fdctx,
 
     return 0;
 }
-
 
 int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)

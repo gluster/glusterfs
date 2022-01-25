@@ -127,7 +127,6 @@ out:
     return ret;
 }
 
-
 /* Callback function section */
 int
 server4_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,

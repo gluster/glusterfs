@@ -47,7 +47,6 @@ typedef enum {
         args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
     } while (0)
 
-
 #define CLIENT_GET_REMOTE_FD(xl, fd, flags, remote_fd, op_errno, fop, label)   \
     do {                                                                       \
         int _ret = 0;                                                          \
