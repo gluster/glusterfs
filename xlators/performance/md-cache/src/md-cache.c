@@ -3950,8 +3950,9 @@ struct volume_options mdc_options[] = {
         .max = 600,
         .default_value = SITE_H_MD_CACHE_TIMEOUT,
         .op_version = {2},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
-        .description = "Time period after which cache has to be refreshed",
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
+        .description = "Time period after which cache has to be refreshed.",
     },
     {
         .key = {"force-readdirp"},

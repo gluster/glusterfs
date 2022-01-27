@@ -2933,7 +2933,7 @@ struct volume_options options[] = {
                     "declared as dead, if the server does not respond for "
                     "a particular (file) operation.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"ping-timeout"},
      .type = GF_OPTION_TYPE_TIME,
      .min = 0,
@@ -2942,15 +2942,18 @@ struct volume_options options[] = {
      .description = "Time duration for which the client waits to "
                     "check if the server is responsive.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"client-bind-insecure"}, .type = GF_OPTION_TYPE_BOOL},
     {.key = {"tcp-window-size"},
      .type = GF_OPTION_TYPE_SIZET,
      .min = GF_MIN_SOCKET_WINDOW_SIZE,
      .max = GF_MAX_SOCKET_WINDOW_SIZE,
-     .description = "Specifies the window size for tcp socket.",
+     .default_value = "0",
+     .description = "Specifies the (both send and receive) window size"
+                    " for TCP socket. Zero means do not set window size"
+                    " explicitly and use default value.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"filter-O_DIRECT"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "disable",

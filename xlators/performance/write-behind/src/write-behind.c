@@ -3215,7 +3215,8 @@ struct volume_options options[] = {
      .max = 1 * GF_UNIT_GB,
      .default_value = "1MB",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT |
+              OPT_FLAG_RANGE,
      .tags = {"write-behind"},
      .description = "Size of the write-behind buffer for a single file "
                     "(inode)."},

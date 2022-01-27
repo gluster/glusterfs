@@ -7659,46 +7659,42 @@ struct volume_options options[] = {
         .op_version = {GD_OP_VERSION_6_0},
         .flags = OPT_FLAG_SETTABLE,
     },
-    {
-        .key = {"shard-block-size"},
-        .type = GF_OPTION_TYPE_SIZET,
-        .op_version = {GD_OP_VERSION_3_7_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
-        .tags = {"shard"},
-        .default_value = "64MB",
-        .min = SHARD_MIN_BLOCK_SIZE,
-        .max = SHARD_MAX_BLOCK_SIZE,
-        .description = "The size unit used to break a file into multiple "
-                       "chunks",
-    },
-    {
-        .key = {"shard-deletion-rate"},
-        .type = GF_OPTION_TYPE_INT,
-        .op_version = {GD_OP_VERSION_5_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
-        .tags = {"shard"},
-        .default_value = "100",
-        .min = 100,
-        .max = INT_MAX,
-        .description = "The number of shards to send deletes on at a time",
-    },
-    {
-        .key = {"shard-lru-limit"},
-        .type = GF_OPTION_TYPE_INT,
-        .op_version = {GD_OP_VERSION_5_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT,
-        .tags = {"shard"},
-        .default_value = "16384",
-        .min = 20,
-        .max = INT_MAX,
-        .description = "The number of resolved shard inodes to keep in "
-                       "memory. A higher number means shards that are "
-                       "resolved will remain in memory longer, avoiding "
-                       "frequent lookups on them when they participate in "
-                       "file operations. The option also has a bearing on "
-                       "amount of memory consumed by these inodes and their "
-                       "internal metadata",
-    },
+    {.key = {"shard-block-size"},
+     .type = GF_OPTION_TYPE_SIZET,
+     .op_version = {GD_OP_VERSION_3_7_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
+     .tags = {"shard"},
+     .default_value = "64MB",
+     .min = SHARD_MIN_BLOCK_SIZE,
+     .max = SHARD_MAX_BLOCK_SIZE,
+     .description = "The size unit used to break a file into multiple "
+                    "chunks."},
+    {.key = {"shard-deletion-rate"},
+     .type = GF_OPTION_TYPE_INT,
+     .op_version = {GD_OP_VERSION_5_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
+     .tags = {"shard"},
+     .default_value = "100",
+     .min = 100,
+     .max = INT_MAX,
+     .description = "The number of shards to send deletes on at a time."},
+    {.key = {"shard-lru-limit"},
+     .type = GF_OPTION_TYPE_INT,
+     .op_version = {GD_OP_VERSION_5_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_RANGE,
+     .tags = {"shard"},
+     .default_value = "16384",
+     .min = 20,
+     .max = INT_MAX,
+     .description = "The number of resolved shard inodes to keep in "
+                    "memory. A higher number means shards that are "
+                    "resolved will remain in memory longer, avoiding "
+                    "frequent lookups on them when they participate in "
+                    "file operations. The option also has a bearing on "
+                    "amount of memory consumed by these inodes and their "
+                    "internal metadata."},
     {.key = {NULL}},
 };
 

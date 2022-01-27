@@ -5288,7 +5288,7 @@ struct volume_options options[] = {
                        "soft-timeout indicates the timeout for the validity of"
                        " cache before soft-limit has been crossed.",
         .op_version = {3},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
         .tags = {},
     },
     {
@@ -5301,7 +5301,7 @@ struct volume_options options[] = {
                        "hard-timeout indicates the timeout for the validity of"
                        " cache after soft-limit has been crossed.",
         .op_version = {3},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
         .tags = {},
     },
     {.key = {"volume-uuid"},
@@ -5315,7 +5315,7 @@ struct volume_options options[] = {
         .max = 7 * 86400,
         .default_value = "86400",
         .op_version = {3},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
         .description = "Frequency of limit breach messages in log.",
         .tags = {},
     },

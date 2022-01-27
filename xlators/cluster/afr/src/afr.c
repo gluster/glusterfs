@@ -879,7 +879,8 @@ struct volume_options options[] = {
      .default_value = "8",
      .validate = GF_OPT_VALIDATE_MIN,
      .op_version = {1},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
      .description = "This specifies the number of per client self-heal "
                     "jobs that can perform parallel heals in the "
@@ -890,7 +891,8 @@ struct volume_options options[] = {
      .max = 99999,
      .default_value = "99999",
      .op_version = {GD_OP_VERSION_3_11_0},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate", "halo"},
      .description = "Maximum latency for shd halo replication in msec."},
     {.key = {"halo-enabled"},
@@ -906,7 +908,8 @@ struct volume_options options[] = {
      .max = 99999,
      .default_value = "5",
      .op_version = {GD_OP_VERSION_3_11_0},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate", "halo"},
      .description = "Maximum latency for nfsd halo replication in msec."},
     {.key = {"halo-max-latency"},
@@ -915,7 +918,8 @@ struct volume_options options[] = {
      .max = AFR_HALO_MAX_LATENCY,
      .default_value = "5",
      .op_version = {GD_OP_VERSION_3_11_0},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate", "halo"},
      .description = "Maximum latency for halo replication in msec."},
     {.key = {"halo-max-replicas"},
@@ -924,7 +928,8 @@ struct volume_options options[] = {
      .max = 99999,
      .default_value = "99999",
      .op_version = {GD_OP_VERSION_3_11_0},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate", "halo"},
      .description = "The maximum number of halo replicas; replicas"
                     " beyond this value will be written asynchronously"
@@ -935,7 +940,8 @@ struct volume_options options[] = {
      .max = 99999,
      .default_value = "2",
      .op_version = {GD_OP_VERSION_3_11_0},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate", "halo"},
      .description = "The minimmum number of halo replicas, before adding "
                     "out of region replicas."},
@@ -946,7 +952,8 @@ struct volume_options options[] = {
      .default_value = "128",
      .validate = GF_OPT_VALIDATE_MIN,
      .op_version = {GD_OP_VERSION_3_7_10},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
      .description = "This specifies the number of heals that can be queued"
                     " for the parallel background self heal jobs."},
@@ -985,7 +992,8 @@ struct volume_options options[] = {
      .max = 1024,
      .default_value = "8",
      .op_version = {1},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
      .description = "Maximum number of 128KB blocks per file for which "
                     "self-heal process would be applied simultaneously."},
@@ -1123,14 +1131,16 @@ struct volume_options options[] = {
         .type = GF_OPTION_TYPE_INT,
         .min = 1,
         .max = INT_MAX,
-        .default_value = 0,
+        .default_value = "0",
         .op_version = {1},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
         .tags = {"replicate"},
         /*.option = quorum-count*/
         /*.validate_fn = validate_quorum_count*/
         .description = "If quorum-type is \"fixed\" only allow writes if "
-                       "this many bricks are present.  Other quorum types "
+                       "this many bricks are present. Setting this to zero "
+                       "turns the quorum enforcement off. Other quorum types "
                        "will OVERWRITE this value.",
     },
     {
@@ -1157,7 +1167,8 @@ struct volume_options options[] = {
         .max = INT_MAX,
         .default_value = "1",
         .op_version = {2},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
         .tags = {"replicate"},
         .description = "Time interval induced artificially before "
                        "post-operation phase of the transaction to "
@@ -1209,10 +1220,11 @@ struct volume_options options[] = {
      .max = INT_MAX,
      .default_value = "600",
      .op_version = {2},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE,
      .tags = {"replicate"},
-     .description = "time interval for checking the need to self-heal "
-                    "in self-heal-daemon"},
+     .description = "Time interval for checking the need to self-heal "
+                    "in self-heal-daemon."},
     {
         .key = {"consistent-metadata"},
         .type = GF_OPTION_TYPE_BOOL,
@@ -1258,10 +1270,11 @@ struct volume_options options[] = {
         .max = 655536,
         .default_value = "1024",
         .op_version = {GD_OP_VERSION_3_7_12},
-        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+                 OPT_FLAG_RANGE,
         .tags = {"replicate"},
         .description = "This option can be used to control number of heals"
-                       " that can wait in SHD per subvolume",
+                       " that can wait in SHD per subvolume.",
     },
     {
         .key = {"locking-scheme"},

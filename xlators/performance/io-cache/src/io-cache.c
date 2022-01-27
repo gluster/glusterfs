@@ -2183,7 +2183,8 @@ struct volume_options options[] = {
                     "'cache-refresh-timeout' seconds, after which data "
                     "re-validation is performed.",
      .op_version = {1},
-     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC |
+              OPT_FLAG_RANGE},
     {.key = {"cache-size"},
      .type = GF_OPTION_TYPE_SIZET,
      .min = 4 * GF_UNIT_MB,

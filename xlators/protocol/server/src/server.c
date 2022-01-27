@@ -1790,7 +1790,7 @@ struct volume_options server_options[] = {
      .description = "Specifies the limit on the number of inodes "
                     "in the lru list of the inode cache.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"trace"}, .type = GF_OPTION_TYPE_BOOL},
     {
         .key = {"config-directory", "conf-dir"},
@@ -1824,19 +1824,19 @@ struct volume_options server_options[] = {
      .default_value = "65534", /* RPC_NOBODY_UID */
      .min = 0,
      .max = (uint32_t)-1,
-     .description = "value of the uid used for the anonymous "
+     .description = "Value of the uid used for the anonymous "
                     "user/nfsnobody when root-squash/all-squash is enabled.",
      .op_version = {3},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"anongid"},
      .type = GF_OPTION_TYPE_INT,
      .default_value = "65534", /* RPC_NOBODY_GID */
      .min = 0,
      .max = (uint32_t)-1,
-     .description = "value of the gid used for the anonymous "
+     .description = "Value of the gid used for the anonymous "
                     "user/nfsnobody when root-squash/all-squash is enabled.",
      .op_version = {3},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"statedump-path"},
      .type = GF_OPTION_TYPE_PATH,
      .default_value = DEFAULT_VAR_RUN_DIRECTORY,
@@ -1848,9 +1848,12 @@ struct volume_options server_options[] = {
      .type = GF_OPTION_TYPE_SIZET,
      .min = GF_MIN_SOCKET_WINDOW_SIZE,
      .max = GF_MAX_SOCKET_WINDOW_SIZE,
-     .description = "Specifies the window size for tcp socket.",
+     .default_value = "0",
+     .description = "Specifies the (both send and receive) window size"
+                    " for TCP socket. Zero means do not set window size"
+                    " explicitly and use default value.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_RANGE},
 
     /*  The following two options are defined in addr.c, redifined here *
      * for the sake of validation during volume set from cli            */
@@ -1892,9 +1895,10 @@ struct volume_options server_options[] = {
      .default_value = TOSTRING(RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT),
      .description = "Parameter to throttle the number of incoming RPC "
                     "requests from a client. 0 means no limit (can "
-                    "potentially run out of memory)",
+                    "potentially run out of memory).",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_GLOBAL},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_GLOBAL |
+              OPT_FLAG_RANGE},
     {.key = {"manage-gids"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "off",

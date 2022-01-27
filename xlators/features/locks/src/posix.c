@@ -4915,9 +4915,9 @@ struct volume_options options[] = {
         .max = INT_MAX,
         .default_value = "0",
         .op_version = {GD_OP_VERSION_3_9_0},
-        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
         .tags = {"locks"},
-        .description = "Maximum time a lock can be taken out, before"
+        .description = "Maximum time a lock can be taken out before "
                        "being revoked.",
     },
     {
@@ -4937,7 +4937,7 @@ struct volume_options options[] = {
      .max = INT_MAX,
      .default_value = "0",
      .op_version = {GD_OP_VERSION_3_9_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"locks"},
      .description = "A number of blocked lock requests after which a lock "
                     "will be revoked to allow the others to proceed.  Can "
@@ -4959,7 +4959,7 @@ struct volume_options options[] = {
                 * detected. */
      .max = 60,
      .default_value = "5",
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .op_version = {GD_OP_VERSION_4_0_0},
      .tags = {"locks", "contention", "timeout"},
      .description = "This value determines the minimum amount of time "
