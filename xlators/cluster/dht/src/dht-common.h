@@ -106,11 +106,11 @@ struct dht_layout {
 typedef struct dht_layout dht_layout_t;
 
 struct dht_stat_time {
-    uint32_t atime;
+    uint64_t atime;
     uint32_t atime_nsec;
-    uint32_t ctime;
+    uint64_t ctime;
     uint32_t ctime_nsec;
-    uint32_t mtime;
+    uint64_t mtime;
     uint32_t mtime_nsec;
 };
 
