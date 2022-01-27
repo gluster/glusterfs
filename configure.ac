@@ -1504,13 +1504,38 @@ case $host_os in
         ;;
 esac
 
+# MOLD section
+AC_ARG_ENABLE([mold],
+               AC_HELP_STRING([--enable-mold],
+                              [Use modern linker (mold) to link files]))
+
+USE_MOLD=no
+if test "x$enable_mold" = "xyes"; then
+   AC_CHECK_PROG([MOLDINSTALLED], [mold], [yes], [no])
+
+   if test "x$MOLDINSTALLED" = "xno"; then
+      AC_MSG_ERROR([`mold` is not installed, you need mold to link with it when using --enable-mold])
+   fi
+
+   AC_PATH_PROG([MOLDPATH], [ld], [no], [/usr/libexec/mold:/usr/local/libexec/mold])
+   if test "x$MOLDPATH" = "xno"; then
+      AC_MSG_ERROR([Unable to find override for ld. Try reinstalling mold])
+   fi
+
+   MOLDPATH="`echo $MOLDPATH | sed 's/\/ld//'`"
+   AC_MSG_NOTICE([Using LD override at: $MOLDPATH])
+
+   USE_MOLD=yes
+   GF_CFLAGS="${GF_CFLAGS} -B$MOLDPATH"
+fi
+
 # LTO section
 AC_ARG_ENABLE([lto],
               AC_HELP_STRING([--disable-lto],
                              [Disable buidling with LTO]))
 
 LTO_BUILD=no
-AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
+AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" && test "x$USE_MOLD" != "xyes" ], [
     CC_VER=`"$CC" -dumpversion 2>/dev/null | cut -f 1 -d '.'`
     AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
@@ -1931,6 +1956,7 @@ echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo "Building with LTO    : $LTO_BUILD"
+echo "Link using MOLD      : $USE_MOLD"
 echo
 
 # dnl Note: ${X^^} capitalization assumes bash >= 4.x
