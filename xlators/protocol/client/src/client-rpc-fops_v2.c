@@ -19,8 +19,87 @@
 
 extern int32_t
 client3_getspec(call_frame_t *frame, xlator_t *this, void *data);
-extern int32_t
-client3_3_getxattr(call_frame_t *frame, xlator_t *this, void *data);
+
+int
+client_is_setlk(int32_t cmd)
+{
+    if ((cmd == F_SETLK) || (cmd == F_SETLK64) || (cmd == F_SETLKW) ||
+        (cmd == F_SETLKW64)) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int
+_copy_gfid_from_inode_holders(uuid_t gfid, loc_t *loc, fd_t *fd)
+{
+    int ret = 0;
+
+    if (fd && fd->inode && !gf_uuid_is_null(fd->inode->gfid)) {
+        gf_uuid_copy(gfid, fd->inode->gfid);
+        goto out;
+    }
+
+    if (!loc) {
+        GF_ASSERT(0);
+        ret = -1;
+        goto out;
+    }
+
+    if (loc->inode && !gf_uuid_is_null(loc->inode->gfid)) {
+        gf_uuid_copy(gfid, loc->inode->gfid);
+    } else if (!gf_uuid_is_null(loc->gfid)) {
+        gf_uuid_copy(gfid, loc->gfid);
+    } else {
+        GF_ASSERT(0);
+        ret = -1;
+    }
+out:
+    return ret;
+}
+
+int
+client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
+                           int64_t remote_fd, int is_dir)
+{
+    int ret = 0;
+    uuid_t gfid = {0};
+    clnt_conf_t *conf = NULL;
+    clnt_fd_ctx_t *fdctx = NULL;
+
+    conf = this->private;
+    ret = _copy_gfid_from_inode_holders(gfid, loc, fd);
+    if (ret) {
+        ret = -EINVAL;
+        goto out;
+    }
+
+    fdctx = GF_CALLOC(1, sizeof(*fdctx), gf_client_mt_clnt_fdctx_t);
+    if (!fdctx) {
+        ret = -ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_copy(fdctx->gfid, gfid);
+    fdctx->is_dir = is_dir;
+    fdctx->remote_fd = remote_fd;
+    fdctx->flags = flags;
+    fdctx->lk_ctx = fd_lk_ctx_ref(fd->lk_ctx);
+    fdctx->reopen_done = client_default_reopen_done;
+
+    INIT_LIST_HEAD(&fdctx->sfd_pos);
+
+    pthread_spin_lock(&conf->fd_lock);
+    {
+        this_fd_set_ctx(fd, this, loc, fdctx);
+
+        list_add_tail(&fdctx->sfd_pos, &conf->saved_fds);
+    }
+    pthread_spin_unlock(&conf->fd_lock);
+out:
+    return ret;
+}
 
 int
 client4_0_symlink_cbk(struct rpc_req *req, struct iovec *iov, int count,

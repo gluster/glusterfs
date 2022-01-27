@@ -10,6 +10,7 @@
 
 #include <glusterfs/fd-lk.h>
 #include "client.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/glusterfs.h>
@@ -23,7 +24,6 @@
 #include "xdr-rpc.h"
 
 #define CLIENT_REOPEN_MAX_ATTEMPTS 1024
-extern rpc_clnt_prog_t clnt3_3_fop_prog;
 extern rpc_clnt_prog_t clnt4_0_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
@@ -115,239 +115,6 @@ client_child_up_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this)
         gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_CHILD_UP_NOTIFY, NULL);
         client_notify_parents_child_up(this);
     }
-}
-
-int
-client3_3_reopen_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                     void *myframe)
-{
-    int32_t ret = -1;
-    gfs3_open_rsp rsp = {
-        0,
-    };
-    call_frame_t *frame = myframe;
-    xlator_t *this = frame->this;
-    clnt_local_t *local = frame->local;
-    clnt_fd_ctx_t *fdctx = local->fdctx;
-
-    if (-1 == req->rpc_status) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
-                PC_MSG_RPC_STATUS_ERROR, NULL);
-        rsp.op_ret = -1;
-        rsp.op_errno = ENOTCONN;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfs3_open_rsp);
-    if (ret < 0) {
-        gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL,
-                PC_MSG_XDR_DECODING_FAILED, NULL);
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    if (rsp.op_ret < 0) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, rsp.op_errno,
-                PC_MSG_REOPEN_FAILED, "path=%s", local->loc.path);
-    } else {
-        gf_msg_debug(frame->this->name, 0,
-                     "reopen on %s succeeded (remote-fd = %" PRId64 ")",
-                     local->loc.path, rsp.fd);
-    }
-
-    if (rsp.op_ret == -1) {
-        goto out;
-    }
-
-out:
-    fdctx->reopen_done(fdctx, (rsp.op_ret) ? -1 : rsp.fd, this);
-
-    frame->local = NULL;
-    STACK_DESTROY(frame->root);
-
-    client_local_wipe(local);
-
-    return 0;
-}
-
-int
-client3_3_reopendir_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                        void *myframe)
-{
-    int32_t ret = -1;
-    gfs3_open_rsp rsp = {
-        0,
-    };
-    call_frame_t *frame = myframe;
-    clnt_local_t *local = frame->local;
-    clnt_fd_ctx_t *fdctx = local->fdctx;
-
-    if (-1 == req->rpc_status) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, ENOTCONN,
-                PC_MSG_RPC_STATUS_ERROR, NULL);
-        rsp.op_ret = -1;
-        rsp.op_errno = ENOTCONN;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfs3_opendir_rsp);
-    if (ret < 0) {
-        gf_smsg(frame->this->name, GF_LOG_ERROR, EINVAL,
-                PC_MSG_XDR_DECODING_FAILED, NULL);
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    if (rsp.op_ret < 0) {
-        gf_smsg(frame->this->name, GF_LOG_WARNING, rsp.op_errno,
-                PC_MSG_REOPEN_FAILED, "path=%s", local->loc.path, NULL);
-    } else {
-        gf_smsg(frame->this->name, GF_LOG_INFO, 0, PC_MSG_DIR_OP_SUCCESS,
-                "path=%s", local->loc.path, "fd=%" PRId64, rsp.fd, NULL);
-    }
-
-    if (-1 == rsp.op_ret) {
-        goto out;
-    }
-
-out:
-    fdctx->reopen_done(fdctx, (rsp.op_ret) ? -1 : rsp.fd, frame->this);
-
-    frame->local = NULL;
-    STACK_DESTROY(frame->root);
-    client_local_wipe(local);
-
-    return 0;
-}
-
-static int
-protocol_client_reopendir(clnt_fd_ctx_t *fdctx, xlator_t *this)
-{
-    int ret = -1;
-    gfs3_opendir_req req = {
-        {
-            0,
-        },
-    };
-    clnt_local_t *local = NULL;
-    call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
-
-    conf = this->private;
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        goto out;
-    }
-    local->fdctx = fdctx;
-
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
-    ret = loc_path(&local->loc, NULL);
-    if (ret < 0)
-        goto out;
-
-    frame = create_frame(this, this->ctx->pool);
-    if (!frame) {
-        goto out;
-    }
-
-    memcpy(req.gfid, fdctx->gfid, 16);
-
-    gf_msg_debug(frame->this->name, 0, "attempting reopen on %s",
-                 local->loc.path);
-
-    frame->local = local;
-
-    ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPENDIR,
-                                client3_3_reopendir_cbk, NULL,
-                                (xdrproc_t)xdr_gfs3_opendir_req);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED, NULL);
-    }
-
-    return 0;
-
-out:
-    if (local)
-        client_local_wipe(local);
-
-    fdctx->reopen_done(fdctx, fdctx->remote_fd, this);
-
-    return 0;
-}
-
-static int
-protocol_client_reopenfile(clnt_fd_ctx_t *fdctx, xlator_t *this)
-{
-    int ret = -1;
-    gfs3_open_req req = {
-        {
-            0,
-        },
-    };
-    clnt_local_t *local = NULL;
-    call_frame_t *frame = NULL;
-    clnt_conf_t *conf = NULL;
-
-    conf = this->private;
-
-    frame = create_frame(this, this->ctx->pool);
-    if (!frame) {
-        goto out;
-    }
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        goto out;
-    }
-
-    local->fdctx = fdctx;
-    gf_uuid_copy(local->loc.gfid, fdctx->gfid);
-    ret = loc_path(&local->loc, NULL);
-    if (ret < 0)
-        goto out;
-
-    frame->local = local;
-
-    memcpy(req.gfid, fdctx->gfid, 16);
-    req.flags = gf_flags_from_flags(fdctx->flags);
-    req.flags = req.flags & (~(O_TRUNC | O_CREAT | O_EXCL));
-
-    gf_msg_debug(frame->this->name, 0, "attempting reopen on %s",
-                 local->loc.path);
-
-    ret = client_submit_request(this, &req, frame, conf->fops, GFS3_OP_OPEN,
-                                client3_3_reopen_cbk, NULL,
-                                (xdrproc_t)xdr_gfs3_open_req);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_DIR_OP_FAILED, NULL);
-    }
-
-    return 0;
-
-out:
-    if (frame) {
-        frame->local = NULL;
-        STACK_DESTROY(frame->root);
-    }
-
-    if (local)
-        client_local_wipe(local);
-
-    fdctx->reopen_done(fdctx, fdctx->remote_fd, this);
-
-    return 0;
-}
-
-static void
-protocol_client_reopen(clnt_fd_ctx_t *fdctx, xlator_t *this)
-{
-    if (fdctx->is_dir)
-        protocol_client_reopendir(fdctx, this);
-    else
-        protocol_client_reopenfile(fdctx, this);
 }
 
 /* v4.x +  */
@@ -624,10 +391,7 @@ client_attempt_reopen(fd_t *fd, xlator_t *this)
 unlock:
     pthread_spin_unlock(&conf->fd_lock);
     if (reopen) {
-        if (conf->fops->progver == GLUSTER_FOP_VERSION_v2)
-            protocol_client_reopen_v2(fdctx, this);
-        else
-            protocol_client_reopen(fdctx, this);
+        protocol_client_reopen_v2(fdctx, this);
     }
 out:
     return;
@@ -675,11 +439,7 @@ client_post_handshake(call_frame_t *frame, xlator_t *this)
         list_for_each_entry_safe(fdctx, tmp, &reopen_head, sfd_pos)
         {
             list_del_init(&fdctx->sfd_pos);
-
-            if (conf->fops->progver == GLUSTER_FOP_VERSION_v2)
-                protocol_client_reopen_v2(fdctx, this);
-            else
-                protocol_client_reopen(fdctx, this);
+            protocol_client_reopen_v2(fdctx, this);
         }
     } else {
         gf_msg_debug(this->name, 0,
@@ -1092,18 +852,6 @@ select_server_supported_programs(xlator_t *this, gf_prog_detail *prog)
 
     while (trav) {
         /* Select 'programs' */
-        if ((clnt3_3_fop_prog.prognum == trav->prognum) &&
-            (clnt3_3_fop_prog.progver == trav->progver)) {
-            conf->fops = &clnt3_3_fop_prog;
-            if (conf->rpc)
-                conf->rpc->auth_value = AUTH_GLUSTERFS_v2;
-            ret = 0;
-            /* In normal flow, we don't want to use old protocol type.
-               but if it is for testing, lets use it */
-            if (conf->old_protocol)
-                goto done;
-        }
-
         if ((clnt4_0_fop_prog.prognum == trav->prognum) &&
             (clnt4_0_fop_prog.progver == trav->progver)) {
             conf->fops = &clnt4_0_fop_prog;

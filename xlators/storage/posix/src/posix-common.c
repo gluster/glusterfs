@@ -42,7 +42,7 @@
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include "posix-aio.h"
 #include "posix-io-uring.h"
 #include <glusterfs/glusterfs-acl.h>

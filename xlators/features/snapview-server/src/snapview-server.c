@@ -1499,7 +1499,7 @@ svs_glfs_readdir(xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
 
         if (ret == 0 && dirents != NULL) {
             if (readdirplus)
-                this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+                this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                             strlen(de.d_name) + 1;
             else
                 this_size = sizeof(gf_dirent_t) + strlen(de.d_name) + 1;

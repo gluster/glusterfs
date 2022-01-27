@@ -19,7 +19,6 @@
 #include <glusterfs/gf-event.h>
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
-#include "glusterfs3-xdr.h"
 #include "glusterfs3.h"
 #include "xdr-generic.h"
 #include <glusterfs/compat-errno.h>
