@@ -220,7 +220,7 @@ afr_gfid_sbrain_source_from_latest_mtime(struct afr_reply *replies,
 {
     int i = 0;
     int src = -1;
-    uint32_t mtime = 0;
+    uint64_t mtime = 0;
     uint32_t mtime_nsec = 0;
 
     for (i = 0; i < child_count; i++) {
@@ -856,7 +856,7 @@ afr_mark_latest_mtime_file_as_source(xlator_t *this, unsigned char *sources,
 {
     int i = 0;
     afr_private_t *priv = NULL;
-    uint32_t mtime = 0;
+    uint64_t mtime = 0;
     uint32_t mtime_nsec = 0;
 
     priv = this->private;
@@ -1106,7 +1106,7 @@ afr_sh_fav_by_mtime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     afr_private_t *priv;
     int fav_child = -1;
     int i = 0;
-    uint32_t cmp_mtime = 0;
+    uint64_t cmp_mtime = 0;
     uint32_t cmp_mtime_nsec = 0;
 
     priv = this->private;
@@ -1144,7 +1144,7 @@ afr_sh_fav_by_ctime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     afr_private_t *priv;
     int fav_child = -1;
     int i = 0;
-    uint32_t cmp_ctime = 0;
+    uint64_t cmp_ctime = 0;
     uint32_t cmp_ctime_nsec = 0;
 
     priv = this->private;
