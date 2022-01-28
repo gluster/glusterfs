@@ -79,7 +79,7 @@ parse_backup_volfile_servers ()
                    END{if(sk!=0 || err){printf " SyntaxError";}else{printf " SyntaxOK";}}')
 
     servers=$(echo $servers)
-    if [ "$servers" == "SyntaxOK" ]; then
+    if [ "$servers" = "SyntaxOK" ]; then
         echo ""
         return
     fi
@@ -284,7 +284,7 @@ start_glusterfs ()
             if [ -n "$backup_volfile_servers" ]; then
                 backup_servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
                 syntax_status=$(echo ${backup_servers##*' '})
-                if [ "$syntax_status" == "SyntaxError" ]; then
+                if [ "$syntax_status" = "SyntaxError" ]; then
                     warn "ERROR: Invalid backup-volfile-servers specified.. exiting"
                     exit 1
                 fi
