@@ -2765,6 +2765,12 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 __destroy_lock(reqlock);
             } else if (ret == -2) {
                 goto out;
+            } else if (ret == -3) {
+                /* This only happens after a disconnection and most probably
+                 * the result won't reach the client. */
+                op_ret = -1;
+                op_errno = ENOTCONN;
+                __destroy_lock(reqlock);
             } else if ((0 == ret) && (F_UNLCK == flock->l_type)) {
                 /* For NLM's last "unlock on fd" detection */
                 if (pl_locks_by_fd(pl_inode, fd))

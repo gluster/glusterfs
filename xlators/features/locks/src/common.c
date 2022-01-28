@@ -1049,6 +1049,15 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
+        if (GF_ATOMIC_GET(((client_t *)lock->client)->bind) == 0) {
+            /* The client that sent the lock request has disconnected. Unless
+             * this is an unlock request or it's non-blocking, we forbid it. */
+            if (can_block && (lock->fl_type != F_UNLCK)) {
+                pthread_mutex_unlock(&pl_inode->mutex);
+                ret = -3;
+                goto out;
+            }
+        }
         /* Send unlock before the actual lock to
            prevent lock upgrade / downgrade
            problems only if:
