@@ -36,32 +36,31 @@ sync_data_to_disk(xlator_t *this, sq_inode_t *ictx)
     }
 
     int64_t size = GF_ATOMIC_FETCH_AND(ictx->pending_update, 0);
-    int64_t value_on_disk = (ictx->xattr_size + size);
+    int64_t total_consumption = (ictx->xattr_size + size);
     if (!size) {
         /* No changes since last update, no need to update */
-        return value_on_disk;
+        return total_consumption;
     }
 
     dict_t *dict = dict_new();
     if (!dict) {
-        dict_unref(dict);
         GF_ATOMIC_ADD(ictx->pending_update, size);
-        return value_on_disk;
+        return total_consumption;
     }
 
-    ret = dict_set_int64(dict, SQUOTA_SIZE_KEY, value_on_disk);
-    if (IS_ERROR(ret)) {
-        dict_unref(dict);
-        GF_ATOMIC_ADD(ictx->pending_update, size);
-        return value_on_disk;
-    }
-
-    if (value_on_disk < 0) {
+    if (total_consumption < 0) {
         /* Some bug, this should have not happened */
         gf_msg(this->name, GF_LOG_INFO, 0, 0,
                "quota usage is below zero (%" PRId64 "), resetting to 0",
-               value_on_disk);
-        value_on_disk = 0;
+               total_consumption);
+        total_consumption = 0;
+    }
+
+    ret = dict_set_int64(dict, SQUOTA_SIZE_KEY, total_consumption);
+    if (IS_ERROR(ret)) {
+        dict_unref(dict);
+        GF_ATOMIC_ADD(ictx->pending_update, size);
+        return total_consumption;
     }
 
     /* Send the request to actual gfid */
@@ -69,14 +68,14 @@ sync_data_to_disk(xlator_t *this, sq_inode_t *ictx)
     gf_uuid_copy(loc.gfid, ictx->ns->gfid);
 
     gf_msg(this->name, GF_LOG_DEBUG, 0, 0, "%s: Writing size of %" PRId64,
-           uuid_utoa(ictx->ns->gfid), value_on_disk);
+           uuid_utoa(ictx->ns->gfid), total_consumption);
 
     /* As we are doing only operation from server side */
     ret = syncop_setxattr(FIRST_CHILD(this), &loc, dict, 0, NULL, NULL);
     if (IS_SUCCESS(ret)) {
-        ictx->xattr_size = value_on_disk;
+        ictx->xattr_size = total_consumption;
         if (priv->no_distribute)
-            ictx->total_size = value_on_disk;
+            ictx->total_size = total_consumption;
     } else {
         GF_ATOMIC_ADD(ictx->pending_update, size);
         gf_log(this->name, GF_LOG_ERROR, "%s: Quota value update failed %d %s",
@@ -86,7 +85,7 @@ sync_data_to_disk(xlator_t *this, sq_inode_t *ictx)
     inode_unref(ictx->ns);
     dict_unref(dict);
 
-    return value_on_disk;
+    return total_consumption;
 }
 
 static void
@@ -106,13 +105,12 @@ sync_data_from_priv(xlator_t *this, sq_private_t *priv)
     return;
 }
 
-static uint64_t
+static sq_inode_t *
 sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
                     bool set_namespace)
 {
     sq_private_t *priv = this->private;
     sq_inode_t *sq_ctx;
-    uint64_t tmp_mq = 0;
     int ret = -1;
 
     sq_ctx = GF_MALLOC(sizeof(sq_inode_t), gf_common_mt_char);
@@ -128,11 +126,10 @@ sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
     if (set_namespace)
         sq_ctx->ns = inode;
 
-    tmp_mq = (uint64_t)(uintptr_t)sq_ctx;
-    ret = inode_ctx_put(inode, this, tmp_mq);
+    ret = inode_ctx_put(inode, this, (uint64_t)(uintptr_t)sq_ctx);
     if (IS_ERROR(ret)) {
         GF_FREE(sq_ctx);
-        tmp_mq = 0;
+	sq_ctx = NULL;
         goto out;
     }
 
@@ -146,7 +143,7 @@ sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
            "%s: hardlimit set (%" PRId64 ", %" PRId64 ")",
            uuid_utoa(inode->gfid), limit, size);
 out:
-    return tmp_mq;
+    return sq_ctx;
 }
 
 static inline void
@@ -169,13 +166,13 @@ sq_update_namespace(xlator_t *this, inode_t *ns, struct iatt *prebuf,
 
     bool is_inode_linked = IATT_TYPE_VALID(ns->ia_type);
     inode_ctx_get(ns, this, &tmp_mq);
-    if (!tmp_mq) {
-        tmp_mq = sq_set_ns_hardlimit(this, ns, 0, size, is_inode_linked);
-        if (!tmp_mq)
+    sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    if (!sq_ctx) {
+        sq_ctx = sq_set_ns_hardlimit(this, ns, 0, size, is_inode_linked);
+        if (!sq_ctx)
             goto out;
     }
 
-    sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
     if (ns != sq_ctx->ns) {
         /* Set this, as it is possible to have linked a wrong
            inode pointer in lookup */
@@ -198,13 +195,13 @@ sq_update_total_usage(xlator_t *this, inode_t *inode, int64_t val)
     uint64_t tmp_mq = 0;
 
     inode_ctx_get(inode, this, &tmp_mq);
-    if (!tmp_mq) {
-        tmp_mq = sq_set_ns_hardlimit(this, inode, 0, 0, true);
-        if (!tmp_mq)
+    sq_inode_t *sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    if (!sq_ctx) {
+        sq_ctx = sq_set_ns_hardlimit(this, inode, 0, 0, true);
+        if (!sq_ctx)
             goto out;
     }
 
-    sq_inode_t *sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
     sq_ctx->total_size = val;
 out:
     return;
@@ -220,7 +217,7 @@ sq_update_brick_usage(xlator_t *this, inode_t *inode)
     if (!tmp_mq) {
         goto out;
     }
-    loc_t loc;
+    loc_t loc = { 0, };
     loc.inode = inode_ref(inode);
     int ret = syncop_getxattr(FIRST_CHILD(this), &loc, &dict, SQUOTA_SIZE_KEY,
                               NULL, NULL);
@@ -252,19 +249,20 @@ sq_update_hard_limit(xlator_t *this, inode_t *ns, int64_t limit, int64_t size)
         goto out;
 
     inode_ctx_get(ns, this, &tmp_mq);
-    if (!tmp_mq) {
-        tmp_mq = sq_set_ns_hardlimit(this, ns, limit, size,
+    sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    if (!sq_ctx) {
+        sq_ctx = sq_set_ns_hardlimit(this, ns, limit, size,
                                      IATT_TYPE_VALID(ns->ia_type));
-        if (!tmp_mq)
+        if (!sq_ctx)
             goto out;
     }
 
     gf_msg(this->name, GF_LOG_INFO, 0, 0,
            "hardlimit update: %s %" PRId64 " %" PRId64, uuid_utoa(ns->gfid),
            limit, size);
-    sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
     sq_ctx->hard_lim = limit;
-    /* shouldn't come here with 'size > 0' */
+
+    //GF_ASSERT(size > 0);
 
 out:
     return;
@@ -294,80 +292,6 @@ sq_check_usage(xlator_t *this, inode_t *inode, size_t new_size)
 
     return 0;
 }
-
-#if 0
-static void *
-quota_set_thread_proc(void *data)
-{
-    xlator_t *this = data;
-    sq_private_t *priv = this->private;
-
-    /* FIXME: decide on the interval, provide option */
-    uint32_t interval = 5;
-    int ret = -1;
-
-    gf_msg_debug(this->name, 0,
-                 "disk-space thread started, interval = %d seconds",
-                 interval);
-
-    while (true) {
-        /* aborting sleep() is a request to exit this thread, sleep()
-         * will normally not return when cancelled */
-        ret = sleep(interval);
-        if (ret > 0)
-            break;
-        sync_data_from_priv(this, priv);
-    }
-
-    gf_msg_debug(this->name, 0, "Quota Set thread exiting");
-
-    return NULL;
-}
-
-/* FIXME: We should use timer instead IMO */
-static int
-quota_set_thread(xlator_t *xl)
-{
-    sq_private_t *priv = xl->private;
-    int ret = -1;
-
-    ret = gf_thread_create(&priv->quota_set_thread, NULL, quota_set_thread_proc,
-                           xl, "quotaset");
-    if (ret) {
-        gf_log(xl->name, GF_LOG_ERROR,
-               "unable to setup quota sync thread");
-    }
-
-    return ret;
-}
-
-static int
-sq_clear_thread(xlator_t *this, pthread_t thr_id)
-{
-    void *retval = NULL;
-    int ret;
-
-    gf_log(this->name, GF_LOG_DEBUG, "clearing thread");
-
-    /* send a cancel request to the thread */
-    ret = pthread_cancel(thr_id);
-    if (ret != 0) {
-        gf_log(this->name, GF_LOG_ERROR, "pthread_cancel() failed %s",
-               strerror(errno));
-        goto out;
-    }
-
-    errno = 0;
-    ret = pthread_join(thr_id, &retval);
-    if ((ret != 0) || (retval != PTHREAD_CANCELED)) {
-        gf_log(this->name, GF_LOG_ERROR, "pthread_join() failed %s",
-               strerror(errno));
-    }
-
-out:
-    return ret;
-}
-#endif
 
 /* ====================================== */
 
