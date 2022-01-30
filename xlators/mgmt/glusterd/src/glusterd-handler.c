@@ -17,10 +17,8 @@
 #include <glusterfs/timer.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/statedump.h>
 #include <glusterfs/run.h>
 #include "glusterd-mem-types.h"
-#include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-mgmt.h"
@@ -30,7 +28,6 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-geo-rep.h"
 
-#include "glusterd-volgen.h"
 #include "glusterd-mountbroker.h"
 #include "glusterd-messages.h"
 #include "glusterd-errno.h"
@@ -40,6 +37,8 @@
 
 #include "glusterd-syncop.h"
 #include "glusterd-messages.h"
+
+#include "gd-common-utils.h"
 
 extern glusterd_op_info_t opinfo;
 static int volcount;

@@ -17,6 +17,7 @@
 #include <glusterfs/compat-errno.h>
 #include "glusterd-scrub-svc.h"
 #include "glusterd-messages.h"
+#include "glusterd-bitd-svc.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>

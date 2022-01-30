@@ -17,8 +17,6 @@
 
 #include "changelog-xdr.h"
 
-#include "changelog.h"
-
 /**
  * Let's keep this non-configurable for now.
  */

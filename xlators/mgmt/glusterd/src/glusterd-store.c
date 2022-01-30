@@ -25,7 +25,6 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-hooks.h"
-#include <glusterfs/store.h>
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"

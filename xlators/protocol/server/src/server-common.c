@@ -3,7 +3,6 @@
 #include <glusterfs/compat-errno.h>
 #include "server-messages.h"
 #include "server-helpers.h"
-#include <openssl/md5.h>
 
 #ifdef BUILD_GNFS
 #include "xdr-nfs3.h"

@@ -11,6 +11,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "socket.h"
 #include "server.h"
 #include "server-helpers.h"
 #include <glusterfs/call-stub.h>

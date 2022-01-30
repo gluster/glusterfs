@@ -11,7 +11,6 @@
 #ifndef _NFS_FH_H_
 #define _NFS_FH_H_
 
-#include <glusterfs/xlator.h>
 #include "xdr-nfs3.h"
 #include <glusterfs/iatt.h>
 #include <sys/types.h>

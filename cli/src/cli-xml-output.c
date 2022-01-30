@@ -8,6 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include <stdlib.h>
+#include "gd-common-utils.h"
 #include "cli.h"
 #include "cli1-xdr.h"
 #include <glusterfs/run.h>

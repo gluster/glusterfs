@@ -14,7 +14,6 @@
 #define _GNU_SOURCE
 #endif
 
-#include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <sys/resource.h>

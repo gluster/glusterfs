@@ -16,11 +16,9 @@
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/gf-event.h>
-#include "rpcsvc.h"
 #include "rpc-clnt.h"
 #include "glusterfs3.h"
 #include <glusterfs/compat-errno.h>
-#include "protocol-common.h"
 #include <glusterfs/quota-common-utils.h>
 #include "quota-messages.h"
 

@@ -10,7 +10,6 @@
 #ifndef _GLUSTERD_OP_SM_H_
 #define _GLUSTERD_OP_SM_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
 #include <glusterfs/xlator.h>

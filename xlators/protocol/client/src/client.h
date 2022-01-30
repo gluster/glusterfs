@@ -17,11 +17,7 @@
 #include "rpc-clnt.h"
 #include <glusterfs/list.h>
 #include "client-mem-types.h"
-#include "protocol-common.h"
-#include "glusterfs3.h"
-#include "glusterfs4-xdr.h"
 #include <glusterfs/defaults.h>
-#include <glusterfs/default-args.h>
 #include "client-messages.h"
 
 /* Threading limits for client event threads. */

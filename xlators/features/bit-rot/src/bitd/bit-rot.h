@@ -25,8 +25,6 @@
 #include "bit-rot-stub-mem-types.h"
 #include "bit-rot-scrub-status.h"
 
-#include <openssl/sha.h>
-
 typedef enum scrub_throttle {
     BR_SCRUB_THROTTLE_VOID = -1,
     BR_SCRUB_THROTTLE_LAZY = 0,

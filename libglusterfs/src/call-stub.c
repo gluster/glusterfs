@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
 #include <inttypes.h>
 
 #include "glusterfs/call-stub.h"

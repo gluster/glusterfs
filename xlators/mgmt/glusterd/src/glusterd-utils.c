@@ -24,52 +24,35 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include "glusterd-messages.h"
-#include <glusterfs/timer.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/syncop.h>
 #include <glusterfs/run.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/statedump.h>
 #include <glusterfs/syscall.h>
-#include "glusterd-mem-types.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
-#include "glusterd-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-store.h"
-#include "glusterd-volgen.h"
-#include "glusterd-pmap.h"
 #include <glusterfs/glusterfs-acl.h>
-#include "glusterd-syncop.h"
 #include "glusterd-mgmt.h"
-#include "glusterd-locks.h"
 #include "glusterd-messages.h"
-#include "glusterd-volgen.h"
 #include "glusterd-snapshot-utils.h"
-#include "glusterd-svc-mgmt.h"
 #include "glusterd-svc-helper.h"
-#include "glusterd-shd-svc.h"
-#include "glusterd-quotad-svc.h"
-#include "glusterd-snapd-svc.h"
-#include "glusterd-bitd-svc.h"
-#include "glusterd-gfproxyd-svc.h"
 #include "glusterd-server-quorum.h"
 #include <glusterfs/quota-common-utils.h>
-#include <glusterfs/common-utils.h>
 #include "glusterd-shd-svc-helper.h"
+#include "gd-common-utils.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/types.h>
-#include <sys/ioctl.h>
-#include <sys/socket.h>
 #include <rpc/pmap_clnt.h>
 #include <unistd.h>
 #include <fnmatch.h>
 #include <sys/statvfs.h>
 #include <ifaddrs.h>
+#include <netdb.h>
 
 #ifdef GF_SOLARIS_HOST_OS
 #include <sys/sockio.h>
@@ -5625,6 +5608,7 @@ glusterd_unlink_file(char *sockfpath)
     return ret;
 }
 
+#ifdef BUILD_GNFS
 void
 glusterd_nfs_pmap_deregister()
 {
@@ -5670,6 +5654,8 @@ glusterd_nfs_pmap_deregister()
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_PMAP_UNSET_FAIL,
                "De-registration of ACL v3 failed");
 }
+
+#endif  /// #ifdef BUILD_GNFS
 
 int
 glusterd_add_node_to_dict(char *server, dict_t *dict, int count,

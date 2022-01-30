@@ -8,8 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
-
 #include "server.h"
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"

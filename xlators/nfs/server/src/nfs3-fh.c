@@ -8,12 +8,9 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "rpcsvc.h"
-#include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include <glusterfs/iobuf.h>
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include <glusterfs/iatt.h>

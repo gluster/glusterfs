@@ -16,6 +16,7 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <dirent.h>
 #include <unistd.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
@@ -24,6 +25,8 @@
 #include <fnmatch.h>
 #include <uuid/uuid.h>
 #include <urcu/compiler.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG

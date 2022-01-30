@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 #include <fnmatch.h>
 #include <time.h>
 

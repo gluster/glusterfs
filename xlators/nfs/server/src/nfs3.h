@@ -11,15 +11,11 @@
 #ifndef _NFS3_H_
 #define _NFS3_H_
 
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
 #include "nfs.h"
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include "xdr-nfs3.h"
-#include <glusterfs/mem-pool.h>
 #include "nlm4.h"
 #include "acl3-xdr.h"
 #include "acl3.h"

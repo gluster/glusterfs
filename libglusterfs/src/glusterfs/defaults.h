@@ -18,7 +18,6 @@
 #include <glusterfs/dict.h>
 #include <glusterfs/iatt.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/glusterfs-fops.h>
 #include <glusterfs/stack.h>
 
 typedef struct {

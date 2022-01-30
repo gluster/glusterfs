@@ -10,10 +10,8 @@
 #ifndef _GLUSTERD_HA_H_
 #define _GLUSTERD_HA_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/run.h>
 #include <glusterfs/logging.h>
 #include "glusterd.h"
 

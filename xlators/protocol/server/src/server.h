@@ -14,7 +14,6 @@
 #include <pthread.h>
 
 #include "rpcsvc.h"
-#include "socket.h"
 #include "protocol-common.h"
 #include "server-mem-types.h"
 #include "glusterfs3.h"
