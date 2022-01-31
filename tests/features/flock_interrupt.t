@@ -19,7 +19,7 @@ EXPECT 'Created' volinfo_field $V0 'Status';
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
+TEST $GFS --volfile-id=$V0 --volfile-server=$H0 --fuse-setlk-handle-interrupt=on $M0;
 TEST touch $M0/testfile;
 
 echo > got_lock

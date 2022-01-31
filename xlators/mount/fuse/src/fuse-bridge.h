@@ -167,6 +167,7 @@ struct fuse_private {
     pthread_mutex_t interrupt_mutex;
 
     gf_boolean_t flush_handle_interrupt;
+    gf_boolean_t setlk_handle_interrupt;
     gf_boolean_t fuse_auto_inval;
 
     /* LRU Limit, if not set, default is 64k for now */
