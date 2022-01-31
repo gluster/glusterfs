@@ -1505,11 +1505,11 @@ case $host_os in
 esac
 
 # MOLD section
+CUSTOM_LINKER=none
 AC_ARG_ENABLE([mold],
                AC_HELP_STRING([--enable-mold],
                               [Use modern linker (mold) to link files]))
 
-USE_MOLD=no
 if test "x$enable_mold" = "xyes"; then
    AC_CHECK_PROG([MOLDINSTALLED], [mold], [yes], [no])
 
@@ -1525,8 +1525,24 @@ if test "x$enable_mold" = "xyes"; then
    MOLDPATH="`echo $MOLDPATH | sed 's/\/ld//'`"
    AC_MSG_NOTICE([Using LD override at: $MOLDPATH])
 
-   USE_MOLD=yes
+   CUSTOM_LINKER=mold
    GF_CFLAGS="${GF_CFLAGS} -B$MOLDPATH"
+fi
+
+# LLD section
+AC_ARG_ENABLE([lld],
+               AC_HELP_STRING([--enable-lld],
+                              [Use LLVM's lld to link files]))
+
+if test "x$enable_lld" = "xyes" && test "x$CUSTOM_LINKER" = "xnone"; then
+   AC_CHECK_PROG([LLDINSTALLED], [lld], [yes], [no])
+
+   if test "x$LLDINSTALLED" = "xno"; then
+      AC_MSG_ERROR([`lld` needs to be installed in order to link with it])
+   fi
+
+   CUSTOM_LINKER=lld
+   GF_LDFLAGS="${GF_LDFLAGS} -fuse-ld=lld"
 fi
 
 # LTO section
@@ -1535,7 +1551,7 @@ AC_ARG_ENABLE([lto],
                              [Disable buidling with LTO]))
 
 LTO_BUILD=no
-AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" && test "x$USE_MOLD" != "xyes" ], [
+AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" && test "x$CUSTOM_LINKER" = "xnone" ], [
     CC_VER=`"$CC" -dumpversion 2>/dev/null | cut -f 1 -d '.'`
     AS_IF([ test ! -z "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
@@ -1956,7 +1972,7 @@ echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo "Building with LTO    : $LTO_BUILD"
-echo "Link using MOLD      : $USE_MOLD"
+echo "Custom linker used   : $CUSTOM_LINKER"
 echo
 
 # dnl Note: ${X^^} capitalization assumes bash >= 4.x
