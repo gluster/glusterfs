@@ -288,10 +288,27 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [_init], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
+        if test "x$ac_cv_lib_asan__init" = xyes; then
+                AC_MSG_CHECKING([whether asan API can be used])
+                saved_CFLAGS=${CFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=address"
+                AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                   [#include <sanitizer/common_interface_defs.h>]],
+                   [[__sanitizer_finish_switch_fiber(0, 0, 0)]])],
+                   [ASAN_API=yes], [ASAN_API=no])
+                AC_MSG_RESULT([$ASAN_API])
+                if test x$ASAN_API = "xyes"; then
+                   AC_DEFINE(HAVE_ASAN_API, 1, [Define if asan API can be used.])
+                fi
+                CFLAGS=${saved_CFLAGS}
+        fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lasan"
+
+        dnl See: https://groups.google.com/d/msg/address-sanitizer/SD590XDinfQ/NMUPj_G0BgAJ
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=address"
 fi
 
 AC_ARG_ENABLE([tsan],
@@ -302,9 +319,9 @@ if test "x$enable_tsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=tsan
-        AC_CHECK_LIB([tsan], [__tsan_init], ,
+        AC_CHECK_LIB([tsan], [_init], ,
                 [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
-        if test "x$ac_cv_lib_tsan___tsan_init" = xyes; then
+        if test "x$ac_cv_lib_tsan__init" = xyes; then
                 AC_MSG_CHECKING([whether tsan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=thread"
@@ -320,7 +337,7 @@ if test "x$enable_tsan" = "xyes"; then
                 CFLAGS=${saved_CFLAGS}
         fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=thread"
 fi
 
 AC_ARG_ENABLE([ubsan],
@@ -331,10 +348,10 @@ if test "x$enable_ubsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=ubsan
-        AC_CHECK_LIB([ubsan], [__ubsan_default_options], ,
+        AC_CHECK_LIB([ubsan], [_init], ,
                 [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=undefined"
 fi
 
 # Initialize CFLAGS before usage
