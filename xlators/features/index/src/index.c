@@ -1756,7 +1756,8 @@ index_readdir_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd,
         goto done;
     }
 
-    dir = fctx->dir;
+    if (fctx)
+        dir = fctx->dir;
     if (!dir) {
         op_errno = EINVAL;
         gf_msg(this->name, GF_LOG_WARNING, op_errno,
