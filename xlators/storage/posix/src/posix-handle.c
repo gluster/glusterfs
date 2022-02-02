@@ -867,7 +867,7 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
     dfd = priv->arrdfd[index];
 
     snprintf(newstr, sizeof(newstr), "%02x/%s", gfid[1], uuid_utoa(gfid));
-    ret = sys_unlinkat(dfd, newstr);
+    ret = sys_unlinkat(dfd, newstr, 0);
     if (ret && (errno != ENOENT)) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
                "unlink %s failed", newstr);

@@ -218,12 +218,12 @@ sys_unlink(const char *pathname)
 }
 
 int
-sys_unlinkat(int dfd, const char *pathname)
+sys_unlinkat(int dfd, const char *pathname, int flags)
 {
 #ifdef GF_SOLARIS_HOST_OS
-    return FS_RET_CHECK0(solaris_unlinkat(dfd, pathname, 0), errno);
+    return FS_RET_CHECK0(solaris_unlinkat(dfd, pathname, flags), errno);
 #endif
-    return FS_RET_CHECK0(unlinkat(dfd, pathname, 0), errno);
+    return FS_RET_CHECK0(unlinkat(dfd, pathname, flags), errno);
 }
 
 int

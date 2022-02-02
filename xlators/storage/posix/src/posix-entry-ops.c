@@ -838,8 +838,6 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
     gid = frame->root->gid;
     strcpy(orig_real_path, real_path);
 
-    op_ret = posix_pstat(this, loc->inode, NULL, real_path, &stbuf, _gf_false);
-
     op_ret = posix_pstat(this, loc->inode, NULL, real_path, &stbuf, _gf_false,
                          _gf_false);
 
@@ -2179,7 +2177,6 @@ unlock:
         posix_handle_unset(this, victim, NULL);
 
     if (IA_ISDIR(oldloc->inode->ia_type) && atomic_creation) {
-        posix_handle_unset(this, oldloc->inode->gfid, NULL);
         if ((op_ret = rename_two_path(this, tmpgfidpath, newgfidpath))) {
             op_errno = errno;
             goto out;

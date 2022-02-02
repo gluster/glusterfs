@@ -110,8 +110,8 @@
             break;                                                             \
         }                                                                      \
         errno = 0;                                                             \
-        op_ret = posix_istat(this, loc->inode, loc->gfid, NULL, iatt_p, loc);  \
->>>>>>> posix: Resolved various reviewer comment
+        op_ret = posix_istat(this, loc->inode, loc->gfid, NULL, iatt_p,        \
+                             _gf_true);                                        \
         if (errno != ELOOP) {                                                  \
             MAKE_HANDLE_PATH(rpath, this, (loc)->gfid, NULL);                  \
             if (!rpath) {                                                      \

@@ -96,7 +96,7 @@ int
 sys_unlink(const char *pathname);
 
 int
-sys_unlinkat(int dfd, const char *pathname);
+sys_unlinkat(int dfd, const char *pathname, int flags);
 
 int
 sys_rmdir(const char *pathname);

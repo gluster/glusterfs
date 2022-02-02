@@ -697,7 +697,7 @@ out:
 
 static int
 posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
-                               loc_t *loc, char *real_path)
+                               char *real_path)
 {
     char *rpath = NULL;
     inode_t *parent = NULL;
@@ -705,6 +705,9 @@ posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
         0,
     };
     int ret = -1;
+    loc_t loc = {
+        0,
+    };
 
     if (inode && inode->ia_type) {
         if (gf_uuid_is_null(inode->gfid))
@@ -722,16 +725,16 @@ posix_gfid_heal_inode_is_valid(xlator_t *this, inode_t *inode, uuid_t gfid,
             }
         } else {
             parent = inode_parent(inode, null_gfid, NULL);
-            if (loc && parent) {
-                gf_uuid_copy(loc->pargfid, parent->gfid);
-                loc->name = strrchr(loc->path, '/') + 1;
-                ret = posix_handle_soft(this, NULL, loc, gfid, NULL);
+            if (parent) {
+                gf_uuid_copy(loc.pargfid, parent->gfid);
+                loc.name = strrchr(real_path, '/') + 1;
+                ret = posix_handle_soft(this, NULL, &loc, gfid, NULL);
                 if (!ret) {
                     goto out;
                 } else {
                     gf_log(this->name, GF_LOG_ERROR,
                            "Failed to create handle path for path %s gfid %s",
-                           loc->name, uuid_utoa(gfid));
+                           loc.name, uuid_utoa(gfid));
                 }
             } else {
                 gf_msg_debug(this->name, 0,
@@ -782,11 +785,11 @@ again:
 
     if (ret != 0) {
         if (ret == -1) {
-            if (errno != ENOENT && errno != ELOOP) {
+            if (errno != ENOENT) {
                 gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
                        "lstat failed on %s", real_path);
             } else {
-                ret = posix_gfid_heal_inode_is_valid(this, inode, gfid, loc,
+                ret = posix_gfid_heal_inode_is_valid(this, inode, gfid,
                                                      real_path);
                 if (!ret)
                     goto again;

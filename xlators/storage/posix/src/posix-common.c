@@ -637,13 +637,10 @@ out:
 }
 
 int
-resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
+resolve_gfid_link_missed_during_rename(xlator_t *this, int pdirfd,
+                                       char *dirname)
 {
-    struct dirent scratch[2] = {
-        {
-            0,
-        },
-    };
+    struct dirent scratch = {0};
     struct posix_private *priv = this->private;
     struct dirent *dentry = NULL;
     DIR *drptr = NULL;
@@ -662,29 +659,47 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
     char gfid_link_path[NAME_MAX * 2] = {
         0,
     };
-    int unlink_flag = 0;
+    gf_boolean_t unlink = _gf_false;
     int index = 0;
     int ret = 0;
     int dentry_len = 0;
     int size = 0;
+    int fd = 0;
 
-    drptr = sys_opendir(dirname);
-    if (!drptr) {
+    fd = sys_openat(pdirfd, "tt", (O_DIRECTORY | O_RDONLY), 0);
+    if (fd < 0) {
         gf_log(this->name, GF_LOG_ERROR,
                "opendir is failed for special directory %s ", dirname);
         ret = -1;
         goto out;
     }
 
-    while ((dentry = sys_readdir(drptr, scratch)) != NULL) {
+    drptr = fdopendir(fd);
+    if (!drptr) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "fdopendir is failed for special directory %s", dirname);
+        ret = -1;
+        goto out;
+    }
+
+    while ((dentry = sys_readdir(drptr, &scratch)) != NULL) {
         dentry_len = strlen(dentry->d_name);
-        unlink_flag = 1;
-        if (dentry_len < UUID_CANONICAL_FORM_LEN)
+        unlink = _gf_true;
+        if (dentry_len < UUID_CANONICAL_FORM_LEN) {
+            /* skip . and .. */
+            if (dentry_len > 2)
+                gf_log(this->name, GF_LOG_WARNING,
+                       "Entry name %s is not "
+                       "expected at this location %s",
+                       dentry->d_name, dirname);
             continue;
+        }
+
         /*if dentry_name has a rename suffix it means rename dir
           fop was not succeeded completly so need to validate gfid and
           heal if it was not linked properly
         */
+
         if (dentry_len == UUID_CANONICAL_FORM_LEN_RENAME) {
             /* Need to follow below steps to heal the gfid link
             1) Read trusted.gfid xattr from linked directory
@@ -699,17 +714,16 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
                      dentry->d_name);
             size = sys_lgetxattr(gfid_link_path, "trusted.gfid", gfid_curr, 16);
             if (size == 16) {
-                snprintf(tmp_gfid, (dentry_len - UUID_CANONICAL_FORM_LEN), "%s",
-                         dentry->d_name);
+                memcpy(tmp_gfid, dentry->d_name, UUID_CANONICAL_FORM_LEN);
+                tmp_gfid[UUID_CANONICAL_FORM_LEN] = '\0';
                 gf_uuid_parse(tmp_gfid, exp_gfid);
                 if (!gf_uuid_compare(gfid_curr, exp_gfid)) {
-                    (void)posix_handle_unset(this, exp_gfid, NULL);
-                    unlink_flag = 0;
+                    unlink = _gf_false;
                     index = exp_gfid[0];
                     snprintf(dst_path, sizeof dst_path, "%02x/%s", exp_gfid[1],
                              uuid_utoa(exp_gfid));
-                    ret = sys_renameat(dirfd(drptr), dentry->d_name,
-                                       priv->arrdfd[index], dst_path);
+                    ret = sys_renameat(fd, dentry->d_name, priv->arrdfd[index],
+                                       dst_path);
                     if (ret) {
                         gf_log(this->name, GF_LOG_ERROR,
                                "rename gfid %s src %s to expected gfid path %s"
@@ -730,8 +744,12 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
             }
         }
 
-        if (unlink_flag) {
-            ret = sys_unlinkat(dirfd(drptr), dentry->d_name);
+        if (unlink) {
+            if (DT_ISDIR(dentry->d_type)) {
+                ret = sys_unlinkat(fd, dentry->d_name, AT_REMOVEDIR);
+            } else {
+                ret = sys_unlinkat(fd, dentry->d_name, 0);
+            }
             if (ret) {
                 gf_log(this->name, GF_LOG_INFO,
                        "Unlink entry %s is failing in directory %s",
@@ -740,6 +758,7 @@ resolve_gfid_link_missed_during_rename(xlator_t *this, char *dirname)
         }
     }
     sys_closedir(drptr);
+    sys_close(fd);
     ret = 0;
 
 out:
@@ -1356,7 +1375,8 @@ posix_init(xlator_t *this)
     GF_OPTION_INIT("ctime", _private->ctime, bool, out);
     for (i = 0; i < 256; i++) {
         snprintf(dir_name, PATH_MAX, "%s/%02x/tt", dir_handle, i);
-        (void)resolve_gfid_link_missed_during_rename(this, dir_name);
+        (void)resolve_gfid_link_missed_during_rename(this, _private->arrdfd[i],
+                                                     dir_name);
     }
 
 out:
