@@ -428,7 +428,7 @@ rpc_clnt_fill_request_info(struct rpc_clnt *clnt, rpc_request_info_t *info)
     if (ret == -1) {
         gf_log(clnt->conn.name, GF_LOG_CRITICAL,
                "cannot lookup the saved "
-               "frame corresponding to xid (%d)",
+               "frame corresponding to xid (%u)",
                info->xid);
         goto out;
     }
