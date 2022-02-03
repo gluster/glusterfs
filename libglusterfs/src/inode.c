@@ -713,6 +713,7 @@ inode_new(inode_table_t *table)
 {
     inode_t *inode = NULL;
     xlator_t *xl = THIS;
+    gf_boolean_t root_with_ref = _gf_false;
 
     if (!table) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
@@ -724,13 +725,16 @@ inode_new(inode_table_t *table)
 
     inode = inode_create(table);
     if (inode) {
+        if (__is_root_with_ref(inode))
+            root_with_ref = _gf_true;
+
         pthread_mutex_lock(&table->lock);
         {
             list_add(&inode->list, &table->lru);
             table->lru_size++;
             GF_ASSERT(!inode->in_lru_list);
             inode->in_lru_list = _gf_true;
-            if (!__is_root_with_ref(inode))
+            if (!root_with_ref)
                 __inode_ref(inode, false, xl);
         }
         pthread_mutex_unlock(&table->lock);
