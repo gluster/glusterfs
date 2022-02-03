@@ -2391,7 +2391,7 @@ afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                 *metadata_selfheal = _gf_true;
         }
 
-        if (IA_ISREG(first.ia_type) &&
+        if (IA_ISREG(first.ia_type) && !(AFR_IS_ARBITER_BRICK(priv, i)) &&
             !IA_EQUAL(first, replies[i].poststat, size)) {
             gf_msg_debug(this->name, 0,
                          "SIZE mismatch "

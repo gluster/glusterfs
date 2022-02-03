@@ -11,7 +11,7 @@ function create_brick_xattrop_entry {
         for file in $params
         do
                 gfid_str=$(gf_gfid_xattr_to_str $(gf_get_gfid_xattr $1/$file))
-                if [ -z "$base_entry"];
+                if [ -z "$base_entry" ];
                 then
                         touch $xattrop_dir/$gfid_str
                 else
