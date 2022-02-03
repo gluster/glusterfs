@@ -719,6 +719,7 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local->mds_heal_fresh_lookup && layout) {
         dht_selfheal_dir_setattr(frame, &local->loc, &local->stbuf, 0xffffffff,
                                  layout);
+        return 0;
     }
 out:
     if (mds_heal_fresh_lookup)
