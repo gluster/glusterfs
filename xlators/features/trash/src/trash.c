@@ -1951,6 +1951,7 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     trash_private_t *priv = NULL;
     trash_local_t *local = NULL;
     int32_t match = 0;
+    int32_t retval = 0;
     char *pathbuf = NULL;
     int ret = 0;
 
@@ -1974,7 +1975,7 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         goto out;
     }
     /* This will be more accurate */
-    inode_path(loc->inode, NULL, &pathbuf);
+    retval = inode_path(loc->inode, NULL, &pathbuf);
 
     /* Checks whether file is in trash directory or eliminate path.
      * In all such cases it does not move to trash directory,
@@ -1982,8 +1983,9 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
 
-    if ((pathbuf && strncmp(pathbuf, priv->newtrash_dir,
-                            strlen(priv->newtrash_dir)) == 0) ||
+    if (retval < 0 ||
+        (strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
+         0) ||
         (match)) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
@@ -2070,9 +2072,10 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
      * ftruncate will be performed
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((pathbuf && strncmp(pathbuf, priv->newtrash_dir,
-                            strlen(priv->newtrash_dir)) == 0) ||
-        match || !retval) {
+    if (retval < 0 ||
+        (strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
+         0) ||
+        match) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
                    "%s: file matches eliminate path, "
