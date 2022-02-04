@@ -130,7 +130,7 @@ Based on this, the code could be similar to this:
     }
 
 static inode_t *
-__inode_unref(inode_t *inode, bool clear);
+__inode_unref(inode_t *inode, bool clear, xlator_t *xl);
 
 static int
 inode_table_prune(inode_table_t *table);
@@ -201,7 +201,7 @@ dentry_destroy(dentry_t *dentry)
 }
 
 static dentry_t *
-__dentry_unset(dentry_t *dentry)
+__dentry_unset(dentry_t *dentry, xlator_t *xl)
 {
     if (!dentry)
         return NULL;
@@ -212,7 +212,7 @@ __dentry_unset(dentry_t *dentry)
 
     if (dentry->parent) {
         GF_ATOMIC_DEC(dentry->parent->kids);
-        __inode_unref(dentry->parent, false);
+        __inode_unref(dentry->parent, false, xl);
         dentry->parent = NULL;
     }
 
@@ -416,7 +416,7 @@ __inode_activate(inode_t *inode)
 }
 
 static void
-__inode_passivate(inode_t *inode)
+__inode_passivate(inode_t *inode, xlator_t *xl)
 {
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
@@ -429,12 +429,12 @@ __inode_passivate(inode_t *inode)
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
         if (!__is_dentry_hashed(dentry))
-            dentry_destroy(__dentry_unset(dentry));
+            dentry_destroy(__dentry_unset(dentry, xl));
     }
 }
 
 static void
-__inode_retire(inode_t *inode)
+__inode_retire(inode_t *inode, xlator_t *xl)
 {
     dentry_t *dentry = NULL;
     dentry_t *t = NULL;
@@ -446,7 +446,7 @@ __inode_retire(inode_t *inode)
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
-        dentry_destroy(__dentry_unset(dentry));
+        dentry_destroy(__dentry_unset(dentry, xl));
     }
 }
 
@@ -467,18 +467,16 @@ out:
 }
 
 static inode_t *
-__inode_unref(inode_t *inode, bool clear)
+__inode_unref(inode_t *inode, bool clear, xlator_t *xl)
 {
-    int index = 0;
-    xlator_t *this = NULL;
-    uint64_t nlookup = 0;
-
     /*
      * Root inode should always be in active list of inode table. So unrefs
-     * on root inode are no-ops.
+     * on root inode are no-ops. Call __inode_unref(3) only when __is_root_gfid
+     * returns false
      */
-    if (__is_root_gfid(inode->gfid))
-        return inode;
+
+    int index = 0;
+    uint64_t nlookup = 0;
 
     /*
      * No need to acquire inode table's lock
@@ -515,8 +513,6 @@ __inode_unref(inode_t *inode, bool clear)
          */
         return inode;
 
-    this = THIS;
-
     if (clear && inode->in_invalidate_list) {
         inode->in_invalidate_list = false;
         inode->table->invalidate_size--;
@@ -526,9 +522,9 @@ __inode_unref(inode_t *inode, bool clear)
 
     --inode->ref;
 
-    index = __inode_get_xl_index(inode, this);
+    index = __inode_get_xl_index(inode, xl);
     if (index >= 0) {
-        inode->_ctx[index].xl_key = this;
+        inode->_ctx[index].xl_key = xl;
         inode->_ctx[index].ref--;
     }
 
@@ -537,9 +533,9 @@ __inode_unref(inode_t *inode, bool clear)
 
         nlookup = GF_ATOMIC_GET(inode->nlookup);
         if (nlookup)
-            __inode_passivate(inode);
+            __inode_passivate(inode, xl);
         else
-            __inode_retire(inode);
+            __inode_retire(inode, xl);
     }
 
     return inode;
@@ -598,8 +594,6 @@ inode_t *
 inode_unref(inode_t *inode)
 {
     inode_table_t *table = NULL;
-    // TODO: This varibale is unused as of now, will be used once unref is
-    // optimized, WIP
     xlator_t *xl = THIS;
 
     if (!inode)
@@ -613,7 +607,7 @@ inode_unref(inode_t *inode)
 
     pthread_mutex_lock(&table->lock);
     {
-        inode = __inode_unref(inode, false);
+        inode = __inode_unref(inode, false, xl);
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -756,7 +750,7 @@ inode_new(inode_table_t *table)
  * hence to be used only in destructor functions and not otherwise.
  */
 static inode_t *
-__inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
+__inode_ref_reduce_by_n(inode_t *inode, uint64_t nref, xlator_t *xl)
 {
     uint64_t nlookup = 0;
 
@@ -772,9 +766,9 @@ __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 
         nlookup = GF_ATOMIC_GET(inode->nlookup);
         if (nlookup)
-            __inode_passivate(inode);
+            __inode_passivate(inode, xl);
         else
-            __inode_retire(inode);
+            __inode_retire(inode, xl);
     }
 
     return inode;
@@ -1008,14 +1002,13 @@ inode_find(inode_table_t *table, uuid_t gfid)
 
 static inode_t *
 __inode_link(inode_t *inode, inode_t *parent, const char *name,
-             struct iatt *iatt, const int dhash)
+             struct iatt *iatt, const int dhash, xlator_t *xl)
 {
     dentry_t *dentry = NULL;
     dentry_t *old_dentry = NULL;
     inode_t *old_inode = NULL;
     inode_table_t *table = NULL;
     inode_t *link_inode = NULL;
-    xlator_t *xl = THIS;
     char link_uuid_str[64] = {0}, parent_uuid_str[64] = {0};
 
     table = inode->table;
@@ -1115,13 +1108,13 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
-                dentry_destroy(__dentry_unset(dentry));
+                dentry_destroy(__dentry_unset(dentry, xl));
                 return NULL;
             }
             __dentry_hash(dentry, dhash);
 
             if (old_dentry)
-                dentry_destroy(__dentry_unset(old_dentry));
+                dentry_destroy(__dentry_unset(old_dentry, xl));
         }
     }
 
@@ -1155,7 +1148,7 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
 
     pthread_mutex_lock(&table->lock);
     {
-        linked_inode = __inode_link(inode, parent, name, iatt, hash);
+        linked_inode = __inode_link(inode, parent, name, iatt, hash, xl);
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1190,6 +1183,7 @@ int
 inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 {
     inode_table_t *table = NULL;
+    xlator_t *xl = THIS;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1201,7 +1195,7 @@ inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
 
     pthread_mutex_lock(&table->lock);
     {
-        __inode_ref_reduce_by_n(inode, nref);
+        __inode_ref_reduce_by_n(inode, nref, xl);
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1234,6 +1228,8 @@ int
 inode_forget_with_unref(inode_t *inode, uint64_t nlookup)
 {
     inode_table_t *table = NULL;
+    xlator_t *xl = THIS;
+    gf_boolean_t is_root_inode = _gf_false;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1241,12 +1237,14 @@ inode_forget_with_unref(inode_t *inode, uint64_t nlookup)
         return -1;
     }
 
+    is_root_inode = __is_root_gfid(inode->gfid);
     table = inode->table;
 
     pthread_mutex_lock(&table->lock);
     {
         inode_forget_atomic(inode, nlookup);
-        __inode_unref(inode, true);
+        if (!is_root_inode)
+            __inode_unref(inode, true, xl);
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1307,7 +1305,7 @@ inode_invalidate(inode_t *inode)
 }
 
 static dentry_t *
-__inode_unlink(inode_t *inode, inode_t *parent, const char *name)
+__inode_unlink(inode_t *inode, inode_t *parent, const char *name, xlator_t *xl)
 {
     dentry_t *dentry = NULL;
     char pgfid[64] = {0};
@@ -1317,7 +1315,7 @@ __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 
     /* dentry NULL for corrupted backend */
     if (dentry) {
-        dentry = __dentry_unset(dentry);
+        dentry = __dentry_unset(dentry, xl);
     } else {
         gf_smsg("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
                 "parent-gfid=%s name=%s gfid%s",
@@ -1333,6 +1331,7 @@ inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 {
     inode_table_t *table;
     dentry_t *dentry;
+    xlator_t *xl = THIS;
 
     if (!inode || !parent || !name)
         return;
@@ -1341,7 +1340,7 @@ inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 
     pthread_mutex_lock(&table->lock);
     {
-        dentry = __inode_unlink(inode, parent, name);
+        dentry = __inode_unlink(inode, parent, name, xl);
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1358,6 +1357,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     int hash = 0;
     dentry_t *dentry = NULL;
     inode_t *linked_inode = NULL;
+    xlator_t *xl = THIS;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1378,13 +1378,13 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 
     pthread_mutex_lock(&table->lock);
     {
-        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
+        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash, xl);
         /* pick the old dentry */
         /* TODO: analyse properly about what should be the behavior if
          * 'linked_inode' is NULL. Adding this check makes the inode tree
          * robust, but is that good enough? (Ref: GH PR #1763) */
         if (linked_inode) {
-            dentry = __inode_unlink(inode, srcdir, srcname);
+            dentry = __inode_unlink(inode, srcdir, srcname, xl);
         }
     }
     pthread_mutex_unlock(&table->lock);
@@ -1687,7 +1687,7 @@ inode_table_prune(inode_table_t *table)
 
             table->lru_size--;
             entry->in_lru_list = _gf_false;
-            __inode_retire(entry);
+            __inode_retire(entry, xl);
             ret++;
         }
 
@@ -1700,6 +1700,7 @@ inode_table_prune(inode_table_t *table)
     /* Pick 1 inode for invalidation */
     if (tmp) {
         xlator_t *old_THIS = THIS;
+        gf_boolean_t tmp_is_root = __is_root_gfid(tmp->gfid);
         THIS = table->invalidator_xl;
         ret1 = table->invalidator_fn(table->invalidator_xl, tmp);
         THIS = old_THIS;
@@ -1707,10 +1708,10 @@ inode_table_prune(inode_table_t *table)
         {
             if (!ret1) {
                 tmp->invalidate_sent = true;
-                __inode_unref(tmp, false);
+                (void)(!tmp_is_root && __inode_unref(tmp, false, old_THIS));
             } else {
                 /* Move this back to the lru list*/
-                __inode_unref(tmp, true);
+                (void)(!tmp_is_root && __inode_unref(tmp, true, old_THIS));
             }
         }
         pthread_mutex_unlock(&table->lock);
@@ -1728,7 +1729,7 @@ inode_table_prune(inode_table_t *table)
 }
 
 static void
-__inode_table_init_root(inode_table_t *table)
+__inode_table_init_root(inode_table_t *table, xlator_t *xl)
 {
     inode_t *root = NULL;
     struct iatt iatt = {
@@ -1748,7 +1749,7 @@ __inode_table_init_root(inode_table_t *table)
     iatt.ia_ino = 1;
     iatt.ia_type = IA_IFDIR;
 
-    __inode_link(root, NULL, NULL, &iatt, 0);
+    __inode_link(root, NULL, NULL, &iatt, 0, xl);
     table->root = root;
     root->ns_inode = inode_ref(root);
 }
@@ -1839,7 +1840,7 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
 
     new->cleanup_started = _gf_false;
 
-    __inode_table_init_root(new);
+    __inode_table_init_root(new, xl);
 
     pthread_mutex_init(&new->lock, NULL);
 
@@ -1963,6 +1964,7 @@ void
 inode_table_destroy(inode_table_t *inode_table)
 {
     inode_t *trav = NULL;
+    xlator_t *xl = THIS;
 
     if (inode_table == NULL)
         return;
@@ -2007,7 +2009,7 @@ inode_table_destroy(inode_table_t *inode_table)
             inode_forget_atomic(trav, 0);
             GF_ASSERT(inode_table->lru_size > 0);
             GF_ASSERT(trav->in_lru_list);
-            __inode_retire(trav);
+            __inode_retire(trav, xl);
             inode_table->lru_size--;
             trav->in_lru_list = _gf_false;
         }
@@ -2016,7 +2018,7 @@ inode_table_destroy(inode_table_t *inode_table)
         while (!list_empty(&inode_table->invalidate)) {
             trav = list_first_entry(&inode_table->invalidate, inode_t, list);
             inode_forget_atomic(trav, 0);
-            __inode_retire(trav);
+            __inode_retire(trav, xl);
             inode_table->invalidate_size--;
         }
 
@@ -2033,7 +2035,7 @@ inode_table_destroy(inode_table_t *inode_table)
                                  "(%d) found during cleanup",
                                  trav, trav->ref);
             inode_forget_atomic(trav, 0);
-            __inode_ref_reduce_by_n(trav, 0);
+            __inode_ref_reduce_by_n(trav, 0, xl);
         }
     }
     pthread_mutex_unlock(&inode_table->lock);
