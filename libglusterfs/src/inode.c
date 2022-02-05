@@ -524,10 +524,8 @@ __inode_unref(inode_t *inode, bool clear)
     --inode->ref;
 
     index = __inode_get_xl_index(inode, this);
-    if (index >= 0) {
-        inode->_ctx[index].xl_key = this;
+    if (index >= 0)
         inode->_ctx[index].ref--;
-    }
 
     if (!inode->ref && !inode->in_invalidate_list) {
         inode->table->active_size--;
@@ -586,10 +584,8 @@ __inode_ref(inode_t *inode, bool is_invalidate)
     inode->ref++;
 
     index = __inode_get_xl_index(inode, this);
-    if (index >= 0) {
-        inode->_ctx[index].xl_key = this;
+    if (index >= 0)
         inode->_ctx[index].ref++;
-    }
 
     return inode;
 }
@@ -2106,10 +2102,8 @@ __inode_ctx_set2(inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
     if (set_idx == -1) {
         ret = -1;
         goto out;
-        ;
     }
 
-    inode->_ctx[set_idx].xl_key = xlator;
     if (value1_p)
         inode->_ctx[set_idx].value1 = *value1_p;
     if (value2_p)
