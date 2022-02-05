@@ -450,14 +450,16 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = -1;
+    int set_idx = xlator->xl_id;
 
-    if ((inode->_ctx[xlator->xl_id].xl_key != NULL) &&
-        (inode->_ctx[xlator->xl_id].xl_key != xlator))
+    if (inode->_ctx[set_idx].xl_key == NULL) {
+        inode->_ctx[set_idx].xl_key = xlator;
         goto out;
-
-    set_idx = xlator->xl_id;
-    inode->_ctx[set_idx].xl_key = xlator;
+    } else if (inode->_ctx[set_idx].xl_key == xlator) {
+        goto out;
+    } else {
+        set_idx = -1;
+    }
 
 out:
     return set_idx;
