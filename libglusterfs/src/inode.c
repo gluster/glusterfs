@@ -2099,7 +2099,7 @@ __inode_ctx_set2(inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
         return -1;
 
     set_idx = __inode_get_xl_index(inode, xlator);
-    if (set_idx == -1) {
+    if (set_idx < 0) {
         ret = -1;
         goto out;
     }
