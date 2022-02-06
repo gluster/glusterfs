@@ -451,17 +451,14 @@ static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
     int set_idx = xlator->xl_id;
+    xlator_t *xl_key = inode->_ctx[set_idx].xl_key;
 
-    if (inode->_ctx[set_idx].xl_key == NULL) {
-        inode->_ctx[set_idx].xl_key = xlator;
-        goto out;
-    } else if (inode->_ctx[set_idx].xl_key == xlator) {
-        goto out;
-    } else {
+    if (xl_key == NULL)
+        xl_key = xlator;
+    else if (caa_unlikely(xl_key != xlator))
         set_idx = -1;
-    }
 
-out:
+    /* Returns -1 when xl_key != NULL && xl_key != xlator */
     return set_idx;
 }
 
