@@ -3498,6 +3498,7 @@ syncop_getactivelk(xlator_t *subvol, loc_t *loc,
         0,
     };
 
+    INIT_LIST_HEAD(&args->locklist.list);
     SYNCOP(subvol, (&args), syncop_getactivelk_cbk, subvol->fops->getactivelk,
            loc, xdata_in);
 
