@@ -632,13 +632,15 @@ dentry_create(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *newd = NULL;
 
-    newd = mem_get0(parent->table->dentry_pool);
+    newd = mem_get(parent->table->dentry_pool);
     if (newd == NULL) {
         goto out;
     }
 
     INIT_LIST_HEAD(&newd->inode_list);
     INIT_LIST_HEAD(&newd->hash);
+
+    newd->inode = inode;
 
     newd->name = gf_strdup(name);
     if (newd->name == NULL) {
@@ -647,7 +649,9 @@ dentry_create(inode_t *inode, inode_t *parent, const char *name)
         goto out;
     }
 
-    newd->inode = inode;
+    /* dentry linking needs to happen inside lock */
+    newd->parent = __inode_ref(parent, false);
+    GF_ATOMIC_INC(parent->kids);
 
 out:
     return newd;
@@ -1046,9 +1050,6 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
                 return NULL;
             }
 
-            /* dentry linking needs to happen inside lock */
-            dentry->parent = __inode_ref(parent, false);
-            GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
             link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
             if (old_inode && __is_dentry_cyclic(dentry)) {
