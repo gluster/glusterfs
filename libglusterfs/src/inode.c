@@ -934,6 +934,41 @@ inode_find(inode_table_t *table, uuid_t gfid)
     return inode;
 }
 
+static gf_boolean_t
+pre_inode_link_checks(inode_t *inode, inode_t *parent, const char *name)
+{
+    if (parent) {
+        /* We should prevent inode linking between different
+            inode tables. This can cause errors which is very
+            hard to catch/debug. */
+        if (inode->table != parent->table) {
+            errno = EINVAL;
+            GF_ASSERT(!"link attempted b/w inodes of diff table");
+            return _gf_false;
+        }
+
+        if (parent->ia_type != IA_IFDIR) {
+            errno = EINVAL;
+            GF_ASSERT(!"link attempted on non-directory parent");
+            return _gf_false;
+        }
+
+        if (!name || name[0] == '\0') {
+            errno = EINVAL;
+            GF_ASSERT (!"link attempted with no basename on "
+                                    "parent");
+            return _gf_false;
+        }
+    }
+
+    if (name && strchr(name, '/')) {
+        GF_ASSERT(!"inode link attempted with '/' in name");
+        return _gf_false;
+    }
+
+    return _gf_true;
+}
+
 static inode_t *
 __inode_link(inode_t *inode, inode_t *parent, const char *name,
              struct iatt *iatt, const int dhash)
@@ -946,29 +981,6 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
     char link_uuid_str[64] = {0}, parent_uuid_str[64] = {0};
 
     table = inode->table;
-
-    if (parent) {
-        /* We should prevent inode linking between different
-           inode tables. This can cause errors which is very
-           hard to catch/debug. */
-        if (inode->table != parent->table) {
-            errno = EINVAL;
-            GF_ASSERT(!"link attempted b/w inodes of diff table");
-        }
-
-        if (parent->ia_type != IA_IFDIR) {
-            errno = EINVAL;
-            GF_ASSERT(!"link attempted on non-directory parent");
-            return NULL;
-        }
-
-        if (!name || strlen(name) == 0) {
-            errno = EINVAL;
-            GF_ASSERT (!"link attempted with no basename on "
-                                    "parent");
-            return NULL;
-        }
-    }
 
     link_inode = inode;
 
@@ -1060,15 +1072,13 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
         return NULL;
     }
 
+    if (!pre_inode_link_checks(inode, parent, name))
+        return NULL;
+
     table = inode->table;
 
     if (parent && name) {
         hash = hash_dentry(parent, name, table->dentry_hashsize);
-    }
-
-    if (name && strchr(name, '/')) {
-        GF_ASSERT(!"inode link attempted with '/' in name");
-        return NULL;
     }
 
     pthread_mutex_lock(&table->lock);
@@ -1279,12 +1289,10 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
         return -1;
     }
 
-    table = inode->table;
-
-    if (dstname && strchr(dstname, '/')) {
-        GF_ASSERT(!"inode link attempted with '/' in name");
+    if (!pre_inode_link_checks(inode, dstdir, dstname))
         return -1;
-    }
+
+    table = inode->table;
 
     if (dstdir && dstname) {
         hash = hash_dentry(dstdir, dstname, table->dentry_hashsize);
