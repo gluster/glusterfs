@@ -297,15 +297,6 @@ __is_inode_hashed(inode_t *inode)
     return !list_empty(&inode->hash);
 }
 
-static void
-__inode_hash(inode_t *inode, const int hash)
-{
-    inode_table_t *table = inode->table;
-
-    list_del_init(&inode->hash);
-    list_add(&inode->hash, &table->inode_hash[hash]);
-}
-
 static dentry_t *
 __dentry_search_for_inode(inode_t *inode, uuid_t pargfid, const char *name)
 {
