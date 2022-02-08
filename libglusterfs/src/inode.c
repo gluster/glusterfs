@@ -179,17 +179,6 @@ hash_gfid(uuid_t uuid, int mod)
     return ((int *)uuid)[0] & (mod - 1);
 }
 
-static void
-__dentry_hash(dentry_t *dentry, const int hash)
-{
-    inode_table_t *table = NULL;
-
-    table = dentry->inode->table;
-
-    list_del_init(&dentry->hash);
-    list_add(&dentry->hash, &table->name_hash[hash]);
-}
-
 static int
 __is_dentry_hashed(dentry_t *dentry)
 {
@@ -1048,7 +1037,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
                 dentry_destroy(__dentry_unset(dentry));
                 return NULL;
             }
-            __dentry_hash(dentry, dhash);
+            list_add(&dentry->hash, &link_inode->table->name_hash[dhash]);
 
             if (old_dentry)
                 dentry_destroy(__dentry_unset(old_dentry));
