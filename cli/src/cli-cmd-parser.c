@@ -408,6 +408,11 @@ cli_cmd_create_disperse_check(struct cli_state *state, int *disperse,
         return -1;
     }
 
+    if ((*disperse - *redundancy) > 16) {
+        cli_err("disperse-data bricks must be less than or equal to 16");
+        return -1;
+    }
+
     if ((tmp & -tmp) != tmp) {
         answer = cli_cmd_get_confirmation(state, question3);
         if (answer == GF_ANSWER_NO)
@@ -447,6 +452,7 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                         cli_err(
                             "disperse count must "
                             "be greater than 2");
+                        ret = -1;
                         goto out;
                     }
                     ret = 2;
@@ -460,8 +466,11 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                     goto out;
                 }
                 ret = gf_string2int(words[index + 1], data_count);
-                if (ret == -1 || *data_count < 2) {
-                    cli_err("disperse-data must be greater than 1");
+                if (ret == -1 || *data_count < 2 || *data_count > 16) {
+                    cli_err(
+                        "disperse-data must be greater than 1 "
+                        "and less than equal to 16");
+                    ret = -1;
                     goto out;
                 }
                 ret = 2;
@@ -476,6 +485,7 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                 ret = gf_string2int(words[index + 1], redundancy_count);
                 if (ret == -1 || *redundancy_count < 1) {
                     cli_err("redundancy must be greater than 0");
+                    ret = -1;
                     goto out;
                 }
                 ret = 2;
