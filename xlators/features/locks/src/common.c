@@ -1147,6 +1147,7 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     posix_lock_t *i = NULL;
     pl_rw_req_t *rw = NULL;
     pl_rw_req_t *itr = NULL;
+    pl_local_t *local;
     struct list_head unwind_blist = {
         0,
     };
@@ -1199,9 +1200,9 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     /* unwind blocked locks */
     list_for_each_entry_safe(lock, i, &unwind_blist, list)
     {
-        PL_STACK_UNWIND_AND_FREE(((pl_local_t *)lock->frame->local), lk,
-                                 lock->frame, -1, EBUSY, &lock->user_flock,
-                                 NULL);
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, -1, EBUSY,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 
