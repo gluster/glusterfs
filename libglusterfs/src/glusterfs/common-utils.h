@@ -1222,12 +1222,6 @@ gf_strncpy(char *dest, const char *src, const size_t dest_size);
 void
 gf_strTrim(char **s);
 
-int
-gf_replace_old_iatt_in_dict(struct _dict *);
-
-int
-gf_replace_new_iatt_in_dict(struct _dict *);
-
 xlator_cmdline_option_t *
 find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args);
 
