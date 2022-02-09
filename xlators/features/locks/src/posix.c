@@ -2761,7 +2761,13 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
             }
 
             ret = pl_setlk(this, pl_inode, reqlock, can_block);
-            if (ret == -1) {
+            if (ret < 0) {
+                op_ret = -1;
+                op_errno = -ret;
+                __destroy_lock(reqlock);
+                goto out;
+            }
+            if (ret == PL_LOCK_WOULD_BLOCK) {
                 if ((can_block) && (F_UNLCK != lock_type)) {
                     goto out;
                 }
@@ -2769,7 +2775,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 op_ret = -1;
                 op_errno = EAGAIN;
                 __destroy_lock(reqlock);
-            } else if (ret == -2) {
+            } else if (ret == PL_LOCK_QUEUED) {
                 goto out;
             } else if ((0 == ret) && (F_UNLCK == flock->l_type)) {
                 /* For NLM's last "unlock on fd" detection */
