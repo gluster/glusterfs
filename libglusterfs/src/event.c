@@ -54,7 +54,7 @@ gf_event_pool_new(int count, int eventthreadcount)
 int
 gf_event_register(struct event_pool *event_pool, int fd,
                   event_handler_t handler, void *data, int poll_in,
-                  int poll_out, char notify_poller_death)
+                  int poll_out, int notify_poller_death)
 {
     int ret = -1;
 
@@ -159,9 +159,9 @@ out:
     return ret;
 }
 
-void
+static void
 poller_destroy_handler(int fd, int idx, int gen, void *data, int poll_out,
-                       int poll_in, int poll_err, char event_thread_exit)
+                       int poll_in, int poll_err, int event_thread_exit)
 {
     struct event_destroy_data *destroy = NULL;
     int readfd = -1;

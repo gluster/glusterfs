@@ -114,9 +114,7 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
     UNLOCK(&call_frame->lock);
 
     if (my_frame.root->ctx->measure_latency) {
-        gf_time_fmt(timestr, sizeof(timestr), my_frame.begin.tv_sec,
-                    gf_timefmt_FT);
-        len = strlen(timestr);
+        len = gf_time_fmt_FT(timestr, sizeof(timestr), my_frame.begin.tv_sec);
         snprintf(timestr + len, sizeof(timestr) - len, ".%" GF_PRI_SNSECONDS,
                  my_frame.begin.tv_nsec);
         gf_proc_dump_write("frame-creation-time", "%s", timestr);
@@ -161,9 +159,7 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     va_list ap;
     call_frame_t *trav;
     int32_t i = 1, cnt = 0;
-    char timestr[GF_TIMESTR_SIZE] = {
-        0,
-    };
+    char timestr[GF_TIMESTR_SIZE];
     int len;
 
     if (!call_stack)
@@ -176,7 +172,7 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     va_end(ap);
 
     cnt = call_frames_count(call_stack);
-    gf_time_fmt(timestr, sizeof(timestr), call_stack->tv.tv_sec, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), call_stack->tv.tv_sec);
     len = strlen(timestr);
     snprintf(timestr + len, sizeof(timestr) - len, ".%" GF_PRI_SNSECONDS,
              call_stack->tv.tv_nsec);

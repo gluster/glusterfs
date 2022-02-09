@@ -8449,8 +8449,7 @@ glusterd_sm_tr_log_transition_add_to_dict(dict_t *dict,
         goto out;
 
     snprintf(key, sizeof(key), "log%d-time", count);
-    gf_time_fmt(timestr, sizeof timestr, log->transitions[i].time,
-                gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof timestr, log->transitions[i].time);
     ret = dict_set_dynstr_with_alloc(dict, key, timestr);
     if (ret)
         goto out;

@@ -725,7 +725,6 @@ gf_thread_set_vname
 gf_timer_call_after
 gf_timer_call_cancel
 gf_timer_registry_destroy
-_gf_timestuff
 gf_trim
 gf_tw_add_timer
 gf_tw_del_timer
@@ -1175,8 +1174,6 @@ use_spinlocks
 dump_options
 glusterfs_leaseid_buf_get
 glusterfs_leaseid_exist
-gf_replace_old_iatt_in_dict
-gf_replace_new_iatt_in_dict
 gf_changelog_init
 gf_changelog_register_generic
 gf_gfid_generate_from_xxh64

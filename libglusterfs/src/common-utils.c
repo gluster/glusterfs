@@ -951,7 +951,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     {
         /* Dump the timestamp of the crash too, so the previous logs
            can be related */
-        gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr, gf_time());
         gf_msg_plain_nomem(GF_LOG_ALERT, "time of crash: ");
         gf_msg_plain_nomem(GF_LOG_ALERT, timestr);
     }
@@ -3220,22 +3220,6 @@ out:
     return ret;
 }
 
-static const char *__gf_timefmts[] = {
-    "%F %T", "%Y/%m/%d-%T", "%b %d %T", "%F %H%M%S", "%Y-%m-%d-%T", "%s",
-};
-
-static const char *__gf_zerotimes[] = {
-    "0000-00-00 00:00:00", "0000/00/00-00:00:00", "xxx 00 00:00:00",
-    "0000-00-00 000000",   "0000-00-00-00:00:00", "0",
-};
-
-void
-_gf_timestuff(const char ***fmts, const char ***zeros)
-{
-    *fmts = __gf_timefmts;
-    *zeros = __gf_zerotimes;
-}
-
 char *
 generate_glusterfs_ctx_id(void)
 {
@@ -5300,70 +5284,6 @@ gf_strncpy(char *dest, const char *src, const size_t dest_size)
     return dest;
 }
 
-int
-gf_replace_old_iatt_in_dict(dict_t *xdata)
-{
-    int ret;
-    struct old_iatt *o_iatt; /* old iatt structure */
-    struct iatt *c_iatt;     /* current iatt */
-
-    if (!xdata) {
-        return 0;
-    }
-
-    ret = dict_get_bin(xdata, DHT_IATT_IN_XDATA_KEY, (void **)&c_iatt);
-    if (ret < 0) {
-        return 0;
-    }
-
-    o_iatt = GF_CALLOC(1, sizeof(struct old_iatt), gf_common_mt_char);
-    if (!o_iatt) {
-        return -1;
-    }
-
-    oldiatt_from_iatt(o_iatt, c_iatt);
-
-    ret = dict_set_bin(xdata, DHT_IATT_IN_XDATA_KEY, o_iatt,
-                       sizeof(struct old_iatt));
-    if (ret) {
-        GF_FREE(o_iatt);
-    }
-
-    return ret;
-}
-
-int
-gf_replace_new_iatt_in_dict(dict_t *xdata)
-{
-    int ret;
-    struct old_iatt *o_iatt; /* old iatt structure */
-    struct iatt *c_iatt;     /* new iatt */
-
-    if (!xdata) {
-        return 0;
-    }
-
-    ret = dict_get_bin(xdata, DHT_IATT_IN_XDATA_KEY, (void **)&o_iatt);
-    if (ret < 0) {
-        return 0;
-    }
-
-    c_iatt = GF_CALLOC(1, sizeof(struct iatt), gf_common_mt_char);
-    if (!c_iatt) {
-        return -1;
-    }
-
-    iatt_from_oldiatt(c_iatt, o_iatt);
-
-    ret = dict_set_bin(xdata, DHT_IATT_IN_XDATA_KEY, c_iatt,
-                       sizeof(struct iatt));
-    if (ret) {
-        GF_FREE(c_iatt);
-    }
-
-    return ret;
-}
-
 xlator_cmdline_option_t *
 find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args)
 {
@@ -5466,7 +5386,7 @@ gf_pipe(int fd[2], int flags)
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;

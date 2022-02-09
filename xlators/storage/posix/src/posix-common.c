@@ -52,7 +52,7 @@
 #include <glusterfs/compat-uuid.h>
 #include "timer-wheel.h"
 
-extern char *marker_xattrs[];
+// extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
 
 #undef HAVE_SET_FSID

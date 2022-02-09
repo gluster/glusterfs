@@ -134,7 +134,7 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -291,7 +291,7 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -358,7 +358,7 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     iocb = &paiocb->iocb;
 
-    ret = posix_fdstat(this, fd->inode, _fd, &paiocb->prebuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &paiocb->prebuf, _gf_true);
     if (ret != 0) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
@@ -432,7 +432,7 @@ posix_aio_fsync_complete(struct posix_aio_cb *paiocb, int res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -489,7 +489,7 @@ posix_aio_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
 
     iocb = &paiocb->iocb;
 
-    ret = posix_fdstat(this, fd->inode, _fd, &paiocb->prebuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &paiocb->prebuf, _gf_false);
     if (ret != 0) {
         op_errno = errno;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_FSTAT_FAILED,
