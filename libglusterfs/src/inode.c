@@ -639,22 +639,21 @@ dentry_create(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *newd = NULL;
 
-    newd = mem_get0(parent->table->dentry_pool);
-    if (newd == NULL) {
+    newd = mem_get(parent->table->dentry_pool);
+    if (newd == NULL)
         goto out;
-    }
 
     INIT_LIST_HEAD(&newd->inode_list);
     INIT_LIST_HEAD(&newd->hash);
 
+    newd->inode = inode;
     newd->name = gf_strdup(name);
+
     if (newd->name == NULL) {
         mem_put(newd);
         newd = NULL;
         goto out;
     }
-
-    newd->inode = inode;
 
 out:
     return newd;
