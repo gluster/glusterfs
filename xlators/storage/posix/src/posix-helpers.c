@@ -563,10 +563,10 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     } else if (GF_POSIX_ACL_REQUEST(key)) {
         if (filler->real_path)
             ret = posix_pstat(filler->this, NULL, NULL, filler->real_path,
-                              &stbuf, _gf_false);
+                              &stbuf, _gf_false, _gf_false);
         else
             ret = posix_fdstat(filler->this, filler->fd->inode, filler->fdnum,
-                               &stbuf);
+                               &stbuf, _gf_false);
         if (ret < 0) {
             gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                    P_MSG_XDATA_GETXATTR, "lstat on %s failed",
@@ -616,65 +616,50 @@ out:
     return 0;
 }
 
-int
-posix_fill_gfid_path(xlator_t *this, const char *path, struct iatt *iatt)
+static int
+posix_fill_gfid_path(const char *path, struct iatt *iatt)
 {
-    int ret = 0;
     ssize_t size = 0;
-
-    if (!iatt)
-        return 0;
 
     size = sys_lgetxattr(path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
     /* Return value of getxattr */
     if ((size == 16) || (size == -1))
-        ret = 0;
+        return 0;
     else
-        ret = size;
-
-    return ret;
+        return size;
 }
 
-int
-posix_fill_gfid_fd(xlator_t *this, int fd, struct iatt *iatt)
+static int
+posix_fill_gfid_fd(int fd, struct iatt *iatt)
 {
-    int ret = 0;
     ssize_t size = 0;
-
-    if (!iatt)
-        return 0;
 
     size = sys_fgetxattr(fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
     /* Return value of getxattr */
     if ((size == 16) || (size == -1))
-        ret = 0;
+        return 0;
     else
-        ret = size;
-
-    return ret;
+        return size;
 }
 
-void
-posix_fill_ino_from_gfid(xlator_t *this, struct iatt *buf)
+static void
+posix_fill_ino_from_gfid(struct iatt *buf)
 {
     /* consider least significant 8 bytes of value out of gfid */
     if (gf_uuid_is_null(buf->ia_gfid)) {
         buf->ia_ino = -1;
-        goto out;
+    } else {
+        buf->ia_flags |= IATT_INO;
+        buf->ia_ino = gfid_to_ino(buf->ia_gfid);
     }
-    buf->ia_ino = gfid_to_ino(buf->ia_gfid);
-    buf->ia_flags |= IATT_INO;
-out:
-    return;
 }
 
 int
-posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
+posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
+             gf_boolean_t fetch_time)
 {
     int ret = 0;
-    struct stat fstatbuf = {
-        0,
-    };
+    struct stat fstatbuf;
     struct iatt stbuf = {
         0,
     };
@@ -691,7 +676,7 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
 
     iatt_from_stat(&stbuf, &fstatbuf);
 
-    if (inode && priv->ctime) {
+    if (inode && fetch_time && priv->ctime) {
         ret = posix_get_mdata_xattr(this, NULL, fd, inode, &stbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
@@ -700,13 +685,14 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
             goto out;
         }
     }
-    ret = posix_fill_gfid_fd(this, fd, &stbuf);
+    ret = posix_fill_gfid_fd(fd, &stbuf);
     stbuf.ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(this, &stbuf);
+    posix_fill_ino_from_gfid(&stbuf);
 
     if (stbuf_p)
-        *stbuf_p = stbuf;
+        memcpy(stbuf_p, &stbuf, sizeof(struct iatt));
+    ;
 
 out:
     return ret;
@@ -718,7 +704,7 @@ out:
  */
 int
 posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
-            struct iatt *buf_p)
+            struct iatt *buf_p, gf_boolean_t fetch_time)
 {
     char *real_path = NULL;
     struct stat lstatbuf = {
@@ -773,7 +759,7 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
-    if (inode && priv->ctime) {
+    if (inode && fetch_time && priv->ctime) {
         ret = posix_get_mdata_xattr(this, real_path, -1, inode, &stbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
@@ -783,22 +769,23 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     }
 
     if (basename)
-        posix_fill_gfid_path(this, real_path, &stbuf);
+        posix_fill_gfid_path(real_path, &stbuf);
     else
         gf_uuid_copy(stbuf.ia_gfid, gfid);
     stbuf.ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(this, &stbuf);
+    posix_fill_ino_from_gfid(&stbuf);
 
     if (buf_p)
-        *buf_p = stbuf;
+        memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
 
 int
 posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
-            struct iatt *buf_p, gf_boolean_t inode_locked)
+            struct iatt *buf_p, gf_boolean_t inode_locked,
+            gf_boolean_t fetch_time)
 {
     struct stat lstatbuf = {
         0,
@@ -815,7 +802,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
     if (gfid && !gf_uuid_is_null(gfid))
         gf_uuid_copy(stbuf.ia_gfid, gfid);
     else
-        posix_fill_gfid_path(this, path, &stbuf);
+        posix_fill_gfid_path(path, &stbuf);
     stbuf.ia_flags |= IATT_GFID;
 
     ret = sys_lstat(path, &lstatbuf);
@@ -844,7 +831,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
-    if (priv->ctime) {
+    if (fetch_time && priv->ctime) {
         if (inode) {
             if (!inode_locked) {
                 ret = posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
@@ -867,10 +854,10 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
         }
     }
 
-    posix_fill_ino_from_gfid(this, &stbuf);
+    posix_fill_ino_from_gfid(&stbuf);
 
     if (buf_p)
-        *buf_p = stbuf;
+        memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
@@ -1423,7 +1410,7 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
     /* posix_mdata_t is not filled, no time or size attributes
      * are being used, so fine.
      */
-    posix_pstat(this, NULL, NULL, fpath, &stbuf, _gf_false);
+    posix_pstat(this, NULL, NULL, fpath, &stbuf, _gf_false, _gf_false);
     switch (sb->st_mode & S_IFMT) {
         case S_IFREG:
         case S_IFBLK:

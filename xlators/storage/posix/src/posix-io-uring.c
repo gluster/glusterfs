@@ -104,7 +104,8 @@ posix_io_uring_ctx_init(call_frame_t *frame, xlator_t *this, fd_t *fd, int op,
 
     /* TODO: Explore filling up pre and post bufs using IOSQE_IO_LINK*/
     if ((op == GF_FOP_WRITE) || (op == GF_FOP_FSYNC)) {
-        if (posix_fdstat(this, fd->inode, pfd->fd, &ctx->prebuf) != 0) {
+        if (posix_fdstat(this, fd->inode, pfd->fd, &ctx->prebuf, _gf_true) !=
+            0) {
             *op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, *op_errno, P_MSG_FSTAT_FAILED,
                    "fstat failed on fd=%p", fd);
@@ -156,7 +157,7 @@ posix_io_uring_readv_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -289,7 +290,7 @@ posix_io_uring_writev_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -384,7 +385,7 @@ posix_io_uring_fsync_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;

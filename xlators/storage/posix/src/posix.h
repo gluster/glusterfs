@@ -364,13 +364,15 @@ int
 posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
                pid_t pid, int *op_errno);
 int
-posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p);
+posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
+             gf_boolean_t fetch_time);
 int
 posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
-            struct iatt *iatt);
+            struct iatt *iatt, gf_boolean_t fetch_time);
 int
 posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *real_path,
-            struct iatt *iatt, gf_boolean_t inode_locked);
+            struct iatt *iatt, gf_boolean_t inode_locked,
+            gf_boolean_t fetch_time);
 
 dict_t *
 posix_xattr_fill(xlator_t *this, const char *path, loc_t *loc, fd_t *fd,
@@ -393,8 +395,6 @@ posix_entry_create_xattr_set(xlator_t *this, loc_t *loc, const char *path,
 int
 posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd,
                  int *op_errno);
-void
-posix_fill_ino_from_gfid(xlator_t *this, struct iatt *buf);
 
 gf_boolean_t
 posix_special_xattr(char **pattern, char *key);
