@@ -3011,7 +3011,7 @@ glusterd_snapshot_get_snap_detail(dict_t *dict, glusterd_snap_t *snap,
     }
     value = NULL;
 
-    gf_time_fmt(timestr, sizeof timestr, snap->time_stamp, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof timestr, snap->time_stamp);
     value = gf_strdup(timestr);
 
     if (NULL == value) {

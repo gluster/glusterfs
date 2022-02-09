@@ -907,7 +907,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     // continue even though gettimeofday() has failed
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
@@ -956,7 +956,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",

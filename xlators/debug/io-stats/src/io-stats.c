@@ -677,14 +677,14 @@ ios_dump_throughput_stats(struct ios_stat_head *list_head, xlator_t *this,
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
+    glusterfs_ctx_t *ctx = this->ctx;
 
     LOCK(&list_head->lock);
     {
         list_for_each_entry(entry, &list_head->iosstats->list, list)
         {
-            gf_time_fmt_tv(timestr, sizeof timestr,
-                           &entry->iosstat->thru_counters[type].time,
-                           gf_timefmt_FT);
+            gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                              &entry->iosstat->thru_counters[type].time, ctx);
 
             ios_log(this, logfp, "%s \t %-10.2f  \t  %s", timestr, entry->value,
                     entry->iosstat->filename);
@@ -1308,8 +1308,8 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     if (interval == -1) {
         LOCK(&conf->lock);
         {
-            gf_time_fmt_tv(timestr, sizeof timestr,
-                           &conf->cumulative.max_openfd_time, gf_timefmt_FT);
+            gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                              &conf->cumulative.max_openfd_time, this->ctx);
             ios_log(this, logfp,
                     "Current open fd's: %" PRId64 " Max open fd's: %" PRId64
                     " time %s",
@@ -1795,9 +1795,8 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
                 ret = dict_set_uint64(resp, "max-open",
                                       conf->cumulative.max_nr_opens);
 
-                gf_time_fmt_tv(timestr, sizeof timestr,
-                               &conf->cumulative.max_openfd_time,
-                               gf_timefmt_FT);
+                gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                                  &conf->cumulative.max_openfd_time, this->ctx);
 
                 dict_timestr = gf_strdup(timestr);
                 if (!dict_timestr)

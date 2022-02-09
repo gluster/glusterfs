@@ -1033,7 +1033,7 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
                        qr_inode->data ? "yes" : "no");
 
     if (qr_inode->last_refresh) {
-        gf_time_fmt(buf, sizeof buf, qr_inode->last_refresh, gf_timefmt_FT);
+        gf_time_fmt_FT(buf, sizeof buf, qr_inode->last_refresh);
         gf_proc_dump_write("last-cache-validation-time", "%s", buf);
     }
 
