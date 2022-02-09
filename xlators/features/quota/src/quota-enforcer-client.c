@@ -35,18 +35,13 @@
 #include "quota.h"
 #include "quota-messages.h"
 
-extern struct rpc_clnt_program quota_enforcer_clnt;
+static struct rpc_clnt_program quota_enforcer_clnt;
 
-int32_t
-quota_validate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                   int32_t op_ret, int32_t op_errno, inode_t *inode,
-                   struct iatt *buf, dict_t *xdata, struct iatt *postparent);
-
-int
+static int
 quota_enforcer_submit_request(void *req, call_frame_t *frame,
                               rpc_clnt_prog_t *prog, int procnum,
-                              struct iobref *iobref, xlator_t *this,
-                              fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+                              xlator_t *this, fop_cbk_fn_t cbkfn,
+                              xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -54,51 +49,44 @@ quota_enforcer_submit_request(void *req, call_frame_t *frame,
         0,
     };
     struct iobuf *iobuf = NULL;
-    char new_iobref = 0;
+    struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
     quota_priv_t *priv = NULL;
 
+    GF_ASSERT(req);
     GF_ASSERT(this);
 
     priv = this->private;
 
-    if (req) {
-        xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
-        if (!iobuf) {
-            goto out;
-        }
-
-        if (!iobref) {
-            iobref = iobref_new();
-            if (!iobref) {
-                goto out;
-            }
-
-            new_iobref = 1;
-        }
-
-        iobref_add(iobref, iobuf);
-
-        iov.iov_base = iobuf->ptr;
-        iov.iov_len = iobuf_size(iobuf);
-
-        /* Create the xdr payload */
-        ret = xdr_serialize_generic(iov, req, xdrproc);
-        if (ret == -1) {
-            goto out;
-        }
-        iov.iov_len = ret;
-        count = 1;
+    xdr_size = xdr_sizeof(xdrproc, req);
+    iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+    if (!iobuf) {
+        goto out;
     }
+
+    iobref = iobref_new();
+    if (!iobref) {
+        goto out;
+    }
+
+    iobref_add(iobref, iobuf);
+
+    iov.iov_base = iobuf->ptr;
+    iov.iov_len = iobuf_size(iobuf);
+
+    /* Create the xdr payload */
+    ret = xdr_serialize_generic(iov, req, xdrproc);
+    if (ret == -1) {
+        goto out;
+    }
+    iov.iov_len = ret;
+    count = 1;
 
     /* Send the msg */
     ret = rpc_clnt_submit(priv->rpc_clnt, prog, procnum, cbkfn, &iov, count,
                           NULL, 0, iobref, frame, NULL, 0, NULL, 0, NULL);
-    ret = 0;
-
 out:
-    if (new_iobref)
+    if (iobref)
         iobref_unref(iobref);
     if (iobuf)
         iobuf_unref(iobuf);
@@ -303,7 +291,7 @@ _quota_enforcer_lookup(void *data)
         dir_path = "";
 
     ret = quota_enforcer_submit_request(
-        &req, frame, priv->quota_enforcer, GF_AGGREGATOR_LOOKUP, NULL, this,
+        &req, frame, priv->quota_enforcer, GF_AGGREGATOR_LOOKUP, this,
         quota_enforcer_lookup_cbk, (xdrproc_t)xdr_gfs3_lookup_req);
 
     if (ret) {
@@ -489,12 +477,12 @@ out:
     return rpc;
 }
 
-struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] = {
+static struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] = {
     [GF_AGGREGATOR_NULL] = {"NULL", NULL},
     [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", NULL},
 };
 
-struct rpc_clnt_program quota_enforcer_clnt = {
+static struct rpc_clnt_program quota_enforcer_clnt = {
     .progname = "Quota enforcer",
     .prognum = GLUSTER_AGGREGATOR_PROGRAM,
     .progver = GLUSTER_AGGREGATOR_VERSION,

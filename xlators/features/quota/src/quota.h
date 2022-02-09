@@ -32,10 +32,6 @@
 #define VAL_LENGTH 8
 #define READDIR_BUF 4096
 
-#ifndef UUID_CANONICAL_FORM_LEN
-#define UUID_CANONICAL_FORM_LEN 36
-#endif
-
 #define WIND_IF_QUOTAOFF(is_quota_on, label)                                   \
     if (!is_quota_on)                                                          \
         goto label;
@@ -175,14 +171,12 @@ struct quota_local {
     int8_t object_delta;
     int32_t op_ret;
     int32_t op_errno;
-    int64_t size;
     char just_validated;
     fop_lookup_cbk_t validate_cbk;
     quota_fop_continue_t fop_continue_cbk;
     inode_t *inode;
     uuid_t common_ancestor; /* Used by quota_rename */
     call_stub_t *stub;
-    struct iobref *iobref;
     quota_limits_t limit;
     quota_limits_t object_limit;
     int64_t space_available;
