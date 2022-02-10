@@ -351,7 +351,7 @@ event_register_epoll(struct event_pool *event_pool, int fd,
                      event_handler_t handler, void *data, int poll_in,
                      int poll_out, int notify_poller_death)
 {
-    int idx;
+    int idx = -1;
     int ret = -1;
     int destroy = 0;
     struct epoll_event epoll_event = {
