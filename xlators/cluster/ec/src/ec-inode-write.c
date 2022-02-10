@@ -22,6 +22,8 @@ ec_update_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      struct iatt *postbuf, dict_t *xdata)
 {
     ec_fop_data_t *fop = cookie;
+    if (fop == NULL)
+        goto out;
     ec_cbk_data_t *cbk = NULL;
     ec_fop_data_t *parent = fop->parent;
     int i = 0;
