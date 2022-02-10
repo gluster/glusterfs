@@ -297,8 +297,8 @@ invoke_gluster(int argc, char **argv)
         }
     }
 
-    argv[0] = "gluster";
-    execvp(SBIN_DIR "/gluster", argv);
+    argv[0] = SBIN_DIR "/gluster";
+    execv(SBIN_DIR "/gluster", argv);
     fprintf(stderr, "exec of gluster failed\n");
     return 127;
 
