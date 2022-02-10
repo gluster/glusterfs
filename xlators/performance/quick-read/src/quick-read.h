@@ -33,9 +33,9 @@ struct qr_inode {
     void *data;
     size_t size;
     int priority;
-    uint32_t ia_mtime;
+    uint64_t ia_mtime;
     uint32_t ia_mtime_nsec;
-    uint32_t ia_ctime;
+    uint64_t ia_ctime;
     uint32_t ia_ctime_nsec;
     uint32_t gen_rollover;
     struct iatt buf;
