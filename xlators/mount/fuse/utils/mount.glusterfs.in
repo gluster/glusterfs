@@ -641,7 +641,7 @@ with_options()
             ;;
         # Values that are optional
         "fopen-keep-cache")
-            fopen_keep_cache="=$value"
+            fopen_keep_cache="$value"
             ;;
         "io-engine")
             io_engine="${value}"
