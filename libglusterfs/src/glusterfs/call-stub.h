@@ -11,10 +11,8 @@
 #ifndef _CALL_STUB_H_
 #define _CALL_STUB_H_
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
 #include "glusterfs/default-args.h"
-#include "glusterfs/stack.h"
 #include "glusterfs/list.h"
 
 typedef struct _call_stub {

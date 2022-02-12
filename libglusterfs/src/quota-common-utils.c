@@ -11,7 +11,6 @@
 #include "glusterfs/dict.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/quota-common-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 gf_boolean_t

@@ -11,7 +11,6 @@
 #ifndef _TIMER_H
 #define _TIMER_H
 
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/xlator.h"
 #include <sys/time.h>
 #include <pthread.h>

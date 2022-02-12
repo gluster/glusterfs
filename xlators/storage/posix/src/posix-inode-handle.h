@@ -13,7 +13,6 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <glusterfs/gf-dirent.h>
-#include "posix.h"
 
 /* From Open Group Base Specifications Issue 6 */
 #ifndef _XOPEN_PATH_MAX

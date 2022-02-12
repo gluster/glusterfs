@@ -9,7 +9,6 @@
 */
 #include "read-only-mem-types.h"
 #include "read-only.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
 #include "worm-helper.h"
 

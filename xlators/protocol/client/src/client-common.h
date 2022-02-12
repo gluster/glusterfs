@@ -12,12 +12,8 @@
 #define __CLIENT_COMMON_H__
 
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
 #include "client.h"
-
 
 /* New functions for version 4 */
 int

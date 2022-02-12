@@ -12,7 +12,6 @@
 #include "afr-self-heal.h"
 #include "afr-transaction.h"
 #include "afr-messages.h"
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 

@@ -8,13 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/compat-errno.h>
 
-#include "glusterd.h"
+#include "rpc-common-xdr.h"
+
 #include "glusterd-utils.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -27,7 +26,6 @@
 #include "glusterfs3.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
-#include "rpc-common-xdr.h"
 #include "glusterd-gfproxyd-svc-helper.h"
 #include "glusterd-shd-svc-helper.h"
 

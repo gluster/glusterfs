@@ -13,7 +13,6 @@
 
 #include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/lkowner.h>
 #include <glusterfs/gidcache.h>
 

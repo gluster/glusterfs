@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 
 #include <sys/socket.h>
 #include <netdb.h>
@@ -22,10 +21,8 @@
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "cli1-xdr.h"
 #include <glusterfs/run.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/events.h>
 
 extern rpc_clnt_prog_t cli_quotad_clnt;

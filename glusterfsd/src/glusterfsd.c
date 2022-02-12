@@ -32,8 +32,6 @@
 #include <malloc.h>
 #endif
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include "glusterfsd-messages.h"
@@ -41,13 +39,11 @@
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/latency.h>
 #include "glusterfsd-mem-types.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/client_t.h>
 #include <glusterfs/monitoring.h>

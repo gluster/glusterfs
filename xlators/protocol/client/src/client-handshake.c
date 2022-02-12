@@ -8,18 +8,11 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/fd-lk.h>
 #include "client.h"
-#include "glusterfs4-xdr.h"
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/statedump.h>
+#include "rpc-common-xdr.h"
 #include <glusterfs/compat-errno.h>
 
-#include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include "rpc-common-xdr.h"
 #include "client-messages.h"
 #include "xdr-rpc.h"
 

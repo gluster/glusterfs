@@ -8,15 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
+#include "socket.h"
 #include "client.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/gf-event.h>
 
-#include "xdr-rpc.h"
 #include "glusterfs3.h"
 #include "client-messages.h"
 

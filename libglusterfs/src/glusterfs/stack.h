@@ -28,8 +28,6 @@ typedef struct call_pool call_pool_t;
 #include "glusterfs/xlator.h"
 #include "glusterfs/dict.h"
 #include "glusterfs/list.h"
-#include "glusterfs/common-utils.h"
-#include "glusterfs/lkowner.h"
 #include "glusterfs/client_t.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/timespec.h"

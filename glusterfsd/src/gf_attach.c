@@ -12,12 +12,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
 #include <glusterfs/syscall.h>
 #include "glfs-internal.h"
 #include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
 #include "glusterd1-xdr.h"
 
 /* In seconds */

@@ -10,9 +10,7 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include <glusterfs/syncop.h>
 #include "glfs.h"
-#include "glfs-handles.h"
 #include "gfapi-messages.h"
 
 int

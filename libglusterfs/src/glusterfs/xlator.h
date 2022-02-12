@@ -60,7 +60,6 @@ typedef int32_t (*event_notify_fn_t)(xlator_t *this, int32_t event, void *data,
 #include "glusterfs/stack.h"
 #include "glusterfs/iobuf.h"
 #include "glusterfs/globals.h"
-#include "glusterfs/iatt.h"
 #include "glusterfs/options.h"
 #include "glusterfs/client_t.h"
 

@@ -10,14 +10,6 @@
 
 #include <time.h>
 #include <errno.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/common-utils.h>
-#include <glusterfs/event-history.h>
-#include <glusterfs/logging.h>
-#include <glusterfs/circ-buff.h>
-#include <glusterfs/statedump.h>
-#include <glusterfs/options.h>
 
 #define TRACE_DEFAULT_HISTORY_SIZE 1024
 

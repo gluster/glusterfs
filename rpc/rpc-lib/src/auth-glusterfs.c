@@ -10,9 +10,7 @@
 
 #include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include "xdr-rpc.h"
 #include "xdr-common.h"
-#include "rpc-common-xdr.h"
 #include "glusterfs4-xdr.h"
 
 /* V3 */

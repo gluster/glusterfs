@@ -13,7 +13,6 @@
 
 #include "glusterfs/list.h"
 #include "glusterfs/locking.h"
-#include "glusterfs/common-utils.h"
 
 typedef struct rbuf_iovec {
     struct iovec iov;

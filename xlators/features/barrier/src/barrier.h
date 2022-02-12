@@ -12,9 +12,6 @@
 #define __BARRIER_H__
 
 #include "barrier-mem-types.h"
-#include <glusterfs/xlator.h>
-#include <glusterfs/timer.h>
-#include <glusterfs/call-stub.h>
 
 #define BARRIER_FOP_CBK(fop_name, label, frame, this, params...)               \
     do {                                                                       \

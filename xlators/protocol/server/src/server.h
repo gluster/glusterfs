@@ -13,17 +13,12 @@
 
 #include <pthread.h>
 
-#include <glusterfs/fd.h>
 #include "rpcsvc.h"
-#include "socket.h"
-#include <glusterfs/fd.h>
 #include "protocol-common.h"
 #include "server-mem-types.h"
 #include "glusterfs3.h"
-#include <glusterfs/timer.h>
 #include <glusterfs/client_t.h>
 #include <glusterfs/gidcache.h>
-#include <glusterfs/defaults.h>
 #include "authenticate.h"
 
 /* Threading limits for server event threads. */

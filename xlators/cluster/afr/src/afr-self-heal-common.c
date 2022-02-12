@@ -13,6 +13,7 @@
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
+#include <openssl/md5.h>
 
 void
 afr_heal_synctask(xlator_t *this, afr_local_t *local);

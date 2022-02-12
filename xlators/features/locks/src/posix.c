@@ -19,7 +19,6 @@
 #include "common.h"
 #include <glusterfs/statedump.h>
 #include "clear.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 
 #ifndef LLONG_MAX

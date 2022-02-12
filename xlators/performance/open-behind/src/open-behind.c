@@ -9,10 +9,8 @@
 */
 
 #include "open-behind-mem-types.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include "open-behind-messages.h"
 #include <glusterfs/glusterfs-acl.h>
 

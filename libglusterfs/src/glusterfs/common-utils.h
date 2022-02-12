@@ -12,14 +12,12 @@
 #define _COMMON_UTILS_H
 
 #include <stdint.h>
-#include <sys/uio.h>
-#include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <dirent.h>
 #include <unistd.h>
-#include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif
@@ -27,6 +25,8 @@
 #include <fnmatch.h>
 #include <uuid/uuid.h>
 #include <urcu/compiler.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG

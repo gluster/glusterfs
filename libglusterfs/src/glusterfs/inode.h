@@ -28,7 +28,6 @@ typedef struct _inode inode_t;
 struct _dentry;
 typedef struct _dentry dentry_t;
 
-#include "glusterfs/list.h"
 #include "glusterfs/iatt.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/fd.h"

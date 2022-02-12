@@ -9,10 +9,8 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/timer.h>
 
-#include "afr.h"
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"

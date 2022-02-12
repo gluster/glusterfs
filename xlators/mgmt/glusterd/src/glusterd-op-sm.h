@@ -10,15 +10,11 @@
 #ifndef _GLUSTERD_OP_SM_H_
 #define _GLUSTERD_OP_SM_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd.h"
-#include "protocol-common.h"
 #include "glusterd-hooks.h"
 
 #define GD_OP_PROTECTED (0x02)

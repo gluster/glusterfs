@@ -43,17 +43,16 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
 #include "glusterfs4-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
+#include "posix.h"
 #include "posix-messages.h"
 #include "posix-metadata.h"
 #include <glusterfs/events.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/compat-uuid.h>
-#include <glusterfs/common-utils.h>
 
 extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096

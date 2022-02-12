@@ -12,8 +12,6 @@
 
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
-#include <glusterfs/call-stub.h>
 #include "nfs.h"
 #include "nfs-fops.h"
 #include "nfs-common.h"

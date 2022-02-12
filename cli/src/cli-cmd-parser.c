@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 #include <fnmatch.h>
 #include <time.h>
 
@@ -20,9 +19,6 @@
 #include "cli-mem-types.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
-
-#include "protocol-common.h"
-#include "cli1-xdr.h"
 
 #define MAX_SNAP_DESCRIPTION_LEN 1024
 

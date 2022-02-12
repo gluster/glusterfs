@@ -11,14 +11,12 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 #include "write-behind-mem-types.h"
 #include "write-behind-messages.h"
 

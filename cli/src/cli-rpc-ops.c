@@ -29,6 +29,7 @@
 #define REBAL_ESTIMATE_SEC_UPPER_LIMIT (60 * 24 * 3600)
 #define REBAL_ESTIMATE_START_TIME 600
 
+#include "gd-common-utils.h"
 #include "cli.h"
 #include <glusterfs/compat-errno.h>
 #include "cli-cmd.h"
@@ -38,7 +39,6 @@
 #include <glusterfs/compat.h>
 #include "cli-mem-types.h"
 #include <glusterfs/syscall.h>
-#include "glusterfs3.h"
 #include "portmap-xdr.h"
 
 #include <glusterfs/run.h>

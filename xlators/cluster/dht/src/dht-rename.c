@@ -13,7 +13,6 @@
  */
 #include "dht-common.h"
 #include "dht-lock.h"
-#include <glusterfs/defaults.h>
 
 int
 dht_rename_unlock(call_frame_t *frame, xlator_t *this);
