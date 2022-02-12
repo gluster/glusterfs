@@ -39,7 +39,8 @@ from syncdutils import (GsyncdError, select, privileged, funcode,
                         GX_GFID_CANONICAL_LEN,
                         gf_mount_ready, lf, Popen, sup,
                         Xattr, matching_disk_gfid, get_gfid_from_mnt,
-                        unshare_propagation_supported, get_slv_dir_path)
+                        unshare_propagation_supported, get_slv_dir_path,
+                        ssh_cipher_present)
 from gsyncdstatus import GeorepStatus
 from py2py3 import (pipe, str_to_bytearray, entry_pack_reg,
                     entry_pack_reg_stat, entry_pack_mkdir,
@@ -1453,6 +1454,9 @@ class SSH(object):
             ["-p", str(gconf.get("ssh-port"))] + \
             rconf.ssh_ctl_args + \
             gconf.get("rsync-ssh-options").split()
+
+        if not ssh_cipher_present(rsync_ssh_opts):
+            rsync_ssh_opts += ["-caes128-ctr"]
 
         argv = [
             gconf.get("rsync-command"),
