@@ -1074,8 +1074,6 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
 gf_boolean_t
 valid_mount_auth_address(char *address);
 gf_boolean_t
-valid_ipv4_subnetwork(const char *address);
-gf_boolean_t
 gf_sock_union_equal_addr(union gf_sock_union *a, union gf_sock_union *b);
 char *
 gf_rev_dns_lookup(const char *ip);

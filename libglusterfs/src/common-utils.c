@@ -2444,7 +2444,7 @@ valid_host_name(char *address, int length)
         goto out;
     }
 
-    dup_addr = gf_strdup(address);
+    dup_addr = gf_strndup(address, length);
     if (!dup_addr) {
         ret = 0;
         goto out;
@@ -2496,7 +2496,7 @@ valid_ipv4_address(char *address, int length, gf_boolean_t wildcard_acc)
     char ret = 1;
     int is_wildcard = 0;
 
-    tmp = gf_strdup(address);
+    tmp = gf_strndup(address, length);
 
     /*
      * To prevent cases where last character is '.' and which have
@@ -2535,11 +2535,12 @@ out:
     return ret;
 }
 
-char
-valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
+static char
+valid_cidr_address(char *cidr_address, unsigned int len,
+                   gf_boolean_t wildcard_acc)
 {
-    unsigned int net_mask = 0, len = 0;
-    char *temp = NULL, *cidr_str = NULL, ret = 1;
+    unsigned int net_mask = 0;
+    char *temp = NULL, *cidr_str = NULL;
 
     cidr_str = strdupa(cidr_address);
     temp = strstr(cidr_str, "/");
@@ -2553,11 +2554,7 @@ valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
     if (net_mask > 32 || net_mask < 1)
         return 0; /* Since Invalid cidr ip address we return 0*/
 
-    len = strlen(cidr_str);
-
-    ret = valid_ipv4_address(cidr_str, len, wildcard_acc);
-
-    return ret;
+    return valid_ipv4_address(cidr_str, len, wildcard_acc);
 }
 
 /**
@@ -2570,8 +2567,8 @@ valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
  * Returns _gf_true if both IP addr and mask bits len are valid
  *         _gf_false otherwise.
  */
-gf_boolean_t
-valid_ipv4_subnetwork(const char *address)
+static gf_boolean_t
+valid_ipv4_subnetwork(const char *address, int length)
 {
     char *slash = NULL;
     char *paddr = NULL;
@@ -2579,13 +2576,7 @@ valid_ipv4_subnetwork(const char *address)
     long prefixlen = -1;
     gf_boolean_t retv = _gf_true;
 
-    if (address == NULL) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "argument invalid");
-        return _gf_false;
-    }
-
-    paddr = gf_strdup(address);
+    paddr = gf_strndup(address, length);
     if (paddr == NULL) /* ENOMEM */
         return _gf_false;
 
@@ -2604,7 +2595,7 @@ valid_ipv4_subnetwork(const char *address)
     }
 
     *slash = '\0';
-    retv = valid_ipv4_address(paddr, strlen(paddr), _gf_false);
+    retv = valid_ipv4_address(paddr, length, _gf_false);
     if (retv == _gf_false) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
                          LG_MSG_INVALID_IPV4_FORMAT,
@@ -2642,7 +2633,7 @@ valid_ipv6_address(char *address, int length, gf_boolean_t wildcard_acc)
     int is_wildcard = 0;
     int is_compressed = 0;
 
-    tmp = gf_strdup(address);
+    tmp = gf_strndup(address, length);
 
     /* Check for '%' for link local addresses */
     endptr = strchr(tmp, '%');
@@ -2712,7 +2703,7 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
     if (length == 0)
         goto out;
 
-    if (cidr && valid_cidr_address(address, wildcard_acc)) {
+    if (cidr && valid_cidr_address(address, length, wildcard_acc)) {
         ret = 1;
     }
 
@@ -2757,6 +2748,8 @@ valid_mount_auth_address(char *address)
     if (strcmp(address, "*") == 0)
         return _gf_true;
 
+    length = strlen(address);
+
     for (cp = address; *cp; cp++) {
         /* 3. Check for wildcard pattern */
         if (*cp == '*' || *cp == '?' || *cp == '[') {
@@ -2769,12 +2762,11 @@ valid_mount_auth_address(char *address)
          * NB: Wildcard must not be mixed with subnetwork.
          */
         if (*cp == '/') {
-            return valid_ipv4_subnetwork(address);
+            return valid_ipv4_subnetwork(address, length);
         }
     }
 
     /* 5. Check for v4/v6 IP addr and FQDN/hostname */
-    length = strlen(address);
     if ((valid_ipv4_address(address, length, _gf_false)) ||
         (valid_ipv6_address(address, length, _gf_false)) ||
         (valid_host_name(address, length))) {
@@ -3183,6 +3175,7 @@ gf_canonicalize_path(char *path)
     char *tmppath = NULL;
     char *dir = NULL;
     char *tmpstr = NULL;
+    int pathlen;
 
     if (!path || *path != '/')
         goto out;
@@ -3190,12 +3183,13 @@ gf_canonicalize_path(char *path)
     if (!strcmp(path, "/"))
         return 0;
 
-    tmppath = gf_strdup(path);
+    pathlen = strlen(path);
+    tmppath = gf_strndup(path, pathlen);
     if (!tmppath)
         goto out;
 
     /* Strip the extra slashes and return */
-    bzero(path, strlen(path));
+    bzero(path, pathlen);
     path[0] = '/';
     dir = strtok_r(tmppath, "/", &tmpstr);
 
@@ -3229,7 +3223,7 @@ generate_glusterfs_ctx_id(void)
     gf_uuid_generate(ctxid);
     tmp = uuid_utoa(ctxid);
 
-    return gf_strdup(tmp);
+    return gf_strndup(tmp, UUID_CANONICAL_FORM_LEN);
 }
 
 char *
@@ -3264,7 +3258,7 @@ gf_get_reserved_ports()
     }
 
     buffer[ret] = '\0';
-    ports_info = gf_strdup(buffer);
+    ports_info = gf_strndup(buffer, ret);
 
 out:
     if (proc_fd != -1)
@@ -3394,14 +3388,19 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname)
     char *tmp = NULL;
     char *ip = NULL;
     size_t addr_sz = 0;
+    int ip_len;
 
+    if (!client_ip)
+        goto out;
+
+    ip_len = strlen(client_ip);
     /* if ipv4, reverse lookup the hostname to
      * allow FQDN based rpc authentication
      */
-    if (!valid_ipv6_address(client_ip, strlen(client_ip), 0) &&
-        !valid_ipv4_address(client_ip, strlen(client_ip), 0)) {
+    if (!valid_ipv6_address(client_ip, ip_len, 0) &&
+        !valid_ipv4_address(client_ip, ip_len, 0)) {
         /* most times, we get a.b.c.d:port form, so check that */
-        client_ip_copy = gf_strdup(client_ip);
+        client_ip_copy = gf_strndup(client_ip, ip_len);
         if (!client_ip_copy)
             goto out;
 
@@ -3410,13 +3409,14 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname)
         ip = client_ip;
     }
 
-    if (valid_ipv4_address(ip, strlen(ip), 0) == _gf_true) {
+    ip_len = strlen(ip);
+    if (valid_ipv4_address(ip, ip_len, 0) == _gf_true) {
         client_sockaddr = (struct sockaddr *)&client_sock_in;
         addr_sz = sizeof(client_sock_in);
         client_sock_in.sin_family = AF_INET;
         ret = inet_pton(AF_INET, ip, (void *)&client_sock_in.sin_addr.s_addr);
 
-    } else if (valid_ipv6_address(ip, strlen(ip), 0) == _gf_true) {
+    } else if (valid_ipv6_address(ip, ip_len, 0) == _gf_true) {
         client_sockaddr = (struct sockaddr *)&client_sock_in6;
         addr_sz = sizeof(client_sock_in6);
 
@@ -4560,6 +4560,7 @@ gf_build_absolute_path(char *current_path, char *relative_path, char **path)
     int ret = 0;
     size_t relativepath_len = 0;
     size_t currentpath_len = 0;
+    size_t absolute_path_len = 0;
     size_t max_absolutepath_len = 0;
 
     GF_ASSERT(current_path);
@@ -4611,7 +4612,7 @@ gf_build_absolute_path(char *current_path, char *relative_path, char **path)
     }
 
     /* Used to spilt relative path based on '/' */
-    component = gf_strdup(relative_path);
+    component = gf_strndup(relative_path, relativepath_len);
     if (!component) {
         ret = -ENOMEM;
         goto err;
@@ -4647,11 +4648,12 @@ gf_build_absolute_path(char *current_path, char *relative_path, char **path)
         }
     }
 
-    if (strlen(absolute_path) > PATH_MAX) {
+    absolute_path_len = strlen(absolute_path);
+    if (absolute_path_len > PATH_MAX) {
         ret = -EINVAL;
         goto err;
     }
-    *path = gf_strdup(absolute_path);
+    *path = gf_strndup(absolute_path, absolute_path_len);
 
 err:
     if (component)
