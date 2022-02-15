@@ -183,11 +183,12 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
             xlator_list_t *parent = this->parents;
 
             if (!parent && this->ctx && this->ctx->root)
-                xlator_notify(this->ctx->root, event, data, NULL);
+                XLATOR_NOTIFY(ret, ((xlator_t *)(this->ctx->root)), event, data,
+                              this);
 
             while (parent) {
                 if (parent->xlator->init_succeeded)
-                    xlator_notify(parent->xlator, event, data, NULL);
+                    XLATOR_NOTIFY(ret, (parent->xlator), event, data, this);
                 parent = parent->next;
             }
         } break;
@@ -196,7 +197,7 @@ default_notify(xlator_t *this, int32_t event, void *data, ...)
 
             while (parent) {
                 if (parent->xlator->init_succeeded)
-                    XLATOR_NOTIFY(ret, parent->xlator, event, this, data);
+                    XLATOR_NOTIFY(ret, parent->xlator, event, data, this);
                 parent = parent->next;
             }
         } break;

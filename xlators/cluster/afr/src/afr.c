@@ -37,7 +37,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     void *data2 = NULL;
 
     va_start(ap, data);
-    data2 = va_arg(ap, dict_t *);
+    data2 = va_arg(ap, void *);
     va_end(ap);
     ret = afr_notify(this, event, data, data2);
 

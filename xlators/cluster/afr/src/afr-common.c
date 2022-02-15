@@ -6216,6 +6216,24 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
     }
 }
 
+static xlator_t *
+afr_get_child_xlator_for_event(int32_t event, void *data, void *data2)
+{
+    xlator_t *child_xlator = NULL;
+    switch (event) {
+        case GF_EVENT_UPCALL:
+        case GF_EVENT_CHILD_PING:
+            child_xlator = (xlator_t *)data2;
+            break;
+        case GF_EVENT_TRANSLATOR_OP:
+            child_xlator = NULL;
+            break;
+        default:
+            child_xlator = (xlator_t *)data;
+    }
+    return child_xlator;
+}
+
 int32_t
 afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
 {
@@ -6235,8 +6253,6 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     gf_boolean_t has_quorum = _gf_false;
     int64_t halo_max_latency_msec = 0;
     int64_t child_latency_msec = -1;
-
-    child_xlator = (xlator_t *)data;
 
     priv = this->private;
 
@@ -6260,6 +6276,25 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
      * subsequent revalidate lookup happens on all the dht's subvolumes
      * which triggers afr self-heals if any.
      */
+
+    if (event == GF_EVENT_TRANSLATOR_OP) {
+        LOCK(&priv->lock);
+        {
+            had_heard_from_all = __get_heard_from_all_status(this);
+        }
+        UNLOCK(&priv->lock);
+
+        if (!had_heard_from_all) {
+            ret = -1;
+        } else {
+            input = data;
+            output = data2;
+            ret = afr_xl_op(this, input, output);
+        }
+        goto out;
+    }
+
+    child_xlator = afr_get_child_xlator_for_event(event, data, data2);
     idx = afr_find_child_index(this, child_xlator);
     if (idx < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_INVALID_CHILD_UP,
@@ -6270,7 +6305,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     had_quorum = priv->quorum_count &&
                  afr_has_quorum(priv->child_up, priv, NULL);
     if (event == GF_EVENT_CHILD_PING) {
-        child_latency_msec = (int64_t)(uintptr_t)data2;
+        child_latency_msec = (int64_t)(uintptr_t)data;
         if (priv->halo_enabled) {
             halo_max_latency_msec = afr_get_halo_latency(this);
 
@@ -6297,27 +6332,6 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
          * propagate.
          */
         goto out;
-    }
-
-    if (event == GF_EVENT_TRANSLATOR_OP) {
-        LOCK(&priv->lock);
-        {
-            had_heard_from_all = __get_heard_from_all_status(priv);
-        }
-        UNLOCK(&priv->lock);
-
-        if (!had_heard_from_all) {
-            ret = -1;
-        } else {
-            input = data;
-            output = data2;
-            ret = afr_xl_op(this, input, output);
-        }
-        goto out;
-    }
-
-    if (event == GF_EVENT_UPCALL) {
-        afr_handle_upcall_event(this, data, idx);
     }
 
     LOCK(&priv->lock);
