@@ -2303,7 +2303,7 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 int32_t remote_port = 0;
                 ret = dict_get_int32(this->options, "remote-port",
                                      &remote_port);
-                if (!ret) {
+                if (IS_ERROR(ret)) {
                     /* this is optional, so it may be error in most cases. Add a
                      * trace log */
                     gf_msg_trace(
