@@ -248,11 +248,12 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             /* To use generic functions from the plugin */
             glusterd_snapshot_plugin_by_name(snap_volinfo->snap_plugin,
                                              &snap_ops);
-
-            snap_ops->brick_path(snap_mount_dir, brickinfo->origin_path, 0,
-                                 snap_volinfo->snapshot->snapname,
-                                 snap_volinfo->volname, brickinfo->mount_dir,
-                                 brick_count - 1, new_brickinfo, 1);
+            if (snap_ops) {
+                snap_ops->brick_path(
+                    snap_mount_dir, brickinfo->origin_path, 0,
+                    snap_volinfo->snapshot->snapname, snap_volinfo->volname,
+                    brickinfo->mount_dir, brick_count - 1, new_brickinfo, 1);
+            }
         }
 
         snprintf(key, sizeof(key), "snap%d.brick%d.snap_status", volcount,
@@ -3330,8 +3331,11 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
         retry_count = 0;
         while (retry_count <= 2) {
             retry_count++;
-            ret = snap_ops->deactivate(brickinfo, volinfo->snapshot->snapname,
-                                       volinfo->volname, brick_count);
+            if (snap_ops) {
+                ret = snap_ops->deactivate(brickinfo,
+                                           volinfo->snapshot->snapname,
+                                           volinfo->volname, brick_count);
+            }
             if (!ret)
                 break;
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_UMOUNT_FAIL,
