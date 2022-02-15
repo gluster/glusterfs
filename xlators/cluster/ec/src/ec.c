@@ -873,7 +873,7 @@ init(xlator_t *this)
     if (ec_assign_read_mask(ec, read_mask_str))
         goto failed;
 
-    this->itable = inode_table_new(EC_SHD_INODE_LRU_LIMIT, this, 0, 0);
+    this->itable = inode_table_new(EC_SHD_INODE_LRU_LIMIT, this, 0, 0, 0);
     if (!this->itable)
         goto failed;
 

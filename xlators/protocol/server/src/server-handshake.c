@@ -640,8 +640,8 @@ server_setvolume(rpcsvc_request_t *req)
                          conf->inode_lru_limit, client->bound_xl->name);
 
             /* TODO: what is this ? */
-            client->bound_xl->itable = inode_table_new(conf->inode_lru_limit,
-                                                       client->bound_xl, 0, 0);
+            client->bound_xl->itable = inode_table_new(
+                conf->inode_lru_limit, client->bound_xl, 0, 0, 0);
         }
     }
     UNLOCK(&conf->itable_lock);

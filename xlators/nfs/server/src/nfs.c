@@ -553,7 +553,7 @@ err:
 }
 
 int
-nfs_init_subvolume(struct nfs_state *nfs, xlator_t *xl)
+nfs_init_subvolume(struct nfs_state *nfs, xlator_t *xl, int ctxcount)
 {
     unsigned int lrusize = 0;
     int ret = -1;
@@ -562,7 +562,7 @@ nfs_init_subvolume(struct nfs_state *nfs, xlator_t *xl)
         return -1;
 
     lrusize = nfs->memfactor * GF_NFS_INODE_LRU_MULT;
-    xl->itable = inode_table_new(lrusize, xl, 0, 0);
+    xl->itable = inode_table_new(lrusize, xl, 0, 0, ctxcount);
     if (!xl->itable) {
         gf_msg(GF_NFS, GF_LOG_CRITICAL, ENOMEM, NFS_MSG_NO_MEMORY,
                "Failed to allocate inode table");
@@ -574,11 +574,16 @@ err:
 }
 
 int
-nfs_init_subvolumes(struct nfs_state *nfs, xlator_list_t *cl)
+nfs_init_subvolumes(struct nfs_state *nfs, xlator_t *this)
 {
     int ret = -1;
     unsigned int lrusize = 0;
     int svcount = 0;
+    xlator_list_t *tmp = NULL;
+    xlator_t *xl = NULL;
+    int totvol = 0;
+    int ctxcount = 0;
+    xlator_list_t *cl = this->children;
 
     if ((!nfs) || (!cl))
         return -1;
@@ -587,9 +592,26 @@ nfs_init_subvolumes(struct nfs_state *nfs, xlator_list_t *cl)
     nfs->subvols = cl;
     gf_msg_trace(GF_NFS, 0, "inode table lru: %d", lrusize);
 
+    tmp = cl;
+    while (tmp) {
+        xl = tmp->xlator;
+        if (!strcmp(xl->type, "debug/io-stats"))
+            totvol++;
+        tmp = tmp->next;
+    }
+
+    if (totvol > 1) {
+        ctxcount = (xl->graph->xl_count / totvol) + 2;
+        this->totvolcnt = totvol;
+        gf_log(GF_NFS, GF_LOG_INFO, "Configure ctxcount per inode is %d ",
+               ctxcount);
+    } else {
+        totvol = 0;
+    }
+
     while (cl) {
         gf_msg_debug(GF_NFS, 0, "Initing subvolume: %s", cl->xlator->name);
-        ret = nfs_init_subvolume(nfs, cl->xlator);
+        ret = nfs_init_subvolume(nfs, cl->xlator, ctxcount);
         if (ret == -1) {
             gf_msg(GF_NFS, GF_LOG_CRITICAL, 0, NFS_MSG_XLATOR_INIT_FAIL,
                    "Failed to init "
@@ -597,6 +619,7 @@ nfs_init_subvolumes(struct nfs_state *nfs, xlator_list_t *cl)
                    cl->xlator->name);
             goto err;
         }
+        cl->xlator->totvolcnt = totvol;
         ++svcount;
         cl = cl->next;
     }
@@ -1459,7 +1482,7 @@ init(xlator_t *this)
         return (-1);
     }
 
-    ret = nfs_init_subvolumes(nfs, this->children);
+    ret = nfs_init_subvolumes(nfs, this);
     if (ret) {
         gf_msg(GF_NFS, GF_LOG_CRITICAL, 0, NFS_MSG_INIT_FAIL,
                "Failed to init NFS exports");

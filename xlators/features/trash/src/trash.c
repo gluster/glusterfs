@@ -2257,7 +2257,7 @@ reconfigure(xlator_t *this, dict_t *options)
 
     if (!active_earlier && active_now) {
         if (!priv->trash_itable) {
-            priv->trash_itable = inode_table_new(0, this, 0, 0);
+            priv->trash_itable = inode_table_new(0, this, 0, 0, 0);
             if (!priv->trash_itable) {
                 ret = -ENOMEM;
                 gf_log(this->name, GF_LOG_ERROR,
@@ -2529,7 +2529,7 @@ init(xlator_t *this)
     }
 
     if (priv->state) {
-        priv->trash_itable = inode_table_new(0, this, 0, 0);
+        priv->trash_itable = inode_table_new(0, this, 0, 0, 0);
         if (!priv->trash_itable) {
             ret = -ENOMEM;
             priv->state = _gf_false;

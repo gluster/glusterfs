@@ -2437,7 +2437,7 @@ dht_build_root_inode(xlator_t *this, inode_t **inode)
     inode_table_t *itable = NULL;
     static uuid_t root_gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
-    itable = inode_table_new(0, this, 0, 0);
+    itable = inode_table_new(0, this, 0, 0, 0);
     if (!itable)
         return;
 

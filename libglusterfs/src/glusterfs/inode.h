@@ -124,13 +124,13 @@ struct _inode {
 
 inode_table_t *
 inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dhash_size,
-                uint32_t inodehash_size);
+                uint32_t inodehash_size, int ctxcount);
 
 inode_table_t *
 inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              int32_t (*invalidator_fn)(xlator_t *, inode_t *),
                              xlator_t *invalidator_xl, uint32_t dentry_hashsize,
-                             uint32_t inode_hashsize);
+                             uint32_t inode_hashsize, int ctxcount);
 
 void
 inode_table_destroy_all(glusterfs_ctx_t *ctx);

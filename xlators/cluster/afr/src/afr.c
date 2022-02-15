@@ -635,9 +635,9 @@ init(xlator_t *this)
         /* Number of hash bucket should be prime number so declare 131
            total dentry hash buckets
         */
-        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 131, 128);
+        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 131, 128, 0);
     } else {
-        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 0, 0);
+        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 0, 0, 0);
     }
 
     if (!this->itable) {

@@ -37,7 +37,7 @@ graph_setup(struct glfs *fs, glusterfs_graph_t *graph)
         }
 
         if (!new_subvol->itable) {
-            itable = inode_table_new(131072, new_subvol, 0, 0);
+            itable = inode_table_new(131072, new_subvol, 0, 0, 0);
             if (!itable) {
                 errno = ENOMEM;
                 ret = -1;
