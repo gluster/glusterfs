@@ -1954,6 +1954,8 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     char gfid[GF_UUID_BUF_SIZE] = {0};
     inode_t *linked_inode = NULL, *inode = NULL;
 
+    FRAME_SU_DO(frame, dht_local_t);
+
     local = frame->local;
     this = frame->this;
 
