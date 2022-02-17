@@ -137,7 +137,12 @@ remove_trash_path(const char *path, gf_boolean_t internal, char **rem_path)
     if (internal)
         *rem_path = strchr(*rem_path + 1, '/');
 }
-
+int
+check_pathbuf(xlator_t *this)
+{
+    gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
+    return EINVAL;
+}
 /**
  * Checks whether the given path reside under the specified eliminate path
  */
@@ -1325,9 +1330,8 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
      * file to trash directory. Instead delete it permanently
      */
     if (!pathbuf) {
-        gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
+        ret = check_pathbuf(this);
         TRASH_STACK_UNWIND(unlink, frame, -1, EINVAL, NULL, NULL, xdata);
-        ret = EINVAL;
         goto out;
     }
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
@@ -1981,9 +1985,8 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     /* This will be more accurate */
     inode_path(loc->inode, NULL, &pathbuf);
     if (!pathbuf) {
-        gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
+        ret = check_pathbuf(this);
         TRASH_STACK_UNWIND(truncate, frame, -1, EINVAL, NULL, NULL, xdata);
-        ret = EINVAL;
         goto out;
     }
 
@@ -2074,9 +2077,8 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     /* This will be more accurate */
     retval = inode_path(fd->inode, NULL, &pathbuf);
     if (!pathbuf) {
-        gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
+        ret = check_pathbuf(this);
         TRASH_STACK_UNWIND(ftruncate, frame, -1, EINVAL, NULL, NULL, xdata);
-        ret = EINVAL;
         goto out;
     }
     /* Checking  the eliminate path */
