@@ -452,8 +452,15 @@ __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
     int set_idx = -1;
 
     if ((inode->_ctx[xlator->xl_id].xl_key != NULL) &&
-        (inode->_ctx[xlator->xl_id].xl_key != xlator))
+        (inode->_ctx[xlator->xl_id].xl_key != xlator)) {
+        gf_log(xlator->name, GF_LOG_ERROR,
+               "Mismatching xlators for %u: %p ('%s'), %p ('%s')",
+               xlator->xl_id, xlator, xlator->name,
+               inode->_ctx[xlator->xl_id].xl_key,
+               inode->_ctx[xlator->xl_id].xl_key->name);
+        GF_ASSERT("Mismatching xlator");
         goto out;
+    }
 
     set_idx = xlator->xl_id;
     inode->_ctx[set_idx].xl_key = xlator;
