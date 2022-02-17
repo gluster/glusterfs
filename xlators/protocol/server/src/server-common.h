@@ -1,13 +1,11 @@
 #include "server.h"
-#include <glusterfs/defaults.h>
-#include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
 #include <glusterfs/compat-errno.h>
 #include "server-messages.h"
-#include <glusterfs/defaults.h>
 
+#ifdef BUILD_GNFS
 #include "xdr-nfs3.h"
+#endif
 
 void
 server4_post_readlink(gfx_readlink_rsp *rsp, struct iatt *stbuf,

@@ -8,17 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/compat-errno.h>
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 
 #include "portmap-xdr.h"
-#include "xdr-generic.h"
-#include "protocol-common.h"
 #include "glusterd-messages.h"
 #include "rpcsvc.h"
 

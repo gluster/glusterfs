@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
 #include <inttypes.h>
 
 #include "glusterfs/call-stub.h"
@@ -2375,7 +2374,6 @@ call_resume(call_stub_t *stub)
 {
     xlator_t *old_THIS = NULL;
 
-    errno = EINVAL;
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
     list_del_init(&stub->list);
@@ -2441,7 +2439,6 @@ call_resume_keep_stub(call_stub_t *stub)
 {
     xlator_t *old_THIS = NULL;
 
-    errno = EINVAL;
     GF_VALIDATE_OR_GOTO("call-stub", stub, out);
 
     list_del_init(&stub->list);

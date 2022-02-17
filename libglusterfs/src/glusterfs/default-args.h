@@ -15,8 +15,6 @@
 #ifndef _DEFAULT_ARGS_H
 #define _DEFAULT_ARGS_H
 
-#include "glusterfs/xlator.h"
-
 int
 args_lookup_cbk_store(default_args_cbk_t *args, int32_t op_ret,
                       int32_t op_errno, inode_t *inode, struct iatt *buf,

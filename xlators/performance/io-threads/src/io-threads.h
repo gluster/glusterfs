@@ -12,17 +12,11 @@
 #define __IOT_H
 
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/list.h>
 #include <stdlib.h>
-#include <glusterfs/locking.h>
 #include "iot-mem-types.h"
 #include <semaphore.h>
-#include <glusterfs/statedump.h>
 
 #define IOT_DEFAULT_IDLE 120 /* In secs. */
 

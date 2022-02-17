@@ -11,7 +11,6 @@
 #ifndef _GLUSTERD_SHD_SVC_HELPER_H_
 #define _GLUSTERD_SHD_SVC_HELPER_H_
 
-#include "glusterd.h"
 #include "glusterd-svc-mgmt.h"
 
 void

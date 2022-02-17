@@ -11,6 +11,7 @@
 #define _POSIX_HANDLE_H
 
 #include "posix-inode-handle.h"
+#include "posix.h"
 
 #define HANDLE_ABSPATH_LEN(this)                                               \
     (POSIX_BASE_PATH_LEN(this) +                                               \

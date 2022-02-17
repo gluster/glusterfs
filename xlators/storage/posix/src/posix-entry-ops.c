@@ -14,7 +14,6 @@
 #define _GNU_SOURCE
 #endif
 
-#include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
 #include <sys/resource.h>
@@ -44,8 +43,6 @@
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/timer.h>
-#include "glusterfs4-xdr.h"
 #include "posix-aio.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-messages.h"
@@ -184,6 +181,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     struct stat lstatbuf = {
         0,
     };
+    gf_boolean_t cs_obj_status, cs_obj_repair;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -303,8 +301,13 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (xdata && (op_ret == 0)) {
         xattr = posix_xattr_fill(this, real_path, loc, NULL, -1, xdata, &buf);
 
-        posix_cs_maintenance(this, NULL, loc, NULL, &buf, real_path, xdata,
-                             &xattr, _gf_true);
+        cs_obj_status = dict_get_sizen(xdata, GF_CS_OBJECT_STATUS);
+        cs_obj_repair = dict_get_sizen(xdata, GF_CS_OBJECT_REPAIR);
+
+        if (cs_obj_status || cs_obj_repair)
+            posix_cs_maintenance(this, NULL, loc, NULL, &buf, real_path,
+                                 cs_obj_status, cs_obj_repair, &xattr,
+                                 _gf_true);
 
         if (dict_get_sizen(xdata, GF_CLEAN_WRITE_PROTECTION)) {
             ret = sys_lremovexattr(real_path, GF_PROTECT_FROM_EXTERNAL_WRITES);
@@ -313,9 +316,11 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                        "removexattr failed. key %s path %s",
                        GF_PROTECT_FROM_EXTERNAL_WRITES, loc->path);
         }
+
+        if (cs_obj_status)
+            posix_update_iatt_buf(&buf, -1, real_path);
     }
 
-    posix_update_iatt_buf(&buf, -1, real_path, xdata);
     if (priv->update_pgfid_nlinks) {
         if (!gf_uuid_is_null(loc->pargfid) && !IA_ISDIR(buf.ia_type)) {
             MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,

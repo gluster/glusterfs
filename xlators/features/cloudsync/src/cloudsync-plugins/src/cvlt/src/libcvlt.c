@@ -1,6 +1,4 @@
 #include <stdlib.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include "libcvlt.h"
 #include "cloudsync-common.h"
 #include "cvlt-messages.h"

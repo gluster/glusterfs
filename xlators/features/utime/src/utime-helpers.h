@@ -12,7 +12,6 @@
 #define _UTIME_HELPERS_H
 
 #include <glusterfs/stack.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/timespec.h>
 #include <time.h>
 

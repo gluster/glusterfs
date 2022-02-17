@@ -12,7 +12,6 @@
 #define _GF_CHANGELOG_HELPERS_H
 
 #include <unistd.h>
-#include <dirent.h>
 #include <limits.h>
 #include <glusterfs/locking.h>
 

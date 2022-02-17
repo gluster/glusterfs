@@ -12,14 +12,12 @@
 #define _COMMON_UTILS_H
 
 #include <stdint.h>
-#include <sys/uio.h>
-#include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <dirent.h>
 #include <unistd.h>
-#include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif
@@ -27,6 +25,8 @@
 #include <fnmatch.h>
 #include <uuid/uuid.h>
 #include <urcu/compiler.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG
@@ -1073,8 +1073,6 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
                        gf_boolean_t cidr);
 gf_boolean_t
 valid_mount_auth_address(char *address);
-gf_boolean_t
-valid_ipv4_subnetwork(const char *address);
 gf_boolean_t
 gf_sock_union_equal_addr(union gf_sock_union *a, union gf_sock_union *b);
 char *

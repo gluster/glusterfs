@@ -10,9 +10,6 @@
 #ifndef __GLUSTERFSD_H__
 #define __GLUSTERFSD_H__
 
-#include "rpcsvc.h"
-#include "glusterd1-xdr.h"
-
 #define DEFAULT_GLUSTERD_VOLFILE CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE CONFDIR "/glusterfsd.vol"

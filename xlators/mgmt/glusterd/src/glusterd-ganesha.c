@@ -8,14 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/common-utils.h>
-#include "glusterd.h"
-#include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-messages.h"
 #include <glusterfs/syscall.h>
+#include <glusterfs/run.h>
 
 #include <ctype.h>
 

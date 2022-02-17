@@ -12,7 +12,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "io-cache.h"
 #include "ioc-mem-types.h"
 #include <glusterfs/statedump.h>

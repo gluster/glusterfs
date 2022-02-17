@@ -11,7 +11,7 @@
 #ifndef __BIT_ROT_SSM_H__
 #define __BIT_ROT_SSM_H__
 
-#include <glusterfs/xlator.h>
+#include <glusterfs/defaults.h>
 
 typedef enum br_scrub_state {
     BR_SCRUB_STATE_INACTIVE = 0,

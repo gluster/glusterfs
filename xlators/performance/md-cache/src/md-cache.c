@@ -12,12 +12,10 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
 #include "md-cache-mem-types.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/glusterfs-acl.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/upcall-utils.h>
 #include <assert.h>
 #include <sys/time.h>

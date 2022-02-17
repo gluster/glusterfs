@@ -13,6 +13,7 @@
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
+#include <openssl/md5.h>
 
 #define HAS_HOLES(i) ((i->ia_blocks * 512) < (i->ia_size))
 static int

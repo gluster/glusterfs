@@ -11,34 +11,22 @@
 #define _GLUSTERD_H_
 
 #include <sys/types.h>
-#include <dirent.h>
 #include <pthread.h>
 #include <libgen.h>
 
 #include <glusterfs/compat-uuid.h>
 
-#include "rpc-clnt.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd-mem-types.h"
-#include "rpcsvc.h"
 #include "glusterd-sm.h"
 #include "glusterd-snapd-svc.h"
 #include "glusterd-shd-svc.h"
-#include "glusterd-bitd-svc.h"
 #include "glusterd1-xdr.h"
-#include "protocol-common.h"
 #include "glusterd-pmap.h"
 #include "cli1-xdr.h"
 #include <glusterfs/syncop.h>
-#include <glusterfs/store.h>
-#include "glusterd-rcu.h"
 #include <glusterfs/events.h>
 #include "glusterd-gfproxyd-svc.h"
-
-#include "gd-common-utils.h"
 
 /* Threading limits for glusterd event threads. */
 #define GLUSTERD_MIN_EVENT_THREADS 1

@@ -374,26 +374,20 @@ clnt_getactivelk_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp)
     }
 }
 int
-clnt_unserialize_rsp_locklist_v2(xlator_t *this,
-                                 struct gfx_getactivelk_rsp *rsp,
+clnt_unserialize_rsp_locklist_v2(struct gfx_getactivelk_rsp *rsp,
                                  lock_migration_info_t *lmi)
 {
     struct gfs3_locklist *trav = NULL;
     lock_migration_info_t *temp = NULL;
     int ret = -1;
-    clnt_conf_t *conf = NULL;
 
     trav = rsp->reply;
-
-    conf = this->private;
-    if (!conf)
-        goto out;
 
     while (trav) {
         /* TODO: move to GF_MALLOC() */
         temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
-            gf_smsg(this->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
             goto out;
         }
 

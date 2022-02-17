@@ -13,7 +13,6 @@
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
-#include <glusterfs/common-utils.h>
 #include "index-messages.h"
 #include <ftw.h>
 #include <libgen.h> /* for dirname() */

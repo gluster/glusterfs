@@ -12,8 +12,9 @@
 #include "glusterd-store.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-messages.h"
-#include <glusterfs/common-utils.h>
 #include "glusterd-utils.h"
+
+#include <netdb.h>
 
 void
 glusterd_peerinfo_destroy(struct rcu_head *head)

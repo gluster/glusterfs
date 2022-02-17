@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <glusterfs/compat-errno.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/rbthash.h>

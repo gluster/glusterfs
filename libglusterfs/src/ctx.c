@@ -11,7 +11,6 @@
 #include <pthread.h>
 
 #include "glusterfs/globals.h"
-#include "glusterfs/glusterfs.h"
 #include "timer-wheel.h"
 
 glusterfs_ctx_t *global_ctx = NULL;

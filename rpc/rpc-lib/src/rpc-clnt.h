@@ -11,7 +11,6 @@
 #ifndef __RPC_CLNT_H
 #define __RPC_CLNT_H
 
-#include <glusterfs/stack.h>
 #include "rpc-transport.h"
 #include <glusterfs/timer.h>
 #include "xdr-common.h"

@@ -7,14 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-/* rpc related syncops */
-#include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
-#include "glusterd1-xdr.h"
-#include "glusterd-syncop.h"
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
 #include "glusterd-mgmt.h"

@@ -10,7 +10,6 @@
 
 #include "client.h"
 #include "rpc-clnt.h"
-#include <glusterfs/defaults.h>
 #include "client-messages.h"
 
 static int

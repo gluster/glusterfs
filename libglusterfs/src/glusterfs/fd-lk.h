@@ -11,10 +11,8 @@
 #ifndef _FD_LK_H
 #define _FD_LK_H
 
-#include "glusterfs/fd.h"
 #include "glusterfs/locking.h"
 #include "glusterfs/list.h"
-#include "glusterfs/glusterfs.h"
 
 #define get_lk_type(type)                                                      \
     type == F_UNLCK ? "F_UNLCK" : (type == F_RDLCK ? "F_RDLCK" : "F_WRLCK")

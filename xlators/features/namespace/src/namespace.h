@@ -6,7 +6,6 @@
 #include "config.h"
 #endif
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
 
 #define GF_NAMESPACE "namespace"

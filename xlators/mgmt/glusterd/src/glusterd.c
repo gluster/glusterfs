@@ -16,12 +16,12 @@
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
 
+#include "rpc-common-xdr.h"
+
 #include "glusterd.h"
 #include "rpcsvc.h"
 #include "fnmatch.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/list.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/options.h>
@@ -49,7 +49,6 @@
 #include "glusterd-geo-rep.h"
 #include <glusterfs/run.h>
 #include "rpc-clnt-ping.h"
-#include "rpc-common-xdr.h"
 
 #include <glusterfs/syncop.h>
 

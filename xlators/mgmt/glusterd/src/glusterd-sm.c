@@ -16,17 +16,12 @@
 #include <glusterfs/compat-uuid.h>
 
 #include "fnmatch.h"
-#include <glusterfs/xlator.h>
-#include "protocol-common.h"
-#include "glusterd.h"
-#include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
+#include <glusterfs/compat.h>
 #include <glusterfs/list.h>
 #include "glusterd-messages.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/statedump.h>
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"

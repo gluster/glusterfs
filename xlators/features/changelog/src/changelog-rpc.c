@@ -12,6 +12,7 @@
 #include "changelog-rpc.h"
 #include "changelog-mem-types.h"
 #include "changelog-ev-handle.h"
+#include "socket.h"
 
 static struct rpcsvc_program *changelog_programs[];
 

@@ -9,16 +9,10 @@
 */
 
 #include "rpc-clnt.h"
-#include "glusterd1-xdr.h"
-#include "cli1-xdr.h"
-
-#include "xdr-generic.h"
 
 #include <glusterfs/compat-errno.h>
 #include "glusterd-op-sm.h"
 #include "glusterd-sm.h"
-#include "glusterd.h"
-#include "protocol-common.h"
 #include "glusterd-utils.h"
 #include <glusterfs/common-utils.h>
 #include "glusterd-messages.h"

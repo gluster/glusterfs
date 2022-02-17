@@ -14,12 +14,8 @@
 #include "rpcsvc.h"
 #include "rpc-clnt.h"
 #include <glusterfs/gf-event.h>
-#include <glusterfs/call-stub.h>
 
 #include "changelog-xdr.h"
-#include "xdr-generic.h"
-
-#include "changelog.h"
 
 /**
  * Let's keep this non-configurable for now.

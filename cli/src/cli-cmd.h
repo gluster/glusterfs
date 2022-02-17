@@ -10,8 +10,6 @@
 #ifndef __CLI_CMD_H__
 #define __CLI_CMD_H__
 
-#include <netdb.h>
-
 #include "cli.h"
 #include <glusterfs/list.h>
 

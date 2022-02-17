@@ -18,13 +18,11 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include <glusterfs/syncop.h>
 #include "glfs.h"
 #include "gfapi-messages.h"
 #include <glusterfs/compat-errno.h>
 #include <limits.h>
 #include "glusterfs3.h"
-#include <glusterfs/iatt.h>
 
 #ifdef NAME_MAX
 #define GF_NAME_MAX NAME_MAX

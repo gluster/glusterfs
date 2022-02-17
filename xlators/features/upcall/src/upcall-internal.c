@@ -14,18 +14,13 @@
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
-#include "glusterfs4-xdr.h"
-#include "protocol-common.h"
-#include <glusterfs/defaults.h>
 
 /*
  * Check if any of the upcall options are enabled:

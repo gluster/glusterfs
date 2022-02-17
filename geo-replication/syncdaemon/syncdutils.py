@@ -1113,3 +1113,18 @@ def get_up_nodes(hosts, port):
             up_nodes.append(h)
 
     return up_nodes
+
+
+def ssh_cipher_present(sshopts):
+    """
+    Returns True if user has defined a custom cipher to
+    use for the SSH connection under rysnc-ssh-options.
+    """
+    if not sshopts:
+        return False
+
+    for opt in sshopts:
+        if opt[:2] == "-c":
+            return True
+
+    return False

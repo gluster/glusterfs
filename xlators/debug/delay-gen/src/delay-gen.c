@@ -8,6 +8,7 @@
  *  cases as published by the Free Software Foundation.
  */
 
+#include <glusterfs/defaults.h>
 #include "delay-gen.h"
 
 #define DELAY_GRANULARITY (1 << 20)

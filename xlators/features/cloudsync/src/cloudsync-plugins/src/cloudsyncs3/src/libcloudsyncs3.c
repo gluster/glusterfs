@@ -15,8 +15,6 @@
 #include <openssl/buffer.h>
 #include <openssl/crypto.h>
 #include <curl/curl.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include "libcloudsyncs3.h"
 #include "cloudsync-common.h"
 

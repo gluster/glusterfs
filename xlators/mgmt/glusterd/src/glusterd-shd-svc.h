@@ -12,7 +12,6 @@
 #define _GLUSTERD_SHD_SVC_H_
 
 #include "glusterd-svc-mgmt.h"
-#include "glusterd.h"
 
 typedef struct glusterd_shdsvc_ glusterd_shdsvc_t;
 struct glusterd_shdsvc_ {

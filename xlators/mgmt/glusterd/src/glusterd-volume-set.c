@@ -9,6 +9,7 @@ cases as published by the Free Software Foundation.
 */
 
 #include <glusterfs/syscall.h>
+#include "glusterd.h"
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
 

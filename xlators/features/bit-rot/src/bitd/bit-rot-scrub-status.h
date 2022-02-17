@@ -15,8 +15,6 @@
 #include <sys/time.h>
 #include <pthread.h>
 
-#include <glusterfs/common-utils.h>
-
 struct br_scrub_stats {
     uint64_t scrubbed_files; /* Total number of scrubbed files. */
 

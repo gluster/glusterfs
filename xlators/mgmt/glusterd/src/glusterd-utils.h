@@ -10,18 +10,8 @@
 #ifndef _GLUSTERD_UTILS_H
 #define _GLUSTERD_UTILS_H
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
-#include "glusterd.h"
-#include "rpc-clnt.h"
-#include "protocol-common.h"
-
-#include "glusterfs4-xdr.h"
 #include "glusterd-peer-utils.h"
 
 #define GLUSTERD_SOCK_DIR "/var/run/gluster"
@@ -788,8 +778,10 @@ glusterd_are_all_volumes_stopped();
 gf_boolean_t
 glusterd_all_shd_compatible_volumes_stopped();
 
+#ifdef BUILD_GNFS
 void
 glusterd_nfs_pmap_deregister();
+#endif
 
 gf_boolean_t
 glusterd_is_volume_started(glusterd_volinfo_t *volinfo);

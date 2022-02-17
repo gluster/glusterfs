@@ -15,10 +15,8 @@
 #include "glfs-internal.h"
 #include "protocol-common.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include <string.h>
-#include <glusterfs/glusterfs.h>
 #include <libgen.h>
 
 #if (HAVE_LIB_XML)

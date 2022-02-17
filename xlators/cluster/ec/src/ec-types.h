@@ -11,7 +11,6 @@
 #ifndef __EC_TYPES_H__
 #define __EC_TYPES_H__
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/timer.h>
 #include "libxlator.h"
 #include <glusterfs/atomic.h>

@@ -21,7 +21,6 @@
 
 #include "rpc-transport.h"
 #include "socket.h"
-#include <glusterfs/common-utils.h>
 
 static void
 _assign_port(struct sockaddr *sockaddr, uint16_t port)

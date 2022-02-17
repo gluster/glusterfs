@@ -9,10 +9,6 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
-#include "glusterfs3.h"
 #include "client.h"
 
 int32_t
@@ -43,8 +39,8 @@ client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd)
 /* New PRE and POST functions */
 
 int
-client_post_common_iatt(xlator_t *this, gfx_common_iatt_rsp *rsp,
-                        struct iatt *iatt, dict_t **xdata)
+client_post_common_iatt(gfx_common_iatt_rsp *rsp, struct iatt *iatt,
+                        dict_t **xdata)
 {
     if (-1 != rsp->op_ret) {
         gfx_stat_to_iattx(&rsp->stat, iatt);
@@ -54,8 +50,8 @@ client_post_common_iatt(xlator_t *this, gfx_common_iatt_rsp *rsp,
 }
 
 int
-client_post_common_2iatt(xlator_t *this, gfx_common_2iatt_rsp *rsp,
-                         struct iatt *iatt, struct iatt *iatt2, dict_t **xdata)
+client_post_common_2iatt(gfx_common_2iatt_rsp *rsp, struct iatt *iatt,
+                         struct iatt *iatt2, dict_t **xdata)
 {
     if (-1 != rsp->op_ret) {
         gfx_stat_to_iattx(&rsp->prestat, iatt);
@@ -66,9 +62,8 @@ client_post_common_2iatt(xlator_t *this, gfx_common_2iatt_rsp *rsp,
 }
 
 int
-client_post_common_3iatt(xlator_t *this, gfx_common_3iatt_rsp *rsp,
-                         struct iatt *iatt, struct iatt *iatt2,
-                         struct iatt *iatt3, dict_t **xdata)
+client_post_common_3iatt(gfx_common_3iatt_rsp *rsp, struct iatt *iatt,
+                         struct iatt *iatt2, struct iatt *iatt3, dict_t **xdata)
 {
     if (-1 != rsp->op_ret) {
         gfx_stat_to_iattx(&rsp->stat, iatt);
@@ -80,13 +75,12 @@ client_post_common_3iatt(xlator_t *this, gfx_common_3iatt_rsp *rsp,
 }
 
 int
-client_post_common_dict(xlator_t *this, gfx_common_dict_rsp *rsp, dict_t **dict,
-                        dict_t **xdata)
+client_post_common_dict(gfx_common_dict_rsp *rsp, dict_t **dict, dict_t **xdata)
 {
     int ret = 0;
     ret = xdr_to_dict(&rsp->dict, dict);
     if (ret)
-        gf_msg_debug(this->name, EINVAL,
+        gf_msg_debug(THIS->name, EINVAL,
                      "while decoding found empty dictionary");
     xdr_to_dict(&rsp->xdata, xdata);
 
@@ -94,7 +88,7 @@ client_post_common_dict(xlator_t *this, gfx_common_dict_rsp *rsp, dict_t **dict,
 }
 
 int
-client_post_readv_v2(xlator_t *this, gfx_read_rsp *rsp, struct iobref **iobref,
+client_post_readv_v2(gfx_read_rsp *rsp, struct iobref **iobref,
                      struct iobref *rsp_iobref, struct iatt *stat,
                      struct iovec *vector, struct iovec *rsp_vector,
                      int *rspcount, dict_t **xdata)
@@ -120,7 +114,7 @@ client_post_readv_v2(xlator_t *this, gfx_read_rsp *rsp, struct iobref **iobref,
 }
 
 int
-client_pre_stat_v2(xlator_t *this, gfx_stat_req *req, loc_t *loc, dict_t *xdata)
+client_pre_stat_v2(gfx_stat_req *req, loc_t *loc, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -143,8 +137,8 @@ out:
 }
 
 int
-client_pre_readlink_v2(xlator_t *this, gfx_readlink_req *req, loc_t *loc,
-                       size_t size, dict_t *xdata)
+client_pre_readlink_v2(gfx_readlink_req *req, loc_t *loc, size_t size,
+                       dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -166,8 +160,8 @@ out:
 }
 
 int
-client_pre_mknod_v2(xlator_t *this, gfx_mknod_req *req, loc_t *loc, mode_t mode,
-                    dev_t rdev, mode_t umask, dict_t *xdata)
+client_pre_mknod_v2(gfx_mknod_req *req, loc_t *loc, mode_t mode, dev_t rdev,
+                    mode_t umask, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -194,8 +188,8 @@ out:
 }
 
 int
-client_pre_mkdir_v2(xlator_t *this, gfx_mkdir_req *req, loc_t *loc, mode_t mode,
-                    mode_t umask, dict_t *xdata)
+client_pre_mkdir_v2(gfx_mkdir_req *req, loc_t *loc, mode_t mode, mode_t umask,
+                    dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -222,8 +216,8 @@ out:
 }
 
 int
-client_pre_unlink_v2(xlator_t *this, gfx_unlink_req *req, loc_t *loc,
-                     int32_t flags, dict_t *xdata)
+client_pre_unlink_v2(gfx_unlink_req *req, loc_t *loc, int32_t flags,
+                     dict_t *xdata)
 {
     int op_errno = 0;
 
@@ -248,8 +242,8 @@ out:
 }
 
 int
-client_pre_rmdir_v2(xlator_t *this, gfx_rmdir_req *req, loc_t *loc,
-                    int32_t flags, dict_t *xdata)
+client_pre_rmdir_v2(gfx_rmdir_req *req, loc_t *loc, int32_t flags,
+                    dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -274,8 +268,8 @@ out:
 }
 
 int
-client_pre_symlink_v2(xlator_t *this, gfx_symlink_req *req, loc_t *loc,
-                      const char *linkname, mode_t umask, dict_t *xdata)
+client_pre_symlink_v2(gfx_symlink_req *req, loc_t *loc, const char *linkname,
+                      mode_t umask, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -300,8 +294,8 @@ out:
 }
 
 int
-client_pre_rename_v2(xlator_t *this, gfx_rename_req *req, loc_t *oldloc,
-                     loc_t *newloc, dict_t *xdata)
+client_pre_rename_v2(gfx_rename_req *req, loc_t *oldloc, loc_t *newloc,
+                     dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -333,8 +327,8 @@ out:
 }
 
 int
-client_pre_link_v2(xlator_t *this, gfx_link_req *req, loc_t *oldloc,
-                   loc_t *newloc, dict_t *xdata)
+client_pre_link_v2(gfx_link_req *req, loc_t *oldloc, loc_t *newloc,
+                   dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -365,8 +359,8 @@ out:
 }
 
 int
-client_pre_truncate_v2(xlator_t *this, gfx_truncate_req *req, loc_t *loc,
-                       off_t offset, dict_t *xdata)
+client_pre_truncate_v2(gfx_truncate_req *req, loc_t *loc, off_t offset,
+                       dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -389,8 +383,8 @@ out:
 }
 
 int
-client_pre_open_v2(xlator_t *this, gfx_open_req *req, loc_t *loc, fd_t *fd,
-                   int32_t flags, dict_t *xdata)
+client_pre_open_v2(gfx_open_req *req, loc_t *loc, fd_t *fd, int32_t flags,
+                   dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -502,8 +496,7 @@ out:
 }
 
 int
-client_pre_statfs_v2(xlator_t *this, gfx_statfs_req *req, loc_t *loc,
-                     dict_t *xdata)
+client_pre_statfs_v2(gfx_statfs_req *req, loc_t *loc, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -570,8 +563,8 @@ out:
 }
 
 int
-client_pre_setxattr_v2(xlator_t *this, gfx_setxattr_req *req, loc_t *loc,
-                       dict_t *xattr, int32_t flags, dict_t *xdata)
+client_pre_setxattr_v2(gfx_setxattr_req *req, loc_t *loc, dict_t *xattr,
+                       int32_t flags, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -599,8 +592,8 @@ out:
 }
 
 int
-client_pre_getxattr_v2(xlator_t *this, gfx_getxattr_req *req, loc_t *loc,
-                       const char *name, dict_t *xdata)
+client_pre_getxattr_v2(gfx_getxattr_req *req, loc_t *loc, const char *name,
+                       dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -632,7 +625,7 @@ out:
 }
 
 int
-client_pre_removexattr_v2(xlator_t *this, gfx_removexattr_req *req, loc_t *loc,
+client_pre_removexattr_v2(gfx_removexattr_req *req, loc_t *loc,
                           const char *name, dict_t *xdata)
 {
     int op_errno = ESTALE;
@@ -657,8 +650,7 @@ out:
 }
 
 int
-client_pre_opendir_v2(xlator_t *this, gfx_opendir_req *req, loc_t *loc,
-                      fd_t *fd, dict_t *xdata)
+client_pre_opendir_v2(gfx_opendir_req *req, loc_t *loc, fd_t *fd, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -702,8 +694,8 @@ out:
 }
 
 int
-client_pre_access_v2(xlator_t *this, gfx_access_req *req, loc_t *loc,
-                     int32_t mask, dict_t *xdata)
+client_pre_access_v2(gfx_access_req *req, loc_t *loc, int32_t mask,
+                     dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -726,8 +718,8 @@ out:
 }
 
 int
-client_pre_create_v2(xlator_t *this, gfx_create_req *req, loc_t *loc, fd_t *fd,
-                     mode_t mode, int32_t flags, mode_t umask, dict_t *xdata)
+client_pre_create_v2(gfx_create_req *req, loc_t *loc, fd_t *fd, mode_t mode,
+                     int32_t flags, mode_t umask, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -894,7 +886,7 @@ out:
 }
 
 int
-client_pre_inodelk_v2(xlator_t *this, gfx_inodelk_req *req, loc_t *loc, int cmd,
+client_pre_inodelk_v2(gfx_inodelk_req *req, loc_t *loc, int cmd,
                       struct gf_flock *flock, const char *volume, dict_t *xdata)
 {
     int op_errno = ESTALE;
@@ -918,7 +910,7 @@ client_pre_inodelk_v2(xlator_t *this, gfx_inodelk_req *req, loc_t *loc, int cmd,
     else if (cmd == F_SETLKW || cmd == F_SETLKW64)
         gf_cmd = GF_LK_SETLKW;
     else {
-        gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
+        gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
                 "gf_cmd=%d", gf_cmd, NULL);
         op_errno = EINVAL;
         goto out;
@@ -999,9 +991,9 @@ out:
 }
 
 int
-client_pre_entrylk_v2(xlator_t *this, gfx_entrylk_req *req, loc_t *loc,
-                      entrylk_cmd cmd_entrylk, entrylk_type type,
-                      const char *volume, const char *basename, dict_t *xdata)
+client_pre_entrylk_v2(gfx_entrylk_req *req, loc_t *loc, entrylk_cmd cmd_entrylk,
+                      entrylk_type type, const char *volume,
+                      const char *basename, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -1061,8 +1053,8 @@ out:
 }
 
 int
-client_pre_xattrop_v2(xlator_t *this, gfx_xattrop_req *req, loc_t *loc,
-                      dict_t *xattr, int32_t flags, dict_t *xdata)
+client_pre_xattrop_v2(gfx_xattrop_req *req, loc_t *loc, dict_t *xattr,
+                      int32_t flags, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -1183,8 +1175,8 @@ out:
 }
 
 int
-client_pre_setattr_v2(xlator_t *this, gfx_setattr_req *req, loc_t *loc,
-                      int32_t valid, struct iatt *stbuf, dict_t *xdata)
+client_pre_setattr_v2(gfx_setattr_req *req, loc_t *loc, int32_t valid,
+                      struct iatt *stbuf, dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -1342,7 +1334,7 @@ out:
 }
 
 int
-client_pre_ipc_v2(xlator_t *this, gfx_ipc_req *req, int32_t cmd, dict_t *xdata)
+client_pre_ipc_v2(gfx_ipc_req *req, int32_t cmd, dict_t *xdata)
 {
     req->op = cmd;
 
@@ -1373,8 +1365,8 @@ out:
 }
 
 int
-client_pre_lease_v2(xlator_t *this, gfx_lease_req *req, loc_t *loc,
-                    struct gf_lease *lease, dict_t *xdata)
+client_pre_lease_v2(gfx_lease_req *req, loc_t *loc, struct gf_lease *lease,
+                    dict_t *xdata)
 {
     int op_errno = 0;
 
@@ -1397,9 +1389,9 @@ out:
 }
 
 int
-client_pre_put_v2(xlator_t *this, gfx_put_req *req, loc_t *loc, mode_t mode,
-                  mode_t umask, int32_t flags, size_t size, off_t offset,
-                  dict_t *xattr, dict_t *xdata)
+client_pre_put_v2(gfx_put_req *req, loc_t *loc, mode_t mode, mode_t umask,
+                  int32_t flags, size_t size, off_t offset, dict_t *xattr,
+                  dict_t *xdata)
 {
     int op_errno = ESTALE;
 
@@ -1431,7 +1423,7 @@ out:
 }
 
 int
-client_post_create_v2(xlator_t *this, gfx_create_rsp *rsp, struct iatt *stbuf,
+client_post_create_v2(gfx_create_rsp *rsp, struct iatt *stbuf,
                       struct iatt *preparent, struct iatt *postparent,
                       clnt_local_t *local, dict_t **xdata)
 {
@@ -1446,8 +1438,7 @@ client_post_create_v2(xlator_t *this, gfx_create_rsp *rsp, struct iatt *stbuf,
 }
 
 int
-client_post_lease_v2(xlator_t *this, gfx_lease_rsp *rsp, struct gf_lease *lease,
-                     dict_t **xdata)
+client_post_lease_v2(gfx_lease_rsp *rsp, struct gf_lease *lease, dict_t **xdata)
 {
     if (rsp->op_ret >= 0) {
         gf_proto_lease_to_lease(&rsp->lease, lease);
@@ -1457,8 +1448,7 @@ client_post_lease_v2(xlator_t *this, gfx_lease_rsp *rsp, struct gf_lease *lease,
 }
 
 int
-client_post_lk_v2(xlator_t *this, gfx_lk_rsp *rsp, struct gf_flock *lock,
-                  dict_t **xdata)
+client_post_lk_v2(gfx_lk_rsp *rsp, struct gf_flock *lock, dict_t **xdata)
 {
     if (rsp->op_ret >= 0) {
         gf_proto_flock_to_flock(&rsp->flock, lock);
@@ -1487,7 +1477,7 @@ client_post_readdirp_v2(xlator_t *this, gfx_readdirp_rsp *rsp, fd_t *fd,
 }
 
 int
-client_post_rename_v2(xlator_t *this, gfx_rename_rsp *rsp, struct iatt *stbuf,
+client_post_rename_v2(gfx_rename_rsp *rsp, struct iatt *stbuf,
                       struct iatt *preoldparent, struct iatt *postoldparent,
                       struct iatt *prenewparent, struct iatt *postnewparent,
                       dict_t **xdata)

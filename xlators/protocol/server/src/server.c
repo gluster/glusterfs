@@ -11,12 +11,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "socket.h"
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs4-xdr.h"
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 #include "authenticate.h"
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syncop.h>

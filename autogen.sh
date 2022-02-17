@@ -39,6 +39,15 @@ else
   MISSING="$MISSING automake"
 fi
 
+# Check for pkg-config, if it is missing 
+# configure generates some weird error messages
+# that are not at all helpful.
+# See: https://tirania.org/blog/archive/2012/Oct-20.html
+env pkg-config --version > /dev/null 2>&1
+if [ $? -ne 0 ]; then
+  MISSING="$MISSING pkg-config"
+fi
+
 # Check for libtoolize or glibtoolize
 env libtoolize --version > /dev/null 2>&1
 if [ $? -eq 0 ]; then

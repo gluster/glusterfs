@@ -11,8 +11,6 @@
 #ifndef __EC_FOPS_H__
 #define __EC_FOPS_H__
 
-#include <glusterfs/xlator.h>
-
 #include "ec-types.h"
 #include "ec-common.h"
 

@@ -10,8 +10,6 @@
 
 #include <stdio.h>
 
-#include <glusterfs/glusterfs.h>
-
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
 #include "gfapi-messages.h"

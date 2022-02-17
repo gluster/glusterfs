@@ -11,9 +11,8 @@
 #ifndef __EVENTS_H__
 #define __EVENTS_H__
 
-#include "eventtypes.h"
-
 #ifdef USE_EVENTS
+#include "eventtypes.h"
 int
 _gf_event(eventtypes_t event, const char *fmt, ...)
     __attribute__((__format__(__printf__, 2, 3)));

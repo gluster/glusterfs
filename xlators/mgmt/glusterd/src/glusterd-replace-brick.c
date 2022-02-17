@@ -8,10 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 #include <glusterfs/glusterfs.h>
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"

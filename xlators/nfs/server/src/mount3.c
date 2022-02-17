@@ -8,13 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "mount3.h"
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include <glusterfs/iobuf.h>
 #include "nfs-common.h"
 #include "nfs3-fh.h"
 #include "nfs-fops.h"
@@ -24,7 +21,6 @@
 #include <glusterfs/iatt.h>
 #include "nfs-mem-types.h"
 #include "nfs.h"
-#include <glusterfs/common-utils.h>
 #include <glusterfs/store.h>
 #include "glfs-internal.h"
 #include "glfs.h"
@@ -32,6 +28,7 @@
 #include <glusterfs/hashfn.h>
 #include "nfs-messages.h"
 
+#include <netdb.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/uio.h>

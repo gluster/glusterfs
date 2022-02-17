@@ -13,10 +13,7 @@
 
 #include <sys/types.h>
 #include <signal.h>
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
 #include "nfs.h"
 #include <glusterfs/list.h>
 #include "xdr-nfs3.h"

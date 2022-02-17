@@ -16,7 +16,6 @@
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
-#include <glusterfs/common-utils.h>
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -1576,7 +1575,6 @@ unlock:
     return 0;
 
 selfheal:
-    FRAME_SU_DO(frame, dht_local_t);
     ret = dht_selfheal_directory(frame, dht_lookup_selfheal_cbk, &local->loc,
                                  layout);
 out:
@@ -9489,7 +9487,6 @@ dht_mkdir_hashed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (local->call_cnt == 0) {
         /*Unlock namespace lock once mkdir is done on all subvols*/
         dht_unlock_namespace(frame, &local->lock[0]);
-        FRAME_SU_DO(frame, dht_local_t);
         dht_selfheal_directory(frame, dht_mkdir_selfheal_cbk, &local->loc,
                                layout);
         return 0;

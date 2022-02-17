@@ -15,7 +15,6 @@
  * responses are gathered if it is not executed as part of synctask. So it
  * shouldn't be invoked in epoll worker thread */
 #include "glusterfs/cluster-syncop.h"
-#include "glusterfs/defaults.h"
 
 #define FOP_ONLIST(subvols, on, numsubvols, replies, output, frame, fop,       \
                    args...)                                                    \
