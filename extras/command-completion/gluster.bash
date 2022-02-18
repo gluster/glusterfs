@@ -85,7 +85,9 @@ GLUSTER_BARRIER_OPTIONS="
 GLUSTER_GEO_REPLICATION_SUBOPTIONS="
 "
 GLUSTER_GEO_REPLICATION_OPTIONS="
+        {status},
         {__VOLNAME [
+                {status},
                 {__SECONDARYURL [
                         {create [
                                 {push-pem
@@ -102,11 +104,9 @@ GLUSTER_GEO_REPLICATION_OPTIONS="
                         {stop {force} },
                         {delete {force} }
                             ]
-                },
-                {status}
+                }
                    ]
-        },
-        {status}
+        }
 "
 
 GLUSTER_VOLUME_OPTIONS="
@@ -219,13 +219,17 @@ GLUSTER_COMMAND_TREE="
         ]
 }"
 
+func_return=""
+
 __SIZE ()
 {
+        func_return="SIZE"
         return 0
 }
 
 __SECONDARYURL ()
 {
+        func_return="SECONDARYURL"
         return 0
 }
 
@@ -242,7 +246,7 @@ __HOSTNAME ()
                 return 0
 
         elif [ "$1" == "complete" ]; then
-                COMPREPLY=($(compgen -A hostname -- $cur_word))
+                func_return=`echo $(compgen -A hostname -- $cur_word)`
         fi
         return 0
 }
@@ -272,7 +276,7 @@ __VOLNAME ()
                 return 0
         fi
 
-        COMPREPLY=($(compgen -W "$list" -- $cur_word))
+        func_return=`echo $(compgen -W "$list" -- $cur_word)`
         return 0
 }
 
@@ -464,16 +468,18 @@ _gluster_handle_list ()
         local cur_word=$2
         local count=0
         local i=0
+        local res=""
 
         for i in `echo $list`; do
-                count=$((count + 1))
+                if [ "${i:0:1}" == "_" ]; then
+                        $i "complete" $cur_word
+                        res="$res $func_return"
+                else
+                        res="$res $i"
+                fi
         done
 
-        if [ $count -eq 1 ] && [ "${i:0:1}" == "_" ]; then
-                $i "complete" $cur_word
-        else
-                COMPREPLY=($(compgen -W "$list" -- $cur_word))
-        fi
+        COMPREPLY=($(compgen -W "$res" -- $cur_word))
         return
 }
 
