@@ -6335,7 +6335,7 @@ pub_glfs_xreaddirplus_get_stat(struct glfs_xreaddirp_stat *xstat)
 {
     GF_VALIDATE_OR_GOTO("glfs_xreaddirplus_get_stat", xstat, out);
 
-    if (!xstat->flags_handled & GFAPI_XREADDIRP_STAT)
+    if (!(xstat->flags_handled & GFAPI_XREADDIRP_STAT))
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_FLAGS_HANDLE,
                 "GFAPI_XREADDIRP_STAT"
                 "xstat=%p",

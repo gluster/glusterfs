@@ -443,7 +443,6 @@ dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
                      uint32_t *missing_p, uint32_t *down_p, uint32_t *misc_p,
                      uint32_t *no_space_p)
 {
-    uint32_t overlaps = 0;
     uint32_t missing = 0;
     uint32_t down = 0;
     uint32_t misc = 0;
@@ -507,7 +506,6 @@ dht_layout_anomalies(xlator_t *this, loc_t *loc, dht_layout_t *layout,
 
         if ((prev_stop + 1) > layout->list[i].start) {
             overlap_cnt++;
-            overlaps += ((prev_stop + 1) - layout->list[i].start);
         }
         prev_stop = layout->list[i].stop;
     }
