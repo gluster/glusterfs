@@ -412,11 +412,57 @@ glusterfs_graph_validate_options(glusterfs_graph_t *graph)
     return 0;
 }
 
+/* The function is reset xl_id after generating a graph.
+   In case of client graph(like shd,nfs) a single graph
+   is generated for all the volumes and because of this
+   huge memory consumption per inode for these graphs.
+   While a xlator calls inode_table_new it sets the ctxcount
+   based on the total xlator attached with a graph. In case
+   of these graphs (shd, nfs) xl_count is huge if high number
+   of volumes are active in the environment so in case if
+   100 volumes are exists per inode it will create memory
+   for 702 ctx (100 * 7 xlators per volume in nfs graph)
+   and if per ctx memory consumption is 32 bytes per inode
+   will consume  22464 Bytes that is huge. In case if lru
+   list is full the consumption will be huge so to reduce memory consumption
+   the function reset xl_id based on the volume. An inode
+   can not be associated more than one volume simultaneously
+   so generate xl_id on the basis of volume not on the basis
+   of whole graph.
+*/
+void
+gluster_volume_setxl_id(xlator_list_t *child, int *xl_id)
+{
+    xlator_t *xl = NULL;
+    if (child == NULL)
+        return;
+    xl = child->xlator;
+    xl->xl_id = (*xl_id)++;
+    gluster_volume_setxl_id(xl->children, xl_id);
+    gluster_volume_setxl_id(child->next, xl_id);
+}
+
 int
 glusterfs_graph_init(glusterfs_graph_t *graph)
 {
     xlator_t *trav = NULL;
     int ret = -1;
+    xlator_list_t *trav_list = NULL;
+    xlator_list_t *child = NULL;
+    xlator_t *top = NULL;
+    int start = 1;
+
+    top = graph->top;
+    trav_list = top->children;
+    top->xl_id = 1;
+    while (trav_list) {
+        child = trav_list->xlator->children;
+        start = 2;
+        /* Always set the xl_id to 2 for first xlator of every volume */
+        trav_list->xlator->xl_id = start++;
+        gluster_volume_setxl_id(child, &start);
+        trav_list = trav_list->next;
+    }
 
     trav = graph->first;
 

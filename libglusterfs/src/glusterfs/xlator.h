@@ -832,9 +832,6 @@ struct _xlator {
 
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
-
-    /* Use by gnfs to configure ctxcount */
-    uint32_t totvolcnt;
 };
 
 /* This would be the only structure which needs to be exported by

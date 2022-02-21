@@ -427,8 +427,8 @@ init(xlator_t *this)
     char *locking_scheme = NULL;
     char *data_self_heal_algorithm = NULL;
     int ctxcount = 0;
-    xlator_t *xl = 0;
     int totvol = 0;
+    xlator_t *top = NULL;
 
     if (!this->children) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_CHILD_MISCONFIGURED,
@@ -641,33 +641,23 @@ init(xlator_t *this)
         /* Traverse the children list to calculate total volumes
            are associated with a graph
         */
-        trav = this->children;
+        top = this->graph->top;
+        trav = top->children;
         while (trav) {
-            xl = trav->xlator;
-            if (!strcmp(xl->type, "cluster/replicate"))
-                totvol++;
+            totvol++;
             trav = trav->next;
         }
-        /* In case of more than 1 number of volumes exists the ctxcount
-           value should be same total xlators are associated with a one
-           volume, and to save the xlator specific data need to set totvolcnt
-           for every xlator. The value totvolcnt is use by inode code path
-           while a xlator try to save the data on inode.
+        /* The ctxcount value should be equal to total xlators are associated
+           with a one volume.
         */
 
-        if (totvol > 1) {
-            trav = this->children;
-            xl = trav->xlator;
-            ctxcount = (xl->graph->xl_count / totvol) + 2;
-            this->totvolcnt = totvol;
-            while (xl) {
-                xl->totvolcnt = totvol;
-                xl = xl->next;
-            }
+        if (totvol) {
+            ctxcount = (this->graph->xl_count / totvol) + 2;
         }
 
-        gf_log(this->name, GF_LOG_INFO, "Configure ctxcount per inode is %d",
-               ctxcount);
+        gf_log(this->name, GF_LOG_INFO,
+               "Configure ctxcount per inode is %d totvol is %d top is %p",
+               ctxcount, totvol, top);
         this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 131, 128,
                                        ctxcount);
     } else {

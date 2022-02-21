@@ -580,10 +580,10 @@ nfs_init_subvolumes(struct nfs_state *nfs, xlator_t *this)
     unsigned int lrusize = 0;
     int svcount = 0;
     xlator_list_t *tmp = NULL;
-    xlator_t *xl = NULL;
-    int totvol = 0;
     int ctxcount = 0;
+    int totvol = 0;
     xlator_list_t *cl = this->children;
+    xlator_t *top = NULL;
 
     if ((!nfs) || (!cl))
         return -1;
@@ -595,32 +595,21 @@ nfs_init_subvolumes(struct nfs_state *nfs, xlator_t *this)
     /* Traverse the children list to calculate total volumes
        are associated with a graph
     */
-    tmp = cl;
+    top = this->graph->top;
+    tmp = top->children;
     while (tmp) {
-        xl = tmp->xlator;
-        if (!strcmp(xl->type, "debug/io-stats"))
-            totvol++;
+        totvol++;
         tmp = tmp->next;
     }
 
-    /* In case of more than 1 number of volumes exists the ctxcount
-       value should be same total xlators are associated with a one
-       volume, and to save the xlator specific data need to set totvolcnt
-       for every xlator. The value totvolcnt is use by inode code path
-       while a xlator try to save the data on inode.
+    /* The ctxcount value should be equal to the total xlators are associated
+       with a one volume
     */
-    if (totvol > 1) {
-        tmp = this->children;
-        xl = tmp->xlator;
-        ctxcount = (xl->graph->xl_count / totvol) + 2;
-        this->totvolcnt = totvol;
-
-        gf_log(GF_NFS, GF_LOG_INFO, "Configure ctxcount per inode is %d ",
-               ctxcount);
-        while (xl) {
-            xl->totvolcnt = totvol;
-            xl = xl->next;
-        }
+    if (totvol) {
+        ctxcount = (this->graph->xl_count / totvol) + 2;
+        gf_log(GF_NFS, GF_LOG_INFO,
+               "Configure ctxcount per inode is %d totvol is %d", ctxcount,
+               totvol);
     }
 
     while (cl) {

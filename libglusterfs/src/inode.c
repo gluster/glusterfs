@@ -451,12 +451,7 @@ __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
     int set_idx = -1;
 
-    if (xlator->totvolcnt) {
-        set_idx = (xlator->xl_id % xlator->totvolcnt);
-    } else {
-        set_idx = xlator->xl_id;
-    }
-
+    set_idx = (xlator->xl_id % inode->table->ctxcount);
     if ((inode->_ctx[set_idx].xl_key != NULL) &&
         (inode->_ctx[set_idx].xl_key != xlator)) {
         set_idx = -1;
@@ -2201,11 +2196,7 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    if (xlator->totvolcnt)
-        index = (xlator->xl_id % xlator->totvolcnt);
-    else
-        index = xlator->xl_id;
-
+    index = (xlator->xl_id % inode->table->ctxcount);
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
 
@@ -2318,11 +2309,7 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        if (xlator->totvolcnt)
-            index = (xlator->xl_id % xlator->totvolcnt);
-        else
-            index = xlator->xl_id;
-
+        index = (xlator->xl_id % inode->table->ctxcount);
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
@@ -2363,11 +2350,7 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        if (xlator->totvolcnt)
-            index = (xlator->xl_id % xlator->totvolcnt);
-        else
-            index = xlator->xl_id;
-
+        index = (xlator->xl_id % inode->table->ctxcount);
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
