@@ -144,7 +144,8 @@ out:
 
 int
 clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
-                    int *blkd, int *granted, int *op_errno)
+                    int *blkd, int *granted, int *op_errno, char *client_uid,
+                    pid_t client_pid)
 {
     posix_lock_t *plock = NULL;
     posix_lock_t *tmp = NULL;
@@ -174,6 +175,11 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                               plock->user_flock.l_start != ulock.l_start ||
                               plock->user_flock.l_len != ulock.l_len))
                 continue;
+
+            if (strcmp(plock->client_uid, client_uid) != 0 ||
+                plock->client_pid != client_pid) {
+                continue;
+            }
 
             list_del_init(&plock->list);
             if (plock->blocked) {
