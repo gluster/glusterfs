@@ -1157,6 +1157,7 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
 {
     posix_lock_t *tmp = NULL;
     posix_lock_t *l = NULL;
+    pl_local_t *local;
 
     struct list_head blocked_list;
 
@@ -1181,7 +1182,9 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
     list_for_each_entry_safe(l, tmp, &blocked_list, list)
     {
         list_del_init(&l->list);
-        STACK_UNWIND_STRICT(lk, l->frame, -1, EAGAIN, &l->user_flock, NULL);
+        local = l->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, l->frame, -1, EAGAIN,
+                                 &l->user_flock, NULL);
         __destroy_lock(l);
     }
 
@@ -2725,7 +2728,8 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 if (pl_inode->migrated) {
                     op_errno = EREMOTE;
                     pthread_mutex_unlock(&pl_inode->mutex);
-                    STACK_UNWIND_STRICT(lk, frame, -1, op_errno, flock, xdata);
+                    PL_STACK_UNWIND(lk, xdata, frame, -1, op_errno, flock,
+                                    xdata);
 
                     __destroy_lock(reqlock);
                     goto out;
@@ -2794,6 +2798,7 @@ int
 pl_forget(xlator_t *this, inode_t *inode)
 {
     pl_inode_t *pl_inode = NULL;
+    pl_local_t *local;
 
     posix_lock_t *ext_tmp = NULL;
     posix_lock_t *ext_l = NULL;
@@ -2894,8 +2899,9 @@ pl_forget(xlator_t *this, inode_t *inode)
     if (!list_empty(&posixlks_released)) {
         list_for_each_entry_safe(ext_l, ext_tmp, &posixlks_released, list)
         {
-            STACK_UNWIND_STRICT(lk, ext_l->frame, -1, 0, &ext_l->user_flock,
-                                NULL);
+            local = ext_l->frame->local;
+            PL_STACK_UNWIND_AND_FREE(local, lk, ext_l->frame, -1, 0,
+                                     &ext_l->user_flock, NULL);
             __destroy_lock(ext_l);
         }
     }
@@ -3358,6 +3364,7 @@ int
 pl_metaunlock(call_frame_t *frame, xlator_t *this, inode_t *inode, dict_t *dict)
 {
     pl_inode_t *pl_inode = NULL;
+    pl_local_t *local;
     int ret = 0;
     pl_meta_lock_t *meta_lock = NULL;
     pl_meta_lock_t *tmp_metalk = NULL;
@@ -3443,8 +3450,9 @@ out:
     {
         list_del_init(&posix_lock->list);
 
-        STACK_UNWIND_STRICT(lk, posix_lock->frame, -1, EREMOTE,
-                            &posix_lock->user_flock, NULL);
+        local = posix_lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, posix_lock->frame, -1, EREMOTE,
+                                 &posix_lock->user_flock, NULL);
 
         __destroy_lock(posix_lock);
     }
@@ -3906,6 +3914,7 @@ pl_metalk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
     pl_inode_t *pl_inode = NULL;
     posix_lock_t *posix_lock = NULL;
     posix_lock_t *tmp_posixlk = NULL;
+    pl_local_t *local;
     struct list_head tmp_posixlk_list;
 
     INIT_LIST_HEAD(&tmp_posixlk_list);
@@ -3955,8 +3964,9 @@ unlock:
     {
         list_del_init(&posix_lock->list);
 
-        STACK_UNWIND_STRICT(lk, posix_lock->frame, -1, EREMOTE,
-                            &posix_lock->user_flock, NULL);
+        local = posix_lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, posix_lock->frame, -1, EREMOTE,
+                                 &posix_lock->user_flock, NULL);
 
         __destroy_lock(posix_lock);
     }

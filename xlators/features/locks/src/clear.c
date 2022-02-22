@@ -151,6 +151,7 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
 {
     posix_lock_t *plock = NULL;
     posix_lock_t *tmp = NULL;
+    pl_local_t *local;
     struct gf_flock ulock = {
         0,
     };
@@ -183,8 +184,9 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                 pl_trace_out(this, plock->frame, NULL, NULL, F_SETLKW,
                              &plock->user_flock, -1, EINTR, NULL);
 
-                STACK_UNWIND_STRICT(lk, plock->frame, -1, EINTR,
-                                    &plock->user_flock, NULL);
+                local = plock->frame->local;
+                PL_STACK_UNWIND_AND_FREE(local, lk, plock->frame, -1, EINTR,
+                                         &plock->user_flock, NULL);
 
             } else {
                 gcount++;
