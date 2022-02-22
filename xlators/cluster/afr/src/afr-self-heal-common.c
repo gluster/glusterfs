@@ -1360,7 +1360,9 @@ afr_mark_source_sinks_if_file_empty(xlator_t *this, unsigned char *sources,
             return -1;
     }
     for (i = 1; i < priv->child_count; i++) {
-        if (!afr_xattrs_are_equal(replies[0].xdata, replies[i].xdata))
+        if (!afr_xattrs_are_equal(
+                replies[0].xdata, replies[i].xdata,
+                AFR_IS_ARBITER_BRICK(priv, i) ? _gf_true : _gf_false))
             return -1;
     }
 
