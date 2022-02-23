@@ -138,7 +138,7 @@ remove_trash_path(const char *path, gf_boolean_t internal, char **rem_path)
         *rem_path = strchr(*rem_path + 1, '/');
 }
 int
-check_pathbuf(xlator_t *this,char *pathbuf)
+check_pathbuf(xlator_t *this, char *pathbuf)
 {
     if (!pathbuf) {
         gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
