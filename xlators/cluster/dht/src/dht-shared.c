@@ -643,7 +643,6 @@ dht_init(xlator_t *this)
     }
 
     LOCK_INIT(&conf->subvolume_lock);
-    LOCK_INIT(&conf->layout_lock);
     LOCK_INIT(&conf->lock);
     synclock_init(&conf->link_lock, SYNC_LOCK_DEFAULT);
 

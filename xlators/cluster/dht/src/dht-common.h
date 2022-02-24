@@ -533,7 +533,6 @@ struct dht_conf {
     int32_t refresh_interval;
     gf_lock_t subvolume_lock;
     time_t last_stat_fetch;
-    gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over
                       dht */
