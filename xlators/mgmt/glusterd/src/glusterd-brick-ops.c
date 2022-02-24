@@ -1269,6 +1269,28 @@ out:
     return ret;
 }
 
+static int
+op_version_check(xlator_t *this, int min_op_version, char *msg, int msglen)
+{
+    int ret = 0;
+    glusterd_conf_t *priv = NULL;
+
+    GF_ASSERT(msg);
+
+    priv = this->private;
+    if (priv->op_version < min_op_version) {
+        snprintf(msg, msglen,
+                 "One or more nodes do not support "
+                 "the required op-version. Cluster op-version must "
+                 "at least be %d.",
+                 min_op_version);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNSUPPORTED_VERSION, "%s",
+               msg);
+        ret = -1;
+    }
+    return ret;
+}
+
 int
 glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {

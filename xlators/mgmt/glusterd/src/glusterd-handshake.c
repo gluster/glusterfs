@@ -1238,6 +1238,32 @@ out:
     return ret;
 }
 
+static gf_boolean_t
+glusterd_have_volumes()
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+    gf_boolean_t volumes_exist = _gf_false;
+
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
+
+    volumes_exist = !cds_list_empty(&priv->volumes);
+out:
+    return volumes_exist;
+}
+
+static gf_boolean_t
+glusterd_have_peers()
+{
+    glusterd_conf_t *conf = NULL;
+
+    conf = THIS->private;
+    GF_ASSERT(conf);
+
+    return !cds_list_empty(&conf->peers);
+}
+
 /* Validate if glusterd can serve the management handshake request
  *
  * Requests are allowed if,

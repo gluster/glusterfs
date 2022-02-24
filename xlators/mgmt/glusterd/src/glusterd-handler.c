@@ -2280,6 +2280,91 @@ glusterd_fsm_log_send_resp(rpcsvc_request_t *req, int op_ret, char *op_errstr,
     return 0;
 }
 
+static int
+glusterd_sm_tr_log_transition_add_to_dict(dict_t *dict,
+                                          glusterd_sm_tr_log_t *log, int i,
+                                          int count)
+{
+    int ret = -1;
+    char key[64] = "";
+    int keylen;
+    char timestr[GF_TIMESTR_SIZE] = "";
+    char *str = NULL;
+
+    GF_ASSERT(dict);
+    GF_ASSERT(log);
+
+    keylen = snprintf(key, sizeof(key), "log%d-old-state", count);
+    str = log->state_name_get(log->transitions[i].old_state);
+    ret = dict_set_strn(dict, key, keylen, str);
+    if (ret)
+        goto out;
+
+    keylen = snprintf(key, sizeof(key), "log%d-event", count);
+    str = log->event_name_get(log->transitions[i].event);
+    ret = dict_set_strn(dict, key, keylen, str);
+    if (ret)
+        goto out;
+
+    keylen = snprintf(key, sizeof(key), "log%d-new-state", count);
+    str = log->state_name_get(log->transitions[i].new_state);
+    ret = dict_set_strn(dict, key, keylen, str);
+    if (ret)
+        goto out;
+
+    snprintf(key, sizeof(key), "log%d-time", count);
+    gf_time_fmt_FT(timestr, sizeof timestr, log->transitions[i].time);
+    ret = dict_set_dynstr_with_alloc(dict, key, timestr);
+    if (ret)
+        goto out;
+
+out:
+    if (key[0] != '\0' && ret != 0)
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+    gf_msg_debug("glusterd", 0, "returning %d", ret);
+    return ret;
+}
+
+static int
+glusterd_sm_tr_log_add_to_dict(dict_t *dict, glusterd_sm_tr_log_t *circular_log)
+{
+    int ret = -1;
+    int i = 0;
+    int start = 0;
+    int end = 0;
+    int index = 0;
+    char key[16] = {0};
+    glusterd_sm_tr_log_t *log = NULL;
+    int count = 0;
+
+    GF_ASSERT(dict);
+    GF_ASSERT(circular_log);
+
+    log = circular_log;
+    if (!log->count)
+        return 0;
+
+    if (log->count == log->size)
+        start = log->current + 1;
+
+    end = start + log->count;
+    for (i = start; i < end; i++, count++) {
+        index = i % log->count;
+        ret = glusterd_sm_tr_log_transition_add_to_dict(dict, log, index,
+                                                        count);
+        if (ret)
+            goto out;
+    }
+
+    ret = snprintf(key, sizeof(key), "count");
+    ret = dict_set_int32n(dict, key, ret, log->count);
+
+out:
+    gf_msg_debug("glusterd", 0, "returning %d", ret);
+    return ret;
+}
+
 int
 __glusterd_handle_fsm_log(rpcsvc_request_t *req)
 {
@@ -5504,6 +5589,177 @@ out:
     if (args.errstr)
         GF_FREE(args.errstr);
 
+    return ret;
+}
+
+static int
+glusterd_volume_get_type_str(glusterd_volinfo_t *volinfo, char **voltype_str)
+{
+    int ret = -1;
+    int type = 0;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
+
+    type = get_vol_type(volinfo->type, volinfo->dist_leaf_count,
+                        volinfo->brick_count);
+
+    *voltype_str = vol_type_str[type];
+
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
+glusterd_volume_get_status_str(glusterd_volinfo_t *volinfo, char *status_str)
+{
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, status_str, out);
+
+    switch (volinfo->status) {
+        case GLUSTERD_STATUS_NONE:
+            sprintf(status_str, "%s", "Created");
+            break;
+        case GLUSTERD_STATUS_STARTED:
+            sprintf(status_str, "%s", "Started");
+            break;
+        case GLUSTERD_STATUS_STOPPED:
+            sprintf(status_str, "%s", "Stopped");
+            break;
+        default:
+            goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
+static void
+glusterd_brick_get_status_str(glusterd_brickinfo_t *brickinfo, char *status_str)
+{
+    GF_VALIDATE_OR_GOTO(THIS->name, brickinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, status_str, out);
+
+    switch (brickinfo->status) {
+        case GF_BRICK_STOPPED:
+            sprintf(status_str, "%s", "Stopped");
+            break;
+        case GF_BRICK_STARTED:
+            sprintf(status_str, "%s", "Started");
+            break;
+        case GF_BRICK_STARTING:
+            sprintf(status_str, "%s", "Starting");
+            break;
+        case GF_BRICK_STOPPING:
+            sprintf(status_str, "%s", "Stopping");
+            break;
+        default:
+            sprintf(status_str, "%s", "None");
+            break;
+    }
+
+out:
+    return;
+}
+
+static int
+glusterd_volume_get_transport_type_str(glusterd_volinfo_t *volinfo,
+                                       char *transport_type_str)
+{
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, transport_type_str, out);
+
+    switch (volinfo->transport_type) {
+        case GF_TRANSPORT_TCP:
+            sprintf(transport_type_str, "%s", "tcp");
+            break;
+        case GF_TRANSPORT_RDMA:
+            sprintf(transport_type_str, "%s", "rdma");
+            break;
+        case GF_TRANSPORT_BOTH_TCP_RDMA:
+            sprintf(transport_type_str, "%s", "tcp_rdma_both");
+            break;
+        default:
+            goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
+glusterd_volume_get_quorum_status_str(glusterd_volinfo_t *volinfo,
+                                      char *quorum_status_str)
+{
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, quorum_status_str, out);
+
+    switch (volinfo->quorum_status) {
+        case NOT_APPLICABLE_QUORUM:
+            sprintf(quorum_status_str, "%s", "not_applicable");
+            break;
+        case MEETS_QUORUM:
+            sprintf(quorum_status_str, "%s", "meets");
+            break;
+        case DOESNT_MEET_QUORUM:
+            sprintf(quorum_status_str, "%s", "does_not_meet");
+            break;
+        default:
+            goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
+glusterd_volume_get_rebalance_status_str(glusterd_volinfo_t *volinfo,
+                                         char *rebal_status_str)
+{
+    int ret = -1;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, rebal_status_str, out);
+
+    switch (volinfo->rebal.defrag_status) {
+        case GF_DEFRAG_STATUS_NOT_STARTED:
+            sprintf(rebal_status_str, "%s", "not_started");
+            break;
+        case GF_DEFRAG_STATUS_STARTED:
+            sprintf(rebal_status_str, "%s", "started");
+            break;
+        case GF_DEFRAG_STATUS_STOPPED:
+            sprintf(rebal_status_str, "%s", "stopped");
+            break;
+        case GF_DEFRAG_STATUS_COMPLETE:
+            sprintf(rebal_status_str, "%s", "completed");
+            break;
+        case GF_DEFRAG_STATUS_FAILED:
+            sprintf(rebal_status_str, "%s", "failed");
+            break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED:
+            sprintf(rebal_status_str, "%s", "layout_fix_started");
+            break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_STOPPED:
+            sprintf(rebal_status_str, "%s", "layout_fix_stopped");
+            break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE:
+            sprintf(rebal_status_str, "%s", "layout_fix_complete");
+            break;
+        case GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED:
+            sprintf(rebal_status_str, "%s", "layout_fix_failed");
+            break;
+        default:
+            goto out;
+    }
+    ret = 0;
+out:
     return ret;
 }
 

@@ -1408,6 +1408,38 @@ glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
     }
 }
 
+static int32_t
+glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
+                                  gf_boolean_t upgrade, gf_boolean_t downgrade)
+{
+    int ret = 0;
+    gf_boolean_t regenerate_volfiles = _gf_false;
+    gf_boolean_t terminate = _gf_false;
+
+    if (_gf_true == upgrade)
+        regenerate_volfiles = _gf_true;
+
+    if (upgrade && downgrade) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING,
+               "Both upgrade and downgrade"
+               " options are set. Only one should be on");
+        ret = -1;
+        goto out;
+    }
+
+    if (!upgrade && !downgrade)
+        ret = 0;
+    else
+        terminate = _gf_true;
+    if (regenerate_volfiles) {
+        ret = glusterd_recreate_volfiles(conf);
+    }
+out:
+    if (terminate && (ret == 0))
+        kill(getpid(), SIGTERM);
+    return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *

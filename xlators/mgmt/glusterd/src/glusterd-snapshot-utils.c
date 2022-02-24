@@ -181,6 +181,57 @@ out:
     return ret;
 }
 
+/* This function will duplicate brickinfo
+ *
+ * @param brickinfo     Source brickinfo
+ * @param dup_brickinfo Destination brickinfo
+ *
+ * @return 0 on success else -1
+ */
+static int32_t
+glusterd_brickinfo_dup(glusterd_brickinfo_t *brickinfo,
+                       glusterd_brickinfo_t *dup_brickinfo)
+{
+    int32_t ret = -1;
+    xlator_t *this = THIS;
+
+    GF_VALIDATE_OR_GOTO(this->name, brickinfo, out);
+    GF_VALIDATE_OR_GOTO(this->name, dup_brickinfo, out);
+
+    strcpy(dup_brickinfo->hostname, brickinfo->hostname);
+    strcpy(dup_brickinfo->path, brickinfo->path);
+    strcpy(dup_brickinfo->origin_path, brickinfo->origin_path);
+    strcpy(dup_brickinfo->real_path, brickinfo->real_path);
+    strcpy(dup_brickinfo->device_path, brickinfo->device_path);
+    strcpy(dup_brickinfo->fstype, brickinfo->fstype);
+    strcpy(dup_brickinfo->mnt_opts, brickinfo->mnt_opts);
+    ret = gf_canonicalize_path(dup_brickinfo->path);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CANONICALIZE_FAIL,
+               "Failed to canonicalize "
+               "brick path");
+        goto out;
+    }
+    gf_uuid_copy(dup_brickinfo->uuid, brickinfo->uuid);
+
+    dup_brickinfo->port = brickinfo->port;
+    dup_brickinfo->rdma_port = brickinfo->rdma_port;
+    if (NULL != brickinfo->logfile) {
+        dup_brickinfo->logfile = gf_strdup(brickinfo->logfile);
+        if (NULL == dup_brickinfo->logfile) {
+            ret = -1;
+            goto out;
+        }
+    }
+    strcpy(dup_brickinfo->brick_id, brickinfo->brick_id);
+    strcpy(dup_brickinfo->mount_dir, brickinfo->mount_dir);
+    dup_brickinfo->status = brickinfo->status;
+    dup_brickinfo->snap_status = brickinfo->snap_status;
+    dup_brickinfo->snap = brickinfo->snap;
+out:
+    return ret;
+}
+
 /* This function will copy snap volinfo to the new
  * passed volinfo and regenerate backend store files
  * for the restored snap.

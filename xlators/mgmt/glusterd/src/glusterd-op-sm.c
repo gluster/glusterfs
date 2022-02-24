@@ -780,6 +780,36 @@ glusterd_validate_brick_mx_options(xlator_t *this, char *fullkey, char *value,
     return ret;
 }
 
+static int32_t
+glusterd_count_connected_peers(int32_t *count)
+{
+    glusterd_peerinfo_t *peerinfo = NULL;
+    glusterd_conf_t *conf = NULL;
+    int32_t ret = -1;
+    xlator_t *this = THIS;
+
+    conf = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+    GF_VALIDATE_OR_GOTO(this->name, count, out);
+
+    *count = 1;
+
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
+    {
+        /* Find peer who is connected and is a friend */
+        if ((peerinfo->connected) &&
+            (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)) {
+            (*count)++;
+        }
+    }
+    RCU_READ_UNLOCK;
+
+    ret = 0;
+out:
+    return ret;
+}
+
 static int
 glusterd_validate_shared_storage(char *value, char *errstr)
 {
@@ -3495,6 +3525,249 @@ glusterd_aggregate_task_status(dict_t *rsp_dict, glusterd_volinfo_t *volinfo)
         goto out;
     }
 out:
+    return ret;
+}
+
+static int
+glusterd_add_node_to_dict(char *server, dict_t *dict, int count,
+                          dict_t *vol_opts)
+{
+    int ret = -1;
+    char pidfile[PATH_MAX] = "";
+    gf_boolean_t running = _gf_false;
+    int pid = -1;
+    int port = 0;
+    glusterd_svc_t *svc = NULL;
+    char key[64] = "";
+    int keylen;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    if (!strcmp(server, "")) {
+        ret = 0;
+        goto out;
+    }
+
+    glusterd_svc_build_pidfile_path(server, priv->rundir, pidfile,
+                                    sizeof(pidfile));
+
+    if (strcmp(server, priv->quotad_svc.name) == 0)
+        svc = &(priv->quotad_svc);
+#ifdef BUILD_GNFS
+    else if (strcmp(server, priv->nfs_svc.name) == 0)
+        svc = &(priv->nfs_svc);
+#endif
+    else if (strcmp(server, priv->bitd_svc.name) == 0)
+        svc = &(priv->bitd_svc);
+    else if (strcmp(server, priv->scrub_svc.name) == 0)
+        svc = &(priv->scrub_svc);
+    else {
+        ret = 0;
+        goto out;
+    }
+
+    // Consider service to be running only when glusterd sees it Online
+    if (svc->online)
+        running = gf_is_service_running(pidfile, &pid);
+
+    /* For nfs-servers/self-heal-daemon setting
+     * brick<n>.hostname = "NFS Server" / "Self-heal Daemon"
+     * brick<n>.path = uuid
+     * brick<n>.port = 0
+     *
+     * This might be confusing, but cli displays the name of
+     * the brick as hostname+path, so this will make more sense
+     * when output.
+     */
+
+    keylen = snprintf(key, sizeof(key), "brick%d.hostname", count);
+    if (!strcmp(server, priv->quotad_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "Quota Daemon",
+                             SLEN("Quota Daemon"));
+#ifdef BUILD_GNFS
+    else if (!strcmp(server, priv->nfs_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "NFS Server",
+                             SLEN("NFS Server"));
+#endif
+    else if (!strcmp(server, priv->bitd_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "Bitrot Daemon",
+                             SLEN("Bitrot Daemon"));
+    else if (!strcmp(server, priv->scrub_svc.name))
+        ret = dict_set_nstrn(dict, key, keylen, "Scrubber Daemon",
+                             SLEN("Scrubber Daemon"));
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "brick%d.path", count);
+    ret = dict_set_dynstrn(dict, key, keylen, gf_strdup(uuid_utoa(MY_UUID)));
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+#ifdef BUILD_GNFS
+    /* Port is available only for the NFS server.
+     * Self-heal daemon doesn't provide any port for access
+     * by entities other than gluster.
+     */
+    if (!strcmp(server, priv->nfs_svc.name)) {
+        if (dict_getn(vol_opts, "nfs.port", SLEN("nfs.port"))) {
+            ret = dict_get_int32n(vol_opts, "nfs.port", SLEN("nfs.port"),
+                                  &port);
+            if (ret) {
+                gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                        "Key=nfs.port", NULL);
+                goto out;
+            }
+        } else
+            port = GF_NFS3_PORT;
+    }
+#endif
+    keylen = snprintf(key, sizeof(key), "brick%d.port", count);
+    ret = dict_set_int32n(dict, key, keylen, port);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "brick%d.pid", count);
+    ret = dict_set_int32n(dict, key, keylen, pid);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "brick%d.status", count);
+    ret = dict_set_int32n(dict, key, keylen, running);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                "Key=%s", key, NULL);
+        goto out;
+    }
+
+out:
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
+    return ret;
+}
+
+static int32_t
+glusterd_get_all_volnames(dict_t *dict)
+{
+    int ret = -1;
+    int32_t vol_count = 0;
+    char key[64] = "";
+    int keylen;
+    glusterd_volinfo_t *entry = NULL;
+    glusterd_conf_t *priv = NULL;
+
+    priv = THIS->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(entry, &priv->volumes, vol_list)
+    {
+        keylen = snprintf(key, sizeof(key), "vol%d", vol_count);
+        ret = dict_set_strn(dict, key, keylen, entry->volname);
+        if (ret)
+            goto out;
+
+        vol_count++;
+    }
+
+    ret = dict_set_int32n(dict, "vol_count", SLEN("vol_count"), vol_count);
+
+out:
+    if (ret)
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "failed to get all "
+               "volume names for status");
+    return ret;
+}
+
+static int32_t
+glusterd_add_shd_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
+                         int32_t count)
+{
+    int ret = -1;
+    int32_t pid = -1;
+    int32_t brick_online = -1;
+    char key[64] = {0};
+    int keylen;
+    char *pidfile = NULL;
+    xlator_t *this = THIS;
+    char *uuid_str = NULL;
+
+    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(this->name, dict, out);
+
+    keylen = snprintf(key, sizeof(key), "brick%d.hostname", count);
+    ret = dict_set_nstrn(dict, key, keylen, "Self-heal Daemon",
+                         SLEN("Self-heal Daemon"));
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "brick%d.path", count);
+    uuid_str = gf_strdup(uuid_utoa(MY_UUID));
+    if (!uuid_str) {
+        ret = -1;
+        goto out;
+    }
+    ret = dict_set_dynstrn(dict, key, keylen, uuid_str);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
+        goto out;
+    }
+    uuid_str = NULL;
+
+    /* shd doesn't have a port. but the cli needs a port key with
+     * a zero value to parse.
+     * */
+
+    keylen = snprintf(key, sizeof(key), "brick%d.port", count);
+    ret = dict_set_int32n(dict, key, keylen, 0);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
+        goto out;
+    }
+
+    pidfile = volinfo->shd.svc.proc.pidfile;
+
+    brick_online = gf_is_service_running(pidfile, &pid);
+
+    /* If shd is not running, then don't print the pid */
+    if (!brick_online)
+        pid = -1;
+    keylen = snprintf(key, sizeof(key), "brick%d.pid", count);
+    ret = dict_set_int32n(dict, key, keylen, pid);
+    if (ret) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
+                key, NULL);
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "brick%d.status", count);
+    ret = dict_set_int32n(dict, key, keylen, brick_online);
+
+out:
+    if (uuid_str)
+        GF_FREE(uuid_str);
+    if (ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Returning %d. adding values to dict failed", ret);
+
     return ret;
 }
 

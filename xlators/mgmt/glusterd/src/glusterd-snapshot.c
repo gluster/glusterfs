@@ -2098,6 +2098,30 @@ out:
     return ret;
 }
 
+/*
+ * gd_vol_is_geo_rep_active:
+ *      This function checks for any running geo-rep session for
+ *      the volume given.
+ *
+ * Return Value:
+ *      _gf_true : If any running geo-rep session.
+ *      _gf_false: If no running geo-rep session.
+ */
+
+static gf_boolean_t
+gd_vol_is_geo_rep_active(glusterd_volinfo_t *volinfo)
+{
+    gf_boolean_t active = _gf_false;
+
+    GF_ASSERT(volinfo);
+
+    if (volinfo->gsync_active_secondaries &&
+        volinfo->gsync_active_secondaries->count > 0)
+        active = _gf_true;
+
+    return active;
+}
+
 int
 glusterd_snapshot_create_prevalidate(dict_t *dict, char **op_errstr,
                                      dict_t *rsp_dict, uint32_t *op_errno)
@@ -4695,6 +4719,72 @@ glusterd_snap_set_unsupported_opt(
 
     ret = 0;
 out:
+    return ret;
+}
+
+/* This function will create a new volinfo and then
+ * dup the entries from volinfo to the new_volinfo.
+ *
+ * @param volinfo       volinfo which will be duplicated
+ * @param dup_volinfo   new volinfo which will be created
+ * @param set_userauth  if this true then auth info is also set
+ *
+ * @return 0 on success else -1
+ */
+static int32_t
+glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
+                     glusterd_volinfo_t **dup_volinfo,
+                     gf_boolean_t set_userauth)
+{
+    int32_t ret = -1;
+    xlator_t *this = THIS;
+    glusterd_volinfo_t *new_volinfo = NULL;
+
+    GF_VALIDATE_OR_GOTO(this->name, volinfo, out);
+    GF_VALIDATE_OR_GOTO(this->name, dup_volinfo, out);
+
+    ret = glusterd_volinfo_new(&new_volinfo);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_SET_FAIL,
+               "not able to create the "
+               "duplicate volinfo for the volume %s",
+               volinfo->volname);
+        goto out;
+    }
+
+    new_volinfo->type = volinfo->type;
+    new_volinfo->replica_count = volinfo->replica_count;
+    new_volinfo->arbiter_count = volinfo->arbiter_count;
+    new_volinfo->disperse_count = volinfo->disperse_count;
+    new_volinfo->redundancy_count = volinfo->redundancy_count;
+    new_volinfo->dist_leaf_count = volinfo->dist_leaf_count;
+    new_volinfo->sub_count = volinfo->sub_count;
+    new_volinfo->subvol_count = volinfo->subvol_count;
+    new_volinfo->transport_type = volinfo->transport_type;
+    new_volinfo->brick_count = volinfo->brick_count;
+    new_volinfo->quota_conf_version = volinfo->quota_conf_version;
+    new_volinfo->quota_xattr_version = volinfo->quota_xattr_version;
+    new_volinfo->snap_max_hard_limit = volinfo->snap_max_hard_limit;
+    new_volinfo->quota_conf_cksum = volinfo->quota_conf_cksum;
+    strcpy(new_volinfo->snap_plugin, volinfo->snap_plugin);
+
+    dict_copy(volinfo->dict, new_volinfo->dict);
+    dict_copy(volinfo->gsync_secondaries, new_volinfo->gsync_secondaries);
+    dict_copy(volinfo->gsync_active_secondaries,
+              new_volinfo->gsync_active_secondaries);
+    gd_update_volume_op_versions(new_volinfo);
+
+    if (set_userauth) {
+        glusterd_auth_set_username(new_volinfo, volinfo->auth.username);
+        glusterd_auth_set_password(new_volinfo, volinfo->auth.password);
+    }
+
+    *dup_volinfo = new_volinfo;
+    ret = 0;
+out:
+    if (ret && (NULL != new_volinfo)) {
+        (void)glusterd_volinfo_delete(new_volinfo);
+    }
     return ret;
 }
 
