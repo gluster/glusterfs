@@ -178,7 +178,8 @@ struct posix_private {
     /* lock for brick dir */
     int mount_lock;
 
-    struct stat handledir;
+    ino_t handledir_st_ino;
+    dev_t handledir_st_dev;
 
     /* uuid of glusterd that swapned the brick process */
     uuid_t glusterd_uuid;

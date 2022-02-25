@@ -745,8 +745,8 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
@@ -817,8 +817,8 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
