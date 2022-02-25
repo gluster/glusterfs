@@ -158,9 +158,9 @@ struct posix_private {
     char *base_path;
     int32_t base_path_length;
 
-    long base_bsize;
-
     int32_t path_max;
+
+    long base_bsize;
 
     gf_lock_t lock;
 
@@ -178,10 +178,12 @@ struct posix_private {
     /* lock for brick dir */
     int mount_lock;
 
+    int fsync_queue_count;
+
     ino_t handledir_st_ino;
     dev_t handledir_st_dev;
 
-    /* uuid of glusterd that swapned the brick process */
+    /* uuid of glusterd that spawned the brick process */
     uuid_t glusterd_uuid;
 
 #ifdef HAVE_LIBAIO
@@ -197,7 +199,6 @@ struct posix_private {
     pthread_cond_t janitor_cond;
     pthread_cond_t fd_cond;
     pthread_cond_t disk_cond;
-    int fsync_queue_count;
     time_t janitor_sleep_duration;
 
     enum {
@@ -243,6 +244,7 @@ struct posix_private {
     uint32_t max_hardlinks;
     int32_t arrdfd[256];
     int dirfd;
+    uint32_t rel_fdcount;
 
     /* This option is used for either to call a landfill_purge or not */
     gf_boolean_t disable_landfill_purge;
@@ -280,15 +282,15 @@ struct posix_private {
     gf_boolean_t aio_configured;
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
-    uint32_t rel_fdcount;
+
+    gf_boolean_t io_uring_configured;
 
     /*io_uring related.*/
-    gf_boolean_t io_uring_configured;
 #ifdef HAVE_LIBURING
-    struct io_uring ring;
     gf_boolean_t io_uring_init_done;
     gf_boolean_t io_uring_capable;
     gf_boolean_t uring_thread_exit;
+    struct io_uring ring;
     pthread_t uring_thread;
     pthread_mutex_t sq_mutex;
     pthread_mutex_t cq_mutex;
