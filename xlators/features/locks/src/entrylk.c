@@ -1084,6 +1084,8 @@ pl_entrylk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
             pinode = l->pinode;
 
             dom = get_domain(pinode, l->volume);
+            if (dom)
+                INIT_LIST_HEAD(&dom->entrylk_list);
 
             grant_blocked_entry_locks(this, pinode, dom, &now, pcontend);
 
