@@ -1029,7 +1029,7 @@ pl_common_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
         op_errno = ENOMEM;
         goto unwind;
     }
-
+    INIT_LIST_HEAD(&dom->inodelk_list);
     reqlock = new_inode_lock(flock, frame->root->client, frame->root->pid,
                              frame, this, dom->domain, conn_id, &op_errno);
 
