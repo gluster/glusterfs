@@ -58,16 +58,6 @@ _gf_proc_dump_build_key(char *key, const char *prefix, const char *fmt, ...)
         _gf_proc_dump_build_key(key, key_prefix, ##fmt);                       \
     }
 
-#define GF_PROC_DUMP_SET_OPTION(opt, val) opt = val
-
-#define GF_CHECK_DUMP_OPTION_ENABLED(option_dump, var, label)                  \
-    do {                                                                       \
-        if (option_dump == _gf_true) {                                         \
-            var = _gf_false;                                                   \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0);
-
 void
 gf_proc_dump_init();
 

@@ -24,6 +24,16 @@
 #undef gf_log
 #endif
 
+#define GF_PROC_DUMP_SET_OPTION(opt, val) opt = val
+
+#define GF_CHECK_DUMP_OPTION_ENABLED(option_dump, var, label)                  \
+    do {                                                                       \
+        if (option_dump == _gf_true) {                                         \
+            var = _gf_false;                                                   \
+            goto label;                                                        \
+        }                                                                      \
+    } while (0);
+
 #define GF_PROC_DUMP_IS_OPTION_ENABLED(opt)                                    \
     (dump_options.dump_##opt == _gf_true)
 

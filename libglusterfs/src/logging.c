@@ -37,6 +37,37 @@
 #define GF_LOG_BACKTRACE_SIZE 4096
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
+#define SET_LOG_PRIO(level, priority)                                          \
+    do {                                                                       \
+        if (GF_LOG_TRACE == (level) || GF_LOG_NONE == (level)) {               \
+            priority = LOG_DEBUG;                                              \
+        } else {                                                               \
+            priority = (level)-1;                                              \
+        }                                                                      \
+    } while (0)
+
+/* extract just the file name from the path */
+#define GET_FILE_NAME_TO_LOG(file, basename)                                   \
+    do {                                                                       \
+        basename = strrchr((file), '/');                                       \
+        if (basename)                                                          \
+            basename++;                                                        \
+        else                                                                   \
+            basename = (file);                                                 \
+    } while (0)
+
+#define PRINT_SIZE_CHECK(ret, label, strsize)                                  \
+    do {                                                                       \
+        if (ret < 0)                                                           \
+            goto label;                                                        \
+        if ((strsize - ret) > 0) {                                             \
+            strsize -= ret;                                                    \
+        } else {                                                               \
+            ret = 0;                                                           \
+            goto label;                                                        \
+        }                                                                      \
+    } while (0)
+
 #include "glusterfs/logging.h"
 #include "glusterfs/timer.h"
 #include "glusterfs/libglusterfs-messages.h"
@@ -956,35 +987,6 @@ out:
 }
 
 int
-_gf_msg_vplain(gf_loglevel_t level, const char *fmt, va_list ap)
-{
-    xlator_t *this = NULL;
-    int ret = 0;
-    char *msg = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = THIS;
-    ctx = this->ctx;
-
-    if (!ctx)
-        goto out;
-
-    if (skip_logging(this, level))
-        goto out;
-
-    ret = vasprintf(&msg, fmt, ap);
-    if (-1 == ret) {
-        goto out;
-    }
-
-    ret = _gf_msg_plain_internal(level, msg);
-
-    FREE(msg);
-out:
-    return ret;
-}
-
-int
 _gf_msg_plain_nomem(gf_loglevel_t level, const char *msg)
 {
     xlator_t *this = NULL;
@@ -1610,7 +1612,7 @@ gf_log_flush_list(struct list_head *copy, glusterfs_ctx_t *ctx)
     }
 }
 
-void
+static void
 gf_log_flush_msgs(glusterfs_ctx_t *ctx)
 {
     struct list_head copy;

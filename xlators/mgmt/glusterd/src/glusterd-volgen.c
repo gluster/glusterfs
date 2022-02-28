@@ -5399,6 +5399,64 @@ get_parent_vol_tstamp_file(char *filename, glusterd_volinfo_t *volinfo)
     }
 }
 
+static int
+_brick_for_each(glusterd_volinfo_t *volinfo, dict_t *mod_dict, void *data,
+                int (*fn)(glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *))
+{
+    int ret = 0;
+    glusterd_brickinfo_t *brickinfo = NULL;
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
+        gf_msg_debug(THIS->name, 0, "Found a brick - %s:%s",
+                     brickinfo->hostname, brickinfo->path);
+        ret = fn(volinfo, brickinfo, mod_dict, data);
+        if (ret)
+            goto out;
+    }
+out:
+    return ret;
+}
+
+/* This is going to be a O(n^2) operation as we have to pick a brick,
+   make sure it belong to this machine, and compare another brick belonging
+   to this machine (if exists), is sharing the backend */
+static void
+gd_set_shared_brick_count(glusterd_volinfo_t *volinfo)
+{
+    glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *trav = NULL;
+    unsigned char *uuid = MY_UUID;
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
+        if (gf_uuid_compare(brickinfo->uuid, uuid))
+            continue;
+        brickinfo->fs_share_count = 0;
+        cds_list_for_each_entry(trav, &volinfo->bricks, brick_list)
+        {
+            if (!gf_uuid_compare(trav->uuid, uuid) &&
+                (trav->statfs_fsid == brickinfo->statfs_fsid)) {
+                brickinfo->fs_share_count++;
+            }
+        }
+    }
+
+    return;
+}
+
+static int
+glusterd_volume_brick_for_each(glusterd_volinfo_t *volinfo, void *data,
+                               int (*fn)(glusterd_volinfo_t *,
+                                         glusterd_brickinfo_t *,
+                                         dict_t *mod_dict, void *))
+{
+    gd_set_shared_brick_count(volinfo);
+
+    return _brick_for_each(volinfo, NULL, data, fn);
+}
+
 int
 generate_brick_volfiles(glusterd_volinfo_t *volinfo)
 {
@@ -5636,6 +5694,40 @@ out:
         dict_unref(dict);
 
     gf_msg_trace("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int
+glusterd_get_client_filepath(char *filepath, glusterd_volinfo_t *volinfo,
+                             gf_transport_type type)
+{
+    int ret = 0;
+    char path[PATH_MAX] = "";
+    int32_t len = 0;
+    glusterd_conf_t *priv = NULL;
+
+    priv = THIS->private;
+
+    GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
+
+    switch (type) {
+        case GF_TRANSPORT_TCP:
+            len = snprintf(filepath, PATH_MAX, "%s/%s.tcp-fuse.vol", path,
+                           volinfo->volname);
+            break;
+
+        case GF_TRANSPORT_RDMA:
+            len = snprintf(filepath, PATH_MAX, "%s/%s.rdma-fuse.vol", path,
+                           volinfo->volname);
+            break;
+        default:
+            ret = -1;
+            break;
+    }
+    if ((len < 0) || (len >= PATH_MAX)) {
+        ret = -1;
+    }
+
     return ret;
 }
 

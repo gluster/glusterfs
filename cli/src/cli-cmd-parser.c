@@ -75,6 +75,18 @@ str_getunamb(const char *tok, char **opwords)
     return (char *)cli_getunamb(tok, (void **)opwords, id_sel);
 }
 
+static int
+validate_brick_name(char *brick)
+{
+    char *delimiter = NULL;
+    int ret = 0;
+    delimiter = strrchr(brick, ':');
+    if (!delimiter || delimiter == brick || *(delimiter + 1) != '/')
+        ret = -1;
+
+    return ret;
+}
+
 int32_t
 cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
 {
@@ -1665,6 +1677,36 @@ out:
     return ret;
 }
 
+/* Strips all whitespace characters in a string and returns length of new string
+ * on success
+ */
+static int
+gf_strip_whitespace(char *str, int len)
+{
+    int i = 0;
+    int new_len = 0;
+    char *new_str = NULL;
+
+    GF_ASSERT(str);
+
+    new_str = GF_MALLOC(len + 1, gf_common_mt_char);
+    if (new_str == NULL)
+        return -1;
+
+    for (i = 0; i < len; i++) {
+        if (!isspace(str[i]))
+            new_str[new_len++] = str[i];
+    }
+    new_str[new_len] = '\0';
+
+    if (new_len != len) {
+        snprintf(str, new_len + 1, "%s", new_str);
+    }
+
+    GF_FREE(new_str);
+    return new_len;
+}
+
 int32_t
 cli_cmd_volume_set_parse(struct cli_state *state, const char **words,
                          int wordcount, dict_t **options, char **op_errstr)
@@ -3019,6 +3061,35 @@ out:
     return ret;
 }
 
+static int
+gf_is_str_int(const char *value)
+{
+    int flag = 0;
+    char *str = NULL;
+    char *fptr = NULL;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, value, out);
+
+    str = gf_strdup(value);
+    if (!str)
+        goto out;
+
+    fptr = str;
+
+    while (*str) {
+        if (!isdigit(*str)) {
+            flag = 1;
+            goto out;
+        }
+        str++;
+    }
+
+out:
+    GF_FREE(fptr);
+
+    return flag;
+}
+
 int32_t
 cli_cmd_volume_top_parse(const char **words, int wordcount, dict_t **options)
 {
@@ -3429,6 +3500,27 @@ cli_cmd_validate_dumpoption(const char *arg, char **option)
     }
     *option = w;
     return _gf_true;
+}
+
+/* Check if the pid is > 0 */
+static gf_boolean_t
+gf_valid_pid(const char *pid, int length)
+{
+    gf_boolean_t ret = _gf_true;
+    pid_t value = 0;
+    char *end_ptr = NULL;
+
+    if (length <= 0) {
+        ret = _gf_false;
+        goto out;
+    }
+
+    value = strtol(pid, &end_ptr, 10);
+    if (value <= 0) {
+        ret = _gf_false;
+    }
+out:
+    return ret;
 }
 
 int

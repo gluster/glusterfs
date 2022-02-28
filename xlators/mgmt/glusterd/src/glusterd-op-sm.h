@@ -20,6 +20,10 @@
 #define GD_OP_PROTECTED (0x02)
 #define GD_OP_UNPROTECTED (0x04)
 
+#define GLUSTERD_SHRD_STRG_HOOK_SCRIPT                                         \
+    "/hooks/1/set/post/"                                                       \
+    "S32gluster_enable_shared_storage.sh"
+
 typedef enum glusterd_op_sm_state_ {
     GD_OP_STATE_DEFAULT = 0,
     GD_OP_STATE_LOCK_SENT,

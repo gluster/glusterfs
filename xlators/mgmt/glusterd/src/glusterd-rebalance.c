@@ -50,7 +50,7 @@
 int32_t
 glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe);
-int
+static int
 glusterd_defrag_start_validate(glusterd_volinfo_t *volinfo, char *op_errstr,
                                size_t len, glusterd_op_t op)
 {
@@ -426,7 +426,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_rebalance_cmd_validate(int cmd, char *volname,
                                 glusterd_volinfo_t **volinfo, char *op_errstr,
                                 size_t len)

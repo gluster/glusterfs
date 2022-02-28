@@ -1697,6 +1697,41 @@ out:
 }
 
 static int
+gf_set_log_ident(cmd_args_t *cmd_args)
+{
+    int ret = 0;
+    char *ptr = NULL;
+
+    if (cmd_args->log_file == NULL) {
+        /* no ident source */
+        return 0;
+    }
+
+    /* TODO: Some idents would look like, etc-glusterfs-glusterd.vol, which
+     * seems ugly and can be bettered? */
+    /* just get the filename as the ident */
+    if (NULL != (ptr = strrchr(cmd_args->log_file, '/'))) {
+        ret = gf_asprintf(&cmd_args->log_ident, "%s", ptr + 1);
+    } else {
+        ret = gf_asprintf(&cmd_args->log_ident, "%s", cmd_args->log_file);
+    }
+
+    if (ret > 0)
+        ret = 0;
+    else
+        return ret;
+
+    /* remove .log suffix */
+    if (NULL != (ptr = strrchr(cmd_args->log_ident, '.'))) {
+        if (strcmp(ptr, ".log") == 0) {
+            ptr[0] = '\0';
+        }
+    }
+
+    return ret;
+}
+
+static int
 logging_init(glusterfs_ctx_t *ctx, const char *progpath)
 {
     cmd_args_t *cmd_args = NULL;
@@ -1766,7 +1801,7 @@ gf_check_and_set_mem_acct(int argc, char *argv[])
         }
     }
 }
-
+#ifdef BUILD_GNFS
 /**
  * print_exports_file - Print out & verify the syntax
  *                      of the exports file specified
@@ -1951,6 +1986,8 @@ out:
     GF_FREE(libpathfull);
     return ret;
 }
+
+#endif
 
 static int
 parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
@@ -2667,6 +2704,7 @@ main(int argc, char *argv[])
         goto out;
     }
 
+#ifdef BUILD_GNFS
     if (cmd->print_netgroups) {
         /* If this option is set we want to print & verify the file,
          * set the return value (exit code in this case) and exit.
@@ -2684,6 +2722,7 @@ main(int argc, char *argv[])
         goto out;
     }
 
+#endif
     ret = logging_init(ctx, argv[0]);
     if (ret)
         goto out;

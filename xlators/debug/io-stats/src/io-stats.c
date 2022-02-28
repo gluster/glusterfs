@@ -1046,6 +1046,106 @@ err:
     return ret;
 }
 
+/**
+ * gf_dnscache_entry_init -- Initialize a dnscache entry
+ *
+ * @return: SUCCESS: Pointer to an allocated dnscache entry struct
+ *          FAILURE: NULL
+ */
+static struct dnscache_entry *
+gf_dnscache_entry_init()
+{
+    struct dnscache_entry *entry = GF_CALLOC(1, sizeof(*entry),
+                                             gf_common_mt_dnscache_entry);
+    return entry;
+}
+
+/**
+ * gf_dnscache_entry_deinit -- Free memory used by a dnscache entry
+ *
+ * @entry: Pointer to deallocate
+ */
+static void
+gf_dnscache_entry_deinit(struct dnscache_entry *entry)
+{
+    GF_FREE(entry->ip);
+    GF_FREE(entry->fqdn);
+    GF_FREE(entry);
+}
+
+/**
+ * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
+ *
+ * @ip: The IP address to perform a reverse lookup on
+ *
+ * @return: success: Allocated string containing the hostname
+ *          failure: NULL
+ */
+static char *
+gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
+{
+    char *fqdn = NULL;
+    int ret = 0;
+    dict_t *cache = NULL;
+    data_t *entrydata = NULL;
+    struct dnscache_entry *dnsentry = NULL;
+    gf_boolean_t from_cache = _gf_false;
+
+    if (!dnscache)
+        goto out;
+
+    cache = dnscache->cache_dict;
+
+    /* Quick cache lookup to see if we already hold it */
+    entrydata = dict_get(cache, (char *)ip);
+    if (entrydata) {
+        dnsentry = (struct dnscache_entry *)entrydata->data;
+        /* First check the TTL & timestamp */
+        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
+            gf_dnscache_entry_deinit(dnsentry);
+            entrydata->data = NULL; /* Mark this as 'null' so
+                                     * dict_del () doesn't try free
+                                     * this after we've already
+                                     * freed it.
+                                     */
+
+            dict_del(cache, (char *)ip); /* Remove this entry */
+        } else {
+            /* Cache entry is valid, get the FQDN and return */
+            fqdn = dnsentry->fqdn;
+            from_cache = _gf_true; /* Mark this as from cache */
+            goto out;
+        }
+    }
+
+    /* Get the FQDN */
+    ret = gf_get_hostname_from_ip((char *)ip, &fqdn);
+    if (ret != 0)
+        goto out;
+
+    if (!fqdn) {
+        gf_log_callingfn("resolver", GF_LOG_CRITICAL,
+                         "Allocation failed for the host address");
+        goto out;
+    }
+
+    from_cache = _gf_false;
+out:
+    /* Insert into the cache */
+    if (fqdn && !from_cache && ip) {
+        struct dnscache_entry *entry = gf_dnscache_entry_init();
+
+        if (entry) {
+            entry->fqdn = fqdn;
+            entry->ip = gf_strdup(ip);
+            entry->timestamp = gf_time();
+            entrydata = bin_to_data(entry, sizeof(*entry));
+            dict_set(cache, (char *)ip, entrydata);
+        }
+    }
+    return fqdn;
+}
+
 /*
  * This function writes out a latency sample to a given file descriptor
  * and beautifies the output in the process.
@@ -3699,6 +3799,43 @@ ios_sample_buf_size_configure(char *name, struct ios_conf *conf)
            " size is 1024 because ios_sample_interval is 0");
 }
 
+static int
+gf_check_log_format(const char *value)
+{
+    int log_format = -1;
+
+    if (!strcasecmp(value, GF_LOG_FORMAT_NO_MSG_ID))
+        log_format = gf_logformat_traditional;
+    else if (!strcasecmp(value, GF_LOG_FORMAT_WITH_MSG_ID))
+        log_format = gf_logformat_withmsgid;
+
+    if (log_format == -1)
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                "possible_values=" GF_LOG_FORMAT_NO_MSG_ID
+                "|" GF_LOG_FORMAT_WITH_MSG_ID,
+                NULL);
+
+    return log_format;
+}
+
+static int
+gf_check_logger(const char *value)
+{
+    int logger = -1;
+
+    if (!strcasecmp(value, GF_LOGGER_GLUSTER_LOG))
+        logger = gf_logger_glusterlog;
+    else if (!strcasecmp(value, GF_LOGGER_SYSLOG))
+        logger = gf_logger_syslog;
+
+    if (logger == -1)
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                "possible_values=" GF_LOGGER_GLUSTER_LOG "|" GF_LOGGER_SYSLOG,
+                NULL);
+
+    return logger;
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -3824,6 +3961,16 @@ mem_acct_init(xlator_t *this)
     return ret;
 }
 
+/**
+ * gf_dnscache_deinit -- cleanup resources used by struct dnscache
+ */
+static void
+gf_dnscache_deinit(struct dnscache *cache)
+{
+    dict_unref(cache->cache_dict);
+    GF_FREE(cache);
+}
+
 void
 ios_conf_destroy(struct ios_conf *conf)
 {
@@ -3834,7 +3981,8 @@ ios_conf_destroy(struct ios_conf *conf)
     _ios_destroy_dump_thread(conf);
     ios_destroy_sample_buf(conf->ios_sample_buf);
     LOCK_DESTROY(&conf->lock);
-    gf_dnscache_deinit(conf->dnscache);
+    if (conf->dnscache)
+        gf_dnscache_deinit(conf->dnscache);
     GF_FREE(conf);
 }
 
@@ -3858,6 +4006,32 @@ ios_init_stats(struct ios_global_stats *stats)
         GF_ATOMIC_INIT(stats->upcall_hits[i], 0);
 
     stats->started_at = gf_time();
+}
+
+/**
+ * gf_dnscache_init -- Initializes a dnscache struct and sets the ttl
+ *                     to the specified value in the parameter.
+ *
+ * @ttl: the TTL in seconds
+ * @return: SUCCESS: Pointer to an allocated dnscache struct
+ *          FAILURE: NULL
+ */
+static struct dnscache *
+gf_dnscache_init(time_t ttl)
+{
+    struct dnscache *cache = GF_MALLOC(sizeof(*cache), gf_common_mt_dnscache);
+    if (!cache)
+        return NULL;
+
+    cache->cache_dict = dict_new();
+    if (!cache->cache_dict) {
+        GF_FREE(cache);
+        cache = NULL;
+    } else {
+        cache->ttl = ttl;
+    }
+
+    return cache;
 }
 
 int

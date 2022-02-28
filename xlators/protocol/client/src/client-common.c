@@ -32,7 +32,6 @@ client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd)
         *gf_cmd = GF_LK_GETLK_FD;
     else
         ret = -1;
-
     return ret;
 }
 
