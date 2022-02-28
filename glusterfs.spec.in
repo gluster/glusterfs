@@ -272,7 +272,7 @@ BuildRequires:    libtsan
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
-BuildRequires:    libxml2-devel openssl-devel
+BuildRequires:    libxml2-devel openssl-devel openssl
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
 %if ( 0%{?_with_tcmalloc:1} )
@@ -1651,6 +1651,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Feb 21 2022 Xavi Hernandez <xhernandez@redhat.com>
+- add openssl as a build dependency.
+
 * Fri Jan 29 2021 Ravishankar N <ravishankar@redhat.com>
 - add liburing-devel as a requirement.
 
