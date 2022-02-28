@@ -6194,7 +6194,7 @@ afr_handle_inodelk_contention(xlator_t *this, struct gf_upcall *upcall)
 }
 
 static void
-afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall)
+afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
 {
     struct gf_upcall_cache_invalidation *up_ci = NULL;
     afr_private_t *priv = this->private;
@@ -6209,6 +6209,13 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall)
         case GF_UPCALL_CACHE_INVALIDATION:
             up_ci = (struct gf_upcall_cache_invalidation *)upcall->data;
 
+            if (AFR_IS_ARBITER_BRICK(priv, idx)) {
+                /* Skip all update involving iatt from arbiter
+                 * node, since the size contains invalid info
+                 */
+                up_ci->flags &= ~UP_ATTR_FLAGS;
+                up_ci->flags &= ~UP_PARENT_DENTRY_FLAGS;
+            }
             /* Since md-cache will be aggressively filtering
              * lookups, the stale read issue will be more
              * pronounced. Hence when a pending xattr is set notify
@@ -6336,7 +6343,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     }
 
     if (event == GF_EVENT_UPCALL) {
-        afr_handle_upcall_event(this, data);
+        afr_handle_upcall_event(this, data, idx);
     }
 
     LOCK(&priv->lock);
