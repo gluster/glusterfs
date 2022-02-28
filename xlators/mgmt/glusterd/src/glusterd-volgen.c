@@ -3715,10 +3715,10 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     glusterd_conf_t *conf = NULL;
     glusterd_brickinfo_t *brick = NULL;
     glusterd_brickinfo_t *ta_brick = NULL;
-    char *ptr = NULL;
+    char *ptr = NULL, *beg = NULL;
     int i = 0;
     int index = -1;
-    int ret = 0;
+    int ret = 0, len = 0;
     char *afr_xattrs_list = NULL;
     int list_size = -1;
     int ta_brick_index = 0;
@@ -3752,12 +3752,15 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
 
     i = 1;
     index = 0;
+    beg = ptr;
 
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
         if (index == clusters)
             break;
-        strncat(ptr, brick->brick_id, strlen(brick->brick_id));
+        len = strlen(brick->brick_id);
+        strncat(ptr, brick->brick_id, list_size - (ptr - beg));
+        ptr += len;
         if (i == volinfo->replica_count) {
             /* add ta client xlator in afr-pending-xattrs before making entries
              * for client xlators in volfile.
@@ -3768,7 +3771,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
              */
             ta_brick_index = 0;
             if (volinfo->thin_arbiter_count == 1) {
-                ptr[strlen(brick->brick_id)] = ',';
+                *ptr++ = ',';
                 cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks,
                                         brick_list)
                 {
@@ -3777,16 +3780,13 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                     }
                     ta_brick_index++;
                 }
-                if (conf->op_version < GD_OP_VERSION_7_3) {
-                    strncat(ptr, ta_brick->brick_id,
-                            strlen(ta_brick->brick_id));
-                } else {
-                    char ta_volname[PATH_MAX] = "";
-                    int len = snprintf(ta_volname, PATH_MAX, "%s.%s",
-                                       ta_brick->brick_id,
-                                       uuid_utoa(volinfo->volume_id));
-                    strncat(ptr, ta_volname, len);
-                }
+                if (conf->op_version < GD_OP_VERSION_7_3)
+                    ptr += snprintf(ptr, list_size - (ptr - beg), "%s",
+                                    ta_brick->brick_id);
+                else
+                    ptr += snprintf(ptr, list_size - (ptr - beg), "%s.%s",
+                                    ta_brick->brick_id,
+                                    uuid_utoa(volinfo->volume_id));
             }
 
             ret = xlator_set_fixed_option(afr_xlators_list[index++],
@@ -3795,12 +3795,12 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                 goto out;
             memset(afr_xattrs_list, 0, list_size);
             ptr = afr_xattrs_list;
+            beg = ptr;
             i = 1;
             subvol_index++;
             continue;
         }
-        ptr[strlen(brick->brick_id)] = ',';
-        ptr += strlen(brick->brick_id) + 1;
+        *ptr++ = ',';
         i++;
     }
 
