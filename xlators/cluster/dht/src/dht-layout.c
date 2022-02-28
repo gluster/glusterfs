@@ -55,22 +55,8 @@ dht_layout_t *
 dht_layout_get(xlator_t *this, inode_t *inode)
 {
     dht_layout_t *layout = NULL;
-    int ret = 0;
-    uint64_t ctx_int = 0;
-    dht_inode_ctx_t *ctx = NULL;
 
-    LOCK(&inode->lock);
-    {
-        ret = __inode_ctx_get(inode, this, &ctx_int);
-        if (!ret) {
-            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
-            if (ctx && ctx->layout) {
-                layout = ctx->layout;
-                GF_ATOMIC_INC(layout->ref);
-            }
-        }
-    }
-    UNLOCK(&inode->lock);
+    dht_inode_ctx_layout_get(inode, this, &layout, 1);
 
     return layout;
 }
@@ -82,6 +68,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
     int ret = -1;
     uint64_t ctx_int = 0;
     dht_inode_ctx_t *ctx = NULL;
+    dht_layout_t *old_layout = NULL;
 
     conf = this->private;
     if (!conf || !layout)
@@ -93,30 +80,34 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
         if (!ret) {
             ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
             if (ctx && ctx->layout) {
-                dht_layout_unref(ctx->layout);
+                old_layout = ctx->layout;
             }
         }
-
-        if (layout)
-            GF_ATOMIC_INC(layout->ref);
 
         if (ctx) {
             ctx->layout = layout;
         } else {
             ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
             if (!ctx) {
-                GF_ATOMIC_DEC(layout->ref);
                 ret = -1;
             } else {
                 ctx->layout = layout;
                 ctx_int = (long)ctx;
                 ret = __inode_ctx_set0(inode, this, &ctx_int);
-                if (ret)
-                    GF_ATOMIC_DEC(layout->ref);
             }
         }
+
+        if (!ret && layout)
+            GF_ATOMIC_INC(layout->ref);
     }
     UNLOCK(&inode->lock);
+
+    if (old_layout)
+        dht_layout_unref(old_layout);
+
+    if (ret)
+        GF_FREE(ctx);
+
 out:
     return ret;
 }
@@ -730,8 +721,6 @@ dht_layout_preset(xlator_t *this, xlator_t *subvol, inode_t *inode)
     dht_layout_t *layout = NULL;
     int ret = -1;
     dht_conf_t *conf = NULL;
-    uint64_t ctx_int = 0;
-    dht_inode_ctx_t *ctx = NULL;
 
     conf = this->private;
     if (!conf)
@@ -748,26 +737,8 @@ dht_layout_preset(xlator_t *this, xlator_t *subvol, inode_t *inode)
     gf_msg_debug(this->name, 0, "file = %s, subvol = %s",
                  uuid_utoa(inode->gfid), subvol ? subvol->name : "<nil>");
 
-    LOCK(&inode->lock);
-    {
-        ret = __inode_ctx_get(inode, this, &ctx_int);
-        if (!ret) {
-            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
-            if (ctx) {
-                ctx->layout = layout;
-            }
-        }
+    ret = dht_inode_ctx_layout_set(inode, this, layout);
 
-        if (!ctx) {
-            ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
-            if (ctx) {
-                ctx->layout = layout;
-                ctx_int = (long)ctx;
-                ret = __inode_ctx_set0(inode, this, &ctx_int);
-            }
-        }
-    }
-    UNLOCK(&inode->lock);
 out:
     return ret;
 }

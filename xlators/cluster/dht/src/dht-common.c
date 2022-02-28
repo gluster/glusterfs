@@ -3009,7 +3009,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
 
     if (conf->lookup_optimize) {
         if (!conf->defrag && loc->parent) {
-            ret = dht_inode_ctx_layout_get(loc->parent, this, &parent_layout);
+            ret = dht_inode_ctx_layout_get(loc->parent, this, &parent_layout,
+                                           0);
             if (!ret && parent_layout &&
                 (parent_layout->commit_hash == conf->vol_commit_hash)) {
                 lookup_everywhere = _gf_false;
@@ -3020,7 +3021,7 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
         if (conf->search_unhashed == GF_DHT_LOOKUP_UNHASHED_AUTO) {
             if (loc->parent) {
                 ret = dht_inode_ctx_layout_get(loc->parent, this,
-                                               &parent_layout);
+                                               &parent_layout, 0);
                 if (ret || !parent_layout ||
                     (!parent_layout->search_unhashed)) {
                     lookup_everywhere = _gf_false;
@@ -11195,22 +11196,28 @@ out:
 }
 
 int
-dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout)
+dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout,
+                         int ref)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
 
-    ret = dht_inode_ctx_get(inode, this, &ctx);
-
-    if (!ret && ctx) {
-        if (ctx->layout) {
-            if (layout)
-                *layout = ctx->layout;
-            ret = 0;
-        } else {
-            ret = -1;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx && ctx->layout) {
+                if (layout)
+                    *layout = ctx->layout;
+                if (ref)
+                    GF_ATOMIC_INC((*layout)->ref);
+                ret = 0;
+            }
         }
     }
+    UNLOCK(&inode->lock);
 
     return ret;
 }

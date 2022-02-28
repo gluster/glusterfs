@@ -161,7 +161,7 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     if (!inode)
         goto out;
 
-    ret = dht_inode_ctx_layout_get(inode, this, &layout);
+    ret = dht_inode_ctx_layout_get(inode, this, &layout, 0);
 
     if ((ret != 0) || !layout)
         return ret;
