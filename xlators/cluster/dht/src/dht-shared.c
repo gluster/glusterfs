@@ -161,7 +161,7 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     if (!inode)
         goto out;
 
-    ret = dht_inode_ctx_layout_get(inode, this, &layout, 0);
+    ret = dht_inode_ctx_layout_get(inode, this, &layout);
 
     if ((ret != 0) || !layout)
         return ret;
@@ -169,6 +169,8 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
     dht_layout_dump(layout, "layout");
 
+    if (!ret)
+        dht_layout_unref(layout);
 out:
     return ret;
 }

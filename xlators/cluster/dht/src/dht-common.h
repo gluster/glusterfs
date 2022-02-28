@@ -673,7 +673,7 @@ typedef struct dht_fd_ctx {
 #define ENTRY_MISSING(op_ret, op_errno) (op_ret == -1 && op_errno == ENOENT)
 
 #define is_revalidate(loc)                                                     \
-    (dht_inode_ctx_layout_get((loc)->inode, this, NULL, 0) == 0)
+    (dht_inode_ctx_layout_get((loc)->inode, this, NULL) == 0)
 
 #define is_last_call(cnt) (cnt == 0)
 
@@ -1147,10 +1147,11 @@ gf_defrag_handle_hardlink(xlator_t *this, loc_t *loc, int *fop_errno);
 
 int
 dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this,
-                         dht_layout_t **layout_int, int ref);
+                         dht_layout_t **layout_int);
 int
 dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
-                         dht_layout_t *layout_int);
+                         dht_layout_t *layout_int, dht_layout_t **old_layout,
+                         int ref);
 int
 dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *prestat,
                           struct iatt *poststat);
