@@ -1788,8 +1788,7 @@ dht_rebalance_in_progress_check(xlator_t *this, call_frame_t *frame)
 
 int
 dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
-                         dht_layout_t *layout_int, dht_layout_t **old_layout,
-                         int ref)
+                         dht_layout_t *layout_int, dht_layout_t **old_layout)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
@@ -1819,7 +1818,7 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
                 ret = -1;
             }
         }
-        if (!ret && layout_int && ref)
+        if (!ret && layout_int)
             GF_ATOMIC_INC(layout_int->ref);
     }
     UNLOCK(&inode->lock);
