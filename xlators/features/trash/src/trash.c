@@ -176,11 +176,13 @@ check_pathbuf(inode_t *inode, xlator_t *this, char **pathbuf,
                    "so it is not moved to trash",
                    name);
         }
+        GF_FREE(*pathbuf);
         return 0;
     }
     *local = mem_get0(this->local_pool);
     if (!(*local)) {
         gf_log(this->name, GF_LOG_DEBUG, "out of memory");
+        GF_FREE(*pathbuf);
         return -ENOMEM;
     }
     return 1;
