@@ -1815,6 +1815,8 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
                 ret = __inode_ctx_set0(inode, this, &ctx_int);
                 if (ret)
                     GF_FREE(ctx);
+            } else {
+                ret = -1;
             }
         }
         if (!ret && layout_int && ref)
