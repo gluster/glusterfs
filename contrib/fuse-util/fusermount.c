@@ -1017,7 +1017,8 @@ try_open_fuse_device(char **devp)
     if (fd >= 0)
         return fd;
 
-    free(*devp);
+    if (!*devp == NULL)
+        free(*devp);
     return err;
 }
 
