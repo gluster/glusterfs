@@ -26,7 +26,7 @@
 void
 afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_build_parent_loc(loc_t *parent, loc_t *child, int32_t *op_errno)
 {
     int ret = -1;

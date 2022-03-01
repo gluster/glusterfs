@@ -15,6 +15,26 @@
 #include "glusterd-locks.h"
 #include "glusterd-messages.h"
 
+#define GLUSTERD_DUMP_PEERS(head, member, xpeers)                              \
+    do {                                                                       \
+        glusterd_peerinfo_t *_peerinfo = NULL;                                 \
+        int index = 1;                                                         \
+        char *key = NULL;                                                      \
+                                                                               \
+        key = xpeers ? "glusterd.xaction_peer" : "glusterd.peer";              \
+                                                                               \
+        RCU_READ_LOCK;                                                         \
+        cds_list_for_each_entry_rcu(_peerinfo, head, member)                   \
+        {                                                                      \
+            glusterd_dump_peer(_peerinfo, key, index, xpeers);                 \
+            if (!xpeers)                                                       \
+                glusterd_dump_peer_rpcstat(_peerinfo, key, index);             \
+            index++;                                                           \
+        }                                                                      \
+        RCU_READ_UNLOCK;                                                       \
+                                                                               \
+    } while (0)
+
 static void
 glusterd_dump_peer(glusterd_peerinfo_t *peerinfo, char *input_key, int index,
                    gf_boolean_t xpeers)

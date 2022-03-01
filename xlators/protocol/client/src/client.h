@@ -26,6 +26,14 @@
 
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
 
+typedef struct {
+    int fop_enum;
+    unsigned int fop_length;
+    int *enum_list;
+    default_args_t *req_list;
+    dict_t *xdata;
+} compound_args_t;
+
 typedef enum {
     DEFAULT_REMOTE_FD = 0,
     FALLBACK_TO_ANON_FD = 1

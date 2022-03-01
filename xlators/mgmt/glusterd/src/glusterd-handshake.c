@@ -36,6 +36,17 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 #define TRUSTED_PREFIX "trusted-"
 #define GD_PEER_ID_KEY "peer-id"
 
+enum glusterd_mgmt_hndsk_procnum {
+    GD_MGMT_HNDSK_NULL,
+    GD_MGMT_HNDSK_VERSIONS,
+    GD_MGMT_HNDSK_VERSIONS_ACK,
+    GD_MGMT_HNDSK_MAXVALUE,
+};
+
+/* OP-VERSION handshake */
+#define GD_MGMT_HNDSK_PROGRAM 1239873 /* Completely random */
+#define GD_MGMT_HNDSK_VERSION 1
+
 typedef ssize_t (*gfs_serialize_t)(struct iovec outmsg, void *data);
 
 static int
@@ -1225,6 +1236,32 @@ gd_validate_cluster_op_version(xlator_t *this, int cluster_op_version,
     ret = 0;
 out:
     return ret;
+}
+
+static gf_boolean_t
+glusterd_have_volumes()
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+    gf_boolean_t volumes_exist = _gf_false;
+
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
+
+    volumes_exist = !cds_list_empty(&priv->volumes);
+out:
+    return volumes_exist;
+}
+
+static gf_boolean_t
+glusterd_have_peers()
+{
+    glusterd_conf_t *conf = NULL;
+
+    conf = THIS->private;
+    GF_ASSERT(conf);
+
+    return !cds_list_empty(&conf->peers);
 }
 
 /* Validate if glusterd can serve the management handshake request

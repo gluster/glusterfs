@@ -5582,6 +5582,30 @@ posix_fentrylk(call_frame_t *frame, xlator_t *this, const char *volume,
 }
 
 static int
+gf_d_type_from_st_mode(mode_t st_mode)
+{
+    switch (st_mode & S_IFMT) {
+        case S_IFREG:
+            return DT_REG;
+        case S_IFDIR:
+            return DT_DIR;
+        case S_IFLNK:
+            return DT_LNK;
+        case S_IFBLK:
+            return DT_BLK;
+        case S_IFCHR:
+            return DT_CHR;
+        case S_IFIFO:
+            return DT_FIFO;
+        case S_IFSOCK:
+            return DT_SOCK;
+        default:
+            return DT_UNKNOWN;
+    }
+    return DT_UNKNOWN;
+}
+
+static int
 posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
                    gf_dirent_t *entries, xlator_t *this, int32_t skip_dirs)
 {

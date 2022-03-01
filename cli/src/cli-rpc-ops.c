@@ -96,6 +96,49 @@ static rpc_clnt_prog_t cli_pmap_prog = {
     .progver = GLUSTER_PMAP_VERSION,
 };
 
+/* This is a wrapper function to add a pointer to a list,
+ * which doesn't contain list member
+ */
+static struct list_node *
+_list_node_add(void *ptr, struct list_head *list,
+               int (*compare)(struct list_head *, struct list_head *))
+{
+    struct list_node *node = NULL;
+
+    if (ptr == NULL || list == NULL)
+        goto out;
+
+    node = GF_CALLOC(1, sizeof(struct list_node), gf_common_list_node);
+
+    if (node == NULL)
+        goto out;
+
+    node->ptr = ptr;
+    if (compare)
+        list_add_order(&node->list, list, compare);
+    else
+        list_add_tail(&node->list, list);
+out:
+    return node;
+}
+
+static struct list_node *
+list_node_add_order(void *ptr, struct list_head *list,
+                    int (*compare)(struct list_head *, struct list_head *))
+{
+    return _list_node_add(ptr, list, compare);
+}
+
+static void
+list_node_del(struct list_node *node)
+{
+    if (node == NULL)
+        return;
+
+    list_del_init(&node->list);
+    GF_FREE(node);
+}
+
 static void
 gf_free_xdr_cli_rsp(gf_cli_rsp rsp)
 {

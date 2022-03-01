@@ -17,6 +17,8 @@
 #include "xdr-rpc.h"
 
 #define CLIENT_REOPEN_MAX_ATTEMPTS 1024
+#define GLUSTER_PROCESS_UUID_FMT                                               \
+    "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 extern rpc_clnt_prog_t clnt4_0_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 

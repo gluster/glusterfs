@@ -745,8 +745,8 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
@@ -817,8 +817,8 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
@@ -2432,6 +2432,23 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
     }
 
     call_unwind_error(stub, 0, 0);
+}
+
+static int
+gf_syncfs(int fd)
+{
+    int ret = 0;
+#if defined(HAVE_SYNCFS)
+    /* Linux with glibc recent enough. */
+    ret = syncfs(fd);
+#elif defined(HAVE_SYNCFS_SYS)
+    /* Linux with no library function. */
+    ret = syscall(SYS_syncfs, fd);
+#else
+    /* Fallback to generic UNIX stuff. */
+    sync();
+#endif
+    return ret;
 }
 
 static void

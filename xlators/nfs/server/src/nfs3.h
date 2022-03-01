@@ -29,6 +29,13 @@
 #define GF_NFS3_CLTABLE_BUCKETS_MULT 2
 #define GF_NFS3_FDTABLE_BUCKETS_MULT 2
 
+#define gf_attr_mode_set(mode) ((mode)&GF_SET_ATTR_MODE)
+#define gf_attr_uid_set(mode) ((mode)&GF_SET_ATTR_UID)
+#define gf_attr_gid_set(mode) ((mode)&GF_SET_ATTR_GID)
+#define gf_attr_size_set(mode) ((mode)&GF_SET_ATTR_SIZE)
+#define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
+#define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
+
 /* Static values used for FSINFO
  * To change the maximum rsize and wsize supported by the NFS client, adjust
  * GF_NFS3_FILE_IO_SIZE_MAX. The Gluster NFS server defaults to 1MB(1048576)

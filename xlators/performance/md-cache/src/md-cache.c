@@ -651,6 +651,23 @@ struct updatedict {
     int ret;
 };
 
+static void
+gf_strTrim(char **s)
+{
+    char *end = NULL;
+
+    end = *s + strlen(*s) - 1;
+    while (end > *s && isspace((unsigned char)*end))
+        end--;
+
+    *(end + 1) = '\0';
+
+    while (isspace(**s))
+        (*s)++;
+
+    return;
+}
+
 static int
 is_mdc_key_satisfied(xlator_t *this, const char *key)
 {

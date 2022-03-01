@@ -423,7 +423,7 @@ __gather_xattr_keys(dict_t *dict, char *key, data_t *value, void *data)
     return 0;
 }
 
-void
+static void
 afr_filter_xattrs(dict_t *dict)
 {
     struct list_head keys = {

@@ -507,6 +507,7 @@ posix_handle_init(xlator_t *this)
     char *rootstr = NULL;
     static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     int dfd = 0;
+    struct stat handledir;
 
     priv = this->private;
 
@@ -548,13 +549,16 @@ posix_handle_init(xlator_t *this)
             break;
     }
 
-    ret = sys_stat(handle_pfx, &priv->handledir);
+    ret = sys_stat(handle_pfx, &handledir);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
                "stat for %s failed", handle_pfx);
         return -1;
     }
+
+    priv->handledir_st_ino = handledir.st_ino;
+    priv->handledir_st_dev = handledir.st_dev;
 
     MAKE_HANDLE_ABSPATH_FD(rootstr, this, gfid, dfd);
     ret = sys_fstatat(dfd, rootstr, &rootbuf, 0);
