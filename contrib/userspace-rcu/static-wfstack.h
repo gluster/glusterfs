@@ -40,9 +40,9 @@
 extern "C" {
 #endif
 
-#define CDS_WFS_END			((void *) 0x1UL)
-#define CDS_WFS_ADAPT_ATTEMPTS		10	/* Retry if being set */
-#define CDS_WFS_WAIT			10	/* Wait 10 ms if being set */
+#define CDS_WFS_END ((void *)0x1UL)
+#define CDS_WFS_ADAPT_ATTEMPTS 10 /* Retry if being set */
+#define CDS_WFS_WAIT 10           /* Wait 10 ms if being set */
 
 /*
  * Stack with wait-free push, blocking traversal.
@@ -73,49 +73,51 @@ extern "C" {
 /*
  * cds_wfs_node_init: initialize wait-free stack node.
  */
-static inline
-void _cds_wfs_node_init(struct cds_wfs_node *node)
+static inline void
+_cds_wfs_node_init(struct cds_wfs_node *node)
 {
-	node->next = NULL;
+    node->next = NULL;
 }
 
 /*
  * __cds_wfs_init: initialize wait-free stack. Don't pair with
  * any destroy function.
  */
-static inline void ___cds_wfs_init(struct __cds_wfs_stack *s)
+static inline void
+___cds_wfs_init(struct __cds_wfs_stack *s)
 {
-	s->head = CDS_WFS_END;
+    s->head = CDS_WFS_END;
 }
 
 /*
  * cds_wfs_init: initialize wait-free stack. Pair with
  * cds_wfs_destroy().
  */
-static inline
-void _cds_wfs_init(struct cds_wfs_stack *s)
+static inline void
+_cds_wfs_init(struct cds_wfs_stack *s)
 {
-	int ret;
+    int ret;
 
-	s->head = CDS_WFS_END;
-	ret = pthread_mutex_init(&s->lock, NULL);
-	assert(!ret);
+    s->head = CDS_WFS_END;
+    ret = pthread_mutex_init(&s->lock, NULL);
+    assert(!ret);
 }
 
 /*
  * cds_wfs_destroy: destroy wait-free stack. Pair with
  * cds_wfs_init().
  */
-static inline
-void _cds_wfs_destroy(struct cds_wfs_stack *s)
+static inline void
+_cds_wfs_destroy(struct cds_wfs_stack *s)
 {
-	int ret = pthread_mutex_destroy(&s->lock);
-	assert(!ret);
+    int ret = pthread_mutex_destroy(&s->lock);
+    assert(!ret);
 }
 
-static inline bool ___cds_wfs_end(void *node)
+static inline bool
+___cds_wfs_end(void *node)
 {
-	return node == CDS_WFS_END;
+    return node == CDS_WFS_END;
 }
 
 /*
@@ -123,11 +125,12 @@ static inline bool ___cds_wfs_end(void *node)
  *
  * No memory barrier is issued. No mutual exclusion is required.
  */
-static inline bool _cds_wfs_empty(cds_wfs_stack_ptr_t u_stack)
+static inline bool
+_cds_wfs_empty(cds_wfs_stack_ptr_t u_stack)
 {
-	struct __cds_wfs_stack *s = u_stack._s;
+    struct __cds_wfs_stack *s = u_stack._s;
 
-	return ___cds_wfs_end(CMM_LOAD_SHARED(s->head));
+    return ___cds_wfs_end(CMM_LOAD_SHARED(s->head));
 }
 
 /*
@@ -139,25 +142,25 @@ static inline bool _cds_wfs_empty(cds_wfs_stack_ptr_t u_stack)
  * Returns 0 if the stack was empty prior to adding the node.
  * Returns non-zero otherwise.
  */
-static inline
-int _cds_wfs_push(cds_wfs_stack_ptr_t u_stack, struct cds_wfs_node *node)
+static inline int
+_cds_wfs_push(cds_wfs_stack_ptr_t u_stack, struct cds_wfs_node *node)
 {
-	struct __cds_wfs_stack *s = u_stack._s;
-	struct cds_wfs_head *old_head, *new_head;
+    struct __cds_wfs_stack *s = u_stack._s;
+    struct cds_wfs_head *old_head, *new_head;
 
-	assert(node->next == NULL);
-	new_head = caa_container_of(node, struct cds_wfs_head, node);
-	/*
-	 * uatomic_xchg() implicit memory barrier orders earlier stores
-	 * to node (setting it to NULL) before publication.
-	 */
-	old_head = uatomic_xchg(&s->head, new_head);
-	/*
-	 * At this point, dequeuers see a NULL node->next, they should
-	 * busy-wait until node->next is set to old_head.
-	 */
-	CMM_STORE_SHARED(node->next, &old_head->node);
-	return !___cds_wfs_end(old_head);
+    assert(node->next == NULL);
+    new_head = caa_container_of(node, struct cds_wfs_head, node);
+    /*
+     * uatomic_xchg() implicit memory barrier orders earlier stores
+     * to node (setting it to NULL) before publication.
+     */
+    old_head = uatomic_xchg(&s->head, new_head);
+    /*
+     * At this point, dequeuers see a NULL node->next, they should
+     * busy-wait until node->next is set to old_head.
+     */
+    CMM_STORE_SHARED(node->next, &old_head->node);
+    return !___cds_wfs_end(old_head);
 }
 
 /*
@@ -166,56 +169,55 @@ int _cds_wfs_push(cds_wfs_stack_ptr_t u_stack, struct cds_wfs_node *node)
 static inline struct cds_wfs_node *
 ___cds_wfs_node_sync_next(struct cds_wfs_node *node, int blocking)
 {
-	struct cds_wfs_node *next;
-	int attempt = 0;
+    struct cds_wfs_node *next;
+    int attempt = 0;
 
-	/*
-	 * Adaptative busy-looping waiting for push to complete.
-	 */
-	while ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
-		if (!blocking)
-			return CDS_WFS_WOULDBLOCK;
-		if (++attempt >= CDS_WFS_ADAPT_ATTEMPTS) {
-			(void) poll(NULL, 0, CDS_WFS_WAIT);	/* Wait for 10ms */
-			attempt = 0;
-		} else {
-			caa_cpu_relax();
-		}
-	}
+    /*
+     * Adaptative busy-looping waiting for push to complete.
+     */
+    while ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
+        if (!blocking)
+            return CDS_WFS_WOULDBLOCK;
+        if (++attempt >= CDS_WFS_ADAPT_ATTEMPTS) {
+            (void)poll(NULL, 0, CDS_WFS_WAIT); /* Wait for 10ms */
+            attempt = 0;
+        } else {
+            caa_cpu_relax();
+        }
+    }
 
-	return next;
+    return next;
 }
 
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 ___cds_wfs_pop(cds_wfs_stack_ptr_t u_stack, int *state, int blocking)
 {
-	struct cds_wfs_head *head, *new_head;
-	struct cds_wfs_node *next;
-	struct __cds_wfs_stack *s = u_stack._s;
+    struct cds_wfs_head *head, *new_head;
+    struct cds_wfs_node *next;
+    struct __cds_wfs_stack *s = u_stack._s;
 
-	if (state)
-		*state = 0;
-	for (;;) {
-		head = CMM_LOAD_SHARED(s->head);
-		if (___cds_wfs_end(head)) {
-			return NULL;
-		}
-		next = ___cds_wfs_node_sync_next(&head->node, blocking);
-		if (!blocking && next == CDS_WFS_WOULDBLOCK) {
-			return CDS_WFS_WOULDBLOCK;
-		}
-		new_head = caa_container_of(next, struct cds_wfs_head, node);
-		if (uatomic_cmpxchg(&s->head, head, new_head) == head) {
-			if (state && ___cds_wfs_end(new_head))
-				*state |= CDS_WFS_STATE_LAST;
-			return &head->node;
-		}
-		if (!blocking) {
-			return CDS_WFS_WOULDBLOCK;
-		}
-		/* busy-loop if head changed under us */
-	}
+    if (state)
+        *state = 0;
+    for (;;) {
+        head = CMM_LOAD_SHARED(s->head);
+        if (___cds_wfs_end(head)) {
+            return NULL;
+        }
+        next = ___cds_wfs_node_sync_next(&head->node, blocking);
+        if (!blocking && next == CDS_WFS_WOULDBLOCK) {
+            return CDS_WFS_WOULDBLOCK;
+        }
+        new_head = caa_container_of(next, struct cds_wfs_head, node);
+        if (uatomic_cmpxchg(&s->head, head, new_head) == head) {
+            if (state && ___cds_wfs_end(new_head))
+                *state |= CDS_WFS_STATE_LAST;
+            return &head->node;
+        }
+        if (!blocking) {
+            return CDS_WFS_WOULDBLOCK;
+        }
+        /* busy-loop if head changed under us */
+    }
 }
 
 /*
@@ -236,18 +238,16 @@ ___cds_wfs_pop(cds_wfs_stack_ptr_t u_stack, int *state, int blocking)
  *
  * "state" saves state flags atomically sampled with pop operation.
  */
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 ___cds_wfs_pop_with_state_blocking(cds_wfs_stack_ptr_t u_stack, int *state)
 {
-	return ___cds_wfs_pop(u_stack, state, 1);
+    return ___cds_wfs_pop(u_stack, state, 1);
 }
 
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 ___cds_wfs_pop_blocking(cds_wfs_stack_ptr_t u_stack)
 {
-	return ___cds_wfs_pop_with_state_blocking(u_stack, NULL);
+    return ___cds_wfs_pop_with_state_blocking(u_stack, NULL);
 }
 
 /*
@@ -258,11 +258,10 @@ ___cds_wfs_pop_blocking(cds_wfs_stack_ptr_t u_stack)
  *
  * "state" saves state flags atomically sampled with pop operation.
  */
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 ___cds_wfs_pop_with_state_nonblocking(cds_wfs_stack_ptr_t u_stack, int *state)
 {
-	return ___cds_wfs_pop(u_stack, state, 0);
+    return ___cds_wfs_pop(u_stack, state, 0);
 }
 
 /*
@@ -271,11 +270,10 @@ ___cds_wfs_pop_with_state_nonblocking(cds_wfs_stack_ptr_t u_stack, int *state)
  * Same as __cds_wfs_pop_blocking, but returns CDS_WFS_WOULDBLOCK if
  * it needs to block.
  */
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 ___cds_wfs_pop_nonblocking(cds_wfs_stack_ptr_t u_stack)
 {
-	return ___cds_wfs_pop_with_state_nonblocking(u_stack, NULL);
+    return ___cds_wfs_pop_with_state_nonblocking(u_stack, NULL);
 }
 
 /*
@@ -295,89 +293,87 @@ ___cds_wfs_pop_nonblocking(cds_wfs_stack_ptr_t u_stack)
  * 3) Ensuring that only ONE thread can call __cds_wfs_pop_blocking()
  *    and __cds_wfs_pop_all(). (multi-provider/single-consumer scheme).
  */
-static inline
-struct cds_wfs_head *
+static inline struct cds_wfs_head *
 ___cds_wfs_pop_all(cds_wfs_stack_ptr_t u_stack)
 {
-	struct __cds_wfs_stack *s = u_stack._s;
-	struct cds_wfs_head *head;
+    struct __cds_wfs_stack *s = u_stack._s;
+    struct cds_wfs_head *head;
 
-	/*
-	 * Implicit memory barrier after uatomic_xchg() matches implicit
-	 * memory barrier before uatomic_xchg() in cds_wfs_push. It
-	 * ensures that all nodes of the returned list are consistent.
-	 * There is no need to issue memory barriers when iterating on
-	 * the returned list, because the full memory barrier issued
-	 * prior to each uatomic_cmpxchg, which each write to head, are
-	 * taking care to order writes to each node prior to the full
-	 * memory barrier after this uatomic_xchg().
-	 */
-	head = uatomic_xchg(&s->head, CDS_WFS_END);
-	if (___cds_wfs_end(head))
-		return NULL;
-	return head;
+    /*
+     * Implicit memory barrier after uatomic_xchg() matches implicit
+     * memory barrier before uatomic_xchg() in cds_wfs_push. It
+     * ensures that all nodes of the returned list are consistent.
+     * There is no need to issue memory barriers when iterating on
+     * the returned list, because the full memory barrier issued
+     * prior to each uatomic_cmpxchg, which each write to head, are
+     * taking care to order writes to each node prior to the full
+     * memory barrier after this uatomic_xchg().
+     */
+    head = uatomic_xchg(&s->head, CDS_WFS_END);
+    if (___cds_wfs_end(head))
+        return NULL;
+    return head;
 }
 
 /*
  * cds_wfs_pop_lock: lock stack pop-protection mutex.
  */
-static inline void _cds_wfs_pop_lock(struct cds_wfs_stack *s)
+static inline void
+_cds_wfs_pop_lock(struct cds_wfs_stack *s)
 {
-	int ret;
+    int ret;
 
-	ret = pthread_mutex_lock(&s->lock);
-	assert(!ret);
+    ret = pthread_mutex_lock(&s->lock);
+    assert(!ret);
 }
 
 /*
  * cds_wfs_pop_unlock: unlock stack pop-protection mutex.
  */
-static inline void _cds_wfs_pop_unlock(struct cds_wfs_stack *s)
+static inline void
+_cds_wfs_pop_unlock(struct cds_wfs_stack *s)
 {
-	int ret;
+    int ret;
 
-	ret = pthread_mutex_unlock(&s->lock);
-	assert(!ret);
+    ret = pthread_mutex_unlock(&s->lock);
+    assert(!ret);
 }
 
 /*
  * Call __cds_wfs_pop_with_state_blocking with an internal pop mutex held.
  */
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 _cds_wfs_pop_with_state_blocking(struct cds_wfs_stack *s, int *state)
 {
-	struct cds_wfs_node *retnode;
+    struct cds_wfs_node *retnode;
 
-	_cds_wfs_pop_lock(s);
-	retnode = ___cds_wfs_pop_with_state_blocking(s, state);
-	_cds_wfs_pop_unlock(s);
-	return retnode;
+    _cds_wfs_pop_lock(s);
+    retnode = ___cds_wfs_pop_with_state_blocking(s, state);
+    _cds_wfs_pop_unlock(s);
+    return retnode;
 }
 
 /*
  * Call _cds_wfs_pop_with_state_blocking without saving any state.
  */
-static inline
-struct cds_wfs_node *
+static inline struct cds_wfs_node *
 _cds_wfs_pop_blocking(struct cds_wfs_stack *s)
 {
-	return _cds_wfs_pop_with_state_blocking(s, NULL);
+    return _cds_wfs_pop_with_state_blocking(s, NULL);
 }
 
 /*
  * Call __cds_wfs_pop_all with an internal pop mutex held.
  */
-static inline
-struct cds_wfs_head *
+static inline struct cds_wfs_head *
 _cds_wfs_pop_all_blocking(struct cds_wfs_stack *s)
 {
-	struct cds_wfs_head *rethead;
+    struct cds_wfs_head *rethead;
 
-	_cds_wfs_pop_lock(s);
-	rethead = ___cds_wfs_pop_all(s);
-	_cds_wfs_pop_unlock(s);
-	return rethead;
+    _cds_wfs_pop_lock(s);
+    rethead = ___cds_wfs_pop_all(s);
+    _cds_wfs_pop_unlock(s);
+    return rethead;
 }
 
 /*
@@ -395,25 +391,25 @@ _cds_wfs_pop_all_blocking(struct cds_wfs_stack *s)
 static inline struct cds_wfs_node *
 _cds_wfs_first(struct cds_wfs_head *head)
 {
-	if (___cds_wfs_end(head))
-		return NULL;
-	return &head->node;
+    if (___cds_wfs_end(head))
+        return NULL;
+    return &head->node;
 }
 
 static inline struct cds_wfs_node *
 ___cds_wfs_next(struct cds_wfs_node *node, int blocking)
 {
-	struct cds_wfs_node *next;
+    struct cds_wfs_node *next;
 
-	next = ___cds_wfs_node_sync_next(node, blocking);
-	/*
-	 * CDS_WFS_WOULDBLOCK != CSD_WFS_END, so we can check for end
-	 * even if ___cds_wfs_node_sync_next returns CDS_WFS_WOULDBLOCK,
-	 * and still return CDS_WFS_WOULDBLOCK.
-	 */
-	if (___cds_wfs_end(next))
-		return NULL;
-	return next;
+    next = ___cds_wfs_node_sync_next(node, blocking);
+    /*
+     * CDS_WFS_WOULDBLOCK != CSD_WFS_END, so we can check for end
+     * even if ___cds_wfs_node_sync_next returns CDS_WFS_WOULDBLOCK,
+     * and still return CDS_WFS_WOULDBLOCK.
+     */
+    if (___cds_wfs_end(next))
+        return NULL;
+    return next;
 }
 
 /*
@@ -432,9 +428,8 @@ ___cds_wfs_next(struct cds_wfs_node *node, int blocking)
 static inline struct cds_wfs_node *
 _cds_wfs_next_blocking(struct cds_wfs_node *node)
 {
-	return ___cds_wfs_next(node, 1);
+    return ___cds_wfs_next(node, 1);
 }
-
 
 /*
  * cds_wfs_next_nonblocking: get next node of a popped stack.
@@ -445,7 +440,7 @@ _cds_wfs_next_blocking(struct cds_wfs_node *node)
 static inline struct cds_wfs_node *
 _cds_wfs_next_nonblocking(struct cds_wfs_node *node)
 {
-	return ___cds_wfs_next(node, 0);
+    return ___cds_wfs_next(node, 0);
 }
 
 #ifdef __cplusplus

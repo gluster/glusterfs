@@ -25,16 +25,14 @@
    Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA
    02111-1307 USA.  */
 
-char *
-basename_r (filename)
-     const char *filename;
+char *basename_r(filename) const char *filename;
 {
-  char *p;
+    char *p;
 
-  if ((filename == NULL) || (*filename == '\0'))
-    return ".";
+    if ((filename == NULL) || (*filename == '\0'))
+        return ".";
 
-  p = strrchr (filename, '/');
-  return p ? p + 1 : (char *) filename;
+    p = strrchr(filename, '/');
+    return p ? p + 1 : (char *)filename;
 }
 #endif /* THREAD_UNSAFE_BASENAME */

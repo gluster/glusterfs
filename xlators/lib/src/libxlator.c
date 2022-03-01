@@ -51,7 +51,7 @@ match_uuid_local(const char *name, char *uuid)
         return -1;
 
     name = strtail((char *)name, MARKER_XATTR_PREFIX);
-    if (!name || name++ [0] != '.')
+    if (!name || name++[0] != '.')
         return -1;
 
     name = strtail((char *)name, uuid);

@@ -6,7 +6,9 @@
 #include <err.h>
 #include <sys/param.h>
 
-int main(argc, argv) int argc;
+int
+main(argc, argv)
+int argc;
 char **argv;
 {
     char *basepath;

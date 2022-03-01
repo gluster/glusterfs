@@ -79,21 +79,19 @@ gf_io_legacy_callback(uint64_t seq, uint64_t id, gf_io_op_t *op, uint32_t count)
     return 0;
 }
 
-const gf_io_engine_t gf_io_engine_legacy = {
-    .name = "legacy",
-    .mode = GF_IO_MODE_LEGACY,
+const gf_io_engine_t gf_io_engine_legacy = {.name = "legacy",
+                                            .mode = GF_IO_MODE_LEGACY,
 
-    .setup = gf_io_legacy_setup,
-    .cleanup = gf_io_legacy_cleanup,
-    .wait = gf_io_legacy_wait,
+                                            .setup = gf_io_legacy_setup,
+                                            .cleanup = gf_io_legacy_cleanup,
+                                            .wait = gf_io_legacy_wait,
 
-    .worker_setup = NULL,
-    .worker_cleanup = NULL,
-    .worker_stop = NULL,
-    .worker = NULL,
+                                            .worker_setup = NULL,
+                                            .worker_cleanup = NULL,
+                                            .worker_stop = NULL,
+                                            .worker = NULL,
 
-    .flush = gf_io_legacy_flush,
+                                            .flush = gf_io_legacy_flush,
 
-    .cancel = gf_io_legacy_cancel,
-    .callback = gf_io_legacy_callback
-};
+                                            .cancel = gf_io_legacy_cancel,
+                                            .callback = gf_io_legacy_callback};

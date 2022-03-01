@@ -61,10 +61,10 @@ extern "C" {
  * synchronization.
  */
 
-#define CDS_WFS_WOULDBLOCK	((void *) -1UL)
+#define CDS_WFS_WOULDBLOCK ((void *)-1UL)
 
 enum cds_wfs_state {
-	CDS_WFS_STATE_LAST =		(1U << 0),
+    CDS_WFS_STATE_LAST = (1U << 0),
 };
 
 /*
@@ -73,7 +73,7 @@ enum cds_wfs_state {
  * pointer when returned by __cds_wfs_pop_blocking.
  */
 struct cds_wfs_node {
-	struct cds_wfs_node *next;
+    struct cds_wfs_node *next;
 };
 
 /*
@@ -83,16 +83,16 @@ struct cds_wfs_node {
  * types.
  */
 struct cds_wfs_head {
-	struct cds_wfs_node node;
+    struct cds_wfs_node node;
 };
 
 struct __cds_wfs_stack {
-	struct cds_wfs_head *head;
+    struct cds_wfs_head *head;
 };
 
 struct cds_wfs_stack {
-	struct cds_wfs_head *head;
-	pthread_mutex_t lock;
+    struct cds_wfs_head *head;
+    pthread_mutex_t lock;
 };
 
 /*
@@ -101,44 +101,43 @@ struct cds_wfs_stack {
  * types.
  */
 typedef union {
-	struct __cds_wfs_stack *_s;
-	struct cds_wfs_stack *s;
+    struct __cds_wfs_stack *_s;
+    struct cds_wfs_stack *s;
 } __attribute__((__transparent_union__)) cds_wfs_stack_ptr_t;
 
 #include "static-wfstack.h"
 
-#define cds_wfs_node_init		_cds_wfs_node_init
-#define cds_wfs_init			_cds_wfs_init
-#define cds_wfs_destroy			_cds_wfs_destroy
-#define __cds_wfs_init			___cds_wfs_init
-#define cds_wfs_empty			_cds_wfs_empty
-#define cds_wfs_push			_cds_wfs_push
+#define cds_wfs_node_init _cds_wfs_node_init
+#define cds_wfs_init _cds_wfs_init
+#define cds_wfs_destroy _cds_wfs_destroy
+#define __cds_wfs_init ___cds_wfs_init
+#define cds_wfs_empty _cds_wfs_empty
+#define cds_wfs_push _cds_wfs_push
 
 /* Locking performed internally */
-#define cds_wfs_pop_blocking		_cds_wfs_pop_blocking
-#define cds_wfs_pop_with_state_blocking	_cds_wfs_pop_with_state_blocking
-#define cds_wfs_pop_all_blocking	_cds_wfs_pop_all_blocking
+#define cds_wfs_pop_blocking _cds_wfs_pop_blocking
+#define cds_wfs_pop_with_state_blocking _cds_wfs_pop_with_state_blocking
+#define cds_wfs_pop_all_blocking _cds_wfs_pop_all_blocking
 
 /*
  * For iteration on cds_wfs_head returned by __cds_wfs_pop_all or
  * cds_wfs_pop_all_blocking.
  */
-#define cds_wfs_first			_cds_wfs_first
-#define cds_wfs_next_blocking		_cds_wfs_next_blocking
-#define cds_wfs_next_nonblocking	_cds_wfs_next_nonblocking
+#define cds_wfs_first _cds_wfs_first
+#define cds_wfs_next_blocking _cds_wfs_next_blocking
+#define cds_wfs_next_nonblocking _cds_wfs_next_nonblocking
 
 /* Pop locking with internal mutex */
-#define cds_wfs_pop_lock		_cds_wfs_pop_lock
-#define cds_wfs_pop_unlock		_cds_wfs_pop_unlock
+#define cds_wfs_pop_lock _cds_wfs_pop_lock
+#define cds_wfs_pop_unlock _cds_wfs_pop_unlock
 
 /* Synchronization ensured by the caller. See synchronization table. */
-#define __cds_wfs_pop_blocking		___cds_wfs_pop_blocking
-#define __cds_wfs_pop_with_state_blocking	\
-					___cds_wfs_pop_with_state_blocking
-#define __cds_wfs_pop_nonblocking	___cds_wfs_pop_nonblocking
-#define __cds_wfs_pop_with_state_nonblocking	\
-					___cds_wfs_pop_with_state_nonblocking
-#define __cds_wfs_pop_all		___cds_wfs_pop_all
+#define __cds_wfs_pop_blocking ___cds_wfs_pop_blocking
+#define __cds_wfs_pop_with_state_blocking ___cds_wfs_pop_with_state_blocking
+#define __cds_wfs_pop_nonblocking ___cds_wfs_pop_nonblocking
+#define __cds_wfs_pop_with_state_nonblocking                                   \
+    ___cds_wfs_pop_with_state_nonblocking
+#define __cds_wfs_pop_all ___cds_wfs_pop_all
 
 #ifdef __cplusplus
 }
@@ -153,10 +152,9 @@ typedef union {
  * Content written into each node before enqueue is guaranteed to be
  * consistent, but no other memory ordering is ensured.
  */
-#define cds_wfs_for_each_blocking(head, node)			\
-	for (node = cds_wfs_first(head);			\
-		node != NULL;					\
-		node = cds_wfs_next_blocking(node))
+#define cds_wfs_for_each_blocking(head, node)                                  \
+    for (node = cds_wfs_first(head); node != NULL;                             \
+         node = cds_wfs_next_blocking(node))
 
 /*
  * cds_wfs_for_each_blocking_safe: Iterate over all nodes returned by
@@ -169,10 +167,10 @@ typedef union {
  * Content written into each node before enqueue is guaranteed to be
  * consistent, but no other memory ordering is ensured.
  */
-#define cds_wfs_for_each_blocking_safe(head, node, n)			   \
-	for (node = cds_wfs_first(head),				   \
-			n = (node ? cds_wfs_next_blocking(node) : NULL);   \
-		node != NULL;						   \
-		node = n, n = (node ? cds_wfs_next_blocking(node) : NULL))
+#define cds_wfs_for_each_blocking_safe(head, node, n)                          \
+    for (node = cds_wfs_first(head),                                           \
+        n = (node ? cds_wfs_next_blocking(node) : NULL);                       \
+         node != NULL;                                                         \
+         node = n, n = (node ? cds_wfs_next_blocking(node) : NULL))
 
 #endif /* _URCU_WFSTACK_H */

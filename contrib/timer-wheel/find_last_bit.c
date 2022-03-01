@@ -29,33 +29,34 @@
 #endif
 #endif
 
-unsigned long gw_tw_fls (unsigned long word)
+unsigned long
+gw_tw_fls(unsigned long word)
 {
-        int num = BITS_PER_LONG;
+    int num = BITS_PER_LONG;
 
 #if BITS_PER_LONG == 64
-        if (!(word & (~0ul << 32))) {
-                num -= 32;
-                word <<= 32;
-        }
+    if (!(word & (~0ul << 32))) {
+        num -= 32;
+        word <<= 32;
+    }
 #endif
-        if (!(word & (~0ul << (BITS_PER_LONG-16)))) {
-                num -= 16;
-                word <<= 16;
-        }
-        if (!(word & (~0ul << (BITS_PER_LONG-8)))) {
-                num -= 8;
-                word <<= 8;
-        }
-        if (!(word & (~0ul << (BITS_PER_LONG-4)))) {
-                num -= 4;
-                word <<= 4;
-        }
-        if (!(word & (~0ul << (BITS_PER_LONG-2)))) {
-                num -= 2;
-                word <<= 2;
-        }
-        if (!(word & (~0ul << (BITS_PER_LONG-1))))
-                num -= 1;
-        return num;
+    if (!(word & (~0ul << (BITS_PER_LONG - 16)))) {
+        num -= 16;
+        word <<= 16;
+    }
+    if (!(word & (~0ul << (BITS_PER_LONG - 8)))) {
+        num -= 8;
+        word <<= 8;
+    }
+    if (!(word & (~0ul << (BITS_PER_LONG - 4)))) {
+        num -= 4;
+        word <<= 4;
+    }
+    if (!(word & (~0ul << (BITS_PER_LONG - 2)))) {
+        num -= 2;
+        word <<= 2;
+    }
+    if (!(word & (~0ul << (BITS_PER_LONG - 1))))
+        num -= 1;
+    return num;
 }

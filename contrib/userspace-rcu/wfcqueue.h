@@ -4,7 +4,8 @@
 /*
  * urcu/wfcqueue.h
  *
- * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking Dequeue
+ * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking
+ * Dequeue
  *
  * Copyright 2010-2012 - Mathieu Desnoyers <mathieu.desnoyers@efficios.com>
  * Copyright 2011-2012 - Lai Jiangshan <laijs@cn.fujitsu.com>
@@ -46,21 +47,21 @@ extern "C" {
  * McKenney.
  */
 
-#define CDS_WFCQ_WOULDBLOCK	((struct cds_wfcq_node *) -1UL)
+#define CDS_WFCQ_WOULDBLOCK ((struct cds_wfcq_node *)-1UL)
 
 enum cds_wfcq_ret {
-	CDS_WFCQ_RET_WOULDBLOCK =	-1,
-	CDS_WFCQ_RET_DEST_EMPTY =	0,
-	CDS_WFCQ_RET_DEST_NON_EMPTY =	1,
-	CDS_WFCQ_RET_SRC_EMPTY = 	2,
+    CDS_WFCQ_RET_WOULDBLOCK = -1,
+    CDS_WFCQ_RET_DEST_EMPTY = 0,
+    CDS_WFCQ_RET_DEST_NON_EMPTY = 1,
+    CDS_WFCQ_RET_SRC_EMPTY = 2,
 };
 
 enum cds_wfcq_state {
-	CDS_WFCQ_STATE_LAST =		(1U << 0),
+    CDS_WFCQ_STATE_LAST = (1U << 0),
 };
 
 struct cds_wfcq_node {
-	struct cds_wfcq_node *next;
+    struct cds_wfcq_node *next;
 };
 
 /*
@@ -69,12 +70,12 @@ struct cds_wfcq_node {
  * false-sharing between enqueue and dequeue.
  */
 struct __cds_wfcq_head {
-	struct cds_wfcq_node node;
+    struct cds_wfcq_node node;
 };
 
 struct cds_wfcq_head {
-	struct cds_wfcq_node node;
-	pthread_mutex_t lock;
+    struct cds_wfcq_node node;
+    pthread_mutex_t lock;
 };
 
 #ifndef __cplusplus
@@ -84,93 +85,97 @@ struct cds_wfcq_head {
  * types.
  */
 typedef union {
-	struct __cds_wfcq_head *_h;
-	struct cds_wfcq_head *h;
+    struct __cds_wfcq_head *_h;
+    struct cds_wfcq_head *h;
 } __attribute__((__transparent_union__)) cds_wfcq_head_ptr_t;
 
 /*
  * This static inline is only present for compatibility with C++. It is
  * effect-less in C.
  */
-static inline struct __cds_wfcq_head *__cds_wfcq_head_cast(struct __cds_wfcq_head *head)
+static inline struct __cds_wfcq_head *
+__cds_wfcq_head_cast(struct __cds_wfcq_head *head)
 {
-	return head;
+    return head;
 }
 
 /*
  * This static inline is only present for compatibility with C++. It is
  * effect-less in C.
  */
-static inline struct cds_wfcq_head *cds_wfcq_head_cast(struct cds_wfcq_head *head)
+static inline struct cds_wfcq_head *
+cds_wfcq_head_cast(struct cds_wfcq_head *head)
 {
-	return head;
+    return head;
 }
-#else /* #ifndef __cplusplus */
+#else  /* #ifndef __cplusplus */
 
 /* C++ ignores transparent union. */
 typedef union {
-	struct __cds_wfcq_head *_h;
-	struct cds_wfcq_head *h;
+    struct __cds_wfcq_head *_h;
+    struct cds_wfcq_head *h;
 } cds_wfcq_head_ptr_t;
 
 /* C++ ignores transparent union. Requires an explicit conversion. */
-static inline cds_wfcq_head_ptr_t __cds_wfcq_head_cast(struct __cds_wfcq_head *head)
+static inline cds_wfcq_head_ptr_t
+__cds_wfcq_head_cast(struct __cds_wfcq_head *head)
 {
-	cds_wfcq_head_ptr_t ret = { ._h = head };
-	return ret;
+    cds_wfcq_head_ptr_t ret = {._h = head};
+    return ret;
 }
 /* C++ ignores transparent union. Requires an explicit conversion. */
-static inline cds_wfcq_head_ptr_t cds_wfcq_head_cast(struct cds_wfcq_head *head)
+static inline cds_wfcq_head_ptr_t
+cds_wfcq_head_cast(struct cds_wfcq_head *head)
 {
-	cds_wfcq_head_ptr_t ret = { .h = head };
-	return ret;
+    cds_wfcq_head_ptr_t ret = {.h = head};
+    return ret;
 }
 #endif /* #else #ifndef __cplusplus */
 
 struct cds_wfcq_tail {
-	struct cds_wfcq_node *p;
+    struct cds_wfcq_node *p;
 };
 
 #include "static-wfcqueue.h"
 
-#define cds_wfcq_node_init		_cds_wfcq_node_init
-#define cds_wfcq_init			_cds_wfcq_init
-#define __cds_wfcq_init			___cds_wfcq_init
-#define cds_wfcq_destroy		_cds_wfcq_destroy
-#define cds_wfcq_empty			_cds_wfcq_empty
-#define cds_wfcq_enqueue		_cds_wfcq_enqueue
+#define cds_wfcq_node_init _cds_wfcq_node_init
+#define cds_wfcq_init _cds_wfcq_init
+#define __cds_wfcq_init ___cds_wfcq_init
+#define cds_wfcq_destroy _cds_wfcq_destroy
+#define cds_wfcq_empty _cds_wfcq_empty
+#define cds_wfcq_enqueue _cds_wfcq_enqueue
 
 /* Dequeue locking */
-#define cds_wfcq_dequeue_lock		_cds_wfcq_dequeue_lock
-#define cds_wfcq_dequeue_unlock		_cds_wfcq_dequeue_unlock
+#define cds_wfcq_dequeue_lock _cds_wfcq_dequeue_lock
+#define cds_wfcq_dequeue_unlock _cds_wfcq_dequeue_unlock
 
 /* Locking performed within cds_wfcq calls. */
-#define cds_wfcq_dequeue_blocking	_cds_wfcq_dequeue_blocking
-#define cds_wfcq_dequeue_with_state_blocking	\
-					_cds_wfcq_dequeue_with_state_blocking
-#define cds_wfcq_splice_blocking	_cds_wfcq_splice_blocking
-#define cds_wfcq_first_blocking		_cds_wfcq_first_blocking
-#define cds_wfcq_next_blocking		_cds_wfcq_next_blocking
+#define cds_wfcq_dequeue_blocking _cds_wfcq_dequeue_blocking
+#define cds_wfcq_dequeue_with_state_blocking                                   \
+    _cds_wfcq_dequeue_with_state_blocking
+#define cds_wfcq_splice_blocking _cds_wfcq_splice_blocking
+#define cds_wfcq_first_blocking _cds_wfcq_first_blocking
+#define cds_wfcq_next_blocking _cds_wfcq_next_blocking
 
 /* Locking ensured by caller by holding cds_wfcq_dequeue_lock() */
-#define __cds_wfcq_dequeue_blocking	___cds_wfcq_dequeue_blocking
-#define __cds_wfcq_dequeue_with_state_blocking	\
-					___cds_wfcq_dequeue_with_state_blocking
-#define __cds_wfcq_splice_blocking	___cds_wfcq_splice_blocking
-#define __cds_wfcq_first_blocking	___cds_wfcq_first_blocking
-#define __cds_wfcq_next_blocking	___cds_wfcq_next_blocking
+#define __cds_wfcq_dequeue_blocking ___cds_wfcq_dequeue_blocking
+#define __cds_wfcq_dequeue_with_state_blocking                                 \
+    ___cds_wfcq_dequeue_with_state_blocking
+#define __cds_wfcq_splice_blocking ___cds_wfcq_splice_blocking
+#define __cds_wfcq_first_blocking ___cds_wfcq_first_blocking
+#define __cds_wfcq_next_blocking ___cds_wfcq_next_blocking
 
 /*
  * Locking ensured by caller by holding cds_wfcq_dequeue_lock().
  * Non-blocking: deque, first, next return CDS_WFCQ_WOULDBLOCK if they
  * need to block. splice returns nonzero if it needs to block.
  */
-#define __cds_wfcq_dequeue_nonblocking	___cds_wfcq_dequeue_nonblocking
-#define __cds_wfcq_dequeue_with_state_nonblocking	\
-				___cds_wfcq_dequeue_with_state_nonblocking
-#define __cds_wfcq_splice_nonblocking	___cds_wfcq_splice_nonblocking
-#define __cds_wfcq_first_nonblocking	___cds_wfcq_first_nonblocking
-#define __cds_wfcq_next_nonblocking	___cds_wfcq_next_nonblocking
+#define __cds_wfcq_dequeue_nonblocking ___cds_wfcq_dequeue_nonblocking
+#define __cds_wfcq_dequeue_with_state_nonblocking                              \
+    ___cds_wfcq_dequeue_with_state_nonblocking
+#define __cds_wfcq_splice_nonblocking ___cds_wfcq_splice_nonblocking
+#define __cds_wfcq_first_nonblocking ___cds_wfcq_first_nonblocking
+#define __cds_wfcq_next_nonblocking ___cds_wfcq_next_nonblocking
 
 /*
  * __cds_wfcq_for_each_blocking: Iterate over all nodes in a queue,
@@ -184,10 +189,9 @@ struct cds_wfcq_tail {
  * Dequeue/splice/iteration mutual exclusion should be ensured by the
  * caller.
  */
-#define __cds_wfcq_for_each_blocking(head, tail, node)		\
-	for (node = __cds_wfcq_first_blocking(head, tail);	\
-		node != NULL;					\
-		node = __cds_wfcq_next_blocking(head, tail, node))
+#define __cds_wfcq_for_each_blocking(head, tail, node)                         \
+    for (node = __cds_wfcq_first_blocking(head, tail); node != NULL;           \
+         node = __cds_wfcq_next_blocking(head, tail, node))
 
 /*
  * __cds_wfcq_for_each_blocking_safe: Iterate over all nodes in a queue,
@@ -203,11 +207,11 @@ struct cds_wfcq_tail {
  * Dequeue/splice/iteration mutual exclusion should be ensured by the
  * caller.
  */
-#define __cds_wfcq_for_each_blocking_safe(head, tail, node, n)		       \
-	for (node = __cds_wfcq_first_blocking(head, tail),		       \
-			n = (node ? __cds_wfcq_next_blocking(head, tail, node) : NULL); \
-		node != NULL;						       \
-		node = n, n = (node ? __cds_wfcq_next_blocking(head, tail, node) : NULL))
+#define __cds_wfcq_for_each_blocking_safe(head, tail, node, n)                 \
+    for (node = __cds_wfcq_first_blocking(head, tail),                         \
+        n = (node ? __cds_wfcq_next_blocking(head, tail, node) : NULL);        \
+         node != NULL; node = n,                                               \
+        n = (node ? __cds_wfcq_next_blocking(head, tail, node) : NULL))
 
 #ifdef __cplusplus
 }

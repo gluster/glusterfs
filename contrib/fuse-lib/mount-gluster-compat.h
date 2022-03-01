@@ -39,7 +39,7 @@ typedef unsigned long mount_flag_t;
 #define umount2(dir, flags) unmount(dir, ((flags) != 0) ? MNT_FORCE : 0)
 #define MS_RDONLY MNT_RDONLY
 #define MS_NOSUID MNT_NOSUID
-#define MS_NODEV  MNT_NODEV
+#define MS_NODEV MNT_NODEV
 #define MS_NOATIME MNT_NOATIME
 #define MS_NOEXEC MNT_NOEXEC
 typedef int mount_flag_t;
@@ -65,14 +65,14 @@ typedef int mount_flag_t;
  *   https://www.freebsd.org/doc/en/books/porters-handbook/versions-7.html .)
  */
 #if __FreeBSD_version < 700008
-#define MS_NODEV  MNT_NODEV
+#define MS_NODEV MNT_NODEV
 #else
-#define MS_NODEV  0
+#define MS_NODEV 0
 #endif
 #define MS_NOATIME MNT_NOATIME
 #define MS_NOEXEC MNT_NOEXEC
 #if __FreeBSD_version < 1000715
-typedef int  mount_flag_t;
+typedef int mount_flag_t;
 #else
 /* __FreeBSD_version was not bumped for this type change. Anyway, see
  * https://github.com/freebsd/freebsd/commit/e8d76f8
@@ -92,14 +92,13 @@ typedef long long mount_flag_t;
 #endif
 
 #ifdef FUSE_UTIL
-#define MALLOC(size) malloc (size)
-#define FREE(ptr) free (ptr)
-#define GFFUSE_LOGERR(...) fprintf (stderr, ## __VA_ARGS__)
+#define MALLOC(size) malloc(size)
+#define FREE(ptr) free(ptr)
+#define GFFUSE_LOGERR(...) fprintf(stderr, ##__VA_ARGS__)
 #else /* FUSE_UTIL */
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/common-utils.h"
 
-#define GFFUSE_LOGERR(...) \
-        gf_log ("glusterfs-fuse", GF_LOG_ERROR, ## __VA_ARGS__)
+#define GFFUSE_LOGERR(...) gf_log("glusterfs-fuse", GF_LOG_ERROR, ##__VA_ARGS__)
 #endif /* !FUSE_UTIL */

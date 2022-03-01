@@ -6,7 +6,8 @@
 #include <string.h>
 #include <glusterfs/api/glfs.h>
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     char log[128];
     struct dirent entry;

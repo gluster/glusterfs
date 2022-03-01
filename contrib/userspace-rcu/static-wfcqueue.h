@@ -4,7 +4,8 @@
 /*
  * urcu/static/wfcqueue.h
  *
- * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking Dequeue
+ * Userspace RCU library - Concurrent Queue with Wait-Free Enqueue/Blocking
+ * Dequeue
  *
  * TO BE INCLUDED ONLY IN LGPL-COMPATIBLE CODE. See urcu/wfcqueue.h for
  * linking dynamically with the userspace rcu library.
@@ -82,54 +83,55 @@ extern "C" {
  * thread, without requiring any lock.
  */
 
-#define WFCQ_ADAPT_ATTEMPTS		10	/* Retry if being set */
-#define WFCQ_WAIT			10	/* Wait 10 ms if being set */
+#define WFCQ_ADAPT_ATTEMPTS 10 /* Retry if being set */
+#define WFCQ_WAIT 10           /* Wait 10 ms if being set */
 
 /*
  * cds_wfcq_node_init: initialize wait-free queue node.
  */
-static inline void _cds_wfcq_node_init(struct cds_wfcq_node *node)
+static inline void
+_cds_wfcq_node_init(struct cds_wfcq_node *node)
 {
-	node->next = NULL;
+    node->next = NULL;
 }
 
 /*
  * cds_wfcq_init: initialize wait-free queue (with lock). Pair with
  * cds_wfcq_destroy().
  */
-static inline void _cds_wfcq_init(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+static inline void
+_cds_wfcq_init(struct cds_wfcq_head *head, struct cds_wfcq_tail *tail)
 {
-	int ret;
+    int ret;
 
-	/* Set queue head and tail */
-	_cds_wfcq_node_init(&head->node);
-	tail->p = &head->node;
-	ret = pthread_mutex_init(&head->lock, NULL);
-	assert(!ret);
+    /* Set queue head and tail */
+    _cds_wfcq_node_init(&head->node);
+    tail->p = &head->node;
+    ret = pthread_mutex_init(&head->lock, NULL);
+    assert(!ret);
 }
 
 /*
  * cds_wfcq_destroy: destroy wait-free queue (with lock). Pair with
  * cds_wfcq_init().
  */
-static inline void _cds_wfcq_destroy(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+static inline void
+_cds_wfcq_destroy(struct cds_wfcq_head *head, struct cds_wfcq_tail *tail)
 {
-	int ret = pthread_mutex_destroy(&head->lock);
-	assert(!ret);
+    int ret = pthread_mutex_destroy(&head->lock);
+    assert(!ret);
 }
 
 /*
  * __cds_wfcq_init: initialize wait-free queue (without lock). Don't
  * pair with any destroy function.
  */
-static inline void ___cds_wfcq_init(struct __cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+static inline void
+___cds_wfcq_init(struct __cds_wfcq_head *head, struct cds_wfcq_tail *tail)
 {
-	/* Set queue head and tail */
-	_cds_wfcq_node_init(&head->node);
-	tail->p = &head->node;
+    /* Set queue head and tail */
+    _cds_wfcq_node_init(&head->node);
+    tail->p = &head->node;
 }
 
 /*
@@ -144,69 +146,69 @@ static inline void ___cds_wfcq_init(struct __cds_wfcq_head *head,
  * make a queue appear empty if an enqueuer is preempted for a long time
  * between xchg() and setting the previous node's next pointer.
  */
-static inline bool _cds_wfcq_empty(cds_wfcq_head_ptr_t u_head,
-		struct cds_wfcq_tail *tail)
+static inline bool
+_cds_wfcq_empty(cds_wfcq_head_ptr_t u_head, struct cds_wfcq_tail *tail)
 {
-	struct __cds_wfcq_head *head = u_head._h;
-	/*
-	 * Queue is empty if no node is pointed by head->node.next nor
-	 * tail->p. Even though the tail->p check is sufficient to find
-	 * out of the queue is empty, we first check head->node.next as a
-	 * common case to ensure that dequeuers do not frequently access
-	 * enqueuer's tail->p cache line.
-	 */
-	return CMM_LOAD_SHARED(head->node.next) == NULL
-		&& CMM_LOAD_SHARED(tail->p) == &head->node;
+    struct __cds_wfcq_head *head = u_head._h;
+    /*
+     * Queue is empty if no node is pointed by head->node.next nor
+     * tail->p. Even though the tail->p check is sufficient to find
+     * out of the queue is empty, we first check head->node.next as a
+     * common case to ensure that dequeuers do not frequently access
+     * enqueuer's tail->p cache line.
+     */
+    return CMM_LOAD_SHARED(head->node.next) == NULL &&
+           CMM_LOAD_SHARED(tail->p) == &head->node;
 }
 
-static inline void _cds_wfcq_dequeue_lock(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+static inline void
+_cds_wfcq_dequeue_lock(struct cds_wfcq_head *head, struct cds_wfcq_tail *tail)
 {
-	int ret;
+    int ret;
 
-	ret = pthread_mutex_lock(&head->lock);
-	assert(!ret);
+    ret = pthread_mutex_lock(&head->lock);
+    assert(!ret);
 }
 
-static inline void _cds_wfcq_dequeue_unlock(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+static inline void
+_cds_wfcq_dequeue_unlock(struct cds_wfcq_head *head, struct cds_wfcq_tail *tail)
 {
-	int ret;
+    int ret;
 
-	ret = pthread_mutex_unlock(&head->lock);
-	assert(!ret);
+    ret = pthread_mutex_unlock(&head->lock);
+    assert(!ret);
 }
 
-static inline bool ___cds_wfcq_append(cds_wfcq_head_ptr_t u_head,
-		struct cds_wfcq_tail *tail,
-		struct cds_wfcq_node *new_head,
-		struct cds_wfcq_node *new_tail)
+static inline bool
+___cds_wfcq_append(cds_wfcq_head_ptr_t u_head, struct cds_wfcq_tail *tail,
+                   struct cds_wfcq_node *new_head,
+                   struct cds_wfcq_node *new_tail)
 {
-	struct __cds_wfcq_head *head = u_head._h;
-	struct cds_wfcq_node *old_tail;
+    struct __cds_wfcq_head *head = u_head._h;
+    struct cds_wfcq_node *old_tail;
 
-	/*
-	 * Implicit memory barrier before uatomic_xchg() orders earlier
-	 * stores to data structure containing node and setting
-	 * node->next to NULL before publication.
-	 */
-	old_tail = uatomic_xchg(&tail->p, new_tail);
+    /*
+     * Implicit memory barrier before uatomic_xchg() orders earlier
+     * stores to data structure containing node and setting
+     * node->next to NULL before publication.
+     */
+    old_tail = uatomic_xchg(&tail->p, new_tail);
 
-	/*
-	 * Implicit memory barrier after uatomic_xchg() orders store to
-	 * q->tail before store to old_tail->next.
-	 *
-	 * At this point, dequeuers see a NULL tail->p->next, which
-	 * indicates that the queue is being appended to. The following
-	 * store will append "node" to the queue from a dequeuer
-	 * perspective.
-	 */
-	CMM_STORE_SHARED(old_tail->next, new_head);
-	/*
-	 * Return false if queue was empty prior to adding the node,
-	 * else return true.
-	 */
-	return old_tail != &head->node;
+    /*
+     * Implicit memory barrier after uatomic_xchg() orders store to
+     * q->tail before store to old_tail->next.
+     *
+     * At this point, dequeuers see a NULL tail->p->next, which
+     * indicates that the queue is being appended to. The following
+     * store will append "node" to the queue from a dequeuer
+     * perspective.
+     */
+    CMM_STORE_SHARED(old_tail->next, new_head);
+    /*
+     * Return false if queue was empty prior to adding the node,
+     * else return true.
+     */
+    return old_tail != &head->node;
 }
 
 /*
@@ -218,11 +220,11 @@ static inline bool ___cds_wfcq_append(cds_wfcq_head_ptr_t u_head,
  * Returns false if the queue was empty prior to adding the node.
  * Returns true otherwise.
  */
-static inline bool _cds_wfcq_enqueue(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail,
-		struct cds_wfcq_node *new_tail)
+static inline bool
+_cds_wfcq_enqueue(cds_wfcq_head_ptr_t head, struct cds_wfcq_tail *tail,
+                  struct cds_wfcq_node *new_tail)
 {
-	return ___cds_wfcq_append(head, tail, new_tail, new_tail);
+    return ___cds_wfcq_append(head, tail, new_tail, new_tail);
 }
 
 /*
@@ -237,9 +239,10 @@ static inline bool _cds_wfcq_enqueue(cds_wfcq_head_ptr_t head,
 #define CDS_WFCQ_WAIT_SLEEP(msec) ___cds_wfcq_wait_sleep(msec)
 #endif
 
-static inline void ___cds_wfcq_wait_sleep(int msec)
+static inline void
+___cds_wfcq_wait_sleep(int msec)
 {
-	(void) poll(NULL, 0, msec);
+    (void)poll(NULL, 0, msec);
 }
 
 /*
@@ -250,15 +253,15 @@ static inline void ___cds_wfcq_wait_sleep(int msec)
 static inline bool
 ___cds_wfcq_busy_wait(int *attempt, int blocking)
 {
-	if (!blocking)
-		return 1;
-	if (++(*attempt) >= WFCQ_ADAPT_ATTEMPTS) {
-		CDS_WFCQ_WAIT_SLEEP(WFCQ_WAIT);		/* Wait for 10ms */
-		*attempt = 0;
-	} else {
-		caa_cpu_relax();
-	}
-	return 0;
+    if (!blocking)
+        return 1;
+    if (++(*attempt) >= WFCQ_ADAPT_ATTEMPTS) {
+        CDS_WFCQ_WAIT_SLEEP(WFCQ_WAIT); /* Wait for 10ms */
+        *attempt = 0;
+    } else {
+        caa_cpu_relax();
+    }
+    return 0;
 }
 
 /*
@@ -267,34 +270,33 @@ ___cds_wfcq_busy_wait(int *attempt, int blocking)
 static inline struct cds_wfcq_node *
 ___cds_wfcq_node_sync_next(struct cds_wfcq_node *node, int blocking)
 {
-	struct cds_wfcq_node *next;
-	int attempt = 0;
+    struct cds_wfcq_node *next;
+    int attempt = 0;
 
-	/*
-	 * Adaptative busy-looping waiting for enqueuer to complete enqueue.
-	 */
-	while ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
-		if (___cds_wfcq_busy_wait(&attempt, blocking))
-			return CDS_WFCQ_WOULDBLOCK;
-	}
+    /*
+     * Adaptative busy-looping waiting for enqueuer to complete enqueue.
+     */
+    while ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
+        if (___cds_wfcq_busy_wait(&attempt, blocking))
+            return CDS_WFCQ_WOULDBLOCK;
+    }
 
-	return next;
+    return next;
 }
 
 static inline struct cds_wfcq_node *
-___cds_wfcq_first(cds_wfcq_head_ptr_t u_head,
-		struct cds_wfcq_tail *tail,
-		int blocking)
+___cds_wfcq_first(cds_wfcq_head_ptr_t u_head, struct cds_wfcq_tail *tail,
+                  int blocking)
 {
-	struct __cds_wfcq_head *head = u_head._h;
-	struct cds_wfcq_node *node;
+    struct __cds_wfcq_head *head = u_head._h;
+    struct cds_wfcq_node *node;
 
-	if (_cds_wfcq_empty(__cds_wfcq_head_cast(head), tail))
-		return NULL;
-	node = ___cds_wfcq_node_sync_next(&head->node, blocking);
-	/* Load head->node.next before loading node's content */
-	cmm_smp_read_barrier_depends();
-	return node;
+    if (_cds_wfcq_empty(__cds_wfcq_head_cast(head), tail))
+        return NULL;
+    node = ___cds_wfcq_node_sync_next(&head->node, blocking);
+    /* Load head->node.next before loading node's content */
+    cmm_smp_read_barrier_depends();
+    return node;
 }
 
 /*
@@ -312,12 +314,10 @@ ___cds_wfcq_first(cds_wfcq_head_ptr_t u_head,
  * Returns NULL if queue is empty, first node otherwise.
  */
 static inline struct cds_wfcq_node *
-___cds_wfcq_first_blocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail)
+___cds_wfcq_first_blocking(cds_wfcq_head_ptr_t head, struct cds_wfcq_tail *tail)
 {
-	return ___cds_wfcq_first(head, tail, 1);
+    return ___cds_wfcq_first(head, tail, 1);
 }
-
 
 /*
  * __cds_wfcq_first_nonblocking: get first node of a queue, without dequeuing.
@@ -327,35 +327,33 @@ ___cds_wfcq_first_blocking(cds_wfcq_head_ptr_t head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_first_nonblocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail)
+                              struct cds_wfcq_tail *tail)
 {
-	return ___cds_wfcq_first(head, tail, 0);
+    return ___cds_wfcq_first(head, tail, 0);
 }
 
 static inline struct cds_wfcq_node *
-___cds_wfcq_next(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail,
-		struct cds_wfcq_node *node,
-		int blocking)
+___cds_wfcq_next(cds_wfcq_head_ptr_t head, struct cds_wfcq_tail *tail,
+                 struct cds_wfcq_node *node, int blocking)
 {
-	struct cds_wfcq_node *next;
+    struct cds_wfcq_node *next;
 
-	/*
-	 * Even though the following tail->p check is sufficient to find
-	 * out if we reached the end of the queue, we first check
-	 * node->next as a common case to ensure that iteration on nodes
-	 * do not frequently access enqueuer's tail->p cache line.
-	 */
-	if ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
-		/* Load node->next before tail->p */
-		cmm_smp_rmb();
-		if (CMM_LOAD_SHARED(tail->p) == node)
-			return NULL;
-		next = ___cds_wfcq_node_sync_next(node, blocking);
-	}
-	/* Load node->next before loading next's content */
-	cmm_smp_read_barrier_depends();
-	return next;
+    /*
+     * Even though the following tail->p check is sufficient to find
+     * out if we reached the end of the queue, we first check
+     * node->next as a common case to ensure that iteration on nodes
+     * do not frequently access enqueuer's tail->p cache line.
+     */
+    if ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
+        /* Load node->next before tail->p */
+        cmm_smp_rmb();
+        if (CMM_LOAD_SHARED(tail->p) == node)
+            return NULL;
+        next = ___cds_wfcq_node_sync_next(node, blocking);
+    }
+    /* Load node->next before loading next's content */
+    cmm_smp_read_barrier_depends();
+    return next;
 }
 
 /*
@@ -374,11 +372,10 @@ ___cds_wfcq_next(cds_wfcq_head_ptr_t head,
  * otherwise.
  */
 static inline struct cds_wfcq_node *
-___cds_wfcq_next_blocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail,
-		struct cds_wfcq_node *node)
+___cds_wfcq_next_blocking(cds_wfcq_head_ptr_t head, struct cds_wfcq_tail *tail,
+                          struct cds_wfcq_node *node)
 {
-	return ___cds_wfcq_next(head, tail, node, 1);
+    return ___cds_wfcq_next(head, tail, node, 1);
 }
 
 /*
@@ -389,74 +386,73 @@ ___cds_wfcq_next_blocking(cds_wfcq_head_ptr_t head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_next_nonblocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail,
-		struct cds_wfcq_node *node)
+                             struct cds_wfcq_tail *tail,
+                             struct cds_wfcq_node *node)
 {
-	return ___cds_wfcq_next(head, tail, node, 0);
+    return ___cds_wfcq_next(head, tail, node, 0);
 }
 
 static inline struct cds_wfcq_node *
 ___cds_wfcq_dequeue_with_state(cds_wfcq_head_ptr_t u_head,
-		struct cds_wfcq_tail *tail,
-		int *state,
-		int blocking)
+                               struct cds_wfcq_tail *tail, int *state,
+                               int blocking)
 {
-	struct __cds_wfcq_head *head = u_head._h;
-	struct cds_wfcq_node *node, *next;
+    struct __cds_wfcq_head *head = u_head._h;
+    struct cds_wfcq_node *node, *next;
 
-	if (state)
-		*state = 0;
+    if (state)
+        *state = 0;
 
-	if (_cds_wfcq_empty(__cds_wfcq_head_cast(head), tail)) {
-		return NULL;
-	}
+    if (_cds_wfcq_empty(__cds_wfcq_head_cast(head), tail)) {
+        return NULL;
+    }
 
-	node = ___cds_wfcq_node_sync_next(&head->node, blocking);
-	if (!blocking && node == CDS_WFCQ_WOULDBLOCK) {
-		return CDS_WFCQ_WOULDBLOCK;
-	}
+    node = ___cds_wfcq_node_sync_next(&head->node, blocking);
+    if (!blocking && node == CDS_WFCQ_WOULDBLOCK) {
+        return CDS_WFCQ_WOULDBLOCK;
+    }
 
-	if ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
-		/*
-		 * @node is probably the only node in the queue.
-		 * Try to move the tail to &q->head.
-		 * q->head.next is set to NULL here, and stays
-		 * NULL if the cmpxchg succeeds. Should the
-		 * cmpxchg fail due to a concurrent enqueue, the
-		 * q->head.next will be set to the next node.
-		 * The implicit memory barrier before
-		 * uatomic_cmpxchg() orders load node->next
-		 * before loading q->tail.
-		 * The implicit memory barrier before uatomic_cmpxchg
-		 * orders load q->head.next before loading node's
-		 * content.
-		 */
-		_cds_wfcq_node_init(&head->node);
-		if (uatomic_cmpxchg(&tail->p, node, &head->node) == node) {
-			if (state)
-				*state |= CDS_WFCQ_STATE_LAST;
-			return node;
-		}
-		next = ___cds_wfcq_node_sync_next(node, blocking);
-		/*
-		 * In nonblocking mode, if we would need to block to
-		 * get node's next, set the head next node pointer
-		 * (currently NULL) back to its original value.
-		 */
-		if (!blocking && next == CDS_WFCQ_WOULDBLOCK) {
-			head->node.next = node;
-			return CDS_WFCQ_WOULDBLOCK;
-		}
-	}
+    if ((next = CMM_LOAD_SHARED(node->next)) == NULL) {
+        /*
+         * @node is probably the only node in the queue.
+         * Try to move the tail to &q->head.
+         * q->head.next is set to NULL here, and stays
+         * NULL if the cmpxchg succeeds. Should the
+         * cmpxchg fail due to a concurrent enqueue, the
+         * q->head.next will be set to the next node.
+         * The implicit memory barrier before
+         * uatomic_cmpxchg() orders load node->next
+         * before loading q->tail.
+         * The implicit memory barrier before uatomic_cmpxchg
+         * orders load q->head.next before loading node's
+         * content.
+         */
+        _cds_wfcq_node_init(&head->node);
+        if (uatomic_cmpxchg(&tail->p, node, &head->node) == node) {
+            if (state)
+                *state |= CDS_WFCQ_STATE_LAST;
+            return node;
+        }
+        next = ___cds_wfcq_node_sync_next(node, blocking);
+        /*
+         * In nonblocking mode, if we would need to block to
+         * get node's next, set the head next node pointer
+         * (currently NULL) back to its original value.
+         */
+        if (!blocking && next == CDS_WFCQ_WOULDBLOCK) {
+            head->node.next = node;
+            return CDS_WFCQ_WOULDBLOCK;
+        }
+    }
 
-	/*
-	 * Move queue head forward.
-	 */
-	head->node.next = next;
+    /*
+     * Move queue head forward.
+     */
+    head->node.next = next;
 
-	/* Load q->head.next before loading node's content */
-	cmm_smp_read_barrier_depends();
-	return node;
+    /* Load q->head.next before loading node's content */
+    cmm_smp_read_barrier_depends();
+    return node;
 }
 
 /*
@@ -470,9 +466,9 @@ ___cds_wfcq_dequeue_with_state(cds_wfcq_head_ptr_t u_head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_dequeue_with_state_blocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail, int *state)
+                                        struct cds_wfcq_tail *tail, int *state)
 {
-	return ___cds_wfcq_dequeue_with_state(head, tail, state, 1);
+    return ___cds_wfcq_dequeue_with_state(head, tail, state, 1);
 }
 
 /*
@@ -483,9 +479,9 @@ ___cds_wfcq_dequeue_with_state_blocking(cds_wfcq_head_ptr_t head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_dequeue_blocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail)
+                             struct cds_wfcq_tail *tail)
 {
-	return ___cds_wfcq_dequeue_with_state_blocking(head, tail, NULL);
+    return ___cds_wfcq_dequeue_with_state_blocking(head, tail, NULL);
 }
 
 /*
@@ -496,9 +492,10 @@ ___cds_wfcq_dequeue_blocking(cds_wfcq_head_ptr_t head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_dequeue_with_state_nonblocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail, int *state)
+                                           struct cds_wfcq_tail *tail,
+                                           int *state)
 {
-	return ___cds_wfcq_dequeue_with_state(head, tail, state, 0);
+    return ___cds_wfcq_dequeue_with_state(head, tail, state, 0);
 }
 
 /*
@@ -509,9 +506,9 @@ ___cds_wfcq_dequeue_with_state_nonblocking(cds_wfcq_head_ptr_t head,
  */
 static inline struct cds_wfcq_node *
 ___cds_wfcq_dequeue_nonblocking(cds_wfcq_head_ptr_t head,
-		struct cds_wfcq_tail *tail)
+                                struct cds_wfcq_tail *tail)
 {
-	return ___cds_wfcq_dequeue_with_state_nonblocking(head, tail, NULL);
+    return ___cds_wfcq_dequeue_with_state_nonblocking(head, tail, NULL);
 }
 
 /*
@@ -525,57 +522,55 @@ ___cds_wfcq_dequeue_nonblocking(cds_wfcq_head_ptr_t head,
  * dest queue.
  */
 static inline enum cds_wfcq_ret
-___cds_wfcq_splice(
-		cds_wfcq_head_ptr_t u_dest_q_head,
-		struct cds_wfcq_tail *dest_q_tail,
-		cds_wfcq_head_ptr_t u_src_q_head,
-		struct cds_wfcq_tail *src_q_tail,
-		int blocking)
+___cds_wfcq_splice(cds_wfcq_head_ptr_t u_dest_q_head,
+                   struct cds_wfcq_tail *dest_q_tail,
+                   cds_wfcq_head_ptr_t u_src_q_head,
+                   struct cds_wfcq_tail *src_q_tail, int blocking)
 {
-	struct __cds_wfcq_head *dest_q_head = u_dest_q_head._h;
-	struct __cds_wfcq_head *src_q_head = u_src_q_head._h;
-	struct cds_wfcq_node *head, *tail;
-	int attempt = 0;
+    struct __cds_wfcq_head *dest_q_head = u_dest_q_head._h;
+    struct __cds_wfcq_head *src_q_head = u_src_q_head._h;
+    struct cds_wfcq_node *head, *tail;
+    int attempt = 0;
 
-	/*
-	 * Initial emptiness check to speed up cases where queue is
-	 * empty: only require loads to check if queue is empty.
-	 */
-	if (_cds_wfcq_empty(__cds_wfcq_head_cast(src_q_head), src_q_tail))
-		return CDS_WFCQ_RET_SRC_EMPTY;
+    /*
+     * Initial emptiness check to speed up cases where queue is
+     * empty: only require loads to check if queue is empty.
+     */
+    if (_cds_wfcq_empty(__cds_wfcq_head_cast(src_q_head), src_q_tail))
+        return CDS_WFCQ_RET_SRC_EMPTY;
 
-	for (;;) {
-		/*
-		 * Open-coded _cds_wfcq_empty() by testing result of
-		 * uatomic_xchg, as well as tail pointer vs head node
-		 * address.
-		 */
-		head = uatomic_xchg(&src_q_head->node.next, NULL);
-		if (head)
-			break;	/* non-empty */
-		if (CMM_LOAD_SHARED(src_q_tail->p) == &src_q_head->node)
-			return CDS_WFCQ_RET_SRC_EMPTY;
-		if (___cds_wfcq_busy_wait(&attempt, blocking))
-			return CDS_WFCQ_RET_WOULDBLOCK;
-	}
+    for (;;) {
+        /*
+         * Open-coded _cds_wfcq_empty() by testing result of
+         * uatomic_xchg, as well as tail pointer vs head node
+         * address.
+         */
+        head = uatomic_xchg(&src_q_head->node.next, NULL);
+        if (head)
+            break; /* non-empty */
+        if (CMM_LOAD_SHARED(src_q_tail->p) == &src_q_head->node)
+            return CDS_WFCQ_RET_SRC_EMPTY;
+        if (___cds_wfcq_busy_wait(&attempt, blocking))
+            return CDS_WFCQ_RET_WOULDBLOCK;
+    }
 
-	/*
-	 * Memory barrier implied before uatomic_xchg() orders store to
-	 * src_q->head before store to src_q->tail. This is required by
-	 * concurrent enqueue on src_q, which exchanges the tail before
-	 * updating the previous tail's next pointer.
-	 */
-	tail = uatomic_xchg(&src_q_tail->p, &src_q_head->node);
+    /*
+     * Memory barrier implied before uatomic_xchg() orders store to
+     * src_q->head before store to src_q->tail. This is required by
+     * concurrent enqueue on src_q, which exchanges the tail before
+     * updating the previous tail's next pointer.
+     */
+    tail = uatomic_xchg(&src_q_tail->p, &src_q_head->node);
 
-	/*
-	 * Append the spliced content of src_q into dest_q. Does not
-	 * require mutual exclusion on dest_q (wait-free).
-	 */
-	if (___cds_wfcq_append(__cds_wfcq_head_cast(dest_q_head), dest_q_tail,
-			head, tail))
-		return CDS_WFCQ_RET_DEST_NON_EMPTY;
-	else
-		return CDS_WFCQ_RET_DEST_EMPTY;
+    /*
+     * Append the spliced content of src_q into dest_q. Does not
+     * require mutual exclusion on dest_q (wait-free).
+     */
+    if (___cds_wfcq_append(__cds_wfcq_head_cast(dest_q_head), dest_q_tail, head,
+                           tail))
+        return CDS_WFCQ_RET_DEST_NON_EMPTY;
+    else
+        return CDS_WFCQ_RET_DEST_EMPTY;
 }
 
 /*
@@ -589,14 +584,13 @@ ___cds_wfcq_splice(
  * dest queue. Never returns CDS_WFCQ_RET_WOULDBLOCK.
  */
 static inline enum cds_wfcq_ret
-___cds_wfcq_splice_blocking(
-		cds_wfcq_head_ptr_t dest_q_head,
-		struct cds_wfcq_tail *dest_q_tail,
-		cds_wfcq_head_ptr_t src_q_head,
-		struct cds_wfcq_tail *src_q_tail)
+___cds_wfcq_splice_blocking(cds_wfcq_head_ptr_t dest_q_head,
+                            struct cds_wfcq_tail *dest_q_tail,
+                            cds_wfcq_head_ptr_t src_q_head,
+                            struct cds_wfcq_tail *src_q_tail)
 {
-	return ___cds_wfcq_splice(dest_q_head, dest_q_tail,
-		src_q_head, src_q_tail, 1);
+    return ___cds_wfcq_splice(dest_q_head, dest_q_tail, src_q_head, src_q_tail,
+                              1);
 }
 
 /*
@@ -606,14 +600,13 @@ ___cds_wfcq_splice_blocking(
  * CDS_WFCQ_RET_WOULDBLOCK if it needs to block.
  */
 static inline enum cds_wfcq_ret
-___cds_wfcq_splice_nonblocking(
-		cds_wfcq_head_ptr_t dest_q_head,
-		struct cds_wfcq_tail *dest_q_tail,
-		cds_wfcq_head_ptr_t src_q_head,
-		struct cds_wfcq_tail *src_q_tail)
+___cds_wfcq_splice_nonblocking(cds_wfcq_head_ptr_t dest_q_head,
+                               struct cds_wfcq_tail *dest_q_tail,
+                               cds_wfcq_head_ptr_t src_q_head,
+                               struct cds_wfcq_tail *src_q_tail)
 {
-	return ___cds_wfcq_splice(dest_q_head, dest_q_tail,
-		src_q_head, src_q_tail, 0);
+    return ___cds_wfcq_splice(dest_q_head, dest_q_tail, src_q_head, src_q_tail,
+                              0);
 }
 
 /*
@@ -627,15 +620,15 @@ ___cds_wfcq_splice_nonblocking(
  */
 static inline struct cds_wfcq_node *
 _cds_wfcq_dequeue_with_state_blocking(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail, int *state)
+                                      struct cds_wfcq_tail *tail, int *state)
 {
-	struct cds_wfcq_node *retval;
+    struct cds_wfcq_node *retval;
 
-	_cds_wfcq_dequeue_lock(head, tail);
-	retval = ___cds_wfcq_dequeue_with_state_blocking(cds_wfcq_head_cast(head),
-			tail, state);
-	_cds_wfcq_dequeue_unlock(head, tail);
-	return retval;
+    _cds_wfcq_dequeue_lock(head, tail);
+    retval = ___cds_wfcq_dequeue_with_state_blocking(cds_wfcq_head_cast(head),
+                                                     tail, state);
+    _cds_wfcq_dequeue_unlock(head, tail);
+    return retval;
 }
 
 /*
@@ -645,9 +638,9 @@ _cds_wfcq_dequeue_with_state_blocking(struct cds_wfcq_head *head,
  */
 static inline struct cds_wfcq_node *
 _cds_wfcq_dequeue_blocking(struct cds_wfcq_head *head,
-		struct cds_wfcq_tail *tail)
+                           struct cds_wfcq_tail *tail)
 {
-	return _cds_wfcq_dequeue_with_state_blocking(head, tail, NULL);
+    return _cds_wfcq_dequeue_with_state_blocking(head, tail, NULL);
 }
 
 /*
@@ -663,19 +656,19 @@ _cds_wfcq_dequeue_blocking(struct cds_wfcq_head *head,
  * dest queue. Never returns CDS_WFCQ_RET_WOULDBLOCK.
  */
 static inline enum cds_wfcq_ret
-_cds_wfcq_splice_blocking(
-		struct cds_wfcq_head *dest_q_head,
-		struct cds_wfcq_tail *dest_q_tail,
-		struct cds_wfcq_head *src_q_head,
-		struct cds_wfcq_tail *src_q_tail)
+_cds_wfcq_splice_blocking(struct cds_wfcq_head *dest_q_head,
+                          struct cds_wfcq_tail *dest_q_tail,
+                          struct cds_wfcq_head *src_q_head,
+                          struct cds_wfcq_tail *src_q_tail)
 {
-	enum cds_wfcq_ret ret;
+    enum cds_wfcq_ret ret;
 
-	_cds_wfcq_dequeue_lock(src_q_head, src_q_tail);
-	ret = ___cds_wfcq_splice_blocking(cds_wfcq_head_cast(dest_q_head), dest_q_tail,
-			cds_wfcq_head_cast(src_q_head), src_q_tail);
-	_cds_wfcq_dequeue_unlock(src_q_head, src_q_tail);
-	return ret;
+    _cds_wfcq_dequeue_lock(src_q_head, src_q_tail);
+    ret = ___cds_wfcq_splice_blocking(
+        cds_wfcq_head_cast(dest_q_head), dest_q_tail,
+        cds_wfcq_head_cast(src_q_head), src_q_tail);
+    _cds_wfcq_dequeue_unlock(src_q_head, src_q_tail);
+    return ret;
 }
 
 #ifdef __cplusplus

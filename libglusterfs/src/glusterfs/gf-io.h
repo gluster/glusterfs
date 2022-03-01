@@ -110,14 +110,14 @@ typedef struct _gf_io_callback {
     const char *name;
     const char *file;
     uint32_t line;
-} *gf_io_callback_t;
+} * gf_io_callback_t;
 
 typedef struct _gf_io_async {
     int32_t (*func)(gf_io_op_t *op);
     const char *name;
     const char *file;
     uint32_t line;
-} *gf_io_async_t;
+} * gf_io_async_t;
 
 #define GF_IO_CBK(_name, _op, _res, _args...)                                  \
     static void __gf_io_cbk_##_name(gf_io_op_t *_op, int32_t _res);            \
@@ -125,8 +125,7 @@ typedef struct _gf_io_async {
         .func = __gf_io_cbk_##_name,                                           \
         .name = #_name,                                                        \
         .file = __FILE__,                                                      \
-        .line = __LINE__                                                       \
-    };                                                                         \
+        .line = __LINE__};                                                     \
     static void __gf_io_cbk_##_name(gf_io_op_t *_op, int32_t _res)
 
 #define GF_IO_ASYNC(_name, _op, _args...)                                      \
@@ -135,8 +134,7 @@ typedef struct _gf_io_async {
         .func = __gf_io_async_##_name,                                         \
         .name = #_name,                                                        \
         .file = __FILE__,                                                      \
-        .line = __LINE__                                                       \
-    };                                                                         \
+        .line = __LINE__};                                                     \
     static int32_t __gf_io_async_##_name(gf_io_op_t *_op)
 
 #define GF_IO_CBK_DECLARE(_name) extern const gf_io_callback_t _name
