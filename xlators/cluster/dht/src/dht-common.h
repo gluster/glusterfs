@@ -865,7 +865,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 void
 dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
-dht_layout_ref(xlator_t *this, dht_layout_t *layout);
+dht_layout_ref(dht_layout_t *layout);
 int
 dht_layout_index_for_subvol(dht_layout_t *layout, xlator_t *subvol);
 xlator_t *

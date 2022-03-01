@@ -96,9 +96,9 @@ dht_layout_unref(dht_layout_t *layout)
 }
 
 dht_layout_t *
-dht_layout_ref(xlator_t *this, dht_layout_t *layout)
+dht_layout_ref(dht_layout_t *layout)
 {
-    if (layout->preset || !this->private)
+    if (layout->preset)
         return layout;
 
     GF_ATOMIC_INC(layout->ref);

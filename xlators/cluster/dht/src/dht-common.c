@@ -11213,7 +11213,7 @@ dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout)
             if (ctx && ctx->layout) {
                 if (layout) {
                     *layout = ctx->layout;
-                    GF_ATOMIC_INC((*layout)->ref);
+                    dht_layout_ref(ctx->layout);
                 }
             } else {
                 ret = -1;

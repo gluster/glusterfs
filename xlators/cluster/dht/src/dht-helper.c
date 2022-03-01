@@ -1819,7 +1819,7 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
             }
         }
         if (!ret && layout_int)
-            GF_ATOMIC_INC(layout_int->ref);
+            dht_layout_ref(ctx->layout);
     }
     UNLOCK(&inode->lock);
 
