@@ -467,17 +467,14 @@ check_recursive_mount ()
         return;
     fi
 
-    brick_path=`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* 2>/dev/null | cut -d "=" -f 2`;
+    brick_path=`grep ^path "$GLUSTERD_WORKDIR"/vols/*/bricks/* 2>/dev/null | cut -d "=" -f 2 | sort | uniq`;
     root_inode=`${lgetinode} /`;
     root_dev=`${lgetdev} /`;
     mnt_inode=`${lgetinode} $mnt_dir`;
     mnt_dev=`${lgetdev} $mnt_dir`;
-    for brick in "$brick_path"; do
+    for brick in $brick_path; do
         # evaluate brick path to see if this is local, if non-local, skip iteration
-        ls $brick > /dev/null 2>&1;
-        if [ $? -ne 0 ]; then
-            continue;
-        fi
+        [ -d $brick ] || continue;
 
         if [ -n "${getfattr}" ]; then
             ${getfattr} -n trusted.gfid "$brick" 2>/dev/null | grep -iq "trusted.gfid=";
