@@ -1788,11 +1788,12 @@ dht_rebalance_in_progress_check(xlator_t *this, call_frame_t *frame)
 
 int
 dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
-                         dht_layout_t *layout_int, dht_layout_t **old_layout)
+                         dht_layout_t *layout_int)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
     uint64_t ctx_int = 0;
+    dht_layout_t *old_layout = NULL;
 
     LOCK(&inode->lock);
     {
@@ -1800,8 +1801,7 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
         if (!ret) {
             ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
             if (ctx) {
-                if (ctx->layout && old_layout)
-                    (*old_layout) = ctx->layout;
+                old_layout = ctx->layout;
                 ctx->layout = layout_int;
             }
         }
@@ -1822,6 +1822,9 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
             dht_layout_ref(ctx->layout);
     }
     UNLOCK(&inode->lock);
+
+    if (old_layout)
+        dht_layout_unref(old_layout);
 
     return ret;
 }

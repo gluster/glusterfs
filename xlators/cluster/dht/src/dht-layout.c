@@ -66,16 +66,12 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout)
 {
     dht_conf_t *conf = NULL;
     int ret = -1;
-    dht_layout_t *old_layout = NULL;
 
     conf = this->private;
     if (!conf || !layout)
         goto out;
 
-    ret = dht_inode_ctx_layout_set(inode, this, layout, &old_layout);
-
-    if (old_layout)
-        dht_layout_unref(old_layout);
+    ret = dht_inode_ctx_layout_set(inode, this, layout);
 
 out:
     return ret;
@@ -706,7 +702,7 @@ dht_layout_preset(xlator_t *this, xlator_t *subvol, inode_t *inode)
     gf_msg_debug(this->name, 0, "file = %s, subvol = %s",
                  uuid_utoa(inode->gfid), subvol ? subvol->name : "<nil>");
 
-    ret = dht_inode_ctx_layout_set(inode, this, layout, NULL);
+    ret = dht_inode_ctx_layout_set(inode, this, layout);
 
 out:
     return ret;

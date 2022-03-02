@@ -1150,7 +1150,7 @@ dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this,
                          dht_layout_t **layout_int);
 int
 dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
-                         dht_layout_t *layout_int, dht_layout_t **old_layout);
+                         dht_layout_t *layout_int);
 int
 dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *prestat,
                           struct iatt *poststat);
