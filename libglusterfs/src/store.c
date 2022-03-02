@@ -551,7 +551,7 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
     GF_ASSERT(value);
 
     ret = gf_store_read_and_tokenize(iter->file, &iter_key, &iter_val,
-                                     &store_errno, iter->buf, 8192);
+                                     &store_errno, iter->buf, sizeof(iter->buf));
     if (ret < 0) {
         goto out;
     }
