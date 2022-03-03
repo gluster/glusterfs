@@ -177,12 +177,14 @@ check_pathbuf(inode_t *inode, xlator_t *this, char **pathbuf,
                    name);
         }
         GF_FREE(*pathbuf);
+        *pathbuf = NULL;
         return 0;
     }
     *local = mem_get0(this->local_pool);
     if (!(*local)) {
         gf_log(this->name, GF_LOG_DEBUG, "out of memory");
         GF_FREE(*pathbuf);
+        *pathbuf = NULL;
         return -ENOMEM;
     }
     return 1;
@@ -1392,7 +1394,9 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
-    return ret;
+  if (pathbuf)
+    GF_FREE(pathbuf);
+  return ret;
 }
 
 /**
@@ -2009,9 +2013,10 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     STACK_WIND(frame, trash_truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
-
 out:
-    return ret;
+  if (pathbuf)
+    GF_FREE(pathbuf);
+  return ret;
 }
 
 /**
@@ -2077,7 +2082,9 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     STACK_WIND(frame, trash_truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fstat, fd, xdata);
 out:
-    return ret;
+  if (pathbuf)
+    GF_FREE(pathbuf);
+  return ret;
 }
 
 /**
