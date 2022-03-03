@@ -1,7 +1,6 @@
 #ifndef GF_METADISP_FOPS_H_
 #define GF_METADISP_FOPS_H_
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/glusterfs.h>
 

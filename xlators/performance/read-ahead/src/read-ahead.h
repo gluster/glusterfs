@@ -11,11 +11,9 @@
 #ifndef __READ_AHEAD_H
 #define __READ_AHEAD_H
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
-#include <glusterfs/common-utils.h>
 #include "read-ahead-mem-types.h"
 
 struct ra_conf;

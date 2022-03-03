@@ -8,8 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <errno.h>
-
 #include <glusterfs/defaults.h>
 
 #include "posix-acl.h"

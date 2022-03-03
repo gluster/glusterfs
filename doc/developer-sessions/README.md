@@ -57,3 +57,10 @@ Index xlator design and implementation are covered in this session.
 17. Self heal daemon - data, metadata, entry self-heals - [video](https://youtu.be/aiBFO_ggSVA) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-17-self-heal-daemon-data-metadata-entry-healing)
     - Types of heal needed for a given file/directory
     - Code walkthrough of data, metadata, entry self-heals
+18. Intro to FUSE and its trade offs - [video](https://youtu.be/str7pR9sF-E) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-18-intro-to-fuse-and-its-trade-offs)  
+    - various parts of fuse code in the glusterfs source tree
+    - the story FUSE version macros tell
+    - the tale of FUSE and fuse (historical context, terminology)
+    - to libfuse or not to libfuse?
+    - FUSE proto breakdown
+    - mount and INIT

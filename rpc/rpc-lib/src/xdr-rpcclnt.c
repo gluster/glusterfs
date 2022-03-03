@@ -14,7 +14,6 @@
 #include <rpc/auth_unix.h>
 #include <errno.h>
 
-#include "xdr-rpc.h"
 #include "xdr-common.h"
 #include <glusterfs/common-utils.h>
 

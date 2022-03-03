@@ -15,14 +15,10 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/hashfn.h>
 #include <glusterfs/list.h>
-#include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/statedump.h>
@@ -37,6 +33,15 @@
 #include "afr-self-heal.h"
 #include "afr-self-heald.h"
 #include "afr-messages.h"
+
+static afr_fd_ctx_t *
+__afr_fd_ctx_get(fd_t *fd, xlator_t *this);
+
+static void
+afr_set_need_heal(xlator_t *this, afr_local_t *local);
+
+static int
+__afr_inode_need_refresh_set(inode_t *inode, xlator_t *this);
 
 int32_t
 afr_quorum_errno(afr_private_t *priv)
@@ -1094,7 +1099,7 @@ out:
     return ret;
 }
 
-int
+static int
 __afr_inode_read_subvol_get(inode_t *inode, xlator_t *this, unsigned char *data,
                             unsigned char *metadata, int *event_p)
 {
@@ -1128,7 +1133,7 @@ __afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 __afr_inode_read_subvol_set(inode_t *inode, xlator_t *this, unsigned char *data,
                             unsigned char *metadata, int event)
 {
@@ -1280,7 +1285,8 @@ afr_split_brain_read_subvol_get(inode_t *inode, xlator_t *this,
 out:
     return ret;
 }
-int
+
+static int
 afr_inode_read_subvol_set(inode_t *inode, xlator_t *this, unsigned char *data,
                           unsigned char *metadata, int event)
 {
@@ -1346,7 +1352,7 @@ out:
     return need_refresh;
 }
 
-int
+static int
 __afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -1376,7 +1382,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
 {
     afr_inode_ctx_t *ctx = NULL;
@@ -2363,17 +2369,14 @@ afr_read_subvol_select_by_policy(inode_t *inode, xlator_t *this,
     return -1;
 }
 
-int
+static int
 afr_inode_read_subvol_type_get(inode_t *inode, xlator_t *this,
                                unsigned char *readable, int *event_p, int type)
 {
-    int ret = -1;
-
     if (type == AFR_METADATA_TRANSACTION)
-        ret = afr_inode_read_subvol_get(inode, this, 0, readable, event_p);
+        return afr_inode_read_subvol_get(inode, this, 0, readable, event_p);
     else
-        ret = afr_inode_read_subvol_get(inode, this, readable, 0, event_p);
-    return ret;
+        return afr_inode_read_subvol_get(inode, this, readable, 0, event_p);
 }
 
 void
@@ -2434,7 +2437,7 @@ afr_read_subvol_get(inode_t *inode, xlator_t *this, int *subvol_p,
     return subvol;
 }
 
-void
+static void
 afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = NULL;
@@ -2443,8 +2446,6 @@ afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
     priv = this->private;
 
     afr_matrix_cleanup(local->pending, priv->child_count);
-
-    GF_FREE(local->internal_lock.lower_locked_nodes);
 
     afr_lockees_cleanup(&local->internal_lock);
 
@@ -4150,7 +4151,7 @@ out:
     return fd_ctx;
 }
 
-afr_fd_ctx_t *
+static afr_fd_ctx_t *
 __afr_fd_ctx_get(fd_t *fd, xlator_t *this)
 {
     uint64_t ctx = 0;
@@ -6193,7 +6194,7 @@ afr_handle_inodelk_contention(xlator_t *this, struct gf_upcall *upcall)
 }
 
 static void
-afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall)
+afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
 {
     struct gf_upcall_cache_invalidation *up_ci = NULL;
     afr_private_t *priv = this->private;
@@ -6208,6 +6209,13 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall)
         case GF_UPCALL_CACHE_INVALIDATION:
             up_ci = (struct gf_upcall_cache_invalidation *)upcall->data;
 
+            if (AFR_IS_ARBITER_BRICK(priv, idx)) {
+                /* Skip all update involving iatt from arbiter
+                 * node, since the size contains invalid info
+                 */
+                up_ci->flags &= ~UP_ATTR_FLAGS;
+                up_ci->flags &= ~UP_PARENT_DENTRY_FLAGS;
+            }
             /* Since md-cache will be aggressively filtering
              * lookups, the stale read issue will be more
              * pronounced. Hence when a pending xattr is set notify
@@ -6335,7 +6343,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     }
 
     if (event == GF_EVENT_UPCALL) {
-        afr_handle_upcall_event(this, data);
+        afr_handle_upcall_event(this, data, idx);
     }
 
     LOCK(&priv->lock);
@@ -6543,22 +6551,11 @@ out:
     return -1;
 }
 
-int
+static inline void
 afr_internal_lock_init(afr_internal_lock_t *lk, size_t child_count)
 {
-    int ret = -ENOMEM;
-
-    lk->lower_locked_nodes = GF_CALLOC(sizeof(*lk->lower_locked_nodes),
-                                       child_count, gf_afr_mt_char);
-    if (NULL == lk->lower_locked_nodes)
-        goto out;
-
     lk->lock_op_ret = -1;
     lk->lock_op_errno = EUCLEAN;
-
-    ret = 0;
-out:
-    return ret;
 }
 
 void
@@ -6609,9 +6606,7 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
     INIT_LIST_HEAD(&local->transaction.owner_list);
     INIT_LIST_HEAD(&local->ta_waitq);
     INIT_LIST_HEAD(&local->ta_onwireq);
-    ret = afr_internal_lock_init(&local->internal_lock, priv->child_count);
-    if (ret < 0)
-        goto out;
+    afr_internal_lock_init(&local->internal_lock, priv->child_count);
 
     ret = -ENOMEM;
     local->pre_op_compat = priv->pre_op_compat;
@@ -6648,12 +6643,6 @@ afr_transaction_local_init(afr_local_t *local, xlator_t *this)
     ret = 0;
 out:
     return ret;
-}
-
-void
-afr_set_low_priority(call_frame_t *frame)
-{
-    frame->root->pid = LOW_PRIO_PROC_PID;
 }
 
 void
@@ -7340,7 +7329,7 @@ afr_priv_need_heal_set(afr_private_t *priv, gf_boolean_t need_heal)
     UNLOCK(&priv->lock);
 }
 
-void
+static void
 afr_set_need_heal(xlator_t *this, afr_local_t *local)
 {
     int i = 0;
@@ -7358,9 +7347,8 @@ afr_set_need_heal(xlator_t *this, afr_local_t *local)
 }
 
 gf_boolean_t
-afr_get_need_heal(xlator_t *this)
+afr_get_need_heal(afr_private_t *priv)
 {
-    afr_private_t *priv = this->private;
     gf_boolean_t need_heal = _gf_true;
 
     LOCK(&priv->lock);
@@ -7369,16 +7357,6 @@ afr_get_need_heal(xlator_t *this)
     }
     UNLOCK(&priv->lock);
     return need_heal;
-}
-
-int
-afr_get_msg_id(char *op_type)
-{
-    if (!strcmp(op_type, GF_AFR_REPLACE_BRICK))
-        return AFR_MSG_REPLACE_BRICK_STATUS;
-    else if (!strcmp(op_type, GF_AFR_ADD_BRICK))
-        return AFR_MSG_ADD_BRICK_STATUS;
-    return -1;
 }
 
 int

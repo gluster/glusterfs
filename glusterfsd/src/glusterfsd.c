@@ -10,25 +10,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <sys/types.h>
 #include <sys/resource.h>
-#include <sys/file.h>
 #include <sys/wait.h>
-#include <netdb.h>
-#include <signal.h>
-#include <libgen.h>
 #include <dlfcn.h>
-
-#include <sys/utsname.h>
-
-#include <stdint.h>
 #include <pthread.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <time.h>
-#include <semaphore.h>
 #include <errno.h>
 #include <pwd.h>
 
@@ -47,33 +32,28 @@
 #include <malloc.h>
 #endif
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include "glusterfsd-messages.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include "glusterfsd.h"
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/latency.h>
 #include "glusterfsd-mem-types.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
-#include <fnmatch.h>
-#include "rpc-clnt.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/client_t.h>
-#include "netgroups.h"
-#include "exports.h"
 #include <glusterfs/monitoring.h>
 #include <glusterfs/gf-io.h>
-
 #include <glusterfs/daemon.h>
+
+#include "glusterfsd.h"
+#include "rpc-clnt.h"
+#include "netgroups.h"
+#include "exports.h"
 
 /* using argp for command line parsing */
 static char gf_doc[] = "";
@@ -291,14 +271,27 @@ static struct argp_option gf_options[] = {
 
 static struct argp argp = {gf_options, parse_opts, argp_doc, gf_doc};
 
-int
-glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx);
-int
-glusterfs_volumes_init(glusterfs_ctx_t *ctx);
-int
-glusterfs_mgmt_init(glusterfs_ctx_t *ctx);
-int
-glusterfs_listener_init(glusterfs_ctx_t *ctx);
+static void
+glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx)
+{
+    cmd_args_t *cmd_args = NULL;
+
+    cmd_args = &ctx->cmd_args;
+
+    if (!ctx->pidfp)
+        return;
+
+    gf_msg_trace("glusterfsd", 0, "pidfile %s cleanup", cmd_args->pid_file);
+
+    if (ctx->cmd_args.pid_file) {
+        GF_FREE(ctx->cmd_args.pid_file);
+        ctx->cmd_args.pid_file = NULL;
+    }
+
+    lockf(fileno(ctx->pidfp), F_ULOCK, 0);
+    fclose(ctx->pidfp);
+    ctx->pidfp = NULL;
+}
 
 #define DICT_SET_VAL(method, dict, key, val, msgid)                            \
     if (method(dict, key, val)) {                                              \
@@ -562,7 +555,7 @@ err:
     return ret;
 }
 
-int
+static int
 create_fuse_mount(glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -630,25 +623,6 @@ err:
     }
 
     return 1;
-}
-
-static FILE *
-get_volfp(glusterfs_ctx_t *ctx)
-{
-    cmd_args_t *cmd_args = NULL;
-    FILE *specfp = NULL;
-
-    cmd_args = &ctx->cmd_args;
-
-    if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
-        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
-                "volume_file=%s", cmd_args->volfile, NULL);
-        return NULL;
-    }
-
-    gf_msg_debug("glusterfsd", 0, "loading volume file %s", cmd_args->volfile);
-
-    return specfp;
 }
 
 static int
@@ -1408,22 +1382,6 @@ parse_opts(int key, char *arg, struct argp_state *state)
     return 0;
 }
 
-gf_boolean_t
-should_call_fini(glusterfs_ctx_t *ctx, xlator_t *trav)
-{
-    /* There's nothing to call, so the other checks don't matter. */
-    if (!trav->fini) {
-        return _gf_false;
-    }
-
-    /* This preserves previous behavior in glusterd. */
-    if (ctx->process_mode == GF_GLUSTERD_PROCESS) {
-        return _gf_true;
-    }
-
-    return _gf_false;
-}
-
 void
 cleanup_and_exit(int signum)
 {
@@ -1653,12 +1611,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
-        gf_smsg("", GF_LOG_CRITICAL, 0, glusterfsd_msg_14, "stub", NULL);
-        goto out;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
     if (!ctx->dict_pool)
         goto out;
@@ -1735,11 +1687,45 @@ out:
             mem_pool_destroy(ctx->pool->stack_mem_pool);
         }
         GF_FREE(ctx->pool);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_data_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->logbuf_pool);
+    }
+
+    return ret;
+}
+
+static int
+gf_set_log_ident(cmd_args_t *cmd_args)
+{
+    int ret = 0;
+    char *ptr = NULL;
+
+    if (cmd_args->log_file == NULL) {
+        /* no ident source */
+        return 0;
+    }
+
+    /* TODO: Some idents would look like, etc-glusterfs-glusterd.vol, which
+     * seems ugly and can be bettered? */
+    /* just get the filename as the ident */
+    if (NULL != (ptr = strrchr(cmd_args->log_file, '/'))) {
+        ret = gf_asprintf(&cmd_args->log_ident, "%s", ptr + 1);
+    } else {
+        ret = gf_asprintf(&cmd_args->log_ident, "%s", cmd_args->log_file);
+    }
+
+    if (ret > 0)
+        ret = 0;
+    else
+        return ret;
+
+    /* remove .log suffix */
+    if (NULL != (ptr = strrchr(cmd_args->log_ident, '.'))) {
+        if (strcmp(ptr, ".log") == 0) {
+            ptr[0] = '\0';
+        }
     }
 
     return ret;
@@ -1803,7 +1789,7 @@ logging_init(glusterfs_ctx_t *ctx, const char *progpath)
     return 0;
 }
 
-void
+static void
 gf_check_and_set_mem_acct(int argc, char *argv[])
 {
     int i = 0;
@@ -1815,7 +1801,7 @@ gf_check_and_set_mem_acct(int argc, char *argv[])
         }
     }
 }
-
+#ifdef BUILD_GNFS
 /**
  * print_exports_file - Print out & verify the syntax
  *                      of the exports file specified
@@ -1830,7 +1816,7 @@ gf_check_and_set_mem_acct(int argc, char *argv[])
  * errors terminate the program immediately here and print out different
  * error messages. Hence there are different return values.
  */
-int
+static int
 print_exports_file(const char *exports_file)
 {
     void *libhandle = NULL;
@@ -1926,7 +1912,7 @@ out:
  * Or if we cannot allocate anymore memory, we don't want to continue. Also,
  * we want to print out a different error messages based on the ret value.
  */
-int
+static int
 print_netgroups_file(const char *netgroups_file)
 {
     void *libhandle = NULL;
@@ -2001,7 +1987,9 @@ out:
     return ret;
 }
 
-int
+#endif
+
+static int
 parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
 {
     int process_mode = 0;
@@ -2114,7 +2102,7 @@ parse_cmdline(int argc, char *argv[], glusterfs_ctx_t *ctx)
              (S_ISREG(stbuf.st_mode) || S_ISLNK(stbuf.st_mode))) ||
             (ret == -1)) {
             /* Have separate logfile per run. */
-            gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
+            gf_time_fmt_FT(timestr, sizeof timestr, gf_time());
             sprintf(tmp_logfile, "%s.%s.%d", cmd_args->log_file, timestr,
                     getpid());
 
@@ -2154,7 +2142,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_pidfile_setup(glusterfs_ctx_t *ctx)
 {
     cmd_args_t *cmd_args = NULL;
@@ -2181,31 +2169,7 @@ out:
     return ret;
 }
 
-int
-glusterfs_pidfile_cleanup(glusterfs_ctx_t *ctx)
-{
-    cmd_args_t *cmd_args = NULL;
-
-    cmd_args = &ctx->cmd_args;
-
-    if (!ctx->pidfp)
-        return 0;
-
-    gf_msg_trace("glusterfsd", 0, "pidfile %s cleanup", cmd_args->pid_file);
-
-    if (ctx->cmd_args.pid_file) {
-        GF_FREE(ctx->cmd_args.pid_file);
-        ctx->cmd_args.pid_file = NULL;
-    }
-
-    lockf(fileno(ctx->pidfp), F_ULOCK, 0);
-    fclose(ctx->pidfp);
-    ctx->pidfp = NULL;
-
-    return 0;
-}
-
-int
+static int
 glusterfs_pidfile_update(glusterfs_ctx_t *ctx, pid_t pid)
 {
     cmd_args_t *cmd_args = NULL;
@@ -2252,7 +2216,7 @@ glusterfs_pidfile_update(glusterfs_ctx_t *ctx, pid_t pid)
     return 0;
 }
 
-void *
+static void *
 glusterfs_sigwaiter(void *arg)
 {
     sigset_t set;
@@ -2299,13 +2263,13 @@ glusterfs_sigwaiter(void *arg)
     return NULL;
 }
 
-void
+static void
 glusterfsd_print_trace(int signum)
 {
     gf_print_trace(signum, glusterfsd_ctx);
 }
 
-int
+static int
 glusterfs_signals_setup(glusterfs_ctx_t *ctx)
 {
     sigset_t set;
@@ -2354,7 +2318,7 @@ glusterfs_signals_setup(glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int
+static int
 daemonize(glusterfs_ctx_t *ctx)
 {
     int ret = -1;
@@ -2569,7 +2533,26 @@ out:
     return ret;
 }
 
-int
+static FILE *
+get_volfp(glusterfs_ctx_t *ctx)
+{
+    cmd_args_t *cmd_args = NULL;
+    FILE *specfp = NULL;
+
+    cmd_args = &ctx->cmd_args;
+
+    if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
+                "volume_file=%s", cmd_args->volfile, NULL);
+        return NULL;
+    }
+
+    gf_msg_debug("glusterfsd", 0, "loading volume file %s", cmd_args->volfile);
+
+    return specfp;
+}
+
+static int
 glusterfs_volumes_init(glusterfs_ctx_t *ctx)
 {
     FILE *fp = NULL;
@@ -2721,6 +2704,7 @@ main(int argc, char *argv[])
         goto out;
     }
 
+#ifdef BUILD_GNFS
     if (cmd->print_netgroups) {
         /* If this option is set we want to print & verify the file,
          * set the return value (exit code in this case) and exit.
@@ -2738,6 +2722,7 @@ main(int argc, char *argv[])
         goto out;
     }
 
+#endif
     ret = logging_init(ctx, argv[0]);
     if (ret)
         goto out;

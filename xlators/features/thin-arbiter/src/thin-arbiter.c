@@ -12,9 +12,8 @@
 #include "thin-arbiter-messages.h"
 #include "thin-arbiter-mem-types.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
+#include <glusterfs/defaults.h>
 
 int
 ta_set_incoming_values(dict_t *dict, char *key, data_t *value, void *data)

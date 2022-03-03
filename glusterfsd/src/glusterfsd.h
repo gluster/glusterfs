@@ -10,9 +10,6 @@
 #ifndef __GLUSTERFSD_H__
 #define __GLUSTERFSD_H__
 
-#include "rpcsvc.h"
-#include "glusterd1-xdr.h"
-
 #define DEFAULT_GLUSTERD_VOLFILE CONFDIR "/glusterd.vol"
 #define DEFAULT_CLIENT_VOLFILE CONFDIR "/glusterfs.vol"
 #define DEFAULT_SERVER_VOLFILE CONFDIR "/glusterfsd.vol"
@@ -120,26 +117,19 @@ enum argp_option_keys {
     ARGP_IO_ENGINE_KEY = 197,
 };
 
-struct _gfd_vol_top_priv {
-    rpcsvc_request_t *req;
-    gd1_mgmt_brick_op_req xlator_req;
-    uint32_t blk_count;
-    uint32_t blk_size;
-    double throughput;
-    double time;
-    int32_t ret;
-};
-typedef struct _gfd_vol_top_priv gfd_vol_top_priv_t;
-
 int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx);
+glusterfs_mgmt_init(glusterfs_ctx_t *ctx);
+int
+glusterfs_listener_init(glusterfs_ctx_t *ctx);
 int
 glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
+int
+glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp);
+void
+emancipate(glusterfs_ctx_t *ctx, int ret);
 void
 cleanup_and_exit(int signum);
 
-void
-xlator_mem_cleanup(xlator_t *this);
-
 extern glusterfs_ctx_t *glusterfsd_ctx;
+
 #endif /* __GLUSTERFSD_H__ */

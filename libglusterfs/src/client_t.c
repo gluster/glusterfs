@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/dict.h"
 #include "glusterfs/statedump.h"
 #include "glusterfs/client_t.h"

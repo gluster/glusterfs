@@ -218,7 +218,7 @@ entry_copy(gf_dirent_t *source)
 }
 
 void
-gf_link_inode_from_dirent(xlator_t *this, inode_t *parent, gf_dirent_t *entry)
+gf_link_inode_from_dirent(inode_t *parent, gf_dirent_t *entry)
 {
     inode_t *link_inode = NULL;
     inode_t *tmp = NULL;
@@ -242,14 +242,13 @@ gf_link_inode_from_dirent(xlator_t *this, inode_t *parent, gf_dirent_t *entry)
    Need more thoughts before finalizing this function
 */
 int
-gf_link_inodes_from_dirent(xlator_t *this, inode_t *parent,
-                           gf_dirent_t *entries)
+gf_link_inodes_from_dirent(inode_t *parent, gf_dirent_t *entries)
 {
     gf_dirent_t *entry = NULL;
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        gf_link_inode_from_dirent(this, parent, entry);
+        gf_link_inode_from_dirent(parent, entry);
     }
 
     return 0;

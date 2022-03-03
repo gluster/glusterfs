@@ -17,7 +17,6 @@
 #include "glusterfs/dict.h"       // for dict_t
 #include "glusterfs/glusterfs.h"  // for gf_boolean_t
 #include "glusterfs/inode.h"      // for inode_t
-#include "uuid.h"                 // for uuid_t
 #define MAX_GFID2PATH_LINK_SUP 500
 
 gf_boolean_t

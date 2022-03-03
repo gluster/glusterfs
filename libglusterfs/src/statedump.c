@@ -9,10 +9,8 @@
 */
 
 #include <stdarg.h>
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/statedump.h"
-#include "glusterfs/stack.h"
 #include "glusterfs/syscall.h"
 
 #ifdef HAVE_MALLOC_H
@@ -25,6 +23,16 @@
 #ifdef gf_log
 #undef gf_log
 #endif
+
+#define GF_PROC_DUMP_SET_OPTION(opt, val) opt = val
+
+#define GF_CHECK_DUMP_OPTION_ENABLED(option_dump, var, label)                  \
+    do {                                                                       \
+        if (option_dump == _gf_true) {                                         \
+            var = _gf_false;                                                   \
+            goto label;                                                        \
+        }                                                                      \
+    } while (0);
 
 #define GF_PROC_DUMP_IS_OPTION_ENABLED(opt)                                    \
     (dump_options.dump_##opt == _gf_true)
@@ -907,7 +915,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     // continue even though gettimeofday() has failed
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
@@ -956,7 +964,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",

@@ -11,7 +11,6 @@
 #ifndef _NFS3_HELPER_H_
 #define _NFS3_HELPER_H_
 
-#include <glusterfs/xlator.h>
 #include "nfs3.h"
 #include "nfs3-fh.h"
 #include "msg-nfs3.h"

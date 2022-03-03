@@ -12,10 +12,8 @@
 #include <limits.h>
 #include <signal.h>
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include <glusterfs/common-utils.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include "glusterd-messages.h"
 #include "glusterd-proc-mgmt.h"

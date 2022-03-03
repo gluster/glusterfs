@@ -37,8 +37,38 @@
 #define GF_LOG_BACKTRACE_SIZE 4096
 #define GF_MAX_SLOG_PAIR_COUNT 100
 
+#define SET_LOG_PRIO(level, priority)                                          \
+    do {                                                                       \
+        if (GF_LOG_TRACE == (level) || GF_LOG_NONE == (level)) {               \
+            priority = LOG_DEBUG;                                              \
+        } else {                                                               \
+            priority = (level)-1;                                              \
+        }                                                                      \
+    } while (0)
+
+/* extract just the file name from the path */
+#define GET_FILE_NAME_TO_LOG(file, basename)                                   \
+    do {                                                                       \
+        basename = strrchr((file), '/');                                       \
+        if (basename)                                                          \
+            basename++;                                                        \
+        else                                                                   \
+            basename = (file);                                                 \
+    } while (0)
+
+#define PRINT_SIZE_CHECK(ret, label, strsize)                                  \
+    do {                                                                       \
+        if (ret < 0)                                                           \
+            goto label;                                                        \
+        if ((strsize - ret) > 0) {                                             \
+            strsize -= ret;                                                    \
+        } else {                                                               \
+            ret = 0;                                                           \
+            goto label;                                                        \
+        }                                                                      \
+    } while (0)
+
 #include "glusterfs/logging.h"
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/timer.h"
 #include "glusterfs/libglusterfs-messages.h"
 
@@ -119,8 +149,9 @@ gf_log_set_loglevel(glusterfs_ctx_t *ctx, gf_loglevel_t level)
 int
 gf_log_get_localtime(void)
 {
-    if (THIS->ctx)
-        return THIS->ctx->log.localtime;
+    xlator_t *this = THIS;
+    if (this->ctx)
+        return this->ctx->log.localtime;
     else
         /* return global defaults (see gf_log_globals_init) */
         return 0;
@@ -832,7 +863,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
 
     ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %s %d-%s: %s\n", timestr,
                       gf_level_strings[level], basename, line, function,
@@ -951,35 +982,6 @@ _gf_msg_plain(gf_loglevel_t level, const char *fmt, ...)
 
     FREE(msg);
 
-out:
-    return ret;
-}
-
-int
-_gf_msg_vplain(gf_loglevel_t level, const char *fmt, va_list ap)
-{
-    xlator_t *this = NULL;
-    int ret = 0;
-    char *msg = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-
-    this = THIS;
-    ctx = this->ctx;
-
-    if (!ctx)
-        goto out;
-
-    if (skip_logging(this, level))
-        goto out;
-
-    ret = vasprintf(&msg, fmt, ap);
-    if (-1 == ret) {
-        goto out;
-    }
-
-    ret = _gf_msg_plain_internal(level, msg);
-
-    FREE(msg);
 out:
     return ret;
 }
@@ -1128,7 +1130,7 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     ret = gettimeofday(&tv, NULL);
     if (-1 == ret)
         goto out;
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
 
     /* TODO: Currently we print in the enhanced format, with a message ID
      * of 0. Need to enhance this to support format as configured */
@@ -1298,7 +1300,7 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     gf_log_rotate(ctx);
 
     /* format the time stamp */
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
 
     /* generate footer */
     if (errnum) {
@@ -1390,7 +1392,7 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
                           gf_loglevel_t level, int errnum, uint64_t msgid,
                           char **appmsgstr, char *callstr, int refcount,
                           struct timeval oldest, struct timeval latest,
-                          int graph_id)
+                          int graph_id, glusterfs_ctx_t *ctx)
 {
     int priority;
     char timestr_latest[GF_TIMESTR_SIZE] = {
@@ -1402,10 +1404,8 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
 
     SET_LOG_PRIO(level, priority);
 
-    gf_time_fmt_tv(timestr_latest, sizeof timestr_latest, &latest,
-                   gf_timefmt_FT);
-    gf_time_fmt_tv(timestr_oldest, sizeof timestr_oldest, &oldest,
-                   gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, ctx);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, ctx);
 
     if (errnum) {
         syslog(priority,
@@ -1463,11 +1463,9 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
         goto err;
     }
 
-    gf_time_fmt_tv(timestr_latest, sizeof timestr_latest, &latest,
-                   gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, ctx);
 
-    gf_time_fmt_tv(timestr_oldest, sizeof timestr_oldest, &oldest,
-                   gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, ctx);
 
     if (errnum)
         snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(errnum));
@@ -1525,9 +1523,10 @@ gf_log_print_with_repetitions(glusterfs_ctx_t *ctx, const char *domain,
     switch (logger) {
         case gf_logger_syslog:
             if (ctx->log.log_control_file_found && ctx->log.gf_log_syslog) {
-                ret = gf_syslog_log_repetitions(
-                    domain, file, function, line, level, errnum, msgid,
-                    appmsgstr, callstr, refcount, oldest, latest, graph_id);
+                ret = gf_syslog_log_repetitions(domain, file, function, line,
+                                                level, errnum, msgid, appmsgstr,
+                                                callstr, refcount, oldest,
+                                                latest, graph_id, ctx);
                 break;
             }
             /* NOTE: If syslog control file is absent, which is another
@@ -1613,7 +1612,7 @@ gf_log_flush_list(struct list_head *copy, glusterfs_ctx_t *ctx)
     }
 }
 
-void
+static void
 gf_log_flush_msgs(glusterfs_ctx_t *ctx)
 {
     struct list_head copy;
@@ -2100,7 +2099,7 @@ log:
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
 
     ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %d-%s: %s\n", timestr,
                       gf_level_strings[level], basename, line, function,
@@ -2257,7 +2256,7 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         goto out;
     }
 
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
 
     ret = gf_asprintf(&logline, "[%s] %s : %s\n", timestr, domain, msg);
     if (ret == -1) {

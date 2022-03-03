@@ -12,7 +12,6 @@
 #define _NFS_FOPS_H_
 
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/iobuf.h>
 #include <glusterfs/call-stub.h>
 #include "nfs.h"

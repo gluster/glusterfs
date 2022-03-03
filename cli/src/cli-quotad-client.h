@@ -11,9 +11,6 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include "cli-cmd.h"
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "protocol-common.h"
 #include "cli-mem-types.h"
 
 struct rpc_clnt *

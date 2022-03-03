@@ -13,24 +13,22 @@
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
 #include "xdr-rpcclnt.h"
-#include "rpc-transport.h"
-#include "protocol-common.h"
 #include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
+
 #include "rpc-common-xdr.h"
 
 void
 rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool);
 
-struct saved_frame *
-__saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
-                            struct timeval *current)
+static struct saved_frame *
+__saved_frames_get_timedout(struct saved_frames *frames, time_t latest)
 {
     struct saved_frame *bailout_frame = NULL, *tmp = NULL;
 
     if (!list_empty(&frames->sf.list)) {
         tmp = list_entry(frames->sf.list.next, typeof(*tmp), list);
-        if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
+        if (tmp->saved_at <= latest) {
             bailout_frame = tmp;
             list_del_init(&bailout_frame->list);
             frames->count--;
@@ -71,7 +69,7 @@ __saved_frames_put(struct saved_frames *frames, void *frame,
     saved_frame->capital_this = THIS;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
-    gettimeofday(&saved_frame->saved_at, NULL);
+    saved_frame->saved_at = gf_time();
     memset(&saved_frame->rsp, 0, sizeof(rpc_transport_rsp_t));
 
     if (_is_lock_fop(saved_frame))
@@ -91,7 +89,7 @@ call_bail(void *data)
     rpc_transport_t *trans = NULL;
     struct rpc_clnt *clnt = NULL;
     rpc_clnt_connection_t *conn = NULL;
-    struct timeval current;
+    time_t current;
     struct list_head list;
     struct saved_frame *saved_frame = NULL;
     struct saved_frame *trav = NULL;
@@ -124,7 +122,7 @@ call_bail(void *data)
     if (!trans)
         goto out;
 
-    gettimeofday(&current, NULL);
+    current = gf_time();
     INIT_LIST_HEAD(&list);
 
     pthread_mutex_lock(&conn->lock);
@@ -150,7 +148,7 @@ call_bail(void *data)
 
         do {
             saved_frame = __saved_frames_get_timedout(
-                conn->saved_frames, conn->frame_timeout, &current);
+                conn->saved_frames, current - conn->frame_timeout);
             if (saved_frame)
                 list_add(&saved_frame->list, &list);
 
@@ -163,8 +161,7 @@ call_bail(void *data)
 
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
-        gf_time_fmt_tv(frame_sent, sizeof frame_sent, &trav->saved_at,
-                       gf_timefmt_FT);
+        gf_time_fmt_FT(frame_sent, sizeof frame_sent, trav->saved_at);
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
@@ -309,7 +306,7 @@ out:
     return saved_frame;
 }
 
-void
+static void
 saved_frames_unwind(struct saved_frames *saved_frames)
 {
     struct saved_frame *trav = NULL;
@@ -322,11 +319,10 @@ saved_frames_unwind(struct saved_frames *saved_frames)
 
     list_for_each_entry_safe(trav, tmp, &saved_frames->sf.list, list)
     {
-        gf_time_fmt_tv(timestr, sizeof timestr, &trav->saved_at, gf_timefmt_FT);
-
         if (!trav->rpcreq || !trav->rpcreq->prog)
             continue;
 
+        gf_time_fmt_FT(timestr, sizeof timestr, trav->saved_at);
         gf_log_callingfn(
             trav->rpcreq->conn->name, GF_LOG_ERROR,
             "forced unwinding frame type(%s) op(%s(%d)) "
@@ -384,7 +380,7 @@ rpc_clnt_reconnect(void *conn_ptr)
         }
         conn->reconnect = 0;
 
-        if ((conn->connected == 0) && !clnt->disabled) {
+        if ((conn->status != RPC_STATUS_CONNECTED) && !clnt->disabled) {
             ts.tv_sec = 3;
             ts.tv_nsec = 0;
 
@@ -429,7 +425,7 @@ rpc_clnt_fill_request_info(struct rpc_clnt *clnt, rpc_request_info_t *info)
     if (ret == -1) {
         gf_log(clnt->conn.name, GF_LOG_CRITICAL,
                "cannot lookup the saved "
-               "frame corresponding to xid (%d)",
+               "frame corresponding to xid (%u)",
                info->xid);
         goto out;
     }
@@ -518,8 +514,7 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
             conn->reconnect = NULL;
         }
 
-        conn->connected = 0;
-        conn->disconnected = 1;
+        conn->status = RPC_STATUS_DISCONNECTED;
 
         unref = rpc_clnt_remove_ping_timer_locked(clnt);
         /*reset rpc msgs stats*/
@@ -772,21 +767,21 @@ out:
     return ret;
 }
 
-gf_boolean_t
-is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn)
+rpc_clnt_status_t
+rpc_clnt_connection_status(rpc_clnt_connection_t *conn)
 {
-    gf_boolean_t disconnected = _gf_true;
+    rpc_clnt_status_t status = RPC_STATUS_INITIALIZED;
 
     if (!conn)
-        return disconnected;
+        return status;
 
     pthread_mutex_lock(&conn->lock);
     {
-        disconnected = conn->disconnected;
+        status = conn->status;
     }
     pthread_mutex_unlock(&conn->lock);
 
-    return disconnected;
+    return status;
 }
 
 static void
@@ -920,7 +915,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_RECEIVED: {
-            timespec_now_realtime(&conn->last_received);
+            conn->last_received = gf_time();
 
             pollin = data;
             if (pollin->is_reply)
@@ -934,7 +929,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_SENT: {
-            timespec_now_realtime(&conn->last_sent);
+            conn->last_sent = gf_time();
             ret = 0;
             break;
         }
@@ -949,8 +944,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 /* Below code makes sure the (re-)configured port lasts
                  * for just one successful attempt */
                 conn->config.remote_port = 0;
-                conn->connected = 1;
-                conn->disconnected = 0;
+                conn->status = RPC_STATUS_CONNECTED;
                 pthread_cond_broadcast(&conn->cond);
             }
             pthread_mutex_unlock(&conn->lock);
@@ -1685,7 +1679,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
 
     pthread_mutex_lock(&conn->lock);
     {
-        if (conn->connected == 0) {
+        if (conn->status != RPC_STATUS_CONNECTED) {
             if (rpc->disabled)
                 goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
@@ -1901,7 +1895,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
                 reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
-        conn->connected = 0;
+        conn->status = RPC_STATUS_INITIALIZED;
 
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
         trans = conn->trans;

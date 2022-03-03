@@ -9,11 +9,10 @@
 */
 #include "index.h"
 #include <glusterfs/options.h>
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
-#include <glusterfs/common-utils.h>
 #include "index-messages.h"
 #include <ftw.h>
 #include <libgen.h> /* for dirname() */
@@ -533,7 +532,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             continue;
         }
 
-        this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+        this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {
@@ -694,8 +693,8 @@ index_del(xlator_t *this, uuid_t gfid, const char *subdir, int type)
     uuid_t uuid;
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, op_errno,
+                                  EINVAL);
     make_gfid_path(priv->index_basepath, subdir, gfid, gfid_path,
                    sizeof(gfid_path));
 
@@ -845,9 +844,9 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(inode->gfid),
-                                  out, op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(inode->gfid), out, op_errno,
+                                  EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(filename, out, op_errno, EINVAL);
 
     ret = index_inode_ctx_get(inode, this, &ctx);
     if (ret) {
@@ -906,9 +905,9 @@ index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
 
     priv = this->private;
 
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(pgfid), out,
-                                  op_errno, EINVAL);
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, filename, out, op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(pgfid), out, op_errno,
+                                  EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(filename, out, op_errno, EINVAL);
 
     make_gfid_path(priv->index_basepath, ENTRY_CHANGES_SUBDIR, pgfid,
                    pgfid_path, sizeof(pgfid_path));

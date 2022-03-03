@@ -10,7 +10,6 @@
 
 #include "glusterfs/syncop.h"
 #include "glusterfs/syncop-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 struct syncop_dir_scan_data {
@@ -120,7 +119,7 @@ syncop_ftw(xlator_t *subvol, loc_t *loc, int pid, void *data,
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
 
-            gf_link_inode_from_dirent(NULL, fd->inode, entry);
+            gf_link_inode_from_dirent(fd->inode, entry);
 
             ret = fn(subvol, entry, loc, data);
             if (ret)
@@ -208,7 +207,7 @@ syncop_ftw_throttle(xlator_t *subvol, loc_t *loc, int pid, void *data,
                 sleep(sleep_time);
             }
 
-            gf_link_inode_from_dirent(NULL, fd->inode, entry);
+            gf_link_inode_from_dirent(fd->inode, entry);
 
             ret = fn(subvol, entry, loc, data);
             if (ret)

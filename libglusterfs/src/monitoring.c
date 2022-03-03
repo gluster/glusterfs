@@ -133,15 +133,13 @@ dump_inode_stats(glusterfs_ctx_t *ctx, int fd)
 static void
 dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
 {
-    struct timeval tv;
     time_t nowtime;
     struct tm *nowtm;
     char tmbuf[64] = {
         0,
     };
 
-    gettimeofday(&tv, NULL);
-    nowtime = tv.tv_sec;
+    nowtime = gf_time();
     nowtm = localtime(&nowtime);
     strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
 

@@ -11,9 +11,6 @@
 #ifndef _CHANGELOG_MISC_H
 #define _CHANGELOG_MISC_H
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/common-utils.h>
-
 #define CHANGELOG_MAX_TYPE 4
 #define CHANGELOG_FILE_NAME "CHANGELOG"
 #define HTIME_FILE_NAME "HTIME"

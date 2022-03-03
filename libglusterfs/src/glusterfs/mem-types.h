@@ -85,7 +85,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_txn_opinfo_obj_t,   /* used only in one location */
     gf_common_mt_strfd_t,            /* used only in one location */
     gf_common_mt_strfd_data_t,       /* used only in one location */
-    gf_common_mt_regex_t,            /* used only in one location */
     gf_common_mt_ereg,               /* used only in one location */
     gf_common_mt_dnscache,           /* used only in one location */
     gf_common_mt_dnscache_entry,     /* used only in one location */

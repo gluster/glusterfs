@@ -912,7 +912,7 @@ __dht_check_free_space(xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
     }
 
 check_avail_space:
-    if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
+    if (conf->disk_unit_percent && dst_statfs.f_blocks) {
         dst_post_availspacepercent = (dst_statfs_blocks * 100) /
                                      dst_total_blocks;
 
@@ -936,7 +936,7 @@ check_avail_space:
         }
     }
 
-    if (conf->disk_unit != 'p') {
+    if (!conf->disk_unit_percent) {
         if ((dst_statfs_blocks * GF_DISK_SECTOR_SIZE) < conf->min_free_disk) {
             gf_msg_debug(this->name, 0,
                          "file : %s,  destination frsize: %lu "
@@ -4443,6 +4443,9 @@ out:
 
     if (migrate_data)
         dict_unref(migrate_data);
+
+    if (fix_layout)
+        dict_unref(fix_layout);
 
     if (statfs_frame) {
         STACK_DESTROY(statfs_frame->root);

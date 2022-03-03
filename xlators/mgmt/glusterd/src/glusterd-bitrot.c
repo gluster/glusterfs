@@ -8,10 +8,6 @@
    cases as published by the Free Software Foundation.
  */
 
-#include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
@@ -21,6 +17,7 @@
 #include <glusterfs/compat-errno.h>
 #include "glusterd-scrub-svc.h"
 #include "glusterd-messages.h"
+#include "glusterd-bitd-svc.h"
 
 #include <sys/wait.h>
 #include <dlfcn.h>

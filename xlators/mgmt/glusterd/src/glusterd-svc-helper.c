@@ -761,7 +761,7 @@ __glusterd_send_svc_configure_req(glusterd_svc_t *svc, int flags,
     }
 
     conn = &rpc->conn;
-    if (!conn->connected || conn->disconnected) {
+    if (rpc_clnt_connection_status(conn) != RPC_STATUS_CONNECTED) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CONNECT_RETURNED,
                "not connected yet");
         return -1;
@@ -889,6 +889,31 @@ err:
     if (frame && ret)
         STACK_DESTROY(frame->root);
     return ret;
+}
+
+static gf_boolean_t
+glusterd_volume_exists(const char *volname)
+{
+    glusterd_volinfo_t *tmp_volinfo = NULL;
+    gf_boolean_t volume_found = _gf_false;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+
+    GF_ASSERT(volname);
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(tmp_volinfo, &priv->volumes, vol_list)
+    {
+        if (!strcmp(tmp_volinfo->volname, volname)) {
+            gf_msg_debug(this->name, 0, "Volume %s found", volname);
+            volume_found = _gf_true;
+            break;
+        }
+    }
+
+    return volume_found;
 }
 
 int

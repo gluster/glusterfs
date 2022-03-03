@@ -12,7 +12,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "io-cache.h"
 #include "ioc-mem-types.h"
 #include <glusterfs/statedump.h>
@@ -1942,8 +1941,8 @@ __ioc_cache_dump(ioc_inode_t *ioc_inode, char *prefix)
     table = ioc_inode->table;
 
     if (ioc_inode->cache.last_revalidate) {
-        gf_time_fmt(timestr, sizeof timestr, ioc_inode->cache.last_revalidate,
-                    gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr,
+                       ioc_inode->cache.last_revalidate);
 
         gf_proc_dump_write("last-cache-validation-time", "%s", timestr);
     }

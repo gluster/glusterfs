@@ -11,15 +11,11 @@
 #ifndef _NFS3_H_
 #define _NFS3_H_
 
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
 #include "nfs.h"
 #include "nfs3-fh.h"
 #include "nfs-common.h"
 #include "xdr-nfs3.h"
-#include <glusterfs/mem-pool.h>
 #include "nlm4.h"
 #include "acl3-xdr.h"
 #include "acl3.h"
@@ -32,6 +28,13 @@
 #define GF_NFS3_IOBPOOL_MULT GF_NFS_CONCURRENT_OPS_MULT
 #define GF_NFS3_CLTABLE_BUCKETS_MULT 2
 #define GF_NFS3_FDTABLE_BUCKETS_MULT 2
+
+#define gf_attr_mode_set(mode) ((mode)&GF_SET_ATTR_MODE)
+#define gf_attr_uid_set(mode) ((mode)&GF_SET_ATTR_UID)
+#define gf_attr_gid_set(mode) ((mode)&GF_SET_ATTR_GID)
+#define gf_attr_size_set(mode) ((mode)&GF_SET_ATTR_SIZE)
+#define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
+#define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
 
 /* Static values used for FSINFO
  * To change the maximum rsize and wsize supported by the NFS client, adjust

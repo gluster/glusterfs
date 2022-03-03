@@ -34,14 +34,10 @@
 #include <sys/prctl.h>
 #endif
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/stack.h>
 #include <glusterfs/gf-event.h>
 #include "glfs-mem-types.h"
-#include <glusterfs/common-utils.h>
-#include <glusterfs/syncop.h>
-#include <glusterfs/call-stub.h>
 #include <glusterfs/hashfn.h>
 #include "rpc-clnt.h"
 #include <glusterfs/statedump.h>
@@ -119,11 +115,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 1024);
-    if (!ctx->stub_mem_pool) {
-        goto err;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, GF_MEMPOOL_COUNT_OF_DICT_T);
     if (!ctx->dict_pool)
         goto err;
@@ -159,8 +150,6 @@ err:
     }
 
     if (ret && ctx) {
-        if (ctx->stub_mem_pool)
-            mem_pool_destroy(ctx->stub_mem_pool);
         if (ctx->dict_pool)
             mem_pool_destroy(ctx->dict_pool);
         if (ctx->dict_data_pool)
@@ -1179,8 +1168,6 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
     if (ctx->dict_pool)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)

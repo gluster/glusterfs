@@ -17,7 +17,7 @@ function set_throttle {
 }
 
 #Determine number of cores
-cores=$(cat /proc/cpuinfo | grep processor | wc -l)
+cores=$(getconf _NPROCESSORS_ONLN)
 if [ "$cores" == "" ]; then
         echo "Could not get number of cores available"
 fi

@@ -11,6 +11,10 @@
 #include "glusterfs/syncop.h"
 #include "glusterfs/libglusterfs-messages.h"
 
+#ifdef HAVE_ASAN_API
+#include <sanitizer/common_interface_defs.h>
+#endif
+
 #ifdef HAVE_TSAN_API
 #include <sanitizer/tsan_interface.h>
 #endif
@@ -275,10 +279,20 @@ synctask_yield(struct synctask *task, struct timespec *delta)
     __tsan_switch_to_fiber(task->proc->tsan.fiber, 0);
 #endif
 
+#ifdef HAVE_ASAN_API
+    __sanitizer_start_switch_fiber(&task->fake_stack,
+                                   task->proc->sched.uc_stack.ss_sp,
+                                   task->proc->sched.uc_stack.ss_size);
+#endif
+
     if (swapcontext(&task->ctx, &task->proc->sched) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
     }
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->proc->fake_stack, NULL, NULL);
+#endif
 
     THIS = oldTHIS;
 }
@@ -363,6 +377,11 @@ synctask_wrap(void)
        wrong and can lead to crashes. */
 
     task = synctask_get();
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->fake_stack, NULL, NULL);
+#endif
+
     task->ret = task->syncfn(task->opaque);
     if (task->synccbk)
         task->synccbk(task->ret, task->frame, task->opaque);
@@ -694,10 +713,20 @@ synctask_switchto(struct synctask *task)
     __tsan_switch_to_fiber(task->tsan.fiber, 0);
 #endif
 
+#ifdef HAVE_ASAN_API
+    __sanitizer_start_switch_fiber(&task->proc->fake_stack,
+                                   task->ctx.uc_stack.ss_sp,
+                                   task->ctx.uc_stack.ss_size);
+#endif
+
     if (swapcontext(&task->proc->sched, &task->ctx) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_SWAPCONTEXT_FAILED,
                "swapcontext failed");
     }
+
+#ifdef HAVE_ASAN_API
+    __sanitizer_finish_switch_fiber(task->fake_stack, NULL, NULL);
+#endif
 
     if (task->state == SYNCTASK_DONE) {
         synctask_done(task);
@@ -3469,6 +3498,7 @@ syncop_getactivelk(xlator_t *subvol, loc_t *loc,
         0,
     };
 
+    INIT_LIST_HEAD(&args.locklist.list);
     SYNCOP(subvol, (&args), syncop_getactivelk_cbk, subvol->fops->getactivelk,
            loc, xdata_in);
 

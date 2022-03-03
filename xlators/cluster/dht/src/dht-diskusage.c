@@ -222,7 +222,7 @@ dht_is_subvol_filled(xlator_t *this, xlator_t *subvol)
     {
         for (i = 0; i < conf->subvolume_cnt; i++) {
             if (subvol == conf->subvolumes[i]) {
-                if (conf->disk_unit == 'p') {
+                if (conf->disk_unit_percent) {
                     if (conf->du_stats[i].avail_percent < conf->min_free_disk) {
                         subvol_filled_space = _gf_true;
                         break;
@@ -307,7 +307,7 @@ dht_free_disk_available_subvol(xlator_t *this, xlator_t *subvol,
             goto out;
         }
     } else {
-        layout = dht_layout_ref(this, local->layout);
+        layout = dht_layout_ref(local->layout);
     }
 
     LOCK(&conf->subvolume_lock);
@@ -403,7 +403,7 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
         if (ignore_subvol)
             continue;
 
-        if ((conf->disk_unit == 'p') &&
+        if ((conf->disk_unit_percent) &&
             (conf->du_stats[i].avail_percent > conf->min_free_disk) &&
             (conf->du_stats[i].avail_inodes > conf->min_free_inodes)) {
             if ((conf->du_stats[i].avail_inodes > max_inodes) ||
@@ -417,7 +417,7 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
             }
         }
 
-        if ((conf->disk_unit != 'p') &&
+        if ((!conf->disk_unit_percent) &&
             (conf->du_stats[i].avail_space > conf->min_free_disk) &&
             (conf->du_stats[i].avail_inodes > conf->min_free_inodes)) {
             if ((conf->du_stats[i].avail_inodes > max_inodes) ||
@@ -430,13 +430,18 @@ dht_subvol_with_free_space_inodes(xlator_t *this, xlator_t *subvol,
     }
 
     if (avail_subvol) {
-        if (conf->disk_unit == 'p') {
-            post_availspace = (avail_blocks * frsize) - filesize;
-            post_percent = (post_availspace * 100) / (total_blocks * frsize);
+        if (conf->disk_unit_percent) {
+            if (filesize) {
+                post_availspace = (avail_blocks * frsize) - filesize;
+                post_percent = (post_availspace * 100) /
+                               (total_blocks * frsize);
+            } else {
+                post_availspace = avail_blocks;
+                post_percent = (post_availspace * 100) / (total_blocks);
+            }
             if (post_percent < conf->min_free_disk)
                 avail_subvol = NULL;
-        }
-        if (conf->disk_unit != 'p') {
+        } else {
             if ((max - filesize) < conf->min_free_disk)
                 avail_subvol = NULL;
         }
@@ -468,7 +473,7 @@ dht_subvol_maxspace_nonzeroinode(xlator_t *this, xlator_t *subvol,
         if (ignore_subvol)
             continue;
 
-        if (conf->disk_unit == 'p') {
+        if (conf->disk_unit_percent) {
             if ((conf->du_stats[i].avail_percent > max) &&
                 (conf->du_stats[i].avail_inodes > 0)) {
                 max = conf->du_stats[i].avail_percent;

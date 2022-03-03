@@ -8,17 +8,13 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/compat-errno.h>
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 
 #include "portmap-xdr.h"
-#include "xdr-generic.h"
-#include "protocol-common.h"
 #include "glusterd-messages.h"
 #include "rpcsvc.h"
 
@@ -98,20 +94,24 @@ pmap_port_alloc(xlator_t *this)
 {
     struct pmap_registry *pmap = NULL;
     int p = 0;
+    int i;
 
     GF_ASSERT(this);
 
     pmap = pmap_registry_get(this);
 
-    while (true) {
-        /* coverity[DC.WEAK_CRYPTO] */
-        p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
+    /* coverity[DC.WEAK_CRYPTO] */
+    p = (rand() % (pmap->max_port - pmap->base_port + 1)) + pmap->base_port;
+    for (i = pmap->base_port; i <= pmap->max_port; i++) {
         if (pmap_port_isfree(p)) {
-            break;
+            return p;
+        }
+        if (p++ >= pmap->max_port) {
+            p = pmap->base_port;
         }
     }
 
-    return p;
+    return 0;
 }
 
 /* pmap_assign_port does a pmap_registry_remove followed by pmap_port_alloc,
@@ -483,6 +483,52 @@ int
 gluster_pmap_brickbyport(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __gluster_pmap_brickbyport);
+}
+
+static int
+glusterd_get_brickinfo(xlator_t *this, const char *brickname, int port,
+                       glusterd_brickinfo_t **brickinfo)
+{
+    glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    glusterd_brickinfo_t *tmpbrkinfo = NULL;
+    glusterd_snap_t *snap = NULL;
+    int ret = -1;
+
+    GF_ASSERT(brickname);
+
+    priv = this->private;
+    cds_list_for_each_entry(volinfo, &priv->volumes, vol_list)
+    {
+        cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+        {
+            if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
+                continue;
+            if ((tmpbrkinfo->port == port) &&
+                !strcmp(tmpbrkinfo->path, brickname)) {
+                *brickinfo = tmpbrkinfo;
+                return 0;
+            }
+        }
+    }
+    /* In case normal volume is not found, check for snapshot volumes */
+    cds_list_for_each_entry(snap, &priv->snapshots, snap_list)
+    {
+        cds_list_for_each_entry(volinfo, &snap->volumes, vol_list)
+        {
+            cds_list_for_each_entry(tmpbrkinfo, &volinfo->bricks, brick_list)
+            {
+                if (gf_uuid_compare(tmpbrkinfo->uuid, priv->uuid))
+                    continue;
+                if (!strcmp(tmpbrkinfo->path, brickname)) {
+                    *brickinfo = tmpbrkinfo;
+                    return 0;
+                }
+            }
+        }
+    }
+
+    return ret;
 }
 
 int

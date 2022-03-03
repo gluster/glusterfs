@@ -9,7 +9,6 @@
 */
 
 #include "glusterfs/inode.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/statedump.h"
 #include <pthread.h>
 #include <sys/types.h>
@@ -208,6 +207,7 @@ __dentry_unset(dentry_t *dentry)
     list_del_init(&dentry->inode_list);
 
     if (dentry->parent) {
+        GF_ATOMIC_DEC(dentry->parent->kids);
         __inode_unref(dentry->parent, false);
         dentry->parent = NULL;
     }
@@ -362,6 +362,7 @@ noctx:
 static void
 __inode_destroy(inode_t *inode)
 {
+    inode_unref(inode->ns_inode);
     __inode_ctx_free(inode);
 
     LOCK_DESTROY(&inode->lock);
@@ -677,6 +678,9 @@ inode_create(inode_table_t *table)
     INIT_LIST_HEAD(&newi->hash);
     INIT_LIST_HEAD(&newi->dentry_list);
 
+    GF_ATOMIC_INIT(newi->kids, 0);
+    GF_ATOMIC_INIT(newi->nlookup, 0);
+
     newi->_ctx = GF_CALLOC(1, (sizeof(struct _inode_ctx) * table->ctxcount),
                            gf_common_mt_inode_ctx);
     if (newi->_ctx == NULL) {
@@ -714,6 +718,9 @@ inode_new(inode_table_t *table)
             __inode_ref(inode, false);
         }
         pthread_mutex_unlock(&table->lock);
+
+        /* let the dummy, 'unlinked' inodes have root as namespace */
+        inode->ns_inode = inode_ref(table->root);
     }
 
     return inode;
@@ -1051,7 +1058,9 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 
             /* dentry linking needs to happen inside lock */
             dentry->parent = __inode_ref(parent, false);
+            GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
+            link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
 
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
@@ -1290,6 +1299,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 {
     int hash = 0;
     dentry_t *dentry = NULL;
+    inode_t *linked_inode = NULL;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1310,9 +1320,14 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 
     pthread_mutex_lock(&table->lock);
     {
-        __inode_link(inode, dstdir, dstname, iatt, hash);
+        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
         /* pick the old dentry */
-        dentry = __inode_unlink(inode, srcdir, srcname);
+        /* TODO: analyse properly about what should be the behavior if
+         * 'linked_inode' is NULL. Adding this check makes the inode tree
+         * robust, but is that good enough? (Ref: GH PR #1763) */
+        if (linked_inode) {
+            dentry = __inode_unlink(inode, srcdir, srcname);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1669,6 +1684,7 @@ __inode_table_init_root(inode_table_t *table)
 
     __inode_link(root, NULL, NULL, &iatt, 0);
     table->root = root;
+    root->ns_inode = inode_ref(root);
 }
 
 inode_table_t *
@@ -2449,6 +2465,11 @@ inode_dump(inode_t *inode, char *prefix)
         gf_proc_dump_write("ref", "%u", inode->ref);
         gf_proc_dump_write("invalidate-sent", "%d", inode->invalidate_sent);
         gf_proc_dump_write("ia_type", "%d", inode->ia_type);
+        gf_proc_dump_write("kids", "%" PRId64, GF_ATOMIC_GET(inode->kids));
+        if (inode->ns_inode) {
+            gf_proc_dump_write("namespace", "%s",
+                               uuid_utoa(inode->ns_inode->gfid));
+        }
         if (inode->_ctx) {
             inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
                                   gf_common_mt_inode_ctx);
@@ -2707,6 +2728,36 @@ inode_find_directory_name(inode_t *inode, const char **name)
         }
     }
     pthread_mutex_unlock(&inode->table->lock);
+out:
+    return;
+}
+
+/* *
+ * This function sets a new namespace inode to a given inode.
+ * */
+void
+inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode)
+{
+    GF_VALIDATE_OR_GOTO("inode", inode, out);
+    GF_VALIDATE_OR_GOTO("inode", ns_inode, out);
+
+    /* namespace inode should always be a directory */
+    if (!IA_ISDIR(ns_inode->ia_type)) {
+        gf_log(THIS->name, GF_LOG_WARNING,
+               "Trying to link namespace which is not a directory");
+        return;
+    }
+
+    /* Ideally, if we do this, we should do this to complete tree */
+    /* FIXME: fix above once we support setting quota after having data in
+     * directories */
+    if (GF_ATOMIC_GET(inode->kids)) {
+        gf_log(THIS->name, GF_LOG_WARNING, "Trying to link inode with kids");
+    }
+
+    inode_t *old_ns = inode->ns_inode;
+    inode->ns_inode = inode_ref(ns_inode);
+    inode_unref(old_ns);
 out:
     return;
 }

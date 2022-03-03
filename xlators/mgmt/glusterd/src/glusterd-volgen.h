@@ -15,7 +15,6 @@
 #include <libxml/xmlwriter.h>
 #endif
 
-#include "glusterd.h"
 #include "glusterd-messages.h"
 
 /* volopt map key name definitions */

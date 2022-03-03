@@ -13,8 +13,6 @@
 
 #include "nl-cache-mem-types.h"
 #include "nl-cache-messages.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/atomic.h>
 

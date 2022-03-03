@@ -11,6 +11,7 @@
 #include <string.h>
 #include <stdio.h>
 
+#include <glusterfs/common-utils.h>
 #include "bit-rot-scrub-status.h"
 
 void

@@ -288,10 +288,27 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [_init], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
+        if test "x$ac_cv_lib_asan__init" = xyes; then
+                AC_MSG_CHECKING([whether asan API can be used])
+                saved_CFLAGS=${CFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=address"
+                AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                   [#include <sanitizer/common_interface_defs.h>]],
+                   [[__sanitizer_finish_switch_fiber(0, 0, 0)]])],
+                   [ASAN_API=yes], [ASAN_API=no])
+                AC_MSG_RESULT([$ASAN_API])
+                if test x$ASAN_API = "xyes"; then
+                   AC_DEFINE(HAVE_ASAN_API, 1, [Define if asan API can be used.])
+                fi
+                CFLAGS=${saved_CFLAGS}
+        fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lasan"
+
+        dnl See: https://groups.google.com/d/msg/address-sanitizer/SD590XDinfQ/NMUPj_G0BgAJ
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=address"
 fi
 
 AC_ARG_ENABLE([tsan],
@@ -302,9 +319,9 @@ if test "x$enable_tsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=tsan
-        AC_CHECK_LIB([tsan], [__tsan_init], ,
+        AC_CHECK_LIB([tsan], [_init], ,
                 [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
-        if test "x$ac_cv_lib_tsan___tsan_init" = xyes; then
+        if test "x$ac_cv_lib_tsan__init" = xyes; then
                 AC_MSG_CHECKING([whether tsan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=thread"
@@ -320,7 +337,7 @@ if test "x$enable_tsan" = "xyes"; then
                 CFLAGS=${saved_CFLAGS}
         fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=thread"
 fi
 
 AC_ARG_ENABLE([ubsan],
@@ -331,10 +348,10 @@ if test "x$enable_ubsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=ubsan
-        AC_CHECK_LIB([ubsan], [__ubsan_default_options], ,
+        AC_CHECK_LIB([ubsan], [_init], ,
                 [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=undefined"
 fi
 
 # Initialize CFLAGS before usage
@@ -344,11 +361,11 @@ AC_ARG_WITH([tcmalloc],
         [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
         [with_tcmalloc="no"], [with_tcmalloc="yes"])
 if test "x$with_tcmalloc" = "xyes"; then
-    AC_CHECK_LIB([tcmalloc], [malloc], [],
+    AC_CHECK_LIB([tcmalloc_minimal], [malloc], [],
                  [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+    GF_LDFLAGS="-ltcmalloc_minimal ${GF_LDFLAGS}"
     AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
     USE_MEMPOOL=no
 fi
@@ -617,6 +634,22 @@ GF_CFLAGS="${GF_CFLAGS} ${UUID_CFLAGS}"
 dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
 AC_SUBST(PKGCONFIG_UUID)
 
+dnl Check for xxhash library.
+PKG_CHECK_MODULES([XXHASH], [libxxhash],
+  [have_libxxhash=yes
+   AC_DEFINE(HAVE_LIBXXHASH, 1, [Define to 1 if you have libxxhash.so.])],
+  [have_libxxhash=no])
+AM_CONDITIONAL([HAVE_LIBXXHASH], [test x$have_libxxhash = xyes])
+
+dnl Note xxhsum binary is required to run gfid2path tests.
+if test "x$have_libxxhash" = "xyes"; then
+    AC_CHECK_PROG([XXHSUM], [xxhsum], [yes], [no])
+    if test "x$XXHSUM" = "xno"; then
+        AC_MSG_WARN([install 'xxhsum' binary if you plan to run the tests.])
+    fi
+    GF_CFLAGS="${GF_CFLAGS} ${XXHASH_CFLAGS}"
+fi
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd* | darwin*)
@@ -767,7 +800,7 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 dnl Find out OpenSSL trusted certificates path
 AC_MSG_CHECKING([for OpenSSL trusted certificates path])
 SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
-if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+if test -d "${SSL_CERT_PATH}" 1>/dev/null 2>&1; then
    AC_MSG_RESULT([$SSL_CERT_PATH])
    AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
    AC_SUBST(SSL_CERT_PATH)
@@ -993,6 +1026,7 @@ if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
 AC_SUBST(HAVE_BACKTRACE)
+AM_CONDITIONAL([HAVE_BACKTRACE], [test x$have_backtrace = xyes])
 
 dnl Old (before C11) compiler can compile (but not link) this:
 dnl
@@ -1393,7 +1427,7 @@ exec_prefix=$old_exec_prefix
 
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
-   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   test "${localstatedir}" = '${prefix}/var' && localstatedir=$ac_default_prefix/var
    localstatedir=/var
 fi
 localstatedir="$(eval echo ${localstatedir})"
@@ -1824,7 +1858,7 @@ AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_SUBST(GLUSTERD_WORKDIR)
-AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d "${GLUSTERD_WORKDIR}" && test -d "${sysconfdir}/glusterd" )
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)

@@ -14,12 +14,9 @@
 #include <sys/statvfs.h>
 
 #include <glusterfs/compat.h>
-#include "protocol-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/timer.h>
 #include "glusterd-mem-types.h"
-#include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
@@ -31,8 +28,6 @@
 #include "glusterd-messages.h"
 
 #include <glusterfs/syscall.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
     do {                                                                       \
@@ -55,7 +50,7 @@
 int32_t
 glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe);
-int
+static int
 glusterd_defrag_start_validate(glusterd_volinfo_t *volinfo, char *op_errstr,
                                size_t len, glusterd_op_t op)
 {
@@ -431,7 +426,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_rebalance_cmd_validate(int cmd, char *volname,
                                 glusterd_volinfo_t **volinfo, char *op_errstr,
                                 size_t len)

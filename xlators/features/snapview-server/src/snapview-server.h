@@ -17,19 +17,14 @@
 #include <glusterfs/iatt.h>
 #include <ctype.h>
 #include <sys/uio.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
-#include "glfs.h"
-#include "glfs-handles.h"
 #include "glfs-internal.h"
-#include "glusterfs3-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
 #include "rpc-clnt.h"
 #include "protocol-common.h"
-#include "xdr-generic.h"
 #include "snapview-server-messages.h"
 
 #define DEFAULT_SVD_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"

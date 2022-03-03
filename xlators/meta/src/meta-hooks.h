@@ -10,7 +10,6 @@
 
 #ifndef __META_HOOKS_H
 #define __META_HOOKS_H
-#include <glusterfs/xlator.h>
 
 #define DECLARE_HOOK(name)                                                     \
     int meta_##name##_hook(call_frame_t *frame, xlator_t *this, loc_t *loc,    \

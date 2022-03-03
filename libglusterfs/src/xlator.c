@@ -350,8 +350,6 @@ xlator_dynload_apis(xlator_t *xl)
         list_add_tail(&vol_opt->list, &xl->volume_options);
     }
 
-    xl->id = xlapi->xlator_id;
-    xl->flags = xlapi->flags;
     xl->identifier = xlapi->identifier;
     xl->category = xlapi->category;
 
@@ -797,7 +795,7 @@ xlator_list_destroy(xlator_list_t *list)
     return 0;
 }
 
-int
+static int
 xlator_memrec_free(xlator_t *xl)
 {
     struct mem_acct *mem_acct = NULL;
@@ -1242,46 +1240,6 @@ loc_is_root(loc_t *loc)
     }
 
     return _gf_false;
-}
-
-int32_t
-loc_build_child(loc_t *child, loc_t *parent, char *name)
-{
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("xlator", child, out);
-    GF_VALIDATE_OR_GOTO("xlator", parent, out);
-    GF_VALIDATE_OR_GOTO("xlator", name, out);
-
-    loc_gfid(parent, child->pargfid);
-
-    if (strcmp(parent->path, "/") == 0)
-        ret = gf_asprintf((char **)&child->path, "/%s", name);
-    else
-        ret = gf_asprintf((char **)&child->path, "%s/%s", parent->path, name);
-
-    if (ret < 0 || !child->path) {
-        ret = -1;
-        goto out;
-    }
-
-    child->name = strrchr(child->path, '/') + 1;
-
-    child->parent = inode_ref(parent->inode);
-    child->inode = inode_new(parent->inode->table);
-
-    if (!child->inode) {
-        ret = -1;
-        goto out;
-    }
-
-    ret = 0;
-
-out:
-    if ((ret < 0) && child)
-        loc_wipe(child);
-
-    return ret;
 }
 
 gf_boolean_t

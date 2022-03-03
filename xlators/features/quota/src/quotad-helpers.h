@@ -12,7 +12,6 @@
 #define QUOTAD_HELPERS_H
 
 #include "rpcsvc.h"
-#include "quota.h"
 #include "quotad-aggregator.h"
 
 void

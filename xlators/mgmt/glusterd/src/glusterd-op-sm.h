@@ -10,19 +10,19 @@
 #ifndef _GLUSTERD_OP_SM_H_
 #define _GLUSTERD_OP_SM_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd.h"
-#include "protocol-common.h"
 #include "glusterd-hooks.h"
 
 #define GD_OP_PROTECTED (0x02)
 #define GD_OP_UNPROTECTED (0x04)
+
+#define GLUSTERD_SHRD_STRG_HOOK_SCRIPT                                         \
+    "/hooks/1/set/post/"                                                       \
+    "S32gluster_enable_shared_storage.sh"
 
 typedef enum glusterd_op_sm_state_ {
     GD_OP_STATE_DEFAULT = 0,

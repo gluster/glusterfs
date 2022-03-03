@@ -11,9 +11,6 @@
 #ifndef _CHANGELOG_ENCODERS_H
 #define _CHANGELOG_ENCODERS_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-
 #include "changelog-helpers.h"
 
 #define CHANGELOG_STORE_ASCII(priv, buf, off, gfid, gfid_len, cld)             \

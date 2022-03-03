@@ -26,6 +26,7 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	glusterd-bitd-svc.c glusterd-scrub-svc.c glusterd-server-quorum.c \
 	glusterd-reset-brick.c glusterd-shd-svc.c glusterd-shd-svc-helper.c \
         glusterd-gfproxyd-svc.c glusterd-gfproxyd-svc-helper.c glusterd-ganesha.c \
+	snapshot/glusterd-lvm-snapshot.c snapshot/glusterd-zfs-snapshot.c \
 	$(CONTRIBDIR)/mount/mntent.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
@@ -51,6 +52,7 @@ noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	$(CONTRIBDIR)/mount/mntent_compat.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
+	-I$(top_srcdir)/xlators/mgmt/glusterd/src/snapshot \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
 	-I$(CONTRIBDIR)/rbtree -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(CONTRIBDIR)/mount -I$(CONTRIBDIR)/userspace-rcu \

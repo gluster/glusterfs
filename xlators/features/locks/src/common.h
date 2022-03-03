@@ -52,6 +52,12 @@
         }                                                                      \
     } while (0)
 
+enum {
+    PL_LOCK_GRANTED = 0,
+    PL_LOCK_WOULD_BLOCK,
+    PL_LOCK_QUEUED
+};
+
 posix_lock_t *
 new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
                gf_lkowner_t *owner, fd_t *fd, uint32_t lk_flags, int blocking,

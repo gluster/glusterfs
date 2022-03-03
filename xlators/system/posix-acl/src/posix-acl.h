@@ -11,9 +11,6 @@
 #ifndef _POSIX_ACL_H
 #define _POSIX_ACL_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs-acl.h>
-
 struct posix_acl *
 posix_acl_new(xlator_t *this, int entry_count);
 struct posix_acl *

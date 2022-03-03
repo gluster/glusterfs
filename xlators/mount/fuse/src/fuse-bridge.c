@@ -1054,6 +1054,10 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_lookup(linked_inode);
 
+        if (dict_get_sizen(xdata, GF_NAMESPACE_KEY)) {
+            inode_set_namespace_inode(linked_inode, linked_inode);
+        }
+
         feo.nodeid = inode_to_fuse_nodeid(linked_inode);
 
         inode_unref(linked_inode);
@@ -1186,8 +1190,33 @@ fuse_lookup_resume(fuse_state_t *state)
         gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": LOOKUP %s",
                state->finh->unique, state->loc.path);
         state->loc.inode = inode_new(state->loc.parent->table);
-        if (gf_uuid_is_null(state->gfid))
+        if (gf_uuid_is_null(state->gfid)) {
+            /* this is when it's all completely new lookup, send namespace key
+             * here */
+            if (!state->xdata) {
+                state->xdata = dict_new();
+            }
+            if (!state->xdata) {
+                gf_log(THIS->name, GF_LOG_ERROR,
+                       "%s: dict_new failed while setting namespace",
+                       state->loc.path);
+                send_fuse_err(state->this, state->finh, ENOMEM);
+                free_fuse_state(state);
+                return;
+            }
+
+            int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY, 1);
+            if (ret) {
+                gf_log(THIS->name, GF_LOG_ERROR,
+                       "%s: dict set failed for namespace key",
+                       state->loc.path);
+                send_fuse_err(state->this, state->finh, ENOMEM);
+                free_fuse_state(state);
+                return;
+            }
+
             gf_uuid_generate(state->gfid);
+        }
         fuse_gfid_set(state);
     }
 
@@ -2010,12 +2039,30 @@ static int
 fuse_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
-    if (op_ret == -1 && op_errno == ENOTSUP)
+    fuse_state_t *state = frame->root->state;
+    if (op_ret == -1 && op_errno == ENOTSUP) {
         GF_LOG_OCCASIONALLY(gf_fuse_xattr_enotsup_log, "glusterfs-fuse",
                             GF_LOG_CRITICAL,
                             "extended attribute not supported "
                             "by the backend storage");
+        goto out;
+    }
+    if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
+        /* This inode onwards we will set namespace */
+        inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
+        int64_t kids = GF_ATOMIC_GET(inode->kids);
+        if (kids > 0) {
+            /* Not adviced to continue this way. No consumers on client side
+               namespace right now, but in any case, keep an eye for this log */
+            gf_log(THIS->name, GF_LOG_WARNING,
+                   "%s: setting namespace on directory with entries (%" PRId64
+                   ")",
+                   state->loc.path, kids);
+        }
+        inode_set_namespace_inode(inode, inode);
+    }
 
+out:
     return fuse_err_cbk(frame, cookie, this, op_ret, op_errno, xdata);
 }
 
@@ -3655,7 +3702,7 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     send_fuse_data(this, finh, buf, size);
 
     /* TODO: */
-    /* gf_link_inodes_from_dirent (this, state->fd->inode, entries); */
+    /* gf_link_inodes_from_dirent (state->fd->inode, entries); */
 
 out:
     free_fuse_state(state);
@@ -4079,6 +4126,21 @@ fuse_setxattr_resume(fuse_state_t *state)
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
 #endif /* GF_TEST_FFOP */
 
+    if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
+        inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
+        int64_t kids = GF_ATOMIC_GET(inode->kids);
+        if (kids > 0) {
+            /* Not adviced to continue this way. No consumers on client side
+               namespace right now, but in any case, keep an eye for this log */
+            gf_log(THIS->name, GF_LOG_ERROR,
+                   "%s: setting namespace with entries (%" PRId64 ")",
+                   state->loc.path, kids);
+            send_fuse_err(state->this, state->finh, EPERM);
+            free_fuse_state(state);
+            return;
+        }
+    }
+
     if (state->fd) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "%" PRIu64 ": SETXATTR %p/%" PRIu64 " (%s)", state->finh->unique,
@@ -4261,9 +4323,13 @@ fuse_filter_xattr(char *key)
     struct fuse_private *priv = THIS->private;
 
     if ((priv->client_pid == GF_CLIENT_PID_GSYNCD) &&
-        fnmatch("*.selinux*", key, FNM_PERIOD) == 0)
+        fnmatch("*.selinux*", key, FNM_PERIOD) == 0) {
         need_filter = 1;
-
+    } else if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0) {
+        /* If there are by chance any internal virtual xattrs (those starting
+         * with 'glusterfs.'), filter them */
+        need_filter = 1;
+    }
     return need_filter;
 }
 
@@ -4743,9 +4809,11 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int ret = 0;
 
     ret = fuse_interrupt_finish_fop(frame, this, _gf_true, (void **)&state);
-    GF_FREE(state->name);
-    dict_unref(state->xdata);
-    GF_FREE(state);
+    if (state) {
+        GF_FREE(state->name);
+        dict_unref(state->xdata);
+        GF_FREE(state);
+    }
     if (ret) {
         return 0;
     }

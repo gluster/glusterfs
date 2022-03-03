@@ -10,11 +10,8 @@
 #ifndef GF_METADISP_H_
 #define GF_METADISP_H_
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 
 #define METADATA_CHILD(_this) FIRST_CHILD(_this)
 #define DATA_CHILD(_this) SECOND_CHILD(_this)

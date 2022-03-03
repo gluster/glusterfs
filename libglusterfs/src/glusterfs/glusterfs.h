@@ -15,30 +15,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <netdb.h>
 #include <errno.h>
-#include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-#include <sys/poll.h>
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
 #include <openssl/sha.h>
 
 #include "glusterfs/glusterfs-fops.h"
 #include "glusterfs/list.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/lkowner.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/refcount.h"
-#include "glusterfs/atomic.h"
 
 #define GF_YES 1
 #define GF_NO 0
@@ -128,6 +121,9 @@
     (strncmp(x, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) == 0)
 
 #define XATTR_IS_BD(x) (strncmp(x, BD_XATTR_KEY, SLEN(BD_XATTR_KEY)) == 0)
+
+/* required for namespace */
+#define GF_NAMESPACE_KEY "trusted.glusterfs.namespace"
 
 #define GF_XATTR_LINKINFO_KEY "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
@@ -664,7 +660,6 @@ struct _glusterfs_ctx {
     unsigned char measure_latency;
     pthread_t sigwaiter;
     char *cmdlinestr;
-    struct mem_pool *stub_mem_pool;
     unsigned char cleanup_started;
     int graph_id;        /* Incremented per graph, value should
                             indicate how many times the graph has

@@ -25,7 +25,6 @@
 #include "config.h"
 #endif
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
 
 #pragma generate

@@ -55,13 +55,8 @@ struct iobuf_init_config {
 };
 
 struct iobuf {
-    union {
-        struct list_head list;
-        struct {
-            struct iobuf *next;
-            struct iobuf *prev;
-        };
-    };
+    /* Linked into arena's passive or active list. */
+    struct list_head list;
     struct iobuf_arena *iobuf_arena;
 
     gf_lock_t lock;  /* for ->ptr and ->ref */
@@ -75,15 +70,8 @@ struct iobuf {
 };
 
 struct iobuf_arena {
-    union {
-        struct list_head list;
-        struct {
-            struct iobuf_arena *next;
-            struct iobuf_arena *prev;
-        };
-    };
-
-    struct list_head all_list;
+    /* Linked into pool's arenas, filled, or purge array lists. */
+    struct list_head list;
     size_t page_size; /* size of all iobufs in this arena */
     size_t arena_size;
     /* this is equal to rounded_size * num_iobufs.
@@ -109,7 +97,6 @@ struct iobuf_pool {
                                  arena */
     size_t default_page_size; /* default size of iobuf */
 
-    struct list_head all_arenas;
     struct list_head arenas[GF_VARIABLE_IOBUF_COUNT];
     /* array of arenas. Each element of the array is a list of arenas
        holding iobufs of particular page_size */
@@ -141,7 +128,6 @@ void
 iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
-#define iobpool_default_pagesize(iobpool) ((iobpool)->default_page_size)
 #define iobuf_pagesize(iob) (iob->page_size)
 
 struct iobref {

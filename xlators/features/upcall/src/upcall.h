@@ -14,7 +14,6 @@
 #include "upcall-mem-types.h"
 #include <glusterfs/client_t.h>
 #include "upcall-messages.h"
-#include "upcall-cache-invalidation.h"
 #include <glusterfs/upcall-utils.h>
 
 #define EXIT_IF_UPCALL_OFF(this, label)                                        \

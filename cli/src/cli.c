@@ -22,7 +22,6 @@
 #include <sys/utsname.h>
 
 #include <stdint.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -38,22 +37,15 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
-
-#include "xdr-generic.h"
 
 /* using argp for command line parsing */
 
@@ -132,12 +124,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
-        goto out;
-    }
-
     ctx->dict_pool = mem_pool_new(dict_t, 32);
     if (!ctx->dict_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict pool.");
@@ -185,7 +171,6 @@ out:
         GF_FREE(pool);
         pool = NULL;
         GF_FREE(ctx->process_uuid);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->dict_data_pool);

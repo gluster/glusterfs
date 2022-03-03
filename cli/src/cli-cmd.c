@@ -13,10 +13,8 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 #include <fnmatch.h>
 

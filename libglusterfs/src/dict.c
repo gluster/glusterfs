@@ -1570,9 +1570,19 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
 int
 dict_get_with_ref(dict_t *this, char *key, data_t **data)
 {
-    if (!this || !key || !data) {
+    if (caa_unlikely(!this)) {
+        /* There are possibilities where dict can be NULL. so not so critical
+         * for users to know */
+        gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
+                         "dict is NULL: %s", key);
+        return -EINVAL;
+    }
+    if (caa_unlikely(!key || !data)) {
+        /* is there a chance like this? then it can be a coding error, but in
+         * any case, this should be caught early, so good to log it out. */
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict OR key (%s) is NULL", key);
+                         "key (%s) or data ptr is NULL", key);
+
         return -EINVAL;
     }
 #if !DICT_LIST_IMP
