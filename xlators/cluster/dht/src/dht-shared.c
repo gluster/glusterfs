@@ -169,6 +169,8 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
     dht_layout_dump(layout, "layout");
 
+    if (!ret)
+        dht_layout_unref(layout);
 out:
     return ret;
 }
@@ -643,7 +645,6 @@ dht_init(xlator_t *this)
     }
 
     LOCK_INIT(&conf->subvolume_lock);
-    LOCK_INIT(&conf->layout_lock);
     LOCK_INIT(&conf->lock);
     synclock_init(&conf->link_lock, SYNC_LOCK_DEFAULT);
 
