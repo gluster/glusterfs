@@ -26,6 +26,7 @@ typedef struct gf_store_handle_ gf_store_handle_t;
 struct gf_store_iter_ {
     FILE *file;
     char filepath[PATH_MAX];
+    char buf[8192];
 };
 
 typedef struct gf_store_iter_ gf_store_iter_t;
@@ -83,10 +84,6 @@ gf_store_handle_destroy(gf_store_handle_t *handle);
 
 int32_t
 gf_store_iter_new(gf_store_handle_t *shandle, gf_store_iter_t **iter);
-
-int32_t
-gf_store_validate_key_value(char *storepath, char *key, char *val,
-                            gf_store_op_errno_t *op_errno);
 
 int32_t
 gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
