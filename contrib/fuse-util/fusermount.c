@@ -1017,8 +1017,7 @@ try_open_fuse_device(char **devp)
     if (fd >= 0)
         return fd;
 
-    if (!*devp == NULL)
-        free(*devp);
+    free(*devp);
     return err;
 }
 
@@ -1069,7 +1068,7 @@ mount_fuse(const char *mnt, const char *opts, char *devfd)
 {
     int res;
     int fd;
-    char *dev;
+    char *dev = NULL;
     struct stat stbuf;
     char *type = NULL;
     char *source = NULL;
