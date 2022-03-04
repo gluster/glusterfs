@@ -26,7 +26,7 @@
 #include <pwd.h>
 #include <limits.h>
 #if !defined(__NetBSD__) && !defined(GF_DARWIN_HOST_OS)
-#include <mntent.h>
+#include <path.h>
 #endif /* __NetBSD__ */
 #include <sys/wait.h>
 #include <sys/stat.h>

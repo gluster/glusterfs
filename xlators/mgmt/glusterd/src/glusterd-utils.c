@@ -10,7 +10,7 @@
 #include <inttypes.h>
 
 #if defined(GF_LINUX_HOST_OS)
-#include <mntent.h>
+#include <path.h>
 #else
 #include "mntent_compat.h"
 #endif

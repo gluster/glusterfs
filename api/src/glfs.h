@@ -53,6 +53,11 @@
 #include <stdint.h>
 #include <sys/time.h>
 
+
+#if (defined(_LARGEFILE64_SOURCE) || defined(_GNU_SOURCE)) && !defined(__off64_t_defined)
+#define __off64_t_defined
+#endif
+
 /*
  * For off64_t to be defined, we need both
  * __USE_LARGEFILE64 to be true and __off64_t_defnined to be

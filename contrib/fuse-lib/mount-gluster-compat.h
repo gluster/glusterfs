@@ -22,7 +22,7 @@
 #include <dirent.h>
 #include <signal.h>
 #if defined(GF_LINUX_HOST_OS)
-#include <mntent.h>
+#include <path.h>
 #endif /* GF_LINUX_HOST_OS */
 #include <sys/stat.h>
 #include <sys/poll.h>
