@@ -56,7 +56,7 @@ dht_layout_get(xlator_t *this, inode_t *inode)
 {
     dht_layout_t *layout = NULL;
 
-    dht_inode_ctx_layout_get(inode, this, &layout);
+    (void)dht_inode_ctx_layout_get(inode, this, &layout);
 
     return layout;
 }
