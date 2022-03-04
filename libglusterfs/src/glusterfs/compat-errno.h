@@ -231,6 +231,8 @@
 #define ENODATA 61
 #endif
 
+#include <stdint.h>
+
 /* These functions are defined for all the OS flags, but content will
  * be different for each OS flag.
  */
