@@ -1789,7 +1789,7 @@ struct volume_options server_options[] = {
      .description = "Specifies the limit on the number of inodes "
                     "in the lru list of the inode cache.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"trace"}, .type = GF_OPTION_TYPE_BOOL},
     {
         .key = {"config-directory", "conf-dir"},
@@ -1847,9 +1847,11 @@ struct volume_options server_options[] = {
      .type = GF_OPTION_TYPE_SIZET,
      .min = GF_MIN_SOCKET_WINDOW_SIZE,
      .max = GF_MAX_SOCKET_WINDOW_SIZE,
-     .description = "Specifies the window size for tcp socket.",
+     .default_value = TOSTRING(GF_DEFAULT_SOCKET_WINDOW_SIZE),
+     .description = "Specifies the window size for TCP socket. "
+                    "Default value 0 means using system defaults.",
      .op_version = {1},
-     .flags = OPT_FLAG_SETTABLE},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_RANGE},
 
     /*  The following two options are defined in addr.c, redifined here *
      * for the sake of validation during volume set from cli            */
@@ -1902,10 +1904,12 @@ struct volume_options server_options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"gid-timeout"},
      .type = GF_OPTION_TYPE_INT,
+     .min = 1,
+     .max = 3600,
      .default_value = "300",
      .description = "Timeout in seconds for the cached groups to expire.",
      .op_version = {GD_OP_VERSION_3_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
      .min = SERVER_MIN_EVENT_THREADS,

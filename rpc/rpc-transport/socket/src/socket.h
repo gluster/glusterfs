@@ -36,7 +36,7 @@
  * setsockopt will fail. Having larger values might be beneficial for
  * IB links.
  */
-#define GF_DEFAULT_SOCKET_WINDOW_SIZE (0)
+#define GF_DEFAULT_SOCKET_WINDOW_SIZE 0
 #define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
 #define GF_MIN_SOCKET_WINDOW_SIZE (0)
 #define GF_USE_DEFAULT_KEEPALIVE (-1)
