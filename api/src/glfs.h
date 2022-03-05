@@ -54,7 +54,8 @@
 #include <sys/time.h>
 
 
-#if (defined(_LARGEFILE64_SOURCE) || defined(_GNU_SOURCE)) && !defined(__off64_t_defined)
+#if (defined(_LARGEFILE64_SOURCE) || defined(_GNU_SOURCE)) && \
+    !defined(__off64_t_defined)
 #define __off64_t_defined
 #endif
 
