@@ -507,19 +507,18 @@ out:
     return iobuf;
 }
 
-static struct iobuf *
+struct iobuf *
 iobuf_get_from_small(const size_t page_size)
 {
     struct iobuf *iobuf = NULL;
-    int ret = -1;
 
     iobuf = GF_MALLOC(sizeof(*iobuf), gf_common_mt_iobuf);
     if (!iobuf)
-        goto out;
+        goto err;
 
     iobuf->free_ptr = GF_MALLOC(page_size, gf_common_mt_iobuf_pool);
     if (!iobuf->free_ptr)
-        goto out;
+        goto err;
 
     iobuf->ptr = iobuf->free_ptr;
     iobuf->page_size = page_size;
@@ -529,14 +528,14 @@ iobuf_get_from_small(const size_t page_size)
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
 
-    ret = 0;
-out:
-    if (ret && iobuf) {
-        __iobuf_free(iobuf);
-        iobuf = NULL;
+    return iobuf;
+err:
+    if (iobuf) {
+        GF_FREE(iobuf->free_ptr);
+        GF_FREE(iobuf);
     }
 
-    return iobuf;
+    return NULL;
 }
 
 struct iobuf *

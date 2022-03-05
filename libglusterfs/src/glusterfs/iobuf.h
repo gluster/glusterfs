@@ -138,6 +138,9 @@ struct iobref {
     int used;
 };
 
+struct iobuf *
+iobuf_get_from_small(const size_t page_size);
+
 struct iobref *
 iobref_new(void);
 struct iobref *
