@@ -1630,7 +1630,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                 child->child_up = 1;
                 child->xl = subvol;
                 if (!child->table)
-                    child->table = inode_table_new(4096, subvol, 0, 0, 0);
+                    child->table = inode_table_new(4096, subvol, 0, 0);
 
                 _br_qchild_event(this, child, br_brick_connect);
                 pthread_cond_signal(&priv->cond);

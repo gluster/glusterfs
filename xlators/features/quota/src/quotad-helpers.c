@@ -32,7 +32,7 @@ get_quotad_aggregator_state(xlator_t *this, rpcsvc_request_t *req)
     UNLOCK(&priv->lock);
 
     if (active_subvol->itable == NULL)
-        active_subvol->itable = inode_table_new(4096, active_subvol, 0, 0, 0);
+        active_subvol->itable = inode_table_new(4096, active_subvol, 0, 0);
 
     state->itable = active_subvol->itable;
 

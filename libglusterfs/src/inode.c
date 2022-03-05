@@ -449,9 +449,12 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = -1;
+    int set_idx = xlator->level;
 
-    set_idx = (xlator->xl_id % inode->table->ctxcount);
+    if (set_idx > inode->table->root_level)
+        set_idx = (inode->table->root_level + xlator->xl_id -
+                   inode->table->root_id);
+
     if ((inode->_ctx[set_idx].xl_key != NULL) &&
         (inode->_ctx[set_idx].xl_key != xlator)) {
         set_idx = -1;
@@ -1693,7 +1696,7 @@ inode_table_t *
 inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              int32_t (*invalidator_fn)(xlator_t *, inode_t *),
                              xlator_t *invalidator_xl, uint32_t dentry_hashsize,
-                             uint32_t inode_hashsize, int ctxcount)
+                             uint32_t inode_hashsize)
 {
     inode_table_t *new = NULL;
     uint32_t mem_pool_size = lru_limit;
@@ -1706,10 +1709,17 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
 
     new->xl = xl;
 
-    if (ctxcount)
-        new->ctxcount = ctxcount;
-    else
-        new->ctxcount = xl->graph->xl_count + 1;
+    /* root_id and root_level will be useful to access index of specific
+       xlator
+    */
+    new->root_id = xl->xl_id;
+    new->root_level = xl->level;
+
+    /* The ctxcount value should be equal to the total xlators are associated
+       with specific volume. The sum of xl->level and xl->child_count represents
+       total xlators are associated with specific volume in a graph
+    */
+    new->ctxcount = (xl->level + xl->child_count + 1);
 
     new->lru_limit = lru_limit;
     new->invalidator_fn = invalidator_fn;
@@ -1803,11 +1813,11 @@ out:
 
 inode_table_t *
 inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dentry_hashsize,
-                uint32_t inode_hashsize, int ctxcount)
+                uint32_t inode_hashsize)
 {
     /* Only fuse for now requires the inode table with invalidator */
-    return inode_table_with_invalidator(
-        lru_limit, xl, NULL, NULL, dentry_hashsize, inode_hashsize, ctxcount);
+    return inode_table_with_invalidator(lru_limit, xl, NULL, NULL,
+                                        dentry_hashsize, inode_hashsize);
 }
 
 int
@@ -2196,7 +2206,11 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    index = (xlator->xl_id % inode->table->ctxcount);
+    index = xlator->level;
+    if (index > inode->table->root_level)
+        index = (inode->table->root_level + xlator->xl_id -
+                 inode->table->root_id);
+
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
 
@@ -2309,7 +2323,11 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        index = (xlator->xl_id % inode->table->ctxcount);
+        index = xlator->level;
+        if (index > inode->table->root_level)
+            index = (inode->table->root_level + xlator->xl_id -
+                     inode->table->root_id);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
@@ -2350,7 +2368,11 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        index = (xlator->xl_id % inode->table->ctxcount);
+        index = xlator->level;
+        if (index > inode->table->root_level)
+            index = (inode->table->root_level + xlator->xl_id -
+                     inode->table->root_id);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;

@@ -426,9 +426,6 @@ init(xlator_t *this)
     char *data_self_heal = NULL;
     char *locking_scheme = NULL;
     char *data_self_heal_algorithm = NULL;
-    int ctxcount = 0;
-    int totvol = 0;
-    xlator_t *top = NULL;
 
     if (!this->children) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_CHILD_MISCONFIGURED,
@@ -638,30 +635,9 @@ init(xlator_t *this)
         /* Number of hash bucket should be prime number so declare 131
            total dentry hash buckets
         */
-        /* Traverse the children list to calculate total volumes
-           are associated with a graph
-        */
-        top = this->graph->top;
-        trav = top->children;
-        while (trav) {
-            totvol++;
-            trav = trav->next;
-        }
-        /* The ctxcount value should be equal to total xlators are associated
-           with a one volume.
-        */
-
-        if (totvol) {
-            ctxcount = (this->graph->xl_count / totvol) + 2;
-        }
-
-        gf_log(this->name, GF_LOG_INFO,
-               "Configure ctxcount per inode is %d totvol is %d top is %p",
-               ctxcount, totvol, top);
-        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 131, 128,
-                                       ctxcount);
+        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 131, 128);
     } else {
-        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 0, 0, 0);
+        this->itable = inode_table_new(SHD_INODE_LRU_LIMIT, this, 0, 0);
     }
 
     if (!this->itable) {

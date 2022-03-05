@@ -61,7 +61,10 @@ struct _inode_table {
     xlator_t *invalidator_xl;
     struct list_head invalidate; /* inodes which are in invalidation queue */
     uint32_t invalidate_size;    /* count of inodes in invalidation list */
-
+    uint32_t root_level; /* Save the xlator level at the time of inode table
+                            creation */
+    uint32_t
+        root_id; /* Save the xlator id at the time of inode table creation */
     /* flag to indicate whether the cleanup of the inode
        table started or not */
     gf_boolean_t cleanup_started;
@@ -124,13 +127,13 @@ struct _inode {
 
 inode_table_t *
 inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dhash_size,
-                uint32_t inodehash_size, int ctxcount);
+                uint32_t inodehash_size);
 
 inode_table_t *
 inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              int32_t (*invalidator_fn)(xlator_t *, inode_t *),
                              xlator_t *invalidator_xl, uint32_t dentry_hashsize,
-                             uint32_t inode_hashsize, int ctxcount);
+                             uint32_t inode_hashsize);
 
 void
 inode_table_destroy_all(glusterfs_ctx_t *ctx);

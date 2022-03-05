@@ -412,7 +412,8 @@ glusterfs_graph_validate_options(glusterfs_graph_t *graph)
     return 0;
 }
 
-/* The function is reset xl_id after generating a graph.
+/* The function is set xl_id , child_count, level
+   for every xlator after generating a graph.
    In case of client graph(like shd,nfs) a single graph
    is generated for all the volumes and because of this
    huge memory consumption per inode for these graphs.
@@ -427,19 +428,28 @@ glusterfs_graph_validate_options(glusterfs_graph_t *graph)
    list is full the consumption will be huge so to reduce memory consumption
    the function reset xl_id based on the volume. An inode
    can not be associated more than one volume simultaneously
-   so generate xl_id on the basis of volume not on the basis
-   of whole graph.
+   so at the time of get|set ctx on the inode use the parameter
+   xlator->level, xlator->xl_id to take decision about the index
+   for specific xlator to save the data on inode
 */
-void
-gluster_volume_setxl_id(xlator_list_t *child, int *xl_id)
+
+uint32_t
+gluster_graph_set_params(xlator_t *xl, uint32_t level, uint32_t id)
 {
-    xlator_t *xl = NULL;
-    if (child == NULL)
-        return;
-    xl = child->xlator;
-    xl->xl_id = (*xl_id)++;
-    gluster_volume_setxl_id(xl->children, xl_id);
-    gluster_volume_setxl_id(child->next, xl_id);
+    xlator_list_t *list;
+    uint32_t count;
+
+    xl->level = level++;
+    xl->xl_id = id++;
+    xl->child_count = 0;
+
+    for (list = xl->children; list != NULL; list = list->next) {
+        count = gluster_graph_set_params(list->xlator, level, id);
+        xl->child_count += count;
+        id += count;
+    }
+
+    return xl->child_count + 1;
 }
 
 int
@@ -447,22 +457,16 @@ glusterfs_graph_init(glusterfs_graph_t *graph)
 {
     xlator_t *trav = NULL;
     int ret = -1;
-    xlator_list_t *trav_list = NULL;
-    xlator_list_t *child = NULL;
     xlator_t *top = NULL;
     int start = 1;
 
     top = graph->top;
-    trav_list = top->children;
-    top->xl_id = 1;
-    while (trav_list) {
-        child = trav_list->xlator->children;
-        start = 2;
-        /* Always set the xl_id to 2 for first xlator of every volume */
-        trav_list->xlator->xl_id = start++;
-        gluster_volume_setxl_id(child, &start);
-        trav_list = trav_list->next;
-    }
+    /* Always start the level and id to 1, in case of
+       fuse graph fuse_xlator is not part of the graph
+       the graph always start from meta-autoload in volfile
+       so 0th index is reserve for fuse xlator
+    */
+    gluster_graph_set_params(top, start, start);
 
     trav = graph->first;
 
