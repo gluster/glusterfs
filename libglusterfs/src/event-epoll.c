@@ -289,12 +289,11 @@ event_pool_new_epoll(int count, int eventthreadcount)
     epfd = epoll_create(count);
 
     if (epfd < 0) {
-        gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED,
-                NULL);
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        event_pool = NULL;
-        goto out;
+        goto err;
+    }
+
+    if (__event_newtable(event_pool, 0) == NULL) {
+        goto err;
     }
 
     event_pool->fd = epfd;
@@ -303,11 +302,16 @@ event_pool_new_epoll(int count, int eventthreadcount)
     INIT_LIST_HEAD(&event_pool->poller_death);
     event_pool->eventthreadcount = eventthreadcount;
     event_pool->auto_thread_count = 0;
-
     pthread_mutex_init(&event_pool->mutex, NULL);
 
 out:
     return event_pool;
+
+err:
+    gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED, NULL);
+    GF_FREE(event_pool->reg);
+    GF_FREE(event_pool);
+    return NULL;
 }
 
 static void
