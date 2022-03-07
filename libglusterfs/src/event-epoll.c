@@ -47,12 +47,14 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
     struct event_slot_epoll *table = NULL;
     int i;
 
-    table = GF_CALLOC(sizeof(*table), EVENT_EPOLL_SLOTS, gf_common_mt_ereg);
+    table = GF_MALLOC(sizeof(*table) * EVENT_EPOLL_SLOTS, gf_common_mt_ereg);
     if (!table)
         return NULL;
 
-    for (i = 0; i < EVENT_EPOLL_SLOTS; i++)
+    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
         table[i].fd = -1;
+        table[i].gen = 0;
+    }
 
     event_pool->ereg[table_idx] = table;
 
