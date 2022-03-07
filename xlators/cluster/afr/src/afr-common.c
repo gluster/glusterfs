@@ -6209,7 +6209,6 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
     afr_private_t *priv = this->private;
     inode_t *inode = NULL;
     inode_table_t *itable = NULL;
-    int i = 0;
 
     switch (upcall->event_type) {
         case GF_UPCALL_INODELK_CONTENTION:
@@ -6232,9 +6231,11 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
              * stat cache and send the lookup next time */
             if (!up_ci->dict)
                 break;
-            for (i = 0; i < priv->child_count; i++) {
-                if (!dict_get(up_ci->dict, priv->pending_key[i]))
-                    continue;
+            if (afr_is_any_pending_key_set(this, up_ci->dict)) {
+                /* Blindly checking the pending keys for directory and
+                 * non-directory, Because we just want to know if any
+                 * kind of pending keys are set or not
+                 */
                 up_ci->flags |= UP_INVAL_ATTR;
                 itable = ((xlator_t *)this->graph->top)->itable;
                 /*Internal processes may not have itable for
@@ -6243,7 +6244,6 @@ afr_handle_upcall_event(xlator_t *this, struct gf_upcall *upcall, const int idx)
                     inode = inode_find(itable, upcall->gfid);
                 if (inode)
                     afr_inode_need_refresh_set(inode, this);
-                break;
             }
             break;
         default:

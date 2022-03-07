@@ -386,4 +386,7 @@ afr_anon_inode_create(xlator_t *this, int child, inode_t **linked_inode);
 void
 afr_selfheal_fill_cell(afr_private_t *priv, dict_t *src_xdata, int *cell,
                        int sink, int idx);
+gf_boolean_t
+afr_is_any_pending_key_set(xlator_t *this, dict_t *xdata);
+
 #endif /* !_AFR_SELFHEAL_H */

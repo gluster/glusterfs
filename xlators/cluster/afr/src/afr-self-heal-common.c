@@ -2272,6 +2272,18 @@ afr_is_entry_set(xlator_t *this, dict_t *xdata)
     return afr_is_pending_set(this, xdata, AFR_ENTRY_TRANSACTION);
 }
 
+gf_boolean_t
+afr_is_any_pending_key_set(xlator_t *this, dict_t *xdata)
+{
+    if (!this || !xdata) {
+        return _gf_false;
+    }
+    if (afr_is_data_set(this, xdata) || afr_is_metadata_set(this, xdata) ||
+        afr_is_entry_set(this, xdata)) {
+        return _gf_true;
+    }
+    return _gf_false;
+}
 /*
  * This function inspects the looked up replies (in an unlocked manner)
  * and decides whether a locked verification and possible healing is
