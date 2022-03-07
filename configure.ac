@@ -767,7 +767,7 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 dnl Find out OpenSSL trusted certificates path
 AC_MSG_CHECKING([for OpenSSL trusted certificates path])
 SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
-if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+if test -d "${SSL_CERT_PATH}" 1>/dev/null 2>&1; then
    AC_MSG_RESULT([$SSL_CERT_PATH])
    AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
    AC_SUBST(SSL_CERT_PATH)
@@ -1388,7 +1388,7 @@ exec_prefix=$old_exec_prefix
 
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
-   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   test "${localstatedir}" = '${prefix}/var' && localstatedir=$ac_default_prefix/var
    localstatedir=/var
 fi
 localstatedir="$(eval echo ${localstatedir})"
@@ -1819,7 +1819,7 @@ AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_SUBST(GLUSTERD_WORKDIR)
-AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d "${GLUSTERD_WORKDIR}" && test -d "${sysconfdir}/glusterd" )
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)
