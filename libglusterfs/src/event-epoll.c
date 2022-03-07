@@ -132,21 +132,6 @@ retry:
     }
 }
 
-static int
-event_slot_alloc(struct event_pool *event_pool, int fd, int notify_poller_death,
-                 struct event_slot_epoll **slot)
-{
-    int idx;
-
-    pthread_mutex_lock(&event_pool->mutex);
-    {
-        idx = __event_slot_alloc(event_pool, fd, notify_poller_death, slot);
-    }
-    pthread_mutex_unlock(&event_pool->mutex);
-
-    return idx;
-}
-
 static void
 __event_slot_dealloc(struct event_slot_epoll *table, int offset)
 {
@@ -289,12 +274,11 @@ event_pool_new_epoll(int count, int eventthreadcount)
     epfd = epoll_create(count);
 
     if (epfd < 0) {
-        gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED,
-                NULL);
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        event_pool = NULL;
-        goto out;
+        goto err;
+    }
+
+    if (__event_newtable(event_pool, 0) == NULL) {
+        goto err;
     }
 
     event_pool->fd = epfd;
@@ -303,11 +287,16 @@ event_pool_new_epoll(int count, int eventthreadcount)
     INIT_LIST_HEAD(&event_pool->poller_death);
     event_pool->eventthreadcount = eventthreadcount;
     event_pool->auto_thread_count = 0;
-
     pthread_mutex_init(&event_pool->mutex, NULL);
 
 out:
     return event_pool;
+
+err:
+    gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_CREATE_FAILED, NULL);
+    GF_FREE(event_pool->reg);
+    GF_FREE(event_pool);
+    return NULL;
 }
 
 static void
@@ -374,14 +363,16 @@ event_register_epoll(struct event_pool *event_pool, int fd,
     pthread_mutex_lock(&event_pool->mutex);
     {
         destroy = event_pool->destroy;
+        if (destroy == 1) {
+            pthread_mutex_unlock(&event_pool->mutex);
+            goto out;
+        }
+
+        idx = __event_slot_alloc(event_pool, fd, notify_poller_death, &slot);
     }
     pthread_mutex_unlock(&event_pool->mutex);
 
-    if (destroy == 1)
-        goto out;
-
-    idx = event_slot_alloc(event_pool, fd, notify_poller_death, &slot);
-    if (idx == -1) {
+    if (idx < 0) {
         gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
                 NULL);
         return -1;
