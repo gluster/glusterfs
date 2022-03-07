@@ -420,7 +420,7 @@ gf_boolean_t
 are_dicts_equal(dict_t *one, dict_t *two,
                 gf_boolean_t (*match)(dict_t *d, char *k, data_t *v,
                                       void *data),
-                gf_boolean_t (*value_ignore)(char *k));
+                void *match_data, gf_boolean_t (*value_ignore)(char *k));
 int
 dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result);
 

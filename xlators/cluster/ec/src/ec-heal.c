@@ -647,7 +647,7 @@ ec_heal_metadata_find_direction(ec_t *ec, default_args_cbk_t *replies,
                 !IA_EQUAL(source_ia, child_ia, gid))
                 continue;
             if (!are_dicts_equal(replies[i].xdata, replies[j].xdata,
-                                 ec_sh_key_match, NULL))
+                                 ec_sh_key_match, NULL, NULL))
                 continue;
             groups[j] = i;
             same_count++;
