@@ -880,7 +880,7 @@ err:
     }
     if (dict)
         dict_unref(dict);
-    if (ret && brick_req.dict.dict_val)
+    if (brick_req.dict.dict_val)
         GF_FREE(brick_req.dict.dict_val);
 
     GF_FREE(volfile_content);

@@ -2782,10 +2782,16 @@ afr_is_xattr_ignorable(char *key)
 static gf_boolean_t
 afr_xattr_match_needed(dict_t *this, char *key1, data_t *value1, void *data)
 {
+    gf_boolean_t *is_arbiter = NULL;
+
+    is_arbiter = data;
     /* Ignore all non-disk (i.e. virtual) xattrs right away. */
     if (!gf_is_valid_xattr_namespace(key1))
         return _gf_false;
 
+    if (is_arbiter && *is_arbiter && !strcmp(key1, GF_XATTR_MDATA_KEY)) {
+        return _gf_false;
+    }
     /* Ignore on-disk xattrs that AFR doesn't need to heal. */
     if (!afr_is_xattr_ignorable(key1))
         return _gf_true;
@@ -2794,9 +2800,10 @@ afr_xattr_match_needed(dict_t *this, char *key1, data_t *value1, void *data)
 }
 
 gf_boolean_t
-afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2)
+afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2, gf_boolean_t is_arbiter)
 {
-    return are_dicts_equal(dict1, dict2, afr_xattr_match_needed, NULL);
+    return are_dicts_equal(dict1, dict2, afr_xattr_match_needed, &is_arbiter,
+                           NULL);
 }
 
 static int
@@ -3380,7 +3387,9 @@ afr_can_start_metadata_self_heal(call_frame_t *frame, xlator_t *this)
         }
 
         /*Check if xattrs need heal*/
-        if (!afr_xattrs_are_equal(replies[first].xdata, replies[i].xdata))
+        if (!afr_xattrs_are_equal(
+                replies[first].xdata, replies[i].xdata,
+                AFR_IS_ARBITER_BRICK(priv, i) ? _gf_true : _gf_false))
             start = _gf_true;
     }
 

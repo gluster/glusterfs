@@ -814,6 +814,7 @@ iobref_new
 iobref_ref
 iobref_size
 iobref_unref
+iobuf_get_from_small
 iobuf_get
 iobuf_get2
 iobuf_get_page_aligned

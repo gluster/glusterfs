@@ -764,7 +764,7 @@ afr_shd_ta_check_and_unset_xattrs(xlator_t *this, loc_t *loc,
     if (ret)
         goto unref;
 
-    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL)) {
+    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL, NULL)) {
         ret = -1;
         goto unref;
     }

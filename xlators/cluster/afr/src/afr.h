@@ -1170,7 +1170,7 @@ void
 afr_replies_wipe(struct afr_reply *replies, int count);
 
 gf_boolean_t
-afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2);
+afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2, gf_boolean_t is_arbiter);
 
 gf_boolean_t
 afr_is_xattr_ignorable(char *key);
