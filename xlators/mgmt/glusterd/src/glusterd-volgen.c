@@ -2789,6 +2789,7 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     int ret = 0;
     char *xlator = NULL;
     char *loglevel = NULL;
+    int xl_count = 0;
     int i = 0;
 
     if (dict_foreach_fnmatch(set_dict, "user.xlator.*",
@@ -2800,6 +2801,7 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     i = sizeof(server_graph_table) / sizeof(server_graph_table[0]) - 1;
 
     while (i >= 0) {
+        xl_count = graph->graph.xl_count;
         ret = server_graph_table[i].builder(graph, volinfo, set_dict, param);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_BUILD_GRAPH_FAILED,
@@ -2807,6 +2809,15 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                    "failed for server graph table entry: %d",
                    i);
             goto out;
+        }
+        if (xl_count == graph->graph.xl_count) {
+            /* No new xl is added, hence we don't need to do perform below
+             * code. Eg:- arbiter builder will skip the xl addition for
+             * the first and second brick. Hence we don't need to add
+             * debug or user options if we haven't added the xl
+             */
+            i--;
+            continue;
         }
 
         ret = check_and_add_debug_xl(graph, set_dict, volinfo->volname,
