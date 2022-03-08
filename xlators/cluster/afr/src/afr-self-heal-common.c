@@ -380,6 +380,19 @@ fav_child:
         default:
             break;
     }
+    /* At this point we have a source selected by favourite child policy,
+     * If this is for a directory it might not be a good idea to automatically
+     * resolve the GFID. Because the ultimate view of a dir is owned by DHT.
+     * But if it is not a distributed volume, then it might be fine to do
+     * the automatic gfid fix.
+     * So here we skip the automatic split brain resolution
+     */
+    if (*src != -1 && IA_ISDIR(replies[*src].poststat.ia_type)) {
+        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SPLIT_BRAIN,
+               "Automatic Gfid mismatch resolution for directories will be "
+               "skipped. Please manually resolve the splitbrain using cli");
+        *src = -1;
+    }
 
 out:
     if (*src == -1) {
