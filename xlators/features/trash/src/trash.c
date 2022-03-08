@@ -1394,8 +1394,6 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
-    if (pathbuf)
-        GF_FREE(pathbuf);
     return ret;
 }
 
@@ -2014,8 +2012,6 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     STACK_WIND(frame, trash_truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
-    if (pathbuf)
-        GF_FREE(pathbuf);
     return ret;
 }
 
@@ -2082,8 +2078,6 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     STACK_WIND(frame, trash_truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fstat, fd, xdata);
 out:
-    if (pathbuf)
-        GF_FREE(pathbuf);
     return ret;
 }
 
