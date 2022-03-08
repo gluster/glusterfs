@@ -1296,7 +1296,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
 %dir %attr(0775,gluster,gluster) %{_rundir}/gluster
-%if 0%{?_tmpfilesdir:1} && 0%{!?_without_server:1}
+%if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
 %endif
 
