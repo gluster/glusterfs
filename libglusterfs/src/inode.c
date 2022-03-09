@@ -141,13 +141,17 @@ fd_dump(struct list_head *head, char *prefix);
    and xlator_id
 */
 static int
-inode_get_ctx_index(inode_t *inode, xlator_t *xlator)
+inode_get_ctx_index(inode_table_t *table, xlator_t *xlator)
 {
     int ctx_idx = xlator->level;
 
-    if (ctx_idx > inode->table->root_level)
-        ctx_idx = (inode->table->root_level + xlator->xl_id -
-                   inode->table->root_id);
+    if (ctx_idx > table->root_level) {
+#ifdef DEBUG
+        int32_t idx = xlator->xl_id - table->root_id;
+        GF_ASSERT((idx > 0) && (idx < (table->ctxcount - table->root_level)));
+#endif
+        ctx_idx = (table->root_level + xlator->xl_id - table->root_id);
+    }
 
     return ctx_idx;
 }
@@ -464,7 +468,7 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = inode_get_ctx_index(inode, xlator);
+    int set_idx = inode_get_ctx_index(inode->table, xlator);
 
     if ((inode->_ctx[set_idx].xl_key != NULL) &&
         (inode->_ctx[set_idx].xl_key != xlator)) {
@@ -2217,7 +2221,7 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    index = inode_get_ctx_index(inode, xlator);
+    index = inode_get_ctx_index(inode->table, xlator);
 
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
@@ -2331,7 +2335,7 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        index = inode_get_ctx_index(inode, xlator);
+        index = inode_get_ctx_index(inode->table, xlator);
 
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
@@ -2373,7 +2377,7 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        index = inode_get_ctx_index(inode, xlator);
+        index = inode_get_ctx_index(inode->table, xlator);
 
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
