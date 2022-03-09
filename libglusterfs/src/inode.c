@@ -137,6 +137,21 @@ inode_table_prune(inode_table_t *table);
 void
 fd_dump(struct list_head *head, char *prefix);
 
+/* Calculate index based on the inode_table root_level
+   and xlator_id
+*/
+static int
+inode_get_ctx_index(inode_t *inode, xlator_t *xlator)
+{
+    int ctx_idx = xlator->level;
+
+    if (ctx_idx > inode->table->root_level)
+        ctx_idx = (inode->table->root_level + xlator->xl_id -
+                   inode->table->root_id);
+
+    return ctx_idx;
+}
+
 static int
 hash_dentry(inode_t *parent, const char *name, int mod)
 {
@@ -449,11 +464,7 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = xlator->level;
-
-    if (set_idx > inode->table->root_level)
-        set_idx = (inode->table->root_level + xlator->xl_id -
-                   inode->table->root_id);
+    int set_idx = inode_get_ctx_index(inode, xlator);
 
     if ((inode->_ctx[set_idx].xl_key != NULL) &&
         (inode->_ctx[set_idx].xl_key != xlator)) {
@@ -2206,10 +2217,7 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    index = xlator->level;
-    if (index > inode->table->root_level)
-        index = (inode->table->root_level + xlator->xl_id -
-                 inode->table->root_id);
+    index = inode_get_ctx_index(inode, xlator);
 
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
@@ -2323,10 +2331,7 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        index = xlator->level;
-        if (index > inode->table->root_level)
-            index = (inode->table->root_level + xlator->xl_id -
-                     inode->table->root_id);
+        index = inode_get_ctx_index(inode, xlator);
 
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
@@ -2368,10 +2373,7 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        index = xlator->level;
-        if (index > inode->table->root_level)
-            index = (inode->table->root_level + xlator->xl_id -
-                     inode->table->root_id);
+        index = inode_get_ctx_index(inode, xlator);
 
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;

@@ -433,7 +433,7 @@ glusterfs_graph_validate_options(glusterfs_graph_t *graph)
    for specific xlator to save the data on inode
 */
 
-uint32_t
+static uint32_t
 gluster_graph_set_params(xlator_t *xl, uint32_t level, uint32_t id)
 {
     xlator_list_t *list;
