@@ -710,7 +710,7 @@ glusterd_mgmt_v3_initiate_lockdown(glusterd_op_t op, dict_t *dict,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_lock(op, dict, peerinfo, &args, MY_UUID, peer_uuid);
@@ -1058,7 +1058,7 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_pre_validate_req(op, req_dict, peerinfo, &args, MY_UUID,
@@ -1403,7 +1403,7 @@ glusterd_mgmt_v3_brick_op(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_brick_op_req(op, req_dict, peerinfo, &args, MY_UUID,
@@ -1681,7 +1681,7 @@ glusterd_mgmt_v3_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
             continue;
 
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_commit_req(op, req_dict, peerinfo, &args, MY_UUID,
@@ -1943,7 +1943,7 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
             continue;
 
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_post_commit_req(op, req_dict, peerinfo, &args, MY_UUID,
@@ -2165,7 +2165,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_post_validate_req(op, op_ret, req_dict, peerinfo, &args,
@@ -2348,7 +2348,7 @@ glusterd_mgmt_v3_release_peer_locks(glusterd_op_t op, dict_t *dict,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         gd_mgmt_v3_unlock(op, dict, peerinfo, &args, MY_UUID, peer_uuid);

@@ -167,7 +167,7 @@ glusterd_reset_brick_prevalidate(dict_t *dict, char **op_errstr,
             *op_errstr = gf_strdup(msg);
             goto out;
 
-        } else if (GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state) {
+        } else if (GD_FRIEND_STATE_BEFRIENDED != peerinfo->state) {
             RCU_READ_UNLOCK;
             ret = -1;
             snprintf(msg, sizeof(msg),

@@ -7597,7 +7597,7 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
             goto out;
         }
 
-        if (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) {
+        if (peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) {
             snprintf(op_errstr, len,
                      "Host %s is not in \'Peer "
                      "in Cluster\' state",

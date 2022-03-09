@@ -2976,7 +2976,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
              * friend.  The friend state machine will take care of
              * correcting the state as required
              */
-            peerinfo->state.state = GD_FRIEND_STATE_BEFRIENDED;
+            peerinfo->state = GD_FRIEND_STATE_BEFRIENDED;
 
             ret = glusterd_friend_add_from_peerinfo(peerinfo, 0, &args);
         } else {
@@ -3837,7 +3837,7 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
         }
 
     } else if (peerinfo->connected &&
-               (GD_FRIEND_STATE_BEFRIENDED == peerinfo->state.state)) {
+               (GD_FRIEND_STATE_BEFRIENDED == peerinfo->state)) {
         if (peerinfo->detaching) {
             ret = -1;
             if (op_errno)
@@ -5958,7 +5958,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
                 peerinfo->hostname);
         fprintf(fp, "Peer%d.uuid: %s\n", count, gd_peer_uuid_str(peerinfo));
         fprintf(fp, "Peer%d.state: %s\n", count,
-                glusterd_friend_sm_state_name_get(peerinfo->state.state));
+                glusterd_friend_sm_state_name_get(peerinfo->state));
         fprintf(fp, "Peer%d.connected: %s\n", count,
                 peerinfo->connected ? "Connected" : "Disconnected");
 
@@ -6676,10 +6676,10 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                    "Peer <%s> (<%s>), in state <%s>, has disconnected "
                    "from glusterd.",
                    peerinfo->hostname, uuid_utoa(peerinfo->uuid),
-                   glusterd_friend_sm_state_name_get(peerinfo->state.state));
+                   glusterd_friend_sm_state_name_get(peerinfo->state));
             gf_event(EVENT_PEER_DISCONNECT, "peer=%s;uuid=%s;state=%s",
                      peerinfo->hostname, uuid_utoa(peerinfo->uuid),
-                     glusterd_friend_sm_state_name_get(peerinfo->state.state));
+                     glusterd_friend_sm_state_name_get(peerinfo->state));
 
             if (peerinfo->connected) {
                 if (conf->op_version < GD_OP_VERSION_3_6_0) {
@@ -6706,7 +6706,7 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
             }
 
             if ((peerinfo->quorum_contrib != QUORUM_DOWN) &&
-                (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)) {
+                (peerinfo->state == GD_FRIEND_STATE_BEFRIENDED)) {
                 peerinfo->quorum_contrib = QUORUM_DOWN;
                 quorum_action = _gf_true;
                 peerinfo->quorum_action = _gf_false;
@@ -6715,7 +6715,7 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
             /* Remove peer if it is not a friend and connection/handshake
              *  fails, and notify cli. Happens only during probe.
              */
-            if (peerinfo->state.state == GD_FRIEND_STATE_DEFAULT) {
+            if (peerinfo->state == GD_FRIEND_STATE_DEFAULT) {
                 glusterd_friend_remove_notify(peerctx, op_errno);
                 goto out;
             }

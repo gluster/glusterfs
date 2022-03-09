@@ -1835,7 +1835,7 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         if (cluster_lock) {
@@ -2098,7 +2098,7 @@ stage_done:
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         (void)gd_syncop_mgmt_stage_op(peerinfo, &args, MY_UUID, tmp_uuid, op,
@@ -2246,7 +2246,7 @@ commit_done:
         if (!peerinfo->connected)
             continue;
         if (op != GD_OP_SYNC_VOLUME &&
-            peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+            peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
             continue;
 
         (void)gd_syncop_mgmt_commit_op(peerinfo, &args, MY_UUID, tmp_uuid, op,
@@ -2326,7 +2326,7 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
             if (!peerinfo->connected)
                 continue;
             if (op != GD_OP_SYNC_VOLUME &&
-                peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
                 continue;
 
             /* Only unlock peers that were locked */
@@ -2355,7 +2355,7 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
                 if (!peerinfo->connected)
                     continue;
                 if (op != GD_OP_SYNC_VOLUME &&
-                    peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)
+                    peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)
                     continue;
 
                 gd_syncop_mgmt_v3_unlock(op_ctx, peerinfo, &args, MY_UUID,
