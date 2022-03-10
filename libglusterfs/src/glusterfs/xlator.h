@@ -832,6 +832,14 @@ struct _xlator {
 
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
+
+    /* The level represents the specific xlator level in a tree that is useful
+       to access index of the xlator */
+    uint32_t level;
+
+    /* The child_count represents total children are associated at specific
+     * xlator */
+    uint32_t child_count;
 };
 
 /* This would be the only structure which needs to be exported by

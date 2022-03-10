@@ -61,7 +61,10 @@ struct _inode_table {
     xlator_t *invalidator_xl;
     struct list_head invalidate; /* inodes which are in invalidation queue */
     uint32_t invalidate_size;    /* count of inodes in invalidation list */
-
+    uint32_t root_level; /* Save the xlator level at the time of inode table
+                            creation */
+    uint32_t root_id;    /* Save the xlator id at the time of inode table
+                            creation */
     /* flag to indicate whether the cleanup of the inode
        table started or not */
     gf_boolean_t cleanup_started;
