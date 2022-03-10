@@ -137,6 +137,25 @@ inode_table_prune(inode_table_t *table);
 void
 fd_dump(struct list_head *head, char *prefix);
 
+/* Calculate index based on the inode_table root_level
+   and xlator_id
+*/
+static int
+inode_get_ctx_index(inode_table_t *table, xlator_t *xlator)
+{
+    int ctx_idx = xlator->level;
+
+    if (ctx_idx > table->root_level) {
+#ifdef DEBUG
+        int32_t idx = xlator->xl_id - table->root_id;
+        GF_ASSERT((idx > 0) && (idx < (table->ctxcount - table->root_level)));
+#endif
+        ctx_idx = (table->root_level + xlator->xl_id - table->root_id);
+    }
+
+    return ctx_idx;
+}
+
 static int
 hash_dentry(inode_t *parent, const char *name, int mod)
 {
@@ -449,13 +468,14 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = -1;
+    int set_idx = inode_get_ctx_index(inode->table, xlator);
 
-    if ((inode->_ctx[xlator->xl_id].xl_key != NULL) &&
-        (inode->_ctx[xlator->xl_id].xl_key != xlator))
+    if ((inode->_ctx[set_idx].xl_key != NULL) &&
+        (inode->_ctx[set_idx].xl_key != xlator)) {
+        set_idx = -1;
         goto out;
+    }
 
-    set_idx = xlator->xl_id;
     inode->_ctx[set_idx].xl_key = xlator;
 
 out:
@@ -1703,7 +1723,18 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         return NULL;
 
     new->xl = xl;
-    new->ctxcount = xl->graph->xl_count + 1;
+
+    /* root_id and root_level will be useful to access index of specific
+       xlator
+    */
+    new->root_id = xl->xl_id;
+    new->root_level = xl->level;
+
+    /* The ctxcount value should be equal to the total xlators are associated
+       with specific volume. The sum of xl->level and xl->child_count represents
+       total xlators are associated with specific volume in a graph
+    */
+    new->ctxcount = (xl->level + xl->child_count + 1);
 
     new->lru_limit = lru_limit;
     new->invalidator_fn = invalidator_fn;
@@ -2190,7 +2221,8 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    index = xlator->xl_id;
+    index = inode_get_ctx_index(inode->table, xlator);
+
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
 
@@ -2303,7 +2335,8 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        index = xlator->xl_id;
+        index = inode_get_ctx_index(inode->table, xlator);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
@@ -2344,7 +2377,8 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        index = xlator->xl_id;
+        index = inode_get_ctx_index(inode->table, xlator);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
