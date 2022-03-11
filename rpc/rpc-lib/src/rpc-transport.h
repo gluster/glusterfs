@@ -118,7 +118,6 @@ struct rpc_transport_rsp {
 typedef struct rpc_transport_rsp rpc_transport_rsp_t;
 
 struct rpc_transport_req {
-    struct rpc_req *rpc_req;
     rpc_transport_msg_t msg;
     rpc_transport_rsp_t rsp;
 };
@@ -129,15 +128,6 @@ struct rpc_transport_reply {
     rpc_transport_msg_t msg;
 };
 typedef struct rpc_transport_reply rpc_transport_reply_t;
-
-struct rpc_transport_data {
-    union {
-        rpc_transport_req_t req;
-        rpc_transport_reply_t reply;
-    } data;
-    char is_request;
-};
-typedef struct rpc_transport_data rpc_transport_data_t;
 
 /* FIXME: prognum, procnum and progver are already present in
  * rpc_request, hence these should be removed from request_info

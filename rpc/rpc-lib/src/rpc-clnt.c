@@ -1609,7 +1609,6 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     req.rsp.rsp_payload = rsp_payload;
     req.rsp.rsp_payload_count = rsp_payload_count;
     req.rsp.rsp_iobref = rsp_iobref;
-    req.rpc_req = rpcreq;
 
     pthread_mutex_lock(&conn->lock);
     {
