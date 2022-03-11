@@ -155,16 +155,12 @@ typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
 struct rpc_req {
     rpc_clnt_connection_t *conn;
-    struct iovec req[2];
-    struct iobref *req_iobref;
     struct iovec rsp[2];
     int rspcnt;
-    int reqcnt;
     struct iobref *rsp_iobref;
     rpc_clnt_prog_t *prog;
     rpc_auth_data_t verf;
     fop_cbk_fn_t cbkfn;
-    void *conn_private;
     int procnum;
     int rpc_status;
     uint32_t xid;
