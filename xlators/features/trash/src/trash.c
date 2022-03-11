@@ -1727,6 +1727,7 @@ trash_truncate_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             real_path[sizeof(real_path) - 1] = 0;
             strncat(real_path, local->origpath,
                     sizeof(real_path) - strlen(real_path) - 1);
+            real_path[sizeof(real_path) - 1] = 0;
             /* Call create again once directory structure
                is created. */
 
