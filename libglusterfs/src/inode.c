@@ -156,8 +156,8 @@ inode_get_ctx_index(inode_table_t *table, xlator_t *xlator)
     return ctx_idx;
 }
 
-static int
-hash_dentry(inode_t *parent, const char *name, int mod)
+static struct list_head *
+hash_dentry(inode_t *parent, const char *name, inode_table_t *table)
 {
     int hash = 0;
     int ret = 0;
@@ -168,9 +168,9 @@ hash_dentry(inode_t *parent, const char *name, int mod)
             hash = (hash << 5) - hash + *name;
         }
     }
-    ret = (hash + (unsigned long)parent) % mod;
+    ret = (hash + (unsigned long)parent) % table->dentry_hashsize;
 
-    return ret;
+    return &table->name_hash[ret];
 }
 
 static int
@@ -751,21 +751,18 @@ inode_forget_atomic(inode_t *inode, uint64_t nlookup)
 }
 
 dentry_t *
-__dentry_grep(inode_table_t *table, inode_t *parent, const char *name,
-              const int hash)
+__dentry_grep(inode_t *parent, const char *name, struct list_head *hash_loc)
 {
-    dentry_t *dentry = NULL;
     dentry_t *tmp = NULL;
 
-    list_for_each_entry(tmp, &table->name_hash[hash], hash)
+    list_for_each_entry(tmp, hash_loc, hash)
     {
         if (tmp->parent == parent && !strcmp(tmp->name, name)) {
-            dentry = tmp;
-            break;
+            return tmp;
         }
     }
 
-    return dentry;
+    return NULL;
 }
 
 inode_t *
@@ -781,11 +778,11 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
         return NULL;
     }
 
-    int hash = hash_dentry(parent, name, table->dentry_hashsize);
+    struct list_head *hash_loc = hash_dentry(parent, name, table);
 
     pthread_mutex_lock(&table->lock);
     {
-        dentry = __dentry_grep(table, parent, name, hash);
+        dentry = __dentry_grep(parent, name, hash_loc);
         if (dentry) {
             inode = dentry->inode;
             if (inode)
@@ -857,11 +854,11 @@ inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
         return ret;
     }
 
-    int hash = hash_dentry(parent, name, table->dentry_hashsize);
+    struct list_head *hash_loc = hash_dentry(parent, name, table);
 
     pthread_mutex_lock(&table->lock);
     {
-        dentry = __dentry_grep(table, parent, name, hash);
+        dentry = __dentry_grep(parent, name, hash_loc);
         if (dentry) {
             inode = dentry->inode;
             if (inode) {
@@ -971,7 +968,7 @@ pre_inode_link_checks(inode_t *inode, inode_t *parent, const char *name)
 
 static inode_t *
 __inode_link(inode_t *inode, inode_t *parent, const char *name,
-             struct iatt *iatt, const int dhash)
+             struct iatt *iatt, struct list_head *hash_loc)
 {
     dentry_t *dentry = NULL;
     dentry_t *old_dentry = NULL;
@@ -1026,7 +1023,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 
     /* use only link_inode beyond this point */
     if (parent) {
-        old_dentry = __dentry_grep(table, parent, name, dhash);
+        old_dentry = __dentry_grep(parent, name, hash_loc);
 
         if (!old_dentry || old_dentry->inode != link_inode) {
             dentry = dentry_create(link_inode, parent, name);
@@ -1049,7 +1046,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
                 dentry_destroy(__dentry_unset(dentry));
                 return NULL;
             }
-            list_add(&dentry->hash, &link_inode->table->name_hash[dhash]);
+            list_add(&dentry->hash, hash_loc);
 
             if (old_dentry)
                 dentry_destroy(__dentry_unset(old_dentry));
@@ -1062,7 +1059,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 inode_t *
 inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
 {
-    int hash = 0;
+    struct list_head *hash_loc = NULL;
     inode_table_t *table = NULL;
     inode_t *linked_inode = NULL;
 
@@ -1078,12 +1075,12 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     table = inode->table;
 
     if (parent && name) {
-        hash = hash_dentry(parent, name, table->dentry_hashsize);
+        hash_loc = hash_dentry(parent, name, table);
     }
 
     pthread_mutex_lock(&table->lock);
     {
-        linked_inode = __inode_link(inode, parent, name, iatt, hash);
+        linked_inode = __inode_link(inode, parent, name, iatt, hash_loc);
         if (linked_inode)
             __inode_ref(linked_inode, false);
     }
@@ -1279,7 +1276,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
              inode_t *dstdir, const char *dstname, inode_t *inode,
              struct iatt *iatt)
 {
-    int hash = 0;
+    struct list_head *hash_loc = NULL;
     dentry_t *dentry = NULL;
     inode_t *linked_inode = NULL;
 
@@ -1295,12 +1292,12 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     table = inode->table;
 
     if (dstdir && dstname) {
-        hash = hash_dentry(dstdir, dstname, table->dentry_hashsize);
+        hash_loc = hash_dentry(dstdir, dstname, table);
     }
 
     pthread_mutex_lock(&table->lock);
     {
-        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
+        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash_loc);
         /* pick the old dentry */
         /* TODO: analyse properly about what should be the behavior if
          * 'linked_inode' is NULL. Adding this check makes the inode tree
