@@ -10,20 +10,19 @@
 #ifndef _GLUSTERD_OP_SM_H_
 #define _GLUSTERD_OP_SM_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "glusterd.h"
-#include "protocol-common.h"
 #include "glusterd-hooks.h"
 
 #define GD_OP_PROTECTED (0x02)
 #define GD_OP_UNPROTECTED (0x04)
+
+#define GLUSTERD_SHRD_STRG_HOOK_SCRIPT                                         \
+    "/hooks/1/set/post/"                                                       \
+    "S32gluster_enable_shared_storage.sh"
 
 typedef enum glusterd_op_sm_state_ {
     GD_OP_STATE_DEFAULT = 0,
@@ -78,13 +77,8 @@ typedef struct glusterd_op_sm_ {
     glusterd_op_sm_ac_fn handler;
 } glusterd_op_sm_t;
 
-typedef struct glusterd_op_sm_state_info_ {
-    glusterd_op_sm_state_t state;
-    struct timeval time;
-} glusterd_op_sm_state_info_t;
-
 struct glusterd_op_info_ {
-    glusterd_op_sm_state_info_t state;
+    glusterd_op_sm_state_t state;
     int32_t pending_count;
     int32_t brick_pending_count;
     int32_t op_count;
@@ -289,6 +283,17 @@ glusterd_get_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo);
 
 int32_t
 glusterd_set_txn_opinfo(uuid_t *txn_id, glusterd_op_info_t *opinfo);
+
+void
+glusterd_txn_opinfo_init(glusterd_op_info_t *opinfo,
+                         glusterd_op_sm_state_t state, int *op, dict_t *op_ctx,
+                         rpcsvc_request_t *req);
+
+int32_t
+glusterd_txn_opinfo_dict_init(void);
+
+void
+glusterd_txn_opinfo_dict_fini(void);
 
 int32_t
 glusterd_clear_txn_opinfo(uuid_t *txn_id);

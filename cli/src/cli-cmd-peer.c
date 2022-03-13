@@ -11,13 +11,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "cli1-xdr.h"
-#include "protocol-common.h"
 #include <glusterfs/events.h>
 
 int
@@ -89,6 +86,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_PEER_ATTACH, "host=%s", (char *)words[2]);
@@ -176,6 +175,8 @@ out:
     }
 
     CLI_STACK_DESTROY(frame);
+    if (dict)
+        dict_unref(dict);
 
     if (ret == 0) {
         gf_event(EVENT_PEER_DETACH, "host=%s", (char *)words[2]);

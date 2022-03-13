@@ -535,11 +535,11 @@ new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->fd_num = fd_to_fdnum(fd);
     lock->fd = fd;
     lock->client_pid = client_pid;
-    lock->owner = *owner;
+    lk_owner_copy(&lock->owner, owner);
     lock->lk_flags = lk_flags;
 
     lock->blocking = blocking;
-    memcpy(&lock->user_flock, flock, sizeof(lock->user_flock));
+    gf_flock_copy(&lock->user_flock, flock);
 
     INIT_LIST_HEAD(&lock->list);
 
@@ -569,6 +569,9 @@ __copy_lock(posix_lock_t *src)
 
     dst = GF_MALLOC(sizeof(posix_lock_t), gf_locks_mt_posix_lock_t);
     if (dst != NULL) {
+        /* TODO: replace this memcpy with copying individual
+         * variables, and then efficiently copy the owner and
+         * user_owner structures using lk_owner_copy(), gf_flock_copy()*/
         memcpy(dst, src, sizeof(posix_lock_t));
         dst->client_uid = gf_strdup(src->client_uid);
         if (dst->client_uid == NULL) {
@@ -590,7 +593,7 @@ posix_lock_to_flock(posix_lock_t *lock, struct gf_flock *flock)
     flock->l_pid = lock->user_flock.l_pid;
     flock->l_type = lock->fl_type;
     flock->l_start = lock->fl_start;
-    flock->l_owner = lock->owner;
+    lk_owner_copy(&flock->l_owner, &lock->owner);
 
     if (lock->fl_end == LLONG_MAX)
         flock->l_len = 0;
@@ -1040,12 +1043,19 @@ int
 pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
          int can_block)
 {
-    int ret = 0;
-
-    errno = 0;
+    int ret;
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
+        if (GF_ATOMIC_GET(((client_t *)lock->client)->bind) == 0) {
+            /* The client that sent the lock request has disconnected. Unless
+             * this is an unlock request or it's non-blocking, we forbid it. */
+            if (can_block && (lock->fl_type != F_UNLCK)) {
+                pthread_mutex_unlock(&pl_inode->mutex);
+                ret = -ENOTCONN;
+                goto out;
+            }
+        }
         /* Send unlock before the actual lock to
            prevent lock upgrade / downgrade
            problems only if:
@@ -1055,17 +1065,20 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
         if (can_block && !(__is_lock_grantable(pl_inode, lock))) {
             ret = pl_send_prelock_unlock(this, pl_inode, lock);
-            if (ret)
+            if (ret) {
                 gf_log(this->name, GF_LOG_DEBUG,
                        "Could not send pre-lock "
                        "unlock");
+            }
         }
+
+        ret = PL_LOCK_GRANTED;
 
         if (__is_lock_grantable(pl_inode, lock)) {
             if (pl_metalock_is_active(pl_inode)) {
                 __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
-                ret = -2;
+                ret = PL_LOCK_QUEUED;
                 goto out;
             }
             gf_log(this->name, GF_LOG_TRACE,
@@ -1078,7 +1091,7 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
             if (pl_metalock_is_active(pl_inode)) {
                 __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
-                ret = -2;
+                ret = PL_LOCK_QUEUED;
                 goto out;
             }
             gf_log(this->name, GF_LOG_TRACE,
@@ -1093,15 +1106,14 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
             lock->blocked = 1;
             __insert_lock(pl_inode, lock);
-            ret = -1;
+            ret = PL_LOCK_WOULD_BLOCK;
         } else {
             gf_log(this->name, GF_LOG_TRACE,
                    "%s (pid=%d) lk-owner:%s %" PRId64 " - %" PRId64 " => NOK",
                    lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                    lock->client_pid, lkowner_utoa(&lock->owner),
                    lock->user_flock.l_start, lock->user_flock.l_len);
-            errno = EAGAIN;
-            ret = -1;
+            ret = PL_LOCK_WOULD_BLOCK;
         }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
@@ -1147,6 +1159,7 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     posix_lock_t *i = NULL;
     pl_rw_req_t *rw = NULL;
     pl_rw_req_t *itr = NULL;
+    pl_local_t *local;
     struct list_head unwind_blist = {
         0,
     };
@@ -1199,9 +1212,9 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     /* unwind blocked locks */
     list_for_each_entry_safe(lock, i, &unwind_blist, list)
     {
-        PL_STACK_UNWIND_AND_FREE(((pl_local_t *)lock->frame->local), lk,
-                                 lock->frame, -1, EBUSY, &lock->user_flock,
-                                 NULL);
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, -1, EBUSY,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 

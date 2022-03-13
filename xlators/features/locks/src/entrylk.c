@@ -7,11 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/list.h>
 #include <glusterfs/upcall-utils.h>
 
@@ -61,7 +58,7 @@ new_entrylk_lock(pl_inode_t *pinode, const char *basename, entrylk_type type,
     newlock->client = frame->root->client;
     newlock->client_pid = frame->root->pid;
     newlock->volume = domain;
-    newlock->owner = frame->root->lk_owner;
+    lk_owner_copy(&newlock->owner, &frame->root->lk_owner);
     newlock->frame = frame;
     newlock->this = frame->this;
 

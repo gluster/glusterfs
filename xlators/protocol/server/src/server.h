@@ -13,22 +13,19 @@
 
 #include <pthread.h>
 
-#include <glusterfs/fd.h>
 #include "rpcsvc.h"
-
-#include <glusterfs/fd.h>
 #include "protocol-common.h"
 #include "server-mem-types.h"
 #include "glusterfs3.h"
-#include <glusterfs/timer.h>
 #include <glusterfs/client_t.h>
 #include <glusterfs/gidcache.h>
-#include <glusterfs/defaults.h>
 #include "authenticate.h"
 
+/* Threading limits for server event threads. */
+#define SERVER_MIN_EVENT_THREADS 1
+#define SERVER_MAX_EVENT_THREADS 1024
+
 #define DEFAULT_VOLUME_FILE_PATH CONFDIR "/glusterfs.vol"
-#define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
-#define GF_MIN_SOCKET_WINDOW_SIZE (0)
 
 typedef enum {
     INTERNAL_LOCKS = 1,
@@ -55,28 +52,26 @@ struct _child_status {
 struct server_conf {
     rpcsvc_t *rpc;
     int inode_lru_limit;
-    gf_boolean_t trace;
-    char *conf_dir;
-    struct _volfile_ctx *volfile;
-    dict_t *auth_modules;
-    pthread_mutex_t mutex;
-    struct list_head xprt_list;
-
     gf_boolean_t server_manage_gids; /* resolve gids on brick */
-    gid_cache_t gid_cache;
-    int32_t gid_cache_timeout;
-
-    int event_threads; /* # of event threads
-                        * configured */
-
+    gf_boolean_t trace;
     gf_boolean_t parent_up;
     gf_boolean_t dync_auth; /* if set authenticate dynamically,
                              * in case if volume set options
                              * (say *.allow | *.reject) are
                              * tweeked */
+    char *conf_dir;
+    struct _volfile_ctx *volfile;
+    dict_t *auth_modules;
+    struct list_head xprt_list;
+    time_t gid_cache_timeout;
     struct _child_status *child_status;
-    gf_lock_t itable_lock;
+    int event_threads; /* # of event threads
+                        * configured */
     gf_boolean_t strict_auth_enabled;
+    pthread_mutex_t mutex;
+
+    gf_lock_t itable_lock;
+    gid_cache_t gid_cache;
 };
 typedef struct server_conf server_conf_t;
 

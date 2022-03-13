@@ -14,12 +14,9 @@
 #include <sys/statvfs.h>
 
 #include <glusterfs/compat.h>
-#include "protocol-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/timer.h>
 #include "glusterd-mem-types.h"
-#include "glusterd.h"
 #include "glusterd-sm.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
@@ -31,8 +28,6 @@
 #include "glusterd-messages.h"
 
 #include <glusterfs/syscall.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 
 #define GLUSTERD_GET_DEFRAG_SOCK_FILE(path, volinfo)                           \
     do {                                                                       \
@@ -55,7 +50,7 @@
 int32_t
 glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
                       void *myframe);
-int
+static int
 glusterd_defrag_start_validate(glusterd_volinfo_t *volinfo, char *op_errstr,
                                size_t len, glusterd_op_t op)
 {
@@ -127,7 +122,7 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
 
             LOCK(&defrag->lock);
             {
-                defrag->connected = 1;
+                defrag->connected = _gf_true;
             }
             UNLOCK(&defrag->lock);
 
@@ -143,7 +138,7 @@ __glusterd_defrag_notify(struct rpc_clnt *rpc, void *mydata,
                     UNLOCK(&defrag->lock);
                     return 0;
                 }
-                defrag->connected = 0;
+                defrag->connected = _gf_false;
             }
             UNLOCK(&defrag->lock);
 
@@ -236,8 +231,6 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
         goto out;
 
     defrag = volinfo->rebal.defrag;
-
-    defrag->cmd = cmd;
 
     volinfo->rebal.defrag_cmd = cmd;
     volinfo->rebal.op = op;
@@ -367,7 +360,6 @@ glusterd_rebalance_defrag_init(glusterd_volinfo_t *volinfo, defrag_cbk_fn_t cbk)
         goto out;
     defrag = volinfo->rebal.defrag;
 
-    defrag->cmd = volinfo->rebal.defrag_cmd;
     LOCK_INIT(&defrag->lock);
     if (cbk)
         defrag->cbk_fn = cbk;
@@ -434,7 +426,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterd_rebalance_cmd_validate(int cmd, char *volname,
                                 glusterd_volinfo_t **volinfo, char *op_errstr,
                                 size_t len)

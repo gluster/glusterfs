@@ -113,7 +113,7 @@ dht_priv_dump(xlator_t *this)
     gf_proc_dump_write("gen", "%d", conf->gen);
     gf_proc_dump_write("min_free_disk", "%lf", conf->min_free_disk);
     gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
-    gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
+    gf_proc_dump_write("disk_unit percentage", "%d", conf->disk_unit_percent);
     gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
     gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
     gf_proc_dump_write("use-readdirp", "%d", conf->use_readdirp);
@@ -169,6 +169,8 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
     dht_layout_dump(layout, "layout");
 
+    if (!ret)
+        dht_layout_unref(layout);
 out:
     return ret;
 }
@@ -455,9 +457,9 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("min-free-disk", conf->min_free_disk, options,
                      percent_or_size, out);
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100.0)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     GF_OPTION_RECONF("min-free-inodes", conf->min_free_inodes, options, percent,
                      out);
@@ -643,7 +645,6 @@ dht_init(xlator_t *this)
     }
 
     LOCK_INIT(&conf->subvolume_lock);
-    LOCK_INIT(&conf->layout_lock);
     LOCK_INIT(&conf->lock);
     synclock_init(&conf->link_lock, SYNC_LOCK_DEFAULT);
 
@@ -770,9 +771,9 @@ dht_init(xlator_t *this)
     }
 
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     ret = dht_init_subvolumes(this, conf);
     if (ret == -1) {
@@ -1074,8 +1075,7 @@ struct volume_options dht_options[] = {
      .default_value = "normal",
      .description = " Sets the maximum number of parallel file migrations "
                     "allowed on a node during the rebalance operation. The"
-                    " default value is normal and allows a max of "
-                    "[($(processing units) - 4) / 2), 2]  files to be "
+                    " default value is normal and allows 2 files to be "
                     "migrated at a time. Lazy will allow only one file to "
                     "be migrated at a time and aggressive will allow "
                     "max of [($(processing units) - 4) / 2), 4]",

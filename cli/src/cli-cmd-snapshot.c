@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 
 #include "cli.h"
 #include "cli-cmd.h"
@@ -63,6 +62,8 @@ out:
         cli_out("Snapshot command failed");
 
     CLI_STACK_DESTROY(frame);
+    if (options)
+        dict_unref(options);
 
     return ret;
 }

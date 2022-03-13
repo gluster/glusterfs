@@ -1849,12 +1849,12 @@ static int32_t
 br_signer_handle_options(xlator_t *this, br_private_t *priv, dict_t *options)
 {
     if (options) {
-        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, uint32,
+        GF_OPTION_RECONF("expiry-time", priv->expiry_time, options, time,
                          error_return);
         GF_OPTION_RECONF("signer-threads", priv->signer_th_count, options,
                          uint32, error_return);
     } else {
-        GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+        GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
         GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                        error_return);
     }
@@ -1871,7 +1871,7 @@ br_signer_init(xlator_t *this, br_private_t *priv)
     int32_t ret = 0;
     int numbricks = 0;
 
-    GF_OPTION_INIT("expiry-time", priv->expiry_time, uint32, error_return);
+    GF_OPTION_INIT("expiry-time", priv->expiry_time, time, error_return);
     GF_OPTION_INIT("brick-count", numbricks, int32, error_return);
     GF_OPTION_INIT("signer-threads", priv->signer_th_count, uint32,
                    error_return);
@@ -2154,7 +2154,7 @@ struct volume_options options[] = {
     {
         .key = {"expiry-time"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = SIGNING_TIMEOUT,
+        .default_value = TOSTRING(SIGNING_TIMEOUT),
         .op_version = {GD_OP_VERSION_3_7_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Waiting time for an object on which it waits "
@@ -2204,7 +2204,7 @@ struct volume_options options[] = {
     {
         .key = {"signer-threads"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = BR_WORKERS,
+        .default_value = TOSTRING(BR_DEFAULT_THREADS),
         .op_version = {GD_OP_VERSION_8_0},
         .flags = OPT_FLAG_SETTABLE,
         .description = "Number of signing process threads. As a best "

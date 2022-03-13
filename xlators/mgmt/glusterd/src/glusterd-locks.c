@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
@@ -577,8 +573,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     }
 
     mgmt_lock_timer->xl = THIS;
-    /*changing to default timeout value*/
-    priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
 
     ret = -1;
     mgmt_lock_timer_xl = mgmt_lock_timer->xl;
@@ -596,6 +590,9 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     key_dup = gf_strdup(key);
     delay.tv_sec = priv->mgmt_v3_lock_timeout;
     delay.tv_nsec = 0;
+
+    /*changing to default timeout value*/
+    priv->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
 
     mgmt_lock_timer->timer = gf_timer_call_after(
         mgmt_lock_timer_ctx, delay, gd_mgmt_v3_unlock_timer_cbk, key_dup);

@@ -122,7 +122,7 @@ shard_unlock_entrylk(call_frame_t *frame, xlator_t *this);
         __bs = GF_MALLOC(sizeof(uint64_t), gf_shard_mt_uint64_t);              \
         if (!__bs)                                                             \
             goto label;                                                        \
-        *__bs = hton64(block_size);                                            \
+        *__bs = htobe64(block_size);                                           \
         __ret = dict_set_bin(xattr_req, GF_XATTR_SHARD_BLOCK_SIZE, __bs,       \
                              sizeof(*__bs));                                   \
         if (__ret) {                                                           \

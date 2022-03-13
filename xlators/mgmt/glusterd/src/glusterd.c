@@ -16,12 +16,12 @@
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
 
+#include "rpc-common-xdr.h"
+
 #include "glusterd.h"
 #include "rpcsvc.h"
 #include "fnmatch.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/list.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/options.h>
@@ -49,7 +49,6 @@
 #include "glusterd-geo-rep.h"
 #include <glusterfs/run.h>
 #include "rpc-clnt-ping.h"
-#include "rpc-common-xdr.h"
 
 #include <glusterfs/syncop.h>
 
@@ -126,6 +125,14 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
     [GD_OP_RESET_BRICK] = "Reset Brick",
     [GD_OP_MAX_OPVERSION] = "Maximum supported op-version",
     [GD_OP_MAX] = "Invalid op"};
+
+#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR "/gluster/snaps"
+#define GLUSTERD_BITD_RUN_DIR "/bitd"
+#define GLUSTERD_SCRUB_RUN_DIR "/scrub"
+#define GLUSTERD_NFS_RUN_DIR "/nfs"
+#define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
+#define GLUSTERD_VAR_RUN_DIR "/var/run"
+#define GLUSTERD_RUN_DIR "/run"
 
 static int
 glusterd_opinfo_init()
@@ -935,7 +942,7 @@ out:
     return ret ? -1 : 0;
 }
 #undef RUN_GSYNCD_CMD
-#else /* SYNCDAEMON_COMPILE */
+#else  /* SYNCDAEMON_COMPILE */
 static int
 configure_syncdaemon(glusterd_conf_t *conf)
 {
@@ -1387,17 +1394,50 @@ out:
 }
 
 void
-glusterd_destroy_hostname_list(glusterd_conf_t *priv)
+glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
 {
     glusterd_hostname_t *hostname_obj = NULL;
     glusterd_hostname_t *tmp = NULL;
 
-    list_for_each_entry_safe(hostname_obj, tmp, &priv->hostnames, hostname_list)
+    list_for_each_entry_safe(hostname_obj, tmp, hostname_list_head,
+                             hostname_list)
     {
         list_del_init(&hostname_obj->hostname_list);
         GF_FREE(hostname_obj->hostname);
         GF_FREE(hostname_obj);
     }
+}
+
+static int32_t
+glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
+                                  gf_boolean_t upgrade, gf_boolean_t downgrade)
+{
+    int ret = 0;
+    gf_boolean_t regenerate_volfiles = _gf_false;
+    gf_boolean_t terminate = _gf_false;
+
+    if (_gf_true == upgrade)
+        regenerate_volfiles = _gf_true;
+
+    if (upgrade && downgrade) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING,
+               "Both upgrade and downgrade"
+               " options are set. Only one should be on");
+        ret = -1;
+        goto out;
+    }
+
+    if (!upgrade && !downgrade)
+        ret = 0;
+    else
+        terminate = _gf_true;
+    if (regenerate_volfiles) {
+        ret = glusterd_recreate_volfiles(conf);
+    }
+out:
+    if (terminate && (ret == 0))
+        kill(getpid(), SIGTERM);
+    return ret;
 }
 
 /*
@@ -1484,15 +1524,28 @@ init(xlator_t *this)
     if (len < 0 || len >= PATH_MAX)
         exit(2);
 
-    dir_data = dict_get(this->options, "cluster-test-mode");
+    dir_data = dict_get(this->options, "logging-directory");
     if (!dir_data) {
-        /* Use default working dir */
-        len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
-                       DEFAULT_LOG_FILE_DIRECTORY);
+        // Check for deprecated 'cluster-test-mode' option
+        dir_data = dict_get(this->options, "cluster-test-mode");
+        if (dir_data) {
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           dir_data->data);
+            gf_msg(
+                this->name, GF_LOG_WARNING, 0, GD_MSG_CLUSTER_RC_ENABLE,
+                "gluster log directory is set to %s. The option "
+                "'cluster-test-mode' is deprecated and will be removed soon. "
+                "Please use the new option 'logging-directory' instead.",
+                dir_data->data);
+        } else {
+            /* Use default working dir */
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           DEFAULT_LOG_FILE_DIRECTORY);
+        }
     } else {
         len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s", dir_data->data);
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLUSTER_RC_ENABLE,
-               "cluster-test-mode is enabled logdir is %s", dir_data->data);
+               "gluster log directory is set to %s", dir_data->data);
     }
     if (len < 0 || len >= PATH_MAX)
         exit(2);
@@ -1879,6 +1932,7 @@ init(xlator_t *this)
     CDS_INIT_LIST_HEAD(&conf->brick_procs);
     CDS_INIT_LIST_HEAD(&conf->shd_procs);
     CDS_INIT_LIST_HEAD(&conf->hostnames);
+    INIT_LIST_HEAD(&conf->remote_hostnames);
     pthread_mutex_init(&conf->attach_lock, NULL);
     pthread_mutex_init(&conf->volume_lock, NULL);
 
@@ -1939,10 +1993,10 @@ init(xlator_t *this)
     }
 
     conf->mgmt_v3_lock_timeout = GF_LOCK_TIMER;
-    if (dict_get_uint32(this->options, "lock-timer",
-                        &conf->mgmt_v3_lock_timeout) == 0) {
+    if (dict_get_time(this->options, "lock-timer",
+                      &conf->mgmt_v3_lock_timeout) == 0) {
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_SET_FAILED,
-               "lock-timer override: %d", conf->mgmt_v3_lock_timeout);
+               "lock-timer override: %ld", conf->mgmt_v3_lock_timeout);
     }
 
     /* Set option to run bricks on valgrind if enabled in glusterd.vol */
@@ -1967,7 +2021,7 @@ init(xlator_t *this)
     }
 
     /* Store ping-timeout in conf */
-    ret = dict_get_int32(this->options, "ping-timeout", &conf->ping_timeout);
+    ret = dict_get_time(this->options, "ping-timeout", &conf->ping_timeout);
     /* Not failing here since ping-timeout can be optional as well */
 
     glusterd_mgmt_v3_lock_init();
@@ -2126,9 +2180,14 @@ fini(xlator_t *this)
     if (!this || !this->private)
         goto out;
 
-    glusterd_stop_uds_listener(this);              /*stop unix socket rpc*/
-    glusterd_stop_listener(this);                  /*stop tcp/ip socket rpc*/
-    glusterd_destroy_hostname_list(this->private); /*Destroy hostname list */
+    glusterd_conf_t *priv = NULL;
+    priv = this->private;
+
+    glusterd_stop_uds_listener(this);                 /*stop unix socket rpc*/
+    glusterd_stop_listener(this);                     /*stop tcp/ip socket rpc*/
+    glusterd_destroy_hostname_list(&priv->hostnames); /*Destroy hostname list */
+    glusterd_destroy_hostname_list(
+        &priv->remote_hostnames); /*Destroy remote hostname list*/
 
 #if 0
        /* Running threads might be using these resourses, we have to cancel/stop
@@ -2295,9 +2354,9 @@ struct volume_options options[] = {
     },
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
+     .min = GLUSTERD_MIN_EVENT_THREADS,
+     .max = GLUSTERD_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
      .description = "Specifies the number of event threads to execute "
                     "in parallel. Larger values would help process"
                     " responses faster, depending on available processing"

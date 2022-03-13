@@ -13,8 +13,6 @@
 
 #include "nl-cache-mem-types.h"
 #include "nl-cache-messages.h"
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/atomic.h>
 
@@ -110,7 +108,7 @@ struct nlc_statistics {
 };
 
 struct nlc_conf {
-    int32_t cache_timeout;
+    time_t cache_timeout;
     gf_boolean_t positive_entry_cache;
     gf_boolean_t negative_entry_cache;
     gf_boolean_t disable_cache;

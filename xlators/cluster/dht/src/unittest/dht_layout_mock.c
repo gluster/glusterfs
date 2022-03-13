@@ -10,7 +10,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/xlator.h>
 #include "dht-common.h"
-#include <glusterfs/byte-order.h>
 
 int
 dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)

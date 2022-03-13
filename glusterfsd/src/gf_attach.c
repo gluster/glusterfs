@@ -12,11 +12,10 @@
 #include <stdlib.h>
 #include <unistd.h>
 
-#include <glusterfs/glusterfs.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/syscall.h>
 #include "glfs-internal.h"
 #include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
 #include "glusterd1-xdr.h"
 
 /* In seconds */
@@ -103,7 +102,7 @@ send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
     ts.tv_sec += CONNECT_TIMEOUT;
     pthread_mutex_lock(&rpc->conn.lock);
     {
-        while (!rpc->conn.connected)
+        while (rpc->conn.status != RPC_STATUS_CONNECTED)
             if (pthread_cond_timedwait(&rpc->conn.cond, &rpc->conn.lock, &ts) ==
                 ETIMEDOUT) {
                 fprintf(stderr, "timeout waiting for RPC connection\n");
@@ -171,7 +170,7 @@ sanitize_args(int argc, char **argv)
         0,
     };
 
-    ret = lstat(argv[optind], &statbuf);
+    ret = sys_lstat(argv[optind], &statbuf);
     if (ret == -1) {
         fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind],
                 strerror(errno));
@@ -182,7 +181,7 @@ sanitize_args(int argc, char **argv)
         goto err;
     }
 
-    ret = lstat(argv[optind + 1], &statbuf);
+    ret = sys_lstat(argv[optind + 1], &statbuf);
     if (ret == -1) {
         fprintf(stderr, "Unable to stat %s (%s).\n", argv[optind + 1],
                 strerror(errno));

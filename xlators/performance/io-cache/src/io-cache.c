@@ -12,7 +12,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "io-cache.h"
 #include "ioc-mem-types.h"
 #include <glusterfs/statedump.h>
@@ -1673,7 +1672,7 @@ reconfigure(xlator_t *this, dict_t *options)
         GF_OPTION_RECONF("pass-through", this->pass_through, options, bool,
                          unlock);
 
-        GF_OPTION_RECONF("cache-timeout", table->cache_timeout, options, int32,
+        GF_OPTION_RECONF("cache-timeout", table->cache_timeout, options, time,
                          unlock);
 
         data = dict_get(options, "priority");
@@ -1765,7 +1764,7 @@ init(xlator_t *this)
 
     GF_OPTION_INIT("cache-size", table->cache_size, size_uint64, out);
 
-    GF_OPTION_INIT("cache-timeout", table->cache_timeout, int32, out);
+    GF_OPTION_INIT("cache-timeout", table->cache_timeout, time, out);
 
     GF_OPTION_INIT("min-file-size", table->min_file_size, size_uint64, out);
 
@@ -1942,8 +1941,8 @@ __ioc_cache_dump(ioc_inode_t *ioc_inode, char *prefix)
     table = ioc_inode->table;
 
     if (ioc_inode->cache.last_revalidate) {
-        gf_time_fmt(timestr, sizeof timestr, ioc_inode->cache.last_revalidate,
-                    gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr,
+                       ioc_inode->cache.last_revalidate);
 
         gf_proc_dump_write("last-cache-validation-time", "%s", timestr);
     }
@@ -2056,7 +2055,7 @@ ioc_priv_dump(xlator_t *this)
         gf_proc_dump_write("cache_size", "%" PRIu64, priv->cache_size);
         gf_proc_dump_write("cache_used", "%" PRIu64, priv->cache_used);
         gf_proc_dump_write("inode_count", "%u", priv->inode_count);
-        gf_proc_dump_write("cache_timeout", "%u", priv->cache_timeout);
+        gf_proc_dump_write("cache_timeout", "%ld", priv->cache_timeout);
         gf_proc_dump_write("min-file-size", "%" PRIu64, priv->min_file_size);
         gf_proc_dump_write("max-file-size", "%" PRIu64, priv->max_file_size);
     }

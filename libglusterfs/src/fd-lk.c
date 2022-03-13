@@ -8,8 +8,8 @@
   cases as published by the Free Software Foundation.
 */
 
+#include "glusterfs/fd.h"
 #include "glusterfs/fd-lk.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 int32_t
@@ -152,7 +152,7 @@ fd_lk_ctx_node_new(int32_t cmd, struct gf_flock *flock)
         else
             new_lock->fl_end = flock->l_start + flock->l_len - 1;
 
-        memcpy(&new_lock->user_flock, flock, sizeof(struct gf_flock));
+        gf_flock_copy(&new_lock->user_flock, flock);
     }
 
     INIT_LIST_HEAD(&new_lock->next);

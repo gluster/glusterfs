@@ -15,7 +15,6 @@
 
 #include <sys/types.h>
 
-#include <glusterfs/defaults.h>
 #include <glusterfs/hashfn.h>
 #include <glusterfs/logging.h>
 #include "namespace.h"

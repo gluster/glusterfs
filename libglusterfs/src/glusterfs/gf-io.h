@@ -20,6 +20,7 @@
 #include <urcu/uatomic.h>
 
 #include <glusterfs/gf-io-common.h>
+#include <glusterfs/syscall.h>
 
 /* Some macros to deal with request IDs. */
 
@@ -74,6 +75,14 @@
 #define GF_IO_ID_FLAG_7 (1ULL << (GF_IO_ID_REQ_BITS + 7))
 
 #define GF_IO_ID_COUNTER_UNIT (1ULL << (GF_IO_ID_REQ_BITS + GF_IO_ID_FLG_BITS))
+
+/* Define the initialization timeout and number of retries. */
+#define GF_IO_INIT_TIMEOUT 3
+#define GF_IO_INIT_RETRIES 20
+
+/* Define the timeout and number of retries for init/fini handlers. */
+#define GF_IO_HANDLER_TIMEOUT 3
+#define GF_IO_HANDLER_RETRIES 20
 
 /* Forward declaration of some structures. */
 

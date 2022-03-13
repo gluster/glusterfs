@@ -12,9 +12,7 @@
 #define _NFS_INODES_H_
 
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/iobuf.h>
-#include <glusterfs/call-stub.h>
 #include "nfs-fops.h"
 
 extern int

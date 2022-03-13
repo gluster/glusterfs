@@ -14,7 +14,6 @@
 #include "protocol-common.h"
 #include <glusterfs/syncop-utils.h>
 #include "afr-messages.h"
-#include <glusterfs/byte-order.h>
 
 #define AFR_EH_SPLIT_BRAIN_LIMIT 1024
 #define AFR_STATISTICS_HISTORY_SIZE 50
@@ -702,7 +701,7 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
         }
 
         for (j = 0; j < AFR_NUM_CHANGE_LOGS; j++) {
-            val = ntoh32(*((int *)pending_raw + j));
+            val = be32toh(*((int *)pending_raw + j));
             if (val) {
                 if (i == healer) {
                     gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_THIN_ARB,
@@ -715,7 +714,7 @@ afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
                     goto out;
                 }
                 need_xattrop = _gf_true;
-                raw[j] = hton32(-val);
+                raw[j] = htobe32(-val);
             }
         }
 
@@ -765,7 +764,7 @@ afr_shd_ta_check_and_unset_xattrs(xlator_t *this, loc_t *loc,
     if (ret)
         goto unref;
 
-    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL)) {
+    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL, NULL)) {
         ret = -1;
         goto unref;
     }
@@ -911,7 +910,7 @@ afr_shd_anon_inode_cleaner(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     }
 
     /*Inode is deleted from subvol*/
-    if (count == 1 || (iatt->ia_type != IA_IFDIR && multiple_links)) {
+    if (count == 1 || (iatt && iatt->ia_type != IA_IFDIR && multiple_links)) {
         gf_msg(healer->this->name, GF_LOG_WARNING, 0,
                AFR_MSG_EXPUNGING_FILE_OR_DIR, "expunging %s %s/%s on %s", type,
                priv->anon_inode_name, entry->d_name, subvol->name);
@@ -1319,7 +1318,7 @@ out:
     return ret;
 }
 
-int
+static void
 afr_add_crawl_event(circular_buffer_t *cb, void *data)
 {
     dict_t *output = NULL;
@@ -1333,12 +1332,8 @@ afr_add_crawl_event(circular_buffer_t *cb, void *data)
     shd = &priv->shd;
     crawl_event = cb->data;
 
-    if (!shd->index_healers[crawl_event->child].local)
-        return 0;
-
-    afr_shd_dict_add_crawl_event(this, output, crawl_event);
-
-    return 0;
+    if (shd->index_healers[crawl_event->child].local)
+        afr_shd_dict_add_crawl_event(this, output, crawl_event);
 }
 
 int

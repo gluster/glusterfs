@@ -172,3 +172,26 @@ function dht_first_filename_with_hashsubvol()
         done
         return 1
 }
+
+function has_sticky_attr()
+{
+    local file="$1"
+    if [ -k "$file" ]
+    then
+        echo "Y"
+    else
+        echo "N"
+    fi
+}
+
+function has_sgid_attr()
+{
+    local file="$1"
+#-g checks SGID bit. -k checks for sticky bit
+    if [ -g "$file" ]
+    then
+        echo "Y"
+    else
+        echo "N"
+    fi
+}

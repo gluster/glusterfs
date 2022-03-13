@@ -12,6 +12,7 @@
 #define _RPCSVC_COMMON_H
 
 #include <pthread.h>
+#include <glusterfs/xlator.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/dict.h>
 

@@ -12,12 +12,10 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
 #include "md-cache-mem-types.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/glusterfs-acl.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/upcall-utils.h>
 #include <assert.h>
 #include <sys/time.h>
@@ -59,7 +57,7 @@ struct mdc_statistics {
 };
 
 struct mdc_conf {
-    uint32_t timeout;
+    time_t timeout;
     gf_boolean_t cache_posix_acl;
     gf_boolean_t cache_glusterfs_acl;
     gf_boolean_t cache_selinux;
@@ -129,11 +127,11 @@ struct mdc_local {
     char *linkname;
     char *key;
     dict_t *xattr;
-    uint64_t incident_time;
+    time_t incident_time;
     bool update_cache;
 };
 
-int
+static int
 __mdc_inode_ctx_get(xlator_t *this, inode_t *inode, struct md_cache **mdc_p)
 {
     int ret = 0;
@@ -187,7 +185,7 @@ __mdc_inc_generation(xlator_t *this, struct md_cache *mdc)
     return gen;
 }
 
-uint64_t
+static uint64_t
 mdc_inc_generation(xlator_t *this, inode_t *inode)
 {
     struct mdc_conf *conf = NULL;
@@ -237,7 +235,7 @@ mdc_get_generation(xlator_t *this, inode_t *inode)
     return gen;
 }
 
-int
+static int
 __mdc_inode_ctx_set(xlator_t *this, inode_t *inode, struct md_cache *mdc)
 {
     int ret = 0;
@@ -331,7 +329,7 @@ out:
     return ret;
 }
 
-struct md_cache *
+static struct md_cache *
 mdc_inode_prep(xlator_t *this, inode_t *inode)
 {
     int ret = 0;
@@ -377,8 +375,7 @@ __is_cache_valid(xlator_t *this, time_t mdc_time)
 {
     gf_boolean_t ret = _gf_true;
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
-    time_t last_child_down = 0;
+    time_t timeout = 0, last_child_down = 0;
 
     conf = this->private;
 
@@ -479,12 +476,11 @@ mdc_to_iatt(struct md_cache *mdc, struct iatt *iatt)
     iatt->ia_blocks = mdc->md_blocks;
 }
 
-int
+static struct md_cache *
 mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                             struct iatt *iatt, gf_boolean_t update_time,
                             uint64_t incident_time)
 {
-    int ret = 0;
     struct md_cache *mdc = NULL;
     uint32_t rollover = 0;
     uint64_t gen = 0;
@@ -493,7 +489,6 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
 
     mdc = mdc_inode_prep(this, inode);
     if (!mdc) {
-        ret = -1;
         goto out;
     }
 
@@ -503,16 +498,17 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
     LOCK(&mdc->lock);
     {
         if (!iatt || !iatt->ia_ctime) {
-            gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
-                             "invalidating iatt(NULL)"
-                             "(%s)",
-                             uuid_utoa(inode->gfid));
             mdc->ia_time = 0;
             mdc->valid = 0;
 
             gen = __mdc_inc_generation(this, mdc);
             mdc->generation = (gen & 0xffffffff);
-            goto unlock;
+            UNLOCK(&mdc->lock);
+            gf_msg_callingfn("md-cache", GF_LOG_TRACE, 0, 0,
+                             "invalidating iatt(NULL)"
+                             "(%s)",
+                             uuid_utoa(inode->gfid));
+            goto out;
         }
 
         /* There could be a race in invalidation, where the
@@ -524,23 +520,25 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
          * changes, hence check for ctime only.
          */
         if (mdc->md_ctime > iatt->ia_ctime) {
+            UNLOCK(&mdc->lock);
             gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
                              MD_CACHE_MSG_DISCARD_UPDATE,
                              "discarding the iatt validate "
                              "request (%s)",
                              uuid_utoa(inode->gfid));
-            ret = -1;
-            goto unlock;
+            mdc = NULL;
+            goto out;
         }
         if ((mdc->md_ctime == iatt->ia_ctime) &&
             (mdc->md_ctime_nsec > iatt->ia_ctime_nsec)) {
+            UNLOCK(&mdc->lock);
             gf_msg_callingfn(this->name, GF_LOG_DEBUG, EINVAL,
                              MD_CACHE_MSG_DISCARD_UPDATE,
                              "discarding the iatt validate "
                              "request(ctime_nsec) (%s)",
                              uuid_utoa(inode->gfid));
-            ret = -1;
-            goto unlock;
+            mdc = NULL;
+            goto out;
         }
 
         /*
@@ -600,14 +598,13 @@ mdc_inode_iatt_set_validate(xlator_t *this, inode_t *inode, struct iatt *prebuf,
                              (unsigned long long)incident_time);
         }
     }
-unlock:
     UNLOCK(&mdc->lock);
 
 out:
-    return ret;
+    return mdc;
 }
 
-int
+static struct md_cache *
 mdc_inode_iatt_set(xlator_t *this, inode_t *inode, struct iatt *iatt,
                    uint64_t incident_time)
 {
@@ -653,6 +650,23 @@ struct updatedict {
     dict_t *dict;
     int ret;
 };
+
+static void
+gf_strTrim(char **s)
+{
+    char *end = NULL;
+
+    end = *s + strlen(*s) - 1;
+    while (end > *s && isspace((unsigned char)*end))
+        end--;
+
+    *(end + 1) = '\0';
+
+    while (isspace(**s))
+        (*s)++;
+
+    return;
+}
 
 static int
 is_mdc_key_satisfied(xlator_t *this, const char *key)
@@ -741,32 +755,38 @@ mdc_dict_update(dict_t **tgt, dict_t *src)
     return u.ret;
 }
 
-int
-mdc_inode_xatt_set(xlator_t *this, inode_t *inode, dict_t *dict)
+static int
+mdc_inode_xatt_set(xlator_t *this, inode_t *inode, dict_t *dict,
+                   struct md_cache *mdc)
 {
     int ret = -1;
-    struct md_cache *mdc = NULL;
     dict_t *newdict = NULL;
+    char inode_gfid[GF_UUID_BUF_SIZE];
+    time_t xa_time;
 
-    mdc = mdc_inode_prep(this, inode);
-    if (!mdc)
-        goto out;
+    if (!mdc) {
+        mdc = mdc_inode_prep(this, inode);
+        if (!mdc)
+            goto out;
+    }
 
+    uuid_utoa_r(inode->gfid, inode_gfid);
     if (!dict) {
         gf_msg_trace("md-cache", 0,
                      "mdc_inode_xatt_set failed (%s) "
                      "dict NULL",
-                     uuid_utoa(inode->gfid));
+                     inode_gfid);
         goto out;
     }
 
+    xa_time = gf_time();
     LOCK(&mdc->lock);
     {
         if (mdc->xattr) {
             gf_msg_trace("md-cache", 0,
                          "deleting the old xattr "
                          "cache (%s)",
-                         uuid_utoa(inode->gfid));
+                         inode_gfid);
             dict_unref(mdc->xattr);
             mdc->xattr = NULL;
         }
@@ -780,11 +800,11 @@ mdc_inode_xatt_set(xlator_t *this, inode_t *inode, dict_t *dict)
         if (newdict)
             mdc->xattr = newdict;
 
-        mdc->xa_time = gf_time();
-        gf_msg_trace("md-cache", 0, "xatt cache set for (%s) time:%lld",
-                     uuid_utoa(inode->gfid), (long long)mdc->xa_time);
+        mdc->xa_time = xa_time;
     }
     UNLOCK(&mdc->lock);
+    gf_msg_trace("md-cache", 0, "xatt cache set for (%s) time:%lld", inode_gfid,
+                 (long long)xa_time);
     ret = 0;
 out:
     return ret;
@@ -920,7 +940,7 @@ out:
     return;
 }
 
-void
+static void
 mdc_inode_iatt_invalidate(xlator_t *this, inode_t *inode)
 {
     struct md_cache *mdc = NULL;
@@ -962,23 +982,22 @@ out:
     return ret;
 }
 
-static int
+static struct md_cache *
 mdc_update_gfid_stat(xlator_t *this, struct iatt *iatt)
 {
-    int ret = 0;
+    static struct md_cache *mdc = NULL;
     inode_table_t *itable = NULL;
     inode_t *inode = NULL;
 
     itable = ((xlator_t *)this->graph->top)->itable;
     inode = inode_find(itable, iatt->ia_gfid);
     if (!inode) {
-        ret = -1;
         goto out;
     }
-    ret = mdc_inode_iatt_set_validate(this, inode, NULL, iatt, _gf_true,
+    mdc = mdc_inode_iatt_set_validate(this, inode, NULL, iatt, _gf_true,
                                       mdc_inc_generation(this, inode));
 out:
-    return ret;
+    return mdc;
 }
 
 static bool
@@ -1067,7 +1086,7 @@ int
 mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 {
     struct mdc_conf *conf = this->private;
-    uint32_t cache_age = 0;
+    time_t cache_age = 0;
     int ret = 0;
 
     if (!buf || !conf) {
@@ -1087,12 +1106,12 @@ mdc_load_statfs_info_from_cache(xlator_t *this, struct statvfs **buf)
 
         cache_age = (gf_time() - conf->statfs_cache.last_refreshed);
 
-        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %u secs",
+        gf_log(this->name, GF_LOG_DEBUG, "STATFS cache age = %ld secs",
                cache_age);
         if (cache_age > conf->timeout) {
             /* Expire the cache. */
             gf_log(this->name, GF_LOG_DEBUG,
-                   "Cache age %u secs exceeded timeout %u secs", cache_age,
+                   "Cache age %ld secs exceeded timeout %ld secs", cache_age,
                    conf->timeout);
             ret = -1;
             goto unlock;
@@ -1210,6 +1229,7 @@ mdc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     mdc_local_t *local = NULL;
     struct mdc_conf *conf = this->private;
+    static struct md_cache *mdc;
 
     local = frame->local;
 
@@ -1239,9 +1259,10 @@ mdc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (local->loc.inode) {
-        mdc_inode_iatt_set(this, local->loc.inode, stbuf, local->incident_time);
+        mdc = mdc_inode_iatt_set(this, local->loc.inode, stbuf,
+                                 local->incident_time);
         if (local->update_cache) {
-            mdc_inode_xatt_set(this, local->loc.inode, dict);
+            mdc_inode_xatt_set(this, local->loc.inode, dict, mdc);
         }
     }
 out:
@@ -1331,6 +1352,7 @@ mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    static struct md_cache *mdc;
 
     local = frame->local;
     if (!local)
@@ -1344,9 +1366,9 @@ mdc_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         goto out;
     }
 
-    mdc_inode_iatt_set(this, local->loc.inode, buf, local->incident_time);
+    mdc = mdc_inode_iatt_set(this, local->loc.inode, buf, local->incident_time);
     if (local->update_cache) {
-        mdc_inode_xatt_set(this, local->loc.inode, xdata);
+        mdc_inode_xatt_set(this, local->loc.inode, xdata, mdc);
     }
 
 out:
@@ -1402,6 +1424,7 @@ mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    static struct md_cache *mdc;
 
     local = frame->local;
     if (!local)
@@ -1415,9 +1438,9 @@ mdc_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         goto out;
     }
 
-    mdc_inode_iatt_set(this, local->fd->inode, buf, local->incident_time);
+    mdc = mdc_inode_iatt_set(this, local->fd->inode, buf, local->incident_time);
     if (local->update_cache) {
-        mdc_inode_xatt_set(this, local->fd->inode, xdata);
+        mdc_inode_xatt_set(this, local->fd->inode, xdata, mdc);
     }
 
 out:
@@ -2465,7 +2488,7 @@ mdc_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (local->update_cache) {
-        mdc_inode_xatt_set(this, local->loc.inode, xdata);
+        mdc_inode_xatt_set(this, local->loc.inode, xdata, NULL);
     }
 
 out:
@@ -2554,7 +2577,7 @@ mdc_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (local->update_cache) {
-        mdc_inode_xatt_set(this, local->fd->inode, xdata);
+        mdc_inode_xatt_set(this, local->fd->inode, xdata, NULL);
     }
 
 out:
@@ -2863,12 +2886,13 @@ mdc_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
     return 0;
 }
 
-int
+static int
 mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
     gf_dirent_t *entry = NULL;
     mdc_local_t *local = NULL;
+    static struct md_cache *mdc;
 
     local = frame->local;
     if (!local)
@@ -2884,10 +2908,10 @@ mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     {
         if (!entry->inode)
             continue;
-        mdc_inode_iatt_set(this, entry->inode, &entry->d_stat,
-                           local->incident_time);
+        mdc = mdc_inode_iatt_set(this, entry->inode, &entry->d_stat,
+                                 local->incident_time);
         if (local->update_cache) {
-            mdc_inode_xatt_set(this, entry->inode, entry->dict);
+            mdc_inode_xatt_set(this, entry->inode, entry->dict, mdc);
         }
     }
 
@@ -2896,7 +2920,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 mdc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *xdata)
 {
@@ -2923,7 +2947,7 @@ out:
     return 0;
 }
 
-int
+static int
 mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
@@ -2943,7 +2967,7 @@ out:
     return 0;
 }
 
-int
+static int
 mdc_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             off_t offset, dict_t *xdata)
 {
@@ -3416,6 +3440,7 @@ mdc_invalidate(xlator_t *this, void *data)
     inode_table_t *itable = NULL;
     struct mdc_conf *conf = this->private;
     uint64_t gen = 0;
+    static struct md_cache *mdc;
 
     up_data = (struct gf_upcall *)data;
 
@@ -3452,14 +3477,16 @@ mdc_invalidate(xlator_t *this, void *data)
 
     if (up_ci->flags & IATT_UPDATE_FLAGS) {
         gen = mdc_inc_generation(this, inode);
-        ret = mdc_inode_iatt_set_validate(this, inode, NULL, &up_ci->stat,
+        mdc = mdc_inode_iatt_set_validate(this, inode, NULL, &up_ci->stat,
                                           _gf_false, gen);
         /* one of the scenarios where ret < 0 is when this invalidate
          * is older than the current stat, in that case do not
          * update the xattrs as well
          */
-        if (ret < 0)
+        if (!mdc) {
+            ret = -1;
             goto out;
+        }
         GF_ATOMIC_INC(conf->mdc_counter.stat_invals);
     }
 
@@ -3609,12 +3636,13 @@ int
 mdc_reconfigure(xlator_t *this, dict_t *options)
 {
     struct mdc_conf *conf = NULL;
-    int timeout = 0, ret = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
+    int ret = 0;
 
     conf = this->private;
 
-    GF_OPTION_RECONF("md-cache-timeout", timeout, options, int32, out);
+    GF_OPTION_RECONF("md-cache-timeout", timeout, options, time, out);
 
     GF_OPTION_RECONF("cache-selinux", conf->cache_selinux, options, bool, out);
 
@@ -3680,7 +3708,7 @@ int
 mdc_init(xlator_t *this)
 {
     struct mdc_conf *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
     char *tmp_str = NULL;
 
     conf = GF_CALLOC(sizeof(*conf), 1, gf_mdc_mt_mdc_conf_t);
@@ -3692,7 +3720,7 @@ mdc_init(xlator_t *this)
 
     LOCK_INIT(&conf->lock);
 
-    GF_OPTION_INIT("md-cache-timeout", timeout, uint32, out);
+    GF_OPTION_INIT("md-cache-timeout", timeout, time, out);
 
     GF_OPTION_INIT("cache-selinux", conf->cache_selinux, bool, out);
 

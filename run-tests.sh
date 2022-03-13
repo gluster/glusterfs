@@ -79,7 +79,7 @@ function tar_logs()
         then
                 if [[ $skip_preserve_logs == "yes" ]]; then
                         savetarname=$(get_next_filename "${logdir}" \
-                                "${basetarname}-iteration" "tar" \
+                                "${basetarname}-iteration" "tar.gz" \
                                 | tail -1)
                 else
                         savetarname="$basetarname"
@@ -88,15 +88,15 @@ function tar_logs()
                 # Can't use --exclude here because NetBSD doesn't have it.
                 # However, both it and Linux have -X to take patterns from
                 # a file, so use that.
-                (echo '*.tar'; echo .notar) > "${logdir}"/.notar \
+                (echo '*.tar.gz'; echo .notar) > "${logdir}"/.notar \
                         && \
-                tar -cf "${logdir}"/"${savetarname}".tar -X "${logdir}"/.notar \
+                tar -czf "${logdir}"/"${savetarname}".tar.gz -X "${logdir}"/.notar \
                         "${logdir}"/* 2> /dev/null \
                         && \
-                find "$logdir"/* -maxdepth 0 -name '*.tar' -prune \
+                find "$logdir"/* -maxdepth 0 -name '*.tar.*' -prune \
                                         -o -exec rm -rf '{}' ';'
 
-                echo "Logs preserved in tarball $savetarname.tar"
+                echo "Logs preserved in tarball ${savetarname}.tar.gz"
         else
                 echo "Logs not preserved, as logdir is not set"
         fi

@@ -12,8 +12,9 @@
 #include "glusterd-store.h"
 #include "glusterd-server-quorum.h"
 #include "glusterd-messages.h"
-#include <glusterfs/common-utils.h>
 #include "glusterd-utils.h"
+
+#include <netdb.h>
 
 void
 glusterd_peerinfo_destroy(struct rcu_head *head)
@@ -123,6 +124,37 @@ unlock:
     RCU_READ_UNLOCK;
 out:
     return found;
+}
+
+/* gf_compare_sockaddr compares the given addresses @addr1 and @addr2 for
+ * equality, ie. if they both refer to the same address.
+ *
+ * This was inspired by sock_addr_cmp_addr() from
+ * https://www.opensource.apple.com/source/postfix/postfix-197/postfix/src/util/sock_addr.c
+ */
+static gf_boolean_t
+gf_compare_sockaddr(const struct sockaddr *addr1, const struct sockaddr *addr2)
+{
+    GF_ASSERT(addr1 != NULL);
+    GF_ASSERT(addr2 != NULL);
+
+    /* Obviously, the addresses don't match if their families are different
+     */
+    if (addr1->sa_family != addr2->sa_family)
+        return _gf_false;
+
+    if (AF_INET == addr1->sa_family) {
+        if (((struct sockaddr_in *)addr1)->sin_addr.s_addr ==
+            ((struct sockaddr_in *)addr2)->sin_addr.s_addr)
+            return _gf_true;
+
+    } else if (AF_INET6 == addr1->sa_family) {
+        if (memcmp((char *)&((struct sockaddr_in6 *)addr1)->sin6_addr,
+                   (char *)&((struct sockaddr_in6 *)addr2)->sin6_addr,
+                   sizeof(struct in6_addr)) == 0)
+            return _gf_true;
+    }
+    return _gf_false;
 }
 
 /* gd_peerinfo_find_from_addrinfo iterates over all the addresses saved for each
@@ -363,7 +395,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
 
     CDS_INIT_LIST_HEAD(&new_peer->hostnames);
     if (hostname) {
-        ret = gd_add_address_to_peer(new_peer, hostname);
+        ret = gd_add_address_to_peer(new_peer, hostname, _gf_true);
         if (ret)
             goto out;
         /* Also set it to peerinfo->hostname. Doing this as we use
@@ -604,7 +636,8 @@ out:
 }
 
 int
-gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address)
+gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address,
+                       gf_boolean_t add_head)
 {
     int ret = -1;
     glusterd_peer_hostname_t *hostname = NULL;
@@ -621,9 +654,13 @@ gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address)
     if (ret)
         goto out;
 
+    ret = 0;
+    if (add_head) {
+        cds_list_add_rcu(&hostname->hostname_list, &peerinfo->hostnames);
+        goto out;
+    }
     cds_list_add_tail_rcu(&hostname->hostname_list, &peerinfo->hostnames);
 
-    ret = 0;
 out:
     return ret;
 }
@@ -740,16 +777,13 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                key);
         goto out;
     }
-    ret = gd_add_address_to_peer(peerinfo, hostname);
+    /* Also set peerinfo->hostname to the latest address */
+    ret = glusterd_peer_hostname_update(peerinfo, hostname, _gf_false);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                "Could not add address to peer");
         goto out;
     }
-    /* Also set peerinfo->hostname to the first address */
-    if (peerinfo->hostname != NULL)
-        GF_FREE(peerinfo->hostname);
-    peerinfo->hostname = gf_strdup(hostname);
 
     if (conf->op_version < GD_OP_VERSION_3_6_0) {
         ret = 0;
@@ -776,7 +810,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                    key);
             goto out;
         }
-        ret = gd_add_address_to_peer(peerinfo, hostname);
+        ret = gd_add_address_to_peer(peerinfo, hostname, _gf_true);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                    "Could not add address to peer");

@@ -7,11 +7,8 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/list.h>
 
 #include "locks.h"
@@ -282,6 +279,8 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
     posix_lock_t *lock = NULL;
     posix_lock_t *tmp = NULL;
     fd_t *fd = NULL;
+    pl_local_t *local;
+    int32_t op_errno;
 
     int can_block = 0;
     int32_t cmd = 0;
@@ -291,7 +290,7 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
         gf_log(this->name, GF_LOG_TRACE, "No blocked lock calls to be granted");
         return;
     }
-
+    INIT_LIST_HEAD(&granted);
     pthread_mutex_lock(&pl_inode->mutex);
     {
         __grant_blocked_lock_calls(this, pl_inode, &granted);
@@ -310,19 +309,26 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
 
         lock->blocked = 0;
         ret = pl_setlk(this, pl_inode, lock, can_block);
-        if (ret == -1) {
+        if (ret < 0) {
+            op_errno = -ret;
+        } else if (ret == PL_LOCK_WOULD_BLOCK) {
             if (can_block) {
                 continue;
             } else {
                 gf_log(this->name, GF_LOG_DEBUG, "returning EAGAIN");
-                pl_trace_out(this, lock->frame, fd, NULL, cmd,
-                             &lock->user_flock, -1, EAGAIN, NULL);
-                pl_update_refkeeper(this, fd->inode);
-                STACK_UNWIND_STRICT(lk, lock->frame, -1, EAGAIN,
-                                    &lock->user_flock, NULL);
-                __destroy_lock(lock);
+                op_errno = EAGAIN;
             }
+        } else {
+            continue;
         }
+
+        pl_trace_out(this, lock->frame, fd, NULL, cmd, &lock->user_flock, -1,
+                     op_errno, NULL);
+        pl_update_refkeeper(this, fd->inode);
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, -1, op_errno,
+                                 &lock->user_flock, NULL);
+        __destroy_lock(lock);
     }
 }
 

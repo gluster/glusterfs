@@ -11,8 +11,7 @@
 #ifndef _ARBITER_H
 #define _ARBITER_H
 
-#include <glusterfs/locking.h>
-#include <glusterfs/common-utils.h>
+#include <glusterfs/iatt.h>
 
 typedef struct arbiter_inode_ctx_ {
     struct iatt iattbuf;

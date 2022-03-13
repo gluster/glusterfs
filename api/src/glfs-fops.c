@@ -18,13 +18,11 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include <glusterfs/syncop.h>
 #include "glfs.h"
 #include "gfapi-messages.h"
 #include <glusterfs/compat-errno.h>
 #include <limits.h>
 #include "glusterfs3.h"
-#include <glusterfs/iatt.h>
 
 #ifdef NAME_MAX
 #define GF_NAME_MAX NAME_MAX
@@ -3743,7 +3741,7 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
                 }
             }
 
-            gf_link_inodes_from_dirent(THIS, fd->inode, &entries);
+            gf_link_inodes_from_dirent(fd->inode, &entries);
         }
 
         list_splice_init(&glfd->entries, &old.list);
@@ -4410,6 +4408,22 @@ invalid_fs:
     return ret;
 }
 
+/* filter out xattrs that need not be visible on the
+ * client application.
+ */
+static int
+gfapi_filter_xattr(char *key)
+{
+    int need_filter = 0;
+
+    /* If there are by chance any internal virtual xattrs (those starting with
+     * 'glusterfs.'), filter them */
+    if (strncmp("glusterfs.", key, SLEN("glusterfs.")) == 0)
+        need_filter = 1;
+
+    return need_filter;
+}
+
 int
 glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
 {
@@ -4418,7 +4432,7 @@ glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
     if (!xattr)
         goto out;
 
-    ret = dict_keys_join(NULL, 0, xattr, NULL);
+    ret = dict_keys_join(NULL, 0, xattr, gfapi_filter_xattr);
 
     if (!value || !size)
         goto out;
@@ -4427,7 +4441,7 @@ glfs_listxattr_process(void *value, size_t size, dict_t *xattr)
         ret = -1;
         errno = ERANGE;
     } else {
-        dict_keys_join(value, size, xattr, NULL);
+        dict_keys_join(value, size, xattr, gfapi_filter_xattr);
     }
 
 out:
@@ -6321,7 +6335,7 @@ pub_glfs_xreaddirplus_get_stat(struct glfs_xreaddirp_stat *xstat)
 {
     GF_VALIDATE_OR_GOTO("glfs_xreaddirplus_get_stat", xstat, out);
 
-    if (!xstat->flags_handled & GFAPI_XREADDIRP_STAT)
+    if (!(xstat->flags_handled & GFAPI_XREADDIRP_STAT))
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_FLAGS_HANDLE,
                 "GFAPI_XREADDIRP_STAT"
                 "xstat=%p",

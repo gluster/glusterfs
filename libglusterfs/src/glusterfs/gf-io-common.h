@@ -172,10 +172,16 @@ typedef struct _gf_io_sync {
     pthread_cond_t cond;
 
     /* Absolute time for a timeout, using a monotonic clock. */
-    struct timespec to;
+    struct timespec abs_to;
 
     /* Opaque data that callers can use freely. */
     void *data;
+
+    /* Number of seconds for timeout. */
+    uint32_t timeout;
+
+    /* Number of retries after a timeout. */
+    uint32_t retries;
 
     /* Number of threads to synchronize. */
     uint32_t count;
@@ -266,16 +272,19 @@ typedef struct _gf_io_thread_pool_config {
     /* Index used to create each thread. */
     uint32_t index;
 
-    /* Maximum time (in seconds) that can take the initialization of the
-     * thread pool. */
+    /* Timeout (in seconds) of an initialization attempt of the thread pool. */
     uint32_t timeout;
+
+    /* Maximum number of retries. The maximum timeout for the initialization
+     * is 'timeout' * 'retries'. */
+    uint32_t retries;
 } gf_io_thread_pool_config_t;
 
 /* Initializes a sync object to synchronize 'count' entities with a maximum
  * delay of 'timeout' seconds. */
 int32_t
 gf_io_sync_start(gf_io_sync_t *sync, uint32_t count, uint32_t timeout,
-                 void *data);
+                 uint32_t retries, void *data);
 
 /* Notifies completion of 'count' entities. Optionally it can wait until
  * all other threads have also notified. Only one thread can wait. */

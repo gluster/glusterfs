@@ -11,8 +11,6 @@
 #ifndef _GLUSTERD_SNAPD_SVC_HELPER_H_
 #define _GLUSTERD_SNAPD_SVC_HELPER_H_
 
-#include "glusterd.h"
-
 void
 glusterd_svc_build_snapd_rundir(glusterd_volinfo_t *volinfo, char *path,
                                 int path_len);

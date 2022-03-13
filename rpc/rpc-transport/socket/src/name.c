@@ -21,7 +21,6 @@
 
 #include "rpc-transport.h"
 #include "socket.h"
-#include <glusterfs/common-utils.h>
 
 static void
 _assign_port(struct sockaddr *sockaddr, uint16_t port)
@@ -204,6 +203,111 @@ client_fill_address_family(rpc_transport_t *this, sa_family_t *sa_family)
 
 out:
     return ret;
+}
+
+static int32_t
+gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
+               struct addrinfo **addr_info)
+{
+    int32_t ret = 0;
+    struct addrinfo hints;
+    struct dnscache6 *cache = NULL;
+    char service[NI_MAXSERV], host[NI_MAXHOST];
+
+    if (!hostname) {
+        gf_msg_callingfn("resolver", GF_LOG_WARNING, 0, LG_MSG_HOSTNAME_NULL,
+                         "hostname is NULL");
+        return -1;
+    }
+
+    if (!*dnscache) {
+        *dnscache = GF_CALLOC(1, sizeof(struct dnscache6),
+                              gf_common_mt_dnscache6);
+        if (!*dnscache)
+            return -1;
+    }
+
+    cache = *dnscache;
+    if (cache->first && !cache->next) {
+        freeaddrinfo(cache->first);
+        cache->first = cache->next = NULL;
+        gf_msg_trace("resolver", 0, "flushing DNS cache");
+    }
+
+    if (!cache->first) {
+        char *port_str = NULL;
+        gf_msg_trace("resolver", 0,
+                     "DNS cache not present, freshly "
+                     "probing hostname: %s",
+                     hostname);
+
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = family;
+        hints.ai_socktype = SOCK_STREAM;
+
+        ret = gf_asprintf(&port_str, "%d", port);
+        if (-1 == ret) {
+            return -1;
+        }
+        if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) !=
+            0) {
+            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
+                    "family=%d", family, "ret=%s", gai_strerror(ret), NULL);
+
+            GF_FREE(*dnscache);
+            *dnscache = NULL;
+            GF_FREE(port_str);
+            return -1;
+        }
+        GF_FREE(port_str);
+
+        cache->next = cache->first;
+    }
+
+    if (cache->next) {
+        ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
+                          cache->next->ai_addrlen, host, sizeof(host), service,
+                          sizeof(service), NI_NUMERICHOST);
+        if (ret != 0) {
+            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETNAMEINFO_FAILED,
+                    "ret=%s", gai_strerror(ret), NULL);
+            goto err;
+        }
+
+        gf_msg_debug("resolver", 0,
+                     "returning ip-%s (port-%s) for "
+                     "hostname: %s and port: %d",
+                     host, service, hostname, port);
+
+        *addr_info = cache->next;
+    }
+
+    if (cache->next)
+        cache->next = cache->next->ai_next;
+    if (cache->next) {
+        ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
+                          cache->next->ai_addrlen, host, sizeof(host), service,
+                          sizeof(service), NI_NUMERICHOST);
+        if (ret != 0) {
+            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETNAMEINFO_FAILED,
+                    "ret=%s", gai_strerror(ret), NULL);
+            goto err;
+        }
+
+        gf_msg_debug("resolver", 0,
+                     "next DNS query will return: "
+                     "ip-%s port-%s",
+                     host, service);
+    }
+
+    return 0;
+
+err:
+    freeaddrinfo(cache->first);
+    cache->first = cache->next = NULL;
+    GF_FREE(cache);
+    *dnscache = NULL;
+    return -1;
 }
 
 static int32_t

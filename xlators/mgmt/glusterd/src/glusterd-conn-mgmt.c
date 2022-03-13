@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 #include "glusterd.h"
 #include "glusterd-conn-mgmt.h"
@@ -17,7 +16,7 @@
 #include "glusterd-messages.h"
 
 int
-glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, int frame_timeout,
+glusterd_conn_init(glusterd_conn_t *conn, char *sockpath, time_t frame_timeout,
                    glusterd_conn_notify_t notify)
 {
     int ret = -1;

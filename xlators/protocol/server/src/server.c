@@ -11,12 +11,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "socket.h"
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs3-xdr.h"
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 #include "authenticate.h"
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syncop.h>
@@ -122,10 +121,6 @@ server_submit_reply(call_frame_t *frame, rpcsvc_request_t *req, void *arg,
     /* ret = rpcsvc_callback_submit (req->svc, req->trans, req->prog,
        GF_CBK_NULL, &rsp, 1);
     */
-    /* Now that we've done our job of handing the message to the RPC layer
-     * we can safely unref the iob in the hope that RPC layer must have
-     * ref'ed the iob on receiving into the txlist.
-     */
     iobuf_unref(iob);
     if (ret == -1) {
         gf_msg_callingfn("", GF_LOG_ERROR, 0, PS_MSG_REPLY_SUBMIT_FAILED,
@@ -582,8 +577,6 @@ glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
         return 0;
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
     if (ctx->dict_pool)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)
@@ -871,7 +864,9 @@ server_reconfigure(xlator_t *this, dict_t *options)
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
 do_auth:
-    if (!conf->auth_modules)
+    if (conf->auth_modules)
+        gf_auth_fini(conf->auth_modules);
+    else
         conf->auth_modules = dict_new();
 
     dict_foreach(options, get_auth_types, conf->auth_modules);
@@ -893,7 +888,7 @@ do_auth:
     GF_OPTION_RECONF("manage-gids", conf->server_manage_gids, options, bool,
                      do_rpc);
 
-    GF_OPTION_RECONF("gid-timeout", conf->gid_cache_timeout, options, int32,
+    GF_OPTION_RECONF("gid-timeout", conf->gid_cache_timeout, options, time,
                      do_rpc);
     if (gid_cache_reconf(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_GRP_CACHE_ERROR, NULL);
@@ -1193,7 +1188,7 @@ server_init(xlator_t *this)
     } else {
         conf->server_manage_gids = ret;
     }
-    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, int32, err);
+    GF_OPTION_INIT("gid-timeout", conf->gid_cache_timeout, time, err);
     if (gid_cache_init(&conf->gid_cache, conf->gid_cache_timeout) < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, PS_MSG_INIT_GRP_CACHE_ERROR, NULL);
         goto err;
@@ -1269,19 +1264,6 @@ server_init(xlator_t *this)
         goto err;
     }
 
-    glusterfs3_3_fop_prog.options = this->options;
-    /* make sure we register the fop program at the head to optimize
-     * lookup
-     */
-    ret = rpcsvc_program_register(conf->rpc, &glusterfs3_3_fop_prog, _gf_true);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED, "name=%s",
-                glusterfs3_3_fop_prog.progname, "prognum=%d",
-                glusterfs3_3_fop_prog.prognum, "progver=%d",
-                glusterfs3_3_fop_prog.progver, NULL);
-        goto err;
-    }
-
     glusterfs4_0_fop_prog.options = this->options;
     ret = rpcsvc_program_register(conf->rpc, &glusterfs4_0_fop_prog, _gf_true);
     if (ret) {
@@ -1290,7 +1272,6 @@ server_init(xlator_t *this)
                "progver:%d) failed",
                glusterfs4_0_fop_prog.progname, glusterfs4_0_fop_prog.prognum,
                glusterfs4_0_fop_prog.progver);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         goto err;
     }
 
@@ -1302,7 +1283,6 @@ server_init(xlator_t *this)
                 gluster_handshake_prog.progname, "prognum=%d",
                 gluster_handshake_prog.prognum, "progver=%d",
                 gluster_handshake_prog.progver, NULL);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         rpcsvc_program_unregister(conf->rpc, &glusterfs4_0_fop_prog);
         goto err;
     }
@@ -1928,15 +1908,14 @@ struct volume_options server_options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 1024,
-     .default_value = "2",
-     .description = "Specifies the number of event threads to execute "
-                    "in parallel. Larger values would help process"
-                    " responses faster, depending on available processing"
-                    " power.",
+     .min = SERVER_MIN_EVENT_THREADS,
+     .max = SERVER_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
+     .description = "Specifies the number of event threads to execute in "
+                    "parallel. Larger values would help process responses "
+                    "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
     {.key = {"dynamic-auth"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "on",

@@ -28,8 +28,6 @@ typedef struct call_pool call_pool_t;
 #include "glusterfs/xlator.h"
 #include "glusterfs/dict.h"
 #include "glusterfs/list.h"
-#include "glusterfs/common-utils.h"
-#include "glusterfs/lkowner.h"
 #include "glusterfs/client_t.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/timespec.h"
@@ -153,11 +151,11 @@ struct _call_stack {
 struct xlator_fops;
 
 static inline void
-FRAME_DESTROY(call_frame_t *frame)
+FRAME_DESTROY(call_frame_t *frame, const gf_boolean_t measure_latency)
 {
     void *local = NULL;
 
-    if (frame->root->ctx->measure_latency)
+    if (measure_latency)
         gf_frame_latency_update(frame);
 
     list_del_init(&frame->frames);
@@ -178,6 +176,7 @@ STACK_DESTROY(call_stack_t *stack)
 {
     call_frame_t *frame = NULL;
     call_frame_t *tmp = NULL;
+    gf_boolean_t measure_latency;
 
     LOCK(&stack->pool->lock);
     {
@@ -188,9 +187,10 @@ STACK_DESTROY(call_stack_t *stack)
 
     LOCK_DESTROY(&stack->stack_lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &stack->myframes, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 
     GF_FREE(stack->groups_large);
@@ -205,6 +205,7 @@ STACK_RESET(call_stack_t *stack)
     call_frame_t *tmp = NULL;
     call_frame_t *last = NULL;
     struct list_head toreset = {0};
+    gf_boolean_t measure_latency;
 
     INIT_LIST_HEAD(&toreset);
 
@@ -221,9 +222,10 @@ STACK_RESET(call_stack_t *stack)
     }
     UNLOCK(&stack->pool->lock);
 
+    measure_latency = stack->ctx->measure_latency;
     list_for_each_entry_safe(frame, tmp, &toreset, frames)
     {
-        FRAME_DESTROY(frame);
+        FRAME_DESTROY(frame, measure_latency);
     }
 }
 
@@ -513,7 +515,7 @@ copy_frame(call_frame_t *frame)
     memcpy(newstack->groups, oldstack->groups, sizeof(gid_t) * oldstack->ngrps);
     newstack->unique = oldstack->unique;
     newstack->pool = oldstack->pool;
-    newstack->lk_owner = oldstack->lk_owner;
+    lk_owner_copy(&newstack->lk_owner, &oldstack->lk_owner);
     newstack->ctx = oldstack->ctx;
 
     if (newstack->ctx->measure_latency) {

@@ -9,11 +9,8 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/timer.h>
 
-#include "afr.h"
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"
@@ -33,6 +30,9 @@ afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
 
 static void
 afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
+
+static int
+afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
 
 void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
@@ -148,6 +148,13 @@ afr_release_notify_lock_for_ta(void *opaque)
 out:
     loc_wipe(&loc);
     return ret;
+}
+
+static void
+gf_zero_fill_stat(struct iatt *buf)
+{
+    buf->ia_nlink = 0;
+    buf->ia_ctime = 0;
 }
 
 void
@@ -453,7 +460,7 @@ afr_save_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    local->saved_lk_owner = frame->root->lk_owner;
+    lk_owner_copy(&local->saved_lk_owner, &frame->root->lk_owner);
 }
 
 static void
@@ -463,7 +470,7 @@ afr_restore_lk_owner(call_frame_t *frame)
 
     local = frame->local;
 
-    frame->root->lk_owner = local->saved_lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &local->saved_lk_owner);
 }
 
 void
@@ -605,7 +612,8 @@ fop:
      *  flush cant clear the  posix-lks without that lk-owner.
      */
     afr_save_lk_owner(frame);
-    frame->root->lk_owner = local->transaction.main_frame->root->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner,
+                  &local->transaction.main_frame->root->lk_owner);
 
     if (priv->arbiter_count == 1) {
         afr_txn_arbitrate_fop(frame, this);
@@ -1085,6 +1093,7 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
     int idx = 0;
     int ret = 0;
     int i;
+    uint32_t hton32_1;
 
     if (local->is_new_entry == _gf_true) {
         changelog = afr_mark_pending_changelog(priv, pending, xattr,
@@ -1095,9 +1104,10 @@ afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
         if (!changelog) {
             goto out;
         }
+        hton32_1 = htobe32(1);
         for (i = 0; i < priv->child_count; i++) {
             if (local->transaction.failed_subvols[i])
-                changelog[i][idx] = hton32(1);
+                changelog[i][idx] = hton32_1;
         }
         ret = afr_set_pending_dict(priv, xattr, changelog);
         if (ret < 0) {
@@ -1377,6 +1387,7 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     int idx = 0;
     int nothing_failed = 1;
     gf_boolean_t need_undirty = _gf_false;
+    uint32_t hton32_1;
 
     afr_handle_quorum(frame, this);
     local = frame->local;
@@ -1395,9 +1406,10 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     else
         need_undirty = _gf_true;
 
+    hton32_1 = htobe32(1);
     if (local->op_ret < 0 && !nothing_failed) {
         if (afr_need_dirty_marking(frame, this)) {
-            local->dirty[idx] = hton32(1);
+            local->dirty[idx] = hton32_1;
             goto set_dirty;
         }
 
@@ -1418,7 +1430,7 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
 
     for (i = 0; i < priv->child_count; i++) {
         if (local->transaction.failed_subvols[i])
-            local->pending[i][idx] = hton32(1);
+            local->pending[i][idx] = hton32_1;
     }
 
     ret = afr_set_pending_dict(priv, xattr, local->pending);
@@ -1428,9 +1440,9 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
     }
 
     if (need_undirty)
-        local->dirty[idx] = hton32(-1);
+        local->dirty[idx] = htobe32(-1);
     else
-        local->dirty[idx] = hton32(0);
+        local->dirty[idx] = 0;
 
 set_dirty:
     ret = dict_set_static_bin(xattr, AFR_DIRTY, local->dirty,
@@ -1967,7 +1979,7 @@ afr_changelog_pre_op(call_frame_t *frame, xlator_t *this)
     }
 
     if (afr_needs_changelog_update(local)) {
-        local->dirty[idx] = hton32(1);
+        local->dirty[idx] = htobe32(1);
 
         ret = dict_set_static_bin(xdata_req, AFR_DIRTY, local->dirty,
                                   sizeof(int) * AFR_NUM_CHANGE_LOGS);
@@ -2088,7 +2100,6 @@ afr_lock(call_frame_t *frame, xlator_t *this)
             break;
 
         case AFR_ENTRY_TRANSACTION:
-            int_lock->lk_basename = local->transaction.basename;
             if (local->transaction.parent_loc.path)
                 int_lock->lk_loc = &local->transaction.parent_loc;
             else

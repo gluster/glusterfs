@@ -147,7 +147,7 @@ check_whether_eliminate_path(trash_elim_path *trav, const char *path)
     int match = 0;
 
     while (trav) {
-        if (strncmp(path, trav->path, strlen(trav->path)) == 0) {
+        if (path && strncmp(path, trav->path, strlen(trav->path)) == 0) {
             match++;
             break;
         }
@@ -1325,8 +1325,8 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
      * file to trash directory. Instead delete it permanently
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf && strncmp(pathbuf, priv->newtrash_dir,
+                            strlen(priv->newtrash_dir)) == 0) ||
         (match)) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
@@ -1376,8 +1376,6 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
         ret = 0;
     } else
         local->ctr_link_count_req = _gf_true;
-
-    LOCK_INIT(&frame->lock);
 
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
@@ -1984,8 +1982,8 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
 
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf && strncmp(pathbuf, priv->newtrash_dir,
+                            strlen(priv->newtrash_dir)) == 0) ||
         (match)) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,
@@ -2001,8 +1999,6 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         goto out;
     }
-
-    LOCK_INIT(&frame->lock);
 
     local = mem_get0(this->local_pool);
     if (!local) {
@@ -2074,8 +2070,8 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
      * ftruncate will be performed
      */
     match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
+    if ((pathbuf && strncmp(pathbuf, priv->newtrash_dir,
+                            strlen(priv->newtrash_dir)) == 0) ||
         match || !retval) {
         if (match) {
             gf_log(this->name, GF_LOG_DEBUG,

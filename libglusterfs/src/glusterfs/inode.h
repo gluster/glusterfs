@@ -28,7 +28,6 @@ typedef struct _inode inode_t;
 struct _dentry;
 typedef struct _dentry dentry_t;
 
-#include "glusterfs/list.h"
 #include "glusterfs/iatt.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/fd.h"
@@ -62,7 +61,10 @@ struct _inode_table {
     xlator_t *invalidator_xl;
     struct list_head invalidate; /* inodes which are in invalidation queue */
     uint32_t invalidate_size;    /* count of inodes in invalidation list */
-
+    uint32_t root_level; /* Save the xlator level at the time of inode table
+                            creation */
+    uint32_t root_id;    /* Save the xlator id at the time of inode table
+                            creation */
     /* flag to indicate whether the cleanup of the inode
        table started or not */
     gf_boolean_t cleanup_started;
@@ -102,6 +104,7 @@ struct _inode {
     uuid_t gfid;
     gf_lock_t lock;
     gf_atomic_t nlookup;
+    gf_atomic_t kids;
     uint32_t fd_count;            /* Open fd count */
     uint32_t active_fd_count;     /* Active open fd count */
     uint32_t ref;                 /* reference count on this inode */
@@ -111,6 +114,7 @@ struct _inode {
     struct list_head hash;        /* hash table pointers */
     struct list_head list;        /* active/lru/purge */
 
+    struct _inode *ns_inode; /* This inode would point to namespace inode */
     struct _inode_ctx *_ctx; /* replacement for dict_t *(inode->ctx) */
     bool in_invalidate_list; /* Set if inode is in table invalidate list */
     bool invalidate_sent;    /* Set it if invalidator_fn is called for inode */
@@ -307,4 +311,8 @@ inode_ctx_size(inode_t *inode);
 
 void
 inode_find_directory_name(inode_t *inode, const char **name);
+
+void
+inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode);
+
 #endif /* _INODE_H */

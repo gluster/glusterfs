@@ -11,6 +11,12 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
+
 #define get16bits(d) (*((const uint16_t *)(d)))
 
 #define DM_DELTA 0x9E3779B9
@@ -126,7 +132,7 @@ gf_dm_hashfn(const char *msg, int len)
     int full_words = 0;
     int full_bytes = 0;
     uint32_t *intmsg = NULL;
-    int word = 0;
+    uint32_t word = 0;
 
     intmsg = (uint32_t *)msg;
     pad = __pad(len);
@@ -137,7 +143,7 @@ gf_dm_hashfn(const char *msg, int len)
 
     for (i = 0; i < full_quads; i++) {
         for (j = 0; j < 4; j++) {
-            word = *intmsg;
+            word = le32toh(*intmsg);
             array[j] = word;
             intmsg++;
             full_words--;
@@ -148,7 +154,7 @@ gf_dm_hashfn(const char *msg, int len)
 
     for (j = 0; j < 4; j++) {
         if (full_words) {
-            word = *intmsg;
+            word = le32toh(*intmsg);
             array[j] = word;
             intmsg++;
             full_words--;

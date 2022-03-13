@@ -11,8 +11,6 @@
 #ifndef _GLUSTERD_CONN_HELPER_H_
 #define _GLUSTERD_CONN_HELPER_H_
 
-#include "rpc-clnt.h"
-
 #include "glusterd-conn-mgmt.h"
 
 glusterd_svc_t *

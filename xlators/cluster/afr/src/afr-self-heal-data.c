@@ -10,10 +10,10 @@
 
 #include "afr.h"
 #include "afr-self-heal.h"
-#include <glusterfs/byte-order.h>
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
+#include <openssl/md5.h>
 
 #define HAS_HOLES(i) ((i->ia_blocks * 512) < (i->ia_size))
 static int
@@ -525,7 +525,7 @@ afr_mark_newest_file_as_source(xlator_t *this, unsigned char *sources,
     int i = 0;
     afr_private_t *priv = NULL;
     int source = -1;
-    uint32_t max_ctime = 0;
+    uint64_t max_ctime = 0;
 
     priv = this->private;
     /* Find source with latest ctime */

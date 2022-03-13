@@ -12,7 +12,6 @@
 
 #include "shard.h"
 #include "shard-mem-types.h"
-#include <glusterfs/byte-order.h>
 #include <glusterfs/defaults.h>
 #include <glusterfs/statedump.h>
 
@@ -573,8 +572,8 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
 
     memcpy(size_array, size_attr, sizeof(size_array));
 
-    stbuf->ia_size = ntoh64(size_array[0]);
-    stbuf->ia_blocks = ntoh64(size_array[2]);
+    stbuf->ia_size = be64toh(size_array[0]);
+    stbuf->ia_blocks = be64toh(size_array[2]);
 
     return 0;
 }
@@ -1165,13 +1164,13 @@ shard_set_size_attrs(int64_t size, int64_t block_count, int64_t **size_attr_p)
     if (!size_attr)
         goto out;
 
-    size_attr[0] = hton64(size);
+    size_attr[0] = htobe64(size);
     /* As sharding evolves, it _may_ be necessary to embed more pieces of
      * information within the same xattr. So allocating slots for them in
      * advance. For now, only bytes 0-63 and 128-191 which would make up the
      * current size and block count respectively of the file are valid.
      */
-    size_attr[2] = hton64(block_count);
+    size_attr[2] = htobe64(block_count);
 
     *size_attr_p = size_attr;
 
@@ -1493,7 +1492,7 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
         /* Fresh lookup */
         ret = dict_get_ptr(xdata, GF_XATTR_SHARD_BLOCK_SIZE, &bsize);
         if (!ret)
-            size = ntoh64(*((uint64_t *)bsize));
+            size = be64toh(*((uint64_t *)bsize));
         /* If the file is sharded, set its block size, otherwise just
          * set 0.
          */
@@ -3415,7 +3414,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
                "Failed to get dict value: key:%s", GF_XATTR_SHARD_BLOCK_SIZE);
         goto err;
     }
-    block_size = ntoh64(*((uint64_t *)bsize));
+    block_size = be64toh(*((uint64_t *)bsize));
 
     ret = dict_get_ptr(xattr_rsp, GF_XATTR_SHARD_FILE_SIZE, &size_attr);
     if (ret) {
@@ -3425,7 +3424,7 @@ __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
     }
 
     memcpy(size_array, size_attr, sizeof(size_array));
-    size = ntoh64(size_array[0]);
+    size = be64toh(size_array[0]);
 
     shard_count = (size / block_size) - 1;
     if (shard_count < 0) {
@@ -6280,7 +6279,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
                                  int32_t op_errno, gf_dirent_t *orig_entries,
@@ -6297,8 +6296,7 @@ shard_readdir_past_dot_shard_cbk(call_frame_t *frame, void *cookie,
 
     list_for_each_entry_safe(entry, tmp, (&orig_entries->list), list)
     {
-        list_del_init(&entry->list);
-        list_add_tail(&entry->list, &local->entries_head.list);
+        list_move_tail(&entry->list, &local->entries_head.list);
 
         if (!entry->dict)
             continue;
@@ -6326,7 +6324,7 @@ unwind:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, gf_dirent_t *orig_entries,
                   dict_t *xdata)
@@ -6336,28 +6334,34 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_dirent_t *tmp = NULL;
     shard_local_t *local = NULL;
     gf_boolean_t last_entry = _gf_false;
+    gf_boolean_t is_root_gfid = _gf_false;
+    gf_boolean_t is_client_pid_not_gsyncd = _gf_false;
 
     local = frame->local;
-    fd = local->fd;
 
     if (op_ret < 0)
         goto unwind;
+
+    fd = local->fd;
+
+    is_root_gfid = __is_root_gfid(fd->inode->gfid);
+
+    if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        is_client_pid_not_gsyncd = _gf_true;
 
     list_for_each_entry_safe(entry, tmp, (&orig_entries->list), list)
     {
         if (last_entry)
             last_entry = _gf_false;
 
-        if (__is_root_gfid(fd->inode->gfid) &&
-            !(strcmp(entry->d_name, GF_SHARD_DIR))) {
+        if (is_root_gfid && !(strcmp(entry->d_name, GF_SHARD_DIR))) {
             local->offset = entry->d_off;
             op_ret--;
             last_entry = _gf_true;
             continue;
         }
 
-        list_del_init(&entry->list);
-        list_add_tail(&entry->list, &local->entries_head.list);
+        list_move_tail(&entry->list, &local->entries_head.list);
 
         if (!entry->dict)
             continue;
@@ -6365,7 +6369,7 @@ shard_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (IA_ISDIR(entry->d_stat.ia_type))
             continue;
 
-        if (frame->root->pid != GF_CLIENT_PID_GSYNCD)
+        if (is_client_pid_not_gsyncd)
             shard_modify_size_and_block_count(&entry->d_stat, entry->dict,
                                               _gf_false);
 
@@ -6401,7 +6405,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 shard_readdir_do(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t offset, int whichop, dict_t *xdata)
 {
@@ -6449,7 +6453,7 @@ err:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
               off_t offset, dict_t *xdata)
 {
@@ -6457,7 +6461,7 @@ shard_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 }
 
-int32_t
+static int32_t
 shard_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                off_t offset, dict_t *xdata)
 {

@@ -850,7 +850,7 @@ class Popen(subprocess.Popen):
         def logerr(l):
             logging.error(self.args[0] + "> " + l)
         for l in self.elines:
-            ls = l.split('\n')
+            ls = l.split(b'\n')
             ls[0] = lp + ls[0]
             lp = ls.pop()
             for ll in ls:
@@ -925,7 +925,7 @@ class Volinfo(object):
         vi = XET.fromstring(vix)
         if vi.find('opRet').text != '0':
             if prelude:
-                via = '(via %s) ' % prelude.join(' ')
+                via = '(via %s) ' % ' '.join(prelude)
             else:
                 via = ' '
             raise GsyncdError('getting volume info of %s%s '
@@ -1113,3 +1113,18 @@ def get_up_nodes(hosts, port):
             up_nodes.append(h)
 
     return up_nodes
+
+
+def ssh_cipher_present(sshopts):
+    """
+    Returns True if user has defined a custom cipher to
+    use for the SSH connection under rysnc-ssh-options.
+    """
+    if not sshopts:
+        return False
+
+    for opt in sshopts:
+        if opt[:2] == "-c":
+            return True
+
+    return False

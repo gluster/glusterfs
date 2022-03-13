@@ -11,6 +11,7 @@
 #define _POSIX_HANDLE_H
 
 #include "posix-inode-handle.h"
+#include "posix.h"
 
 #define HANDLE_ABSPATH_LEN(this)                                               \
     (POSIX_BASE_PATH_LEN(this) +                                               \
@@ -25,7 +26,7 @@
 
 #define SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label)          \
     do {                                                                       \
-        value = hton32(value);                                                 \
+        value = htobe32(value);                                                \
         op_ret = sys_lsetxattr(path, key, &value, sizeof(value), flags);       \
         if (op_ret == -1) {                                                    \
             op_errno = errno;                                                  \
@@ -82,7 +83,7 @@
                 goto label;                                                    \
             }                                                                  \
         } else {                                                               \
-            value = ntoh32(value);                                             \
+            value = be32toh(value);                                            \
             value++;                                                           \
         }                                                                      \
         SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label);         \
@@ -101,7 +102,7 @@
                    path, key);                                                 \
             goto label;                                                        \
         } else {                                                               \
-            value = ntoh32(value);                                             \
+            value = be32toh(value);                                            \
             value--;                                                           \
             if (value > 0) {                                                   \
                 SET_PGFID_XATTR(path, key, value, flags, op_ret, this, label); \
@@ -172,12 +173,12 @@
             __parp = strdupa(entp);                                            \
             parp = dirname(__parp);                                            \
             op_ret = posix_pstat(this, loc->inode, NULL, entp, ent_p,          \
-                                 _gf_false);                                   \
+                                 _gf_false, _gf_true);                         \
             break;                                                             \
         }                                                                      \
         errno = 0;                                                             \
-        op_ret = posix_istat(this, loc->inode, loc->pargfid, loc->name,        \
-                             ent_p);                                           \
+        op_ret = posix_istat(this, loc->inode, loc->pargfid, loc->name, ent_p, \
+                             _gf_true);                                        \
         if (errno != ELOOP) {                                                  \
             MAKE_HANDLE_PATH(parp, this, loc->pargfid, NULL);                  \
             MAKE_HANDLE_PATH(entp, this, loc->pargfid, loc->name);             \
@@ -214,7 +215,8 @@ posix_create_link_if_gfid_exists(xlator_t *this, uuid_t gfid, char *real_path,
                                  inode_table_t *itable);
 
 int
-posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata);
+posix_check_internal_writes(xlator_t *this, inode_t *fd_inode, int sysfd,
+                            dict_t *xdata);
 
 void
 posix_disk_space_check(struct posix_private *priv);

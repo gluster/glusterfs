@@ -14,7 +14,6 @@
 #include "upcall-mem-types.h"
 #include <glusterfs/client_t.h>
 #include "upcall-messages.h"
-#include "upcall-cache-invalidation.h"
 #include <glusterfs/upcall-utils.h>
 
 #define EXIT_IF_UPCALL_OFF(this, label)                                        \
@@ -49,7 +48,7 @@
 
 struct _upcall_private {
     gf_boolean_t cache_invalidation_enabled;
-    int32_t cache_invalidation_timeout;
+    time_t cache_invalidation_timeout;
     struct list_head inode_ctx_list;
     gf_lock_t inode_ctx_lk;
     gf_boolean_t reaper_init_done;

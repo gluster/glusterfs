@@ -8,13 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/compat-errno.h>
 
-#include "glusterd.h"
+#include "rpc-common-xdr.h"
+
 #include "glusterd-utils.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
@@ -27,7 +26,6 @@
 #include "glusterfs3.h"
 #include "protocol-common.h"
 #include "rpcsvc.h"
-#include "rpc-common-xdr.h"
 #include "glusterd-gfproxyd-svc-helper.h"
 #include "glusterd-shd-svc-helper.h"
 
@@ -37,6 +35,17 @@ extern struct rpc_clnt_program gd_mgmt_v3_prog;
 
 #define TRUSTED_PREFIX "trusted-"
 #define GD_PEER_ID_KEY "peer-id"
+
+enum glusterd_mgmt_hndsk_procnum {
+    GD_MGMT_HNDSK_NULL,
+    GD_MGMT_HNDSK_VERSIONS,
+    GD_MGMT_HNDSK_VERSIONS_ACK,
+    GD_MGMT_HNDSK_MAXVALUE,
+};
+
+/* OP-VERSION handshake */
+#define GD_MGMT_HNDSK_PROGRAM 1239873 /* Completely random */
+#define GD_MGMT_HNDSK_VERSION 1
 
 typedef ssize_t (*gfs_serialize_t)(struct iovec outmsg, void *data);
 
@@ -594,7 +603,7 @@ out:
 }
 
 /* Given the missed_snapinfo and snap_opinfo take the
- * missed lvm snapshot
+ * missed snapshot
  */
 int32_t
 glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
@@ -665,39 +674,6 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
         goto out;
     }
 
-    /* Fetch the device path */
-    mnt_device = glusterd_get_brick_mount_device(snap_opinfo->brick_path);
-    if (!mnt_device) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_GET_INFO_FAIL,
-               "Getting device name for the"
-               "brick %s:%s failed",
-               brickinfo->hostname, snap_opinfo->brick_path);
-        ret = -1;
-        goto out;
-    }
-
-    device = glusterd_build_snap_device_path(mnt_device, snap_vol->volname,
-                                             snap_opinfo->brick_num - 1);
-    if (!device) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the snapshot "
-               "device name (volname: %s, snapname: %s)",
-               snap_vol->volname, snap->snapname);
-        ret = -1;
-        goto out;
-    }
-    if (snprintf(brickinfo->device_path, sizeof(brickinfo->device_path), "%s",
-                 device) >= sizeof(brickinfo->device_path)) {
-        gf_msg(this->name, GF_LOG_ERROR, ENXIO,
-               GD_MSG_SNAP_DEVICE_NAME_GET_FAIL,
-               "cannot copy the device_path "
-               "(device_path: %s)",
-               brickinfo->device_path);
-        ret = -1;
-        goto out;
-    }
-
     /* Update the backend file-system type of snap brick in
      * snap volinfo. */
     ret = glusterd_update_mntopts(snap_opinfo->brick_path, brickinfo);
@@ -710,33 +686,28 @@ glusterd_create_missed_snap(glusterd_missed_snap_info *missed_snapinfo,
          * the file-system type */
     }
 
-    ret = glusterd_take_lvm_snapshot(brickinfo, snap_opinfo->brick_path);
+    if (!glusterd_snapshot_probe(snap_opinfo->brick_path, brickinfo)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPSHOT_OP_FAILED,
+               "Volume does not support snapshots (%s)",
+               snap_opinfo->brick_path);
+        ret = -1;
+        goto out;
+    }
+
+    gf_strncpy(brickinfo->origin_path, snap_opinfo->brick_path,
+               sizeof(brickinfo->origin_path));
+
+    ret = brickinfo->snap->create(brickinfo, snap->snapname, snap_vol->volname,
+                                  snap_opinfo->brick_num - 1);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAPSHOT_OP_FAILED,
                "Failed to take snapshot of %s", snap_opinfo->brick_path);
         goto out;
     }
 
-    /* After the snapshot both the origin brick (LVM brick) and
-     * the snapshot brick will have the same file-system label. This
-     * will cause lot of problems at mount time. Therefore we must
-     * generate a new label for the snapshot brick
-     */
-    ret = glusterd_update_fs_label(brickinfo);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_SET_INFO_FAIL,
-               "Failed to update "
-               "file-system label for %s brick",
-               brickinfo->path);
-        /* Failing to update label should not cause snapshot failure.
-         * Currently label is updated only for XFS and ext2/ext3/ext4
-         * file-system.
-         */
-    }
-
     /* Create and mount the snap brick */
-    ret = glusterd_snap_brick_create(snap_vol, brickinfo,
-                                     snap_opinfo->brick_num - 1, 0);
+    ret = glusterd_snap_brick_create(
+        snap_vol, brickinfo, snap_opinfo->brick_num - 1, 0, brickinfo->snap);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_CREATION_FAIL,
                "Failed to "
@@ -1265,6 +1236,32 @@ gd_validate_cluster_op_version(xlator_t *this, int cluster_op_version,
     ret = 0;
 out:
     return ret;
+}
+
+static gf_boolean_t
+glusterd_have_volumes()
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+    gf_boolean_t volumes_exist = _gf_false;
+
+    priv = this->private;
+    GF_VALIDATE_OR_GOTO(this->name, (priv != NULL), out);
+
+    volumes_exist = !cds_list_empty(&priv->volumes);
+out:
+    return volumes_exist;
+}
+
+static gf_boolean_t
+glusterd_have_peers()
+{
+    glusterd_conf_t *conf = NULL;
+
+    conf = THIS->private;
+    GF_ASSERT(conf);
+
+    return !cds_list_empty(&conf->peers);
 }
 
 /* Validate if glusterd can serve the management handshake request

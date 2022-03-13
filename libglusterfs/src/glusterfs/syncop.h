@@ -83,6 +83,14 @@ struct synctask {
     } tsan;
 #endif
 
+#ifdef HAVE_ASAN_API
+    void *fake_stack;
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    unsigned stackid;
+#endif
+
     ucontext_t ctx;
     struct syncproc *proc;
 
@@ -101,6 +109,14 @@ struct syncproc {
         void *fiber;
         char name[TSAN_THREAD_NAMELEN];
     } tsan;
+#endif
+
+#ifdef HAVE_ASAN_API
+    void *fake_stack;
+#endif
+
+#ifdef HAVE_VALGRIND_API
+    unsigned stackid;
 #endif
 
     ucontext_t sched;
@@ -431,7 +447,7 @@ syncop_create_frame(xlator_t *this)
     }
 
     if (opctx && (opctx->valid & SYNCOPCTX_LKOWNER))
-        frame->root->lk_owner = opctx->lk_owner;
+        lk_owner_copy(&frame->root->lk_owner, &opctx->lk_owner);
 
     return frame;
 }

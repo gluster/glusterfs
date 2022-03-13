@@ -16,15 +16,9 @@
 #include "config.h"
 #endif
 
-#include <glusterfs/common-utils.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/client_t.h>
-#include <glusterfs/lkowner.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/upcall-utils.h>
 #include "timer-wheel.h"
 #include "leases-mem-types.h"
 #include "leases-messages.h"
@@ -159,7 +153,7 @@ struct _leases_private {
     pthread_t recall_thr;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    int32_t recall_lease_timeout;
+    time_t recall_lease_timeout;
     gf_boolean_t inited_recall_thr;
     gf_boolean_t fini;
     gf_boolean_t leases_enabled;

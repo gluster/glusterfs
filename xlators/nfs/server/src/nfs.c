@@ -13,9 +13,7 @@
  */
 
 #include <glusterfs/defaults.h>
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "nfs.h"
 #include <glusterfs/mem-pool.h>
 #include <glusterfs/logging.h>
@@ -29,7 +27,6 @@
 #include "acl3.h"
 #include "rpc-drc.h"
 #include <glusterfs/syscall.h>
-#include "rpcsvc.h"
 #include "nfs-messages.h"
 #include "glusterfs/statedump.h"
 
@@ -2068,15 +2065,14 @@ struct volume_options options[] = {
     {
         .key = {"nfs.event-threads"},
         .type = GF_OPTION_TYPE_SIZET,
-        .min = 1,
-        .max = 32,
-        .default_value = "2",
-        .description = "Specifies the number of event threads to execute in"
-                       "in parallel. Larger values would help process"
-                       " responses faster, depending on available processing"
-                       " power. Range 1-32 threads.",
+        .min = NFS_MIN_EVENT_THREADS,
+        .max = NFS_MAX_EVENT_THREADS,
+        .default_value = TOSTRING(STARTING_EVENT_THREADS),
+        .description = "Specifies the number of event threads to execute in "
+                       "parallel. Larger values would help process responses "
+                       "faster, depending on available processing power.",
         .op_version = {GD_OP_VERSION_4_0_0},
-        .flags = OPT_FLAG_SETTABLE,
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_RANGE,
     },
     {.key = {NULL}},
 };

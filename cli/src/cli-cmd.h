@@ -10,8 +10,6 @@
 #ifndef __CLI_CMD_H__
 #define __CLI_CMD_H__
 
-#include <netdb.h>
-
 #include "cli.h"
 #include <glusterfs/list.h>
 
@@ -24,7 +22,7 @@
         if (local) {                                                           \
             local->words = words;                                              \
             if (dictionary)                                                    \
-                local->dict = dictionary;                                      \
+                local->dict = dict_ref(dictionary);                            \
             if (frame)                                                         \
                 frame->local = local;                                          \
         }                                                                      \
@@ -96,7 +94,7 @@ void
 cli_cmd_tokens_destroy(char **tokens);
 
 int
-cli_cmd_await_response(unsigned time);
+cli_cmd_await_response(time_t time);
 
 int
 cli_cmd_broadcast_response(int32_t status);

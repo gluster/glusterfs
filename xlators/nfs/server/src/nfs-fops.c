@@ -12,8 +12,6 @@
 
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
-#include <glusterfs/call-stub.h>
 #include "nfs.h"
 #include "nfs-fops.h"
 #include "nfs-common.h"
@@ -206,7 +204,7 @@ nfs_create_frame(xlator_t *xl, nfs_user_t *nfu)
     frame->root->uid = nfu->uid;
     frame->root->gid = nfu->gids[NFS_PRIMGID_IDX];
     memcpy(&frame->root->identifier, &nfu->identifier, UNIX_PATH_MAX);
-    frame->root->lk_owner = nfu->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &nfu->lk_owner);
 
     if (nfu->ngrps != 1) {
         frame->root->ngrps = nfu->ngrps - 1;

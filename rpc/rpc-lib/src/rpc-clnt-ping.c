@@ -10,13 +10,10 @@
 
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
-#include <glusterfs/byte-order.h>
 #include "xdr-rpcclnt.h"
 #include "rpc-transport.h"
-#include "protocol-common.h"
 #include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
-#include "rpc-common-xdr.h"
 #include <glusterfs/timespec.h>
 
 char *clnt_ping_procs[GF_DUMP_MAXVALUE] = {
@@ -108,9 +105,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
     rpc_transport_t *trans = NULL;
     rpc_clnt_connection_t *conn = NULL;
     int disconnect = 0;
-    struct timespec current = {
-        0,
-    };
+    time_t current = 0;
     int unref = 0;
 
     rpc = (struct rpc_clnt *)rpc_ptr;
@@ -122,14 +117,13 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
         goto out;
     }
 
-    timespec_now_realtime(&current);
+    current = gf_time();
     pthread_mutex_lock(&conn->lock);
     {
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
 
-        if (((current.tv_sec - conn->last_received.tv_sec) <
-             conn->ping_timeout) ||
-            ((current.tv_sec - conn->last_sent.tv_sec) < conn->ping_timeout)) {
+        if (((current - conn->last_received) < conn->ping_timeout) ||
+            ((current - conn->last_sent) < conn->ping_timeout)) {
             gf_log(trans->name, GF_LOG_TRACE,
                    "ping timer expired but transport activity "
                    "detected - not bailing transport");
@@ -150,7 +144,7 @@ rpc_clnt_ping_timer_expired(void *rpc_ptr)
 
     if (disconnect) {
         gf_log(trans->name, GF_LOG_CRITICAL,
-               "server %s has not responded in the last %d "
+               "server %s has not responded in the last %ld "
                "seconds, disconnecting.",
                trans->peerinfo.identifier, conn->ping_timeout);
 
@@ -310,11 +304,15 @@ rpc_clnt_start_ping(void *rpc_ptr)
             frame_count = conn->saved_frames->count;
         }
 
-        if ((frame_count == 0) || !conn->connected) {
+        if ((frame_count == 0) || conn->status != RPC_STATUS_CONNECTED) {
             gf_log(THIS->name, GF_LOG_DEBUG,
-                   "returning as transport is already disconnected"
-                   " OR there are no frames (%d || %d)",
-                   !conn->connected, frame_count);
+                   "returning because transport is %s %s there are %s\n",
+                   ((conn->status == RPC_STATUS_CONNECTED) ? "connected"
+                                                           : "disconnected"),
+                   ((!frame_count && conn->status != RPC_STATUS_CONNECTED)
+                        ? "and"
+                        : "but"),
+                   (frame_count ? "some frames" : "no frames"));
 
             pthread_mutex_unlock(&conn->lock);
             if (unref)

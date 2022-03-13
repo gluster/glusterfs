@@ -19,7 +19,6 @@
 #include "glusterfs/logging.h"
 #include "glusterfs/gf-event.h"
 #include "glusterfs/mem-pool.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/syscall.h"
 #include "glusterfs/libglusterfs-messages.h"
 
@@ -33,11 +32,11 @@ struct event_slot_poll {
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out, char notify_poller_death);
+                    int poll_out, int notify_poller_death);
 
 static void
 __flush_fd(int fd, int idx, int gen, void *data, int poll_in, int poll_out,
-           int poll_err, char event_thread_died)
+           int poll_err, int event_thread_died)
 {
     char buf[64];
     int ret = -1;
@@ -106,35 +105,12 @@ event_pool_new_poll(int count, int eventthreadcount)
 
     pthread_mutex_init(&event_pool->mutex, NULL);
 
-    ret = pipe(event_pool->breaker);
+    /* Both ends are opened non-blocking. */
+    ret = gf_pipe(event_pool->breaker, O_NONBLOCK);
 
     if (ret == -1) {
         gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_PIPE_CREATE_FAILED, NULL);
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        return NULL;
-    }
-
-    ret = fcntl(event_pool->breaker[0], F_SETFL, O_NONBLOCK);
-    if (ret == -1) {
-        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
-        sys_close(event_pool->breaker[0]);
-        sys_close(event_pool->breaker[1]);
         event_pool->breaker[0] = event_pool->breaker[1] = -1;
-
-        GF_FREE(event_pool->reg);
-        GF_FREE(event_pool);
-        return NULL;
-    }
-
-    ret = fcntl(event_pool->breaker[1], F_SETFL, O_NONBLOCK);
-    if (ret == -1) {
-        gf_smsg("poll", GF_LOG_ERROR, errno, LG_MSG_SET_PIPE_FAILED, NULL);
-
-        sys_close(event_pool->breaker[0]);
-        sys_close(event_pool->breaker[1]);
-        event_pool->breaker[0] = event_pool->breaker[1] = -1;
-
         GF_FREE(event_pool->reg);
         GF_FREE(event_pool);
         return NULL;
@@ -171,7 +147,7 @@ event_pool_new_poll(int count, int eventthreadcount)
 static int
 event_register_poll(struct event_pool *event_pool, int fd,
                     event_handler_t handler, void *data, int poll_in,
-                    int poll_out, char notify_poller_death)
+                    int poll_out, int notify_poller_death)
 {
     int idx = -1;
 

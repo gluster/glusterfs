@@ -13,10 +13,8 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 #include <fnmatch.h>
 
@@ -31,7 +29,7 @@ int cli_op_ret = 0;
 static gf_boolean_t connected = _gf_false;
 
 static unsigned
-cli_cmd_needs_connection(struct cli_cmd_word *word)
+cli_cmd_needs_connection(struct cli_state *state, struct cli_cmd_word *word)
 {
     if (!strcasecmp("quit", word->word))
         return 0;
@@ -45,7 +43,7 @@ cli_cmd_needs_connection(struct cli_cmd_word *word)
     if (!strcasecmp("exit", word->word))
         return 0;
 
-    return cli_default_conn_timeout;
+    return state->default_conn_timeout;
 }
 
 int
@@ -118,7 +116,7 @@ cli_cmd_process(struct cli_state *state, int argc, char **argv)
     if (strcmp(word->word, "help") == 0)
         goto callback;
 
-    state->await_connected = cli_cmd_needs_connection(word);
+    state->await_connected = cli_cmd_needs_connection(state, word);
 
     ret = cli_cmd_await_connected(state->await_connected);
     if (ret) {
@@ -246,14 +244,14 @@ cli_cmd_unlock()
 }
 
 static void
-seconds_from_now(unsigned secs, struct timespec *ts)
+seconds_from_now(time_t secs, struct timespec *ts)
 {
     timespec_now_realtime(ts);
     ts->tv_sec += secs;
 }
 
 int
-cli_cmd_await_response(unsigned time)
+cli_cmd_await_response(time_t time)
 {
     struct timespec ts = {
         0,
@@ -354,14 +352,15 @@ cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
-    unsigned timeout = 0;
+    time_t timeout = 0;
+    struct cli_state *state = frame->this->private;
 
     if ((GLUSTER_CLI_PROFILE_VOLUME == procnum) ||
         (GLUSTER_CLI_HEAL_VOLUME == procnum) ||
         (GLUSTER_CLI_GANESHA == procnum))
-        timeout = cli_ten_minutes_timeout;
+        timeout = CLI_TEN_MINUTES_TIMEOUT;
     else
-        timeout = cli_default_conn_timeout;
+        timeout = state->default_conn_timeout;
 
     cli_cmd_lock();
     cmd_sent = 0;

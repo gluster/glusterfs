@@ -13,9 +13,7 @@
 #include <dlfcn.h>
 #include <utime.h>
 
-#include <glusterfs/xlator.h>
 #include "glusterd.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
@@ -25,7 +23,6 @@
 #include "glusterd-hooks.h"
 #include <glusterfs/trie.h>
 #include "glusterd-mem-types.h"
-#include "cli1-xdr.h"
 #include "glusterd-volgen.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-utils.h"
@@ -2495,102 +2492,6 @@ out:
     return ret;
 }
 
-static int
-brick_graph_add_pump(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
-                     dict_t *set_dict, glusterd_brickinfo_t *brickinfo)
-{
-    int ret = -1;
-    int pump = 0;
-    xlator_t *xl = NULL;
-    xlator_t *txl = NULL;
-    xlator_t *rbxl = NULL;
-    char *username = NULL;
-    char *password = NULL;
-    char *ptranst = NULL;
-    char *address_family_data = NULL;
-
-    if (!graph || !volinfo || !set_dict) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
-        goto out;
-    }
-
-    ret = dict_get_int32(volinfo->dict, "enable-pump", &pump);
-    if (ret == -ENOENT) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
-                "Key=enable-pump", NULL);
-        ret = pump = 0;
-    }
-    if (ret)
-        return -1;
-
-    username = glusterd_auth_get_username(volinfo);
-    password = glusterd_auth_get_password(volinfo);
-
-    if (pump) {
-        txl = first_of(graph);
-
-        rbxl = volgen_graph_add_nolink(graph, "protocol/client",
-                                       "%s-replace-brick", volinfo->volname);
-        if (!rbxl)
-            return -1;
-
-        ptranst = glusterd_get_trans_type_rb(volinfo->transport_type);
-        if (NULL == ptranst)
-            return -1;
-
-        RPC_SET_OPT(rbxl, SSL_OWN_CERT_OPT, "ssl-own-cert", return -1);
-        RPC_SET_OPT(rbxl, SSL_PRIVATE_KEY_OPT, "ssl-private-key", return -1);
-        RPC_SET_OPT(rbxl, SSL_CA_LIST_OPT, "ssl-ca-list", return -1);
-        RPC_SET_OPT(rbxl, SSL_CRL_PATH_OPT, "ssl-crl-path", return -1);
-        RPC_SET_OPT(rbxl, SSL_CERT_DEPTH_OPT, "ssl-cert-depth", return -1);
-        RPC_SET_OPT(rbxl, SSL_CIPHER_LIST_OPT, "ssl-cipher-list", return -1);
-        RPC_SET_OPT(rbxl, SSL_DH_PARAM_OPT, "ssl-dh-param", return -1);
-        RPC_SET_OPT(rbxl, SSL_EC_CURVE_OPT, "ssl-ec-curve", return -1);
-
-        if (username) {
-            ret = xlator_set_fixed_option(rbxl, "username", username);
-            if (ret)
-                return -1;
-        }
-
-        if (password) {
-            ret = xlator_set_fixed_option(rbxl, "password", password);
-            if (ret)
-                return -1;
-        }
-
-        ret = xlator_set_fixed_option(rbxl, "transport-type", ptranst);
-        GF_FREE(ptranst);
-        if (ret)
-            return -1;
-
-        if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
-                               &address_family_data) == 0) {
-            ret = xlator_set_fixed_option(rbxl, "transport.address-family",
-                                          address_family_data);
-            if (ret) {
-                gf_log("glusterd", GF_LOG_WARNING,
-                       "failed to set transport.address-family");
-                return -1;
-            }
-        }
-
-        xl = volgen_graph_add_nolink(graph, "cluster/pump", "%s-pump",
-                                     volinfo->volname);
-        if (!xl)
-            return -1;
-        ret = volgen_xlator_link(xl, txl);
-        if (ret)
-            return -1;
-        ret = volgen_xlator_link(xl, rbxl);
-        if (ret)
-            return -1;
-    }
-
-out:
-    return ret;
-}
-
 /* The order of xlator definition here determines
  * the topology of the brick graph */
 static volgen_brick_xlator_t server_graph_table[] = {
@@ -2607,7 +2508,6 @@ static volgen_brick_xlator_t server_graph_table[] = {
     {brick_graph_add_iot, "io-threads"},
     {brick_graph_add_upcall, "upcall"},
     {brick_graph_add_leases, "leases"},
-    {brick_graph_add_pump, "pump"},
     {brick_graph_add_ro, "read-only"},
     {brick_graph_add_worm, "worm"},
     {brick_graph_add_locks, "locks"},
@@ -3815,10 +3715,10 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     glusterd_conf_t *conf = NULL;
     glusterd_brickinfo_t *brick = NULL;
     glusterd_brickinfo_t *ta_brick = NULL;
-    char *ptr = NULL;
+    char *ptr = NULL, *beg = NULL;
     int i = 0;
     int index = -1;
-    int ret = 0;
+    int ret = 0, len = 0;
     char *afr_xattrs_list = NULL;
     int list_size = -1;
     int ta_brick_index = 0;
@@ -3852,12 +3752,15 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
 
     i = 1;
     index = 0;
+    beg = ptr;
 
     cds_list_for_each_entry(brick, &volinfo->bricks, brick_list)
     {
         if (index == clusters)
             break;
-        strncat(ptr, brick->brick_id, strlen(brick->brick_id));
+        len = strlen(brick->brick_id);
+        strncat(ptr, brick->brick_id, list_size - (ptr - beg));
+        ptr += len;
         if (i == volinfo->replica_count) {
             /* add ta client xlator in afr-pending-xattrs before making entries
              * for client xlators in volfile.
@@ -3868,7 +3771,7 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
              */
             ta_brick_index = 0;
             if (volinfo->thin_arbiter_count == 1) {
-                ptr[strlen(brick->brick_id)] = ',';
+                *ptr++ = ',';
                 cds_list_for_each_entry(ta_brick, &volinfo->ta_bricks,
                                         brick_list)
                 {
@@ -3877,16 +3780,13 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                     }
                     ta_brick_index++;
                 }
-                if (conf->op_version < GD_OP_VERSION_7_3) {
-                    strncat(ptr, ta_brick->brick_id,
-                            strlen(ta_brick->brick_id));
-                } else {
-                    char ta_volname[PATH_MAX] = "";
-                    int len = snprintf(ta_volname, PATH_MAX, "%s.%s",
-                                       ta_brick->brick_id,
-                                       uuid_utoa(volinfo->volume_id));
-                    strncat(ptr, ta_volname, len);
-                }
+                if (conf->op_version < GD_OP_VERSION_7_3)
+                    ptr += snprintf(ptr, list_size - (ptr - beg), "%s",
+                                    ta_brick->brick_id);
+                else
+                    ptr += snprintf(ptr, list_size - (ptr - beg), "%s.%s",
+                                    ta_brick->brick_id,
+                                    uuid_utoa(volinfo->volume_id));
             }
 
             ret = xlator_set_fixed_option(afr_xlators_list[index++],
@@ -3895,12 +3795,12 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
                 goto out;
             memset(afr_xattrs_list, 0, list_size);
             ptr = afr_xattrs_list;
+            beg = ptr;
             i = 1;
             subvol_index++;
             continue;
         }
-        ptr[strlen(brick->brick_id)] = ',';
-        ptr += strlen(brick->brick_id) + 1;
+        *ptr++ = ',';
         i++;
     }
 
@@ -5499,6 +5399,64 @@ get_parent_vol_tstamp_file(char *filename, glusterd_volinfo_t *volinfo)
     }
 }
 
+static int
+_brick_for_each(glusterd_volinfo_t *volinfo, dict_t *mod_dict, void *data,
+                int (*fn)(glusterd_volinfo_t *, glusterd_brickinfo_t *,
+                          dict_t *mod_dict, void *))
+{
+    int ret = 0;
+    glusterd_brickinfo_t *brickinfo = NULL;
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
+        gf_msg_debug(THIS->name, 0, "Found a brick - %s:%s",
+                     brickinfo->hostname, brickinfo->path);
+        ret = fn(volinfo, brickinfo, mod_dict, data);
+        if (ret)
+            goto out;
+    }
+out:
+    return ret;
+}
+
+/* This is going to be a O(n^2) operation as we have to pick a brick,
+   make sure it belong to this machine, and compare another brick belonging
+   to this machine (if exists), is sharing the backend */
+static void
+gd_set_shared_brick_count(glusterd_volinfo_t *volinfo)
+{
+    glusterd_brickinfo_t *brickinfo = NULL;
+    glusterd_brickinfo_t *trav = NULL;
+    unsigned char *uuid = MY_UUID;
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
+        if (gf_uuid_compare(brickinfo->uuid, uuid))
+            continue;
+        brickinfo->fs_share_count = 0;
+        cds_list_for_each_entry(trav, &volinfo->bricks, brick_list)
+        {
+            if (!gf_uuid_compare(trav->uuid, uuid) &&
+                (trav->statfs_fsid == brickinfo->statfs_fsid)) {
+                brickinfo->fs_share_count++;
+            }
+        }
+    }
+
+    return;
+}
+
+static int
+glusterd_volume_brick_for_each(glusterd_volinfo_t *volinfo, void *data,
+                               int (*fn)(glusterd_volinfo_t *,
+                                         glusterd_brickinfo_t *,
+                                         dict_t *mod_dict, void *))
+{
+    gd_set_shared_brick_count(volinfo);
+
+    return _brick_for_each(volinfo, NULL, data, fn);
+}
+
 int
 generate_brick_volfiles(glusterd_volinfo_t *volinfo)
 {
@@ -5736,6 +5694,40 @@ out:
         dict_unref(dict);
 
     gf_msg_trace("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int
+glusterd_get_client_filepath(char *filepath, glusterd_volinfo_t *volinfo,
+                             gf_transport_type type)
+{
+    int ret = 0;
+    char path[PATH_MAX] = "";
+    int32_t len = 0;
+    glusterd_conf_t *priv = NULL;
+
+    priv = THIS->private;
+
+    GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv);
+
+    switch (type) {
+        case GF_TRANSPORT_TCP:
+            len = snprintf(filepath, PATH_MAX, "%s/%s.tcp-fuse.vol", path,
+                           volinfo->volname);
+            break;
+
+        case GF_TRANSPORT_RDMA:
+            len = snprintf(filepath, PATH_MAX, "%s/%s.rdma-fuse.vol", path,
+                           volinfo->volname);
+            break;
+        default:
+            ret = -1;
+            break;
+    }
+    if ((len < 0) || (len >= PATH_MAX)) {
+        ret = -1;
+    }
+
     return ret;
 }
 

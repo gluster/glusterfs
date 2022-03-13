@@ -25,7 +25,7 @@ typedef struct event_hist eh_t;
 
 void
 eh_dump(eh_t *event, void *data,
-        int(fn)(circular_buffer_t *buffer, void *data));
+        void (*dumper)(circular_buffer_t *buffer, void *data));
 
 eh_t *
 eh_new(size_t buffer_size, gf_boolean_t use_buffer_once,

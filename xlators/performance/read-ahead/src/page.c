@@ -11,7 +11,6 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "read-ahead.h"
 #include <assert.h>
 #include "read-ahead-messages.h"

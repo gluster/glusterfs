@@ -58,7 +58,8 @@ gf_boolean_t
 gd_peer_has_address(glusterd_peerinfo_t *peerinfo, const char *address);
 
 int
-gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address);
+gd_add_address_to_peer(glusterd_peerinfo_t *peerinfo, const char *address,
+                       gf_boolean_t add_head);
 
 int
 gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,

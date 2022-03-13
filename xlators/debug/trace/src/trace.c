@@ -8,6 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/event-history.h>
+#include <glusterfs/logging.h>
+#include <glusterfs/circ-buff.h>
+#include <glusterfs/statedump.h>
 #include "trace.h"
 #include "trace-mem-types.h"
 
@@ -61,7 +65,7 @@ trace_stat_to_str(struct iatt *buf, char *str, size_t len)
              buf->ia_ctime_nsec);
 }
 
-int
+static void
 dump_history_trace(circular_buffer_t *cb, void *data)
 {
     char timestr[GF_TIMESTR_SIZE] = {
@@ -73,11 +77,9 @@ dump_history_trace(circular_buffer_t *cb, void *data)
        at which the entry was added to the buffer */
 
     gf_time_fmt_tv(timestr, sizeof timestr, &cb->tv, gf_timefmt_Ymd_T);
+
     gf_proc_dump_write("TIME", "%s", timestr);
-
     gf_proc_dump_write("FOP", "%s\n", (char *)cb->data);
-
-    return 0;
 }
 
 int

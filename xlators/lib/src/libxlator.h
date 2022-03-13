@@ -23,7 +23,6 @@
 #define XTIME "xtime"
 #define VOLUME_MARK "volume-mark"
 #define GF_XATTR_MARKER_KEY MARKER_XATTR_PREFIX "." VOLUME_MARK
-#define UUID_SIZE 36
 #define MARKER_UUID_TYPE 1
 #define MARKER_XTIME_TYPE 2
 

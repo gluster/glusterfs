@@ -24,18 +24,6 @@ glusterfs_ctx_t *ctx = NULL;
 #define GF_LOG_CONTROL_FILE "/etc/glusterfs/logger.conf"
 
 int
-go_log_vargs(gf_loglevel_t level, const char *fmt, ...)
-{
-    va_list ap;
-
-    va_start(ap, fmt);
-    gf_msg_vplain(level, fmt, ap);
-    va_end(ap);
-
-    return 0;
-}
-
-int
 go_log(void)
 {
     /*** gf_msg ***/
@@ -57,18 +45,6 @@ go_log(void)
                  42, "Forty-Two", 42);
     gf_msg_plain(GF_LOG_ALERT,
                  "Alert: gf_msg_plain with"
-                 " args %d:%s:%x",
-                 42, "Forty-Two", 42);
-
-    /*** msg_vplain ***/
-    go_log_vargs(GF_LOG_INFO, "Informational: gf_msg_vplain: No args!!!");
-    go_log_vargs(GF_LOG_INFO,
-                 "Informational: gf_msg_vplain: Some"
-                 " args %d:%s:%x",
-                 42, "Forty-Two", 42);
-    go_log_vargs(GF_LOG_INFO, "Critical: gf_msg_vplain: No args!!!");
-    go_log_vargs(GF_LOG_INFO,
-                 "Critical: gf_msg_vplain: Some"
                  " args %d:%s:%x",
                  42, "Forty-Two", 42);
 

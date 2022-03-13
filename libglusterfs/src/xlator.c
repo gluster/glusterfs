@@ -350,8 +350,6 @@ xlator_dynload_apis(xlator_t *xl)
         list_add_tail(&vol_opt->list, &xl->volume_options);
     }
 
-    xl->id = xlapi->xlator_id;
-    xl->flags = xlapi->flags;
     xl->identifier = xlapi->identifier;
     xl->category = xlapi->category;
 
@@ -742,12 +740,12 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
 
     for (i = 0; i < num_types; i++) {
         memset(&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
+#ifdef DEBUG
+        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
         ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
         if (ret) {
             fprintf(stderr, "Unable to lock..errno : %d", errno);
         }
-#ifdef DEBUG
-        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
 #endif
     }
 
@@ -760,9 +758,11 @@ xlator_mem_acct_unref(struct mem_acct *mem_acct)
     uint32_t i;
 
     if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
+#ifdef DEBUG
         for (i = 0; i < mem_acct->num_types; i++) {
             LOCK_DESTROY(&(mem_acct->rec[i].lock));
         }
+#endif
         FREE(mem_acct);
     }
 }
@@ -795,7 +795,7 @@ xlator_list_destroy(xlator_list_t *list)
     return 0;
 }
 
-int
+static int
 xlator_memrec_free(xlator_t *xl)
 {
     struct mem_acct *mem_acct = NULL;
@@ -1240,46 +1240,6 @@ loc_is_root(loc_t *loc)
     }
 
     return _gf_false;
-}
-
-int32_t
-loc_build_child(loc_t *child, loc_t *parent, char *name)
-{
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("xlator", child, out);
-    GF_VALIDATE_OR_GOTO("xlator", parent, out);
-    GF_VALIDATE_OR_GOTO("xlator", name, out);
-
-    loc_gfid(parent, child->pargfid);
-
-    if (strcmp(parent->path, "/") == 0)
-        ret = gf_asprintf((char **)&child->path, "/%s", name);
-    else
-        ret = gf_asprintf((char **)&child->path, "%s/%s", parent->path, name);
-
-    if (ret < 0 || !child->path) {
-        ret = -1;
-        goto out;
-    }
-
-    child->name = strrchr(child->path, '/') + 1;
-
-    child->parent = inode_ref(parent->inode);
-    child->inode = inode_new(parent->inode->table);
-
-    if (!child->inode) {
-        ret = -1;
-        goto out;
-    }
-
-    ret = 0;
-
-out:
-    if ((ret < 0) && child)
-        loc_wipe(child);
-
-    return ret;
 }
 
 gf_boolean_t

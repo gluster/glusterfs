@@ -7,7 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/xlator.h>
 #include <glusterfs/syscall.h>
 
 /**
@@ -21,15 +20,14 @@
  * fd d) counts of write IO block size - since process start, last interval and
  * per fd e) counts of all FOP types passing through it
  *
- *  Usage: setfattr -n trusted.io-stats-dump /tmp/filename /mnt/gluster
- *      output is written to /tmp/filename.<iostats xlator instance name>
+ *  Usage: setfattr -n trusted.io-stats-dump -v filename /mnt/gluster
+ *      output is written to /var/run/gluster/filename.<iostats xlator instance
+ * name>
  *
  */
 
 #include <fnmatch.h>
 #include <errno.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include "io-stats-mem-types.h"
 #include <stdarg.h>
 #include <glusterfs/defaults.h>
@@ -676,14 +674,14 @@ ios_dump_throughput_stats(struct ios_stat_head *list_head, xlator_t *this,
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
+    glusterfs_ctx_t *ctx = this->ctx;
 
     LOCK(&list_head->lock);
     {
         list_for_each_entry(entry, &list_head->iosstats->list, list)
         {
-            gf_time_fmt_tv(timestr, sizeof timestr,
-                           &entry->iosstat->thru_counters[type].time,
-                           gf_timefmt_FT);
+            gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                              &entry->iosstat->thru_counters[type].time, ctx);
 
             ios_log(this, logfp, "%s \t %-10.2f  \t  %s", timestr, entry->value,
                     entry->iosstat->filename);
@@ -1048,6 +1046,106 @@ err:
     return ret;
 }
 
+/**
+ * gf_dnscache_entry_init -- Initialize a dnscache entry
+ *
+ * @return: SUCCESS: Pointer to an allocated dnscache entry struct
+ *          FAILURE: NULL
+ */
+static struct dnscache_entry *
+gf_dnscache_entry_init()
+{
+    struct dnscache_entry *entry = GF_CALLOC(1, sizeof(*entry),
+                                             gf_common_mt_dnscache_entry);
+    return entry;
+}
+
+/**
+ * gf_dnscache_entry_deinit -- Free memory used by a dnscache entry
+ *
+ * @entry: Pointer to deallocate
+ */
+static void
+gf_dnscache_entry_deinit(struct dnscache_entry *entry)
+{
+    GF_FREE(entry->ip);
+    GF_FREE(entry->fqdn);
+    GF_FREE(entry);
+}
+
+/**
+ * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
+ *
+ * @ip: The IP address to perform a reverse lookup on
+ *
+ * @return: success: Allocated string containing the hostname
+ *          failure: NULL
+ */
+static char *
+gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
+{
+    char *fqdn = NULL;
+    int ret = 0;
+    dict_t *cache = NULL;
+    data_t *entrydata = NULL;
+    struct dnscache_entry *dnsentry = NULL;
+    gf_boolean_t from_cache = _gf_false;
+
+    if (!dnscache)
+        goto out;
+
+    cache = dnscache->cache_dict;
+
+    /* Quick cache lookup to see if we already hold it */
+    entrydata = dict_get(cache, (char *)ip);
+    if (entrydata) {
+        dnsentry = (struct dnscache_entry *)entrydata->data;
+        /* First check the TTL & timestamp */
+        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
+            gf_dnscache_entry_deinit(dnsentry);
+            entrydata->data = NULL; /* Mark this as 'null' so
+                                     * dict_del () doesn't try free
+                                     * this after we've already
+                                     * freed it.
+                                     */
+
+            dict_del(cache, (char *)ip); /* Remove this entry */
+        } else {
+            /* Cache entry is valid, get the FQDN and return */
+            fqdn = dnsentry->fqdn;
+            from_cache = _gf_true; /* Mark this as from cache */
+            goto out;
+        }
+    }
+
+    /* Get the FQDN */
+    ret = gf_get_hostname_from_ip((char *)ip, &fqdn);
+    if (ret != 0)
+        goto out;
+
+    if (!fqdn) {
+        gf_log_callingfn("resolver", GF_LOG_CRITICAL,
+                         "Allocation failed for the host address");
+        goto out;
+    }
+
+    from_cache = _gf_false;
+out:
+    /* Insert into the cache */
+    if (fqdn && !from_cache && ip) {
+        struct dnscache_entry *entry = gf_dnscache_entry_init();
+
+        if (entry) {
+            entry->fqdn = fqdn;
+            entry->ip = gf_strdup(ip);
+            entry->timestamp = gf_time();
+            entrydata = bin_to_data(entry, sizeof(*entry));
+            dict_set(cache, (char *)ip, entrydata);
+        }
+    }
+    return fqdn;
+}
+
 /*
  * This function writes out a latency sample to a given file descriptor
  * and beautifies the output in the process.
@@ -1307,8 +1405,8 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     if (interval == -1) {
         LOCK(&conf->lock);
         {
-            gf_time_fmt_tv(timestr, sizeof timestr,
-                           &conf->cumulative.max_openfd_time, gf_timefmt_FT);
+            gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                              &conf->cumulative.max_openfd_time, this->ctx);
             ios_log(this, logfp,
                     "Current open fd's: %" PRId64 " Max open fd's: %" PRId64
                     " time %s",
@@ -1794,9 +1892,8 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
                 ret = dict_set_uint64(resp, "max-open",
                                       conf->cumulative.max_nr_opens);
 
-                gf_time_fmt_tv(timestr, sizeof timestr,
-                               &conf->cumulative.max_openfd_time,
-                               gf_timefmt_FT);
+                gf_time_fmt_tv_FT(timestr, sizeof timestr,
+                                  &conf->cumulative.max_openfd_time, this->ctx);
 
                 dict_timestr = gf_strdup(timestr);
                 if (!dict_timestr)
@@ -3702,6 +3799,43 @@ ios_sample_buf_size_configure(char *name, struct ios_conf *conf)
            " size is 1024 because ios_sample_interval is 0");
 }
 
+static int
+gf_check_log_format(const char *value)
+{
+    int log_format = -1;
+
+    if (!strcasecmp(value, GF_LOG_FORMAT_NO_MSG_ID))
+        log_format = gf_logformat_traditional;
+    else if (!strcasecmp(value, GF_LOG_FORMAT_WITH_MSG_ID))
+        log_format = gf_logformat_withmsgid;
+
+    if (log_format == -1)
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                "possible_values=" GF_LOG_FORMAT_NO_MSG_ID
+                "|" GF_LOG_FORMAT_WITH_MSG_ID,
+                NULL);
+
+    return log_format;
+}
+
+static int
+gf_check_logger(const char *value)
+{
+    int logger = -1;
+
+    if (!strcasecmp(value, GF_LOGGER_GLUSTER_LOG))
+        logger = gf_logger_glusterlog;
+    else if (!strcasecmp(value, GF_LOGGER_SYSLOG))
+        logger = gf_logger_syslog;
+
+    if (logger == -1)
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
+                "possible_values=" GF_LOGGER_GLUSTER_LOG "|" GF_LOGGER_SYSLOG,
+                NULL);
+
+    return logger;
+}
+
 int
 reconfigure(xlator_t *this, dict_t *options)
 {
@@ -3717,7 +3851,7 @@ reconfigure(xlator_t *this, dict_t *options)
     int log_format = -1;
     int logger = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t old_dump_interval;
     int32_t threads;
 
@@ -3827,6 +3961,16 @@ mem_acct_init(xlator_t *this)
     return ret;
 }
 
+/**
+ * gf_dnscache_deinit -- cleanup resources used by struct dnscache
+ */
+static void
+gf_dnscache_deinit(struct dnscache *cache)
+{
+    dict_unref(cache->cache_dict);
+    GF_FREE(cache);
+}
+
 void
 ios_conf_destroy(struct ios_conf *conf)
 {
@@ -3837,7 +3981,8 @@ ios_conf_destroy(struct ios_conf *conf)
     _ios_destroy_dump_thread(conf);
     ios_destroy_sample_buf(conf->ios_sample_buf);
     LOCK_DESTROY(&conf->lock);
-    gf_dnscache_deinit(conf->dnscache);
+    if (conf->dnscache)
+        gf_dnscache_deinit(conf->dnscache);
     GF_FREE(conf);
 }
 
@@ -3863,6 +4008,32 @@ ios_init_stats(struct ios_global_stats *stats)
     stats->started_at = gf_time();
 }
 
+/**
+ * gf_dnscache_init -- Initializes a dnscache struct and sets the ttl
+ *                     to the specified value in the parameter.
+ *
+ * @ttl: the TTL in seconds
+ * @return: SUCCESS: Pointer to an allocated dnscache struct
+ *          FAILURE: NULL
+ */
+static struct dnscache *
+gf_dnscache_init(time_t ttl)
+{
+    struct dnscache *cache = GF_MALLOC(sizeof(*cache), gf_common_mt_dnscache);
+    if (!cache)
+        return NULL;
+
+    cache->cache_dict = dict_new();
+    if (!cache->cache_dict) {
+        GF_FREE(cache);
+        cache = NULL;
+    } else {
+        cache->ttl = ttl;
+    }
+
+    return cache;
+}
+
 int
 init(xlator_t *this)
 {
@@ -3879,7 +4050,7 @@ init(xlator_t *this)
     int log_level = -1;
     int ret = -1;
     uint32_t log_buf_size = 0;
-    uint32_t log_flush_timeout = 0;
+    time_t log_flush_timeout = 0;
     int32_t threads;
 
     if (!this)
@@ -4448,24 +4619,26 @@ struct volume_options options[] = {
     {.key = {"threads"}, .type = GF_OPTION_TYPE_INT},
     {.key = {"brick-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
      .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on bricks"},
+                    "maximum amount of threads that can be created on bricks."},
     {.key = {"client-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .default_value = "16",
-     .min = 0,
+     .default_value = TOSTRING(GF_ASYNC_DEFAULT_THREADS),
+     .min = GF_ASYNC_MIN_THREADS,
      .max = GF_ASYNC_MAX_THREADS,
      .op_version = {GD_OP_VERSION_6_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT |
+              OPT_FLAG_RANGE,
      .tags = {"io-stats", "threading"},
-     .description = "When global threading is used, this value determines the "
-                    "maximum amount of threads that can be created on clients"},
+     .description =
+         "When global threading is used, this value determines the "
+         "maximum amount of threads that can be created on clients."},
     {.key = {"volume-id"},
      .type = GF_OPTION_TYPE_STR,
      .op_version = {GD_OP_VERSION_7_1},

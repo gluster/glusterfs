@@ -23,6 +23,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-DCONFDIR=\"$(sysconfdir)/glusterfs\" $(GF_GLUSTERFS_CFLAGS) \
 	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
 	-DLIBEXECDIR=\"$(GLUSTERFS_LIBEXECDIR)\"\
+	-I$(top_srcdir)/rpc/rpc-transport/socket/src \
 	-I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_srcdir)/rpc/xdr/src \
 	-I$(top_builddir)/rpc/xdr/src \

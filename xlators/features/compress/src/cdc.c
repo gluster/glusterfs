@@ -10,8 +10,6 @@
 
 #include <sys/uio.h>
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
 
 #include "cdc.h"
@@ -84,15 +82,8 @@ int32_t
 cdc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset, uint32_t flags, dict_t *xdata)
 {
-    fop_readv_cbk_t cbk = NULL;
-
-#ifdef HAVE_LIB_Z
-    cbk = cdc_readv_cbk;
-#else
-    cbk = default_readv_cbk;
-#endif
-    STACK_WIND(frame, cbk, FIRST_CHILD(this), FIRST_CHILD(this)->fops->readv,
-               fd, size, offset, flags, xdata);
+    STACK_WIND(frame, cdc_readv_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->readv, fd, size, offset, flags, xdata);
     return 0;
 }
 
@@ -234,12 +225,12 @@ init(xlator_t *this)
     /* Set Gzip (De)Compression Level */
     GF_OPTION_INIT("compression-level", priv->cdc_level, int32, err);
     if (((priv->cdc_level < 1) || (priv->cdc_level > 9)) &&
-        (priv->cdc_level != GF_CDC_DEF_COMPRESSION)) {
+        (priv->cdc_level != Z_DEFAULT_COMPRESSION)) {
         gf_log(this->name, GF_LOG_WARNING,
                "Invalid gzip (de)compression level (%d),"
                " using default",
                priv->cdc_level);
-        priv->cdc_level = GF_CDC_DEF_COMPRESSION;
+        priv->cdc_level = Z_DEFAULT_COMPRESSION;
     }
 
     /* Set Gzip Memory Level */

@@ -14,24 +14,19 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/byte-order.h>
 
-#include "afr.h"
 #include "afr-transaction.h"
 
 void
 afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_build_parent_loc(loc_t *parent, loc_t *child, int32_t *op_errno)
 {
     int ret = -1;

@@ -1070,7 +1070,7 @@ dht_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int cmd,
     if (xdata)
         local->xattr_req = dict_ref(xdata);
 
-    local->rebalance.flock = *flock;
+    gf_flock_copy(&local->rebalance.flock, flock);
     local->rebalance.lock_cmd = cmd;
 
     local->call_cnt = 1;
@@ -1638,7 +1638,7 @@ dht_finodelk(call_frame_t *frame, xlator_t *this, const char *volume, fd_t *fd,
             if (ret)
                     goto err;
     */
-    local->rebalance.flock = *lock;
+    gf_flock_copy(&local->rebalance.flock, lock);
     local->rebalance.lock_cmd = cmd;
     local->key = gf_strdup(volume);
 

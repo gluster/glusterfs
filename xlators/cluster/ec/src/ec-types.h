@@ -11,7 +11,6 @@
 #ifndef __EC_TYPES_H__
 #define __EC_TYPES_H__
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/timer.h>
 #include "libxlator.h"
 #include <glusterfs/atomic.h>
@@ -601,7 +600,7 @@ struct subvol_healer {
 struct _ec_self_heald {
     gf_boolean_t iamshd;
     gf_boolean_t enabled;
-    int timeout;
+    time_t timeout;
     uint32_t max_threads;
     uint32_t wait_qlength;
     struct subvol_healer *index_healers;
@@ -671,8 +670,8 @@ struct _ec {
     uint32_t background_heals;
     uint32_t heal_wait_qlen;
     uint32_t self_heal_window_size; /* max size of read/writes */
-    uint32_t eager_lock_timeout;
-    uint32_t other_eager_lock_timeout;
+    time_t eager_lock_timeout;
+    time_t other_eager_lock_timeout;
     struct list_head pending_fops;
     struct list_head heal_waiting;
     struct list_head healing;
@@ -680,7 +679,7 @@ struct _ec {
     struct mem_pool *cbk_pool;
     struct mem_pool *lock_pool;
     ec_self_heald_t shd;
-    char vol_uuid[UUID_SIZE + 1];
+    char vol_uuid[GF_UUID_BUF_SIZE];
     dict_t *leaf_to_subvolid;
     ec_read_policy_t read_policy;
     ec_matrix_list_t matrix;

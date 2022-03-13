@@ -15,7 +15,6 @@
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/common-utils.h>
 
@@ -23,9 +22,8 @@
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
-#include "glusterfs3-xdr.h"
-#include "protocol-common.h"
 #include <glusterfs/defaults.h>
+#include "upcall-cache-invalidation.h"
 
 static int32_t
 up_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
@@ -2226,7 +2224,7 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("cache-invalidation", priv->cache_invalidation_enabled,
                      options, bool, out);
     GF_OPTION_RECONF("cache-invalidation-timeout",
-                     priv->cache_invalidation_timeout, options, int32, out);
+                     priv->cache_invalidation_timeout, options, time, out);
 
     ret = 0;
 
@@ -2263,7 +2261,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("cache-invalidation", priv->cache_invalidation_enabled, bool,
                    out);
     GF_OPTION_INIT("cache-invalidation-timeout",
-                   priv->cache_invalidation_timeout, int32, out);
+                   priv->cache_invalidation_timeout, time, out);
 
     LOCK_INIT(&priv->inode_ctx_lk);
     INIT_LIST_HEAD(&priv->inode_ctx_list);

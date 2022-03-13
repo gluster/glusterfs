@@ -7,14 +7,7 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-/* rpc related syncops */
-#include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
-#include "glusterd1-xdr.h"
-#include "glusterd-syncop.h"
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-locks.h"
 #include "glusterd-mgmt.h"
@@ -85,12 +78,12 @@ glusterd_op_state_machine_mgmt_v3_lock(rpcsvc_request_t *req,
     int32_t ret = -1;
     xlator_t *this = THIS;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
 
     GF_ASSERT(req);
 
-    glusterd_txn_opinfo_init(&txn_op_info, NULL, &lock_req->op, ctx->dict, req);
+    glusterd_txn_opinfo_init(&txn_op_info, 0, &lock_req->op, ctx->dict, req);
 
     ret = glusterd_set_txn_opinfo(&lock_req->txn_id, &txn_op_info);
     if (ret) {
@@ -124,7 +117,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
     gf_boolean_t is_synctasked = _gf_false;
     gf_boolean_t free_ctx = _gf_false;
     glusterd_conf_t *conf = NULL;
-    uint32_t timeout = 0;
+    time_t timeout = 0;
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -184,7 +177,7 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
      * mgmt_v3_lock_timeout should be set to default value or we
      * need to change the value according to timeout value
      * i.e, timeout + 120 seconds. */
-    ret = dict_get_uint32(ctx->dict, "timeout", &timeout);
+    ret = dict_get_time(ctx->dict, "timeout", &timeout);
     if (!ret)
         conf->mgmt_v3_lock_timeout = timeout + 120;
 

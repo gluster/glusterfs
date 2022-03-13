@@ -11,7 +11,6 @@
 #ifndef RPC_DRC_H
 #define RPC_DRC_H
 
-#include "rpcsvc-common.h"
 #include "rpcsvc.h"
 #include <glusterfs/locking.h>
 #include <glusterfs/dict.h>

@@ -23,3 +23,44 @@ Client, server interactions for connecting/disconnecting/reconnecting are covere
     - io-threads xlator implementation is covered.  
 9. Index xlator - [video](https://youtu.be/WYQKsNYXmrM) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-9-index-xlator)  
 Index xlator design and implementation are covered in this session.  
+10. Locks xlator inodelks - [video](https://youtu.be/1AIMbxmAKwc) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-10-locks-xlator-inodelks)  
+    - Gives brief introduction about the purpose of this xlator  
+    - Introduces and code walkthrough of inodelk part of locks xlator  
+11. Locks xlator entrylks - [video](https://youtu.be/BCgm5hNWFbE) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-11-locks-xlator-entrylks)  
+    - Introduces and code walkthrough of entrylk part of locks xlator  
+    - Explains the connection between entrylk and inodelk in deletion code paths  
+12. Locks xlator posixlk - [video](https://youtu.be/E7J_W50iRDw) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-12-locks-xlator-posixlk)
+    - What is the behavior of posixlks
+    - Code walkthrough
+13. Replication xlator introduction - [video](https://youtu.be/cW4CHLHf_jY) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-13-replication-introduction)  
+    - Replicate xlator graph placement  
+    - On-disk data representation  
+    - On-disk data manipulation with xattrop  
+    - Common functioning of fops  
+    - Lookup  
+    - Open  
+    - readdir/readdirp  
+    - Flush  
+    - Statfs  
+14. Replication update transaction - [video](https://youtu.be/ku6nF7WWHh8) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-14-replication-update-fops)  
+    - Update transaction  
+    - Data/Metadata operation  
+    - Optimizations to reduce the network communication  
+15. Replication optimizations & Read transaction - [video](https://youtu.be/dZq8J_bsDAY) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-15-replication-read-transactions)  
+    - read transaction  
+    - Handling of faults by the transaction  
+    - Load balancing strategies  
+16. Self heal daemon of replication - [video](https://youtu.be/CnDw1uosGiI) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-16-selfheal-daemon-for-replication)
+    - Intro to self-heal daemon (shd)
+    - Types of crawls in shd
+    - Code walkthrough
+17. Self heal daemon - data, metadata, entry self-heals - [video](https://youtu.be/aiBFO_ggSVA) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-17-self-heal-daemon-data-metadata-entry-healing)
+    - Types of heal needed for a given file/directory
+    - Code walkthrough of data, metadata, entry self-heals
+18. Intro to FUSE and its trade offs - [video](https://youtu.be/str7pR9sF-E) - [slides](https://www.slideshare.net/PranithKarampuri/glusterfs-session-18-intro-to-fuse-and-its-trade-offs)  
+    - various parts of fuse code in the glusterfs source tree
+    - the story FUSE version macros tell
+    - the tale of FUSE and fuse (historical context, terminology)
+    - to libfuse or not to libfuse?
+    - FUSE proto breakdown
+    - mount and INIT

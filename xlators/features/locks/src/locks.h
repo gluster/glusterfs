@@ -11,12 +11,8 @@
 #define __POSIX_LOCKS_H__
 
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/call-stub.h>
 #include "locks-mem-types.h"
-#include <glusterfs/client_t.h>
-
-#include <glusterfs/lkowner.h>
 
 typedef enum {
     MLK_NONE,
@@ -250,13 +246,6 @@ typedef struct {
 typedef struct {
     struct list_head locks_list;
 } pl_fdctx_t;
-
-struct _locker {
-    struct list_head lockers;
-    char *volume;
-    inode_t *inode;
-    gf_lkowner_t owner;
-};
 
 typedef struct _locks_ctx {
     pthread_mutex_t lock;

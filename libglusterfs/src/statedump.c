@@ -9,10 +9,8 @@
 */
 
 #include <stdarg.h>
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/statedump.h"
-#include "glusterfs/stack.h"
 #include "glusterfs/syscall.h"
 
 #ifdef HAVE_MALLOC_H
@@ -25,6 +23,16 @@
 #ifdef gf_log
 #undef gf_log
 #endif
+
+#define GF_PROC_DUMP_SET_OPTION(opt, val) opt = val
+
+#define GF_CHECK_DUMP_OPTION_ENABLED(option_dump, var, label)                  \
+    do {                                                                       \
+        if (option_dump == _gf_true) {                                         \
+            var = _gf_false;                                                   \
+            goto label;                                                        \
+        }                                                                      \
+    } while (0);
 
 #define GF_PROC_DUMP_IS_OPTION_ENABLED(opt)                                    \
     (dump_options.dump_##opt == _gf_true)
@@ -248,19 +256,22 @@ gf_proc_dump_xlator_mem_info(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (xl->mem_acct->rec[i].num_allocs == 0)
+        if (!GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs))
             continue;
 
         gf_proc_dump_add_section("%s.%s - usage-type %s memusage", xl->type,
                                  xl->name, xl->mem_acct->rec[i].typestr);
+#ifdef DEBUG
         gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
+#endif
+        gf_proc_dump_write("num_allocs", "%" PRIu64,
+                           GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs));
+#ifdef DEBUG
         gf_proc_dump_write("max_size", "%" PRIu64,
                            xl->mem_acct->rec[i].max_size);
         gf_proc_dump_write("max_num_allocs", "%u",
                            xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
+#endif
     }
 
     return;
@@ -281,20 +292,22 @@ gf_proc_dump_xlator_mem_info_only_in_use(xlator_t *xl)
     gf_proc_dump_write("num_types", "%d", xl->mem_acct->num_types);
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
-        if (!xl->mem_acct->rec[i].size)
+        if (!GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs))
             continue;
 
         gf_proc_dump_add_section("%s.%s - usage-type %d", xl->type, xl->name,
                                  i);
-
+#ifdef DEBUG
         gf_proc_dump_write("size", "%" PRIu64, xl->mem_acct->rec[i].size);
         gf_proc_dump_write("max_size", "%" PRIu64,
                            xl->mem_acct->rec[i].max_size);
-        gf_proc_dump_write("num_allocs", "%u", xl->mem_acct->rec[i].num_allocs);
+#endif
+        gf_proc_dump_write("num_allocs", "%" PRIu64,
+                           GF_ATOMIC_GET(xl->mem_acct->rec[i].num_allocs));
+#ifdef DEBUG
         gf_proc_dump_write("max_num_allocs", "%u",
                            xl->mem_acct->rec[i].max_num_allocs);
-        gf_proc_dump_write("total_allocs", "%" PRIu64,
-                           xl->mem_acct->rec[i].total_allocs);
+#endif
     }
 
     return;
@@ -902,7 +915,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     // continue even though gettimeofday() has failed
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
@@ -951,7 +964,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
-        gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+        gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
     }
 
     len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",

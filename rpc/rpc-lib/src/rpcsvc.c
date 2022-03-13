@@ -11,11 +11,9 @@
 #include "rpcsvc.h"
 #include "rpc-transport.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
 #include "xdr-rpc.h"
-#include <glusterfs/iobuf.h>
 #include "xdr-common.h"
 #include "xdr-generic.h"
 #include "rpc-common-xdr.h"
@@ -464,7 +462,6 @@ rpcsvc_request_init(rpcsvc_t *svc, rpc_transport_t *trans,
     req->svc = svc;
     req->trans_private = msg->private;
 
-    INIT_LIST_HEAD(&req->txlist);
     INIT_LIST_HEAD(&req->request_list);
     req->payloadsize = 0;
 
@@ -1499,15 +1496,16 @@ rpcsvc_submit_generic(rpcsvc_request_t *req, struct iovec *proghdr,
     char new_iobref = 0;
     rpcsvc_drc_globals_t *drc = NULL;
     gf_latency_t *lat = NULL;
+    struct timespec end;
 
     if ((!req) || (!req->trans))
         return -1;
 
     if (req->prog && req->begin.tv_sec) {
         if ((req->procnum >= 0) && (req->procnum < req->prog->numactors)) {
-            timespec_now(&req->end);
+            timespec_now(&end);
             lat = &req->prog->latencies[req->procnum];
-            gf_latency_update(lat, &req->begin, &req->end);
+            gf_latency_update(lat, &req->begin, &end);
         }
     }
     trans = req->trans;

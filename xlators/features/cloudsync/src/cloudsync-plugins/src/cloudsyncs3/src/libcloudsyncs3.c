@@ -15,8 +15,6 @@
 #include <openssl/buffer.h>
 #include <openssl/crypto.h>
 #include <curl/curl.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include "libcloudsyncs3.h"
 #include "cloudsync-common.h"
 
@@ -300,7 +298,7 @@ aws_b64_encode(const unsigned char *input, int length)
 char *
 aws_sign_request(char *const str, char *awssekey)
 {
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
     HMAC_CTX ctx;
 #endif
     HMAC_CTX *pctx = NULL;
@@ -310,7 +308,7 @@ aws_sign_request(char *const str, char *awssekey)
     unsigned len;
     char *base64 = NULL;
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
     HMAC_CTX_init(&ctx);
     pctx = &ctx;
 #else
@@ -320,7 +318,7 @@ aws_sign_request(char *const str, char *awssekey)
     HMAC_Update(pctx, (unsigned char *)str, strlen(str));
     HMAC_Final(pctx, (unsigned char *)md, &len);
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)
+#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
     HMAC_CTX_cleanup(pctx);
 #else
     HMAC_CTX_free(pctx);

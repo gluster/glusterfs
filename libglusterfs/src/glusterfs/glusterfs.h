@@ -15,30 +15,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <netdb.h>
 #include <errno.h>
-#include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-#include <sys/poll.h>
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
 #include <openssl/sha.h>
 
 #include "glusterfs/glusterfs-fops.h"
 #include "glusterfs/list.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/lkowner.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/refcount.h"
-#include "glusterfs/atomic.h"
 
 #define GF_YES 1
 #define GF_NO 0
@@ -95,6 +88,7 @@
 #define IO_THREADS_QUEUE_SIZE_KEY "io-thread-queue-size"
 
 #define GF_XATTR_CLRLK_CMD "glusterfs.clrlk"
+#define GF_XATTR_INTRLK_CMD "glusterfs.intrlk"
 #define GF_XATTR_PATHINFO_KEY "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY "trusted.glusterfs.node-uuid"
 #define GF_XATTR_LIST_NODE_UUIDS_KEY "trusted.glusterfs.list-node-uuids"
@@ -128,6 +122,9 @@
     (strncmp(x, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) == 0)
 
 #define XATTR_IS_BD(x) (strncmp(x, BD_XATTR_KEY, SLEN(BD_XATTR_KEY)) == 0)
+
+/* required for namespace */
+#define GF_NAMESPACE_KEY "trusted.glusterfs.namespace"
 
 #define GF_XATTR_LINKINFO_KEY "trusted.distribute.linkinfo"
 #define GFID_XATTR_KEY "trusted.gfid"
@@ -259,12 +256,6 @@ enum gf_internal_fop_indicator {
 
 #define GF_GFIDLESS_LOOKUP "gfidless-lookup"
 #define GF_UNLINKED_LOOKUP "unlinked-lookup"
-/* replace-brick and pump related internal xattrs */
-#define RB_PUMP_CMD_START "glusterfs.pump.start"
-#define RB_PUMP_CMD_PAUSE "glusterfs.pump.pause"
-#define RB_PUMP_CMD_COMMIT "glusterfs.pump.commit"
-#define RB_PUMP_CMD_ABORT "glusterfs.pump.abort"
-#define RB_PUMP_CMD_STATUS "glusterfs.pump.status"
 
 #define GLUSTERFS_MARKER_DONT_ACCOUNT_KEY "glusters.marker.dont-account"
 #define GLUSTERFS_RDMA_INLINE_THRESHOLD (2048)
@@ -321,6 +312,7 @@ enum gf_internal_fop_indicator {
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY "dht-get-iatt-in-xattr"
 #define DHT_MODE_IN_XDATA_KEY "dht-get-mode-in-xattr"
+#define GF_FORCE_REPLACE_KEY "force-replace"
 #define GET_LINK_COUNT "get-link-count"
 #define GF_GET_SIZE "get-size"
 #define GF_PRESTAT "virt-gf-prestat"
@@ -669,7 +661,6 @@ struct _glusterfs_ctx {
     unsigned char measure_latency;
     pthread_t sigwaiter;
     char *cmdlinestr;
-    struct mem_pool *stub_mem_pool;
     unsigned char cleanup_started;
     int graph_id;        /* Incremented per graph, value should
                             indicate how many times the graph has
@@ -762,6 +753,7 @@ struct _glusterfs_ctx {
 
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
+    char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
@@ -786,11 +778,22 @@ struct gf_flock {
     gf_lkowner_t l_owner;
 };
 
+static inline void
+gf_flock_copy(struct gf_flock *dst, struct gf_flock *src)
+{
+    dst->l_type = src->l_type;
+    dst->l_whence = src->l_whence;
+    dst->l_start = src->l_start;
+    dst->l_len = src->l_len;
+    dst->l_pid = src->l_pid;
+    lk_owner_copy(&dst->l_owner, &src->l_owner);
+}
+
 typedef struct lock_migration_info {
     struct list_head list;
-    struct gf_flock flock;
     char *client_uid;
     uint32_t lk_flags;
+    struct gf_flock flock;
 } lock_migration_info_t;
 
 #define GF_MUST_CHECK __attribute__((warn_unused_result))
@@ -856,4 +859,5 @@ int
 glusterfs_read_secure_access_file(void);
 int
 glusterfs_graph_fini(glusterfs_graph_t *graph);
+
 #endif /* _GLUSTERFS_H */

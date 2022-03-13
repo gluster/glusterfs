@@ -17,7 +17,6 @@
 #include "nfs-common.h"
 #include "nfs-fops.h"
 #include "nfs-mem-types.h"
-#include "rpcsvc.h"
 #include <glusterfs/iatt.h>
 #include "nfs-messages.h"
 

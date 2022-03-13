@@ -8,15 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
+#include "socket.h"
 #include "client.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/gf-event.h>
 
-#include "xdr-rpc.h"
 #include "glusterfs3.h"
 #include "client-messages.h"
 
@@ -796,7 +794,7 @@ client_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         pthread_spin_lock(&conf->fd_lock);
         {
             fdctx = this_fd_get_ctx(fd, this);
-            if (fdctx && !fdctx_lock_lists_empty(fdctx)) {
+            if (fdctx && !fd_lk_ctx_empty(fdctx->lk_ctx)) {
                 ret = -1;
                 op_errno = EBADFD;
             }
@@ -2302,7 +2300,17 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 rpc_clnt_cleanup_and_start(rpc);
 
             } else {
-                rpc->conn.config.remote_port = 0;
+                int32_t remote_port = 0;
+                ret = dict_get_int32(this->options, "remote-port",
+                                     &remote_port);
+                if (IS_ERROR(ret)) {
+                    /* this is optional, so it may be error in most cases. Add a
+                     * trace log */
+                    gf_msg_trace(
+                        this->name, 0,
+                        "volfile doesn't have remote-port, resetting to 0");
+                }
+                conf->rpc_conf.remote_port = remote_port;
                 conf->connection_to_brick = _gf_false;
             }
             break;
@@ -2411,11 +2419,11 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
 {
     int ret = -1;
 
-    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, int32, out);
+    GF_OPTION_INIT("frame-timeout", conf->rpc_conf.rpc_timeout, time, out);
 
     GF_OPTION_INIT("remote-port", conf->rpc_conf.remote_port, int32, out);
 
-    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, int32, out);
+    GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, time, out);
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
     if (!conf->opt.remote_subvolume)
@@ -2555,10 +2563,10 @@ reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options,
-                     int32, out);
+    GF_OPTION_RECONF("frame-timeout", conf->rpc_conf.rpc_timeout, options, time,
+                     out);
 
-    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, int32,
+    GF_OPTION_RECONF("ping-timeout", rpc_config.ping_timeout, options, time,
                      out);
 
     GF_OPTION_RECONF("event-threads", new_nthread, options, int32, out);
@@ -2812,7 +2820,7 @@ client_priv_dump(xlator_t *this)
         conn = &conf->rpc->conn;
         gf_proc_dump_write("total_bytes_read", "%" PRIu64,
                            conn->trans->total_bytes_read);
-        gf_proc_dump_write("ping_timeout", "%" PRIu32, conn->ping_timeout);
+        gf_proc_dump_write("ping_timeout", "%ld", conn->ping_timeout);
         gf_proc_dump_write("total_bytes_written", "%" PRIu64,
                            conn->trans->total_bytes_write);
         gf_proc_dump_write("ping_msgs_sent", "%" PRIu64, conn->pingcnt);
@@ -2969,15 +2977,14 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_SETTABLE},
     {.key = {"event-threads"},
      .type = GF_OPTION_TYPE_INT,
-     .min = 1,
-     .max = 32,
-     .default_value = "2",
-     .description = "Specifies the number of event threads to execute "
-                    "in parallel. Larger values would help process"
-                    " responses faster, depending on available processing"
-                    " power. Range 1-32 threads.",
+     .min = CLIENT_MIN_EVENT_THREADS,
+     .max = CLIENT_MAX_EVENT_THREADS,
+     .default_value = TOSTRING(STARTING_EVENT_THREADS),
+     .description = "Specifies the number of event threads to execute in "
+                    "parallel. Larger values would help process responses "
+                    "faster, depending on available processing power.",
      .op_version = {GD_OP_VERSION_3_7_0},
-     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_RANGE},
 
     /* This option is required for running code-coverage tests with
        old protocol */

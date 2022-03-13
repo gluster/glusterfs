@@ -13,16 +13,11 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
-#include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include "protocol-common.h"
-#include <glusterfs/byte-order.h>
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"
@@ -212,7 +207,7 @@ __afr_inode_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 /* {{{ writev */
 
-void
+static void
 afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame)
 {
     afr_local_t *src_local = NULL;
@@ -229,7 +224,7 @@ afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame)
         dst_local->xdata_rsp = dict_ref(src_local->xdata_rsp);
 }
 
-void
+static void
 afr_writev_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -284,7 +279,7 @@ afr_writev_handle_short_writes(call_frame_t *frame, xlator_t *this)
     }
 }
 
-void
+static void
 afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -319,7 +314,7 @@ unlock:
     UNLOCK(&frame->lock);
 }
 
-void
+static void
 afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1115,6 +1110,7 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
 
     priv = this->private;
     local = frame->local;
+    uint32_t hton32_1;
 
     locked_nodes = alloca0(priv->child_count);
 
@@ -1125,10 +1121,11 @@ _afr_handle_empty_brick_type(xlator_t *this, call_frame_t *frame, loc_t *loc,
     if (!local->pending)
         goto out;
 
-    local->pending[empty_index][idx] = hton32(1);
+    hton32_1 = htobe32(1);
+    local->pending[empty_index][idx] = hton32_1;
 
     if ((priv->esh_granular) && (type == AFR_ENTRY_TRANSACTION))
-        local->pending[empty_index][d_idx] = hton32(1);
+        local->pending[empty_index][d_idx] = hton32_1;
 
     local->xdata_req = dict_new();
     if (!local->xdata_req)

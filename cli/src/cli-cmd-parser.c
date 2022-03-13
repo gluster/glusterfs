@@ -11,7 +11,6 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 #include <fnmatch.h>
 #include <time.h>
 
@@ -20,9 +19,6 @@
 #include "cli-mem-types.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
-
-#include "protocol-common.h"
-#include "cli1-xdr.h"
 
 #define MAX_SNAP_DESCRIPTION_LEN 1024
 
@@ -77,6 +73,18 @@ static char *
 str_getunamb(const char *tok, char **opwords)
 {
     return (char *)cli_getunamb(tok, (void **)opwords, id_sel);
+}
+
+static int
+validate_brick_name(char *brick)
+{
+    char *delimiter = NULL;
+    int ret = 0;
+    delimiter = strrchr(brick, ':');
+    if (!delimiter || delimiter == brick || *(delimiter + 1) != '/')
+        ret = -1;
+
+    return ret;
 }
 
 int32_t
@@ -408,6 +416,11 @@ cli_cmd_create_disperse_check(struct cli_state *state, int *disperse,
         return -1;
     }
 
+    if ((*disperse - *redundancy) > 16) {
+        cli_err("disperse-data bricks must be less than or equal to 16");
+        return -1;
+    }
+
     if ((tmp & -tmp) != tmp) {
         answer = cli_cmd_get_confirmation(state, question3);
         if (answer == GF_ANSWER_NO)
@@ -447,6 +460,7 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                         cli_err(
                             "disperse count must "
                             "be greater than 2");
+                        ret = -1;
                         goto out;
                     }
                     ret = 2;
@@ -460,8 +474,11 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                     goto out;
                 }
                 ret = gf_string2int(words[index + 1], data_count);
-                if (ret == -1 || *data_count < 2) {
-                    cli_err("disperse-data must be greater than 1");
+                if (ret == -1 || *data_count < 2 || *data_count > 16) {
+                    cli_err(
+                        "disperse-data must be greater than 1 "
+                        "and less than equal to 16");
+                    ret = -1;
                     goto out;
                 }
                 ret = 2;
@@ -476,6 +493,7 @@ cli_validate_disperse_volume(char *word, gf1_cluster_type type,
                 ret = gf_string2int(words[index + 1], redundancy_count);
                 if (ret == -1 || *redundancy_count < 1) {
                     cli_err("redundancy must be greater than 0");
+                    ret = -1;
                     goto out;
                 }
                 ret = 2;
@@ -502,6 +520,7 @@ cli_validate_volname(const char *volname)
     int volname_len;
     static const char *const invalid_volnames[] = {"volume",
                                                    "type",
+                                                   "help",
                                                    "subvolumes",
                                                    "option",
                                                    "end-volume",
@@ -1195,7 +1214,7 @@ cli_cmd_quota_parse(const char **words, int wordcount, dict_t **options)
                               "remove-objects",
                               NULL};
     char *w = NULL;
-    uint32_t time = 0;
+    time_t time = 0;
     double percent = 0;
     char *end_ptr = NULL;
     int64_t limit = 0;
@@ -1656,6 +1675,36 @@ out:
         fclose(fp);
 
     return ret;
+}
+
+/* Strips all whitespace characters in a string and returns length of new string
+ * on success
+ */
+static int
+gf_strip_whitespace(char *str, int len)
+{
+    int i = 0;
+    int new_len = 0;
+    char *new_str = NULL;
+
+    GF_ASSERT(str);
+
+    new_str = GF_MALLOC(len + 1, gf_common_mt_char);
+    if (new_str == NULL)
+        return -1;
+
+    for (i = 0; i < len; i++) {
+        if (!isspace(str[i]))
+            new_str[new_len++] = str[i];
+    }
+    new_str[new_len] = '\0';
+
+    if (new_len != len) {
+        snprintf(str, new_len + 1, "%s", new_str);
+    }
+
+    GF_FREE(new_str);
+    return new_len;
 }
 
 int32_t
@@ -3012,6 +3061,35 @@ out:
     return ret;
 }
 
+static int
+gf_is_str_int(const char *value)
+{
+    int flag = 0;
+    char *str = NULL;
+    char *fptr = NULL;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, value, out);
+
+    str = gf_strdup(value);
+    if (!str)
+        goto out;
+
+    fptr = str;
+
+    while (*str) {
+        if (!isdigit(*str)) {
+            flag = 1;
+            goto out;
+        }
+        str++;
+    }
+
+out:
+    GF_FREE(fptr);
+
+    return flag;
+}
+
 int32_t
 cli_cmd_volume_top_parse(const char **words, int wordcount, dict_t **options)
 {
@@ -3422,6 +3500,27 @@ cli_cmd_validate_dumpoption(const char *arg, char **option)
     }
     *option = w;
     return _gf_true;
+}
+
+/* Check if the pid is > 0 */
+static gf_boolean_t
+gf_valid_pid(const char *pid, int length)
+{
+    gf_boolean_t ret = _gf_true;
+    pid_t value = 0;
+    char *end_ptr = NULL;
+
+    if (length <= 0) {
+        ret = _gf_false;
+        goto out;
+    }
+
+    value = strtol(pid, &end_ptr, 10);
+    if (value <= 0) {
+        ret = _gf_false;
+    }
+out:
+    return ret;
 }
 
 int

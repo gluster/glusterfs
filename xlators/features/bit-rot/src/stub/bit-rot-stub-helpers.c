@@ -8,6 +8,8 @@
    cases as published by the Free Software Foundation.
 */
 
+#include <glusterfs/syncop.h>
+#include <glusterfs/syncop-utils.h>
 #include "bit-rot-stub.h"
 
 br_stub_fd_t *
@@ -109,8 +111,7 @@ br_stub_add(xlator_t *this, uuid_t gfid)
     struct stat st = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, errno, EINVAL);
 
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
@@ -151,8 +152,8 @@ br_stub_del(xlator_t *this, uuid_t gfid)
     char gfid_path[BR_PATH_MAX_PLUS] = {0};
 
     priv = this->private;
-    GF_ASSERT_AND_GOTO_WITH_ERROR(this->name, !gf_uuid_is_null(gfid), out,
-                                  op_errno, EINVAL);
+    GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(gfid), out, op_errno,
+                                  EINVAL);
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
     ret = sys_unlink(gfid_path);
@@ -501,7 +502,7 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
             continue;
         }
 
-        this_size = max(sizeof(gf_dirent_t), sizeof(gfs3_dirplist)) +
+        this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     strlen(entry->d_name) + 1;
 
         if (this_size + filled > size) {
@@ -531,7 +532,7 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
-         * (glfs-heal.c, afr-self-heald.c, pump.c) rely on it
+         * (glfs-heal.c, afr-self-heald.c) rely on it
          * for directory read resumption.
          */
         last_off = (u_long)telldir(dir);

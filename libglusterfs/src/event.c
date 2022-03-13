@@ -18,7 +18,6 @@
 
 #include "glusterfs/gf-event.h"
 #include "glusterfs/timespec.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 #include "glusterfs/syscall.h"
 
@@ -54,7 +53,7 @@ gf_event_pool_new(int count, int eventthreadcount)
 int
 gf_event_register(struct event_pool *event_pool, int fd,
                   event_handler_t handler, void *data, int poll_in,
-                  int poll_out, char notify_poller_death)
+                  int poll_out, int notify_poller_death)
 {
     int ret = -1;
 
@@ -159,9 +158,9 @@ out:
     return ret;
 }
 
-void
+static void
 poller_destroy_handler(int fd, int idx, int gen, void *data, int poll_out,
-                       int poll_in, int poll_err, char event_thread_exit)
+                       int poll_in, int poll_err, int event_thread_exit)
 {
     struct event_destroy_data *destroy = NULL;
     int readfd = -1;
@@ -199,7 +198,6 @@ gf_event_dispatch_destroy(struct event_pool *event_pool)
     int ret = -1, threadcount = 0;
     int fd[2] = {-1};
     int idx = -1;
-    int flags = 0;
     struct timespec sleep_till = {
         0,
     };
@@ -209,21 +207,8 @@ gf_event_dispatch_destroy(struct event_pool *event_pool)
 
     GF_VALIDATE_OR_GOTO("event", event_pool, out);
 
-    ret = pipe(fd);
-    if (ret < 0)
-        goto out;
-
-    /* Make the read end of the pipe nonblocking */
-    flags = fcntl(fd[0], F_GETFL);
-    flags |= O_NONBLOCK;
-    ret = fcntl(fd[0], F_SETFL, flags);
-    if (ret < 0)
-        goto out;
-
-    /* Make the write end of the pipe nonblocking */
-    flags = fcntl(fd[1], F_GETFL);
-    flags |= O_NONBLOCK;
-    ret = fcntl(fd[1], F_SETFL, flags);
+    /* Both ends are opened non-blocking. */
+    ret = gf_pipe(fd, O_NONBLOCK);
     if (ret < 0)
         goto out;
 

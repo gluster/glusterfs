@@ -14,7 +14,6 @@
 #include "rpcsvc.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/xlator.h>
-#include <glusterfs/iobuf.h>
 #include "nfs.h"
 #include <glusterfs/list.h>
 #include "xdr-nfs3.h"
@@ -22,7 +21,6 @@
 #include "nfs3-fh.h"
 #include <glusterfs/compat-uuid.h>
 #include "exports.h"
-#include "mount3-auth.h"
 #include "auth-cache.h"
 
 /* Registered with portmap */

@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/statvfs.h>
 #include <dirent.h>
 #include <time.h>
 
@@ -29,7 +30,6 @@
 #endif
 
 #include <glusterfs/compat.h>
-#include <glusterfs/timer.h>
 #include "posix-mem-types.h"
 #include <glusterfs/call-stub.h>
 
@@ -119,6 +119,18 @@
         }                                                                      \
     } while (0)
 
+/* On Linux, O_DIRECT requires the buffer to be aligned at logical sector
+   size boundary, and both buffer size and file offset should be multiple
+   of the logical sector size as well. Usually it is equal to 512 bytes and
+   may be obtained by BLKBSZGET ioctl() on a device special file. On the
+   other side O_DIRECT may give better performance with chunks aligned/sized
+   to multiple of the logical filesystem block size. The latter is obtained
+   via statvfs() in posix_init() and used to check whether the chunk is
+   suitable for O_DIRECT where applicable. */
+
+#define DIRECT_ALIGNED(x, priv)                                                \
+    ((((unsigned long)(x)) & ((priv)->base_bsize - 1)) == 0)
+
 /**
  * posix_fd - internal structure common to file and directory fd's
  */
@@ -145,7 +157,10 @@ struct posix_diskxl {
 struct posix_private {
     char *base_path;
     int32_t base_path_length;
+
     int32_t path_max;
+
+    long base_bsize;
 
     gf_lock_t lock;
 
@@ -163,9 +178,12 @@ struct posix_private {
     /* lock for brick dir */
     int mount_lock;
 
-    struct stat handledir;
+    int fsync_queue_count;
 
-    /* uuid of glusterd that swapned the brick process */
+    ino_t handledir_st_ino;
+    dev_t handledir_st_dev;
+
+    /* uuid of glusterd that spawned the brick process */
     uuid_t glusterd_uuid;
 
 #ifdef HAVE_LIBAIO
@@ -181,8 +199,7 @@ struct posix_private {
     pthread_cond_t janitor_cond;
     pthread_cond_t fd_cond;
     pthread_cond_t disk_cond;
-    int fsync_queue_count;
-    int32_t janitor_sleep_duration;
+    time_t janitor_sleep_duration;
 
     enum {
         BATCH_NONE = 0,
@@ -196,9 +213,9 @@ struct posix_private {
     char gfid2path_sep[8];
 
     /* seconds to sleep between health checks */
-    uint32_t health_check_interval;
+    time_t health_check_interval;
     /* seconds to sleep to wait for aio write finish for health checks */
-    uint32_t health_check_timeout;
+    time_t health_check_timeout;
     pthread_t health_check;
 
     double disk_reserve;
@@ -227,6 +244,7 @@ struct posix_private {
     uint32_t max_hardlinks;
     int32_t arrdfd[256];
     int dirfd;
+    uint32_t rel_fdcount;
 
     /* This option is used for either to call a landfill_purge or not */
     gf_boolean_t disable_landfill_purge;
@@ -235,7 +253,7 @@ struct posix_private {
     gf_boolean_t ctime;
     gf_boolean_t janitor_task_stop;
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
     gf_boolean_t health_check_active;
     gf_boolean_t update_pgfid_nlinks;
     gf_boolean_t gfid2path;
@@ -264,15 +282,15 @@ struct posix_private {
     gf_boolean_t aio_configured;
     gf_boolean_t aio_init_done;
     gf_boolean_t aio_capable;
-    uint32_t rel_fdcount;
+
+    gf_boolean_t io_uring_configured;
 
     /*io_uring related.*/
-    gf_boolean_t io_uring_configured;
 #ifdef HAVE_LIBURING
-    struct io_uring ring;
     gf_boolean_t io_uring_init_done;
     gf_boolean_t io_uring_capable;
     gf_boolean_t uring_thread_exit;
+    struct io_uring ring;
     pthread_t uring_thread;
     pthread_mutex_t sq_mutex;
     pthread_mutex_t cq_mutex;
@@ -348,13 +366,15 @@ int
 posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
                pid_t pid, int *op_errno);
 int
-posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p);
+posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
+             gf_boolean_t fetch_time);
 int
 posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
-            struct iatt *iatt);
+            struct iatt *iatt, gf_boolean_t fetch_time);
 int
 posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *real_path,
-            struct iatt *iatt, gf_boolean_t inode_locked);
+            struct iatt *iatt, gf_boolean_t inode_locked,
+            gf_boolean_t fetch_time);
 
 dict_t *
 posix_xattr_fill(xlator_t *this, const char *path, loc_t *loc, fd_t *fd,
@@ -377,15 +397,13 @@ posix_entry_create_xattr_set(xlator_t *this, loc_t *loc, const char *path,
 int
 posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd,
                  int *op_errno);
-void
-posix_fill_ino_from_gfid(xlator_t *this, struct iatt *buf);
 
 gf_boolean_t
 posix_special_xattr(char **pattern, char *key);
 
 void
-__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags,
-                       off_t offset, size_t size);
+__posix_fd_set_odirect(fd_t *fd, struct posix_fd *pfd, int opflags, int direct);
+
 int
 posix_spawn_health_check_thread(xlator_t *this);
 
@@ -677,7 +695,8 @@ posix_cs_heal_state(xlator_t *this, const char *path, int *fd,
                     struct iatt *stbuf);
 int
 posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
-                     struct iatt *buf, const char *realpath, dict_t *xattr_req,
+                     struct iatt *buf, const char *realpath,
+                     gf_boolean_t cs_obj_status, gf_boolean_t cs_obj_repair,
                      dict_t **xattr_rsp, gf_boolean_t ignore_failure);
 int
 posix_check_dev_file(xlator_t *this, inode_t *inode, char *fop, int *op_errno);
@@ -686,7 +705,7 @@ int
 posix_spawn_ctx_janitor_thread(xlator_t *this);
 
 void
-posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xdata);
+posix_update_iatt_buf(struct iatt *buf, int fd, char *loc);
 
 gf_boolean_t
 posix_is_layout_stale(dict_t *xdata, char *par_path, xlator_t *this);

@@ -288,10 +288,27 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [_init], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
+        if test "x$ac_cv_lib_asan__init" = xyes; then
+                AC_MSG_CHECKING([whether asan API can be used])
+                saved_CFLAGS=${CFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=address"
+                AC_COMPILE_IFELSE(
+                [AC_LANG_PROGRAM([
+                   [#include <sanitizer/common_interface_defs.h>]],
+                   [[__sanitizer_finish_switch_fiber(0, 0, 0)]])],
+                   [ASAN_API=yes], [ASAN_API=no])
+                AC_MSG_RESULT([$ASAN_API])
+                if test x$ASAN_API = "xyes"; then
+                   AC_DEFINE(HAVE_ASAN_API, 1, [Define if asan API can be used.])
+                fi
+                CFLAGS=${saved_CFLAGS}
+        fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lasan"
+
+        dnl See: https://groups.google.com/d/msg/address-sanitizer/SD590XDinfQ/NMUPj_G0BgAJ
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=address"
 fi
 
 AC_ARG_ENABLE([tsan],
@@ -302,9 +319,9 @@ if test "x$enable_tsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=tsan
-        AC_CHECK_LIB([tsan], [__tsan_init], ,
+        AC_CHECK_LIB([tsan], [_init], ,
                 [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
-        if test "x$ac_cv_lib_tsan___tsan_init" = xyes; then
+        if test "x$ac_cv_lib_tsan__init" = xyes; then
                 AC_MSG_CHECKING([whether tsan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=thread"
@@ -320,7 +337,7 @@ if test "x$enable_tsan" = "xyes"; then
                 CFLAGS=${saved_CFLAGS}
         fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=thread"
 fi
 
 AC_ARG_ENABLE([ubsan],
@@ -331,23 +348,26 @@ if test "x$enable_ubsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=ubsan
-        AC_CHECK_LIB([ubsan], [__ubsan_default_options], ,
+        AC_CHECK_LIB([ubsan], [_init], ,
                 [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=undefined"
 fi
 
 # Initialize CFLAGS before usage
 BUILD_TCMALLOC=no
-AC_ARG_ENABLE([tcmalloc],
-              AC_HELP_STRING([--enable-tcmalloc],
-                             [Enable linking with tcmalloc library.]))
-if test "x$enable_tcmalloc" = "xyes"; then
+USE_MEMPOOL=yes
+AC_ARG_WITH([tcmalloc],
+        [AC_HELP_STRING([--without-tcmalloc], [Use gluster based mempool])],
+        [with_tcmalloc="no"], [with_tcmalloc="yes"])
+if test "x$with_tcmalloc" = "xyes"; then
+    AC_CHECK_LIB([tcmalloc_minimal], [malloc], [],
+                 [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
-    AC_CHECK_LIB([tcmalloc], [malloc], [],
-                 [AC_MSG_ERROR([when --enable-tcmalloc is used, tcmalloc library needs to be present])])
-    GF_LDFLAGS="-ltcmalloc ${GF_LDFLAGS}"
+    GF_LDFLAGS="-ltcmalloc_minimal ${GF_LDFLAGS}"
+    AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+    USE_MEMPOOL=no
 fi
 
 
@@ -366,6 +386,12 @@ AC_ARG_WITH([libtirpc],
         [AC_HELP_STRING([--without-libtirpc], [Use legacy glibc RPC.])],
         [with_libtirpc="no"], [with_libtirpc="yes"])
 
+dnl For --without-libtirpc, check whether legacy glibc rpc is available.
+if test "x$with_libtirpc" = "xno"; then
+    AC_CHECK_HEADER([rpc/types.h], ,
+        AC_MSG_ERROR([Your C library lacks support for RPC. Please use libtirpc instead.]))
+fi
+
 dnl ipv6-default is off by default
 dnl
 dnl ipv6-default requires libtirpc. (glibc rpc does not support IPv6.)
@@ -375,11 +401,13 @@ AC_ARG_WITH([ipv6-default],
         AC_HELP_STRING([--with-ipv6-default], [Set IPv6 as default.]),
         [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
 
-AC_CHECK_FILE([/etc/centos-release])
-if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/centos-release])
+    if test "x$ac_cv_file__etc_centos_release" = "xyes"; then
         if grep "release 6" /etc/centos-release; then
                 with_ipv6_default="no"
         fi
+    fi
 fi
 
 dnl On some distributions '-ldl' isn't automatically added to LIBS
@@ -431,6 +459,19 @@ case x$enable_valgrind in
     AC_MSG_ERROR([Please specify --enable-valgrind@<:@=memcheck,drd@:>@])
     ;;
 esac
+
+if test "x$VALGRIND_TOOL" != xno; then
+   AC_MSG_CHECKING([whether valgrind API can be used])
+   AC_COMPILE_IFELSE(
+   [AC_LANG_PROGRAM([
+      [#include <valgrind/valgrind.h>]],
+      [[VALGRIND_STACK_DEREGISTER(VALGRIND_STACK_REGISTER(0, 0))]])],
+      [HAVE_VALGRIND_API=yes], [HAVE_VALGRIND_API=no])
+   AC_MSG_RESULT([$HAVE_VALGRIND_API])
+   if test x$HAVE_VALGRIND_API = "xyes"; then
+      AC_DEFINE(HAVE_VALGRIND_API, 1, [Define if valgrind API can be used.])
+   fi
+fi
 
 AC_ARG_WITH([previous-options],
         [AS_HELP_STRING([--with-previous-options],
@@ -534,8 +575,6 @@ AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads libr
 
 AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
 
-AC_CHECK_LIB([readline], [rl_do_undo], [RL_UNDO="yes"], [RL_UNDO="no"])
-
 AC_CHECK_LIB([intl], [gettext])
 
 AC_CHECK_HEADERS([sys/xattr.h])
@@ -595,6 +634,22 @@ GF_CFLAGS="${GF_CFLAGS} ${UUID_CFLAGS}"
 dnl PKGCONFIG_UUID is used for the dependency in *.pc.in files
 AC_SUBST(PKGCONFIG_UUID)
 
+dnl Check for xxhash library.
+PKG_CHECK_MODULES([XXHASH], [libxxhash],
+  [have_libxxhash=yes
+   AC_DEFINE(HAVE_LIBXXHASH, 1, [Define to 1 if you have libxxhash.so.])],
+  [have_libxxhash=no])
+AM_CONDITIONAL([HAVE_LIBXXHASH], [test x$have_libxxhash = xyes])
+
+dnl Note xxhsum binary is required to run gfid2path tests.
+if test "x$have_libxxhash" = "xyes"; then
+    AC_CHECK_PROG([XXHSUM], [xxhsum], [yes], [no])
+    if test "x$XXHSUM" = "xno"; then
+        AC_MSG_WARN([install 'xxhsum' binary if you plan to run the tests.])
+    fi
+    GF_CFLAGS="${GF_CFLAGS} ${XXHASH_CFLAGS}"
+fi
+
 dnl NetBSD does not support POSIX ACLs :-(
 case $host_os in
      *netbsd* | darwin*)
@@ -632,8 +687,16 @@ AC_SUBST(USE_POSIX_ACLS)
 
 # libglusterfs/checksum
 AC_CHECK_HEADERS([openssl/md5.h])
-AC_CHECK_LIB([z], [adler32], [ZLIB_LIBS="-lz"], AC_MSG_ERROR([zlib is required to build glusterfs]))
-AC_SUBST(ZLIB_LIBS)
+
+# Zlib is used by libglusterfs checksum and cdc xlator.
+PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0], [have_zlib=yes], [have_zlib=no])
+if test x$have_zlib = xyes; then
+   AC_DEFINE(HAVE_ZLIB, 1, [Define if zlib is found.])
+   AC_SUBST([ZLIB_CFLAGS])
+   AC_SUBST([ZLIB_LIBS])
+else
+   AC_MSG_ERROR([zlib is required to build glusterfs])
+fi
 
 AC_CHECK_HEADERS([linux/falloc.h])
 
@@ -737,7 +800,7 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 dnl Find out OpenSSL trusted certificates path
 AC_MSG_CHECKING([for OpenSSL trusted certificates path])
 SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
-if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+if test -d "${SSL_CERT_PATH}" 1>/dev/null 2>&1; then
    AC_MSG_RESULT([$SSL_CERT_PATH])
    AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
    AC_SUBST(SSL_CERT_PATH)
@@ -873,22 +936,6 @@ AC_SUBST(EVENTS_SUBDIR)
 AM_CONDITIONAL([BUILD_EVENTS], [test "x${BUILD_EVENTS}" = "xyes"])
 # end Events section
 
-# CDC xlator - check if libz is present if so enable HAVE_LIB_Z
-BUILD_CDC=yes
-PKG_CHECK_MODULES([ZLIB], [zlib >= 1.2.0],,
-                  [AC_CHECK_LIB([z], [deflate], [ZLIB_LIBS="-lz"],
-                                [BUILD_CDC=no])])
-echo -n "features requiring zlib enabled: "
-if test "x$BUILD_CDC" = "xyes" ; then
-  echo "yes"
-  AC_DEFINE(HAVE_LIB_Z, 1, [define if zlib is present])
-else
-  echo "no"
-fi
-AC_SUBST(ZLIB_CFLAGS)
-AC_SUBST(ZLIB_LIBS)
-# end CDC xlator secion
-
 #start firewalld section
 BUILD_FIREWALLD="no"
 AC_ARG_ENABLE([firewalld],
@@ -979,6 +1026,7 @@ if test "x${have_backtrace}" = "xyes"; then
    AC_DEFINE(HAVE_BACKTRACE, 1, [define if found backtrace])
 fi
 AC_SUBST(HAVE_BACKTRACE)
+AM_CONDITIONAL([HAVE_BACKTRACE], [test x$have_backtrace = xyes])
 
 dnl Old (before C11) compiler can compile (but not link) this:
 dnl
@@ -1169,21 +1217,103 @@ if test "x${have_paccept}" = "xyes"; then
 AC_DEFINE(HAVE_PACCEPT, 1, [define if paccept exists])
 fi
 
-# Check the distribution where you are compiling glusterfs on
+AC_CHECK_FUNC([pipe2], [have_pipe2=yes])
+if test "x${have_pipe2}" = "xyes"; then
+AC_DEFINE(HAVE_PIPE2, 1, [Define if (Linux-specific) pipe2() exists.])
+fi
+
+dnl Looking for OS-dependent non-POSIX function to set thread name.
+
+PTHREAD_SETNAME_FOUND=no
+
+dnl Linux-like version assuming glibc (so _GNU_SOURCE).
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_setname_np(thread, name)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-D_GNU_SOURCE -pthread ${saved_CFLAGS}"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread.h>]],
+         [[pthread_t t; pthread_setname_np(t, "name");]])],
+         [pthread_setname_np_two_args=yes], [pthread_setname_np_two_args=no])
+   AC_MSG_RESULT([$pthread_setname_np_two_args])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_setname_np_two_args = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SETNAME_NP_TWO_ARGS, 1,
+                [Define if 'pthread_setname_np(thread, name)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+dnl NetBSD-like version with three arguments.
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_setname_np(thread, name, arg)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-pthread ${saved_CFLAGS}"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread.h>]],
+         [[pthread_t t; pthread_setname_np(t, "name", NULL);]])],
+         [pthread_setname_np_three_args=yes], [pthread_setname_np_three_args=no])
+   AC_MSG_RESULT([$pthread_setname_np_three_args])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_setname_np_three_args = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SETNAME_NP_THREE_ARGS, 1,
+                [Define if 'pthread_setname_np(thread, name, arg)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+dnl FreeBSD provides pthread_np.h header file and both (not sure
+dnl for versions older than 13.0) 'pthread_setname_np(thread, name)'
+dnl and 'pthread_set_name_np(thread, name)'.
+
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_CHECKING([for pthread_set_name_np(thread, name)])
+   saved_CFLAGS=${CFLAGS}
+   CFLAGS="-pthread ${saved_CFLAGS}"
+   AC_LINK_IFELSE(
+      [AC_LANG_PROGRAM([
+         [#include <pthread_np.h>]],
+         [[pthread_t t; pthread_set_name_np(t, "name");]])],
+         [pthread_set_name_np=yes], [pthread_set_name_np=no])
+   AC_MSG_RESULT([$pthread_set_name_np])
+   CFLAGS="$saved_CFLAGS"
+
+   if test x$pthread_set_name_np = xyes; then
+      AC_DEFINE(HAVE_PTHREAD_SET_NAME_NP, 1,
+                [Define if 'pthread_set_name_np(thread, name)' is present.])
+      PTHREAD_SETNAME_FOUND=yes
+   fi
+fi
+
+if test x$PTHREAD_SETNAME_FOUND = xno; then
+   AC_MSG_WARN([Unable to detect function to set thread name])
+fi
+
+# Check the distribution where you are compiling glusterfs on.
+# For cross-compiling, you're advised to specify it manually.
 
 GF_DISTRIBUTION=
-AC_CHECK_FILE([/etc/debian_version])
-AC_CHECK_FILE([/etc/SuSE-release])
-AC_CHECK_FILE([/etc/redhat-release])
 
-if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
-   GF_DISTRIBUTION=Debian
-fi
-if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
-   GF_DISTRIBUTION=SuSE
-fi
-if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
-   GF_DISTRIBUTION=Redhat
+if test x$cross_compiling != xyes; then
+    AC_CHECK_FILE([/etc/debian_version])
+    AC_CHECK_FILE([/etc/SuSE-release])
+    AC_CHECK_FILE([/etc/redhat-release])
+
+    if test "x$ac_cv_file__etc_debian_version" = "xyes"; then
+        GF_DISTRIBUTION=Debian
+    fi
+    if test "x$ac_cv_file__etc_SuSE_release" = "xyes"; then
+        GF_DISTRIBUTION=SuSE
+    fi
+    if test "x$ac_cv_file__etc_redhat_release" = "xyes"; then
+        GF_DISTRIBUTION=Redhat
+    fi
+else
+    GF_DISTRIBUTION=Unspecified
 fi
 
 AC_SUBST(GF_DISTRIBUTION)
@@ -1297,7 +1427,7 @@ exec_prefix=$old_exec_prefix
 
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
-   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   test "${localstatedir}" = '${prefix}/var' && localstatedir=$ac_default_prefix/var
    localstatedir=/var
 fi
 localstatedir="$(eval echo ${localstatedir})"
@@ -1475,29 +1605,11 @@ AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
                              [Enable debug build options.]))
 
-AC_ARG_ENABLE([mempool],
-              AC_HELP_STRING([--disable-mempool],
-                             [Disable the Gluster memory pooler.]))
-
-USE_MEMPOOL="yes"
-if test "x$enable_mempool" = "xno"; then
-        USE_MEMPOOL="no"
-        AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
-fi
-
-BUILD_READLINE=no
-AC_CHECK_LIB([readline -lcurses],[readline],[RLLIBS="-lreadline -lcurses"])
-AC_CHECK_LIB([readline -ltermcap],[readline],[RLLIBS="-lreadline -ltermcap"])
-AC_CHECK_LIB([readline -lncurses],[readline],[RLLIBS="-lreadline -lncurses"])
-
-if test -n "$RLLIBS"; then
-   if test "x$RL_UNDO" = "xyes"; then
-      AC_DEFINE(HAVE_READLINE, 1, [readline enabled CLI])
-      BUILD_READLINE=yes
-   else
-      BUILD_READLINE="no (present but missing undo)"
-   fi
-
+dnl Add readline support in CLI if available.
+PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
+                  [BUILD_READLINE="no"])
+if test x$BUILD_READLINE = xyes; then
+    AC_DEFINE(HAVE_READLINE, 1, [Enable CLI readline support.])
 fi
 
 BUILD_LIBAIO=no
@@ -1509,28 +1621,30 @@ if test -n "$LIBAIO"; then
 fi
 
 BUILD_LINUX_IO_URING="no"
-AC_CHECK_HEADER([linux/io_uring.h],
-                [
-                    AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
-                    BUILD_LINUX_IO_URING="yes"
-                ])
-AM_CONDITIONAL([BUILD_LINUX_IO_URING], [test x$BUILD_LINUX_IO_URING = xyes])
+BUILD_LIBURING="no"
 
-BUILD_LIBURING=no
 case $host_os in
     linux*)
         AC_ARG_ENABLE([linux_io_uring],
                       AC_HELP_STRING([--disable-linux-io_uring],
-                      [Disable io-uring in POSIX xlator.]))
+                      [Disable io-uring support.]))
 
         if test "x$enable_linux_io_uring" != "xno" ; then
             AC_CHECK_HEADERS([liburing.h],
                              [AC_DEFINE(HAVE_LIBURING, 1, [io-uring based POSIX enabled]) LIBURING="-luring"],
                              AC_MSG_ERROR([Install liburing library and headers or use --disable-linux-io_uring]))
             BUILD_LIBURING=yes
+
+            AC_CHECK_HEADER([linux/io_uring.h],
+                            [
+                                AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
+                                BUILD_LINUX_IO_URING="yes"
+                            ])
         fi
         ;;
 esac
+
+AM_CONDITIONAL([BUILD_LINUX_IO_URING], [test x$BUILD_LINUX_IO_URING = xyes])
 
 dnl gnfs section
 BUILD_GNFS="no"
@@ -1738,15 +1852,13 @@ fi
 GF_CPPFLAGS="$GF_CPPFLAGS $GF_CPPDEFINES $GF_CPPINCLUDES"
 AC_SUBST([GF_CPPFLAGS])
 
+dnl Note GF_BSD_HOST_OS and GF_SOLARIS_HOST_OS are not used
+dnl through Makefile.am and so not defined as conditionals.
 AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
-AM_CONDITIONAL([GF_BSD_HOST_OS], test "${GF_HOST_OS}" = "GF_BSD_HOST_OS")
-if  test "${GF_HOST_OS}" = "GF_BSD_HOST_OS"; then
-    AC_DEFINE(GF_BSD_HOST_OS, 1, [This is a BSD compatible OS.])
-fi
 
 AC_SUBST(GLUSTERD_WORKDIR)
-AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d "${GLUSTERD_WORKDIR}" && test -d "${sysconfdir}/glusterd" )
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)

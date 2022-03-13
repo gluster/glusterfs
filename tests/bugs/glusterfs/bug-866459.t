@@ -21,7 +21,11 @@ TEST $CLI volume start $V0
 ## Mount FUSE with caching disabled
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0;
 
+# Allocate test file and make sure it is not truncated
 dd of=$M0/a if=/dev/urandom bs=1024k count=1 2>&1 > /dev/null
+nbytes=`stat -c %s $M0/a`
+TEST [ $nbytes -eq 1048576 ]
+
 B0_hiphenated=`echo $B0 | tr '/' '-'`
 ## Bring a brick down
 TEST kill_brick $V0 $H0 $B0/${V0}1

@@ -9,10 +9,8 @@
 */
 
 #include "open-behind-mem-types.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include "open-behind-messages.h"
 #include <glusterfs/glusterfs-acl.h>
 
@@ -446,7 +444,7 @@ static int32_t
 ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
         dict_t *xdata)
 {
-    ob_inode_t *ob_inode;
+    ob_inode_t *ob_inode = NULL;
     call_frame_t *open_frame;
     call_stub_t *stub;
     fd_t *first_fd;
@@ -503,13 +501,13 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
 
     /* In case of failure we need to decrement the number of open files because
      * ob_fdclose() won't be called. */
-
-    LOCK(&fd->inode->lock);
-    {
-        ob_inode->open_count--;
+    if (ob_inode != NULL) {
+        LOCK(&fd->inode->lock);
+        {
+            ob_inode->open_count--;
+        }
+        UNLOCK(&fd->inode->lock);
     }
-    UNLOCK(&fd->inode->lock);
-
     gf_smsg(this->name, GF_LOG_ERROR, -state, OPEN_BEHIND_MSG_FAILED, "fop=%s",
             "open", "path=%s", loc->path, NULL);
 

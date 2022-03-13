@@ -16,13 +16,11 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-
 /* dict_t is always initialized with hash_size = 1
  * with this usage it's implemented as a doubly-linked list
  * and the hash calculation done per operation is not necessary.
  * using this macro to delimit blocks related to hash imp */
 #define DICT_LIST_IMP 1
-
 
 #include "glusterfs/dict.h"
 #if !DICT_LIST_IMP
@@ -31,10 +29,8 @@
 #endif
 #include "glusterfs/compat.h"
 #include "glusterfs/compat-errno.h"
-#include "glusterfs/byte-order.h"
 #include "glusterfs/statedump.h"
 #include "glusterfs/libglusterfs-messages.h"
-
 
 struct dict_cmp {
     dict_t *dict;
@@ -256,6 +252,12 @@ key_value_cmp(dict_t *one, char *key1, data_t *value1, void *data)
     return -1;
 }
 
+static inline gf_boolean_t
+dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
+{
+    return _gf_true;
+}
+
 /* If both dicts are NULL then equal. If one of the dicts is NULL but the
  * other has only ignorable keys then also they are equal. If both dicts are
  * non-null then check if for each non-ignorable key, values are same or
@@ -267,7 +269,7 @@ gf_boolean_t
 are_dicts_equal(dict_t *one, dict_t *two,
                 gf_boolean_t (*match)(dict_t *d, char *k, data_t *v,
                                       void *data),
-                gf_boolean_t (*value_ignore)(char *k))
+                void *match_data, gf_boolean_t (*value_ignore)(char *k))
 {
     int num_matches1 = 0;
     int num_matches2 = 0;
@@ -287,7 +289,8 @@ are_dicts_equal(dict_t *one, dict_t *two,
 
     cmp.dict = two;
     cmp.value_ignore = value_ignore;
-    num_matches1 = dict_foreach_match(one, match, NULL, key_value_cmp, &cmp);
+    num_matches1 = dict_foreach_match(one, match, match_data, key_value_cmp,
+                                      &cmp);
 
     if (num_matches1 == -1)
         return _gf_false;
@@ -295,8 +298,8 @@ are_dicts_equal(dict_t *one, dict_t *two,
     if ((num_matches1 == one->count) && (one->count == two->count))
         return _gf_true;
 
-    num_matches2 = dict_foreach_match(two, match, NULL, dict_null_foreach_fn,
-                                      NULL);
+    num_matches2 = dict_foreach_match(two, match, match_data,
+                                      dict_null_foreach_fn, NULL);
 done:
     /* If the number of matches is same in 'two' then for all the
      * valid-keys that exist in 'one' the value matched and no extra valid
@@ -483,9 +486,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     this->members[hashval] = pair;
 
     pair->next = this->members_list;
-    pair->prev = NULL;
-    if (this->members_list)
-        this->members_list->prev = pair;
     this->members_list = pair;
     this->count++;
 
@@ -581,7 +581,7 @@ dict_get(dict_t *this, char *key)
     }
 #if !DICT_LIST_IMP
     return dict_getn(this, key, strlen(key));
-#else   
+#else
     return dict_getn(this, key, 0);
 #endif
 }
@@ -688,15 +688,12 @@ dict_deln(dict_t *this, char *key, const int keylen)
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
-            if (pair->prev)
-                pair->prev->next = pair->next;
+            if (prev)
+                prev->next = pair->next;
             else
                 this->members_list = pair->next;
 
-            if (pair->next)
-                pair->next->prev = pair->prev;
-
-            this->totkvlen -= (strlen(pair->key) + 1);
+            this->totkvlen -= (keylen + 1);
             GF_FREE(pair->key);
             if (pair == &this->free_pair) {
                 this->free_pair.key = NULL;
@@ -1359,12 +1356,6 @@ dict_remove_foreach_fn(dict_t *d, char *k, data_t *v, void *_tmp)
     return 0;
 }
 
-gf_boolean_t
-dict_match_everything(dict_t *d, char *k, data_t *v, void *data)
-{
-    return _gf_true;
-}
-
 int
 dict_foreach(dict_t *dict,
              int (*fn)(dict_t *this, char *key, data_t *value, void *data),
@@ -1399,7 +1390,7 @@ dict_foreach_match(dict_t *dict,
         return -1;
     }
 
-    int ret = -1;
+    int ret;
     int count = 0;
     data_pair_t *pairs = dict->members_list;
     data_pair_t *next = NULL;
@@ -1580,9 +1571,19 @@ dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
 int
 dict_get_with_ref(dict_t *this, char *key, data_t **data)
 {
-    if (!this || !key || !data) {
+    if (caa_unlikely(!this)) {
+        /* There are possibilities where dict can be NULL. so not so critical
+         * for users to know */
+        gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
+                         "dict is NULL: %s", key);
+        return -EINVAL;
+    }
+    if (caa_unlikely(!key || !data)) {
+        /* is there a chance like this? then it can be a coding error, but in
+         * any case, this should be caught early, so good to log it out. */
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict OR key (%s) is NULL", key);
+                         "key (%s) or data ptr is NULL", key);
+
         return -EINVAL;
     }
 #if !DICT_LIST_IMP
@@ -2247,9 +2248,6 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             this->members[hashval] = pair;
 
             pair->next = this->members_list;
-            pair->prev = NULL;
-            if (this->members_list)
-                this->members_list->prev = pair;
             this->members_list = pair;
             this->count++;
 
@@ -3014,7 +3012,7 @@ dict_serialize_lk(dict_t *this, char *buf)
         goto out;
     }
 
-    netword = hton32(count);
+    netword = htobe32(count);
     memcpy(buf, &netword, sizeof(netword));
     buf += DICT_HDR_LEN;
 
@@ -3031,7 +3029,7 @@ dict_serialize_lk(dict_t *this, char *buf)
         }
 
         keylen = strlen(pair->key);
-        netword = hton32(keylen);
+        netword = htobe32(keylen);
         memcpy(buf, &netword, sizeof(netword));
         buf += DICT_DATA_HDR_KEY_LEN;
 
@@ -3040,7 +3038,7 @@ dict_serialize_lk(dict_t *this, char *buf)
             goto out;
         }
 
-        netword = hton32(pair->value->len);
+        netword = htobe32(pair->value->len);
         memcpy(buf, &netword, sizeof(netword));
         buf += DICT_DATA_HDR_VAL_LEN;
 
@@ -3180,7 +3178,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
     }
 
     memcpy(&hostord, buf, sizeof(hostord));
-    count = ntoh32(hostord);
+    count = be32toh(hostord);
     buf += DICT_HDR_LEN;
 
     if (count < 0) {
@@ -3203,7 +3201,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
             goto out;
         }
         memcpy(&hostord, buf, sizeof(hostord));
-        keylen = ntoh32(hostord);
+        keylen = be32toh(hostord);
         buf += DICT_DATA_HDR_KEY_LEN;
 
         if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
@@ -3216,7 +3214,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
             goto out;
         }
         memcpy(&hostord, buf, sizeof(hostord));
-        vallen = ntoh32(hostord);
+        vallen = be32toh(hostord);
         buf += DICT_DATA_HDR_VAL_LEN;
 
         if ((keylen < 0) || (vallen < 0)) {
@@ -3578,11 +3576,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     int32_t keylen = 0;
     int32_t vallen = 0;
     int32_t hostord = 0;
-    xlator_t *this = NULL;
     int32_t keylenarr[totkeycount];
-
-    this = THIS;
-    GF_ASSERT(this);
 
     if (!buf) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -3617,7 +3611,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     }
 
     memcpy(&hostord, buf, sizeof(hostord));
-    count = ntoh32(hostord);
+    count = be32toh(hostord);
     buf += DICT_HDR_LEN;
 
     if (count < 0) {
@@ -3642,7 +3636,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
             goto out;
         }
         memcpy(&hostord, buf, sizeof(hostord));
-        keylen = ntoh32(hostord);
+        keylen = be32toh(hostord);
         buf += DICT_DATA_HDR_KEY_LEN;
 
         if ((buf + DICT_DATA_HDR_VAL_LEN) > (orig_buf + size)) {
@@ -3655,7 +3649,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
             goto out;
         }
         memcpy(&hostord, buf, sizeof(hostord));
-        vallen = ntoh32(hostord);
+        vallen = be32toh(hostord);
         buf += DICT_DATA_HDR_VAL_LEN;
 
         if ((keylen < 0) || (vallen < 0)) {

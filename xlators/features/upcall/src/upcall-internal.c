@@ -14,18 +14,13 @@
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
-#include "glusterfs3-xdr.h"
-#include "protocol-common.h"
-#include <glusterfs/defaults.h>
 
 /*
  * Check if any of the upcall options are enabled:
@@ -47,7 +42,7 @@ is_upcall_enabled(xlator_t *this)
 /*
  * Get the cache_invalidation_timeout
  */
-static int32_t
+static time_t
 get_cache_invalidation_timeout(xlator_t *this)
 {
     upcall_private_t *priv = NULL;
@@ -172,24 +167,21 @@ upcall_inode_ctx_get(inode_t *inode, xlator_t *this)
     return inode_ctx;
 }
 
-static int
+static void
 __upcall_cleanup_client_entry(upcall_client_t *up_client)
 {
     list_del_init(&up_client->client_list);
 
     GF_FREE(up_client->client_uid);
     GF_FREE(up_client);
-
-    return 0;
 }
 
-static int
+static void
 upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx,
                                time_t now)
 {
     upcall_client_t *up_client = NULL;
     upcall_client_t *tmp = NULL;
-    int ret = -1;
     time_t timeout = 0;
     time_t t_expired = 0;
 
@@ -203,25 +195,15 @@ upcall_cleanup_expired_clients(xlator_t *this, upcall_inode_ctx_t *up_inode_ctx,
             t_expired = now - up_client->access_time;
 
             if (t_expired > (2 * timeout)) {
-                gf_log(THIS->name, GF_LOG_TRACE, "Cleaning up client_entry(%s)",
+                gf_log(this->name, GF_LOG_TRACE, "Cleaning up client_entry(%s)",
                        up_client->client_uid);
 
-                ret = __upcall_cleanup_client_entry(up_client);
-
-                if (ret) {
-                    gf_msg("upcall", GF_LOG_WARNING, 0,
-                           UPCALL_MSG_INTERNAL_ERROR,
-                           "Client entry cleanup failed (%p)", up_client);
-                    goto out;
-                }
+                __upcall_cleanup_client_entry(up_client);
             }
         }
     }
-    pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
 
-    ret = 0;
-out:
-    return ret;
+    pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
 }
 
 /*

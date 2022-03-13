@@ -16,20 +16,23 @@
 
 #include "rpc-clnt.h"
 #include <glusterfs/list.h>
-#include <glusterfs/inode.h>
 #include "client-mem-types.h"
-#include "protocol-common.h"
-#include "glusterfs3.h"
-#include "glusterfs3-xdr.h"
-#include <glusterfs/fd-lk.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/default-args.h>
 #include "client-messages.h"
 
-/* FIXME: Needs to be defined in a common file */
+/* Threading limits for client event threads. */
+#define CLIENT_MIN_EVENT_THREADS 1
+#define CLIENT_MAX_EVENT_THREADS 32
+
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
-#define GF_MAX_SOCKET_WINDOW_SIZE (1 * GF_UNIT_MB)
-#define GF_MIN_SOCKET_WINDOW_SIZE (0)
+
+typedef struct {
+    int fop_enum;
+    unsigned int fop_length;
+    int *enum_list;
+    default_args_t *req_list;
+    dict_t *xdata;
+} compound_args_t;
 
 typedef enum {
     DEFAULT_REMOTE_FD = 0,
@@ -39,15 +42,6 @@ typedef enum {
 #define CLIENT_POST_FOP(fop, this_rsp_u, this_args_cbk, params...)             \
     do {                                                                       \
         gf_common_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);            \
-                                                                               \
-        int _op_ret = _this_rsp->op_ret;                                       \
-        int _op_errno = gf_error_to_errno(_this_rsp->op_errno);                \
-        args_##fop##_cbk_store(this_args_cbk, _op_ret, _op_errno, params);     \
-    } while (0)
-
-#define CLIENT_POST_FOP_TYPE(fop, this_rsp_u, this_args_cbk, params...)        \
-    do {                                                                       \
-        gfs3_##fop##_rsp *_this_rsp = &CPD_RSP_FIELD(this_rsp_u, fop);         \
                                                                                \
         int _op_ret = _this_rsp->op_ret;                                       \
         int _op_errno = gf_error_to_errno(_this_rsp->op_errno);                \
@@ -82,7 +76,7 @@ typedef enum {
 
 struct clnt_options {
     char *remote_subvolume;
-    int ping_timeout;
+    time_t ping_timeout;
 };
 
 typedef struct clnt_conf {
@@ -172,22 +166,8 @@ typedef struct _client_fd_ctx {
     fd_lk_ctx_t *lk_ctx;
     uuid_t gfid;
     void (*reopen_done)(struct _client_fd_ctx *, int64_t rfd, xlator_t *);
-    struct list_head lock_list; /* List of all granted locks on this fd */
     int32_t reopen_attempts;
 } clnt_fd_ctx_t;
-
-typedef struct _client_posix_lock {
-    fd_t *fd; /* The fd on which the lk operation was made */
-
-    struct gf_flock user_flock; /* the flock supplied by the user */
-    off_t fl_start;
-    off_t fl_end;
-    short fl_type;
-    int32_t cmd;        /* the cmd for the lock call */
-    gf_lkowner_t owner; /* lock owner from fuse */
-    struct list_head
-        list; /* reference used to add to the fdctx list of locks */
-} client_posix_lock_t;
 
 typedef struct client_local {
     loc_t loc;
@@ -198,7 +178,6 @@ typedef struct client_local {
     uint32_t flags;
     struct iobref *iobref;
 
-    client_posix_lock_t *client_lock;
     gf_lkowner_t owner;
     int32_t cmd;
     int32_t check_reopen;
@@ -293,37 +272,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       client_payload_t *cp, xdrproc_t xdrproc);
 
 int
-unserialize_rsp_dirent(xlator_t *this, struct gfs3_readdir_rsp *rsp,
-                       gf_dirent_t *entries);
-int
-unserialize_rsp_direntp(xlator_t *this, fd_t *fd, struct gfs3_readdirp_rsp *rsp,
-                        gf_dirent_t *entries);
-
-int
-clnt_readdir_rsp_cleanup(gfs3_readdir_rsp *rsp);
-int
-clnt_readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp);
-int
-client_attempt_lock_recovery(xlator_t *this, clnt_fd_ctx_t *fdctx);
-int32_t
-delete_granted_locks_owner(fd_t *fd, gf_lkowner_t *owner);
-void
-__delete_granted_locks_owner_from_fdctx(clnt_fd_ctx_t *fdctx,
-                                        gf_lkowner_t *owner,
-                                        struct list_head *deleted);
-void
-destroy_client_locks_from_list(struct list_head *deleted);
-int32_t
-client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
-void
-client_save_number_fds(clnt_conf_t *conf, int count);
-int
-dump_client_locks(inode_t *inode);
-int32_t
-is_client_dump_locks_cmd(char *name);
-int32_t
-client_dump_locks(char *name, inode_t *inode, dict_t *dict);
-int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
 
 int
@@ -350,18 +298,6 @@ client_is_reopen_needed(fd_t *fd, xlator_t *this, int64_t remote_fd);
 int
 client_add_fd_to_saved_fds(xlator_t *this, fd_t *fd, loc_t *loc, int32_t flags,
                            int64_t remote_fd, int is_dir);
-int
-clnt_unserialize_rsp_locklist(xlator_t *this, struct gfs3_getactivelk_rsp *rsp,
-                              lock_migration_info_t *lmi);
-void
-clnt_getactivelk_rsp_cleanup(gfs3_getactivelk_rsp *rsp);
-
-void
-clnt_setactivelk_req_cleanup(gfs3_setactivelk_req *req);
-
-int
-serialize_req_locklist(lock_migration_info_t *locklist,
-                       gfs3_setactivelk_req *req);
 
 void
 clnt_getactivelk_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp);
@@ -374,8 +310,7 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
                           gfx_setactivelk_req *req);
 
 int
-clnt_unserialize_rsp_locklist_v2(xlator_t *this,
-                                 struct gfx_getactivelk_rsp *rsp,
+clnt_unserialize_rsp_locklist_v2(struct gfx_getactivelk_rsp *rsp,
                                  lock_migration_info_t *lmi);
 
 int
@@ -397,7 +332,6 @@ client_add_lock_for_recovery(fd_t *fd, struct gf_flock *flock,
 int
 client_is_setlk(int32_t cmd);
 
-gf_boolean_t
-fdctx_lock_lists_empty(clnt_fd_ctx_t *fdctx);
-
+int32_t
+client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd);
 #endif /* !_CLIENT_H */

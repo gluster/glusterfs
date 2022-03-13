@@ -13,7 +13,6 @@
 
 #include <glusterfs/locking.h>
 #include <glusterfs/timer.h>
-#include "pthread.h"
 
 #include "changelog-helpers.h"
 

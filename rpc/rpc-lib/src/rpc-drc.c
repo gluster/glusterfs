@@ -80,6 +80,49 @@ rpcsvc_remove_drc_client(drc_client_t *client)
 }
 
 /**
+ * gf_sock_union_equal_addr - check if two given gf_sock_unions have same addr
+ *
+ * @param a - first sock union
+ * @param b - second sock union
+ * @return _gf_true if a and b have same ipv{4,6} addr, _gf_false otherwise
+ */
+static gf_boolean_t
+gf_sock_union_equal_addr(union gf_sock_union *a, union gf_sock_union *b)
+{
+    if (!a || !b) {
+        gf_smsg("rpc-drc", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
+                "gf_sock_union_equal_addr", NULL);
+        return _gf_false;
+    }
+
+    if (a->storage.ss_family != b->storage.ss_family)
+        return _gf_false;
+
+    switch (a->storage.ss_family) {
+        case AF_INET:
+            if (a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr)
+                return _gf_true;
+            else
+                return _gf_false;
+
+        case AF_INET6:
+            if (memcmp((void *)(&a->sin6.sin6_addr),
+                       (void *)(&b->sin6.sin6_addr), sizeof(a->sin6.sin6_addr)))
+                return _gf_false;
+            else
+                return _gf_true;
+
+        default:
+            gf_msg_debug("rpc-drc", 0,
+                         "Unsupported/invalid address "
+                         "family");
+            break;
+    }
+
+    return _gf_false;
+}
+
+/**
  * rpcsvc_client_lookup - Given a sockaddr_storage, find the client if it exists
  *
  * @param drc - the main drc structure

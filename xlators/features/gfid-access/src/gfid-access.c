@@ -9,7 +9,6 @@
 */
 #include "gfid-access.h"
 #include <glusterfs/inode.h>
-#include <glusterfs/byte-order.h>
 #include <glusterfs/statedump.h>
 
 int
@@ -113,11 +112,11 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
     if (args == NULL)
         goto err;
 
-    args->uid = ntoh32(*(uint32_t *)blob);
+    args->uid = be32toh(*(uint32_t *)blob);
     blob += sizeof(uint32_t);
     blob_len -= sizeof(uint32_t);
 
-    args->gid = ntoh32(*(uint32_t *)blob);
+    args->gid = be32toh(*(uint32_t *)blob);
     blob += sizeof(uint32_t);
     blob_len -= sizeof(uint32_t);
 
@@ -125,7 +124,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
     blob += sizeof(args->gfid);
     blob_len -= sizeof(args->gfid);
 
-    args->st_mode = ntoh32(*(uint32_t *)blob);
+    args->st_mode = be32toh(*(uint32_t *)blob);
     blob += sizeof(uint32_t);
     blob_len -= sizeof(uint32_t);
 
@@ -150,7 +149,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
                    args->gfid);
             goto err;
         }
-        args->args.mkdir.mode = ntoh32(*(uint32_t *)blob);
+        args->args.mkdir.mode = be32toh(*(uint32_t *)blob);
         blob += sizeof(uint32_t);
         blob_len -= sizeof(uint32_t);
 
@@ -159,7 +158,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
                    args->gfid);
             goto err;
         }
-        args->args.mkdir.umask = ntoh32(*(uint32_t *)blob);
+        args->args.mkdir.umask = be32toh(*(uint32_t *)blob);
         blob_len -= sizeof(uint32_t);
         if (blob_len < 0) {
             gf_log(this->name, GF_LOG_ERROR, "gfid: %s. Invalid length",
@@ -185,7 +184,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
                    args->gfid);
             goto err;
         }
-        args->args.mknod.mode = ntoh32(*(uint32_t *)blob);
+        args->args.mknod.mode = be32toh(*(uint32_t *)blob);
         blob += sizeof(uint32_t);
         blob_len -= sizeof(uint32_t);
 
@@ -194,7 +193,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
                    args->gfid);
             goto err;
         }
-        args->args.mknod.rdev = ntoh32(*(uint32_t *)blob);
+        args->args.mknod.rdev = be32toh(*(uint32_t *)blob);
         blob += sizeof(uint32_t);
         blob_len -= sizeof(uint32_t);
 
@@ -203,7 +202,7 @@ ga_newfile_parse_args(xlator_t *this, data_t *data)
                    args->gfid);
             goto err;
         }
-        args->args.mknod.umask = ntoh32(*(uint32_t *)blob);
+        args->args.mknod.umask = be32toh(*(uint32_t *)blob);
         blob_len -= sizeof(uint32_t);
     }
 
@@ -524,6 +523,7 @@ ga_heal_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
               dict_t *xdata)
 {
     int ret = -1;
+    gf_boolean_t xdata_ref = _gf_false;
     ga_heal_args_t *args = NULL;
     loc_t tmp_loc = {
         0,
@@ -550,6 +550,7 @@ ga_heal_entry(call_frame_t *frame, xlator_t *this, loc_t *loc, data_t *data,
         ret = -1;
         goto out;
     }
+    xdata_ref = _gf_true;
 
     ret = ga_fill_tmp_loc(loc, this, gfid, args->bname, xdata, &tmp_loc);
     if (ret)
@@ -571,7 +572,7 @@ out:
 
     loc_wipe(&tmp_loc);
 
-    if (xdata)
+    if (xdata_ref && xdata)
         dict_unref(xdata);
 
     return ret;

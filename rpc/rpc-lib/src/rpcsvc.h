@@ -20,7 +20,6 @@
 #include <pthread.h>
 #include <sys/uio.h>
 #include <inttypes.h>
-#include <rpc/rpc_msg.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/client_t.h>
 
@@ -158,8 +157,6 @@ struct rpcsvc_request {
 
     int procnum;
 
-    int type;
-
     /* Uid and gid filled by the rpc-auth module during the authentication
      * phase.
      */
@@ -168,7 +165,6 @@ struct rpcsvc_request {
     pid_t pid;
 
     gf_lkowner_t lk_owner;
-    uint64_t gfs_id;
 
     /* Might want to move this to AUTH_UNIX specific state since this array
      * is not available for every authentication scheme.
@@ -187,15 +183,6 @@ struct rpcsvc_request {
 
     struct iobref *iobref;
 
-    /* There can be cases of RPC requests where the reply needs to
-     * be built from multiple sources. E.g. where even the NFS reply
-     * can contain a payload, as in the NFSv3 read reply. Here the RPC header
-     * ,NFS header and the read data are brought together separately from
-     * different buffers, so we need to stage the buffers temporarily here
-     * before all of them get added to the connection's transmission list.
-     */
-    struct list_head txlist;
-
     /* While the reply record is being built, this variable keeps track
      * of how many bytes have been added to the record.
      */
@@ -210,10 +197,14 @@ struct rpcsvc_request {
      * sent to the client.
      */
     client_auth_data_t verf;
+
+#if defined(BUILD_GNFS)
     /* Container for a RPC program wanting to store a temp
-     * request-specific item.
+     * request-specific item. Currently this is used only
+     * by the legacy gnfs server xlator.
      */
     void *private;
+#endif /* BUILD_GNFS */
 
     /* Container for transport to store request-specific item */
     void *trans_private;
@@ -256,8 +247,11 @@ struct rpcsvc_request {
     gf_boolean_t ownthread;
 
     gf_boolean_t synctask;
-    struct timespec begin; /*req handling start time*/
-    struct timespec end;   /*req handling end time*/
+
+    /* If latency measurement is enabled, marks the request handling
+     * start time.
+     */
+    struct timespec begin;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))

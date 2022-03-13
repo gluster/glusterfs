@@ -11,7 +11,7 @@
 #include "server.h"
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"
-#include "glusterfs3-xdr.h"
+#include "glusterfs4-xdr.h"
 #include <glusterfs/compat-errno.h>
 #include "glusterfs3.h"
 #include "authenticate.h"
@@ -28,10 +28,8 @@ int
 gf_compare_client_version(rpcsvc_request_t *req, int fop_prognum,
                           int mgmt_prognum)
 {
-    int ret = -1;
+    int ret = 0;
     /* TODO: think.. */
-    if (glusterfs3_3_fop_prog.prognum == fop_prognum)
-        ret = 0;
 
     return ret;
 }
@@ -93,7 +91,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     };
     inode_t *inode = NULL;
 
-    loc.parent = parinode;
+    loc.parent = inode_ref(parinode);
     loc_touchup(&loc, basename);
     loc.inode = inode_new(xl->itable);
 
@@ -122,6 +120,7 @@ do_path_lookup(xlator_t *xl, dict_t *dict, inode_t *parinode, char *basename)
     inode_ref(inode);
 
 out:
+    loc_wipe(&loc);
     return inode;
 }
 

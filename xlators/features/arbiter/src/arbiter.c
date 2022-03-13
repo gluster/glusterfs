@@ -11,7 +11,8 @@
 #include "arbiter.h"
 #include "arbiter-mem-types.h"
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
+#include <glusterfs/dict.h>
+#include <glusterfs/stack.h>
 #include <glusterfs/logging.h>
 
 static arbiter_inode_ctx_t *

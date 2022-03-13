@@ -18,12 +18,10 @@
 #include <glusterfs/list.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/run.h>
 #include "glusterd-mem-types.h"
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include <glusterfs/common-utils.h>
 #include "glusterd-mountbroker.h"

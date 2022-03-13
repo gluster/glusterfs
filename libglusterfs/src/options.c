@@ -10,7 +10,6 @@
 
 #include <fnmatch.h>
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
 #include "glusterfs/libglusterfs-messages.h"
 
@@ -452,7 +451,7 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
 {
     int ret = -1;
     char errstr[256];
-    uint32_t input_time = 0;
+    time_t input_time = 0;
 
     /* Check if the value is valid time */
     if (gf_string2time(value, &input_time) != 0) {
@@ -476,8 +475,7 @@ xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
 
     if ((input_time < opt->min) || (input_time > opt->max)) {
         snprintf(errstr, 256,
-                 "'%" PRIu32
-                 "' in 'option %s %s' is "
+                 "'%ld' in 'option %s %s' is "
                  "out of range [%.0f - %.0f]",
                  input_time, key, value, opt->min, opt->max);
         gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
@@ -667,6 +665,136 @@ out:
     GF_FREE(dir_and_addr);
     GF_FREE(addr_list);
     return ret;
+}
+
+/**
+ * valid_ipv4_subnetwork() takes the pattern and checks if it contains
+ * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
+ * part (xx.xx.xx.xx) and mask bits length part (n). The mask bits length
+ * must be in 0-32 range (ipv4 addr is 32 bit). The pattern must be
+ * in this format.
+ *
+ * Returns _gf_true if both IP addr and mask bits len are valid
+ *         _gf_false otherwise.
+ */
+static gf_boolean_t
+valid_ipv4_subnetwork(const char *address)
+{
+    char *slash = NULL;
+    char *paddr = NULL;
+    char *endptr = NULL;
+    long prefixlen = -1;
+    gf_boolean_t retv = _gf_true;
+
+    if (address == NULL) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "argument invalid");
+        return _gf_false;
+    }
+
+    paddr = gf_strdup(address);
+    if (paddr == NULL) /* ENOMEM */
+        return _gf_false;
+
+    /*
+     * INVALID: If '/' is not present OR
+     *          Nothing specified after '/'
+     */
+    slash = strchr(paddr, '/');
+    if ((slash == NULL) || (slash[1] == '\0')) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                         LG_MSG_INVALID_IPV4_FORMAT,
+                         "Invalid IPv4 "
+                         "subnetwork format");
+        retv = _gf_false;
+        goto out;
+    }
+
+    *slash = '\0';
+    retv = valid_ipv4_address(paddr, strlen(paddr), _gf_false);
+    if (retv == _gf_false) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                         LG_MSG_INVALID_IPV4_FORMAT,
+                         "Invalid IPv4 subnetwork address");
+        goto out;
+    }
+    /*
+     * Reset errno before checking it
+     */
+    errno = 0;
+    prefixlen = strtol(slash + 1, &endptr, 10);
+    if ((errno != 0) || (*endptr != '\0') || (prefixlen < 0) ||
+        (prefixlen > IPv4_ADDR_SIZE)) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                         LG_MSG_INVALID_IPV4_FORMAT,
+                         "Invalid IPv4 subnetwork mask");
+        retv = _gf_false;
+        goto out;
+    }
+
+    retv = _gf_true;
+out:
+    GF_FREE(paddr);
+    return retv;
+}
+
+/**
+ * valid_mount_auth_address - Validate the rpc-auth.addr.allow/reject pattern
+ *
+ * @param address - Pattern to be validated
+ *
+ * @return _gf_true if "address" is "*" (anonymous) 'OR'
+ *                  if "address" is valid FQDN or valid IPv4/6 address 'OR'
+ *                  if "address" contains wildcard chars e.g. "'*' or '?' or
+ * '['" if "address" is valid ipv4 subnet pattern (xx.xx.xx.xx/n) _gf_false
+ * otherwise
+ *
+ *
+ * NB: If the user/admin set for wildcard pattern, then it does not have
+ *     to be validated. Make it similar to the way exportfs (kNFS) works.
+ */
+static gf_boolean_t
+valid_mount_auth_address(char *address)
+{
+    int length = 0;
+    char *cp = NULL;
+
+    /* 1. Check for "NULL and empty string */
+    if ((address == NULL) || (address[0] == '\0')) {
+        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "argument invalid");
+        return _gf_false;
+    }
+
+    /* 2. Check for Anonymous */
+    if (strcmp(address, "*") == 0)
+        return _gf_true;
+
+    for (cp = address; *cp; cp++) {
+        /* 3. Check for wildcard pattern */
+        if (*cp == '*' || *cp == '?' || *cp == '[') {
+            return _gf_true;
+        }
+
+        /*
+         * 4. check for IPv4 subnetwork i.e. xx.xx.xx.xx/n
+         * TODO: check for IPv6 subnetwork
+         * NB: Wildcard must not be mixed with subnetwork.
+         */
+        if (*cp == '/') {
+            return valid_ipv4_subnetwork(address);
+        }
+    }
+
+    /* 5. Check for v4/v6 IP addr and FQDN/hostname */
+    length = strlen(address);
+    if ((valid_ipv4_address(address, length, _gf_false)) ||
+        (valid_ipv6_address(address, length, _gf_false)) ||
+        (valid_host_name(address, length))) {
+        return _gf_true;
+    }
+
+    return _gf_false;
 }
 
 static int
@@ -1167,8 +1295,15 @@ xlator_option_info_list(volume_opt_list_t *list, char *key, char **def_val,
 
     if (def_val)
         *def_val = opt->default_value;
-    if (descr)
-        *descr = opt->description;
+    if (descr) {
+        if (opt->flags & OPT_FLAG_RANGE)
+            gf_asprintf(descr,
+                        "%s Minimum value is %.0lf, maximum value "
+                        "is %.0lf.",
+                        opt->description, opt->min, opt->max);
+        else
+            *descr = gf_strdup(opt->description);
+    }
 
     ret = 0;
 out:
@@ -1231,7 +1366,7 @@ DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_INIT_OPT(char *, path, pass);
 DEFINE_INIT_OPT(double, double, gf_string2double);
-DEFINE_INIT_OPT(uint32_t, time, gf_string2time);
+DEFINE_INIT_OPT(time_t, time, gf_string2time);
 
 DEFINE_RECONF_OPT(char *, str, pass);
 DEFINE_RECONF_OPT(uint64_t, uint64, gf_string2uint64);
@@ -1246,4 +1381,4 @@ DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_RECONF_OPT(char *, path, pass);
 DEFINE_RECONF_OPT(double, double, gf_string2double);
-DEFINE_RECONF_OPT(uint32_t, time, gf_string2time);
+DEFINE_RECONF_OPT(time_t, time, gf_string2time);

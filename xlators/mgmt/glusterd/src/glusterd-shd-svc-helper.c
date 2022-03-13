@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-shd-svc-helper.h"
 #include "glusterd-messages.h"

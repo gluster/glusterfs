@@ -11,14 +11,12 @@
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/common-utils.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 #include "write-behind-mem-types.h"
 #include "write-behind-messages.h"
 
@@ -559,7 +557,7 @@ wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
             req->ordering.append = 1;
     }
 
-    req->lk_owner = stub->frame->root->lk_owner;
+    lk_owner_copy(&req->lk_owner, &stub->frame->root->lk_owner);
     req->client_pid = stub->frame->root->pid;
 
     switch (stub->fop) {
@@ -1146,7 +1144,7 @@ wb_fulfill_head(wb_inode_t *wb_inode, wb_request_t *head)
     if (!frame)
         goto err;
 
-    frame->root->lk_owner = head->lk_owner;
+    lk_owner_copy(&frame->root->lk_owner, &head->lk_owner);
     frame->root->pid = head->client_pid;
     frame->local = head;
 

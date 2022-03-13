@@ -11,6 +11,8 @@
 #ifndef _PROTOCOL_COMMON_H
 #define _PROTOCOL_COMMON_H
 
+#include <glusterfs/compat.h>
+
 enum gf_fop_procnum {
     GFS3_OP_NULL, /* 0 */
     GFS3_OP_STAT,
@@ -121,17 +123,6 @@ enum gf_probe_resp {
     GF_PROBE_FRIEND_DETACHING,
 };
 
-enum gf_deprobe_resp {
-    GF_DEPROBE_SUCCESS,
-    GF_DEPROBE_LOCALHOST,
-    GF_DEPROBE_NOT_FRIEND,
-    GF_DEPROBE_BRICK_EXIST,
-    GF_DEPROBE_FRIEND_DOWN,
-    GF_DEPROBE_QUORUM_NOT_MET,
-    GF_DEPROBE_FRIEND_DETACHING,
-    GF_DEPROBE_SNAP_BRICK_EXIST,
-};
-
 enum gf_cbk_procnum {
     GF_CBK_NULL = 0,
     GF_CBK_FETCHSPEC,
@@ -240,13 +231,6 @@ enum glusterd_brick_procnum {
     GLUSTERD_BRICK_MAXVALUE,
 };
 
-enum glusterd_mgmt_hndsk_procnum {
-    GD_MGMT_HNDSK_NULL,
-    GD_MGMT_HNDSK_VERSIONS,
-    GD_MGMT_HNDSK_VERSIONS_ACK,
-    GD_MGMT_HNDSK_MAXVALUE,
-};
-
 typedef enum {
     GF_SHD_OP_INVALID,
     GF_SHD_OP_HEAL_INDEX,
@@ -319,15 +303,7 @@ enum gf_get_volume_info_type {
     GF_GET_VOLUME_UUID
 };
 
-typedef enum gf_get_volume_info_type gf_get_volume_info_type;
-
-enum gf_get_snapshot_info_type {
-    GF_GET_SNAPSHOT_LIST,
-};
-typedef enum gf_get_snapshot_info_type gf_get_snapshot_info_type;
-
 enum gf_getspec_flags_type { GF_GETSPEC_FLAG_SERVERS_LIST = 1 };
-typedef enum gf_getspec_flags_type gf_getspec_flags_type;
 
 #define GLUSTER_HNDSK_PROGRAM 14398633 /* Completely random */
 #define GLUSTER_HNDSK_VERSION 2        /* 0.0.2 */
@@ -364,16 +340,6 @@ typedef enum gf_getspec_flags_type gf_getspec_flags_type;
 /* Third version */
 #define GD_MGMT_V3_VERSION 3
 
-/* OP-VERSION handshake */
-#define GD_MGMT_HNDSK_PROGRAM 1239873 /* Completely random */
-#define GD_MGMT_HNDSK_VERSION 1
+#define GD_VOLUME_NAME_MAX (NAME_MAX + 1) /* Maximum size of volume name */
 
-#define GD_VOLUME_NAME_MAX                                                     \
-    ((NAME_MAX + 1) - 5) /* Maximum size of volume name */
-#define GD_VOLUME_NAME_MAX_TIER                                                \
-    (GD_VOLUME_NAME_MAX + 5) /* +5 needed for '-hot'                           \
-                                and '-cold' suffixes*/
-
-#define GLUSTER_PROCESS_UUID_FMT                                               \
-    "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 #endif /* !_PROTOCOL_COMMON_H */

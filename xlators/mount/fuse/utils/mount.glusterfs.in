@@ -87,7 +87,7 @@ parse_backup_volfile_servers ()
                    END{if(sk!=0 || err){printf " SyntaxError";}else{printf " SyntaxOK";}}')
 
     servers=$(echo $servers)
-    if [ "$servers" == "SyntaxOK" ]; then
+    if [ "$servers" = "SyntaxOK" ]; then
         echo ""
         return
     fi
@@ -203,6 +203,10 @@ start_glusterfs ()
 
     if [ -n "$global_threading" ]; then
         cmd_line=$(echo "$cmd_line --global-threading");
+    fi
+
+    if [ -n "$localtime_logging" ]; then
+         cmd_line=$(echo "$cmd_line --localtime-logging");
     fi
 
 #options with optional values start here
@@ -359,7 +363,7 @@ start_glusterfs ()
             if [ -n "$backup_volfile_servers" ]; then
                 backup_servers=$(parse_backup_volfile_servers ${backup_volfile_servers})
                 syntax_status=$(echo ${backup_servers##*' '})
-                if [ "$syntax_status" == "SyntaxError" ]; then
+                if [ "$syntax_status" = "SyntaxError" ]; then
                     warn "ERROR: Invalid backup-volfile-servers specified.. exiting"
                     exit 1
                 fi
@@ -637,7 +641,7 @@ with_options()
             ;;
         # Values that are optional
         "fopen-keep-cache")
-            fopen_keep_cache="=$value"
+            fopen_keep_cache="$value"
             ;;
         "io-engine")
             io_engine="${value}"
@@ -691,6 +695,9 @@ without_options()
             ;;
         "global-threading")
             global_threading=1
+            ;;
+        "localtime-logging")
+            localtime_logging=1
             ;;
          # TODO: not sure how to handle this yet
         "async"|"sync"|"dirsync"|\

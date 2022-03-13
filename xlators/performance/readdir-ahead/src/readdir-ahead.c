@@ -25,11 +25,9 @@
 
 #include <math.h>
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
-#include <glusterfs/defaults.h>
 #include "readdir-ahead-messages.h"
 static int
 rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
@@ -706,7 +704,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 err:
     if (nframe) {
         rda_local_wipe(nframe->local);
-        FRAME_DESTROY(nframe);
+        FRAME_DESTROY(nframe, frame->root->ctx->measure_latency);
     }
 
     return -1;

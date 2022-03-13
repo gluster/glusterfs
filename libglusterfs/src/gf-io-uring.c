@@ -120,9 +120,10 @@ io_uring_setup(uint32_t entries, struct io_uring_params *params)
 /* io_uring_enter() system call. */
 static int32_t
 io_uring_enter(uint32_t fd, uint32_t to_submit, uint32_t min_complete,
-               uint32_t flags, sigset_t *sig)
+               uint32_t flags, void *arg, size_t size)
 {
-    return syscall(SYS_io_uring_enter, fd, to_submit, min_complete, flags, sig);
+    return syscall(SYS_io_uring_enter, fd, to_submit, min_complete, flags, arg,
+                   size);
 }
 
 /* io_uring_register() system call. */
@@ -471,7 +472,7 @@ failed_cq:
 failed_sq:
     gf_io_uring_sq_fini();
 failed_close:
-    gf_io_call_errno0(close, fd);
+    gf_io_call_errno0(sys_close, fd);
 
     return res;
 }
@@ -483,7 +484,7 @@ gf_io_uring_cleanup(void)
     gf_io_uring_sq_fini();
     gf_io_uring_cq_fini();
 
-    gf_io_call_errno0(close, gf_io_uring.fd);
+    gf_io_call_errno0(sys_close, gf_io_uring.fd);
 }
 
 static int32_t
@@ -536,7 +537,7 @@ gf_io_uring_enter(uint32_t submit, bool wait)
     }
 
     do {
-        res = io_uring_enter(gf_io_uring.fd, submit, recv, flags, NULL);
+        res = io_uring_enter(gf_io_uring.fd, submit, recv, flags, NULL, 0);
         if (caa_likely(res >= 0)) {
             return submit - res;
         }

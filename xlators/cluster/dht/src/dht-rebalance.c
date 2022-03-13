@@ -912,7 +912,7 @@ __dht_check_free_space(xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
     }
 
 check_avail_space:
-    if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
+    if (conf->disk_unit_percent && dst_statfs.f_blocks) {
         dst_post_availspacepercent = (dst_statfs_blocks * 100) /
                                      dst_total_blocks;
 
@@ -936,7 +936,7 @@ check_avail_space:
         }
     }
 
-    if (conf->disk_unit != 'p') {
+    if (!conf->disk_unit_percent) {
         if ((dst_statfs_blocks * GF_DISK_SECTOR_SIZE) < conf->min_free_disk) {
             gf_msg_debug(this->name, 0,
                          "file : %s,  destination frsize: %lu "
@@ -4444,6 +4444,9 @@ out:
     if (migrate_data)
         dict_unref(migrate_data);
 
+    if (fix_layout)
+        dict_unref(fix_layout);
+
     if (statfs_frame) {
         STACK_DESTROY(statfs_frame->root);
     }
@@ -4569,9 +4572,9 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
     uint64_t failures = 0;
     uint64_t skipped = 0;
     char *status = "";
-    double elapsed = 0;
-    uint64_t time_to_complete = 0;
-    uint64_t time_left = 0;
+    time_t elapsed = 0;
+    time_t time_to_complete = 0;
+    time_t time_left = 0;
     gf_defrag_info_t *defrag = conf->defrag;
 
     if (!defrag)
@@ -4598,8 +4601,8 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
             time_left = time_to_complete - elapsed;
 
         gf_log(THIS->name, GF_LOG_INFO,
-               "TIME: Estimated total time to complete (size)= %" PRIu64
-               " seconds, seconds left = %" PRIu64 "",
+               "TIME: Estimated total time to complete (size)= %ld"
+               " seconds, seconds left = %ld",
                time_to_complete, time_left);
     }
 
@@ -4622,7 +4625,7 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
     if (ret)
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set status");
 
-    ret = dict_set_double(dict, "run-time", elapsed);
+    ret = dict_set_time(dict, "run-time", elapsed);
     if (ret)
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set run-time");
 
@@ -4634,7 +4637,7 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
     if (ret)
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set skipped file count");
 
-    ret = dict_set_uint64(dict, "time-left", time_left);
+    ret = dict_set_time(dict, "time-left", time_left);
     if (ret)
         gf_log(THIS->name, GF_LOG_WARNING, "failed to set time-left");
 
@@ -4661,7 +4664,7 @@ log:
         }
 
         gf_msg("DHT", GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
-               "Rebalance is %s. Time taken is %.2f secs "
+               "Rebalance is %s. Time taken is %ld secs "
                "Files migrated: %" PRIu64 ", size: %" PRIu64
                ", lookups: %" PRIu64 ", failures: %" PRIu64
                ", skipped: "

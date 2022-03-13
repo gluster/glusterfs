@@ -16,6 +16,7 @@
 #include "glusterfs/logging.h"
 #include "glusterfs/mem-types.h"
 #include "glusterfs/glusterfs.h" /* for glusterfs_ctx_t */
+#include <urcu/compiler.h>       /* for caa_likely/unlikely() */
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
@@ -32,7 +33,8 @@
 #include <cmocka.h>
 #endif
 
-#define GF_MEM_TRAILER_SIZE 8
+typedef uint32_t gf_mem_magic_t;
+#define GF_MEM_TRAILER_SIZE sizeof(gf_mem_magic_t)
 #define GF_MEM_HEADER_MAGIC 0xCAFEBABE
 #define GF_MEM_TRAILER_MAGIC 0xBAADF00D
 #define GF_MEM_INVALID_MAGIC 0xDEADC0DE
@@ -43,13 +45,12 @@
 
 struct mem_acct_rec {
     const char *typestr;
+    gf_atomic_t num_allocs;
+#ifdef DEBUG
     uint64_t size;
     uint64_t max_size;
-    uint64_t total_allocs;
-    uint32_t num_allocs;
     uint32_t max_num_allocs;
     gf_lock_t lock;
-#ifdef DEBUG
     struct list_head obj_list;
 #endif
 };
@@ -61,21 +62,22 @@ struct mem_acct {
 };
 
 struct mem_header {
-    uint32_t type;
-    size_t size;
     struct mem_acct *mem_acct;
-    uint32_t magic;
+    size_t size;
+    uint32_t type;
+    gf_mem_magic_t magic;
 #ifdef DEBUG
     struct list_head acct_list;
 #endif
-    int padding[8];
+    /* ensures alignment */
+    void *data[];
 };
 
 #define GF_MEM_HEADER_SIZE (sizeof(struct mem_header))
 
 #ifdef DEBUG
 struct mem_invalid {
-    uint32_t magic;
+    gf_mem_magic_t magic;
     void *mem_acct;
     uint32_t type;
     size_t size;
@@ -108,7 +110,7 @@ __gf_default_malloc(size_t size)
     void *ptr = NULL;
 
     ptr = malloc(size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, size);
 
     return ptr;
@@ -120,7 +122,7 @@ __gf_default_calloc(int cnt, size_t size)
     void *ptr = NULL;
 
     ptr = calloc(cnt, size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, (cnt * size));
 
     return ptr;
@@ -132,7 +134,7 @@ __gf_default_realloc(void *oldptr, size_t size)
     void *ptr = NULL;
 
     ptr = realloc(oldptr, size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, size);
 
     return ptr;
@@ -180,17 +182,15 @@ gf_strndup(const char *src, size_t len)
 {
     char *dup_str = NULL;
 
-    if (!src) {
+    if (caa_unlikely(!src)) {
         goto out;
     }
 
     dup_str = GF_MALLOC(len + 1, gf_common_mt_strdup);
-    if (!dup_str) {
-        goto out;
+    if (caa_likely(dup_str)) {
+        memcpy(dup_str, src, len);
+        dup_str[len] = '\0';
     }
-
-    memcpy(dup_str, src, len);
-    dup_str[len] = '\0';
 out:
     return dup_str;
 }
@@ -198,7 +198,7 @@ out:
 static inline char *
 gf_strdup(const char *src)
 {
-    if (!src)
+    if (caa_unlikely(!src))
         return NULL;
 
     return gf_strndup(src, strlen(src));
@@ -210,12 +210,9 @@ gf_memdup(const void *src, size_t size)
     void *dup_mem = NULL;
 
     dup_mem = GF_MALLOC(size, gf_common_mt_memdup);
-    if (!dup_mem)
-        goto out;
+    if (caa_likely(dup_mem))
+        memcpy(dup_mem, src, size);
 
-    memcpy(dup_mem, src, size);
-
-out:
     return dup_mem;
 }
 
@@ -306,16 +303,6 @@ typedef struct per_thread_pool_list {
 /* actual pool structure, shared between different mem_pools */
 struct mem_pool_shared {
     unsigned int power_of_two;
-    /*
-     * Updates to these are *not* protected by a global lock, so races
-     * could occur and the numbers might be slightly off.  Don't expect
-     * them to line up exactly.  It's the general trends that matter, and
-     * it's not worth the locked-bus-cycle overhead to make these precise.
-     */
-    gf_atomic_t allocs_hot;
-    gf_atomic_t allocs_cold;
-    gf_atomic_t allocs_stdc;
-    gf_atomic_t frees_to_list;
 };
 
 void

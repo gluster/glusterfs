@@ -9,16 +9,10 @@
 */
 
 #include "rpc-clnt.h"
-#include "glusterd1-xdr.h"
-#include "cli1-xdr.h"
-
-#include "xdr-generic.h"
 
 #include <glusterfs/compat-errno.h>
 #include "glusterd-op-sm.h"
 #include "glusterd-sm.h"
-#include "glusterd.h"
-#include "protocol-common.h"
 #include "glusterd-utils.h"
 #include <glusterfs/common-utils.h>
 #include "glusterd-messages.h"
@@ -317,7 +311,7 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto reply;
         }
 
-        ret = gd_add_address_to_peer(peerinfo, rsp.hostname);
+        ret = glusterd_peer_hostname_update(peerinfo, rsp.hostname, _gf_false);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    GD_MSG_HOSTNAME_ADD_TO_PEERLIST_FAIL,
@@ -1275,7 +1269,7 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
-        {0},
+        GD_OP_STATE_DEFAULT,
     };
     call_frame_t *frame = NULL;
 

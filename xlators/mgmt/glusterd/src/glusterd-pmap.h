@@ -10,15 +10,10 @@
 #ifndef _GLUSTERD_PMAP_H_
 #define _GLUSTERD_PMAP_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
+#include <urcu/list.h>
 #include <glusterfs/xlator.h>
-#include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
-#include "rpcsvc.h"
 
 struct pmap_ports {
     struct cds_list_head port_list;

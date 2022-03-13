@@ -29,6 +29,7 @@
 #define REBAL_ESTIMATE_SEC_UPPER_LIMIT (60 * 24 * 3600)
 #define REBAL_ESTIMATE_START_TIME 600
 
+#include "gd-common-utils.h"
 #include "cli.h"
 #include <glusterfs/compat-errno.h>
 #include "cli-cmd.h"
@@ -38,9 +39,7 @@
 #include <glusterfs/compat.h>
 #include "cli-mem-types.h"
 #include <glusterfs/syscall.h>
-#include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include <glusterfs/byte-order.h>
 
 #include <glusterfs/run.h>
 #include <glusterfs/events.h>
@@ -83,7 +82,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
                 rpc_clnt_prog_t *prog, struct iobref *iobref);
 
 static int
-add_cli_cmd_timeout_to_dict(dict_t *dict);
+add_cli_cmd_timeout_to_dict(struct cli_state *state, dict_t *dict);
 
 static rpc_clnt_prog_t cli_handshake_prog = {
     .progname = "cli handshake",
@@ -96,6 +95,49 @@ static rpc_clnt_prog_t cli_pmap_prog = {
     .prognum = GLUSTER_PMAP_PROGRAM,
     .progver = GLUSTER_PMAP_VERSION,
 };
+
+/* This is a wrapper function to add a pointer to a list,
+ * which doesn't contain list member
+ */
+static struct list_node *
+_list_node_add(void *ptr, struct list_head *list,
+               int (*compare)(struct list_head *, struct list_head *))
+{
+    struct list_node *node = NULL;
+
+    if (ptr == NULL || list == NULL)
+        goto out;
+
+    node = GF_CALLOC(1, sizeof(struct list_node), gf_common_list_node);
+
+    if (node == NULL)
+        goto out;
+
+    node->ptr = ptr;
+    if (compare)
+        list_add_order(&node->list, list, compare);
+    else
+        list_add_tail(&node->list, list);
+out:
+    return node;
+}
+
+static struct list_node *
+list_node_add_order(void *ptr, struct list_head *list,
+                    int (*compare)(struct list_head *, struct list_head *))
+{
+    return _list_node_add(ptr, list, compare);
+}
+
+static void
+list_node_del(struct list_node *node)
+{
+    if (node == NULL)
+        return;
+
+    list_del_init(&node->list);
+    GF_FREE(node);
+}
 
 static void
 gf_free_xdr_cli_rsp(gf_cli_rsp rsp)
@@ -139,8 +181,12 @@ gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     char msg[1024] = "success";
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     if (-1 == req->rpc_status) {
         goto out;
@@ -164,7 +210,7 @@ gf_cli_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str(NULL, (rsp.op_ret) ? NULL : msg, rsp.op_ret,
                                  rsp.op_errno, (rsp.op_ret) ? msg : NULL);
         if (ret)
@@ -194,8 +240,12 @@ gf_cli_deprobe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     char msg[1024] = "success";
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     if (-1 == req->rpc_status) {
         goto out;
@@ -219,7 +269,7 @@ gf_cli_deprobe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str(NULL, (rsp.op_ret) ? NULL : msg, rsp.op_ret,
                                  rsp.op_errno, (rsp.op_ret) ? msg : NULL);
         if (ret)
@@ -416,6 +466,7 @@ gf_cli_list_friends_cbk(struct rpc_req *req, struct iovec *iov, int count,
     cli_friend_output_fn friend_output_fn;
     call_frame_t *frame = NULL;
     unsigned long flags = 0;
+    cli_state_t *state = NULL;
 
     if (-1 == req->rpc_status) {
         goto out;
@@ -424,6 +475,9 @@ gf_cli_list_friends_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(myframe);
 
     frame = myframe;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     flags = (long)frame->local;
 
@@ -451,7 +505,7 @@ gf_cli_list_friends_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (!rsp.op_ret) {
         if (!rsp.friends.friends_len) {
             snprintf(msg, sizeof(msg), "%s: No peers present", cmd);
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 ret = cli_xml_output_peer_status(dict, rsp.op_ret, rsp.op_errno,
                                                  msg);
                 if (ret)
@@ -478,7 +532,7 @@ gf_cli_list_friends_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto out;
         }
 
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             ret = cli_xml_output_peer_status(dict, rsp.op_ret, rsp.op_errno,
                                              msg);
             if (ret)
@@ -496,7 +550,7 @@ gf_cli_list_friends_cbk(struct rpc_req *req, struct iovec *iov, int count,
             goto out;
         }
     } else {
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             ret = cli_xml_output_peer_status(dict, rsp.op_ret, rsp.op_errno,
                                              NULL);
             if (ret)
@@ -731,6 +785,7 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *caps __attribute__((unused)) = NULL;
     int k __attribute__((unused)) = 0;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
@@ -740,8 +795,10 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     frame = myframe;
 
     GF_ASSERT(frame->local);
-
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -752,7 +809,7 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gf_log("cli", GF_LOG_INFO, "Received resp to get vol: %d", rsp.op_ret);
 
     if (!rsp.dict.dict_len) {
-        if (global_state->mode & GLUSTER_MODE_XML)
+        if (state->mode & GLUSTER_MODE_XML)
             goto xml_output;
         cli_err("No volumes present");
         ret = 0;
@@ -789,20 +846,20 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 snprintf(err_str, sizeof(err_str), "Volume %s does not exist",
                          local->get_vol.volname);
                 ret = -1;
-                if (!(global_state->mode & GLUSTER_MODE_XML))
+                if (!(state->mode & GLUSTER_MODE_XML))
                     goto out;
         }
     }
 
     if (rsp.op_ret) {
-        if (global_state->mode & GLUSTER_MODE_XML)
+        if (state->mode & GLUSTER_MODE_XML)
             goto xml_output;
         ret = -1;
         goto out;
     }
 
 xml_output:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         /* For GET_NEXT_VOLUME output is already begun in
          * and will also end in gf_cli_get_next_volume()
          */
@@ -906,9 +963,9 @@ xml_output:
                                       replica_count, disperse_count,
                                       redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s",
-                ((transport == 0) ? "tcp"
-                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
+        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
+                                       : (transport == 1) ? "rdma"
+                                                          : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -974,6 +1031,7 @@ gf_cli_create_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *volname = NULL;
     dict_t *rsp_dict = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
@@ -987,6 +1045,9 @@ gf_cli_create_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -995,7 +1056,7 @@ gf_cli_create_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to create volume");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (rsp.op_ret == 0) {
             rsp_dict = dict_new();
             ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len,
@@ -1050,6 +1111,7 @@ gf_cli_delete_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *volname = NULL;
     call_frame_t *frame = NULL;
     dict_t *rsp_dict = NULL;
+    cli_state_t *state = NULL;
 
     if (-1 == req->rpc_status) {
         goto out;
@@ -1062,6 +1124,9 @@ gf_cli_delete_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -1070,7 +1135,7 @@ gf_cli_delete_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to delete volume");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (rsp.op_ret == 0) {
             rsp_dict = dict_new();
             ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len,
@@ -1124,6 +1189,7 @@ gf_cli3_1_uuid_get_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = -1;
     cli_local_t *local = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
     dict_t *dict = NULL;
 
     GF_ASSERT(myframe);
@@ -1136,6 +1202,9 @@ gf_cli3_1_uuid_get_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -1159,7 +1228,7 @@ gf_cli3_1_uuid_get_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_dict("uuidGenerate", dict, rsp.op_ret,
                                   rsp.op_errno, rsp.op_errstr);
         if (ret)
@@ -1205,6 +1274,7 @@ gf_cli3_1_uuid_reset_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int ret = -1;
     cli_local_t *local = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
@@ -1218,6 +1288,9 @@ gf_cli3_1_uuid_reset_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -1228,7 +1301,7 @@ gf_cli3_1_uuid_reset_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to uuid reset");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_dict("uuidReset", NULL, rsp.op_ret, rsp.op_errno,
                                   rsp.op_errstr);
         if (ret)
@@ -1264,6 +1337,7 @@ gf_cli_start_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *volname = NULL;
     call_frame_t *frame = NULL;
     dict_t *rsp_dict = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
@@ -1277,6 +1351,9 @@ gf_cli_start_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -1285,7 +1362,7 @@ gf_cli_start_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to start volume");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (rsp.op_ret == 0) {
             rsp_dict = dict_new();
             ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len,
@@ -1338,6 +1415,7 @@ gf_cli_stop_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     cli_local_t *local = NULL;
     char *volname = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
     dict_t *rsp_dict = NULL;
 
     GF_ASSERT(myframe);
@@ -1352,6 +1430,9 @@ gf_cli_stop_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -1360,7 +1441,7 @@ gf_cli_stop_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     gf_log("cli", GF_LOG_INFO, "Received resp to stop volume");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (rsp.op_ret == 0) {
             rsp_dict = dict_new();
             ret = dict_unserialize(rsp.dict.dict_val, rsp.dict.dict_len,
@@ -1428,9 +1509,9 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
     uint32_t min = 0;
     uint32_t sec = 0;
     gf_boolean_t fix_layout = _gf_false;
-    uint64_t max_time = 0;
-    uint64_t max_elapsed = 0;
-    uint64_t time_left = 0;
+    time_t max_time = 0;
+    time_t max_elapsed = 0;
+    time_t time_left = 0;
     gf_boolean_t show_estimates = _gf_false;
 
     ret = dict_get_int32_sizen(dict, "count", &count);
@@ -1555,7 +1636,7 @@ gf_cli_print_rebalance_status(dict_t *dict, enum gf_task_types task_type)
             gf_log("cli", GF_LOG_TRACE, "failed to get run-time");
 
         snprintf(key, sizeof(key), "time-left-%d", i);
-        ret = dict_get_uint64(dict, key, &time_left);
+        ret = dict_get_time(dict, key, &time_left);
         if (ret)
             gf_log("cli", GF_LOG_TRACE, "failed to get time left");
 
@@ -1648,6 +1729,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     cli_local_t *local = NULL;
     char *volname = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
     int cmd = 0;
     int ret = -1;
     dict_t *dict = NULL;
@@ -1667,6 +1749,9 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -1699,7 +1784,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if (!((cmd == GF_DEFRAG_CMD_STOP) || (cmd == GF_DEFRAG_CMD_STATUS)) &&
-        !(global_state->mode & GLUSTER_MODE_XML)) {
+        !(state->mode & GLUSTER_MODE_XML)) {
         ret = dict_get_str_sizen(dict, GF_REBALANCE_TID_KEY, &task_id_str);
         if (ret) {
             gf_log("cli", GF_LOG_WARNING, "failed to get %s from dict",
@@ -1765,7 +1850,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_rebalance(cmd, dict, rsp.op_ret, rsp.op_errno,
                                            rsp.op_errstr);
         goto out;
@@ -1776,7 +1861,7 @@ gf_cli_defrag_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         gf_log("cli", GF_LOG_ERROR, "Failed to print rebalance status");
 
 done:
-    if (global_state->mode & GLUSTER_MODE_XML)
+    if (state->mode & GLUSTER_MODE_XML)
         cli_xml_output_str("volRebalance", msg, rsp.op_ret, rsp.op_errno,
                            rsp.op_errstr);
     else {
@@ -1808,8 +1893,12 @@ gf_cli_reset_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char msg[1024] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     if (-1 == req->rpc_status) {
         goto out;
@@ -1830,7 +1919,7 @@ gf_cli_reset_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(msg, sizeof(msg), "reset volume %s",
                  (rsp.op_ret) ? "unsuccessful" : "successful");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volReset", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -2051,12 +2140,16 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char tmp_str[512] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2104,7 +2197,7 @@ gf_cli_set_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  added_xlator);
     }
 
-    if ((global_state->mode & GLUSTER_MODE_XML) && (help_str == NULL)) {
+    if ((state->mode & GLUSTER_MODE_XML) && (help_str == NULL)) {
         ret = cli_xml_output_str("volSet", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -2150,12 +2243,16 @@ gf_cli_add_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char msg[1024] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2172,7 +2269,7 @@ gf_cli_add_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(msg, sizeof(msg), "Add Brick %s",
                  (rsp.op_ret) ? "unsuccessful" : "successful");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volAddBrick", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -2207,6 +2304,7 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
     int32_t command = 0;
     gf1_op_commands cmd = GF_OP_CMD_NONE;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     call_frame_t *frame = NULL;
     const char *cmd_str;
 
@@ -2221,6 +2319,9 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2255,7 +2356,7 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
             snprintf(msg, sizeof(msg), "volume remove-brick %s: failed",
                      cmd_str);
 
-        if (global_state->mode & GLUSTER_MODE_XML)
+        if (state->mode & GLUSTER_MODE_XML)
             goto xml_output;
 
         cli_err("%s", msg);
@@ -2270,7 +2371,7 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
         if (ret < 0) {
             strncpy(msg, DICT_UNSERIALIZE_FAIL, sizeof(msg));
 
-            if (global_state->mode & GLUSTER_MODE_XML) {
+            if (state->mode & GLUSTER_MODE_XML) {
                 rsp.op_ret = -1;
                 goto xml_output;
             }
@@ -2281,7 +2382,7 @@ gf_cli3_remove_brick_status_cbk(struct rpc_req *req, struct iovec *iov,
     }
 
 xml_output:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (strcmp(rsp.op_errstr, "")) {
             ret = cli_xml_output_vol_remove_brick(_gf_true, dict, rsp.op_ret,
                                                   rsp.op_errno, rsp.op_errstr,
@@ -2334,6 +2435,7 @@ gf_cli_remove_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *cmd_str = "unknown";
     cli_local_t *local = NULL;
     call_frame_t *frame = NULL;
+    cli_state_t *state = NULL;
     char *task_id_str = NULL;
     dict_t *rsp_dict = NULL;
 
@@ -2348,6 +2450,9 @@ gf_cli_remove_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2406,7 +2511,7 @@ gf_cli_remove_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(msg, sizeof(msg), "Remove Brick %s %s", cmd_str,
                  (rsp.op_ret) ? "unsuccessful" : "successful");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_remove_brick(_gf_false, rsp_dict, rsp.op_ret,
                                               rsp.op_errno, msg,
                                               "volRemoveBrick");
@@ -2451,6 +2556,7 @@ gf_cli_reset_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     call_frame_t *frame = NULL;
     const char *rb_operation_str = NULL;
     dict_t *rsp_dict = NULL;
@@ -2470,6 +2576,9 @@ gf_cli_reset_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2527,7 +2636,7 @@ gf_cli_reset_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     snprintf(msg, sizeof(msg), "%s",
              rb_operation_str ? rb_operation_str : "Unknown operation");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_replace_brick(rsp_dict, rsp.op_ret,
                                                rsp.op_errno, msg);
         if (ret)
@@ -2563,6 +2672,7 @@ gf_cli_replace_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int ret = -1;
+    cli_state_t *state = NULL;
     cli_local_t *local = NULL;
     call_frame_t *frame = NULL;
     const char *rb_operation_str = NULL;
@@ -2583,6 +2693,9 @@ gf_cli_replace_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     GF_ASSERT(frame->local);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2625,7 +2738,7 @@ gf_cli_replace_brick_cbk(struct rpc_req *req, struct iovec *iov, int count,
     snprintf(msg, sizeof(msg), "%s",
              rb_operation_str ? rb_operation_str : "Unknown operation");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_replace_brick(rsp_dict, rsp.op_ret,
                                                rsp.op_errno, msg);
         if (ret)
@@ -2665,12 +2778,16 @@ gf_cli_log_rotate_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char msg[1024] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2687,7 +2804,7 @@ gf_cli_log_rotate_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(msg, sizeof(msg), "log rotate %s",
                  (rsp.op_ret) ? "unsuccessful" : "successful");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volLogRotate", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -2719,12 +2836,16 @@ gf_cli_sync_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char msg[1024] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -2741,7 +2862,7 @@ gf_cli_sync_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         snprintf(msg, sizeof(msg), "volume sync: %s",
                  (rsp.op_ret) ? "failed" : "success");
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volSync", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -2762,10 +2883,10 @@ out:
 }
 
 static int
-print_quota_list_usage_output(cli_local_t *local, char *path, int64_t avail,
-                              char *sl_str, quota_limits_t *limits,
-                              quota_meta_t *used_space, gf_boolean_t sl,
-                              gf_boolean_t hl, double sl_num,
+print_quota_list_usage_output(cli_local_t *local, cli_state_t *state,
+                              char *path, int64_t avail, char *sl_str,
+                              quota_limits_t *limits, quota_meta_t *used_space,
+                              gf_boolean_t sl, gf_boolean_t hl, double sl_num,
                               gf_boolean_t limit_set)
 {
     int32_t ret = -1;
@@ -2774,7 +2895,7 @@ print_quota_list_usage_output(cli_local_t *local, char *path, int64_t avail,
     char *hl_str = NULL;
     char *sl_val = NULL;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_quota_xml_output(local, path, limits->hl, sl_str, sl_num,
                                    used_space->size, avail, sl ? "Yes" : "No",
                                    hl ? "Yes" : "No", limit_set);
@@ -2819,16 +2940,16 @@ out:
 }
 
 static int
-print_quota_list_object_output(cli_local_t *local, char *path, int64_t avail,
-                               char *sl_str, quota_limits_t *limits,
-                               quota_meta_t *used_space, gf_boolean_t sl,
-                               gf_boolean_t hl, double sl_num,
+print_quota_list_object_output(cli_local_t *local, cli_state_t *state,
+                               char *path, int64_t avail, char *sl_str,
+                               quota_limits_t *limits, quota_meta_t *used_space,
+                               gf_boolean_t sl, gf_boolean_t hl, double sl_num,
                                gf_boolean_t limit_set)
 {
     int32_t ret = -1;
     int64_t sl_val = sl_num;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_quota_object_xml_output(local, path, sl_str, sl_val, limits,
                                           used_space, avail, sl ? "Yes" : "No",
                                           hl ? "Yes" : "No", limit_set);
@@ -2859,9 +2980,10 @@ out:
 }
 
 static int
-print_quota_list_output(cli_local_t *local, char *path, char *default_sl,
-                        quota_limits_t *limits, quota_meta_t *used_space,
-                        int type, gf_boolean_t limit_set)
+print_quota_list_output(cli_local_t *local, cli_state_t *state, char *path,
+                        char *default_sl, quota_limits_t *limits,
+                        quota_meta_t *used_space, int type,
+                        gf_boolean_t limit_set)
 {
     int64_t avail = 0;
     char percent_str[20] = {0};
@@ -2912,20 +3034,21 @@ print_quota_list_output(cli_local_t *local, char *path, char *default_sl,
     }
 
     if (type == GF_QUOTA_OPTION_TYPE_LIST)
-        ret = print_quota_list_usage_output(local, path, avail, sl_final,
+        ret = print_quota_list_usage_output(local, state, path, avail, sl_final,
                                             limits, used_space, sl, hl, sl_num,
                                             limit_set);
     else
-        ret = print_quota_list_object_output(local, path, avail, sl_final,
-                                             limits, used_space, sl, hl, sl_num,
-                                             limit_set);
+        ret = print_quota_list_object_output(local, state, path, avail,
+                                             sl_final, limits, used_space, sl,
+                                             hl, sl_num, limit_set);
 out:
     return ret;
 }
 
 static int
-print_quota_list_from_mountdir(cli_local_t *local, char *mountdir,
-                               char *default_sl, char *path, int type)
+print_quota_list_from_mountdir(cli_local_t *local, cli_state_t *state,
+                               char *mountdir, char *default_sl, char *path,
+                               int type)
 {
     int ret = -1;
     ssize_t xattr_size = 0;
@@ -2982,8 +3105,8 @@ print_quota_list_from_mountdir(cli_local_t *local, char *mountdir,
         goto out;
     }
 
-    limits.hl = ntoh64(limits.hl);
-    limits.sl = ntoh64(limits.sl);
+    limits.hl = be64toh(limits.hl);
+    limits.sl = be64toh(limits.sl);
 
 enoattr:
     xattr_size = sys_lgetxattr(mountdir, QUOTA_SIZE_KEY, NULL, 0);
@@ -3016,12 +3139,12 @@ enoattr:
         goto out;
     }
 
-    used_space.size = ntoh64(used_space.size);
-    used_space.file_count = ntoh64(used_space.file_count);
-    used_space.dir_count = ntoh64(used_space.dir_count);
+    used_space.size = be64toh(used_space.size);
+    used_space.file_count = be64toh(used_space.file_count);
+    used_space.dir_count = be64toh(used_space.dir_count);
 
-    ret = print_quota_list_output(local, path, default_sl, &limits, &used_space,
-                                  type, limit_set);
+    ret = print_quota_list_output(local, state, path, default_sl, &limits,
+                                  &used_space, type, limit_set);
 out:
     return ret;
 }
@@ -3049,9 +3172,10 @@ gluster_remove_auxiliary_mount(char *volname)
 }
 
 static int
-gf_cli_print_limit_list_from_dict(cli_local_t *local, char *volname,
-                                  dict_t *dict, char *default_sl, int count,
-                                  int op_ret, int op_errno, char *op_errstr)
+gf_cli_print_limit_list_from_dict(cli_local_t *local, cli_state_t *state,
+                                  char *volname, dict_t *dict, char *default_sl,
+                                  int count, int op_ret, int op_errno,
+                                  char *op_errstr)
 {
     int ret = -1;
     int i = 0;
@@ -3074,7 +3198,7 @@ gf_cli_print_limit_list_from_dict(cli_local_t *local, char *volname,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_quota_limit_list_begin(local, op_ret, op_errno,
                                                         op_errstr);
         if (ret) {
@@ -3098,8 +3222,8 @@ gf_cli_print_limit_list_from_dict(cli_local_t *local, char *volname,
         if (ret)
             goto out;
         GLUSTERD_GET_QUOTA_LIST_MOUNT_PATH(mountdir, volname, path);
-        ret = print_quota_list_from_mountdir(local, mountdir, default_sl, path,
-                                             type);
+        ret = print_quota_list_from_mountdir(local, state, mountdir, default_sl,
+                                             path, type);
     }
 
 out:
@@ -3113,6 +3237,7 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
     char *default_sl = NULL;
     int ret = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     dict_t *gd_rsp_dict = NULL;
     quota_meta_t used_space = {
         0,
@@ -3128,6 +3253,9 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
 
     local = frame->local;
     gd_rsp_dict = local->dict;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = dict_get_int32_sizen(rsp_dict, "type", &type);
     if (ret) {
@@ -3165,8 +3293,8 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
         }
     }
 
-    limits.hl = ntoh64(size_limits->hl);
-    limits.sl = ntoh64(size_limits->sl);
+    limits.hl = be64toh(size_limits->hl);
+    limits.sl = be64toh(size_limits->sl);
 
     if (type == GF_QUOTA_OPTION_TYPE_LIST)
         ret = quota_dict_get_meta(rsp_dict, QUOTA_SIZE_KEY,
@@ -3199,7 +3327,7 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
     }
 
     if (success_count == 0) {
-        if (!(global_state->mode & GLUSTER_MODE_XML)) {
+        if (!(state->mode & GLUSTER_MODE_XML)) {
             print_quota_list_header(type);
         } else {
             ret = cli_xml_output_vol_quota_limit_list_begin(local, 0, 0, NULL);
@@ -3210,8 +3338,8 @@ print_quota_list_from_quotad(call_frame_t *frame, dict_t *rsp_dict)
         }
     }
 
-    ret = print_quota_list_output(local, path, default_sl, &limits, &used_space,
-                                  type, _gf_true);
+    ret = print_quota_list_output(local, state, path, default_sl, &limits,
+                                  &used_space, type, _gf_true);
 out:
     return ret;
 }
@@ -3398,14 +3526,20 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
     }};
     int ret = 0;
     dict_t *dict = NULL;
+    struct rpc_clnt *rpc = NULL;
+    struct cli_state *state = NULL;
 
     if (!frame || !this || !data) {
         ret = -1;
         goto out;
     }
 
+    state = frame->this->private;
+    rpc = state->quotad_rpc;
+    GF_ASSERT(rpc);
+
     dict = data;
-    ret = add_cli_cmd_timeout_to_dict(dict);
+    ret = add_cli_cmd_timeout_to_dict(state, dict);
 
     ret = dict_allocate_and_serialize(dict, &req.dict.dict_val,
                                       &req.dict.dict_len);
@@ -3415,7 +3549,7 @@ cli_quotad_getlimit(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    ret = cli_cmd_submit(global_quotad_rpc, &req, frame, &cli_quotad_clnt,
+    ret = cli_cmd_submit(rpc, &req, frame, &cli_quotad_clnt,
                          GF_AGGREGATOR_GETLIMIT, NULL, this,
                          cli_quotad_getlimit_cbk, (xdrproc_t)xdr_gf_cli_req);
 
@@ -3426,9 +3560,9 @@ out:
 }
 
 static void
-gf_cli_quota_list(cli_local_t *local, char *volname, dict_t *dict,
-                  char *default_sl, int count, int op_ret, int op_errno,
-                  char *op_errstr)
+gf_cli_quota_list(cli_local_t *local, cli_state_t *state, char *volname,
+                  dict_t *dict, char *default_sl, int count, int op_ret,
+                  int op_errno, char *op_errstr)
 {
     if (!cli_cmd_connected())
         goto out;
@@ -3436,8 +3570,9 @@ gf_cli_quota_list(cli_local_t *local, char *volname, dict_t *dict,
     if (count > 0) {
         GF_VALIDATE_OR_GOTO("cli", volname, out);
 
-        gf_cli_print_limit_list_from_dict(local, volname, dict, default_sl,
-                                          count, op_ret, op_errno, op_errstr);
+        gf_cli_print_limit_list_from_dict(local, state, volname, dict,
+                                          default_sl, count, op_ret, op_errno,
+                                          op_errstr);
     }
 out:
     return;
@@ -3457,6 +3592,7 @@ gf_cli_quota_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     char *default_sl = NULL;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     char *default_sl_dup = NULL;
     int32_t entry_count = 0;
 
@@ -3472,6 +3608,9 @@ gf_cli_quota_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
         gf_log(frame->this->name, GF_LOG_ERROR, XDR_DECODE_FAIL);
@@ -3480,7 +3619,7 @@ gf_cli_quota_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if (rsp.op_ret) {
         ret = -1;
-        if (global_state->mode & GLUSTER_MODE_XML)
+        if (state->mode & GLUSTER_MODE_XML)
             goto xml_output;
 
         if (strcmp(rsp.op_errstr, "")) {
@@ -3543,10 +3682,10 @@ gf_cli_quota_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if ((type == GF_QUOTA_OPTION_TYPE_LIST) ||
         (type == GF_QUOTA_OPTION_TYPE_LIST_OBJECTS)) {
-        gf_cli_quota_list(local, volname, dict, default_sl, entry_count,
+        gf_cli_quota_list(local, state, volname, dict, default_sl, entry_count,
                           rsp.op_ret, rsp.op_errno, rsp.op_errstr);
 
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             ret = cli_xml_output_vol_quota_limit_list_end(local);
             if (ret < 0) {
                 ret = -1;
@@ -3558,7 +3697,7 @@ gf_cli_quota_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
 xml_output:
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volQuota", NULL, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -3826,6 +3965,7 @@ gf_cli_get_next_volume(call_frame_t *frame, xlator_t *this, void *data)
     int ret = 0;
     cli_cmd_volume_get_ctx_t *ctx = NULL;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
 
     if (!frame || !this || !data) {
         ret = -1;
@@ -3835,7 +3975,10 @@ gf_cli_get_next_volume(call_frame_t *frame, xlator_t *this, void *data)
     ctx = data;
     local = frame->local;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    state = frame->this->private;
+    GF_ASSERT(state);
+
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_info_begin(local, 0, 0, "");
         if (ret) {
             gf_log("cli", GF_LOG_ERROR, XML_ERROR);
@@ -3846,7 +3989,7 @@ gf_cli_get_next_volume(call_frame_t *frame, xlator_t *this, void *data)
     ret = gf_cli_get_volume(frame, this, data);
 
     if (!local || !local->get_vol.volname) {
-        if ((global_state->mode & GLUSTER_MODE_XML))
+        if ((state->mode & GLUSTER_MODE_XML))
             goto end_xml;
 
         if (ret)
@@ -3866,7 +4009,7 @@ gf_cli_get_next_volume(call_frame_t *frame, xlator_t *this, void *data)
     }
 
 end_xml:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_info_end(local);
         if (ret)
             gf_log("cli", GF_LOG_ERROR, XML_ERROR);
@@ -4041,7 +4184,7 @@ gf_cli_stop_volume(call_frame_t *frame, xlator_t *this, void *data)
         0,
     }};
     int ret = 0;
-    dict_t *dict = data;
+    dict_t *dict = NULL;
 
     dict = data;
 
@@ -5118,6 +5261,7 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *primary = NULL;
     char *secondary = NULL;
     int32_t type = 0;
+    cli_state_t *state = NULL;
     gf_boolean_t status_detail = _gf_false;
 
     GF_ASSERT(myframe);
@@ -5125,6 +5269,9 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (req->rpc_status == -1) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -5145,7 +5292,7 @@ gf_cli_gsync_set_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (ret)
         goto out;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_gsync(dict, rsp.op_ret, rsp.op_errno,
                                        rsp.op_errstr);
         if (ret)
@@ -5541,6 +5688,7 @@ gf_cli_profile_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int stats_cleared = 0;
+    cli_state_t *state = NULL;
     gf1_cli_info_op info_op = GF_CLI_INFO_NONE;
 
     GF_ASSERT(myframe);
@@ -5548,6 +5696,9 @@ gf_cli_profile_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     gf_log("cli", GF_LOG_DEBUG, "Received resp to profile");
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
@@ -5571,7 +5722,7 @@ gf_cli_profile_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_profile(dict, rsp.op_ret, rsp.op_errno,
                                          rsp.op_errstr);
         if (ret)
@@ -5733,6 +5884,7 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
+    cli_state_t *state = NULL;
     char *openfd_str = NULL;
     gf_boolean_t nfs = _gf_false;
     gf_boolean_t clear_stats = _gf_false;
@@ -5743,6 +5895,9 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (-1 == req->rpc_status) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     gf_log("cli", GF_LOG_DEBUG, "Received resp to top");
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
@@ -5781,7 +5936,7 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_top(dict, rsp.op_ret, rsp.op_errno,
                                      rsp.op_errstr);
         if (ret) {
@@ -5899,7 +6054,7 @@ gf_cli_top_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
                 ret = dict_get_int32n(dict, key, keylen, (int32_t *)&time_usec);
                 if (ret)
                     goto out;
-                gf_time_fmt(timestr, sizeof timestr, time_sec, gf_timefmt_FT);
+                gf_time_fmt_FT(timestr, sizeof timestr, time_sec);
                 snprintf(timestr + strlen(timestr),
                          sizeof timestr - strlen(timestr), ".%ld", time_usec);
                 if (strlen(filename) < VOL_TOP_PERF_FILENAME_DEF_WIDTH)
@@ -7185,6 +7340,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     cli_volume_status_t status = {0};
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     gf_boolean_t wipe_local = _gf_false;
     char msg[1024] = {
         0,
@@ -7194,6 +7350,9 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if (req->rpc_status == -1)
         goto out;
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -7222,7 +7381,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
             snprintf(msg, sizeof(msg),
                      "Unable to obtain volume status information.");
 
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             if (!local->all)
                 cli_xml_output_str("volStatus", msg, rsp.op_ret, rsp.op_errno,
                                    rsp.op_errstr);
@@ -7267,7 +7426,7 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         if (!local->all) {
             ret = cli_xml_output_vol_status_begin(local, rsp.op_ret,
                                                   rsp.op_errno, rsp.op_errstr);
@@ -7494,6 +7653,7 @@ gf_cli_status_volume_all(call_frame_t *frame, xlator_t *this, void *data)
     void *vol_dict = NULL;
     dict_t *dict = NULL;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
 
     if (!frame)
         goto out;
@@ -7502,6 +7662,9 @@ gf_cli_status_volume_all(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = dict_get_uint32(local->dict, "cmd", &cmd);
     if (ret)
@@ -7528,7 +7691,7 @@ gf_cli_status_volume_all(call_frame_t *frame, xlator_t *this, void *data)
     cmd &= ~GF_CLI_STATUS_ALL;
     cmd |= GF_CLI_STATUS_VOL;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         // TODO: Pass proper op_* values
         ret = cli_xml_output_vol_status_begin(local, 0, 0, NULL);
         if (ret) {
@@ -7537,7 +7700,7 @@ gf_cli_status_volume_all(call_frame_t *frame, xlator_t *this, void *data)
         }
     }
 
-    if (vol_count == 0 && !(global_state->mode & GLUSTER_MODE_XML)) {
+    if (vol_count == 0 && !(state->mode & GLUSTER_MODE_XML)) {
         cli_err("No volumes present");
         ret = 0;
         goto out;
@@ -7569,7 +7732,7 @@ gf_cli_status_volume_all(call_frame_t *frame, xlator_t *this, void *data)
     }
 
 xml_end:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_status_end(local);
     }
 
@@ -7921,16 +8084,17 @@ gf_cli_heal_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     ret = dict_get_int32_sizen(local->dict, "heal-op", (int32_t *)&heal_op);
+
     // TODO: Proper XML output
-    //#if (HAVE_LIB_XML)
-    //        if (global_state->mode & GLUSTER_MODE_XML) {
+    // #if (HAVE_LIB_XML)
+    //        if (state->mode & GLUSTER_MODE_XML) {
     //                ret = cli_xml_output_dict ("volHeal", dict, rsp.op_ret,
     //                                           rsp.op_errno, rsp.op_errstr);
     //                if (ret)
     //                        gf_log ("cli", GF_LOG_ERROR, XML_ERROR);
     //                goto out;
     //        }
-    //#endif
+    // #endif
 
     ret = dict_get_str_sizen(local->dict, "volname", &volname);
     if (ret) {
@@ -8093,8 +8257,12 @@ gf_cli_statedump_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     };
     int ret = -1;
     char msg[1024] = "Volume statedump successful";
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     if (-1 == req->rpc_status)
         goto out;
@@ -8109,7 +8277,7 @@ gf_cli_statedump_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (rsp.op_ret)
         snprintf(msg, sizeof(msg), "%s", rsp.op_errstr);
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_str("volStatedump", msg, rsp.op_ret, rsp.op_errno,
                                  rsp.op_errstr);
         if (ret)
@@ -8165,11 +8333,15 @@ gf_cli_list_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         0,
     };
     int i = 0;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status)
         goto out;
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -8190,7 +8362,7 @@ gf_cli_list_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_list(dict, rsp.op_ret, rsp.op_errno,
                                       rsp.op_errstr);
         if (ret)
@@ -8340,6 +8512,7 @@ cli_snapshot_remove_reply(gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
     char *snap_name = NULL;
     int32_t delete_cmd = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(frame);
     GF_ASSERT(rsp);
@@ -8347,13 +8520,16 @@ cli_snapshot_remove_reply(gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     ret = dict_get_int32_sizen(dict, "sub-cmd", &delete_cmd);
     if (ret) {
         gf_log("cli", GF_LOG_ERROR, "Could not get sub-cmd");
         goto end;
     }
 
-    if ((global_state->mode & GLUSTER_MODE_XML) &&
+    if ((state->mode & GLUSTER_MODE_XML) &&
         (delete_cmd == GF_SNAP_DELETE_TYPE_SNAP)) {
         ret = cli_xml_output_snap_delete_begin(local, rsp->op_ret,
                                                rsp->op_errno, rsp->op_errstr);
@@ -8364,7 +8540,7 @@ cli_snapshot_remove_reply(gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
         }
     }
 
-    if (rsp->op_ret && !(global_state->mode & GLUSTER_MODE_XML)) {
+    if (rsp->op_ret && !(state->mode & GLUSTER_MODE_XML)) {
         cli_err("snapshot delete: failed: %s",
                 rsp->op_errstr ? rsp->op_errstr
                                : "Please check log file for details");
@@ -8391,7 +8567,7 @@ cli_snapshot_remove_reply(gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_snapshot_delete(local, dict, rsp);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -8415,7 +8591,7 @@ cli_snapshot_remove_reply(gf_cli_rsp *rsp, dict_t *dict, call_frame_t *frame)
     ret = 0;
 
 out:
-    if ((global_state->mode & GLUSTER_MODE_XML) &&
+    if ((state->mode & GLUSTER_MODE_XML) &&
         (delete_cmd == GF_SNAP_DELETE_TYPE_SNAP)) {
         ret = cli_xml_output_snap_delete_end(local);
     }
@@ -8972,7 +9148,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Volume Group");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Volume Group");
             cli_out("\t%-17s %s   %s", "Volume Group", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Volume Group", ":", buffer);
@@ -8984,7 +9160,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Brick Running");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Brick Running");
             cli_out("\t%-17s %s   %s", "Brick Running", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Brick Running", ":", buffer);
@@ -8996,7 +9172,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_int32(dict, key, &pid);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get pid");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get pid");
             cli_out("\t%-17s %s   %s", "Brick PID", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %d", "Brick PID", ":", pid);
@@ -9008,7 +9184,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
 
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get Data Percent");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get Data Percent");
             cli_out("\t%-17s %s   %s", "Data Percentage", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "Data Percentage", ":", buffer);
@@ -9019,7 +9195,7 @@ cli_get_snap_volume_status(dict_t *dict, char *key_prefix)
         }
         ret = dict_get_str(dict, key, &buffer);
         if (ret) {
-            gf_log("cli", GF_LOG_INFO, "Unable to get LV Size");
+            gf_log("cli", GF_LOG_DEBUG, "Unable to get LV Size");
             cli_out("\t%-17s %s   %s", "LV Size", ":", "N/A");
         } else
             cli_out("\t%-17s %s   %s", "LV Size", ":", buffer);
@@ -9203,6 +9379,7 @@ cli_snapshot_status(dict_t *dict, gf_cli_rsp *rsp, call_frame_t *frame)
     int ret = -1;
     int status_cmd = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(dict);
     GF_ASSERT(rsp);
@@ -9213,6 +9390,9 @@ cli_snapshot_status(dict_t *dict, gf_cli_rsp *rsp, call_frame_t *frame)
         gf_log("cli", GF_LOG_ERROR, "frame->local is NULL");
         goto out;
     }
+
+    state = ((call_frame_t *)frame)->this->private;
+    GF_ASSERT(state);
 
     if (rsp->op_ret) {
         if (rsp->op_errstr) {
@@ -9240,7 +9420,7 @@ cli_snapshot_status(dict_t *dict, gf_cli_rsp *rsp, call_frame_t *frame)
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_snapshot_status_single_snap(local, dict, "status.snap0");
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -9615,6 +9795,7 @@ gf_cli_snapshot_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int8_t soft_limit_flag = -1;
     char *volname = NULL;
     char *snap_uuid = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
@@ -9623,6 +9804,9 @@ gf_cli_snapshot_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     frame = myframe;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -9665,9 +9849,9 @@ gf_cli_snapshot_cbk(struct rpc_req *req, struct iovec *iov, int count,
 #endif
 
     /* Snapshot status and delete command is handled separately */
-    if (global_state->mode & GLUSTER_MODE_XML &&
-        GF_SNAP_OPTION_TYPE_STATUS != type &&
-        GF_SNAP_OPTION_TYPE_DELETE != type) {
+    if ((state->mode & GLUSTER_MODE_XML) &&
+        (GF_SNAP_OPTION_TYPE_STATUS != type) &&
+        (GF_SNAP_OPTION_TYPE_DELETE != type)) {
         ret = cli_xml_output_snapshot(type, dict, rsp.op_ret, rsp.op_errno,
                                       rsp.op_errstr);
         if (ret) {
@@ -9887,6 +10071,7 @@ gf_cli_snapshot_for_delete(call_frame_t *frame, xlator_t *this, void *data)
     int32_t ret = -1;
     int32_t cmd = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     dict_t *snap_dict = NULL;
     int32_t snapcount = 0;
     int i = 0;
@@ -9900,6 +10085,9 @@ gf_cli_snapshot_for_delete(call_frame_t *frame, xlator_t *this, void *data)
     GF_VALIDATE_OR_GOTO("cli", data, out);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = dict_get_int32_sizen(local->dict, "sub-cmd", &cmd);
     if (ret) {
@@ -9919,7 +10107,7 @@ gf_cli_snapshot_for_delete(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
 #ifdef HAVE_LIB_XML
         ret = xmlTextWriterWriteFormatElement(
             local->writer, (xmlChar *)"snapCount", "%d", snapcount);
@@ -9953,7 +10141,7 @@ gf_cli_snapshot_for_delete(call_frame_t *frame, xlator_t *this, void *data)
                  volname, snapcount);
     }
 
-    answer = cli_cmd_get_confirmation(global_state, question);
+    answer = cli_cmd_get_confirmation(state, question);
     if (GF_ANSWER_NO == answer) {
         ret = 0;
         gf_log("cli", GF_LOG_DEBUG,
@@ -10007,6 +10195,7 @@ gf_cli_snapshot_for_status(call_frame_t *frame, xlator_t *this, void *data)
     int ret = -1;
     int32_t cmd = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     dict_t *snap_dict = NULL;
     int snapcount = 0;
     int i = 0;
@@ -10017,6 +10206,9 @@ gf_cli_snapshot_for_status(call_frame_t *frame, xlator_t *this, void *data)
     GF_VALIDATE_OR_GOTO("cli", data, out);
 
     local = frame->local;
+
+    state = frame->this->private;
+    GF_ASSERT(state);
 
     ret = dict_get_int32_sizen(local->dict, "sub-cmd", &cmd);
     if (ret) {
@@ -10040,7 +10232,7 @@ gf_cli_snapshot_for_status(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    if (snapcount == 0 && !(global_state->mode & GLUSTER_MODE_XML)) {
+    if (snapcount == 0 && !(state->mode & GLUSTER_MODE_XML)) {
         cli_out("No snapshots present");
     }
 
@@ -10101,6 +10293,7 @@ gf_cli_snapshot(call_frame_t *frame, xlator_t *this, void *data)
     int ret = -1;
     int tmp_ret = -1;
     cli_local_t *local = NULL;
+    cli_state_t *state = NULL;
     char *err_str = NULL;
     int type = -1;
 
@@ -10109,9 +10302,12 @@ gf_cli_snapshot(call_frame_t *frame, xlator_t *this, void *data)
 
     local = frame->local;
 
+    state = frame->this->private;
+    GF_ASSERT(state);
+
     options = data;
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_snapshot_begin_composite_op(local);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -10153,7 +10349,7 @@ gf_cli_snapshot(call_frame_t *frame, xlator_t *this, void *data)
     ret = 0;
 
 xmlend:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_snapshot_end_composite_op(local);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR,
@@ -10177,7 +10373,7 @@ out:
 
     GF_FREE(req.dict.dict_val);
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state && (state->mode & GLUSTER_MODE_XML)) {
         /* XML mode handles its own error */
         ret = 0;
     }
@@ -10261,11 +10457,15 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char dict_key[50] = {
         0,
     };
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (-1 == req->rpc_status)
         goto out;
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -10282,7 +10482,7 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
         else
             snprintf(msg, sizeof(msg), "volume get option: failed");
 
-        if (global_state->mode & GLUSTER_MODE_XML) {
+        if (state->mode & GLUSTER_MODE_XML) {
             ret = cli_xml_output_str("volGetopts", msg, rsp.op_ret,
                                      rsp.op_errno, rsp.op_errstr);
             if (ret) {
@@ -10307,7 +10507,7 @@ gf_cli_get_vol_opt_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_getopts(dict, rsp.op_ret, rsp.op_errno,
                                          rsp.op_errstr);
         if (ret) {
@@ -10392,12 +10592,12 @@ gf_cli_get_vol_opt(call_frame_t *frame, xlator_t *this, void *data)
 }
 
 static int
-add_cli_cmd_timeout_to_dict(dict_t *dict)
+add_cli_cmd_timeout_to_dict(struct cli_state *state, dict_t *dict)
 {
     int ret = 0;
 
-    if (cli_default_conn_timeout > 120) {
-        ret = dict_set_uint32(dict, "timeout", cli_default_conn_timeout);
+    if (state->default_conn_timeout > 120) {
+        ret = dict_set_time(dict, "timeout", state->default_conn_timeout);
         if (ret) {
             gf_log("cli", GF_LOG_INFO, "Failed to save timeout to dict");
         }
@@ -10416,6 +10616,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     int i = 0;
     const char **words = NULL;
     cli_local_t *local = NULL;
+    struct cli_state *state = NULL;
 
     if (!this || !frame || !frame->local || !dict) {
         ret = -1;
@@ -10423,6 +10624,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     }
 
     local = frame->local;
+    state = frame->this->private;
 
     if (!local->words) {
         ret = -1;
@@ -10451,7 +10653,7 @@ cli_to_glusterd(gf_cli_req *req, call_frame_t *frame, fop_cbk_fn_t cbkfn,
     if (ret)
         goto out;
 
-    ret = add_cli_cmd_timeout_to_dict(dict);
+    ret = add_cli_cmd_timeout_to_dict(state, dict);
 
     ret = dict_allocate_and_serialize(dict, &(req->dict).dict_val,
                                       &(req->dict).dict_len);
@@ -10653,12 +10855,16 @@ gf_cli_bitrot_cbk(struct rpc_req *req, struct iovec *iov, int count,
     char *volname = NULL;
     char *cmd_str = NULL;
     char *cmd_op = NULL;
+    cli_state_t *state = NULL;
 
     GF_ASSERT(myframe);
 
     if (req->rpc_status == -1) {
         goto out;
     }
+
+    state = ((call_frame_t *)myframe)->this->private;
+    GF_ASSERT(state);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_cli_rsp);
     if (ret < 0) {
@@ -10669,7 +10875,7 @@ gf_cli_bitrot_cbk(struct rpc_req *req, struct iovec *iov, int count,
 
     if (rsp.op_ret) {
         ret = -1;
-        if (global_state->mode & GLUSTER_MODE_XML)
+        if (state->mode & GLUSTER_MODE_XML)
             goto xml_output;
 
         if (strcmp(rsp.op_errstr, ""))
@@ -10706,7 +10912,7 @@ gf_cli_bitrot_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     if ((type == GF_BITROT_CMD_SCRUB_STATUS) &&
-        !(global_state->mode & GLUSTER_MODE_XML)) {
+        !(state->mode & GLUSTER_MODE_XML)) {
         ret = gf_cli_print_bitrot_scrub_status(dict);
         if (ret) {
             gf_log("cli", GF_LOG_ERROR, "Failed to print bitrot scrub status");
@@ -10772,7 +10978,7 @@ gf_cli_bitrot_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
 xml_output:
-    if (global_state->mode & GLUSTER_MODE_XML) {
+    if (state->mode & GLUSTER_MODE_XML) {
         ret = cli_xml_output_vol_profile(dict, rsp.op_ret, rsp.op_errno,
                                          rsp.op_errstr);
         if (ret)

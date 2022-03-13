@@ -14,9 +14,7 @@
 #include <glusterfs/compat-uuid.h>
 
 #include "rpc-clnt.h"
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/byte-order.h>
 #include "rpcsvc.h"
 #include <glusterfs/store.h>
 

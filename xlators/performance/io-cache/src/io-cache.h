@@ -14,7 +14,6 @@
 #include <sys/types.h>
 #include <glusterfs/compat-errno.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/rbthash.h>
@@ -158,7 +157,7 @@ struct ioc_table {
     pthread_mutex_t table_lock;
     xlator_t *xl;
     uint32_t inode_count;
-    int32_t cache_timeout;
+    time_t cache_timeout;
     int32_t max_pri;
     struct mem_pool *mem_pool;
 };

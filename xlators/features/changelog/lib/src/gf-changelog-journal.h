@@ -14,8 +14,6 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "changelog.h"
-
 enum api_conn {
     JNL_API_CONNECTED,
     JNL_API_CONN_INPROGESS,

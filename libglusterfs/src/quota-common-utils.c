@@ -10,10 +10,9 @@
 
 #include "glusterfs/dict.h"
 #include "glusterfs/logging.h"
-#include "glusterfs/byte-order.h"
 #include "glusterfs/quota-common-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
+#include <glusterfs/syscall.h>
 
 gf_boolean_t
 quota_meta_is_null(const quota_meta_t *meta)
@@ -36,15 +35,15 @@ quota_data_to_meta(data_t *data, quota_meta_t *meta)
 
     if (data->len > sizeof(int64_t)) {
         value = (quota_meta_t *)data->data;
-        meta->size = ntoh64(value->size);
-        meta->file_count = ntoh64(value->file_count);
+        meta->size = be64toh(value->size);
+        meta->file_count = be64toh(value->file_count);
         if (data->len > (sizeof(int64_t)) * 2)
-            meta->dir_count = ntoh64(value->dir_count);
+            meta->dir_count = be64toh(value->dir_count);
         else
             meta->dir_count = 0;
     } else {
         size = (int64_t *)data->data;
-        meta->size = ntoh64(*size);
+        meta->size = be64toh(*size);
         meta->file_count = 0;
         meta->dir_count = 0;
         /* This can happen during software upgrade.
@@ -111,9 +110,9 @@ quota_dict_set_meta(dict_t *dict, char *key, const quota_meta_t *meta,
         goto out;
     }
 
-    value->size = hton64(meta->size);
-    value->file_count = hton64(meta->file_count);
-    value->dir_count = hton64(meta->dir_count);
+    value->size = htobe64(meta->size);
+    value->file_count = htobe64(meta->file_count);
+    value->dir_count = htobe64(meta->dir_count);
 
     if (ia_type == IA_IFDIR) {
         ret = dict_set_bin(dict, key, value, sizeof(*value));
@@ -230,6 +229,21 @@ out:
         gf_msg_callingfn("quota", GF_LOG_ERROR, 0, LG_MSG_QUOTA_CONF_ERROR,
                          "failed to "
                          "read gfid from a quota conf");
+
+    return ret;
+}
+
+static int
+gf_skip_header_section(int fd, int header_len)
+{
+    int ret = -1;
+
+    ret = sys_lseek(fd, header_len, SEEK_SET);
+    if (ret == (off_t)-1) {
+        gf_smsg("", GF_LOG_ERROR, 0, LG_MSG_SKIP_HEADER_FAILED, NULL);
+    } else {
+        ret = 0;
+    }
 
     return ret;
 }

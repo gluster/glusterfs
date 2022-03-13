@@ -11,11 +11,8 @@
 #ifndef __BIT_ROT_H__
 #define __BIT_ROT_H__
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include "changelog.h"
@@ -27,8 +24,6 @@
 #include "bit-rot-common.h"
 #include "bit-rot-stub-mem-types.h"
 #include "bit-rot-scrub-status.h"
-
-#include <openssl/sha.h>
 
 typedef enum scrub_throttle {
     BR_SCRUB_THROTTLE_VOID = -1,
@@ -201,7 +196,7 @@ struct br_private {
                                       signing and the workers which sign
                                       the objects */
 
-    uint32_t expiry_time; /* objects "wait" time */
+    time_t expiry_time; /* objects "wait" time */
 
     uint32_t signer_th_count; /* Number of signing process threads */
 

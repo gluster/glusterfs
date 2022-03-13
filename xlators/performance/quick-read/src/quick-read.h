@@ -11,15 +11,11 @@
 #ifndef __QUICK_READ_H
 #define __QUICK_READ_H
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/common-utils.h>
-#include <glusterfs/call-stub.h>
 #include <glusterfs/defaults.h>
 #include <libgen.h>
 #include <sys/time.h>
@@ -33,16 +29,16 @@ struct qr_inode {
     void *data;
     size_t size;
     int priority;
-    uint32_t ia_mtime;
+    uint64_t ia_mtime;
     uint32_t ia_mtime_nsec;
-    uint32_t ia_ctime;
+    uint64_t ia_ctime;
     uint32_t ia_ctime_nsec;
     uint32_t gen_rollover;
     struct iatt buf;
     time_t last_refresh;
     struct list_head lru;
     uint64_t gen;
-    uint64_t invalidation_time;
+    time_t invalidation_time;
 };
 typedef struct qr_inode qr_inode_t;
 
@@ -55,7 +51,7 @@ typedef struct qr_priority qr_priority_t;
 
 struct qr_conf {
     uint64_t max_file_size;
-    int32_t cache_timeout;
+    time_t cache_timeout;
     uint64_t cache_size;
     int max_pri;
     gf_boolean_t qr_invalidation;

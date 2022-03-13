@@ -676,7 +676,7 @@ nlc_reconfigure(xlator_t *this, dict_t *options)
 
     conf = this->private;
 
-    GF_OPTION_RECONF("nl-cache-timeout", conf->cache_timeout, options, int32,
+    GF_OPTION_RECONF("nl-cache-timeout", conf->cache_timeout, options, time,
                      out);
     GF_OPTION_RECONF("nl-cache-positive-entry", conf->positive_entry_cache,
                      options, bool, out);
@@ -699,7 +699,7 @@ nlc_init(xlator_t *this)
     if (!conf)
         goto out;
 
-    GF_OPTION_INIT("nl-cache-timeout", conf->cache_timeout, int32, out);
+    GF_OPTION_INIT("nl-cache-timeout", conf->cache_timeout, time, out);
     GF_OPTION_INIT("nl-cache-positive-entry", conf->positive_entry_cache, bool,
                    out);
     GF_OPTION_INIT("nl-cache-limit", conf->cache_size, size_uint64, out);

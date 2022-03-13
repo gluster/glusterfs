@@ -11,7 +11,6 @@
 #include <fnmatch.h>
 
 #include "libxlator.h"
-#include <glusterfs/byte-order.h>
 
 #include "ec-types.h"
 #include "ec-helpers.h"
@@ -260,7 +259,7 @@ ec_value_ignore(char *key)
 int32_t
 ec_dict_compare(dict_t *dict1, dict_t *dict2)
 {
-    if (are_dicts_equal(dict1, dict2, ec_xattr_match, ec_value_ignore))
+    if (are_dicts_equal(dict1, dict2, ec_xattr_match, NULL, ec_value_ignore))
         return 1;
     return 0;
 }

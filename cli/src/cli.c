@@ -22,7 +22,6 @@
 #include <sys/utsname.h>
 
 #include <stdint.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -38,22 +37,15 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
-
-#include "xdr-generic.h"
 
 /* using argp for command line parsing */
 
@@ -70,16 +62,9 @@ const char *argp_program_version =
     "in all cases as published by the Free Software Foundation.";
 const char *argp_program_bug_address = "<" PACKAGE_BUGREPORT ">";
 
-struct rpc_clnt *global_quotad_rpc;
-
-struct rpc_clnt *global_rpc;
-
 rpc_clnt_prog_t *cli_rpc_prog;
 
 extern struct rpc_clnt_program cli_prog;
-
-int cli_default_conn_timeout = 120;
-int cli_ten_minutes_timeout = 600;
 
 static int
 glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
@@ -111,14 +96,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
-
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
-        goto out;
-    }
-
     ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
                                         STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
@@ -144,12 +121,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     if (!pool->stack_mem_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create stack mem pool.");
-        goto out;
-    }
-
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
         goto out;
     }
 
@@ -200,7 +171,6 @@ out:
         GF_FREE(pool);
         pool = NULL;
         GF_FREE(ctx->process_uuid);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->dict_data_pool);
@@ -249,7 +219,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get_from_small(xdr_size);
         if (!iobuf) {
             goto out;
         };
@@ -277,8 +247,11 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         count = 1;
     }
 
-    if (!rpc)
-        rpc = global_rpc;
+    if (!rpc) {
+        rpc = ((cli_state_t *)(frame->this->private))->rpc;
+        GF_ASSERT(rpc);
+    }
+
     /* Send the msg */
     ret = rpc_clnt_submit(rpc, prog, procnum, cbkfn, &iov, count, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
@@ -296,10 +269,13 @@ int
 cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                void *data)
 {
+    struct cli_state *state = NULL;
     xlator_t *this = NULL;
     int ret = 0;
 
     this = mydata;
+    state = this->private;
+    GF_ASSERT(state);
 
     switch (event) {
         case RPC_CLNT_CONNECT: {
@@ -311,7 +287,7 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
         case RPC_CLNT_DISCONNECT: {
             cli_cmd_broadcast_connected(_gf_false);
             gf_log(this->name, GF_LOG_TRACE, "got RPC_CLNT_DISCONNECT");
-            if (!global_state->prompt && global_state->await_connected) {
+            if (!state->prompt && state->await_connected) {
                 ret = 1;
                 cli_out(
                     "Connection failed. Please check if gluster "
@@ -329,26 +305,6 @@ cli_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     }
 
     return ret;
-}
-
-static gf_boolean_t
-is_valid_int(char *str)
-{
-    if (*str == '-')
-        ++str;
-
-    /* Handle empty string or just "-".*/
-    if (!*str)
-        return _gf_false;
-
-    /* Check for non-digit chars in the rest of the string */
-    while (*str) {
-        if (!isdigit(*str))
-            return _gf_false;
-        else
-            ++str;
-    }
-    return _gf_true;
 }
 
 /*
@@ -449,12 +405,16 @@ cli_opt_parse(char *opt, struct cli_state *state)
     }
     oarg = strtail(opt, "timeout=");
     if (oarg) {
-        if (!is_valid_int(oarg) || atoi(oarg) <= 0) {
+        time_t val;
+        char *endptr = NULL;
+
+        val = strtol(oarg, &endptr, 10);
+        if (*endptr != '\0' || val <= 0) {
             cli_err("timeout value should be a positive integer");
-            return -2; /* -2 instead of -1 to avoid unknown option
-                          error */
+            /* Use -2 to not confuse with unknown option error. */
+            return -2;
         }
-        cli_default_conn_timeout = atoi(oarg);
+        state->default_conn_timeout = val;
         return 0;
     }
 
@@ -559,6 +519,8 @@ cli_state_init(struct cli_state *state)
     struct cli_cmd_tree *tree = NULL;
     int ret = 0;
 
+    state->default_conn_timeout = CLI_DEFAULT_CONN_TIMEOUT;
+
     state->log_level = GF_LOG_NONE;
 
     tree = &state->tree;
@@ -587,7 +549,8 @@ _cli_err(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -613,7 +576,8 @@ _cli_out(const char *fmt, ...)
     va_list ap;
     int ret = 0;
 #ifdef HAVE_READLINE
-    struct cli_state *state = global_state;
+    struct cli_state *state = THIS->private;
+    GF_ASSERT(state);
 #endif
 
     va_start(ap, fmt);
@@ -632,8 +596,8 @@ _cli_out(const char *fmt, ...)
     return ret;
 }
 
-struct rpc_clnt *
-cli_quotad_clnt_rpc_init(void)
+static int
+cli_quotad_clnt_rpc_init(cli_state_t *state)
 {
     struct rpc_clnt *rpc = NULL;
     dict_t *rpc_opts = NULL;
@@ -659,18 +623,19 @@ cli_quotad_clnt_rpc_init(void)
         goto out;
 
     rpc = cli_quotad_clnt_init(THIS, rpc_opts);
-    if (!rpc)
+    if (!rpc) {
+        ret = -1;
         goto out;
-
-    global_quotad_rpc = rpc;
-out:
-    if (rpc_opts) {
-        dict_unref(rpc_opts);
     }
-    return rpc;
+    state->quotad_rpc = rpc;
+    ret = 0;
+out:
+    if (rpc_opts)
+        dict_unref(rpc_opts);
+    return ret;
 }
 
-struct rpc_clnt *
+static int
 cli_rpc_init(struct cli_state *state)
 {
     struct rpc_clnt *rpc = NULL;
@@ -758,8 +723,10 @@ out:
         if (rpc)
             rpc_clnt_unref(rpc);
         rpc = NULL;
-    }
-    return rpc;
+    } else
+        state->rpc = rpc;
+
+    return ret;
 }
 
 cli_local_t *
@@ -786,8 +753,6 @@ cli_local_wipe(cli_local_t *local)
 
     return;
 }
-
-struct cli_state *global_state;
 
 int
 main(int argc, char *argv[])
@@ -818,15 +783,12 @@ main(int argc, char *argv[])
     if (ret)
         goto out;
 
-    cli_default_conn_timeout = 120;
-    cli_ten_minutes_timeout = 600;
-
     ret = cli_state_init(&state);
     if (ret)
         goto out;
 
     state.ctx = ctx;
-    global_state = &state;
+    THIS->private = &state;
 
     ret = parse_cmdline(argc, argv, &state);
     if (ret)
@@ -839,20 +801,15 @@ main(int argc, char *argv[])
     gf_log("cli", GF_LOG_INFO, "Started running %s with version %s", argv[0],
            PACKAGE_VERSION);
 
-    global_rpc = cli_rpc_init(&state);
-    if (!global_rpc)
+    ret = cli_rpc_init(&state);
+    if (ret)
         goto out;
 
-    /*
-     * Now, one doesn't need to initialize global rpc
-     * for quota unless and until quota is enabled.
-     * So why not put a check to save all the rpc related
-     * ops here.
-     */
+    /* Do not initialize quota RPC context unless and until quota is enabled. */
     ret = sys_access(QUOTAD_PID_PATH, F_OK);
     if (!ret) {
-        global_quotad_rpc = cli_quotad_clnt_rpc_init();
-        if (!global_quotad_rpc)
+        ret = cli_quotad_clnt_rpc_init(&state);
+        if (ret)
             goto out;
     }
 

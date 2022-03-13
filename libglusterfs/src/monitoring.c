@@ -32,12 +32,16 @@ dump_mem_acct_details(xlator_t *xl, int fd)
 
     for (i = 0; i < xl->mem_acct->num_types; i++) {
         mem_rec = &xl->mem_acct->rec[i];
-        if (mem_rec->num_allocs == 0)
+        if (!GF_ATOMIC_GET(mem_rec->num_allocs))
             continue;
-        dprintf(fd, "# %s, %" PRIu64 ", %u, %" PRIu64 ", %u, %" PRIu64 "\n",
-                mem_rec->typestr, mem_rec->size, mem_rec->num_allocs,
-                mem_rec->max_size, mem_rec->max_num_allocs,
-                mem_rec->total_allocs);
+#ifdef DEBUG
+        dprintf(fd, "# %s, %" PRIu64 ", %" PRIu64 ", %u, %" PRIu64 "\n",
+                mem_rec->typestr, mem_rec->size, mem_rec->max_size,
+                mem_rec->max_num_allocs, GF_ATOMIC_GET(mem_rec->num_allocs));
+#else
+        dprintf(fd, "# %s, %" PRIu64 "\n", mem_rec->typestr,
+                GF_ATOMIC_GET(mem_rec->num_allocs));
+#endif
     }
 }
 
@@ -129,15 +133,13 @@ dump_inode_stats(glusterfs_ctx_t *ctx, int fd)
 static void
 dump_global_metrics(glusterfs_ctx_t *ctx, int fd)
 {
-    struct timeval tv;
     time_t nowtime;
     struct tm *nowtm;
     char tmbuf[64] = {
         0,
     };
 
-    gettimeofday(&tv, NULL);
-    nowtime = tv.tv_sec;
+    nowtime = gf_time();
     nowtm = localtime(&nowtime);
     strftime(tmbuf, sizeof tmbuf, "%Y-%m-%d %H:%M:%S", nowtm);
 

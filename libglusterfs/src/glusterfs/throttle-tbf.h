@@ -9,7 +9,6 @@
 */
 
 #include "glusterfs/list.h"
-#include "glusterfs/xlator.h"
 #include "glusterfs/locking.h"
 
 #ifndef THROTTLE_TBF_H__

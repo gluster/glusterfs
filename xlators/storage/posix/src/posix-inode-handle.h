@@ -13,7 +13,6 @@
 #include <limits.h>
 #include <sys/types.h>
 #include <glusterfs/gf-dirent.h>
-#include "posix.h"
 
 /* From Open Group Base Specifications Issue 6 */
 #ifndef _XOPEN_PATH_MAX
@@ -72,11 +71,12 @@
         if (LOC_IS_DIR(loc) && LOC_HAS_ABSPATH(loc)) {                         \
             MAKE_REAL_PATH(rpath, this, (loc)->path);                          \
             op_ret = posix_pstat(this, (loc)->inode, (loc)->gfid, rpath,       \
-                                 iatt_p, _gf_false);                           \
+                                 iatt_p, _gf_false, _gf_true);                 \
             break;                                                             \
         }                                                                      \
         errno = 0;                                                             \
-        op_ret = posix_istat(this, loc->inode, loc->gfid, NULL, iatt_p);       \
+        op_ret = posix_istat(this, loc->inode, loc->gfid, NULL, iatt_p,        \
+                             _gf_true);                                        \
         if (errno != ELOOP) {                                                  \
             MAKE_HANDLE_PATH(rpath, this, (loc)->gfid, NULL);                  \
             if (!rpath) {                                                      \

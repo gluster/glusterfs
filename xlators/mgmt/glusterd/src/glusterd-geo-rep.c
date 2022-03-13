@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
@@ -5048,16 +5044,8 @@ glusterd_get_gsync_status(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     };
     glusterd_volinfo_t *volinfo = NULL;
     int ret = 0;
-    char my_hostname[256] = {
-        0,
-    };
+    char *my_hostname = gf_gethostname();
     xlator_t *this = THIS;
-
-    ret = gethostname(my_hostname, 256);
-    if (ret) {
-        /* stick to N/A */
-        (void)strcpy(my_hostname, "N/A");
-    }
 
     ret = dict_get_str(dict, "primary", &volname);
     if (ret < 0) {

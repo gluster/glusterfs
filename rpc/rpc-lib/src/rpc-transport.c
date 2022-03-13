@@ -9,6 +9,7 @@
 */
 
 #include <dlfcn.h>
+#include <netdb.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/poll.h>

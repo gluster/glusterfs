@@ -11,12 +11,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
-#include <pthread.h>
 
 #include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 int
 cli_cmd_system_help_cbk(struct cli_state *state, struct cli_cmd_word *in_word,
@@ -68,10 +66,10 @@ out:
             cli_out("Fetching spec for volume %s failed", (char *)words[2]);
     }
 
+    CLI_STACK_DESTROY(frame);
     if (dict)
         dict_unref(dict);
 
-    CLI_STACK_DESTROY(frame);
     return ret;
 }
 
@@ -113,10 +111,10 @@ out:
             cli_out("Fetching spec for volume %s failed", (char *)words[3]);
     }
 
+    CLI_STACK_DESTROY(frame);
     if (dict)
         dict_unref(dict);
 
-    CLI_STACK_DESTROY(frame);
     return ret;
 }
 
@@ -325,10 +323,10 @@ out:
             cli_out("uuid get failed");
     }
 
+    CLI_STACK_DESTROY(frame);
     if (dict)
         dict_unref(dict);
 
-    CLI_STACK_DESTROY(frame);
     return ret;
 }
 
@@ -389,10 +387,9 @@ out:
             cli_out("uuid reset failed");
     }
 
+    CLI_STACK_DESTROY(frame);
     if (dict)
         dict_unref(dict);
-
-    CLI_STACK_DESTROY(frame);
 
     return ret;
 }
@@ -534,12 +531,10 @@ cli_cmd_sys_exec_cbk(struct cli_state *state, struct cli_cmd_word *word,
          * still need to destroy the stack if proc->fn returns an
          * error. */
         CLI_STACK_DESTROY(frame);
-        dict = NULL;
     }
 out:
-    if (dict != NULL) {
+    if (dict)
         dict_unref(dict);
-    }
 
     return ret;
 }
