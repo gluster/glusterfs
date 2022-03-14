@@ -246,7 +246,7 @@ __saved_frame_copy(struct saved_frames *frames, uint32_t callid,
     list_for_each_entry(tmp, &frames->sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            memcpy(&saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            memcpy(saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
             return tmp->rpcreq;
         }
     }
@@ -254,7 +254,7 @@ __saved_frame_copy(struct saved_frames *frames, uint32_t callid,
     list_for_each_entry(tmp, &frames->lk_sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            memcpy(&saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            memcpy(saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
             return tmp->rpcreq;
         }
     }
