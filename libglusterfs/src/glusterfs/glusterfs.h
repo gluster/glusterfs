@@ -94,6 +94,7 @@
 #define IO_THREADS_QUEUE_SIZE_KEY "io-thread-queue-size"
 
 #define GF_XATTR_CLRLK_CMD "glusterfs.clrlk"
+#define GF_XATTR_INTRLK_CMD "glusterfs.intrlk"
 #define GF_XATTR_PATHINFO_KEY "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY "trusted.glusterfs.node-uuid"
 #define GF_XATTR_LIST_NODE_UUIDS_KEY "trusted.glusterfs.list-node-uuids"
