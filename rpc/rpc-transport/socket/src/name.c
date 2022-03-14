@@ -299,6 +299,8 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
                      "ip-%s port-%s",
                      host, service);
     }
+    if (!cache->next)
+        goto err;
 
     return 0;
 
