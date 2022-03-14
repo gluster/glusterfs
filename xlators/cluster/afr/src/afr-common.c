@@ -102,13 +102,13 @@ afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
 int
 afr_fav_child_reset_sink_xattrs(void *opaque);
 
-int
+static int
 afr_fav_child_reset_sink_xattrs_cbk(int ret, call_frame_t *frame, void *opaque);
 
 static void
 afr_discover_done(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_dom_lock_acquire_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xdata)
 {
@@ -132,7 +132,7 @@ afr_dom_lock_acquire_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_dom_lock_acquire(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
@@ -194,7 +194,7 @@ blocking_lock:
     return 0;
 }
 
-int
+static int
 afr_dom_lock_release_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xdata)
 {
@@ -369,7 +369,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_lock_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
                   dict_t *xdata)
@@ -389,7 +389,7 @@ afr_lock_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
@@ -7368,7 +7368,7 @@ afr_get_need_heal(afr_private_t *priv)
     return need_heal;
 }
 
-int
+static int
 afr_fav_child_reset_sink_xattrs_cbk(int ret, call_frame_t *heal_frame,
                                     void *opaque)
 {
