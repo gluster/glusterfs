@@ -283,7 +283,7 @@ rda_inode_ctx_get_iatt(inode_t *inode, xlator_t *this, struct iatt *attr)
     {
         ctx_p = __rda_inode_ctx_get(inode, this);
         if (ctx_p) {
-            *attr = ctx_p->statbuf;
+            memcpy(attr, &ctx_p->statbuf, sizeof(struct iatt));
         }
     }
     UNLOCK(&inode->lock);

@@ -147,7 +147,7 @@ gf_dirent_for_name2(const char *name, const size_t name_len,
 {
     gf_dirent_t *gf_dirent = NULL;
 
-    gf_dirent = GF_CALLOC(gf_dirent_len(name_len), 1, gf_common_mt_gf_dirent_t);
+    gf_dirent = GF_MALLOC(gf_dirent_len(name_len), gf_common_mt_gf_dirent_t);
     if (!gf_dirent)
         return NULL;
 
@@ -157,6 +157,10 @@ gf_dirent_for_name2(const char *name, const size_t name_len,
     gf_dirent->d_off = d_off;
     gf_dirent->d_len = name_len;
     gf_dirent->d_type = d_type;
+
+    memset(&gf_dirent->d_stat, 0, sizeof(struct iatt));
+    gf_dirent->dict = NULL;
+    gf_dirent->inode = NULL;
 
     memcpy(gf_dirent->d_name, name, name_len + 1);
 

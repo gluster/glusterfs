@@ -14,8 +14,8 @@
 #include "glusterfs/iatt.h"
 #include "glusterfs/inode.h"
 
-#define gf_dirent_size(name) (sizeof(gf_dirent_t) + strlen(name) + 1)
 #define gf_dirent_len(_len) (sizeof(gf_dirent_t) + _len + 1)
+#define gf_dirent_size(name) gf_dirent_len(strlen(name))
 
 int
 gf_deitransform(xlator_t *this, uint64_t y);
