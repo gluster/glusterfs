@@ -41,7 +41,7 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 int32_t
 dht_unlock_inodelk_wrapper(call_frame_t *, dht_ilock_wrap_t *);
 
-/* Acquire non-blocking inodelk on a list of xlators.
+/* Acquire blocking inodelk on a list of xlators.
  *
  * @lk_array: array of lock requests lock on.
  *
@@ -55,17 +55,8 @@ dht_unlock_inodelk_wrapper(call_frame_t *, dht_ilock_wrap_t *);
  *          locks are unlocked before invoking cbk.
  */
 
-int
-dht_nonblocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array,
-                        int lk_count, fop_inodelk_cbk_t inodelk_cbk);
-
 void
 dht_blocking_inodelk_rec(call_frame_t *frame, int i);
-
-/* same as dht_nonblocking_inodelk, but issues sequential blocking locks on
- * @lk_array directly. locks are issued on some order which remains same
- * for a list of xlators (irrespective of order of xlators within list).
- */
 
 int
 dht_blocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
