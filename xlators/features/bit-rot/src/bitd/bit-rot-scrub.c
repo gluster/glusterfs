@@ -863,12 +863,6 @@ br_kickstart_scanner(struct gf_tw_timer_list *timer, void *data,
     return;
 }
 
-static uint32_t
-br_fsscan_calculate_delta(uint32_t times)
-{
-    return times;
-}
-
 #define BR_SCRUB_ONDEMAND (1)
 #define BR_SCRUB_MINUTE (60)
 #define BR_SCRUB_HOURLY (60 * 60)
@@ -877,29 +871,29 @@ br_fsscan_calculate_delta(uint32_t times)
 #define BR_SCRUB_BIWEEKLY (14 * 24 * 60 * 60)
 #define BR_SCRUB_MONTHLY (30 * 24 * 60 * 60)
 
-static unsigned int
+static time_t
 br_fsscan_calculate_timeout(scrub_freq_t freq)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
 
     switch (freq) {
         case BR_FSSCRUB_FREQ_MINUTE:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_MINUTE);
+            timo = BR_SCRUB_MINUTE;
             break;
         case BR_FSSCRUB_FREQ_HOURLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_HOURLY);
+            timo = BR_SCRUB_HOURLY;
             break;
         case BR_FSSCRUB_FREQ_DAILY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_DAILY);
+            timo = BR_SCRUB_DAILY;
             break;
         case BR_FSSCRUB_FREQ_WEEKLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_WEEKLY);
+            timo = BR_SCRUB_WEEKLY;
             break;
         case BR_FSSCRUB_FREQ_BIWEEKLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_BIWEEKLY);
+            timo = BR_SCRUB_BIWEEKLY;
             break;
         case BR_FSSCRUB_FREQ_MONTHLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_MONTHLY);
+            timo = BR_SCRUB_MONTHLY;
             break;
         default:
             timo = 0;
@@ -911,7 +905,7 @@ br_fsscan_calculate_timeout(scrub_freq_t freq)
 int32_t
 br_fsscan_schedule(xlator_t *this)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
     br_private_t *priv = NULL;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
@@ -963,7 +957,7 @@ error_return:
 int32_t
 br_fsscan_activate(xlator_t *this)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
@@ -1006,7 +1000,7 @@ int32_t
 br_fsscan_reschedule(xlator_t *this)
 {
     int32_t ret = 0;
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
@@ -1057,7 +1051,7 @@ int32_t
 br_fsscan_ondemand(xlator_t *this)
 {
     int32_t ret = 0;
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
