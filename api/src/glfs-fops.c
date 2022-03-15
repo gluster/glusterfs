@@ -454,15 +454,23 @@ retry:
         goto out;
 
     if (IA_ISDIR(iatt.ia_type)) {
-        ret = -1;
-        errno = EISDIR;
-        goto out;
-    }
-
-    if (!IA_ISREG(iatt.ia_type)) {
-        ret = -1;
-        errno = EINVAL;
-        goto out;
+        if ((flags & (O_RDWR | O_WRONLY)) ||
+            ((flags & O_CREAT) && !(flags & O_DIRECTORY))) {
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    } else {
+        if (flags & O_DIRECTORY) {
+            ret = -1;
+            errno = ENOTDIR;
+            goto out;
+        }
+        if (!IA_ISREG(iatt.ia_type)) {
+            ret = -1;
+            errno = EINVAL;
+            goto out;
+        }
     }
 
     if (glfd->fd) {
