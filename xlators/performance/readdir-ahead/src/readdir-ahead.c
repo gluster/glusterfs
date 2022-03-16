@@ -288,7 +288,7 @@ rda_inode_ctx_get_iatt(inode_t *inode, xlator_t *this, struct iatt *attr)
     }
     UNLOCK(&inode->lock);
 
-    if (ctx_p == NULL) // if we did not find one, return a zero'ed iatt struct.
+    if (ctx_p == NULL)  // if we did not find one, return a zero'ed iatt struct.
         memset(attr, 0, sizeof(struct iatt));
 }
 
