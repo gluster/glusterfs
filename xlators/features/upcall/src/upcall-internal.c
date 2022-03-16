@@ -449,12 +449,14 @@ up_invalidate_needed(dict_t *xattrs)
  *
  * Since sending notifications for cache_invalidation is a best effort,
  * any errors during the process are logged and ignored.
+ *
+ * The function should be called only if upcall is enabled
  */
 void
 upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
-                        inode_t *inode, uint32_t flags, struct iatt *stbuf,
-                        struct iatt *p_stbuf, struct iatt *oldp_stbuf,
-                        dict_t *xattr)
+                        inode_t *inode, const uint32_t flags,
+                        struct iatt *stbuf, struct iatt *p_stbuf,
+                        struct iatt *oldp_stbuf, dict_t *xattr)
 {
     upcall_client_t *up_client_entry = NULL;
     upcall_client_t *tmp = NULL;
@@ -462,9 +464,6 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
     gf_boolean_t found = _gf_false;
     time_t time_now;
     inode_t *linked_inode = NULL;
-
-    if (!is_upcall_enabled(this))
-        return;
 
     /* server-side generated fops like quota/marker will not have any
      * client associated with them. Ignore such fops.
