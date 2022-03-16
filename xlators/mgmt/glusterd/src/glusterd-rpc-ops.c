@@ -1126,13 +1126,10 @@ __glusterd_stage_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     dict_t *dict = NULL;
     char *peer_str = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     call_frame_t *frame = NULL;
 
     GF_ASSERT(req);
-    priv = this->private;
-    GF_ASSERT(priv);
     GF_ASSERT(myframe);
 
     frame = myframe;
@@ -1266,7 +1263,6 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     dict_t *dict = NULL;
     char *peer_str = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
         GD_OP_STATE_DEFAULT,
@@ -1274,8 +1270,6 @@ __glusterd_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
 
     GF_ASSERT(req);
-    priv = this->private;
-    GF_ASSERT(priv);
     GF_ASSERT(myframe);
 
     frame = myframe;
@@ -1435,7 +1429,6 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     int port = 0;
     char *hostname = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
 
     if (!frame || !data) {
@@ -1445,9 +1438,7 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     dict = data;
-    priv = this->private;
 
-    GF_ASSERT(priv);
     ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
@@ -1603,7 +1594,6 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = 0;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     glusterd_friend_sm_event_t *event = NULL;
 
     if (!frame || !data) {
@@ -1612,9 +1602,6 @@ glusterd_rpc_friend_remove(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     event = data;
-    priv = this->private;
-
-    GF_ASSERT(priv);
 
     RCU_READ_LOCK;
 
@@ -1652,13 +1639,9 @@ glusterd_rpc_friend_update(call_frame_t *frame, xlator_t *this, void *data)
         {0},
     };
     int ret = 0;
-    glusterd_conf_t *priv = NULL;
     dict_t *friends = NULL;
     call_frame_t *dummy_frame = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     friends = data;
     if (!friends)
@@ -1701,13 +1684,9 @@ glusterd_cluster_lock(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     call_frame_t *dummy_frame = NULL;
 
     peerinfo = data;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     glusterd_get_uuid(&req.uuid);
 
@@ -1735,14 +1714,10 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
     dict = data;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
@@ -1811,14 +1786,10 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
     dict = data;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
@@ -1888,12 +1859,9 @@ glusterd_cluster_unlock(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     call_frame_t *dummy_frame = NULL;
 
     peerinfo = data;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     glusterd_get_uuid(&req.uuid);
 
@@ -1924,14 +1892,10 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
     dict = data;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
@@ -2000,13 +1964,10 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = -1;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
     uuid_t *txn_id = NULL;
 
     dict = data;
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_ptr(dict, "peerinfo", VOID(&peerinfo));
     if (ret) {
