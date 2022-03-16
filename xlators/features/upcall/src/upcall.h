@@ -95,9 +95,6 @@ typedef struct upcall_local upcall_local_t;
 
 void
 upcall_local_wipe(xlator_t *this, upcall_local_t *local);
-upcall_local_t *
-upcall_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
-                  inode_t *inode, dict_t *xattr);
 
 upcall_inode_ctx_t *
 upcall_inode_ctx_get(inode_t *inode, xlator_t *this);

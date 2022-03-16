@@ -25,6 +25,10 @@
 #include <glusterfs/defaults.h>
 #include "upcall-cache-invalidation.h"
 
+static upcall_local_t *
+upcall_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
+                  inode_t *inode, dict_t *xattr);
+
 static int32_t
 up_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno, fd_t *fd, dict_t *xdata)
@@ -2105,17 +2109,16 @@ upcall_local_wipe(xlator_t *this, upcall_local_t *local)
     }
 }
 
-upcall_local_t *
+static upcall_local_t *
 upcall_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
                   inode_t *inode, dict_t *xattr)
 {
     upcall_local_t *local = NULL;
 
-    GF_VALIDATE_OR_GOTO("upcall", this, out);
     GF_VALIDATE_OR_GOTO(this->name, frame, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
-    local = mem_get0(THIS->local_pool);
+    local = mem_get0(this->local_pool);
 
     if (!local)
         goto out;
