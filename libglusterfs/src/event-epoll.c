@@ -96,6 +96,9 @@ retry:
         }
     }
 
+    if (table_idx >= EVENT_EPOLL_TABLES)
+        return -1;
+
     for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
         if (table[j].fd == -1) {
             /* wipe everything except bump the generation */
