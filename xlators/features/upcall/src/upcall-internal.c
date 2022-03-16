@@ -56,8 +56,9 @@ get_cache_invalidation_timeout(xlator_t *this)
 }
 
 static upcall_client_t *
-__add_upcall_client(client_t *client, upcall_inode_ctx_t *up_inode_ctx,
-                    time_t now, time_t timeout)
+__add_upcall_client(xlator_t *this, client_t *client,
+                    upcall_inode_ctx_t *up_inode_ctx, time_t now,
+                    time_t timeout)
 {
     upcall_client_t *up_client_entry = GF_MALLOC(
         sizeof(*up_client_entry), gf_upcall_mt_upcall_client_entry_t);
@@ -73,7 +74,7 @@ __add_upcall_client(client_t *client, upcall_inode_ctx_t *up_inode_ctx,
 
     list_add_tail(&up_client_entry->client_list, &up_inode_ctx->client_list);
 
-    gf_log(THIS->name, GF_LOG_DEBUG, "upcall_entry_t client added - %s",
+    gf_log(this->name, GF_LOG_DEBUG, "upcall_entry_t client added - %s",
            up_client_entry->client_uid);
 
     return up_client_entry;
@@ -549,7 +550,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
         }
 
         if (!found) {
-            up_client_entry = __add_upcall_client(client, up_inode_ctx,
+            up_client_entry = __add_upcall_client(this, client, up_inode_ctx,
                                                   time_now, timeout);
         }
     }
@@ -601,7 +602,7 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
         up_req.data = &ca_req;
         up_req.event_type = GF_UPCALL_CACHE_INVALIDATION;
 
-        gf_log(THIS->name, GF_LOG_TRACE,
+        gf_log(this->name, GF_LOG_TRACE,
                "Cache invalidation notification sent to %s",
                up_client_entry->client_uid);
 
