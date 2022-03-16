@@ -1368,7 +1368,8 @@ afr_is_special_xattr(const char *name, fop_getxattr_cbk_t *cbk,
         } else {
             *cbk = afr_getxattr_pathinfo_cbk;
         }
-    } else if (!strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD))) {
+    } else if (!strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) ||
+               !strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD))) {
         if (is_fgetxattr) {
             *cbk = afr_fgetxattr_clrlk_cbk;
         } else {
