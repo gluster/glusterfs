@@ -755,7 +755,7 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
            It would be '0', but not '\0' :-) */
         if (!this->ctx->volume_id[0]) {
             strncpy(this->ctx->volume_id, this->graph->volume_id,
-                    GF_UUID_BUF_SIZE - 1);
+                    GF_UUID_BUF_SIZE);
             this->ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
         if (this->ctx->volume_id[0]) {
