@@ -141,24 +141,36 @@ out:
 }
 
 gf_dirent_t *
-gf_dirent_for_name(const char *name)
+gf_dirent_for_name2(const char *name, const size_t name_len,
+                    const uint64_t d_ino, const uint64_t d_off,
+                    const uint32_t d_type)
 {
     gf_dirent_t *gf_dirent = NULL;
 
-    /* TODO: use mem-pool */
-    gf_dirent = GF_CALLOC(gf_dirent_size(name), 1, gf_common_mt_gf_dirent_t);
+    gf_dirent = GF_MALLOC(gf_dirent_len(name_len), gf_common_mt_gf_dirent_t);
     if (!gf_dirent)
         return NULL;
 
     INIT_LIST_HEAD(&gf_dirent->list);
-    strcpy(gf_dirent->d_name, name);
 
-    gf_dirent->d_off = 0;
-    gf_dirent->d_ino = -1;
-    gf_dirent->d_type = 0;
-    gf_dirent->d_len = strlen(name);
+    gf_dirent->d_ino = d_ino;
+    gf_dirent->d_off = d_off;
+    gf_dirent->d_len = name_len;
+    gf_dirent->d_type = d_type;
+
+    memset(&gf_dirent->d_stat, 0, sizeof(struct iatt));
+    gf_dirent->dict = NULL;
+    gf_dirent->inode = NULL;
+
+    memcpy(gf_dirent->d_name, name, name_len + 1);
 
     return gf_dirent;
+}
+
+gf_dirent_t *
+gf_dirent_for_name(const char *name)
+{
+    return gf_dirent_for_name2(name, strlen(name), -1, 0, 0);
 }
 
 void
@@ -199,15 +211,12 @@ entry_copy(gf_dirent_t *source)
 {
     gf_dirent_t *sink = NULL;
 
-    sink = gf_dirent_for_name(source->d_name);
+    sink = gf_dirent_for_name2(source->d_name, source->d_len, source->d_ino,
+                               source->d_off, source->d_type);
     if (!sink)
         return NULL;
 
-    sink->d_off = source->d_off;
-    sink->d_ino = source->d_ino;
-    sink->d_type = source->d_type;
     sink->d_stat = source->d_stat;
-    sink->d_len = source->d_len;
 
     if (source->inode)
         sink->inode = inode_ref(source->inode);

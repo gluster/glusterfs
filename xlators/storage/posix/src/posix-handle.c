@@ -97,8 +97,9 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         0,
     };
     int ret = -1;
+    const size_t dir_name_len = strlen(dir_name);
 
-    len = strlen(path) + strlen(dir_name) + 1;
+    len = strlen(path) + dir_name_len + 1;
     if (len > pathsize) {
         goto out;
     }
@@ -108,7 +109,7 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         strcat(path, "/");
 
     if (type & POSIX_ANCESTRY_DENTRY) {
-        entry = gf_dirent_for_name(dir_name);
+        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0);
         if (!entry)
             goto out;
 
