@@ -43,15 +43,15 @@
     } while (0)
 
 struct _upcall_private {
-    gf_boolean_t cache_invalidation_enabled;
     time_t cache_invalidation_timeout;
     struct list_head inode_ctx_list;
     gf_lock_t inode_ctx_lk;
-    gf_boolean_t reaper_init_done;
     pthread_t reaper_thr;
-    int32_t fini;
     dict_t *xattrs; /* list of xattrs registered by clients
                        for receiving invalidation */
+    int32_t fini;
+    gf_boolean_t cache_invalidation_enabled;
+    gf_boolean_t reaper_init_done;
 };
 typedef struct _upcall_private upcall_private_t;
 
@@ -71,8 +71,8 @@ struct _upcall_inode_ctx {
     struct list_head client_list;
     pthread_mutex_t client_list_lock; /* mutex for clients list
                                          of this upcall entry */
-    int destroy;
     uuid_t gfid; /* gfid of the entry */
+    int destroy;
 };
 typedef struct _upcall_inode_ctx upcall_inode_ctx_t;
 
