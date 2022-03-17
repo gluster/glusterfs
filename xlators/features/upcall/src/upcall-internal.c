@@ -80,27 +80,21 @@ __add_upcall_client(xlator_t *this, client_t *client,
     return up_client_entry;
 }
 
-static int
+static upcall_inode_ctx_t *
 __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
 {
     upcall_inode_ctx_t *inode_ctx = NULL;
     upcall_private_t *priv = NULL;
-    int ret = -1;
+    int ret;
     uint64_t ctx = 0;
 
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = __inode_ctx_get(inode, this, &ctx);
-
-    if (!ret)
-        goto out;
-
     inode_ctx = GF_MALLOC(sizeof(upcall_inode_ctx_t),
                           gf_upcall_mt_upcall_inode_ctx_t);
 
     if (!inode_ctx) {
-        ret = -ENOMEM;
         goto out;
     }
 
@@ -113,8 +107,10 @@ __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
     ctx = (long)inode_ctx;
     ret = __inode_ctx_set(inode, this, &ctx);
     if (ret) {
-        gf_log(this->name, GF_LOG_DEBUG, "failed to set inode ctx (%p)", inode);
+        gf_log(this->name, GF_LOG_WARNING, "failed to set inode ctx (%p)",
+               inode);
         GF_FREE(inode_ctx);
+        inode_ctx = NULL;
         goto out;
     }
 
@@ -125,7 +121,7 @@ __upcall_inode_ctx_set(inode_t *inode, xlator_t *this)
     }
     UNLOCK(&priv->inode_ctx_lk);
 out:
-    return ret;
+    return inode_ctx;
 }
 
 static upcall_inode_ctx_t *
@@ -136,24 +132,16 @@ __upcall_inode_ctx_get(inode_t *inode, xlator_t *this)
     int ret = 0;
 
     ret = __inode_ctx_get(inode, this, &ctx);
-
-    if (ret < 0) {
-        ret = __upcall_inode_ctx_set(inode, this);
-        if (ret < 0)
-            goto out;
-
-        ret = __inode_ctx_get(inode, this, &ctx);
-        if (ret < 0)
-            goto out;
+    if (ret == 0) {
+        inode_ctx = (upcall_inode_ctx_t *)(long)(ctx);
+    } else {
+        inode_ctx = __upcall_inode_ctx_set(inode, this);
     }
 
-    inode_ctx = (upcall_inode_ctx_t *)(long)(ctx);
-
-out:
     return inode_ctx;
 }
 
-upcall_inode_ctx_t *
+static upcall_inode_ctx_t *
 upcall_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
     upcall_inode_ctx_t *inode_ctx = NULL;
