@@ -1367,7 +1367,9 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)))
         goto usual;
 
-    if (frame->root && frame->root->client) {
+    GF_ASSERT(frame->root);
+
+    if (frame->root->client) {
         client_uid = frame->root->client->client_uid;
         client_pid = frame->root->pid;
     }
@@ -1619,7 +1621,9 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         goto usual;
     }
 
-    if (frame->root && frame->root->client) {
+    GF_ASSERT(frame->root);
+
+    if (frame->root->client) {
         client_uid = frame->root->client->client_uid;
         client_pid = frame->root->pid;
     }
