@@ -567,11 +567,9 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
     struct gf_upcall_cache_invalidation ca_req = {
         0,
     };
-    int ret = -1;
+    int ret;
     time_t t_expired = now - up_client_entry->access_time;
 
-    GF_VALIDATE_OR_GOTO("upcall_client_cache_invalidate",
-                        !(gf_uuid_is_null(gfid)), out);
     if (t_expired < timeout) {
         /* Send notify call */
         up_req.client_uid = up_client_entry->client_uid;
@@ -614,8 +612,6 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
             __upcall_cleanup_client_entry(up_client_entry);
         }
     }
-out:
-    return;
 }
 
 /*
@@ -631,10 +627,14 @@ upcall_cache_forget(xlator_t *this, inode_t *inode,
     upcall_client_t *tmp = NULL;
     uint32_t flags = UP_FORGET;
     time_t time_now;
+    gf_boolean_t is_gfid_valid = _gf_true;
 
     if (!up_inode_ctx) {
         return;
     }
+
+    if (gf_uuid_is_null(up_inode_ctx->gfid))
+        is_gfid_valid = _gf_false;
 
     time_now = gf_time();
     pthread_mutex_lock(&up_inode_ctx->client_list_lock);
@@ -646,9 +646,10 @@ upcall_cache_forget(xlator_t *this, inode_t *inode,
              * to send notify */
             up_client_entry->access_time = time_now;
 
-            upcall_client_cache_invalidate(this, up_inode_ctx->gfid,
-                                           up_client_entry, flags, NULL, NULL,
-                                           NULL, NULL, time_now, timeout);
+            if (is_gfid_valid)
+                upcall_client_cache_invalidate(
+                    this, up_inode_ctx->gfid, up_client_entry, flags, NULL,
+                    NULL, NULL, NULL, time_now, timeout);
         }
     }
     pthread_mutex_unlock(&up_inode_ctx->client_list_lock);
