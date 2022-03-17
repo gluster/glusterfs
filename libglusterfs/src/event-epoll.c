@@ -70,33 +70,34 @@ static int
 __event_slot_alloc(struct event_pool *event_pool, int fd,
                    int notify_poller_death, struct event_slot_epoll **slot)
 {
-    int i = 0;
     int j = 0;
-    int table_idx;
+    int table_idx = 0;
     int gen;
     struct event_slot_epoll *table = NULL;
 
 retry:
 
-    while (i < EVENT_EPOLL_TABLES) {
-        table = event_pool->ereg[i];
+    while (table_idx < EVENT_EPOLL_TABLES) {
+        table = event_pool->ereg[table_idx];
         if (table) {
-            if (table->slots_used == EVENT_EPOLL_SLOTS)
-                return -1;
-            else
+            if (table->slots_used == EVENT_EPOLL_SLOTS) {
+                table_idx++;
+                continue;
+            } else {
                 break; /* break out of the loop */
+            }
         } else {
-            table = __event_newtable(event_pool, i);
-            if (!table)
+            table = __event_newtable(event_pool, table_idx);
+            if (!table) {
                 return -1;
-            else
-                break; /* break out of the loop */
+            } else {
+                break;
+            }
         }
-
-        i++;
     }
 
-    table_idx = i;
+    if (table_idx >= EVENT_EPOLL_TABLES)
+        return -1;
 
     for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
         if (table[j].fd == -1) {
@@ -123,7 +124,7 @@ retry:
 
     if (j == EVENT_EPOLL_SLOTS) {
         table = NULL;
-        i++;
+        table_idx++;
         goto retry;
     } else {
         (*slot) = &table[j];
