@@ -6840,7 +6840,9 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 
     list:
-        entry = gf_dirent_for_name(orig_entry->d_name);
+        entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                    orig_entry->d_ino, orig_entry->d_off,
+                                    orig_entry->d_type);
         if (!entry) {
             goto unwind;
         }
@@ -6855,11 +6857,7 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             }
         }
 
-        entry->d_off = orig_entry->d_off;
         entry->d_stat = orig_entry->d_stat;
-        entry->d_ino = orig_entry->d_ino;
-        entry->d_type = orig_entry->d_type;
-        entry->d_len = orig_entry->d_len;
 
         if (orig_entry->dict)
             entry->dict = dict_ref(orig_entry->dict);
@@ -7088,17 +7086,14 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         if (add) {
             add = _gf_false;
-            entry = gf_dirent_for_name(orig_entry->d_name);
+            entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                        orig_entry->d_ino, orig_entry->d_off,
+                                        orig_entry->d_type);
             if (!entry) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
                        "Memory allocation failed ");
                 goto unwind;
             }
-
-            entry->d_off = orig_entry->d_off;
-            entry->d_ino = orig_entry->d_ino;
-            entry->d_type = orig_entry->d_type;
-            entry->d_len = orig_entry->d_len;
 
             gf_msg_debug(this->name, 0, "%s: Adding = entry %s", prev->name,
                          entry->d_name);

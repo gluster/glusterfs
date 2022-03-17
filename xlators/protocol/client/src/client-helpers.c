@@ -141,7 +141,6 @@ unserialize_rsp_dirent_v2(xlator_t *this, struct gfx_readdir_rsp *rsp,
 {
     struct gfx_dirlist *trav = NULL;
     gf_dirent_t *entry = NULL;
-    int entry_len = 0;
     int ret = -1;
     clnt_conf_t *conf = NULL;
 
@@ -149,17 +148,12 @@ unserialize_rsp_dirent_v2(xlator_t *this, struct gfx_readdir_rsp *rsp,
 
     trav = rsp->reply;
     while (trav) {
-        entry_len = gf_dirent_size(trav->name);
-        entry = GF_CALLOC(1, entry_len, gf_common_mt_gf_dirent_t);
+        entry = gf_dirent_for_name2(trav->name, trav->d_len, trav->d_ino, 0,
+                                    trav->d_type);
         if (!entry)
             goto out;
 
-        entry->d_ino = trav->d_ino;
         gf_itransform(this, trav->d_off, &entry->d_off, conf->client_id);
-        entry->d_len = trav->d_len;
-        entry->d_type = trav->d_type;
-
-        strcpy(entry->d_name, trav->name);
 
         list_add_tail(&entry->list, &entries->list);
 
@@ -178,7 +172,6 @@ unserialize_rsp_direntp_v2(xlator_t *this, fd_t *fd,
     struct gfx_dirplist *trav = NULL;
     gf_dirent_t *entry = NULL;
     inode_table_t *itable = NULL;
-    int entry_len = 0;
     int ret = -1;
     clnt_conf_t *conf = NULL;
 
@@ -192,19 +185,14 @@ unserialize_rsp_direntp_v2(xlator_t *this, fd_t *fd,
         goto out;
 
     while (trav) {
-        entry_len = gf_dirent_size(trav->name);
-        entry = GF_CALLOC(1, entry_len, gf_common_mt_gf_dirent_t);
+        entry = gf_dirent_for_name2(trav->name, trav->d_len, trav->d_ino, 0,
+                                    trav->d_type);
         if (!entry)
             goto out;
 
-        entry->d_ino = trav->d_ino;
         gf_itransform(this, trav->d_off, &entry->d_off, conf->client_id);
-        entry->d_len = trav->d_len;
-        entry->d_type = trav->d_type;
 
         gfx_stat_to_iattx(&trav->stat, &entry->d_stat);
-
-        strcpy(entry->d_name, trav->name);
 
         xdr_to_dict(&trav->dict, &entry->dict);
 

@@ -82,7 +82,7 @@ out:
 static rda_inode_ctx_t *
 __rda_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
-    int ret = -1;
+    int ret;
     uint64_t ctx_uint = 0;
     rda_inode_ctx_t *ctx_p = NULL;
 
@@ -283,12 +283,12 @@ rda_inode_ctx_get_iatt(inode_t *inode, xlator_t *this, struct iatt *attr)
     {
         ctx_p = __rda_inode_ctx_get(inode, this);
         if (ctx_p) {
-            *attr = ctx_p->statbuf;
+            memcpy(attr, &ctx_p->statbuf, sizeof(struct iatt));
         }
     }
     UNLOCK(&inode->lock);
 
-    if (ctx_p == NULL)
+    if (ctx_p == NULL)  // if we did not find one, return a zero'ed iatt struct.
         memset(attr, 0, sizeof(struct iatt));
 }
 
@@ -304,22 +304,18 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
     size_t dirent_size, size = 0;
     int32_t count = 0;
     struct rda_priv *priv = NULL;
-    struct iatt tmp_stat = {
-        0,
-    };
 
     priv = this->private;
 
     list_for_each_entry_safe(dirent, tmp, &ctx->entries.list, list)
     {
-        dirent_size = gf_dirent_size(dirent->d_name);
+        dirent_size = gf_dirent_len(dirent->d_len);
         if (size + dirent_size > request_size)
             break;
 
         if (dirent->inode && (!((strcmp(dirent->d_name, ".") == 0) ||
                                 (strcmp(dirent->d_name, "..") == 0)))) {
-            rda_inode_ctx_get_iatt(dirent->inode, this, &tmp_stat);
-            dirent->d_stat = tmp_stat;
+            rda_inode_ctx_get_iatt(dirent->inode, this, &dirent->d_stat);
         }
 
         size += dirent_size;
