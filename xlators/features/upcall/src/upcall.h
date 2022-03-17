@@ -25,25 +25,21 @@
 #define UPCALL_STACK_UNWIND(fop, frame, params...)                             \
     do {                                                                       \
         upcall_local_t *__local = NULL;                                        \
-        xlator_t *__xl = NULL;                                                 \
         if (frame) {                                                           \
-            __xl = frame->this;                                                \
             __local = frame->local;                                            \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
-        upcall_local_wipe(__xl, __local);                                      \
+        upcall_local_wipe(__local);                                            \
     } while (0)
 
 #define UPCALL_STACK_DESTROY(frame)                                            \
     do {                                                                       \
         upcall_local_t *__local = NULL;                                        \
-        xlator_t *__xl = NULL;                                                 \
-        __xl = frame->this;                                                    \
         __local = frame->local;                                                \
         frame->local = NULL;                                                   \
         STACK_DESTROY(frame->root);                                            \
-        upcall_local_wipe(__xl, __local);                                      \
+        upcall_local_wipe(__local);                                            \
     } while (0)
 
 struct _upcall_private {
@@ -94,7 +90,7 @@ struct upcall_local {
 typedef struct upcall_local upcall_local_t;
 
 void
-upcall_local_wipe(xlator_t *this, upcall_local_t *local);
+upcall_local_wipe(upcall_local_t *local);
 
 int
 upcall_cleanup_inode_ctx(xlator_t *this, inode_t *inode);

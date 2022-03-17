@@ -2095,7 +2095,7 @@ mem_acct_init(xlator_t *this)
 }
 
 void
-upcall_local_wipe(xlator_t *this, upcall_local_t *local)
+upcall_local_wipe(upcall_local_t *local)
 {
     if (local) {
         inode_unref(local->inode);
