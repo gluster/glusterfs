@@ -184,6 +184,18 @@ typedef struct glusterd_probe_ctx_ {
     int port;
     dict_t *dict;
 } glusterd_probe_ctx_t;
+
+static inline void
+glusterd_destroy_sm_event(glusterd_friend_sm_event_t *event)
+{
+    if (!event)
+        return;
+
+    if (event->peername)
+        GF_FREE(event->peername);
+    GF_FREE(event);
+}
+
 int
 glusterd_friend_sm_new_event(glusterd_friend_sm_event_type_t event_type,
                              glusterd_friend_sm_event_t **new_event);

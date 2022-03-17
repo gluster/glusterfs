@@ -1918,11 +1918,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
 
     RCU_READ_UNLOCK;
 
-    if (ret)
+    if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject "
                "EVENT_CONNECTED ret = %d",
                ret);
+        glusterd_destroy_sm_event(event);
+    }
 
 out:
     gf_msg_debug("glusterd", 0, "returning %d", ret);

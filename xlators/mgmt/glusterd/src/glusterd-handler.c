@@ -216,9 +216,7 @@ out:
         }
         if (peer_ver)
             dict_unref(peer_ver);
-        if (event)
-            GF_FREE(event->peername);
-        GF_FREE(event);
+        glusterd_destroy_sm_event(event);
     }
 
     return ret;
@@ -301,9 +299,7 @@ out:
         if (ctx && ctx->hostname)
             GF_FREE(ctx->hostname);
         GF_FREE(ctx);
-        if (event)
-            GF_FREE(event->peername);
-        GF_FREE(event);
+        glusterd_destroy_sm_event(event);
     }
 
     return ret;
@@ -3854,6 +3850,8 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
             gf_uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
+            if (ret)
+                glusterd_destroy_sm_event(event);
             glusterd_xfer_cli_probe_resp(req, 0, GF_PROBE_SUCCESS, NULL,
                                          (char *)hoststr, port, dict);
         }
@@ -3943,6 +3941,8 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
 
 out:
     RCU_READ_UNLOCK;
+    if (ret)
+        glusterd_destroy_sm_event(event);
     return ret;
 }
 
@@ -6572,6 +6572,8 @@ glusterd_friend_remove_notify(glusterd_peerctx_t *peerctx, int32_t op_errno)
 
 out:
     RCU_READ_UNLOCK;
+    if (ret)
+        glusterd_destroy_sm_event(new_event);
     return ret;
 }
 

@@ -326,6 +326,8 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
             gf_uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
+            if (ret)
+                glusterd_destroy_sm_event(event);
         }
         rsp.op_errno = GF_PROBE_FRIEND;
 
@@ -394,6 +396,8 @@ cont:
     event->ctx = ((call_frame_t *)myframe)->local;
     ((call_frame_t *)myframe)->local = NULL;
     ret = glusterd_friend_sm_inject_event(event);
+    if (ret)
+        glusterd_destroy_sm_event(event);
 
     gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PROBE_REQ_RESP_RCVD,
            "Received resp to probe req");
@@ -502,6 +506,8 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
     gf_uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ev_ctx;
     ret = glusterd_friend_sm_inject_event(event);
+    if (ret)
+        glusterd_destroy_sm_event(event);
 
 unlock:
     RCU_READ_UNLOCK;
@@ -609,8 +615,10 @@ inject:
 
     ret = glusterd_friend_sm_inject_event(event);
 
-    if (ret)
+    if (ret) {
+        glusterd_destroy_sm_event(event);
         goto unlock;
+    }
 
     /*friend_sm would be moved on CLNT_DISCONNECT, consequently
       cleaning up peerinfo. Else, we run the risk of triggering

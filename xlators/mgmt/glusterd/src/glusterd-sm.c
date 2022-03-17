@@ -282,13 +282,11 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
                "Unable to inject new_event %d, "
                "ret = %d",
                new_event->event, ret);
+        glusterd_destroy_sm_event(new_event);
     }
 
 out:
     if (ret) {
-        if (new_event)
-            GF_FREE(new_event->peername);
-        GF_FREE(new_event);
         if (new_ev_ctx)
             GF_FREE(new_ev_ctx->hostname);
         GF_FREE(new_ev_ctx);
@@ -481,9 +479,11 @@ glusterd_ac_send_friend_remove_req(glusterd_friend_sm_event_t *event,
         ret = glusterd_friend_sm_new_event(event_type, &new_event);
 
         if (!ret) {
-            new_event->peername = peerinfo->hostname;
+            new_event->peername = gf_strdup(peerinfo->hostname);
             gf_uuid_copy(new_event->peerid, peerinfo->uuid);
             ret = glusterd_friend_sm_inject_event(new_event);
+            if (ret)
+                glusterd_destroy_sm_event(new_event);
         } else {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
                    "Unable to get event");
@@ -863,6 +863,7 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
 
         ret = glusterd_friend_sm_inject_event(new_event);
         if (ret) {
+            glusterd_destroy_sm_event(new_event);
             RCU_READ_UNLOCK;
             goto out;
         }
@@ -873,10 +874,6 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
 
     glusterd_peer_detach_cleanup(priv);
 out:
-    if (new_event)
-        GF_FREE(new_event->peername);
-    GF_FREE(new_event);
-
     gf_msg_debug(THIS->name, 0, "Returning with %d", ret);
     return ret;
 }
@@ -1064,18 +1061,14 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
         goto out;
     }
 
-    glusterd_friend_sm_inject_event(new_event);
-    new_event = NULL;
-
-    ret = glusterd_xfer_friend_add_resp(ev_ctx->req, ev_ctx->hostname,
-                                        event->peername, ev_ctx->port, op_ret,
-                                        op_errno);
-
+    ret = glusterd_friend_sm_inject_event(new_event);
+    if (ret)
+        glusterd_destroy_sm_event(new_event);
+    else
+        ret = glusterd_xfer_friend_add_resp(ev_ctx->req, ev_ctx->hostname,
+                                            event->peername, ev_ctx->port,
+                                            op_ret, op_errno);
 out:
-    if (new_event)
-        GF_FREE(new_event->peername);
-    GF_FREE(new_event);
-
     gf_msg_debug("glusterd", 0, "Returning with %d", ret);
     return ret;
 }
@@ -1465,8 +1458,7 @@ glusterd_friend_sm()
                        "Received"
                        " event %s with empty peer info",
                        glusterd_friend_sm_event_name_get(event_type));
-
-                GF_FREE(event);
+                glusterd_destroy_sm_event(event);
                 continue;
             }
             old_state = peerinfo->state.state;
@@ -1501,14 +1493,14 @@ glusterd_friend_sm()
                        "%d",
                        ret);
                 glusterd_destroy_friend_event_context(event);
-                GF_FREE(event);
+                glusterd_destroy_sm_event(event);
                 continue;
             }
 
             if ((GD_FRIEND_EVENT_REMOVE_FRIEND == event_type) ||
                 (GD_FRIEND_EVENT_INIT_REMOVE_FRIEND == event_type)) {
                 glusterd_destroy_friend_event_context(event);
-                GF_FREE(event);
+                glusterd_destroy_sm_event(event);
                 continue;
             }
 
@@ -1563,7 +1555,7 @@ glusterd_friend_sm()
             }
 
             glusterd_destroy_friend_event_context(event);
-            GF_FREE(event);
+            glusterd_destroy_sm_event(event);
             if (is_await_conn)
                 break;
         }
