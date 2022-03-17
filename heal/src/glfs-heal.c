@@ -504,7 +504,9 @@ glfsh_print_heal_op_status(int ret, uint64_t num_entries,
     else if (heal_op == GF_SHD_OP_SBRAIN_HEAL_FROM_BRICK)
         fmt_str = "Number of healed entries:";
 
-    return glfsh_output->print_heal_op_status(ret, num_entries, fmt_str);
+    if (glfsh_output)
+        return glfsh_output->print_heal_op_status(ret, num_entries, fmt_str);
+    return 0;
 }
 
 int
@@ -1000,8 +1002,11 @@ glfsh_print_pending_heals(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
         ret = 0;
         goto out;
     }
+    if (glfsh_output)
+        ret = glfsh_output->print_brick_from_xl(xl, rootloc);
+    else
+        ret = -EINVAL;
 
-    ret = glfsh_output->print_brick_from_xl(xl, rootloc);
     if (ret < 0)
         goto out;
 
@@ -1779,7 +1784,8 @@ main(int argc, char **argv)
             break;
     }
 
-    glfsh_output->end(ret, NULL);
+    if (glfsh_output)
+        glfsh_output->end(ret, NULL);
     if (ret < 0)
         ret = -ret;
     loc_wipe(&rootloc);
