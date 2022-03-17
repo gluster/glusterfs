@@ -1005,7 +1005,7 @@ glfsh_print_pending_heals(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
     if (glfsh_output)
         ret = glfsh_output->print_brick_from_xl(xl, rootloc);
     else
-        ret = -EINVAL;
+        ret = -EFAULT;
 
     if (ret < 0)
         goto out;
