@@ -50,13 +50,8 @@ afr_quorum_errno(afr_private_t *priv)
 }
 
 gf_boolean_t
-afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
-                         pid_t pid)
+afr_is_private_directory(afr_private_t *priv, const char *name, pid_t pid)
 {
-    if (!__is_root_gfid(pargfid)) {
-        return _gf_false;
-    }
-
     if (strcmp(name, GF_REPLICATE_TRASH_DIR) == 0) {
         /*For backward compatibility /.landfill is private*/
         return _gf_true;
@@ -3987,8 +3982,8 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         return 0;
     }
 
-    if (afr_is_private_directory(this->private, loc->parent->gfid, loc->name,
-                                 frame->root->pid)) {
+    if (__is_root_gfid(loc->parent->gfid) &&
+        afr_is_private_directory(this->private, loc->name, frame->root->pid)) {
         op_errno = EPERM;
         goto out;
     }
