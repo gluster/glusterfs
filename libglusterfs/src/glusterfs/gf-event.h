@@ -79,7 +79,7 @@ struct event_pool {
      */
     int auto_thread_count;
 
-    struct event_slot_epoll *ereg[EVENT_EPOLL_TABLES];
+    struct event_slot_epoll_table *ereg[EVENT_EPOLL_TABLES];
     pthread_t pollers[EVENT_MAX_THREADS]; /* poller thread_id store, and live
                                              status */
 };
