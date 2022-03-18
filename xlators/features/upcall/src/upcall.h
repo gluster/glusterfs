@@ -71,7 +71,7 @@ struct _upcall_inode_ctx {
     struct list_head client_list;
     pthread_mutex_t client_list_lock; /* mutex for clients list
                                          of this upcall entry */
-    uuid_t gfid; /* gfid of the entry */
+    uuid_t gfid;                      /* gfid of the entry */
     int destroy;
 };
 typedef struct _upcall_inode_ctx upcall_inode_ctx_t;
