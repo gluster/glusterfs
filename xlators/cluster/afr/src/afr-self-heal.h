@@ -156,11 +156,6 @@ afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
                      unsigned char *locked_on);
 
 int
-afr_selfheal_tryinodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
-                        char *dom, off_t off, size_t size,
-                        unsigned char *locked_on);
-
-int
 afr_selfheal_tie_breaker_inodelk(call_frame_t *frame, xlator_t *this,
                                  inode_t *inode, char *dom, off_t off,
                                  size_t size, unsigned char *locked_on);

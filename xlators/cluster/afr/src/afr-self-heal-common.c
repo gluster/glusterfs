@@ -1989,33 +1989,6 @@ afr_locked_fill(call_frame_t *frame, xlator_t *this, unsigned char *locked_on)
 }
 
 int
-afr_selfheal_tryinodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
-                        char *dom, off_t off, size_t size,
-                        unsigned char *locked_on)
-{
-    loc_t loc = {
-        0,
-    };
-    struct gf_flock flock = {
-        0,
-    };
-
-    loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
-
-    flock.l_type = F_WRLCK;
-    flock.l_start = off;
-    flock.l_len = size;
-
-    AFR_ONALL(frame, afr_selfheal_lock_cbk, inodelk, dom, &loc, F_SETLK, &flock,
-              NULL);
-
-    loc_wipe(&loc);
-
-    return afr_locked_fill(frame, this, locked_on);
-}
-
-int
 afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
                      char *dom, off_t off, size_t size,
                      unsigned char *locked_on)
