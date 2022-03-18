@@ -770,8 +770,8 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     priv = this->private;
 
-    if (afr_is_private_directory(priv, fd->inode->gfid, name,
-                                 GF_CLIENT_PID_SELF_HEALD)) {
+    if (__is_root_gfid(fd->inode->gfid) &&
+        afr_is_private_directory(priv, name, GF_CLIENT_PID_SELF_HEALD)) {
         return 0;
     }
 
