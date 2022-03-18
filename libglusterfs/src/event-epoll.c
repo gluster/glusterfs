@@ -36,7 +36,7 @@ struct event_slot_epoll {
 };
 
 struct event_slot_epoll_table {
-    int table_slots_used;
+    int slots_used;
     int _pad;
     struct event_slot_epoll slots[EVENT_EPOLL_SLOTS];
 };
@@ -56,7 +56,7 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
     if (!table)
         return NULL;
 
-    table->table_slots_used = 0;
+    table->slots_used = 0;
 
     for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
         table->slots[i].fd = -1;
@@ -90,7 +90,7 @@ retry:
     while (table_idx < EVENT_EPOLL_TABLES) {
         table = event_pool->ereg[table_idx];
         if (table) {
-            if (table->table_slots_used == EVENT_EPOLL_SLOTS) {
+            if (table->slots_used == EVENT_EPOLL_SLOTS) {
                 table_idx++;
                 continue;
             } else {
@@ -103,6 +103,7 @@ retry:
             } else {
                 table_slot = &table->slots[0];
                 gen = 0;
+                j = 0;
                 goto set_slot;
             }
         }
@@ -140,7 +141,7 @@ set_slot:
         INIT_LIST_HEAD(&table_slot->poller_death);
     }
 
-    table->table_slots_used++;
+    table->slots_used++;
     *slot = table_slot;
     event_slot_ref(*slot);
     return table_idx * EVENT_EPOLL_SLOTS + j;
@@ -162,7 +163,7 @@ __event_slot_dealloc(struct event_slot_epoll_table *table, int offset)
     LOCK_DESTROY(&slot->lock);
     list_del_init(&slot->poller_death);
     if (fd != -1)
-        table->table_slots_used--;
+        table->slots_used--;
 }
 
 static void
