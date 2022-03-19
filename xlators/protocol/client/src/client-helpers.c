@@ -367,34 +367,38 @@ clnt_unserialize_rsp_locklist_v2(struct gfx_getactivelk_rsp *rsp,
 {
     struct gfs3_locklist *trav = NULL;
     lock_migration_info_t *temp = NULL;
-    int ret = -1;
 
     trav = rsp->reply;
 
     while (trav) {
-        /* TODO: move to GF_MALLOC() */
-        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
+        temp = GF_MALLOC(sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_NO_MEM, NULL);
-            goto out;
+            goto err;
         }
 
         INIT_LIST_HEAD(&temp->list);
 
-        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
+        temp->client_uid = gf_strdup(trav->client_uid);
+        if (!temp->client_uid) {
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_CLIENT_UID_ALLOC_FAILED,
+                    NULL);
+            GF_FREE(temp);
+            goto err;
+        }
 
         temp->lk_flags = trav->lk_flags;
 
-        temp->client_uid = gf_strdup(trav->client_uid);
+        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
 
         list_add_tail(&temp->list, &lmi->list);
 
         trav = trav->nextentry;
     }
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
+err:
+    return -1;
 }
 
 void
@@ -427,7 +431,7 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
 
     list_for_each_entry(tmp, &locklist->list, list)
     {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_client_mt_clnt_lock_request_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_client_mt_clnt_lock_request_t);
         if (!trav)
             goto out;
 
@@ -450,15 +454,16 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
 
         gf_proto_flock_from_flock(&trav->flock, &tmp->flock);
 
-        trav->lk_flags = tmp->lk_flags;
-
         trav->client_uid = gf_strdup(tmp->client_uid);
         if (!trav->client_uid) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PC_MSG_CLIENT_UID_ALLOC_FAILED,
                     NULL);
-            ret = -1;
             goto out;
         }
+
+        trav->lk_flags = tmp->lk_flags;
+
+        trav->nextentry = NULL;
 
         if (prev)
             prev->nextentry = trav;

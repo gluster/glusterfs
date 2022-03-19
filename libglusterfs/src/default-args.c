@@ -1419,17 +1419,13 @@ args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     if (op_ret > 0) {
         list_for_each_entry(entry, &locklist->list, list)
         {
-            /* TODO: move to GF_MALLOC() */
-            stub_entry = GF_CALLOC(1, sizeof(*stub_entry), gf_common_mt_char);
+            stub_entry = GF_MALLOC(sizeof(*stub_entry), gf_common_mt_char);
             if (!stub_entry) {
                 ret = -1;
                 goto out;
             }
 
             INIT_LIST_HEAD(&stub_entry->list);
-            gf_flock_copy(&stub_entry->flock, &entry->flock);
-
-            stub_entry->lk_flags = entry->lk_flags;
 
             stub_entry->client_uid = gf_strdup(entry->client_uid);
             if (!stub_entry->client_uid) {
@@ -1437,6 +1433,10 @@ args_getactivelk_cbk_store(default_args_cbk_t *args, int32_t op_ret,
                 ret = -1;
                 goto out;
             }
+
+            stub_entry->lk_flags = entry->lk_flags;
+
+            gf_flock_copy(&stub_entry->flock, &entry->flock);
 
             list_add_tail(&stub_entry->list, &args->locklist.list);
         }
@@ -1457,17 +1457,13 @@ args_setactivelk_store(default_args_t *args, loc_t *loc,
 
     list_for_each_entry(entry, &locklist->list, list)
     {
-        /* TODO: move to GF_MALLOC() */
-        stub_entry = GF_CALLOC(1, sizeof(*stub_entry), gf_common_mt_lock_mig);
+        stub_entry = GF_MALLOC(sizeof(*stub_entry), gf_common_mt_lock_mig);
         if (!stub_entry) {
             ret = -1;
             goto out;
         }
 
         INIT_LIST_HEAD(&stub_entry->list);
-        gf_flock_copy(&stub_entry->flock, &entry->flock);
-
-        stub_entry->lk_flags = entry->lk_flags;
 
         stub_entry->client_uid = gf_strdup(entry->client_uid);
         if (!stub_entry->client_uid) {
@@ -1475,6 +1471,10 @@ args_setactivelk_store(default_args_t *args, loc_t *loc,
             ret = -1;
             goto out;
         }
+
+        stub_entry->lk_flags = entry->lk_flags;
+
+        gf_flock_copy(&stub_entry->flock, &entry->flock);
 
         list_add_tail(&stub_entry->list, &args->locklist.list);
     }

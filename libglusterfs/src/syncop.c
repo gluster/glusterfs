@@ -3441,7 +3441,7 @@ syncop_fxattrop(xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
                        lock_migration_info_t *locklist, dict_t *xdata)
@@ -3462,13 +3462,10 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret > 0) {
         list_for_each_entry(tmp, &locklist->list, list)
         {
-            /* TODO: move to GF_MALLOC() */
-            entry = GF_CALLOC(1, sizeof(lock_migration_info_t),
-                              gf_common_mt_char);
-
+            entry = GF_MALLOC(sizeof(lock_migration_info_t), gf_common_mt_char);
             if (!entry) {
-                gf_msg(THIS->name, GF_LOG_ERROR, 0, 0,
-                       "lock mem allocation  failed");
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "lock mem allocation (entry) failed");
                 gf_free_mig_locks(&args->locklist);
 
                 break;
@@ -3476,11 +3473,18 @@ syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
             INIT_LIST_HEAD(&entry->list);
 
-            gf_flock_copy(&entry->flock, &tmp->flock);
+            entry->client_uid = gf_strdup(tmp->client_uid);
+            if (!entry->client_uid) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                       "lock mem allocation (entry->client_uid) failed");
+                gf_free_mig_locks(&args->locklist);
+
+                break;
+            }
 
             entry->lk_flags = tmp->lk_flags;
 
-            entry->client_uid = gf_strdup(tmp->client_uid);
+            gf_flock_copy(&entry->flock, &tmp->flock);
 
             list_add_tail(&entry->list, &args->locklist.list);
         }

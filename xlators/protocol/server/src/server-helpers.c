@@ -822,16 +822,15 @@ serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
     gf_dirent_t *entry = NULL;
     gfx_dirplist *trav = NULL;
     gfx_dirplist *prev = NULL;
-    int ret = -1;
 
-    GF_VALIDATE_OR_GOTO("server", entries, out);
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
+    GF_VALIDATE_OR_GOTO("server", entries, err);
+    GF_VALIDATE_OR_GOTO("server", rsp, err);
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_server_mt_dirent_rsp_t);
         if (!trav)
-            goto out;
+            goto err;
 
         trav->d_ino = entry->d_ino;
         trav->d_off = entry->d_off;
@@ -842,6 +841,8 @@ serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
         gfx_stat_from_iattx(&trav->stat, &entry->d_stat);
         dict_to_xdr(entry->dict, &trav->dict);
 
+        trav->nextentry = NULL;
+
         if (prev)
             prev->nextentry = trav;
         else
@@ -851,11 +852,11 @@ serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
         trav = NULL;
     }
 
-    ret = 0;
-out:
     GF_FREE(trav);
+    return 0;
 
-    return ret;
+err:
+    return -1;
 }
 
 int
@@ -871,7 +872,7 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_server_mt_dirent_rsp_t);
         if (!trav)
             goto out;
         trav->d_ino = entry->d_ino;
@@ -879,6 +880,8 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
         trav->d_len = entry->d_len;
         trav->d_type = entry->d_type;
         trav->name = entry->d_name;
+        trav->nextentry = NULL;
+
         if (prev)
             prev->nextentry = trav;
         else
@@ -933,16 +936,14 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
     lock_migration_info_t *tmp = NULL;
     gfs3_locklist *trav = NULL;
     gfs3_locklist *prev = NULL;
-    int ret = -1;
 
-    GF_VALIDATE_OR_GOTO("server", locklist, out);
+    GF_VALIDATE_OR_GOTO("server", locklist, err);
 
     list_for_each_entry(tmp, &locklist->list, list)
     {
-        /* TODO: move to GF_MALLOC() */
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_lock_mig_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_server_mt_lock_mig_t);
         if (!trav)
-            goto out;
+            goto err;
 
         switch (tmp->flock.l_type) {
             case F_RDLCK:
@@ -963,9 +964,11 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
 
         gf_proto_flock_from_flock(&trav->flock, &tmp->flock);
 
+        trav->client_uid = tmp->client_uid;
+
         trav->lk_flags = tmp->lk_flags;
 
-        trav->client_uid = tmp->client_uid;
+        trav->nextentry = NULL;
 
         if (prev)
             prev->nextentry = trav;
@@ -976,10 +979,10 @@ common_rsp_locklist(lock_migration_info_t *locklist, gfs3_locklist **reply)
         trav = NULL;
     }
 
-    ret = 0;
-out:
     GF_FREE(trav);
-    return ret;
+    return 0;
+err:
+    return -1;
 }
 
 int
@@ -1218,34 +1221,36 @@ unserialize_req_locklist_v2(gfx_setactivelk_req *req,
 {
     struct gfs3_locklist *trav = NULL;
     lock_migration_info_t *temp = NULL;
-    int ret = -1;
 
     trav = req->request;
 
     INIT_LIST_HEAD(&lmi->list);
 
     while (trav) {
-        /* TODO: move to GF_MALLOC() */
-        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
+        temp = GF_MALLOC(sizeof(*lmi), gf_common_mt_lock_mig);
         if (temp == NULL) {
             gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
-            goto out;
+            goto err;
         }
 
         INIT_LIST_HEAD(&temp->list);
 
-        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
+        temp->client_uid = gf_strdup(trav->client_uid);
+        if (!temp->client_uid) {
+            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
+            goto err;
+        }
 
         temp->lk_flags = trav->lk_flags;
 
-        temp->client_uid = gf_strdup(trav->client_uid);
+        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
 
         list_add_tail(&temp->list, &lmi->list);
 
         trav = trav->nextentry;
     }
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
+err:
+    return -1;
 }
