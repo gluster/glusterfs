@@ -1334,6 +1334,7 @@ server_process_event_upcall(xlator_t *this, void *data)
         {0},
     };
     xdrproc_t xdrproc;
+    gf_boolean_t xprt_found = _gf_false;
 
     GF_VALIDATE_OR_GOTO(this->name, data, out);
 
@@ -1411,21 +1412,26 @@ server_process_event_upcall(xlator_t *this, void *data)
             if (!client || strcmp(client->client_uid, client_uid))
                 continue;
 
-            ret = rpcsvc_request_submit(conf->rpc, xprt, &server_cbk_prog,
-                                        cbk_procnum, up_req, this->ctx,
-                                        xdrproc);
-            if (ret < 0) {
-                gf_msg_debug(this->name, 0,
-                             "Failed to send "
-                             "upcall to client:%s upcall "
-                             "event:%d",
-                             client_uid, upcall_data->event_type);
-            }
+            xprt_found = _gf_true;
+            rpc_transport_ref(xprt);
             break;
         }
     }
     pthread_mutex_unlock(&conf->mutex);
-    ret = 0;
+
+    if (xprt_found) {
+        ret = rpcsvc_request_submit(conf->rpc, xprt, &server_cbk_prog,
+                                    cbk_procnum, up_req, this->ctx, xdrproc);
+        rpc_transport_unref(xprt);
+        if (ret < 0) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to send "
+                         "upcall to client:%s upcall "
+                         "event:%d",
+                         client_uid, upcall_data->event_type);
+        }
+    }
+
 out:
     GF_FREE((gf_c_req.xdata).xdata_val);
     GF_FREE((gf_recall_lease.xdata).xdata_val);
