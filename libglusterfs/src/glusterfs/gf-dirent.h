@@ -58,7 +58,7 @@ gf_dirent_for_name(const char *name);
 gf_dirent_t *
 gf_dirent_for_name2(const char *name, const size_t name_len,
                     const uint64_t d_ino, const uint64_t d_off,
-                    const uint32_t d_type);
+                    const uint32_t d_type, struct iatt *d_stat);
 gf_dirent_t *
 entry_copy(gf_dirent_t *source);
 void

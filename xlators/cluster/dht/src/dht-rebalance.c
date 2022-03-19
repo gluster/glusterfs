@@ -3206,7 +3206,7 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
         }
         tmp_container->df_entry = gf_dirent_for_name2(
             df_entry->d_name, df_entry->d_len, df_entry->d_ino, 0,
-            df_entry->d_type);
+            df_entry->d_type, &df_entry->d_stat);
         if (!tmp_container->df_entry) {
             gf_log(this->name, GF_LOG_ERROR,
                    "Failed to allocate "
@@ -3216,8 +3216,6 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
         }
 
         tmp_container->local_subvol_index = i;
-
-        tmp_container->df_entry->d_stat = df_entry->d_stat;
 
         tmp_container->parent_loc = GF_CALLOC(1, sizeof(*loc), gf_dht_mt_loc_t);
         if (!tmp_container->parent_loc) {

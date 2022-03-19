@@ -109,11 +109,10 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         strcat(path, "/");
 
     if (type & POSIX_ANCESTRY_DENTRY) {
-        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0);
+        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0, iabuf);
         if (!entry)
             goto out;
 
-        entry->d_stat = *iabuf;
         entry->inode = inode_ref(inode);
 
         list_add_tail(&entry->list, &head->list);

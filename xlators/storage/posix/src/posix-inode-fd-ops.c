@@ -5749,7 +5749,8 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         last_off = (u_long)telldir(pfd->dir);
 
         this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
-                                         entry->d_ino, last_off, entry->d_type);
+                                         entry->d_ino, last_off, entry->d_type,
+                                         NULL);
 
         if (!this_entry) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno,

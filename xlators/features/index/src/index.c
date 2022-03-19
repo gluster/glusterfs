@@ -564,7 +564,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
         last_off = (u_long)telldir(dir);
 
         this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
-                                         entry->d_ino, last_off, 0);
+                                         entry->d_ino, last_off, 0, NULL);
 
         if (!this_entry) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno,
