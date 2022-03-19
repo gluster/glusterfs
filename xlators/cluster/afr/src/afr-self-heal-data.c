@@ -428,7 +428,7 @@ __afr_selfheal_truncate_sinks(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_has_source_witnesses(xlator_t *this, unsigned char *sources,
                          uint64_t *witness)
 {
@@ -780,7 +780,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_selfheal_data_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, fd_t *fd,
                            dict_t *xdata)
