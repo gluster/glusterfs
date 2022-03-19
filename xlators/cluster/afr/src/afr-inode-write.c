@@ -240,7 +240,7 @@ afr_writev_unwind(call_frame_t *frame, xlator_t *this)
                      &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
-int
+static int
 afr_transaction_writev_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *fop_frame = NULL;
