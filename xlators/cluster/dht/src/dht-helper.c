@@ -837,9 +837,7 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
     if (inode) {
         local->layout = dht_layout_get(frame->this, inode);
         if (local->layout) {
-            dht_layout_ref(local->layout);
             local->cached_subvol = local->layout->list[0].xlator;
-            dht_layout_unref(local->layout);
         }
     }
 
