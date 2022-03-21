@@ -1358,7 +1358,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/write-behind",
      .option = "aggregate-size",
      .op_version = GD_OP_VERSION_4_1_0,
-     .flags = OPT_FLAG_CLIENT_OPT},
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "performance.nfs.write-behind-trickling-writes",
      .voltype = "performance/write-behind",
      .option = "trickling-writes",
@@ -1902,7 +1902,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_4_1_0,
      .option = "tag-namespaces",
      .value = "off",
-     .flags = OPT_FLAG_CLIENT_OPT,
+     .flags = VOLOPT_FLAG_CLIENT_OPT,
      .description = "This option enables this translator's functionality "
                     "that tags every fop with a namespace hash for later "
                     "throttling, stats collection, logging, etc."},
