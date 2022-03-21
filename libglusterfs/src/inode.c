@@ -524,8 +524,9 @@ __inode_unref(inode_t *inode, bool clear)
     --inode->ref;
 
     index = __inode_get_xl_index(inode, this);
-    if (index >= 0)
+    if (index >= 0) {
         inode->_ctx[index].ref--;
+    }
 
     if (!inode->ref && !inode->in_invalidate_list) {
         inode->table->active_size--;
