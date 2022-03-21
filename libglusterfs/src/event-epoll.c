@@ -341,7 +341,6 @@ event_register_epoll(struct event_pool *event_pool, int fd,
                      event_handler_t handler, void *data, int poll_in,
                      int poll_out, int notify_poller_death)
 {
-    int idx = -1;
     int ret = -1;
     int destroy = 0;
     struct epoll_event epoll_event = {
@@ -349,6 +348,8 @@ event_register_epoll(struct event_pool *event_pool, int fd,
     };
     struct event_data *ev_data = (void *)&epoll_event.data;
     struct event_slot_epoll *slot = NULL;
+
+    ev_data->idx = -1;
 
     GF_VALIDATE_OR_GOTO("event", event_pool, out);
 
@@ -369,11 +370,12 @@ event_register_epoll(struct event_pool *event_pool, int fd,
             goto out;
         }
 
-        idx = __event_slot_alloc(event_pool, fd, notify_poller_death, &slot);
+        ev_data->idx = __event_slot_alloc(event_pool, fd, notify_poller_death,
+                                          &slot);
     }
     pthread_mutex_unlock(&event_pool->mutex);
 
-    if (idx < 0) {
+    if (ev_data->idx < 0) {
         gf_smsg("epoll", GF_LOG_ERROR, 0, LG_MSG_SLOT_NOT_FOUND, "fd=%d", fd,
                 NULL);
         return -1;
@@ -399,7 +401,6 @@ event_register_epoll(struct event_pool *event_pool, int fd,
         __slot_update_events(slot, poll_in, poll_out);
 
         epoll_event.events = slot->events;
-        ev_data->idx = idx;
         ev_data->gen = slot->gen;
 
         ret = epoll_ctl(event_pool->fd, EPOLL_CTL_ADD, fd, &epoll_event);
@@ -412,13 +413,14 @@ event_register_epoll(struct event_pool *event_pool, int fd,
     if (ret == -1) {
         gf_smsg("epoll", GF_LOG_ERROR, errno, LG_MSG_EPOLL_FD_ADD_FAILED,
                 "fd=%d", fd, "epoll_fd=%d", event_pool->fd, NULL);
-        event_slot_unref(event_pool, slot, idx);
-        idx = -1;
+        event_slot_unref(event_pool, slot, ev_data->idx);
+
+        return -1;
     }
 
     /* keep slot->ref (do not event_slot_unref) if successful */
 out:
-    return idx;
+    return ev_data->idx;
 }
 
 static int
