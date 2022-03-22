@@ -291,11 +291,8 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
         return;
     }
     INIT_LIST_HEAD(&granted);
-    pthread_mutex_lock(&pl_inode->mutex);
-    {
-        __grant_blocked_lock_calls(this, pl_inode, &granted);
-    }
-    pthread_mutex_unlock(&pl_inode->mutex);
+
+    __grant_blocked_lock_calls(this, pl_inode, &granted);
 
     list_for_each_entry_safe(lock, tmp, &granted, list)
     {
