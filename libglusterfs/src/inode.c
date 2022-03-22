@@ -531,8 +531,6 @@ __inode_unref(inode_t *inode, bool clear)
          */
         return inode;
 
-    this = THIS;
-
     if (clear && inode->in_invalidate_list) {
         inode->in_invalidate_list = false;
         inode->table->invalidate_size--;
@@ -541,6 +539,7 @@ __inode_unref(inode_t *inode, bool clear)
     GF_ASSERT(inode->ref);
 
     --inode->ref;
+    this = THIS;
 
     index = __inode_get_xl_index(inode, this);
     if (index >= 0) {
@@ -569,8 +568,6 @@ __inode_ref(inode_t *inode, bool is_invalidate)
 
     if (!inode)
         return NULL;
-
-    this = THIS;
 
     /*
      * Root inode should always be in active list of inode table. So unrefs
@@ -603,6 +600,7 @@ __inode_ref(inode_t *inode, bool is_invalidate)
     }
 
     inode->ref++;
+    this = THIS;
 
     index = __inode_get_xl_index(inode, this);
     if (index >= 0) {
