@@ -937,13 +937,15 @@ __is_root_gfid(uuid_t gfid)
 }
 
 inode_t *
-__inode_find(inode_table_t *table, uuid_t gfid, const int hash)
+__inode_find(inode_table_t *table, uuid_t gfid)
 {
     inode_t *inode = NULL;
     inode_t *tmp = NULL;
 
     if (__is_root_gfid(gfid))
         return table->root;
+
+    int hash = hash_gfid(gfid, table->inode_hashsize);
 
     list_for_each_entry(tmp, &table->inode_hash[hash], hash)
     {
@@ -969,11 +971,9 @@ inode_find(inode_table_t *table, uuid_t gfid)
         return NULL;
     }
 
-    int hash = hash_gfid(gfid, table->inode_hashsize);
-
     pthread_mutex_lock(&table->lock);
     {
-        inode = __inode_find(table, gfid, hash);
+        inode = __inode_find(table, gfid);
         if (inode)
             __inode_ref(inode, false);
     }
@@ -1031,16 +1031,15 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             return NULL;
         }
 
-        int ihash = hash_gfid(iatt->ia_gfid, table->inode_hashsize);
-
-        old_inode = __inode_find(table, iatt->ia_gfid, ihash);
+        old_inode = __inode_find(table, iatt->ia_gfid);
 
         if (old_inode) {
             link_inode = old_inode;
         } else {
             gf_uuid_copy(inode->gfid, iatt->ia_gfid);
             inode->ia_type = iatt->ia_type;
-            __inode_hash(inode, ihash);
+            __inode_hash(inode,
+                         hash_gfid(iatt->ia_gfid, table->inode_hashsize));
         }
     } else {
         /* @old_inode serves another important purpose - it indicates
