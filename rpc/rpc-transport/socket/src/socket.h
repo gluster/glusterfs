@@ -163,7 +163,6 @@ struct gf_sock_incoming_frag {
 struct gf_sock_incoming {
     char *proghdr_base_addr;
     struct iobuf *iobuf;
-    size_t iobuf_size;
     struct gf_sock_incoming_frag frag;
     struct iovec vector[2];
     struct iovec payload_vector;
@@ -208,9 +207,6 @@ typedef struct {
      */
     int ssl_error_required;
     int ssl_session_id;
-
-    GF_REF_DECL; /* refcount to keep track of socket_poller
-                    threads */
     struct {
         pthread_mutex_t lock;
         pthread_cond_t cond;
@@ -220,9 +216,7 @@ typedef struct {
     int32_t idx;
     int32_t gen;
     uint32_t backlog;
-    SSL_METHOD *ssl_meth;
     SSL_CTX *ssl_ctx;
-    BIO *ssl_sbio;
     SSL *ssl_ssl;
     char *ssl_own_cert;
     char *ssl_private_key;
