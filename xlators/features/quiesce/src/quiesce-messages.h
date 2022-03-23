@@ -23,6 +23,8 @@
  * glfs-message-id.h.
  */
 
+// clang-format off
+
 GLFS_COMPONENT(QUIESCE);
 
 GLFS_NEW(QUIESCE, QUIESCE_MSG_INVAL_HOST, "Invalid internet address", 1,
@@ -33,5 +35,7 @@ GLFS_NEW(QUIESCE, QUIESCE_MSG_FAILOVER_FAILED, "Failed to initiate failover", 2,
     GLFS_STR(host),
     GLFS_ERROR(error)
 )
+
+// clang-format on
 
 #endif /* __NL_CACHE_MESSAGES_H__ */
