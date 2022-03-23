@@ -21,7 +21,6 @@
 #include <sys/epoll.h>
 
 struct event_slot_epoll {
-    int slots_used;
     int fd;
     int events;
     int gen;
@@ -36,23 +35,33 @@ struct event_slot_epoll {
     gf_lock_t lock;
 };
 
+struct event_slot_epoll_table {
+    int slots_used;
+    int _pad;
+    struct event_slot_epoll slots[EVENT_EPOLL_SLOTS];
+};
+
 struct event_thread_data {
     struct event_pool *event_pool;
     int event_index;
 };
 
-static struct event_slot_epoll *
+static struct event_slot_epoll_table *
 __event_newtable(struct event_pool *event_pool, int table_idx)
 {
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll_table *table = NULL;
     int i;
 
-    table = GF_CALLOC(sizeof(*table), EVENT_EPOLL_SLOTS, gf_common_mt_ereg);
+    table = GF_MALLOC(sizeof(struct event_slot_epoll_table), gf_common_mt_ereg);
     if (!table)
         return NULL;
 
-    for (i = 0; i < EVENT_EPOLL_SLOTS; i++)
-        table[i].fd = -1;
+    table->slots_used = 0;
+
+    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
+        table->slots[i].fd = -1;
+        table->slots[i].gen = 0;
+    }
 
     event_pool->ereg[table_idx] = table;
 
@@ -73,7 +82,8 @@ __event_slot_alloc(struct event_pool *event_pool, int fd,
     int j = 0;
     int table_idx = 0;
     int gen;
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll *table_slot;
+    struct event_slot_epoll_table *table = NULL;
 
 retry:
 
@@ -84,62 +94,66 @@ retry:
                 table_idx++;
                 continue;
             } else {
-                break; /* break out of the loop */
+                goto search_slot; /* break out of the loop */
             }
         } else {
             table = __event_newtable(event_pool, table_idx);
             if (!table) {
                 return -1;
             } else {
-                break;
+                table_slot = &table->slots[0];
+                gen = 0;
+                j = 0;
+                goto set_slot;
             }
         }
     }
 
-    if (table_idx >= EVENT_EPOLL_TABLES)
-        return -1;
+    // (table_idx >= EVENT_EPOLL_TABLES) - not more tables
+    return -1;
 
+search_slot:
     for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
-        if (table[j].fd == -1) {
+        table_slot = &table->slots[j];
+        if (table_slot->fd < 0) {
             /* wipe everything except bump the generation */
-            gen = table[j].gen;
-            memset(&table[j], 0, sizeof(table[j]));
-            table[j].fd = fd;
-            table[j].gen = gen + 1;
-
-            INIT_LIST_HEAD(&table[j].poller_death);
-            LOCK_INIT(&table[j].lock);
-
-            if (notify_poller_death) {
-                table[j].idx = table_idx * EVENT_EPOLL_SLOTS + j;
-                list_add_tail(&table[j].poller_death,
-                              &event_pool->poller_death);
-            }
-
-            event_pool->ereg[table_idx]->slots_used++;
-
-            break;
+            gen = table_slot->gen;
+            goto set_slot;
         }
     }
 
-    if (j == EVENT_EPOLL_SLOTS) {
-        table = NULL;
-        table_idx++;
-        goto retry;
+    // (j == EVENT_EPOLL_SLOTS) - retry with the next table
+    table = NULL;
+    table_idx++;
+    goto retry;
+
+set_slot:
+    memset(table_slot, 0, sizeof(struct event_slot_epoll));
+    table_slot->fd = fd;
+    table_slot->gen = gen + 1;
+
+    LOCK_INIT(&table_slot->lock);
+
+    if (notify_poller_death) {
+        table_slot->idx = table_idx * EVENT_EPOLL_SLOTS + j;
+        list_add_tail(&table_slot->poller_death, &event_pool->poller_death);
     } else {
-        (*slot) = &table[j];
-        event_slot_ref(*slot);
-        return table_idx * EVENT_EPOLL_SLOTS + j;
+        INIT_LIST_HEAD(&table_slot->poller_death);
     }
+
+    table->slots_used++;
+    *slot = table_slot;
+    event_slot_ref(*slot);
+    return table_idx * EVENT_EPOLL_SLOTS + j;
 }
 
 static void
-__event_slot_dealloc(struct event_slot_epoll *table, int offset)
+__event_slot_dealloc(struct event_slot_epoll_table *table, int offset)
 {
     struct event_slot_epoll *slot = NULL;
     int fd;
 
-    slot = &table[offset];
+    slot = &table->slots[offset];
     slot->gen++;
 
     fd = slot->fd;
@@ -157,7 +171,7 @@ event_slot_dealloc(struct event_pool *event_pool, int idx)
 {
     int table_idx = idx / EVENT_EPOLL_SLOTS;
     int offset;
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll_table *table = NULL;
 
     table = event_pool->ereg[table_idx];
     if (!table)
@@ -177,7 +191,7 @@ static struct event_slot_epoll *
 event_slot_get(struct event_pool *event_pool, int idx)
 {
     struct event_slot_epoll *slot = NULL;
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll_table *table = NULL;
     int table_idx = 0;
     int offset = 0;
 
@@ -188,7 +202,7 @@ event_slot_get(struct event_pool *event_pool, int idx)
     if (!table)
         goto out;
 
-    slot = &table[offset];
+    slot = &table->slots[offset];
 
     event_slot_ref(slot);
 
@@ -204,7 +218,7 @@ __event_slot_unref(struct event_pool *event_pool, struct event_slot_epoll *slot,
     int fd;
     int do_close = 0;
     int table_idx, offset;
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll_table *table = NULL;
 
     ref = GF_ATOMIC_DEC(slot->ref);
     if (ref)
@@ -914,7 +928,7 @@ static int
 event_pool_destroy_epoll(struct event_pool *event_pool)
 {
     int ret = 0, i = 0, j = 0;
-    struct event_slot_epoll *table = NULL;
+    struct event_slot_epoll_table *table = NULL;
 
     ret = sys_close(event_pool->fd);
 
@@ -923,8 +937,8 @@ event_pool_destroy_epoll(struct event_pool *event_pool)
             table = event_pool->ereg[i];
             event_pool->ereg[i] = NULL;
             for (j = 0; j < EVENT_EPOLL_SLOTS; j++) {
-                if (table[j].fd != -1)
-                    LOCK_DESTROY(&table[j].lock);
+                if (table->slots[j].fd != -1)
+                    LOCK_DESTROY(&table->slots[j].lock);
             }
             GF_FREE(table);
         }
