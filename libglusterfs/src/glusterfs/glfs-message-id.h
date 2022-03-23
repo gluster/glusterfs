@@ -11,6 +11,11 @@
 #ifndef _GLFS_MESSAGE_ID_H_
 #define _GLFS_MESSAGE_ID_H_
 
+#include <inttypes.h>
+#include <string.h>
+
+#include <glusterfs/logging.h>
+
 /* Base of all message IDs, all message IDs would be
  * greater than this */
 #define GLFS_MSGID_BASE 100000
@@ -29,12 +34,243 @@
         GLFS_MSGID_COMP_##_name##_END = (GLFS_MSGID_COMP_##_name +             \
                                          (GLFS_MSGID_SEGMENT * (_blocks)) - 1)
 
+/* Old way to allocate a list of message id's. */
 #define GLFS_MSGID(_name, _msgs...)                                            \
     enum _msgid_table_##_name                                                  \
     {                                                                          \
         GLFS_##_name##_COMP_BASE = GLFS_MSGID_COMP_##_name, ##_msgs,           \
         GLGS_##_name##_COMP_END                                                \
     }
+
+/* New way to allocate messages with full description.
+ *
+ * This new approach has several advantages:
+ *
+ *   - Centralized message definition
+ *   - Customizable list of additional data per message
+ *   - Typed message arguments to enforce correctness
+ *   - Consistency between different instances of the same message
+ *   - Better uniformity in data type representation
+ *   - Compile-time generation of messages
+ *   - Easily modify the message and update all references
+ *   - All argument preparation is done only if the message will be logged
+ *   - Very easy to use
+ *   - Code auto-completion friendly
+ *   - All extra overhead is optimally optimized by gcc/clang
+ *
+ * The main drawback is that it makes heavy use of some macros, which is
+ * considered a bad practice sometimes, and it uses specific gcc/clang
+ * extensions.
+ *
+ * To create a new message:
+ *
+ *    GLFS_NEW(_comp, _name, _msg, _num, _fields...)
+ *
+ * To deprecate an existing message:
+ *
+ *    GLFS_OLD(_comp, _name, _msg, _num, _fields...)
+ *
+ * To permanently remove a message (but keep its ID reserved):
+ *
+ *    GLFS_GONE(_comp, _name, _msg, _num, _fields...)
+ *
+ * Each field is a list composed of the following elements:
+ *
+ *    (_type, _name, _format, (_values) [, _extra])
+ *
+ *    _type   is the data type of the field (int32_t, const char *, ...)
+ *    _name   is the name of the field (it will also appear in the log string)
+ *    _format is the C format string to represent the field
+ *    _values is a list of values used by _format (generally it's only _name)
+ *    _extra  is an optional extra code to prepare the representation of the
+ *            field (check GLFS_UUID() for an example)
+ *
+ * There are some predefined macros for common data types.
+ *
+ * Example:
+ *
+ * Message definition:
+ *
+ *    GLFS_NEW(LIBGLUSTERFS, LG_MSG_EXAMPLE, "Example message", 3,
+ *        GLFS_UINT(number),
+ *        GLFS_ERROR(error),
+ *        GLFS_STR(name)
+ *    )
+ *
+ * Message invocation:
+ *
+ *    GF_LOG_I("test", LG_MSG_EXAMPLE(3, -2, "test"));
+ *
+ * This will generate a message like this:
+ *
+ *    "Example message ({number=3}, {error=2 (File not found)}, {name='test'})"
+ */
+
+/* Start the definition of messages for a component. Only one component can be
+ * defined at a time. Calling this macro for another component before finishing
+ * the definition of messages for the previous component will mess the message
+ * ids. */
+#define GLFS_COMPONENT(_name) \
+    enum { \
+        GLFS_##_name##_COMP_BASE = GLFS_MSGID_COMP_##_name - __COUNTER__ - 1 \
+    }
+
+/* Unpack arguments. */
+#define GLFS_EXPAND(_x...) _x
+
+/* These macros apply a macro to a list of 0..9 arguments. It can be extended
+ * if more arguments are required. */
+
+#define GLFS_APPLY_0(_macro,  _in)
+
+#define GLFS_APPLY_1(_macro, _in, _f) \
+    _macro _f
+
+#define GLFS_APPLY_2(_macro, _in, _f, _more) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_1(_macro, _in, _more)
+
+#define GLFS_APPLY_3(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_2(_macro, _in, _more)
+
+#define GLFS_APPLY_4(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_3(_macro, _in, _more)
+
+#define GLFS_APPLY_5(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_4(_macro, _in, _more)
+
+#define GLFS_APPLY_6(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_5(_macro, _in, _more)
+
+#define GLFS_APPLY_7(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_6(_macro, _in, _more)
+
+#define GLFS_APPLY_8(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_7(_macro, _in, _more)
+
+#define GLFS_APPLY_9(_macro, _in, _f, _more...) \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_8(_macro, _in, _more)
+
+/* Apply a macro to a variable number of fields. */
+#define GLFS_APPLY(_macro, _in, _num, _fields...) \
+    GLFS_APPLY_##_num(_macro, _in, ## _fields)
+
+/* Build a declaration for a structure from a field. */
+#define GLFS_FIELD(_type, _name, _extra...) _type _name;
+
+/* Extract the name from a field. */
+#define GLFS_NAME(_type, _name, _extra...) , _name
+
+/* Build the format string from a field. */
+#define GLFS_FMT(_type, _name, _fmt, _extra...) "{" #_name "=" _fmt "}"
+
+/* Build a function call argument from a field. */
+#define GLFS_ARG(_type, _name, _extra...) _type _name
+
+/* Initialize a variable from a field in a structure. */
+#define GLFS_VAR(_type, _name, _fmt, _data, _extra...) \
+    _type _name = _info->_name; _extra
+
+/* Extract the data from a field. */
+#define GLFS_DATA(_type, _name, _fmt, _data, _extra...) , GLFS_EXPAND _data
+
+/* Generate the fields of the structre. */
+#define GLFS_FIELDS(_num, _fields...) \
+    GLFS_APPLY(GLFS_FIELD, (), _num, ## _fields)
+
+/* Generate a list of the names of all fields. */
+#define GLFS_NAMES(_num, _fields...) \
+    GLFS_APPLY(GLFS_NAME, (), _num, ## _fields)
+
+/* Generate a format string for all fields. */
+#define GLFS_FMTS(_num, _fields...) \
+    GLFS_APPLY(GLFS_FMT, (", "), _num, ## _fields)
+
+/* Generate the function call argument declaration for all fields. */
+#define GLFS_ARGS(_num, _fields...) \
+    GLFS_APPLY(GLFS_ARG, (,), _num, ## _fields)
+
+/* Generate the list of variables for all fields. */
+#define GLFS_VARS(_num, _fields...) \
+    GLFS_APPLY(GLFS_VAR, (), _num, ## _fields)
+
+/* Generate the list of values from all fields. */
+#define GLFS_DATAS(_num, _fields...) \
+    GLFS_APPLY(GLFS_DATA, (), _num, ## _fields)
+
+/* Create the structure for a message. */
+#define GLFS_STRUCT(_name, _num, _fields...) \
+    struct _glfs_##_name { \
+        void (*_process)(const char *, const char *, const char *, uint32_t, \
+                         uint32_t, struct _glfs_##_name *); \
+        GLFS_FIELDS(_num, ## _fields) \
+    }
+
+/* Create the processing function for a message. */
+#define GLFS_PROCESS(_mod, _name, _msg, _num, _fields...) \
+    enum { _name##_ID = GLFS_##_mod##_COMP_BASE + __COUNTER__ }; \
+    _Static_assert((int)_name##_ID <= (int)GLFS_MSGID_COMP_##_mod##_END, \
+                   "Too many messages allocated for component " #_mod); \
+    extern inline __attribute__((__always_inline__)) void \
+    _glfs_process_##_name(const char *_dom, const char *_file, \
+                          const char *_func, uint32_t _line, uint32_t _level, \
+                          struct _glfs_##_name *_info) \
+    { \
+        GLFS_VARS(_num, ## _fields) \
+        _gf_log(_dom, _file, _func, _line, _level, "[MSGID:%u] " _msg " <" \
+                GLFS_FMTS(_num, ## _fields) ">", _name##_ID \
+                GLFS_DATAS(_num, ## _fields)); \
+    }
+
+/* Create the data capture function for a message. */
+#define GLFS_CREATE(_name, _attr, _num, _fields...) \
+    extern inline __attribute__((__always_inline__, __warn_unused_result__)) \
+    _attr struct _glfs_##_name _name(GLFS_ARGS(_num, ## _fields)) \
+    { \
+        return (struct _glfs_##_name){ \
+            _glfs_process_##_name GLFS_NAMES(_num, ## _fields) \
+        }; \
+    }
+
+/* Create a new message. */
+#define GLFS_NEW(_mod, _name, _msg, _num, _fields...) \
+    GLFS_STRUCT(_name, _num, ## _fields); \
+    GLFS_PROCESS(_mod, _name, _msg, _num, ## _fields) \
+    GLFS_CREATE(_name,, _num, ## _fields)
+
+/* Create a deprecated message. */
+#define GLFS_OLD(_mod, _name, _msg, _num, _fields...) \
+    GLFS_STRUCT(_name, _num, ## _fields); \
+    GLFS_PROCESS(_mod, _name, _msg, _num, ## _fields) \
+    GLFS_CREATE(_name, __attribute__((__deprecated__)), _num, ## _fields)
+
+/* Create a deleted message. */
+#define GLFS_GONE(_mod, _name, _msg, _num, _fields...) \
+    enum { _name##_ID_GONE = GLFS_##_mod##_COMP_BASE + __COUNTER__ };
+
+/* Helper to create an unsigned integer field. */
+#define GLFS_UINT(_name) \
+    (uint32_t, _name, "%" PRIu32, (_name))
+
+/* Helper to create a signed integer field. */
+#define GLFS_INT(_name) \
+    (int32_t, _name, "%" PRId32, (_name))
+
+/* Helper to create an error field. */
+#define GLFS_ERROR(_name) \
+    (int32_t, _name, "%" PRId32 " (%s)", (-_name, strerror(-_name)))
+
+/* Helper to create a string field. */
+#define GLFS_STR(_name) \
+    (const char *, _name, "'%s'", (_name))
+
+/* Helper to create a gfid field. */
+#define GLFS_GFID(_name) \
+    (uuid_t *, _name, "%s", (*_name##_buff), \
+    char _name##_buff[48]; uuid_unparse(*_name, _name##_buff))
+
+/* Helper to create a pointer field. */
+#define GLFS_PTR(_name) \
+    (void *, _name, "%p", (_name))
 
 /* Per module message segments allocated */
 /* NOTE: For any new module add to the end the modules */

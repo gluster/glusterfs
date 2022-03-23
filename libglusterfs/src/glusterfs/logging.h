@@ -339,4 +339,30 @@ _gf_smsg(const char *domain, const char *file, const char *function,
                  msgid, msgid##_STR, ##event);                                 \
     } while (0)
 
+/* Logging macro for messages created by GLFS_NEW(). It uses the same logic as
+ * gf_log_get_loglevel() but inline and without requiring THIS. */
+#define GF_LOG(_xl, _lvl, _data) \
+    do { \
+        xlator_t *__log_xl = (_xl); \
+        const char *__log_name = ""; \
+        uint32_t __log_level = GF_LOG_INFO; \
+        if ((__log_xl != NULL) && (__log_xl->ctx != NULL)) { \
+            __log_name = __log_xl->name; \
+            __log_level = __log_xl->ctx->log.loglevel; \
+        } \
+        if (__log_level >= (_lvl)) { \
+            typeof(_data) __log_data = _data; \
+            __log_data._process(__log_name, __FILE__, __FUNCTION__, __LINE__, \
+                                _lvl, &__log_data); \
+        } \
+    } while (0)
+
+/* Shortcut macros for different log levels. */
+#define GF_LOC_C(_xl, _data) GF_LOG(_xl, GF_LOG_CRITICAL, _data)
+#define GF_LOG_E(_xl, _data) GF_LOG(_xl, GF_LOG_ERROR, _data)
+#define GF_LOG_W(_xl, _data) GF_LOG(_xl, GF_LOG_WARNING, _data)
+#define GF_LOG_I(_xl, _data) GF_LOG(_xl, GF_LOG_INFO, _data)
+#define GF_LOG_D(_xl, _data) GF_LOG(_xl, GF_LOG_DEBUG, _data)
+#define GF_LOG_T(_xl, _data) GF_LOG(_xl, GF_LOG_TRACE, _data)
+
 #endif /* __LOGGING_H__ */
