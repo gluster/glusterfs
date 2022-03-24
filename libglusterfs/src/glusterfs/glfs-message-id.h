@@ -206,7 +206,7 @@
     enum { _name##_ID = GLFS_##_mod##_COMP_BASE + __COUNTER__ };               \
     _Static_assert((int)_name##_ID <= (int)GLFS_MSGID_COMP_##_mod##_END,       \
                    "Too many messages allocated for component " #_mod);        \
-    extern inline                                                              \
+    static inline                                                              \
         __attribute__((__always_inline__)) void _glfs_process_##_name(         \
             const char *_dom, const char *_file, const char *_func,            \
             uint32_t _line, uint32_t _level, struct _glfs_##_name *_info)      \
@@ -219,7 +219,7 @@
 
 /* Create the data capture function for a message. */
 #define GLFS_CREATE(_name, _attr, _num, _fields...)                            \
-    extern inline __attribute__((__always_inline__, __warn_unused_result__))   \
+    static inline __attribute__((__always_inline__, __warn_unused_result__))   \
     _attr struct _glfs_##_name                                                 \
     _name(GLFS_ARGS(_num, ##_fields))                                          \
     {                                                                          \
