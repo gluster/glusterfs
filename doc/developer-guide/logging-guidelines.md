@@ -288,14 +288,14 @@ Once a message is defined, it can be logged using the following macros:
 - `GF_LOG_D()`: log a debug message
 - `GF_LOG_T()`: log a trace message
 
-All macros receive an xlator (or `NULL` if none is required) and the message
-itself. The additional data of the message is passed after the message name
+All macros receive a string, representing the domain of the log message, and
+the message itself. The additional data of the message is passed after the message name
 between parenthesis.
 
 > Example:
 >
 > ```c
->     GF_LOG_I(this, MSG_TEST(10, "something", ENOENT));
+>     GF_LOG_I(this->name, MSG_TEST(10, "something", ENOENT));
 > ```
 
 The resulting logging message would be similar to this:
@@ -303,5 +303,3 @@ The resulting logging message would be similar to this:
 ```c
 "This is a test message <{number=10}, {name='something'}, {error=2 (File not found)}>"
 ```
-
-> Note: the xlator argument is used to get the name of the xlator if present.
