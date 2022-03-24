@@ -257,7 +257,7 @@
 #define GLFS_STR(_name) (const char *, _name, "'%s'", (_name))
 
 /* Helper to create a gfid field. */
-#define GLFS_GFID(_name)                                                       \
+#define GLFS_UUID(_name)                                                       \
     (uuid_t *, _name, "%s", (*_name##_buff), char _name##_buff[48];            \
      uuid_unparse(*_name, _name##_buff))
 
