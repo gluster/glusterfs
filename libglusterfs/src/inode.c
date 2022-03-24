@@ -226,24 +226,25 @@ __foreach_ancestor_dentry(dentry_t *dentry,
 {
     inode_t *parent = NULL;
     dentry_t *each = NULL;
+    xlator_t *xl = THIS;
     int ret = 0;
 
     if (!dentry) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
                          "dentry not found");
         return 0;
     }
 
     ret = per_dentry_fn(dentry, data);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED,
-                "ret=%d", ret, NULL);
+        gf_smsg(xl->name, GF_LOG_WARNING, 0, LG_MSG_PER_DENTRY_FAILED, "ret=%d",
+                ret, NULL);
         goto out;
     }
 
     parent = dentry->parent;
     if (!parent) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
+        gf_smsg(xl->name, GF_LOG_WARNING, 0, LG_MSG_PARENT_DENTRY_NOT_FOUND,
                 NULL);
         goto out;
     }
@@ -710,7 +711,7 @@ inode_new(inode_table_t *table)
     gf_boolean_t root_with_ref = _gf_false;
 
     if (!table) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0,
                          LG_MSG_INODE_TABLE_NOT_FOUND,
                          "inode not "
                          "found");
@@ -719,9 +720,6 @@ inode_new(inode_table_t *table)
 
     inode = inode_create(table);
     if (inode) {
-        if (__is_root_with_ref(inode))
-            root_with_ref = _gf_true;
-
         pthread_mutex_lock(&table->lock);
         {
             list_add(&inode->list, &table->lru);
@@ -818,7 +816,7 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
     xlator_t *xl = THIS;
 
     if (!table || !parent || !name) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "table || parent || name"
                          " not found");
         return NULL;
@@ -829,20 +827,16 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
     pthread_mutex_lock(&table->lock);
     {
         dentry = __dentry_grep(table, parent, name, hash);
-    }
-    pthread_mutex_unlock(&table->lock);
 
-    if (dentry->inode) {
-        inode = dentry->inode;
+        if (dentry->inode) {
+            inode = dentry->inode;
+        }
 
         if (!__is_root_with_ref(inode)) {
-            pthread_mutex_lock(&table->lock);
-            {
-                __inode_ref(inode, false, xl);
-            }
-            pthread_mutex_unlock(&table->lock);
+            __inode_ref(inode, false, xl);
         }
     }
+    pthread_mutex_unlock(&table->lock);
 
     return inode;
 }
@@ -941,7 +935,7 @@ __is_root_gfid(uuid_t gfid)
 static gf_boolean_t
 __is_root_with_ref(inode_t *inode)
 {
-    if (__is_root_gfid(inode->gfid) && inode->ref)
+    if (inode->ref && __is_root_gfid(inode->gfid))
         return _gf_true;
 
     return _gf_false;
@@ -974,7 +968,7 @@ inode_find(inode_table_t *table, uuid_t gfid)
     xlator_t *xl = THIS;
 
     if (!table) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0,
                          LG_MSG_INODE_TABLE_NOT_FOUND,
                          "table not "
                          "found");
@@ -986,16 +980,12 @@ inode_find(inode_table_t *table, uuid_t gfid)
     pthread_mutex_lock(&table->lock);
     {
         inode = __inode_find(table, gfid, hash);
-    }
-    pthread_mutex_unlock(&table->lock);
 
-    if (inode && !__is_root_with_ref((inode))) {
-        pthread_mutex_lock(&table->lock);
-        {
+        if (inode && !__is_root_with_ref(inode)) {
             __inode_ref(inode, false, xl);
         }
-        pthread_mutex_unlock(&table->lock);
     }
+    pthread_mutex_unlock(&table->lock);
 
     return inode;
 }
@@ -1084,7 +1074,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
         if (!old_dentry || old_dentry->inode != link_inode) {
             dentry = dentry_create(link_inode, parent, name);
             if (!dentry) {
-                gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
+                gf_msg_callingfn(xl->name, GF_LOG_ERROR, 0,
                                  LG_MSG_DENTRY_CREATE_FAILED,
                                  "dentry create failed on "
                                  "inode %s with parent %s",
@@ -1130,7 +1120,7 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     xlator_t *xl = THIS;
 
     if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return NULL;
     }
@@ -1149,16 +1139,12 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     pthread_mutex_lock(&table->lock);
     {
         linked_inode = __inode_link(inode, parent, name, iatt, hash, xl);
-    }
-    pthread_mutex_unlock(&table->lock);
 
-    if (linked_inode && !__is_root_with_ref(linked_inode)) {
-        pthread_mutex_lock(&table->lock);
-        {
+        if (linked_inode && !__is_root_with_ref(linked_inode)) {
             __inode_ref(linked_inode, false, xl);
         }
-        pthread_mutex_unlock(&table->lock);
     }
+    pthread_mutex_unlock(&table->lock);
 
     inode_table_prune(table);
 
@@ -1186,7 +1172,7 @@ inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
     xlator_t *xl = THIS;
 
     if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return -1;
     }
@@ -1232,7 +1218,7 @@ inode_forget_with_unref(inode_t *inode, uint64_t nlookup)
     gf_boolean_t is_root_inode = _gf_false;
 
     if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return -1;
     }
@@ -1360,7 +1346,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     xlator_t *xl = THIS;
 
     if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return -1;
     }
@@ -1434,7 +1420,7 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
     xlator_t *xl = THIS;
 
     if (!inode) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
+        gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
                          "inode not found");
         return NULL;
     }
@@ -1657,7 +1643,7 @@ inode_table_prune(inode_table_t *table)
         while (lru_size > (table->lru_limit)) {
             if (list_empty(&table->lru)) {
                 GF_ASSERT(0);
-                gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
+                gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0,
                                  LG_MSG_INVALID_INODE_LIST,
                                  "Empty inode lru list found"
                                  " but with (%d) lru_size",
@@ -2029,8 +2015,7 @@ inode_table_destroy(inode_table_t *inode_table)
              * inodes present in the active list except for root
              * inode. Its a ref_leak otherwise. */
             if (trav && (trav != inode_table->root))
-                gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                                 LG_MSG_REF_COUNT,
+                gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0, LG_MSG_REF_COUNT,
                                  "Active inode(%p) with refcount"
                                  "(%d) found during cleanup",
                                  trav, trav->ref);
@@ -2806,12 +2791,13 @@ out:
 void
 inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode)
 {
+    xlator_t *xl = THIS;
     GF_VALIDATE_OR_GOTO("inode", inode, out);
     GF_VALIDATE_OR_GOTO("inode", ns_inode, out);
 
     /* namespace inode should always be a directory */
     if (!IA_ISDIR(ns_inode->ia_type)) {
-        gf_log(THIS->name, GF_LOG_WARNING,
+        gf_log(xl->name, GF_LOG_WARNING,
                "Trying to link namespace which is not a directory");
         return;
     }
@@ -2820,7 +2806,7 @@ inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode)
     /* FIXME: fix above once we support setting quota after having data in
      * directories */
     if (GF_ATOMIC_GET(inode->kids)) {
-        gf_log(THIS->name, GF_LOG_WARNING, "Trying to link inode with kids");
+        gf_log(xl->name, GF_LOG_WARNING, "Trying to link inode with kids");
     }
 
     inode_t *old_ns = inode->ns_inode;
