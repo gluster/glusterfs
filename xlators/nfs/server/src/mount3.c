@@ -8,13 +8,10 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "mount3.h"
 #include "xdr-nfs3.h"
 #include "msg-nfs3.h"
-#include <glusterfs/iobuf.h>
 #include "nfs-common.h"
 #include "nfs3-fh.h"
 #include "nfs-fops.h"
@@ -24,17 +21,18 @@
 #include <glusterfs/iatt.h>
 #include "nfs-mem-types.h"
 #include "nfs.h"
-#include <glusterfs/common-utils.h>
 #include <glusterfs/store.h>
 #include "glfs-internal.h"
 #include "glfs.h"
 #include "mount3-auth.h"
 #include <glusterfs/hashfn.h>
 #include "nfs-messages.h"
-
+#include <netdb.h>
+#include <glusterfs/syscall.h>
 #include <errno.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
+#include <libgen.h>
 
 /* This macro will assist in freeing up entire link list
  * of host_auth_spec structure.
@@ -1228,6 +1226,132 @@ err:
     return 0;
 }
 
+/* This function will build absolute path of file/directory from the
+ * current location and relative path given from the current location
+ * For example consider our current path is /a/b/c/ and relative path
+ * from current location is ./../x/y/z .After parsing through this
+ * function the absolute path becomes /a/b/x/y/z/.
+ *
+ * The function gives a pointer to absolute path if it is successful
+ * and also returns zero.
+ * Otherwise function gives NULL pointer with returning an err value.
+ *
+ * So the user need to free memory allocated for path.
+ *
+ */
+
+static int32_t
+gf_build_absolute_path(char *current_path, char *relative_path, char **path)
+{
+    char *absolute_path = NULL;
+    char *token = NULL;
+    char *component = NULL;
+    char *saveptr = NULL;
+    char *end = NULL;
+    int ret = 0;
+    size_t relativepath_len = 0;
+    size_t currentpath_len = 0;
+    size_t max_absolutepath_len = 0;
+
+    GF_ASSERT(current_path);
+    GF_ASSERT(relative_path);
+    GF_ASSERT(path);
+
+    if (!path || !current_path || !relative_path) {
+        ret = -EFAULT;
+        goto err;
+    }
+    /* Check for current and relative path
+     * current path should be absolute one and  start from '/'
+     * relative path should not start from '/'
+     */
+    currentpath_len = strlen(current_path);
+    if (current_path[0] != '/' || (currentpath_len > PATH_MAX)) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_WRONG_VALUE,
+                "current-path=%s", current_path, NULL);
+        ret = -EINVAL;
+        goto err;
+    }
+
+    relativepath_len = strlen(relative_path);
+    if (relative_path[0] == '/' || (relativepath_len > PATH_MAX)) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_WRONG_VALUE,
+                "relative-path=%s", relative_path, NULL);
+        ret = -EINVAL;
+        goto err;
+    }
+
+    /* It is maximum possible value for absolute path */
+    max_absolutepath_len = currentpath_len + relativepath_len + 2;
+
+    absolute_path = GF_CALLOC(1, max_absolutepath_len, gf_common_mt_char);
+    if (!absolute_path) {
+        ret = -ENOMEM;
+        goto err;
+    }
+    absolute_path[0] = '\0';
+
+    /* If current path is root i.e contains only "/", we do not
+     * need to copy it
+     */
+    if (strcmp(current_path, "/") != 0) {
+        strcpy(absolute_path, current_path);
+
+        /* We trim '/' at the end for easier string manipulation */
+        gf_path_strip_trailing_slashes(absolute_path);
+    }
+
+    /* Used to spilt relative path based on '/' */
+    component = gf_strdup(relative_path);
+    if (!component) {
+        ret = -ENOMEM;
+        goto err;
+    }
+
+    /* In the relative path, we want to consider ".." and "."
+     * if token is ".." , we just need to reduce one level hierarchy
+     * if token is "." , we just ignore it
+     * if token is NULL , end of relative path
+     * if absolute path becomes '\0' and still "..", then it is a bad
+     * relative path,  it points to out of boundary area and stop
+     * building the absolute path
+     * All other cases we just concatenate token to the absolute path
+     */
+    for (token = strtok_r(component, "/", &saveptr),
+        end = strchr(absolute_path, '\0');
+         token; token = strtok_r(NULL, "/", &saveptr)) {
+        if (strcmp(token, ".") == 0)
+            continue;
+
+        else if (strcmp(token, "..") == 0) {
+            if (absolute_path[0] == '\0') {
+                ret = -EACCES;
+                goto err;
+            }
+
+            end = strrchr(absolute_path, '/');
+            *end = '\0';
+        } else {
+            ret = snprintf(end, max_absolutepath_len - strlen(absolute_path),
+                           "/%s", token);
+            end = strchr(absolute_path, '\0');
+        }
+    }
+
+    if (strlen(absolute_path) > PATH_MAX) {
+        ret = -EINVAL;
+        goto err;
+    }
+    *path = gf_strdup(absolute_path);
+
+err:
+    if (component)
+        GF_FREE(component);
+    if (absolute_path)
+        GF_FREE(absolute_path);
+    return ret;
+}
+
 /* This function resolves symbolic link into directory path from
  * the mount and restart the parsing process from the beginning
  *
@@ -2089,6 +2213,43 @@ free_and_out:
     GF_FREE(host_addr_ip);
 out:
     return auth_status_code;
+}
+
+/**
+ * gf_resolve_path_parent -- Given a path, returns an allocated string
+ *                           containing the parent's path.
+ * @path: Path to parse
+ * @return: The parent path if found, NULL otherwise
+ */
+static char *
+gf_resolve_path_parent(const char *path)
+{
+    char *parent = NULL;
+    char *tmp = NULL;
+    char *pathc = NULL;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, path, out);
+
+    if (0 == strlen(path)) {
+        gf_msg_callingfn(THIS->name, GF_LOG_DEBUG, 0, LG_MSG_INVALID_STRING,
+                         "invalid string for 'path'");
+        goto out;
+    }
+
+    /* dup the parameter, we don't want to modify it */
+    pathc = strdupa(path);
+    if (!pathc) {
+        goto out;
+    }
+
+    /* Get the parent directory */
+    tmp = dirname(pathc);
+    if (strcmp(tmp, "/") == 0)
+        goto out;
+
+    parent = gf_strdup(tmp);
+out:
+    return parent;
 }
 
 /**
@@ -3796,6 +3957,37 @@ _mnt3_invalidate_old_mounts(struct mount3_state *ms)
 }
 
 /**
+ * get_file_mtime -- Given a path, get the mtime for the file
+ *
+ * @path: The filepath to check the mtime on
+ * @stamp: The parameter to set after we get the mtime
+ *
+ * @returns: success: 0
+ *           errors : Errors returned by the stat () call
+ */
+static int
+get_file_mtime(const char *path, time_t *stamp)
+{
+    struct stat f_stat = {0};
+    int ret = -EINVAL;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, path, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, stamp, out);
+
+    ret = sys_stat(path, &f_stat);
+    if (ret < 0) {
+        gf_smsg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_STAT_FAILED,
+                "path=%s", path, NULL);
+        goto out;
+    }
+
+    /* Set the mtime */
+    *stamp = f_stat.st_mtime;
+out:
+    return ret;
+}
+
+/**
  * _mnt3_has_file_changed -- Checks if a file has changed on disk
  *
  * @path: The path of the file on disk
@@ -3804,7 +3996,6 @@ _mnt3_invalidate_old_mounts(struct mount3_state *ms)
  * @return: file changed: TRUE
  *          otherwise   : FALSE
  *
- * Uses get_file_mtime () in common-utils.c
  */
 gf_boolean_t
 _mnt3_has_file_changed(const char *path, time_t *oldmtime)

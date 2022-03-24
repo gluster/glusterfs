@@ -10,9 +10,7 @@
 #ifndef _CLOUDSYNC_COMMON_H
 #define _CLOUDSYNC_COMMON_H
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/compat-errno.h>
 #include "cloudsync-mem-types.h"

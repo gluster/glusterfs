@@ -8,15 +8,13 @@
   cases as published by the Free Software Foundation.
 */
 
+#include "socket.h"
 #include "client.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/gf-event.h>
 
-#include "xdr-rpc.h"
 #include "glusterfs3.h"
 #include "client-messages.h"
 
@@ -2302,7 +2300,17 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 rpc_clnt_cleanup_and_start(rpc);
 
             } else {
-                rpc->conn.config.remote_port = 0;
+                int32_t remote_port = 0;
+                ret = dict_get_int32(this->options, "remote-port",
+                                     &remote_port);
+                if (IS_ERROR(ret)) {
+                    /* this is optional, so it may be error in most cases. Add a
+                     * trace log */
+                    gf_msg_trace(
+                        this->name, 0,
+                        "volfile doesn't have remote-port, resetting to 0");
+                }
+                conf->rpc_conf.remote_port = remote_port;
                 conf->connection_to_brick = _gf_false;
             }
             break;

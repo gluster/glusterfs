@@ -12,12 +12,10 @@
 #include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/syncop.h>
 #include "md-cache-mem-types.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/glusterfs-acl.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/upcall-utils.h>
 #include <assert.h>
 #include <sys/time.h>
@@ -652,6 +650,23 @@ struct updatedict {
     dict_t *dict;
     int ret;
 };
+
+static void
+gf_strTrim(char **s)
+{
+    char *end = NULL;
+
+    end = *s + strlen(*s) - 1;
+    while (end > *s && isspace((unsigned char)*end))
+        end--;
+
+    *(end + 1) = '\0';
+
+    while (isspace(**s))
+        (*s)++;
+
+    return;
+}
 
 static int
 is_mdc_key_satisfied(xlator_t *this, const char *key)

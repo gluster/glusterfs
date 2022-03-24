@@ -11,8 +11,8 @@
 #include "glusterfs/dict.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/quota-common-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
+#include <glusterfs/syscall.h>
 
 gf_boolean_t
 quota_meta_is_null(const quota_meta_t *meta)
@@ -229,6 +229,21 @@ out:
         gf_msg_callingfn("quota", GF_LOG_ERROR, 0, LG_MSG_QUOTA_CONF_ERROR,
                          "failed to "
                          "read gfid from a quota conf");
+
+    return ret;
+}
+
+static int
+gf_skip_header_section(int fd, int header_len)
+{
+    int ret = -1;
+
+    ret = sys_lseek(fd, header_len, SEEK_SET);
+    if (ret == (off_t)-1) {
+        gf_smsg("", GF_LOG_ERROR, 0, LG_MSG_SKIP_HEADER_FAILED, NULL);
+    } else {
+        ret = 0;
+    }
 
     return ret;
 }

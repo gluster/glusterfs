@@ -34,7 +34,7 @@ posix_resolve(xlator_t *this, inode_table_t *itable, inode_t *parent,
     inode_t *inode = NULL;
     int ret = -1;
 
-    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf);
+    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf, _gf_false);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_WARNING,
                "gfid: %s, bname: %s "
@@ -97,8 +97,9 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         0,
     };
     int ret = -1;
+    const size_t dir_name_len = strlen(dir_name);
 
-    len = strlen(path) + strlen(dir_name) + 1;
+    len = strlen(path) + dir_name_len + 1;
     if (len > pathsize) {
         goto out;
     }
@@ -108,7 +109,7 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         strcat(path, "/");
 
     if (type & POSIX_ANCESTRY_DENTRY) {
-        entry = gf_dirent_for_name(dir_name);
+        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0);
         if (!entry)
             goto out;
 
@@ -507,6 +508,7 @@ posix_handle_init(xlator_t *this)
     char *rootstr = NULL;
     static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     int dfd = 0;
+    struct stat handledir;
 
     priv = this->private;
 
@@ -548,13 +550,16 @@ posix_handle_init(xlator_t *this)
             break;
     }
 
-    ret = sys_stat(handle_pfx, &priv->handledir);
+    ret = sys_stat(handle_pfx, &handledir);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
                "stat for %s failed", handle_pfx);
         return -1;
     }
+
+    priv->handledir_st_ino = handledir.st_ino;
+    priv->handledir_st_dev = handledir.st_dev;
 
     MAKE_HANDLE_ABSPATH_FD(rootstr, this, gfid, dfd);
     ret = sys_fstatat(dfd, rootstr, &rootbuf, 0);
@@ -896,7 +901,7 @@ posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename)
     /* stat is being used only for gfid, so passing a NULL inode
      * doesn't fetch time attributes which is fine
      */
-    ret = posix_istat(this, NULL, gfid, basename, &stat);
+    ret = posix_istat(this, NULL, gfid, basename, &stat, _gf_false);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
                path);

@@ -16,12 +16,12 @@
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
 
+#include "rpc-common-xdr.h"
+
 #include "glusterd.h"
 #include "rpcsvc.h"
 #include "fnmatch.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/list.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/options.h>
@@ -49,7 +49,6 @@
 #include "glusterd-geo-rep.h"
 #include <glusterfs/run.h>
 #include "rpc-clnt-ping.h"
-#include "rpc-common-xdr.h"
 
 #include <glusterfs/syncop.h>
 
@@ -126,6 +125,14 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
     [GD_OP_RESET_BRICK] = "Reset Brick",
     [GD_OP_MAX_OPVERSION] = "Maximum supported op-version",
     [GD_OP_MAX] = "Invalid op"};
+
+#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR "/gluster/snaps"
+#define GLUSTERD_BITD_RUN_DIR "/bitd"
+#define GLUSTERD_SCRUB_RUN_DIR "/scrub"
+#define GLUSTERD_NFS_RUN_DIR "/nfs"
+#define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
+#define GLUSTERD_VAR_RUN_DIR "/var/run"
+#define GLUSTERD_RUN_DIR "/run"
 
 static int
 glusterd_opinfo_init()
@@ -1399,6 +1406,38 @@ glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
         GF_FREE(hostname_obj->hostname);
         GF_FREE(hostname_obj);
     }
+}
+
+static int32_t
+glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
+                                  gf_boolean_t upgrade, gf_boolean_t downgrade)
+{
+    int ret = 0;
+    gf_boolean_t regenerate_volfiles = _gf_false;
+    gf_boolean_t terminate = _gf_false;
+
+    if (_gf_true == upgrade)
+        regenerate_volfiles = _gf_true;
+
+    if (upgrade && downgrade) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING,
+               "Both upgrade and downgrade"
+               " options are set. Only one should be on");
+        ret = -1;
+        goto out;
+    }
+
+    if (!upgrade && !downgrade)
+        ret = 0;
+    else
+        terminate = _gf_true;
+    if (regenerate_volfiles) {
+        ret = glusterd_recreate_volfiles(conf);
+    }
+out:
+    if (terminate && (ret == 0))
+        kill(getpid(), SIGTERM);
+    return ret;
 }
 
 /*

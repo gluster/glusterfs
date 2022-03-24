@@ -9,8 +9,6 @@
 */
 #include <glusterfs/common-utils.h>
 #include <glusterfs/syscall.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 #include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
@@ -637,6 +635,39 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
 
     ret = glusterd_op_begin_synctask(req, GD_OP_SET_VOLUME, dict);
 
+out:
+    return ret;
+}
+
+static int32_t
+glusterd_add_bricks_hname_path_to_dict(dict_t *dict,
+                                       glusterd_volinfo_t *volinfo)
+{
+    glusterd_brickinfo_t *brickinfo = NULL;
+    int ret = 0;
+    char key[64] = "";
+    int index = 0;
+
+    cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
+    {
+        ret = snprintf(key, sizeof(key), "%d-hostname", index);
+        ret = dict_set_strn(dict, key, ret, brickinfo->hostname);
+        if (ret) {
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
+            goto out;
+        }
+
+        ret = snprintf(key, sizeof(key), "%d-path", index);
+        ret = dict_set_strn(dict, key, ret, brickinfo->path);
+        if (ret) {
+            gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                    "Key=%s", key, NULL);
+            goto out;
+        }
+
+        index++;
+    }
 out:
     return ret;
 }
@@ -2547,6 +2578,61 @@ glusterd_op_heal_volume(dict_t *dict, char **op_errstr)
     int ret = 0;
     /* Necessary subtasks of heal are completed in brick op */
 
+    return ret;
+}
+
+static int
+glusterd_client_statedump(char *volname, char *options, int option_cnt,
+                          char **op_errstr)
+{
+    int ret = 0;
+    char *dup_options = NULL;
+    char *option = NULL;
+    char *tmpptr = NULL;
+    char msg[256] = "";
+    char *target_ip = NULL;
+    char *pid = NULL;
+
+    dup_options = gf_strdup(options);
+    if (!dup_options) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
+                "options=%s", options, NULL);
+        goto out;
+    }
+    option = strtok_r(dup_options, " ", &tmpptr);
+    if (strcmp(option, "client")) {
+        snprintf(msg, sizeof(msg),
+                 "for gluster client statedump, options "
+                 "should be after the key 'client'");
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ENTRY,
+                "Options misplaced", NULL);
+        *op_errstr = gf_strdup(msg);
+        ret = -1;
+        goto out;
+    }
+    target_ip = strtok_r(NULL, " ", &tmpptr);
+    if (target_ip == NULL) {
+        snprintf(msg, sizeof(msg), "ip address not specified");
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ENTRY, msg,
+                NULL);
+        *op_errstr = gf_strdup(msg);
+        ret = -1;
+        goto out;
+    }
+
+    pid = strtok_r(NULL, " ", &tmpptr);
+    if (pid == NULL) {
+        snprintf(msg, sizeof(msg), "pid not specified");
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ENTRY, msg,
+                NULL);
+        *op_errstr = gf_strdup(msg);
+        ret = -1;
+        goto out;
+    }
+
+    ret = glusterd_client_statedump_submit_req(volname, target_ip, pid);
+out:
+    GF_FREE(dup_options);
     return ret;
 }
 

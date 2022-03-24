@@ -8,10 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/dict.h>
-#include <glusterfs/common-utils.h>
-
-#include "afr.h"
 #include "afr-transaction.h"
 #include "afr-messages.h"
 

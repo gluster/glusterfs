@@ -307,7 +307,7 @@ dht_free_disk_available_subvol(xlator_t *this, xlator_t *subvol,
             goto out;
         }
     } else {
-        layout = dht_layout_ref(this, local->layout);
+        layout = dht_layout_ref(local->layout);
     }
 
     LOCK(&conf->subvolume_lock);

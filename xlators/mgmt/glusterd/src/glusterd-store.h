@@ -10,22 +10,28 @@
 #ifndef _GLUSTERD_HA_H_
 #define _GLUSTERD_HA_H_
 
-#include <pthread.h>
 #include <glusterfs/compat-uuid.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/run.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/call-stub.h>
 #include "glusterd.h"
-#include "rpcsvc.h"
 
 typedef enum glusterd_store_ver_ac_ {
     GLUSTERD_VOLINFO_VER_AC_NONE = 0,
     GLUSTERD_VOLINFO_VER_AC_INCREMENT = 1,
     GLUSTERD_VOLINFO_VER_AC_DECREMENT = 2,
 } glusterd_volinfo_ver_ac_t;
+
+#define GLUSTERD_UPGRADE_FILE                                                  \
+    "glusterd.upgrade" /* zero byte file to detect a need for regenerating     \
+                          volfiles in container mode */
+
+#define GLUSTERD_VOLUME_DIR_PREFIX "vols"
+#define GLUSTERD_PEER_DIR_PREFIX "peers"
+#define GLUSTERD_VOLUME_SNAPD_INFO_FILE "snapd.info"
+#define GLUSTERD_SNAP_INFO_FILE "info"
+#define GLUSTERD_BRICK_INFO_DIR "bricks"
+#define GLUSTERD_NODE_STATE_FILE "node_state.info"
+#define GLUSTERD_MISSED_SNAPS_LIST_FILE "missed_snaps_list"
 
 #define VOLINFO_BUFFER_SIZE 4093
 #define GLUSTERD_STORE_UUID_KEY "UUID"

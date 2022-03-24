@@ -8,21 +8,18 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
-
 #include "server.h"
 #include "server-helpers.h"
 #include "rpc-common-xdr.h"
-#include "glusterfs4-xdr.h"
 #include "glusterfs3.h"
 #include <glusterfs/compat-errno.h>
 #include "server-messages.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/default-args.h>
 #include "server-common.h"
-#include <glusterfs/xlator.h>
 
+#ifdef BUILD_GNFS
 #include "xdr-nfs3.h"
+#endif
 
 #define SERVER_REQ_SET_ERROR(req, ret)                                         \
     do {                                                                       \

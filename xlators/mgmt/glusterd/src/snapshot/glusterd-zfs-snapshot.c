@@ -13,9 +13,7 @@
 #include <unistd.h>
 
 #include "glusterd-messages.h"
-#include "glusterd-errno.h"
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-snapshot-utils.h"
 
@@ -488,9 +486,9 @@ glusterd_zfs_snap_clone_brick_path(char *snap_mount_dir,
                        snap_brick_dir);
     else {
         if (restore)
-            len = snprintf(brickinfo->path, sizeof(brickinfo->path), "%s/%s/brick%d%s",
-                           snap_mount_dir, snap_clone_volume_id, brick_num,
-                           snap_brick_dir);
+            len = snprintf(brickinfo->path, sizeof(brickinfo->path),
+                           "%s/%s/brick%d%s", snap_mount_dir,
+                           snap_clone_volume_id, brick_num, snap_brick_dir);
         else
             len = snprintf(brickinfo->path, sizeof(brickinfo->path),
                            "%s/.zfs/snapshot/%s_%d/%s", origin_brick_mount,

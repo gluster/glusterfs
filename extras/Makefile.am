@@ -52,13 +52,13 @@ EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.co
 	control-cpu-load.sh control-mem.sh group-distributed-virt \
 	thin-arbiter/thin-arbiter.vol thin-arbiter/setup-thin-arbiter.sh
 
-if WITH_SERVER
 install-data-local:
 	if [ -n "$(tmpfilesdir)" ]; then \
 		$(mkdir_p) $(DESTDIR)$(tmpfilesdir); \
 		$(INSTALL_DATA) run-gluster.tmpfiles \
 			$(DESTDIR)$(tmpfilesdir)/gluster.conf; \
 	fi
+if WITH_SERVER
 	$(mkdir_p) $(DESTDIR)$(GLUSTERD_WORKDIR)/groups
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-virt.example \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/virt

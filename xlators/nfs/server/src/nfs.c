@@ -13,9 +13,7 @@
  */
 
 #include <glusterfs/defaults.h>
-#include "rpcsvc.h"
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
 #include "nfs.h"
 #include <glusterfs/mem-pool.h>
 #include <glusterfs/logging.h>
@@ -29,7 +27,6 @@
 #include "acl3.h"
 #include "rpc-drc.h"
 #include <glusterfs/syscall.h>
-#include "rpcsvc.h"
 #include "nfs-messages.h"
 #include "glusterfs/statedump.h"
 

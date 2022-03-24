@@ -22,7 +22,6 @@
 #include <sys/utsname.h>
 
 #include <stdint.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -38,22 +37,15 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
-
-#include "xdr-generic.h"
 
 /* using argp for command line parsing */
 
@@ -101,14 +93,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     ctx->process_uuid = generate_glusterfs_ctx_id();
     if (!ctx->process_uuid) {
         gf_log("cli", GF_LOG_ERROR, "Failed to generate uuid.");
-        goto out;
-    }
-
-    ctx->page_size = 128 * GF_UNIT_KB;
-
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
         goto out;
     }
 
@@ -235,7 +219,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get_from_small(xdr_size);
         if (!iobuf) {
             goto out;
         };

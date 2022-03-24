@@ -19,11 +19,7 @@
 #include <sys/time.h>
 #include <fnmatch.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/statedump.h>
 
 #ifdef GF_DARWIN_HOST_OS

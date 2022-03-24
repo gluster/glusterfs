@@ -11,6 +11,7 @@
 #define _POSIX_HANDLE_H
 
 #include "posix-inode-handle.h"
+#include "posix.h"
 
 #define HANDLE_ABSPATH_LEN(this)                                               \
     (POSIX_BASE_PATH_LEN(this) +                                               \
@@ -172,12 +173,12 @@
             __parp = strdupa(entp);                                            \
             parp = dirname(__parp);                                            \
             op_ret = posix_pstat(this, loc->inode, NULL, entp, ent_p,          \
-                                 _gf_false);                                   \
+                                 _gf_false, _gf_true);                         \
             break;                                                             \
         }                                                                      \
         errno = 0;                                                             \
-        op_ret = posix_istat(this, loc->inode, loc->pargfid, loc->name,        \
-                             ent_p);                                           \
+        op_ret = posix_istat(this, loc->inode, loc->pargfid, loc->name, ent_p, \
+                             _gf_true);                                        \
         if (errno != ELOOP) {                                                  \
             MAKE_HANDLE_PATH(parp, this, loc->pargfid, NULL);                  \
             MAKE_HANDLE_PATH(entp, this, loc->pargfid, loc->name);             \

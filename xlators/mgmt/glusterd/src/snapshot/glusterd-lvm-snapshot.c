@@ -13,9 +13,7 @@
 #include <unistd.h>
 
 #include "glusterd-messages.h"
-#include "glusterd-errno.h"
 
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-snapshot-utils.h"
 
@@ -558,7 +556,7 @@ glusterd_lvm_brick_details(dict_t *rsp_dict,
         if (!token) {
             ret = -1;
             gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
-                    "Invalid vg entry");
+                   "Invalid vg entry");
             goto end;
         }
         value = gf_strdup(token);
@@ -574,7 +572,7 @@ glusterd_lvm_brick_details(dict_t *rsp_dict,
         ret = dict_set_dynstr(rsp_dict, key, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                    "Could not save vgname ");
+                   "Could not save vgname ");
             goto end;
         }
 

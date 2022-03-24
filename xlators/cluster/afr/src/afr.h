@@ -15,8 +15,6 @@
 #include <glusterfs/compat-errno.h>
 #include "afr-mem-types.h"
 
-#include "libxlator.h"
-#include <glusterfs/timer.h>
 #include <glusterfs/syncop.h>
 
 #include "afr-self-heald.h"
@@ -29,7 +27,6 @@
 #define AFR_DIRTY (((afr_private_t *)(THIS->private))->afr_dirty)
 
 #define AFR_LOCKEE_COUNT_MAX 3
-#define AFR_DOM_COUNT_MAX 3
 #define AFR_NUM_CHANGE_LOGS 3              /*data + metadata + entry*/
 #define AFR_DEFAULT_SPB_CHOICE_TIMEOUT 300 /*in seconds*/
 
@@ -958,14 +955,6 @@ typedef struct afr_read_subvol_args {
     uuid_t gfid;
 } afr_read_subvol_args_t;
 
-typedef struct afr_granular_esh_args {
-    fd_t *heal_fd;
-    xlator_t *xl;
-    call_frame_t *frame;
-    gf_boolean_t mismatch; /* flag to represent occurrence of type/gfid
-                              mismatch */
-} afr_granular_esh_args_t;
-
 int
 afr_inode_get_readable(call_frame_t *frame, inode_t *inode, xlator_t *this,
                        unsigned char *readable, int *event_p, int type);
@@ -974,25 +963,6 @@ afr_inode_read_subvol_get(inode_t *inode, xlator_t *this,
                           unsigned char *data_subvols,
                           unsigned char *metadata_subvols,
                           int *event_generation);
-int
-__afr_inode_read_subvol_get(inode_t *inode, xlator_t *this,
-                            unsigned char *data_subvols,
-                            unsigned char *metadata_subvols,
-                            int *event_generation);
-
-int
-__afr_inode_read_subvol_set(inode_t *inode, xlator_t *this,
-                            unsigned char *data_subvols,
-                            unsigned char *metadata_subvol,
-                            int event_generation);
-int
-afr_inode_read_subvol_set(inode_t *inode, xlator_t *this,
-                          unsigned char *data_subvols,
-                          unsigned char *metadata_subvols,
-                          int event_generation);
-
-int
-__afr_inode_need_refresh_set(inode_t *inode, xlator_t *this);
 
 int
 afr_inode_need_refresh_set(inode_t *inode, xlator_t *this);
@@ -1002,9 +972,6 @@ afr_read_subvol_select_by_policy(inode_t *inode, xlator_t *this,
                                  unsigned char *readable,
                                  afr_read_subvol_args_t *args);
 
-int
-afr_inode_read_subvol_type_get(inode_t *inode, xlator_t *this,
-                               unsigned char *readable, int *event_p, int type);
 int
 afr_read_subvol_get(inode_t *inode, xlator_t *this, int *subvol_p,
                     unsigned char *readables, int *event_p,
@@ -1024,9 +991,6 @@ int32_t
 afr_notify(xlator_t *this, int32_t event, void *data, void *data2);
 
 int
-xattr_is_equal(dict_t *this, char *key1, data_t *value1, void *data);
-
-int
 afr_add_entry_lockee(afr_local_t *local, loc_t *loc, char *basename,
                      int child_count);
 
@@ -1036,17 +1000,8 @@ afr_add_inode_lockee(afr_local_t *local, int child_count);
 void
 afr_lockees_cleanup(afr_internal_lock_t *int_lock);
 
-int
-afr_attempt_lock_recovery(xlator_t *this, int32_t child_index);
-
-int
-afr_mark_locked_nodes(xlator_t *this, fd_t *fd, unsigned char *locked_nodes);
-
 void
 afr_set_lk_owner(call_frame_t *frame, xlator_t *this, void *lk_owner);
-
-int
-afr_set_lock_number(call_frame_t *frame, xlator_t *this);
 
 int32_t
 afr_unlock(call_frame_t *frame, xlator_t *this);
@@ -1057,14 +1012,8 @@ afr_lock_nonblocking(call_frame_t *frame, xlator_t *this);
 int
 afr_blocking_lock(call_frame_t *frame, xlator_t *this);
 
-int
-afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
-
 afr_fd_ctx_t *
 afr_fd_ctx_get(fd_t *fd, xlator_t *this);
-
-int
-afr_build_parent_loc(loc_t *parent, loc_t *child, int32_t *op_errno);
 
 int
 afr_locked_nodes_count(unsigned char *locked_nodes, int child_count);
@@ -1085,9 +1034,6 @@ afr_frame_return(call_frame_t *frame);
 int
 afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata);
-
-void
-afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this);
 
 int
 afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
@@ -1180,10 +1126,6 @@ afr_copy_frame(call_frame_t *base);
 int
 afr_transaction_local_init(afr_local_t *local, xlator_t *this);
 
-int32_t
-afr_marker_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
-                    const char *name, afr_local_t *local, afr_private_t *priv);
-
 int
 afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno);
 
@@ -1199,14 +1141,6 @@ afr_xattr_req_prepare(xlator_t *this, dict_t *xattr_req);
 void
 afr_fix_open(fd_t *fd, xlator_t *this);
 
-afr_fd_ctx_t *
-afr_fd_ctx_get(fd_t *fd, xlator_t *this);
-
-void
-afr_set_low_priority(call_frame_t *frame);
-int
-afr_child_fd_ctx_set(xlator_t *this, fd_t *fd, int32_t child, int flags);
-
 void
 afr_matrix_cleanup(int32_t **pending, unsigned int m);
 
@@ -1216,9 +1150,6 @@ afr_matrix_create(unsigned int m, unsigned int n);
 int **
 afr_mark_pending_changelog(afr_private_t *priv, unsigned char *pending,
                            dict_t *xattr, ia_type_t iat);
-
-void
-afr_filter_xattrs(dict_t *xattr);
 
 /*
  * Special value indicating we should use the "auto" quorum method instead of
@@ -1239,7 +1170,7 @@ void
 afr_replies_wipe(struct afr_reply *replies, int count);
 
 gf_boolean_t
-afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2);
+afr_xattrs_are_equal(dict_t *dict1, dict_t *dict2, gf_boolean_t is_arbiter);
 
 gf_boolean_t
 afr_is_xattr_ignorable(char *key);
@@ -1268,8 +1199,6 @@ afr_get_child_index_from_name(xlator_t *this, char *name);
 int
 afr_is_split_brain(call_frame_t *frame, xlator_t *this, inode_t *inode,
                    uuid_t gfid, gf_boolean_t *d_spb, gf_boolean_t *m_spb);
-int
-afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode);
 
 int
 afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque);
@@ -1277,14 +1206,8 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque);
 gf_boolean_t
 afr_get_need_heal(afr_private_t *priv);
 
-void
-afr_set_need_heal(xlator_t *this, afr_local_t *local);
-
 int
 afr_selfheal_data_open(xlator_t *this, inode_t *inode, fd_t **fd);
-
-int
-afr_get_msg_id(char *op_type);
 
 int
 afr_set_in_flight_sb_status(xlator_t *this, call_frame_t *frame,
@@ -1299,25 +1222,6 @@ afr_is_consistent_io_possible(afr_local_t *local, afr_private_t *priv,
 void
 afr_handle_inconsistent_fop(call_frame_t *frame, int32_t *op_ret,
                             int32_t *op_errno);
-
-void
-afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
-                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
-                     struct iatt *postbuf, dict_t *xdata);
-void
-afr_process_post_writev(call_frame_t *frame, xlator_t *this);
-
-void
-afr_writev_unwind(call_frame_t *frame, xlator_t *this);
-
-void
-afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame);
-
-void
-afr_update_uninodelk(afr_local_t *local, afr_internal_lock_t *int_lock,
-                     int32_t child_index);
-afr_fd_ctx_t *
-__afr_fd_ctx_get(fd_t *fd, xlator_t *this);
 
 gf_boolean_t
 afr_is_inode_refresh_reqd(inode_t *inode, xlator_t *this, int event_gen1,

@@ -14,18 +14,13 @@
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
-#include "glusterfs4-xdr.h"
-#include "protocol-common.h"
-#include <glusterfs/defaults.h>
 
 /*
  * Check if any of the upcall options are enabled:
@@ -626,7 +621,7 @@ upcall_client_cache_invalidate(xlator_t *this, uuid_t gfid,
             __upcall_cleanup_client_entry(up_client_entry);
 
     } else {
-        gf_log(THIS->name, GF_LOG_TRACE,
+        gf_log(this->name, GF_LOG_TRACE,
                "Cache invalidation notification NOT sent to %s",
                up_client_entry->client_uid);
 

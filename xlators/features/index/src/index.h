@@ -11,10 +11,7 @@
 #ifndef __INDEX_H__
 #define __INDEX_H__
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include "index-mem-types.h"
 
 #define INDEX_THREAD_STACK_SIZE ((size_t)(1024 * 1024))

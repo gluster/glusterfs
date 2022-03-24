@@ -10,6 +10,10 @@
 #ifndef _GLUSTERD_SNAP_UTILS_H
 #define _GLUSTERD_SNAP_UTILS_H
 
+#define GLUSTERD_SNAPS_MAX_HARD_LIMIT 256
+#define GLUSTERD_SNAPS_DEF_SOFT_LIMIT_PERCENT 90
+#define GLUSTERD_SNAPS_MAX_SOFT_LIMIT_PERCENT 100
+
 #define GLUSTERD_GET_SNAP_DIR(path, snap, priv)                                \
     do {                                                                       \
         int32_t _snap_dir_len;                                                 \

@@ -8,22 +8,17 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/fd-lk.h>
 #include "client.h"
-#include "glusterfs4-xdr.h"
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/statedump.h>
+#include "rpc-common-xdr.h"
 #include <glusterfs/compat-errno.h>
 
-#include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include "rpc-common-xdr.h"
 #include "client-messages.h"
 #include "xdr-rpc.h"
 
 #define CLIENT_REOPEN_MAX_ATTEMPTS 1024
+#define GLUSTER_PROCESS_UUID_FMT                                               \
+    "CTX_ID:%s-GRAPH_ID:%d-PID:%d-HOST:%s-PC_NAME:%s-RECON_NO:%s"
 extern rpc_clnt_prog_t clnt4_0_fop_prog;
 extern rpc_clnt_prog_t clnt_pmap_prog;
 
@@ -760,7 +755,7 @@ client_setvolume(xlator_t *this, struct rpc_clnt *rpc)
            It would be '0', but not '\0' :-) */
         if (!this->ctx->volume_id[0]) {
             strncpy(this->ctx->volume_id, this->graph->volume_id,
-                    GF_UUID_BUF_SIZE - 1);
+                    GF_UUID_BUF_SIZE);
             this->ctx->volume_id[GF_UUID_BUF_SIZE - 1] = '\0';
         }
         if (this->ctx->volume_id[0]) {

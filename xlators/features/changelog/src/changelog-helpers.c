@@ -8,10 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/iobuf.h>
 #include <glusterfs/syscall.h>
 
 #include "changelog-helpers.h"

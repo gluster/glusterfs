@@ -166,9 +166,6 @@ int
 _gf_msg_plain_nomem(gf_loglevel_t level, const char *msg);
 
 int
-_gf_msg_vplain(gf_loglevel_t level, const char *fmt, va_list ap);
-
-int
 _gf_msg_nomem(const char *domain, const char *file, const char *function,
               int line, gf_loglevel_t level, size_t size);
 
@@ -188,36 +185,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 
 /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
  * other level as is */
-#define SET_LOG_PRIO(level, priority)                                          \
-    do {                                                                       \
-        if (GF_LOG_TRACE == (level) || GF_LOG_NONE == (level)) {               \
-            priority = LOG_DEBUG;                                              \
-        } else {                                                               \
-            priority = (level)-1;                                              \
-        }                                                                      \
-    } while (0)
-
-/* extract just the file name from the path */
-#define GET_FILE_NAME_TO_LOG(file, basename)                                   \
-    do {                                                                       \
-        basename = strrchr((file), '/');                                       \
-        if (basename)                                                          \
-            basename++;                                                        \
-        else                                                                   \
-            basename = (file);                                                 \
-    } while (0)
-
-#define PRINT_SIZE_CHECK(ret, label, strsize)                                  \
-    do {                                                                       \
-        if (ret < 0)                                                           \
-            goto label;                                                        \
-        if ((strsize - ret) > 0) {                                             \
-            strsize -= ret;                                                    \
-        } else {                                                               \
-            ret = 0;                                                           \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
 
 #define FMT_WARN(fmt...)                                                       \
     do {                                                                       \
@@ -241,11 +208,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 #define gf_msg_plain_nomem(level, msg)                                         \
     do {                                                                       \
         _gf_msg_plain_nomem(level, msg);                                       \
-    } while (0)
-
-#define gf_msg_vplain(level, fmt, va)                                          \
-    do {                                                                       \
-        _gf_msg_vplain(level, fmt, va);                                        \
     } while (0)
 
 #define gf_msg_backtrace_nomem(level, stacksize)                               \
@@ -349,9 +311,6 @@ gf_log_set_log_buf_size(uint32_t buf_size);
 
 void
 gf_log_set_log_flush_timeout(uint32_t timeout);
-
-void
-gf_log_flush_msgs(struct _glusterfs_ctx *ctx);
 
 int
 gf_log_inject_timer_event(struct _glusterfs_ctx *ctx);

@@ -11,10 +11,6 @@
 #define _LIBCVLT_H
 
 #include <semaphore.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/call-stub.h>
-#include <glusterfs/syncop.h>
 #include <glusterfs/compat-errno.h>
 #include "cloudsync-common.h"
 #include "libcvlt-mem-types.h"

@@ -17,13 +17,10 @@
 
 #include <urcu/uatomic.h>
 
-#include <glusterfs/glusterfs.h>
-#include "afr.h"
+#include "libxlator.h"  // for gf_get_max_stime()
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/quota-common-utils.h>
@@ -426,7 +423,7 @@ __gather_xattr_keys(dict_t *dict, char *key, data_t *value, void *data)
     return 0;
 }
 
-void
+static void
 afr_filter_xattrs(dict_t *dict)
 {
     struct list_head keys = {
@@ -1367,7 +1364,8 @@ afr_is_special_xattr(const char *name, fop_getxattr_cbk_t *cbk,
         } else {
             *cbk = afr_getxattr_pathinfo_cbk;
         }
-    } else if (!strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD))) {
+    } else if (!strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) ||
+               !strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD))) {
         if (is_fgetxattr) {
             *cbk = afr_fgetxattr_clrlk_cbk;
         } else {

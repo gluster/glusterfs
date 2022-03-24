@@ -10,7 +10,6 @@
 #include <glusterfs/xlator.h>
 #include "error-gen.h"
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 
 /*
  * The user can specify an error probability as a float percentage, but we

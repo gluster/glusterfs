@@ -13,7 +13,6 @@
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/syncop.h>
-#include <glusterfs/common-utils.h>
 #include "index-messages.h"
 #include <ftw.h>
 #include <libgen.h> /* for dirname() */
@@ -480,6 +479,7 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
     int32_t this_size = -1;
     gf_dirent_t *this_entry = NULL;
     xlator_t *this = NULL;
+    size_t entry_dname_len;
 
     this = THIS;
     if (!off) {
@@ -533,8 +533,9 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             continue;
         }
 
+        entry_dname_len = strlen(entry->d_name);
         this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
-                    strlen(entry->d_name) + 1;
+                    entry_dname_len + 1;
 
         if (this_size + filled > size) {
             seekdir(dir, in_case);
@@ -554,14 +555,6 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             break;
         }
 
-        this_entry = gf_dirent_for_name(entry->d_name);
-
-        if (!this_entry) {
-            gf_msg(THIS->name, GF_LOG_ERROR, errno,
-                   INDEX_MSG_INDEX_READDIR_FAILED,
-                   "could not create gf_dirent for entry %s", entry->d_name);
-            goto out;
-        }
         /*
          * we store the offset of next entry here, which is
          * probably not intended, but code using syncop_readdir()
@@ -569,8 +562,16 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
          * for directory read resumption.
          */
         last_off = (u_long)telldir(dir);
-        this_entry->d_off = last_off;
-        this_entry->d_ino = entry->d_ino;
+
+        this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
+                                         entry->d_ino, last_off, 0);
+
+        if (!this_entry) {
+            gf_msg(THIS->name, GF_LOG_ERROR, errno,
+                   INDEX_MSG_INDEX_READDIR_FAILED,
+                   "could not create gf_dirent for entry %s", entry->d_name);
+            goto out;
+        }
 
         list_add_tail(&this_entry->list, &entries->list);
 

@@ -20,6 +20,7 @@
 #include <ctype.h>
 #include <errno.h>
 #include <limits.h>
+#include <netdb.h>
 #include <unistd.h>
 #include <time.h>
 #include <locale.h>
@@ -46,9 +47,7 @@
 #include "glusterfs/revision.h"
 #include "glusterfs/glusterfs.h"
 #include "glusterfs/stack.h"
-#include "glusterfs/lkowner.h"
 #include "glusterfs/syscall.h"
-#include "glusterfs/globals.h"
 #define XXH_INLINE_ALL
 #include "xxhash.h"
 #include <ifaddrs.h>
@@ -95,6 +94,9 @@ char *xattrs_to_heal[] = {"user.",
                           GF_SELINUX_XATTR_KEY,
                           GF_XATTR_MDATA_KEY,
                           NULL};
+
+static gf_boolean_t
+gf_ports_reserved(char *blocked_port, unsigned char *ports, uint32_t ceiling);
 
 void
 gf_assert(void)
@@ -295,7 +297,8 @@ gf_gfid_generate_from_xxh64(uuid_t gfid, char *key)
     }
 
     gf_msg_debug(this->name, 0,
-                 "gfid generated is %s (hash1: %" XXH64_FMT ") "
+                 "gfid generated is %s (hash1: %" XXH64_FMT
+                 ") "
                  "hash2: %" XXH64_FMT ", xxh64_1: %s xxh64_2: %s",
                  uuid_utoa(gfid), hash_1, hash_2, xxh64_1, xxh64_2);
 
@@ -436,288 +439,6 @@ gf_rev_dns_lookup(const char *ip)
                 "hostname=%s", ip, NULL);
     }
 out:
-    return fqdn;
-}
-
-/**
- * gf_resolve_path_parent -- Given a path, returns an allocated string
- *                           containing the parent's path.
- * @path: Path to parse
- * @return: The parent path if found, NULL otherwise
- */
-char *
-gf_resolve_path_parent(const char *path)
-{
-    char *parent = NULL;
-    char *tmp = NULL;
-    char *pathc = NULL;
-
-    GF_VALIDATE_OR_GOTO(THIS->name, path, out);
-
-    if (0 == strlen(path)) {
-        gf_msg_callingfn(THIS->name, GF_LOG_DEBUG, 0, LG_MSG_INVALID_STRING,
-                         "invalid string for 'path'");
-        goto out;
-    }
-
-    /* dup the parameter, we don't want to modify it */
-    pathc = strdupa(path);
-    if (!pathc) {
-        goto out;
-    }
-
-    /* Get the parent directory */
-    tmp = dirname(pathc);
-    if (strcmp(tmp, "/") == 0)
-        goto out;
-
-    parent = gf_strdup(tmp);
-out:
-    return parent;
-}
-
-int32_t
-gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
-               struct addrinfo **addr_info)
-{
-    int32_t ret = 0;
-    struct addrinfo hints;
-    struct dnscache6 *cache = NULL;
-    char service[NI_MAXSERV], host[NI_MAXHOST];
-
-    if (!hostname) {
-        gf_msg_callingfn("resolver", GF_LOG_WARNING, 0, LG_MSG_HOSTNAME_NULL,
-                         "hostname is NULL");
-        return -1;
-    }
-
-    if (!*dnscache) {
-        *dnscache = GF_CALLOC(1, sizeof(struct dnscache6),
-                              gf_common_mt_dnscache6);
-        if (!*dnscache)
-            return -1;
-    }
-
-    cache = *dnscache;
-    if (cache->first && !cache->next) {
-        freeaddrinfo(cache->first);
-        cache->first = cache->next = NULL;
-        gf_msg_trace("resolver", 0, "flushing DNS cache");
-    }
-
-    if (!cache->first) {
-        char *port_str = NULL;
-        gf_msg_trace("resolver", 0,
-                     "DNS cache not present, freshly "
-                     "probing hostname: %s",
-                     hostname);
-
-        memset(&hints, 0, sizeof(hints));
-        hints.ai_family = family;
-        hints.ai_socktype = SOCK_STREAM;
-
-        ret = gf_asprintf(&port_str, "%d", port);
-        if (-1 == ret) {
-            return -1;
-        }
-        if ((ret = getaddrinfo(hostname, port_str, &hints, &cache->first)) !=
-            0) {
-            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETADDRINFO_FAILED,
-                    "family=%d", family, "ret=%s", gai_strerror(ret), NULL);
-
-            GF_FREE(*dnscache);
-            *dnscache = NULL;
-            GF_FREE(port_str);
-            return -1;
-        }
-        GF_FREE(port_str);
-
-        cache->next = cache->first;
-    }
-
-    if (cache->next) {
-        ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
-                          cache->next->ai_addrlen, host, sizeof(host), service,
-                          sizeof(service), NI_NUMERICHOST);
-        if (ret != 0) {
-            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETNAMEINFO_FAILED,
-                    "ret=%s", gai_strerror(ret), NULL);
-            goto err;
-        }
-
-        gf_msg_debug("resolver", 0,
-                     "returning ip-%s (port-%s) for "
-                     "hostname: %s and port: %d",
-                     host, service, hostname, port);
-
-        *addr_info = cache->next;
-    }
-
-    if (cache->next)
-        cache->next = cache->next->ai_next;
-    if (cache->next) {
-        ret = getnameinfo((struct sockaddr *)cache->next->ai_addr,
-                          cache->next->ai_addrlen, host, sizeof(host), service,
-                          sizeof(service), NI_NUMERICHOST);
-        if (ret != 0) {
-            gf_smsg("resolver", GF_LOG_ERROR, 0, LG_MSG_GETNAMEINFO_FAILED,
-                    "ret=%s", gai_strerror(ret), NULL);
-            goto err;
-        }
-
-        gf_msg_debug("resolver", 0,
-                     "next DNS query will return: "
-                     "ip-%s port-%s",
-                     host, service);
-    }
-
-    return 0;
-
-err:
-    freeaddrinfo(cache->first);
-    cache->first = cache->next = NULL;
-    GF_FREE(cache);
-    *dnscache = NULL;
-    return -1;
-}
-
-/**
- * gf_dnscache_init -- Initializes a dnscache struct and sets the ttl
- *                     to the specified value in the parameter.
- *
- * @ttl: the TTL in seconds
- * @return: SUCCESS: Pointer to an allocated dnscache struct
- *          FAILURE: NULL
- */
-struct dnscache *
-gf_dnscache_init(time_t ttl)
-{
-    struct dnscache *cache = GF_MALLOC(sizeof(*cache), gf_common_mt_dnscache);
-    if (!cache)
-        return NULL;
-
-    cache->cache_dict = dict_new();
-    if (!cache->cache_dict) {
-        GF_FREE(cache);
-        cache = NULL;
-    } else {
-        cache->ttl = ttl;
-    }
-
-    return cache;
-}
-
-/**
- * gf_dnscache_deinit -- cleanup resources used by struct dnscache
- */
-void
-gf_dnscache_deinit(struct dnscache *cache)
-{
-    if (!cache) {
-        gf_msg_plain(GF_LOG_WARNING, "dnscache is NULL");
-        return;
-    }
-    dict_unref(cache->cache_dict);
-    GF_FREE(cache);
-}
-
-/**
- * gf_dnscache_entry_init -- Initialize a dnscache entry
- *
- * @return: SUCCESS: Pointer to an allocated dnscache entry struct
- *          FAILURE: NULL
- */
-struct dnscache_entry *
-gf_dnscache_entry_init()
-{
-    struct dnscache_entry *entry = GF_CALLOC(1, sizeof(*entry),
-                                             gf_common_mt_dnscache_entry);
-    return entry;
-}
-
-/**
- * gf_dnscache_entry_deinit -- Free memory used by a dnscache entry
- *
- * @entry: Pointer to deallocate
- */
-void
-gf_dnscache_entry_deinit(struct dnscache_entry *entry)
-{
-    GF_FREE(entry->ip);
-    GF_FREE(entry->fqdn);
-    GF_FREE(entry);
-}
-
-/**
- * gf_rev_dns_lookup -- Perform a reverse DNS lookup on the IP address.
- *
- * @ip: The IP address to perform a reverse lookup on
- *
- * @return: success: Allocated string containing the hostname
- *          failure: NULL
- */
-char *
-gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache)
-{
-    char *fqdn = NULL;
-    int ret = 0;
-    dict_t *cache = NULL;
-    data_t *entrydata = NULL;
-    struct dnscache_entry *dnsentry = NULL;
-    gf_boolean_t from_cache = _gf_false;
-
-    if (!dnscache)
-        goto out;
-
-    cache = dnscache->cache_dict;
-
-    /* Quick cache lookup to see if we already hold it */
-    entrydata = dict_get(cache, (char *)ip);
-    if (entrydata) {
-        dnsentry = (struct dnscache_entry *)entrydata->data;
-        /* First check the TTL & timestamp */
-        if (gf_time() - dnsentry->timestamp > dnscache->ttl) {
-            gf_dnscache_entry_deinit(dnsentry);
-            entrydata->data = NULL; /* Mark this as 'null' so
-                                     * dict_del () doesn't try free
-                                     * this after we've already
-                                     * freed it.
-                                     */
-
-            dict_del(cache, (char *)ip); /* Remove this entry */
-        } else {
-            /* Cache entry is valid, get the FQDN and return */
-            fqdn = dnsentry->fqdn;
-            from_cache = _gf_true; /* Mark this as from cache */
-            goto out;
-        }
-    }
-
-    /* Get the FQDN */
-    ret = gf_get_hostname_from_ip((char *)ip, &fqdn);
-    if (ret != 0)
-        goto out;
-
-    if (!fqdn) {
-        gf_log_callingfn("resolver", GF_LOG_CRITICAL,
-                         "Allocation failed for the host address");
-        goto out;
-    }
-
-    from_cache = _gf_false;
-out:
-    /* Insert into the cache */
-    if (fqdn && !from_cache && ip) {
-        struct dnscache_entry *entry = gf_dnscache_entry_init();
-
-        if (entry) {
-            entry->fqdn = fqdn;
-            entry->ip = gf_strdup(ip);
-            entry->timestamp = gf_time();
-            entrydata = bin_to_data(entry, sizeof(*entry));
-            dict_set(cache, (char *)ip, entrydata);
-        }
-    }
     return fqdn;
 }
 
@@ -951,7 +672,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     {
         /* Dump the timestamp of the crash too, so the previous logs
            can be related */
-        gf_time_fmt(timestr, sizeof timestr, gf_time(), gf_timefmt_FT);
+        gf_time_fmt_FT(timestr, sizeof timestr, gf_time());
         gf_msg_plain_nomem(GF_LOG_ALERT, "time of crash: ");
         gf_msg_plain_nomem(GF_LOG_ALERT, timestr);
     }
@@ -1027,28 +748,6 @@ out:
     free(tmp_str);
 
     return ret;
-}
-
-int
-gf_volume_name_validate(const char *volume_name)
-{
-    const char *vname = NULL;
-
-    if (volume_name == NULL) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "argument invalid");
-        return -1;
-    }
-
-    if (!isalpha(volume_name[0]))
-        return 1;
-
-    for (vname = &volume_name[1]; *vname != '\0'; vname++) {
-        if (!(isalnum(*vname) || *vname == '_'))
-            return 1;
-    }
-
-    return 0;
 }
 
 int
@@ -2019,146 +1718,6 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b)
     return -1;
 }
 
-int
-gf_lockfd(int fd)
-{
-    struct gf_flock fl;
-
-    fl.l_type = F_WRLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-
-    return fcntl(fd, F_SETLK, &fl);
-}
-
-int
-gf_unlockfd(int fd)
-{
-    struct gf_flock fl;
-
-    fl.l_type = F_UNLCK;
-    fl.l_whence = SEEK_SET;
-    fl.l_start = 0;
-    fl.l_len = 0;
-
-    return fcntl(fd, F_SETLK, &fl);
-}
-
-static void
-compute_checksum(char *buf, const ssize_t size, uint32_t *checksum)
-{
-    int ret = -1;
-    char *checksum_buf = NULL;
-
-    checksum_buf = (char *)(checksum);
-
-    if (!(*checksum)) {
-        checksum_buf[0] = 0xba;
-        checksum_buf[1] = 0xbe;
-        checksum_buf[2] = 0xb0;
-        checksum_buf[3] = 0x0b;
-    }
-
-    for (ret = 0; ret < (size - 4); ret += 4) {
-        checksum_buf[0] ^= (buf[ret]);
-        checksum_buf[1] ^= (buf[ret + 1] << 1);
-        checksum_buf[2] ^= (buf[ret + 2] << 2);
-        checksum_buf[3] ^= (buf[ret + 3] << 3);
-    }
-
-    for (ret = 0; ret <= (size % 4); ret++) {
-        checksum_buf[ret] ^= (buf[(size - 4) + ret] << ret);
-    }
-
-    return;
-}
-
-#define GF_CHECKSUM_BUF_SIZE 1024
-
-int
-get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
-{
-    int ret = -1;
-    char buf[GF_CHECKSUM_BUF_SIZE] = {
-        0,
-    };
-
-    /* goto first place */
-    sys_lseek(fd, 0L, SEEK_SET);
-    do {
-        ret = sys_read(fd, &buf, GF_CHECKSUM_BUF_SIZE);
-        if (ret > 0) {
-            if (op_version < GD_OP_VERSION_5_4)
-                compute_checksum(buf, GF_CHECKSUM_BUF_SIZE, checksum);
-            else
-                compute_checksum(buf, ret, checksum);
-        }
-    } while (ret > 0);
-
-    /* set it back */
-    sys_lseek(fd, 0L, SEEK_SET);
-
-    return ret;
-}
-
-int
-get_checksum_for_path(char *path, uint32_t *checksum, int op_version)
-{
-    int ret = -1;
-    int fd = -1;
-
-    GF_ASSERT(path);
-    GF_ASSERT(checksum);
-
-    fd = open(path, O_RDWR);
-
-    if (fd == -1) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_PATH_OPEN_FAILED,
-                "path=%s", path, NULL);
-        goto out;
-    }
-
-    ret = get_checksum_for_file(fd, checksum, op_version);
-
-out:
-    if (fd != -1)
-        sys_close(fd);
-
-    return ret;
-}
-
-/**
- * get_file_mtime -- Given a path, get the mtime for the file
- *
- * @path: The filepath to check the mtime on
- * @stamp: The parameter to set after we get the mtime
- *
- * @returns: success: 0
- *           errors : Errors returned by the stat () call
- */
-int
-get_file_mtime(const char *path, time_t *stamp)
-{
-    struct stat f_stat = {0};
-    int ret = -EINVAL;
-
-    GF_VALIDATE_OR_GOTO(THIS->name, path, out);
-    GF_VALIDATE_OR_GOTO(THIS->name, stamp, out);
-
-    ret = sys_stat(path, &f_stat);
-    if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, errno, LG_MSG_FILE_STAT_FAILED,
-                "path=%s", path, NULL);
-        goto out;
-    }
-
-    /* Set the mtime */
-    *stamp = f_stat.st_mtime;
-out:
-    return ret;
-}
-
 /**
  * gf_is_ip_in_net -- Checks if an IP Address is in a network.
  *                    A network should be specified by something like
@@ -2246,23 +1805,6 @@ skipwhite(char **s)
 {
     while (isspace(**s))
         (*s)++;
-}
-
-void
-gf_strTrim(char **s)
-{
-    char *end = NULL;
-
-    end = *s + strlen(*s) - 1;
-    while (end > *s && isspace((unsigned char)*end))
-        end--;
-
-    *(end + 1) = '\0';
-
-    while (isspace(**s))
-        (*s)++;
-
-    return;
 }
 
 char *
@@ -2444,7 +1986,7 @@ valid_host_name(char *address, int length)
         goto out;
     }
 
-    dup_addr = gf_strdup(address);
+    dup_addr = gf_strndup(address, length);
     if (!dup_addr) {
         ret = 0;
         goto out;
@@ -2496,7 +2038,7 @@ valid_ipv4_address(char *address, int length, gf_boolean_t wildcard_acc)
     char ret = 1;
     int is_wildcard = 0;
 
-    tmp = gf_strdup(address);
+    tmp = gf_strndup(address, length);
 
     /*
      * To prevent cases where last character is '.' and which have
@@ -2535,11 +2077,12 @@ out:
     return ret;
 }
 
-char
-valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
+static char
+valid_cidr_address(char *cidr_address, unsigned int len,
+                   gf_boolean_t wildcard_acc)
 {
-    unsigned int net_mask = 0, len = 0;
-    char *temp = NULL, *cidr_str = NULL, ret = 1;
+    unsigned int net_mask = 0;
+    char *temp = NULL, *cidr_str = NULL;
 
     cidr_str = strdupa(cidr_address);
     temp = strstr(cidr_str, "/");
@@ -2553,82 +2096,7 @@ valid_cidr_address(char *cidr_address, gf_boolean_t wildcard_acc)
     if (net_mask > 32 || net_mask < 1)
         return 0; /* Since Invalid cidr ip address we return 0*/
 
-    len = strlen(cidr_str);
-
-    ret = valid_ipv4_address(cidr_str, len, wildcard_acc);
-
-    return ret;
-}
-
-/**
- * valid_ipv4_subnetwork() takes the pattern and checks if it contains
- * a valid ipv4 subnetwork pattern i.e. xx.xx.xx.xx/n. IPv4 address
- * part (xx.xx.xx.xx) and mask bits length part (n). The mask bits length
- * must be in 0-32 range (ipv4 addr is 32 bit). The pattern must be
- * in this format.
- *
- * Returns _gf_true if both IP addr and mask bits len are valid
- *         _gf_false otherwise.
- */
-gf_boolean_t
-valid_ipv4_subnetwork(const char *address)
-{
-    char *slash = NULL;
-    char *paddr = NULL;
-    char *endptr = NULL;
-    long prefixlen = -1;
-    gf_boolean_t retv = _gf_true;
-
-    if (address == NULL) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "argument invalid");
-        return _gf_false;
-    }
-
-    paddr = gf_strdup(address);
-    if (paddr == NULL) /* ENOMEM */
-        return _gf_false;
-
-    /*
-     * INVALID: If '/' is not present OR
-     *          Nothing specified after '/'
-     */
-    slash = strchr(paddr, '/');
-    if ((slash == NULL) || (slash[1] == '\0')) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                         LG_MSG_INVALID_IPV4_FORMAT,
-                         "Invalid IPv4 "
-                         "subnetwork format");
-        retv = _gf_false;
-        goto out;
-    }
-
-    *slash = '\0';
-    retv = valid_ipv4_address(paddr, strlen(paddr), _gf_false);
-    if (retv == _gf_false) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                         LG_MSG_INVALID_IPV4_FORMAT,
-                         "Invalid IPv4 subnetwork address");
-        goto out;
-    }
-    /*
-     * Reset errno before checking it
-     */
-    errno = 0;
-    prefixlen = strtol(slash + 1, &endptr, 10);
-    if ((errno != 0) || (*endptr != '\0') || (prefixlen < 0) ||
-        (prefixlen > IPv4_ADDR_SIZE)) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0,
-                         LG_MSG_INVALID_IPV4_FORMAT,
-                         "Invalid IPv4 subnetwork mask");
-        retv = _gf_false;
-        goto out;
-    }
-
-    retv = _gf_true;
-out:
-    GF_FREE(paddr);
-    return retv;
+    return valid_ipv4_address(cidr_str, len, wildcard_acc);
 }
 
 char
@@ -2642,7 +2110,7 @@ valid_ipv6_address(char *address, int length, gf_boolean_t wildcard_acc)
     int is_wildcard = 0;
     int is_compressed = 0;
 
-    tmp = gf_strdup(address);
+    tmp = gf_strndup(address, length);
 
     /* Check for '%' for link local addresses */
     endptr = strchr(tmp, '%');
@@ -2712,7 +2180,7 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
     if (length == 0)
         goto out;
 
-    if (cidr && valid_cidr_address(address, wildcard_acc)) {
+    if (cidr && valid_cidr_address(address, length, wildcard_acc)) {
         ret = 1;
     }
 
@@ -2723,108 +2191,6 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
 
 out:
     return ret;
-}
-
-/**
- * valid_mount_auth_address - Validate the rpc-auth.addr.allow/reject pattern
- *
- * @param address - Pattern to be validated
- *
- * @return _gf_true if "address" is "*" (anonymous) 'OR'
- *                  if "address" is valid FQDN or valid IPv4/6 address 'OR'
- *                  if "address" contains wildcard chars e.g. "'*' or '?' or
- * '['" if "address" is valid ipv4 subnet pattern (xx.xx.xx.xx/n) _gf_false
- * otherwise
- *
- *
- * NB: If the user/admin set for wildcard pattern, then it does not have
- *     to be validated. Make it similar to the way exportfs (kNFS) works.
- */
-gf_boolean_t
-valid_mount_auth_address(char *address)
-{
-    int length = 0;
-    char *cp = NULL;
-
-    /* 1. Check for "NULL and empty string */
-    if ((address == NULL) || (address[0] == '\0')) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "argument invalid");
-        return _gf_false;
-    }
-
-    /* 2. Check for Anonymous */
-    if (strcmp(address, "*") == 0)
-        return _gf_true;
-
-    for (cp = address; *cp; cp++) {
-        /* 3. Check for wildcard pattern */
-        if (*cp == '*' || *cp == '?' || *cp == '[') {
-            return _gf_true;
-        }
-
-        /*
-         * 4. check for IPv4 subnetwork i.e. xx.xx.xx.xx/n
-         * TODO: check for IPv6 subnetwork
-         * NB: Wildcard must not be mixed with subnetwork.
-         */
-        if (*cp == '/') {
-            return valid_ipv4_subnetwork(address);
-        }
-    }
-
-    /* 5. Check for v4/v6 IP addr and FQDN/hostname */
-    length = strlen(address);
-    if ((valid_ipv4_address(address, length, _gf_false)) ||
-        (valid_ipv6_address(address, length, _gf_false)) ||
-        (valid_host_name(address, length))) {
-        return _gf_true;
-    }
-
-    return _gf_false;
-}
-
-/**
- * gf_sock_union_equal_addr - check if two given gf_sock_unions have same addr
- *
- * @param a - first sock union
- * @param b - second sock union
- * @return _gf_true if a and b have same ipv{4,6} addr, _gf_false otherwise
- */
-gf_boolean_t
-gf_sock_union_equal_addr(union gf_sock_union *a, union gf_sock_union *b)
-{
-    if (!a || !b) {
-        gf_smsg("common-utils", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-                "gf_sock_union_equal_addr", NULL);
-        return _gf_false;
-    }
-
-    if (a->storage.ss_family != b->storage.ss_family)
-        return _gf_false;
-
-    switch (a->storage.ss_family) {
-        case AF_INET:
-            if (a->sin.sin_addr.s_addr == b->sin.sin_addr.s_addr)
-                return _gf_true;
-            else
-                return _gf_false;
-
-        case AF_INET6:
-            if (memcmp((void *)(&a->sin6.sin6_addr),
-                       (void *)(&b->sin6.sin6_addr), sizeof(a->sin6.sin6_addr)))
-                return _gf_false;
-            else
-                return _gf_true;
-
-        default:
-            gf_msg_debug("common-utils", 0,
-                         "Unsupported/invalid address "
-                         "family");
-            break;
-    }
-
-    return _gf_false;
 }
 
 /*
@@ -2975,34 +2341,6 @@ gf_array_insertionsort(void *A, int l, int r, size_t elem_size, gf_cmp cmp)
     }
 }
 
-int
-gf_is_str_int(const char *value)
-{
-    int flag = 0;
-    char *str = NULL;
-    char *fptr = NULL;
-
-    GF_VALIDATE_OR_GOTO(THIS->name, value, out);
-
-    str = gf_strdup(value);
-    if (!str)
-        goto out;
-
-    fptr = str;
-
-    while (*str) {
-        if (!isdigit(*str)) {
-            flag = 1;
-            goto out;
-        }
-        str++;
-    }
-
-out:
-    GF_FREE(fptr);
-
-    return flag;
-}
 /*
  * rounds up nr to power of two. If nr is already a power of two, just returns
  * nr
@@ -3051,18 +2389,6 @@ out:
     return result;
 }
 
-int
-validate_brick_name(char *brick)
-{
-    char *delimiter = NULL;
-    int ret = 0;
-    delimiter = strrchr(brick, ':');
-    if (!delimiter || delimiter == brick || *(delimiter + 1) != '/')
-        ret = -1;
-
-    return ret;
-}
-
 char *
 get_host_name(char *word, char **host)
 {
@@ -3074,17 +2400,6 @@ get_host_name(char *word, char **host)
         return NULL;
     *host = word;
     return *host;
-}
-
-char *
-get_path_name(char *word, char **path)
-{
-    char *delimiter = NULL;
-    delimiter = strchr(word, '/');
-    if (!delimiter)
-        return NULL;
-    *path = delimiter;
-    return *path;
 }
 
 void
@@ -3144,36 +2459,6 @@ get_mem_size()
     return memsize;
 }
 
-/* Strips all whitespace characters in a string and returns length of new string
- * on success
- */
-int
-gf_strip_whitespace(char *str, int len)
-{
-    int i = 0;
-    int new_len = 0;
-    char *new_str = NULL;
-
-    GF_ASSERT(str);
-
-    new_str = GF_MALLOC(len + 1, gf_common_mt_char);
-    if (new_str == NULL)
-        return -1;
-
-    for (i = 0; i < len; i++) {
-        if (!isspace(str[i]))
-            new_str[new_len++] = str[i];
-    }
-    new_str[new_len] = '\0';
-
-    if (new_len != len) {
-        snprintf(str, new_len + 1, "%s", new_str);
-    }
-
-    GF_FREE(new_str);
-    return new_len;
-}
-
 int
 gf_canonicalize_path(char *path)
 {
@@ -3183,6 +2468,7 @@ gf_canonicalize_path(char *path)
     char *tmppath = NULL;
     char *dir = NULL;
     char *tmpstr = NULL;
+    int pathlen;
 
     if (!path || *path != '/')
         goto out;
@@ -3190,12 +2476,13 @@ gf_canonicalize_path(char *path)
     if (!strcmp(path, "/"))
         return 0;
 
-    tmppath = gf_strdup(path);
+    pathlen = strlen(path);
+    tmppath = gf_strndup(path, pathlen);
     if (!tmppath)
         goto out;
 
     /* Strip the extra slashes and return */
-    bzero(path, strlen(path));
+    bzero(path, pathlen);
     path[0] = '/';
     dir = strtok_r(tmppath, "/", &tmpstr);
 
@@ -3220,22 +2507,6 @@ out:
     return ret;
 }
 
-static const char *__gf_timefmts[] = {
-    "%F %T", "%Y/%m/%d-%T", "%b %d %T", "%F %H%M%S", "%Y-%m-%d-%T", "%s",
-};
-
-static const char *__gf_zerotimes[] = {
-    "0000-00-00 00:00:00", "0000/00/00-00:00:00", "xxx 00 00:00:00",
-    "0000-00-00 000000",   "0000-00-00-00:00:00", "0",
-};
-
-void
-_gf_timestuff(const char ***fmts, const char ***zeros)
-{
-    *fmts = __gf_timefmts;
-    *zeros = __gf_zerotimes;
-}
-
 char *
 generate_glusterfs_ctx_id(void)
 {
@@ -3245,10 +2516,10 @@ generate_glusterfs_ctx_id(void)
     gf_uuid_generate(ctxid);
     tmp = uuid_utoa(ctxid);
 
-    return gf_strdup(tmp);
+    return gf_strndup(tmp, UUID_CANONICAL_FORM_LEN);
 }
 
-char *
+static char *
 gf_get_reserved_ports()
 {
     char *ports_info = NULL;
@@ -3280,7 +2551,7 @@ gf_get_reserved_ports()
     }
 
     buffer[ret] = '\0';
-    ports_info = gf_strdup(buffer);
+    ports_info = gf_strndup(buffer, ret);
 
 out:
     if (proc_fd != -1)
@@ -3410,14 +2681,19 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname)
     char *tmp = NULL;
     char *ip = NULL;
     size_t addr_sz = 0;
+    int ip_len;
 
+    if (!client_ip)
+        goto out;
+
+    ip_len = strlen(client_ip);
     /* if ipv4, reverse lookup the hostname to
      * allow FQDN based rpc authentication
      */
-    if (!valid_ipv6_address(client_ip, strlen(client_ip), 0) &&
-        !valid_ipv4_address(client_ip, strlen(client_ip), 0)) {
+    if (!valid_ipv6_address(client_ip, ip_len, 0) &&
+        !valid_ipv4_address(client_ip, ip_len, 0)) {
         /* most times, we get a.b.c.d:port form, so check that */
-        client_ip_copy = gf_strdup(client_ip);
+        client_ip_copy = gf_strndup(client_ip, ip_len);
         if (!client_ip_copy)
             goto out;
 
@@ -3426,13 +2702,14 @@ gf_get_hostname_from_ip(char *client_ip, char **hostname)
         ip = client_ip;
     }
 
-    if (valid_ipv4_address(ip, strlen(ip), 0) == _gf_true) {
+    ip_len = strlen(ip);
+    if (valid_ipv4_address(ip, ip_len, 0) == _gf_true) {
         client_sockaddr = (struct sockaddr *)&client_sock_in;
         addr_sz = sizeof(client_sock_in);
         client_sock_in.sin_family = AF_INET;
         ret = inet_pton(AF_INET, ip, (void *)&client_sock_in.sin_addr.s_addr);
 
-    } else if (valid_ipv6_address(ip, strlen(ip), 0) == _gf_true) {
+    } else if (valid_ipv6_address(ip, ip_len, 0) == _gf_true) {
         client_sockaddr = (struct sockaddr *)&client_sock_in6;
         addr_sz = sizeof(client_sock_in6);
 
@@ -3542,7 +2819,7 @@ out:
     return found;
 }
 
-char *
+static char *
 get_ip_from_addrinfo(struct addrinfo *addr, char **ip)
 {
     char buf[64];
@@ -3937,41 +3214,6 @@ done:
 }
 
 int
-gf_set_log_ident(cmd_args_t *cmd_args)
-{
-    int ret = 0;
-    char *ptr = NULL;
-
-    if (cmd_args->log_file == NULL) {
-        /* no ident source */
-        return 0;
-    }
-
-    /* TODO: Some idents would look like, etc-glusterfs-glusterd.vol, which
-     * seems ugly and can be bettered? */
-    /* just get the filename as the ident */
-    if (NULL != (ptr = strrchr(cmd_args->log_file, '/'))) {
-        ret = gf_asprintf(&cmd_args->log_ident, "%s", ptr + 1);
-    } else {
-        ret = gf_asprintf(&cmd_args->log_ident, "%s", cmd_args->log_file);
-    }
-
-    if (ret > 0)
-        ret = 0;
-    else
-        return ret;
-
-    /* remove .log suffix */
-    if (NULL != (ptr = strrchr(cmd_args->log_ident, '.'))) {
-        if (strcmp(ptr, ".log") == 0) {
-            ptr[0] = '\0';
-        }
-    }
-
-    return ret;
-}
-
-int
 gf_thread_cleanup_xint(pthread_t thread)
 {
     int ret = 0;
@@ -3994,7 +3236,7 @@ error_return:
     return ret;
 }
 
-void
+static void
 gf_thread_set_vname(pthread_t thread, const char *name, va_list args)
 {
     char thread_name[GF_THREAD_NAME_LIMIT];
@@ -4036,7 +3278,7 @@ gf_thread_set_name(pthread_t thread, const char *name, ...)
     va_end(args);
 }
 
-int
+static int
 gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
                   void *(*start_routine)(void *), void *arg, const char *name,
                   va_list args)
@@ -4111,24 +3353,9 @@ gf_thread_create_detached(pthread_t *thread, void *(*start_routine)(void *),
     return ret;
 }
 
-int
-gf_skip_header_section(int fd, int header_len)
-{
-    int ret = -1;
-
-    ret = sys_lseek(fd, header_len, SEEK_SET);
-    if (ret == (off_t)-1) {
-        gf_smsg("", GF_LOG_ERROR, 0, LG_MSG_SKIP_HEADER_FAILED, NULL);
-    } else {
-        ret = 0;
-    }
-
-    return ret;
-}
-
 /* Below function is use to check at runtime if pid is running */
 
-gf_boolean_t
+static gf_boolean_t
 gf_is_pid_running(int pid)
 {
 #ifdef __FreeBSD__
@@ -4189,124 +3416,6 @@ out:
     if (file)
         fclose(file);
     return running;
-}
-
-/* Check if the pid is > 0 */
-gf_boolean_t
-gf_valid_pid(const char *pid, int length)
-{
-    gf_boolean_t ret = _gf_true;
-    pid_t value = 0;
-    char *end_ptr = NULL;
-
-    if (length <= 0) {
-        ret = _gf_false;
-        goto out;
-    }
-
-    value = strtol(pid, &end_ptr, 10);
-    if (value <= 0) {
-        ret = _gf_false;
-    }
-out:
-    return ret;
-}
-
-static int
-dht_is_linkfile_key(dict_t *this, char *key, data_t *value, void *data)
-{
-    gf_boolean_t *linkfile_key_found = NULL;
-
-    if (!data)
-        goto out;
-
-    linkfile_key_found = data;
-
-    *linkfile_key_found = _gf_true;
-out:
-    return 0;
-}
-
-gf_boolean_t
-dht_is_linkfile(struct iatt *buf, dict_t *dict)
-{
-    gf_boolean_t linkfile_key_found = _gf_false;
-
-    if (!IS_DHT_LINKFILE_MODE(buf))
-        return _gf_false;
-
-    dict_foreach_fnmatch(dict, "*." DHT_LINKFILE_STR, dht_is_linkfile_key,
-                         &linkfile_key_found);
-
-    return linkfile_key_found;
-}
-
-int
-gf_check_log_format(const char *value)
-{
-    int log_format = -1;
-
-    if (!strcasecmp(value, GF_LOG_FORMAT_NO_MSG_ID))
-        log_format = gf_logformat_traditional;
-    else if (!strcasecmp(value, GF_LOG_FORMAT_WITH_MSG_ID))
-        log_format = gf_logformat_withmsgid;
-
-    if (log_format == -1)
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
-                "possible_values=" GF_LOG_FORMAT_NO_MSG_ID
-                "|" GF_LOG_FORMAT_WITH_MSG_ID,
-                NULL);
-
-    return log_format;
-}
-
-int
-gf_check_logger(const char *value)
-{
-    int logger = -1;
-
-    if (!strcasecmp(value, GF_LOGGER_GLUSTER_LOG))
-        logger = gf_logger_glusterlog;
-    else if (!strcasecmp(value, GF_LOGGER_SYSLOG))
-        logger = gf_logger_syslog;
-
-    if (logger == -1)
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_LOG,
-                "possible_values=" GF_LOGGER_GLUSTER_LOG "|" GF_LOGGER_SYSLOG,
-                NULL);
-
-    return logger;
-}
-
-/* gf_compare_sockaddr compares the given addresses @addr1 and @addr2 for
- * equality, ie. if they both refer to the same address.
- *
- * This was inspired by sock_addr_cmp_addr() from
- * https://www.opensource.apple.com/source/postfix/postfix-197/postfix/src/util/sock_addr.c
- */
-gf_boolean_t
-gf_compare_sockaddr(const struct sockaddr *addr1, const struct sockaddr *addr2)
-{
-    GF_ASSERT(addr1 != NULL);
-    GF_ASSERT(addr2 != NULL);
-
-    /* Obviously, the addresses don't match if their families are different
-     */
-    if (addr1->sa_family != addr2->sa_family)
-        return _gf_false;
-
-    if (AF_INET == addr1->sa_family) {
-        if (((struct sockaddr_in *)addr1)->sin_addr.s_addr ==
-            ((struct sockaddr_in *)addr2)->sin_addr.s_addr)
-            return _gf_true;
-
-    } else if (AF_INET6 == addr1->sa_family) {
-        if (memcmp((char *)&((struct sockaddr_in6 *)addr1)->sin6_addr,
-                   (char *)&((struct sockaddr_in6 *)addr2)->sin6_addr,
-                   sizeof(struct in6_addr)) == 0)
-            return _gf_true;
-    }
-    return _gf_false;
 }
 
 /*
@@ -4551,132 +3660,6 @@ fop_log_level(glusterfs_fop_t fop, int op_errno)
     return GF_LOG_ERROR;
 }
 
-/* This function will build absolute path of file/directory from the
- * current location and relative path given from the current location
- * For example consider our current path is /a/b/c/ and relative path
- * from current location is ./../x/y/z .After parsing through this
- * function the absolute path becomes /a/b/x/y/z/.
- *
- * The function gives a pointer to absolute path if it is successful
- * and also returns zero.
- * Otherwise function gives NULL pointer with returning an err value.
- *
- * So the user need to free memory allocated for path.
- *
- */
-
-int32_t
-gf_build_absolute_path(char *current_path, char *relative_path, char **path)
-{
-    char *absolute_path = NULL;
-    char *token = NULL;
-    char *component = NULL;
-    char *saveptr = NULL;
-    char *end = NULL;
-    int ret = 0;
-    size_t relativepath_len = 0;
-    size_t currentpath_len = 0;
-    size_t max_absolutepath_len = 0;
-
-    GF_ASSERT(current_path);
-    GF_ASSERT(relative_path);
-    GF_ASSERT(path);
-
-    if (!path || !current_path || !relative_path) {
-        ret = -EFAULT;
-        goto err;
-    }
-    /* Check for current and relative path
-     * current path should be absolute one and  start from '/'
-     * relative path should not start from '/'
-     */
-    currentpath_len = strlen(current_path);
-    if (current_path[0] != '/' || (currentpath_len > PATH_MAX)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_WRONG_VALUE,
-                "current-path=%s", current_path, NULL);
-        ret = -EINVAL;
-        goto err;
-    }
-
-    relativepath_len = strlen(relative_path);
-    if (relative_path[0] == '/' || (relativepath_len > PATH_MAX)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_WRONG_VALUE,
-                "relative-path=%s", relative_path, NULL);
-        ret = -EINVAL;
-        goto err;
-    }
-
-    /* It is maximum possible value for absolute path */
-    max_absolutepath_len = currentpath_len + relativepath_len + 2;
-
-    absolute_path = GF_CALLOC(1, max_absolutepath_len, gf_common_mt_char);
-    if (!absolute_path) {
-        ret = -ENOMEM;
-        goto err;
-    }
-    absolute_path[0] = '\0';
-
-    /* If current path is root i.e contains only "/", we do not
-     * need to copy it
-     */
-    if (strcmp(current_path, "/") != 0) {
-        strcpy(absolute_path, current_path);
-
-        /* We trim '/' at the end for easier string manipulation */
-        gf_path_strip_trailing_slashes(absolute_path);
-    }
-
-    /* Used to spilt relative path based on '/' */
-    component = gf_strdup(relative_path);
-    if (!component) {
-        ret = -ENOMEM;
-        goto err;
-    }
-
-    /* In the relative path, we want to consider ".." and "."
-     * if token is ".." , we just need to reduce one level hierarchy
-     * if token is "." , we just ignore it
-     * if token is NULL , end of relative path
-     * if absolute path becomes '\0' and still "..", then it is a bad
-     * relative path,  it points to out of boundary area and stop
-     * building the absolute path
-     * All other cases we just concatenate token to the absolute path
-     */
-    for (token = strtok_r(component, "/", &saveptr),
-        end = strchr(absolute_path, '\0');
-         token; token = strtok_r(NULL, "/", &saveptr)) {
-        if (strcmp(token, ".") == 0)
-            continue;
-
-        else if (strcmp(token, "..") == 0) {
-            if (absolute_path[0] == '\0') {
-                ret = -EACCES;
-                goto err;
-            }
-
-            end = strrchr(absolute_path, '/');
-            *end = '\0';
-        } else {
-            ret = snprintf(end, max_absolutepath_len - strlen(absolute_path),
-                           "/%s", token);
-            end = strchr(absolute_path, '\0');
-        }
-    }
-
-    if (strlen(absolute_path) > PATH_MAX) {
-        ret = -EINVAL;
-        goto err;
-    }
-    *path = gf_strdup(absolute_path);
-
-err:
-    if (component)
-        GF_FREE(component);
-    if (absolute_path)
-        GF_FREE(absolute_path);
-    return ret;
-}
-
 /* This is an utility function which will recursively delete
  * a folder and its contents.
  *
@@ -4891,55 +3874,6 @@ _unmask_cancellation(void)
     (void)pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
 }
 
-/* This is a wrapper function to add a pointer to a list,
- * which doesn't contain list member
- */
-struct list_node *
-_list_node_add(void *ptr, struct list_head *list,
-               int (*compare)(struct list_head *, struct list_head *))
-{
-    struct list_node *node = NULL;
-
-    if (ptr == NULL || list == NULL)
-        goto out;
-
-    node = GF_CALLOC(1, sizeof(struct list_node), gf_common_list_node);
-
-    if (node == NULL)
-        goto out;
-
-    node->ptr = ptr;
-    if (compare)
-        list_add_order(&node->list, list, compare);
-    else
-        list_add_tail(&node->list, list);
-out:
-    return node;
-}
-
-struct list_node *
-list_node_add(void *ptr, struct list_head *list)
-{
-    return _list_node_add(ptr, list, NULL);
-}
-
-struct list_node *
-list_node_add_order(void *ptr, struct list_head *list,
-                    int (*compare)(struct list_head *, struct list_head *))
-{
-    return _list_node_add(ptr, list, compare);
-}
-
-void
-list_node_del(struct list_node *node)
-{
-    if (node == NULL)
-        return;
-
-    list_del_init(&node->list);
-    GF_FREE(node);
-}
-
 const char *
 fop_enum_to_pri_string(glusterfs_fop_t fop)
 {
@@ -5037,13 +3971,6 @@ gf_is_zero_filled_stat(struct iatt *buf)
         return 1;
 
     return 0;
-}
-
-void
-gf_zero_fill_stat(struct iatt *buf)
-{
-    buf->ia_nlink = 0;
-    buf->ia_ctime = 0;
 }
 
 gf_boolean_t
@@ -5300,70 +4227,6 @@ gf_strncpy(char *dest, const char *src, const size_t dest_size)
     return dest;
 }
 
-int
-gf_replace_old_iatt_in_dict(dict_t *xdata)
-{
-    int ret;
-    struct old_iatt *o_iatt; /* old iatt structure */
-    struct iatt *c_iatt;     /* current iatt */
-
-    if (!xdata) {
-        return 0;
-    }
-
-    ret = dict_get_bin(xdata, DHT_IATT_IN_XDATA_KEY, (void **)&c_iatt);
-    if (ret < 0) {
-        return 0;
-    }
-
-    o_iatt = GF_CALLOC(1, sizeof(struct old_iatt), gf_common_mt_char);
-    if (!o_iatt) {
-        return -1;
-    }
-
-    oldiatt_from_iatt(o_iatt, c_iatt);
-
-    ret = dict_set_bin(xdata, DHT_IATT_IN_XDATA_KEY, o_iatt,
-                       sizeof(struct old_iatt));
-    if (ret) {
-        GF_FREE(o_iatt);
-    }
-
-    return ret;
-}
-
-int
-gf_replace_new_iatt_in_dict(dict_t *xdata)
-{
-    int ret;
-    struct old_iatt *o_iatt; /* old iatt structure */
-    struct iatt *c_iatt;     /* new iatt */
-
-    if (!xdata) {
-        return 0;
-    }
-
-    ret = dict_get_bin(xdata, DHT_IATT_IN_XDATA_KEY, (void **)&o_iatt);
-    if (ret < 0) {
-        return 0;
-    }
-
-    c_iatt = GF_CALLOC(1, sizeof(struct iatt), gf_common_mt_char);
-    if (!c_iatt) {
-        return -1;
-    }
-
-    iatt_from_oldiatt(c_iatt, o_iatt);
-
-    ret = dict_set_bin(xdata, DHT_IATT_IN_XDATA_KEY, c_iatt,
-                       sizeof(struct iatt));
-    if (ret) {
-        GF_FREE(c_iatt);
-    }
-
-    return ret;
-}
-
 xlator_cmdline_option_t *
 find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args)
 {
@@ -5402,30 +4265,6 @@ gf_d_type_from_ia_type(ia_type_t type)
 }
 
 int
-gf_d_type_from_st_mode(mode_t st_mode)
-{
-    switch (st_mode & S_IFMT) {
-        case S_IFREG:
-            return DT_REG;
-        case S_IFDIR:
-            return DT_DIR;
-        case S_IFLNK:
-            return DT_LNK;
-        case S_IFBLK:
-            return DT_BLK;
-        case S_IFCHR:
-            return DT_CHR;
-        case S_IFIFO:
-            return DT_FIFO;
-        case S_IFSOCK:
-            return DT_SOCK;
-        default:
-            return DT_UNKNOWN;
-    }
-    return DT_UNKNOWN;
-}
-
-int
 gf_nanosleep(uint64_t nsec)
 {
     struct timespec req;
@@ -5444,29 +4283,12 @@ gf_nanosleep(uint64_t nsec)
 }
 
 int
-gf_syncfs(int fd)
-{
-    int ret = 0;
-#if defined(HAVE_SYNCFS)
-    /* Linux with glibc recent enough. */
-    ret = syncfs(fd);
-#elif defined(HAVE_SYNCFS_SYS)
-    /* Linux with no library function. */
-    ret = syscall(SYS_syncfs, fd);
-#else
-    /* Fallback to generic UNIX stuff. */
-    sync();
-#endif
-    return ret;
-}
-
-int
 gf_pipe(int fd[2], int flags)
 {
     int ret = 0;
 #if defined(HAVE_PIPE2)
     ret = pipe2(fd, flags);
-#else /* not HAVE_PIPE2 */
+#else  /* not HAVE_PIPE2 */
     ret = pipe(fd);
     if (ret < 0)
         return ret;

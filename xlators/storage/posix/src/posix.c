@@ -14,7 +14,6 @@
 #define _GNU_SOURCE
 #endif
 
-#include <glusterfs/xlator.h>
 #include "posix.h"
 
 int32_t

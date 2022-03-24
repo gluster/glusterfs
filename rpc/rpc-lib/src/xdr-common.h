@@ -13,7 +13,6 @@
 
 #include <rpc/types.h>
 #include <sys/types.h>
-#include <rpc/xdr.h>
 #include <rpc/auth.h>
 #include <sys/uio.h>
 

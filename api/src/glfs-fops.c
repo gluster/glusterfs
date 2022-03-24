@@ -18,13 +18,11 @@
 
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
-#include <glusterfs/syncop.h>
 #include "glfs.h"
 #include "gfapi-messages.h"
 #include <glusterfs/compat-errno.h>
 #include <limits.h>
 #include "glusterfs3.h"
-#include <glusterfs/iatt.h>
 
 #ifdef NAME_MAX
 #define GF_NAME_MAX NAME_MAX
@@ -454,15 +452,23 @@ retry:
         goto out;
 
     if (IA_ISDIR(iatt.ia_type)) {
-        ret = -1;
-        errno = EISDIR;
-        goto out;
-    }
-
-    if (!IA_ISREG(iatt.ia_type)) {
-        ret = -1;
-        errno = EINVAL;
-        goto out;
+        if ((flags & (O_RDWR | O_WRONLY)) ||
+            ((flags & O_CREAT) && !(flags & O_DIRECTORY))) {
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    } else {
+        if (flags & O_DIRECTORY) {
+            ret = -1;
+            errno = ENOTDIR;
+            goto out;
+        }
+        if (!IA_ISREG(iatt.ia_type)) {
+            ret = -1;
+            errno = EINVAL;
+            goto out;
+        }
     }
 
     if (glfd->fd) {
@@ -6337,7 +6343,7 @@ pub_glfs_xreaddirplus_get_stat(struct glfs_xreaddirp_stat *xstat)
 {
     GF_VALIDATE_OR_GOTO("glfs_xreaddirplus_get_stat", xstat, out);
 
-    if (!xstat->flags_handled & GFAPI_XREADDIRP_STAT)
+    if (!(xstat->flags_handled & GFAPI_XREADDIRP_STAT))
         gf_smsg(THIS->name, GF_LOG_ERROR, errno, API_MSG_FLAGS_HANDLE,
                 "GFAPI_XREADDIRP_STAT"
                 "xstat=%p",

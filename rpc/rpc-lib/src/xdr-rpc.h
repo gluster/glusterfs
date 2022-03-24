@@ -24,8 +24,6 @@
 #include <rpc/xdr.h>
 #include <sys/uio.h>
 
-#include "xdr-common.h"
-
 typedef enum {
     AUTH_GLUSTERFS = 5,
     AUTH_GLUSTERFS_v2 = 390039, /* using a number from  'unused' range,

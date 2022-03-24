@@ -9,10 +9,8 @@
 */
 
 #include <glusterfs/dict.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/timer.h>
 
-#include "afr.h"
 #include "afr-transaction.h"
 #include "afr-self-heal.h"
 #include "afr-messages.h"
@@ -32,6 +30,9 @@ afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
 
 static void
 afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
+
+static int
+afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
 
 void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
@@ -147,6 +148,13 @@ afr_release_notify_lock_for_ta(void *opaque)
 out:
     loc_wipe(&loc);
     return ret;
+}
+
+static void
+gf_zero_fill_stat(struct iatt *buf)
+{
+    buf->ia_nlink = 0;
+    buf->ia_ctime = 0;
 }
 
 void

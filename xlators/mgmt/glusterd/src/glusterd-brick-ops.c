@@ -7,10 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
@@ -1270,6 +1266,28 @@ glusterd_op_perform_remove_brick(glusterd_volinfo_t *volinfo, char *brick,
     ret = 0;
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int
+op_version_check(xlator_t *this, int min_op_version, char *msg, int msglen)
+{
+    int ret = 0;
+    glusterd_conf_t *priv = NULL;
+
+    GF_ASSERT(msg);
+
+    priv = this->private;
+    if (priv->op_version < min_op_version) {
+        snprintf(msg, msglen,
+                 "One or more nodes do not support "
+                 "the required op-version. Cluster op-version must "
+                 "at least be %d.",
+                 min_op_version);
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNSUPPORTED_VERSION, "%s",
+               msg);
+        ret = -1;
+    }
     return ret;
 }
 
@@ -2711,12 +2729,6 @@ glusterd_handle_add_tier_brick(rpcsvc_request_t *req)
 
 int
 glusterd_handle_attach_tier(rpcsvc_request_t *req)
-{
-    return 0;
-}
-
-int
-glusterd_handle_detach_tier(rpcsvc_request_t *req)
 {
     return 0;
 }

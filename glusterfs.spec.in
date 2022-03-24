@@ -276,7 +276,7 @@ BuildRequires:    libtsan
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
-BuildRequires:    libxml2-devel openssl-devel
+BuildRequires:    libxml2-devel openssl-devel openssl
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
 %if ( 0%{!?_without_tcmalloc:1} )
@@ -1296,7 +1296,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
 %dir %attr(0775,gluster,gluster) %{_rundir}/gluster
-%if 0%{?_tmpfilesdir:1} && 0%{!?_without_server:1}
+%if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
 %endif
 
@@ -1663,6 +1663,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Feb 21 2022 Xavi Hernandez <xhernandez@redhat.com>
+- add openssl as a build dependency.
+
 * Mon Nov 1 2021 Kaleb S. KEITHLEY <kkeithle [at] redhat.com>
 - tcmalloc issues
 

@@ -16,7 +16,6 @@
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
-#include <glusterfs/common-utils.h>
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -1576,7 +1575,6 @@ unlock:
     return 0;
 
 selfheal:
-    FRAME_SU_DO(frame, dht_local_t);
     ret = dht_selfheal_directory(frame, dht_lookup_selfheal_cbk, &local->loc,
                                  layout);
 out:
@@ -3016,6 +3014,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                 (parent_layout->commit_hash == conf->vol_commit_hash)) {
                 lookup_everywhere = _gf_false;
             }
+            if (!ret)
+                dht_layout_unref(parent_layout);
         }
         goto out;
     } else {
@@ -3027,6 +3027,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                     (!parent_layout->search_unhashed)) {
                     lookup_everywhere = _gf_false;
                 }
+                if (!ret)
+                    dht_layout_unref(parent_layout);
             } else {
                 lookup_everywhere = _gf_false;
             }
@@ -6838,7 +6840,9 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 
     list:
-        entry = gf_dirent_for_name(orig_entry->d_name);
+        entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                    orig_entry->d_ino, orig_entry->d_off,
+                                    orig_entry->d_type);
         if (!entry) {
             goto unwind;
         }
@@ -6853,11 +6857,7 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             }
         }
 
-        entry->d_off = orig_entry->d_off;
         entry->d_stat = orig_entry->d_stat;
-        entry->d_ino = orig_entry->d_ino;
-        entry->d_type = orig_entry->d_type;
-        entry->d_len = orig_entry->d_len;
 
         if (orig_entry->dict)
             entry->dict = dict_ref(orig_entry->dict);
@@ -7086,17 +7086,14 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         if (add) {
             add = _gf_false;
-            entry = gf_dirent_for_name(orig_entry->d_name);
+            entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                        orig_entry->d_ino, orig_entry->d_off,
+                                        orig_entry->d_type);
             if (!entry) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
                        "Memory allocation failed ");
                 goto unwind;
             }
-
-            entry->d_off = orig_entry->d_off;
-            entry->d_ino = orig_entry->d_ino;
-            entry->d_type = orig_entry->d_type;
-            entry->d_len = orig_entry->d_len;
 
             gf_msg_debug(this->name, 0, "%s: Adding = entry %s", prev->name,
                          entry->d_name);
@@ -9489,7 +9486,6 @@ dht_mkdir_hashed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (local->call_cnt == 0) {
         /*Unlock namespace lock once mkdir is done on all subvols*/
         dht_unlock_namespace(frame, &local->lock[0]);
-        FRAME_SU_DO(frame, dht_local_t);
         dht_selfheal_directory(frame, dht_mkdir_selfheal_cbk, &local->loc,
                                layout);
         return 0;
@@ -11202,18 +11198,24 @@ dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
 
-    ret = dht_inode_ctx_get(inode, this, &ctx);
-
-    if (!ret && ctx) {
-        if (ctx->layout) {
-            if (layout)
-                *layout = ctx->layout;
-            ret = 0;
-        } else {
-            ret = -1;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx && ctx->layout) {
+                if (layout) {
+                    *layout = ctx->layout;
+                    dht_layout_ref(ctx->layout);
+                }
+            } else {
+                ret = -1;
+            }
         }
     }
+    UNLOCK(&inode->lock);
 
     return ret;
 }

@@ -35,14 +35,13 @@
 #include <fcntl.h>
 #endif /* HAVE_LINKAT */
 
+#include "posix.h"
 #include "posix-inode-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/timer.h>
-#include "glusterfs4-xdr.h"
 #include "posix-aio.h"
 #include "posix-io-uring.h"
 #include <glusterfs/glusterfs-acl.h>
@@ -52,7 +51,7 @@
 #include <glusterfs/compat-uuid.h>
 #include "timer-wheel.h"
 
-extern char *marker_xattrs[];
+// extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
 
 #undef HAVE_SET_FSID

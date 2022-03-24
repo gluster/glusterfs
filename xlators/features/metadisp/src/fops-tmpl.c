@@ -3,7 +3,6 @@
 #include "config.h"
 #endif
 
-#include <glusterfs/xlator.h>
 #include "metadisp.h"
 #include "metadisp-fops.h"
 

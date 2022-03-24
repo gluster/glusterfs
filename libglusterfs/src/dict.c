@@ -269,7 +269,7 @@ gf_boolean_t
 are_dicts_equal(dict_t *one, dict_t *two,
                 gf_boolean_t (*match)(dict_t *d, char *k, data_t *v,
                                       void *data),
-                gf_boolean_t (*value_ignore)(char *k))
+                void *match_data, gf_boolean_t (*value_ignore)(char *k))
 {
     int num_matches1 = 0;
     int num_matches2 = 0;
@@ -289,7 +289,8 @@ are_dicts_equal(dict_t *one, dict_t *two,
 
     cmp.dict = two;
     cmp.value_ignore = value_ignore;
-    num_matches1 = dict_foreach_match(one, match, NULL, key_value_cmp, &cmp);
+    num_matches1 = dict_foreach_match(one, match, match_data, key_value_cmp,
+                                      &cmp);
 
     if (num_matches1 == -1)
         return _gf_false;
@@ -297,8 +298,8 @@ are_dicts_equal(dict_t *one, dict_t *two,
     if ((num_matches1 == one->count) && (one->count == two->count))
         return _gf_true;
 
-    num_matches2 = dict_foreach_match(two, match, NULL, dict_null_foreach_fn,
-                                      NULL);
+    num_matches2 = dict_foreach_match(two, match, match_data,
+                                      dict_null_foreach_fn, NULL);
 done:
     /* If the number of matches is same in 'two' then for all the
      * valid-keys that exist in 'one' the value matched and no extra valid

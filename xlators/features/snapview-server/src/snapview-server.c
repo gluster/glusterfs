@@ -11,9 +11,7 @@
 #include "snapview-server-mem-types.h"
 #include <glusterfs/compat-errno.h>
 
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
-#include "xdr-generic.h"
 #include "protocol-common.h"
 #include <glusterfs/syscall.h>
 #include <pthread.h>
@@ -554,10 +552,11 @@ svs_revalidate(xlator_t *this, loc_t *loc, inode_t *parent,
             goto out;
         }
 
-        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
+        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+            inode_ref(parent);
             op_ret = svs_lookup_snapshot(this, loc, buf, postparent, parent,
                                          parent_ctx, op_errno);
-        else
+        } else
             op_ret = svs_lookup_entry(this, loc, buf, postparent, parent,
                                       parent_ctx, op_errno);
 
@@ -716,10 +715,11 @@ svs_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 
     if (parent_ctx) {
-        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
+        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+            inode_ref(parent);
             op_ret = svs_lookup_snapshot(this, loc, &buf, &postparent, parent,
                                          parent_ctx, &op_errno);
-        else
+        } else
             op_ret = svs_lookup_entry(this, loc, &buf, &postparent, parent,
                                       parent_ctx, &op_errno);
         goto out;
@@ -1604,7 +1604,6 @@ svs_readdirp_fill(xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
     } else {
         if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
             inode = inode_new(parent->table);
-            entry->inode = inode;
 
             /* If inode context allocation fails, then do not send
              * the inode for that particular entry as part of
@@ -1618,11 +1617,11 @@ svs_readdirp_fill(xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                        "failed to allocate inode "
                        "context for %s",
                        entry->d_name);
-                inode_unref(entry->inode);
-                entry->inode = NULL;
+                inode_unref(inode);
                 goto out;
             }
 
+            entry->inode = inode;
             /* Generate virtual gfid for SNAPSHOT dir and
              * update the statbuf
              */
@@ -1936,10 +1935,11 @@ svs_get_handle(xlator_t *this, loc_t *loc, svs_inode_t *inode_ctx,
     }
 
     if (parent_ctx) {
-        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
+        if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+            inode_ref(parent);
             ret = svs_lookup_snapshot(this, loc, &buf, &postparent, parent,
                                       parent_ctx, op_errno);
-        else
+        } else
             ret = svs_lookup_entry(this, loc, &buf, &postparent, parent,
                                    parent_ctx, op_errno);
     }

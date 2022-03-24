@@ -356,21 +356,15 @@ __qr_cache_prune(xlator_t *this, qr_inode_table_t *table, qr_conf_t *conf)
     qr_inode_t *curr = NULL;
     qr_inode_t *next = NULL;
     int index = 0;
-    size_t size_pruned = 0;
 
     for (index = 0; index < conf->max_pri; index++) {
         list_for_each_entry_safe(curr, next, &table->lru[index], lru)
         {
-            size_pruned += curr->size;
-
             __qr_inode_prune(this, table, curr, 0);
-
             if (table->cache_used < conf->cache_size)
                 return;
         }
     }
-
-    return;
 }
 
 void
@@ -1033,7 +1027,7 @@ qr_inodectx_dump(xlator_t *this, inode_t *inode)
                        qr_inode->data ? "yes" : "no");
 
     if (qr_inode->last_refresh) {
-        gf_time_fmt(buf, sizeof buf, qr_inode->last_refresh, gf_timefmt_FT);
+        gf_time_fmt_FT(buf, sizeof buf, qr_inode->last_refresh);
         gf_proc_dump_write("last-cache-validation-time", "%s", buf);
     }
 

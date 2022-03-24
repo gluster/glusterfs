@@ -16,15 +16,9 @@
 #include "config.h"
 #endif
 
-#include <glusterfs/common-utils.h>
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/client_t.h>
-#include <glusterfs/lkowner.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/upcall-utils.h>
 #include "timer-wheel.h"
 #include "leases-mem-types.h"
 #include "leases-messages.h"

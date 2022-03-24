@@ -176,7 +176,9 @@ afr_dirtime_splitbrain_source(call_frame_t *frame, xlator_t *this,
             !IA_EQUAL(source_ia, child_ia, prot) ||
             !IA_EQUAL(source_ia, child_ia, uid) ||
             !IA_EQUAL(source_ia, child_ia, gid) ||
-            !afr_xattrs_are_equal(replies[source].xdata, replies[i].xdata))
+            !afr_xattrs_are_equal(
+                replies[source].xdata, replies[i].xdata,
+                AFR_IS_ARBITER_BRICK(priv, i) ? _gf_true : _gf_false))
             goto out;
     }
 
@@ -343,7 +345,9 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
     for (i = 0; i < priv->child_count; i++) {
         if (!sources[i] || i == source)
             continue;
-        if (!afr_xattrs_are_equal(replies[source].xdata, replies[i].xdata)) {
+        if (!afr_xattrs_are_equal(
+                replies[source].xdata, replies[i].xdata,
+                AFR_IS_ARBITER_BRICK(priv, i) ? _gf_true : _gf_false)) {
             gf_msg_debug(this->name, 0,
                          "%s: xattr mismatch "
                          "for source(%d) vs (%d)",
@@ -353,6 +357,7 @@ __afr_selfheal_metadata_finalize_source(call_frame_t *frame, xlator_t *this,
             healed_sinks[i] = 1;
         }
     }
+
     if ((sources_count == priv->child_count) && (source > -1) &&
         (AFR_COUNT(healed_sinks, priv->child_count) != 0)) {
         ret = __afr_selfheal_metadata_mark_pending_xattrs(frame, this, inode,

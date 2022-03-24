@@ -7,8 +7,6 @@
    later), or the GNU General Public License, version 2 (GPLv2), in all
    cases as published by the Free Software Foundation.
 */
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include "read-only-common.h"
 #include "read-only-mem-types.h"
 #include "read-only.h"

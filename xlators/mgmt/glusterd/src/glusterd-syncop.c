@@ -8,10 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 /* rpc related syncops */
-#include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
-#include "glusterd1-xdr.h"
 #include "glusterd-syncop.h"
 #include "glusterd-mgmt.h"
 
@@ -235,6 +231,626 @@ out:
 extern struct rpc_clnt_program gd_mgmt_prog;
 extern struct rpc_clnt_program gd_brick_prog;
 extern struct rpc_clnt_program gd_mgmt_v3_prog;
+
+static int32_t
+glusterd_append_gsync_status(dict_t *dst, dict_t *src)
+{
+    int ret = 0;
+    char *stop_msg = NULL;
+
+    ret = dict_get_strn(src, "gsync-status", SLEN("gsync-status"), &stop_msg);
+    if (ret) {
+        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                "Key=gsync-status", NULL);
+        ret = 0;
+        goto out;
+    }
+
+    ret = dict_set_dynstr_with_alloc(dst, "gsync-status", stop_msg);
+    if (ret) {
+        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_SET_FAILED,
+               "Unable to set the stop"
+               "message in the ctx dictionary");
+        goto out;
+    }
+
+    ret = 0;
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int32_t
+glusterd_append_status_dicts(dict_t *dst, dict_t *src)
+{
+    char sts_val_name[PATH_MAX] = "";
+    int dst_count = 0;
+    int src_count = 0;
+    int i = 0;
+    int ret = 0;
+    gf_gsync_status_t *sts_val = NULL;
+    gf_gsync_status_t *dst_sts_val = NULL;
+
+    GF_ASSERT(dst);
+
+    if (src == NULL)
+        goto out;
+
+    ret = dict_get_int32n(dst, "gsync-count", SLEN("gsync-count"), &dst_count);
+    if (ret)
+        dst_count = 0;
+
+    ret = dict_get_int32n(src, "gsync-count", SLEN("gsync-count"), &src_count);
+    if (ret || !src_count) {
+        gf_msg_debug("glusterd", 0, "Source brick empty");
+        ret = 0;
+        goto out;
+    }
+
+    for (i = 0; i < src_count; i++) {
+        snprintf(sts_val_name, sizeof(sts_val_name), "status_value%d", i);
+
+        ret = dict_get_bin(src, sts_val_name, (void **)&sts_val);
+        if (ret)
+            goto out;
+
+        dst_sts_val = GF_MALLOC(sizeof(gf_gsync_status_t),
+                                gf_common_mt_gsync_status_t);
+        if (!dst_sts_val) {
+            gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+                   "Out Of Memory");
+            goto out;
+        }
+
+        memcpy(dst_sts_val, sts_val, sizeof(gf_gsync_status_t));
+
+        snprintf(sts_val_name, sizeof(sts_val_name), "status_value%d",
+                 i + dst_count);
+
+        ret = dict_set_bin(dst, sts_val_name, dst_sts_val,
+                           sizeof(gf_gsync_status_t));
+        if (ret) {
+            GF_FREE(dst_sts_val);
+            goto out;
+        }
+    }
+
+    ret = dict_set_int32n(dst, "gsync-count", SLEN("gsync-count"),
+                          dst_count + src_count);
+
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int32_t
+glusterd_gsync_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
+{
+    dict_t *ctx = NULL;
+    int ret = 0;
+    char *conf_path = NULL;
+
+    if (aggr) {
+        ctx = aggr;
+
+    } else {
+        ctx = glusterd_op_get_ctx();
+        if (!ctx) {
+            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_OPCTX_GET_FAIL,
+                   "Operation Context is not present");
+            GF_ASSERT(0);
+        }
+    }
+
+    if (rsp_dict) {
+        ret = glusterd_append_status_dicts(ctx, rsp_dict);
+        if (ret)
+            goto out;
+
+        ret = glusterd_append_gsync_status(ctx, rsp_dict);
+        if (ret)
+            goto out;
+
+        ret = dict_get_strn(rsp_dict, "conf_path", SLEN("conf_path"),
+                            &conf_path);
+        if (!ret && conf_path) {
+            ret = dict_set_dynstr_with_alloc(ctx, "conf_path", conf_path);
+            if (ret) {
+                gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                       "Unable to store conf path.");
+                goto out;
+            }
+        }
+    }
+    if ((op_errstr) && (strcmp("", op_errstr))) {
+        ret = dict_set_dynstr_with_alloc(ctx, "errstr", op_errstr);
+        if (ret)
+            goto out;
+    }
+
+    ret = 0;
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d ", ret);
+    return ret;
+}
+
+static int
+glusterd_max_opversion_use_rsp_dict(dict_t *dst, dict_t *src)
+{
+    int ret = -1;
+    int src_max_opversion = -1;
+    int max_opversion = -1;
+
+    GF_VALIDATE_OR_GOTO(THIS->name, dst, out);
+    GF_VALIDATE_OR_GOTO(THIS->name, src, out);
+
+    ret = dict_get_int32n(dst, "max-opversion", SLEN("max-opversion"),
+                          &max_opversion);
+    if (ret)
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Maximum supported op-version not set in destination "
+               "dictionary");
+
+    ret = dict_get_int32n(src, "max-opversion", SLEN("max-opversion"),
+                          &src_max_opversion);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get maximum supported op-version from source");
+        goto out;
+    }
+
+    if (max_opversion == -1 || src_max_opversion < max_opversion)
+        max_opversion = src_max_opversion;
+
+    ret = dict_set_int32n(dst, "max-opversion", SLEN("max-opversion"),
+                          max_opversion);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Failed to set max op-version");
+        goto out;
+    }
+out:
+    return ret;
+}
+
+static int
+glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
+{
+    int ret = -1;
+    int j = 0;
+    uint64_t value = 0;
+    char key[64] = "";
+    int keylen;
+    char *last_scrub_time = NULL;
+    char *scrub_time = NULL;
+    char *volname = NULL;
+    char *node_uuid = NULL;
+    char *node_uuid_str = NULL;
+    char *bitd_log = NULL;
+    char *scrub_log = NULL;
+    char *scrub_freq = NULL;
+    char *scrub_state = NULL;
+    char *scrub_impact = NULL;
+    char *bad_gfid_str = NULL;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *volinfo = NULL;
+    int src_count = 0;
+    int dst_count = 0;
+    int8_t scrub_running = 0;
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    ret = dict_get_strn(aggr, "volname", SLEN("volname"), &volname);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Unable to get volume name");
+        goto out;
+    }
+
+    ret = glusterd_volinfo_find(volname, &volinfo);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_VOL_NOT_FOUND,
+               "Unable to find volinfo for volume: %s", volname);
+        goto out;
+    }
+
+    ret = dict_get_int32n(aggr, "count", SLEN("count"), &dst_count);
+
+    ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &src_count);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "failed to get count value");
+        ret = 0;
+        goto out;
+    }
+
+    ret = dict_set_int32n(aggr, "count", SLEN("count"), src_count + dst_count);
+    if (ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Failed to set count in dictonary");
+
+    keylen = snprintf(key, sizeof(key), "node-uuid-%d", src_count);
+    ret = dict_get_strn(rsp_dict, key, keylen, &node_uuid);
+    if (!ret) {
+        node_uuid_str = gf_strdup(node_uuid);
+        keylen = snprintf(key, sizeof(key), "node-uuid-%d",
+                          src_count + dst_count);
+        ret = dict_set_dynstrn(aggr, key, keylen, node_uuid_str);
+        if (ret) {
+            gf_msg_debug(this->name, 0, "failed to set node-uuid");
+        }
+    }
+
+    snprintf(key, sizeof(key), "scrub-running-%d", src_count);
+    ret = dict_get_int8(rsp_dict, key, &scrub_running);
+    if (!ret) {
+        snprintf(key, sizeof(key), "scrub-running-%d", src_count + dst_count);
+        ret = dict_set_int8(aggr, key, scrub_running);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrub-running value");
+        }
+    }
+
+    snprintf(key, sizeof(key), "scrubbed-files-%d", src_count);
+    ret = dict_get_uint64(rsp_dict, key, &value);
+    if (!ret) {
+        snprintf(key, sizeof(key), "scrubbed-files-%d", src_count + dst_count);
+        ret = dict_set_uint64(aggr, key, value);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrubbed-file value");
+        }
+    }
+
+    snprintf(key, sizeof(key), "unsigned-files-%d", src_count);
+    ret = dict_get_uint64(rsp_dict, key, &value);
+    if (!ret) {
+        snprintf(key, sizeof(key), "unsigned-files-%d", src_count + dst_count);
+        ret = dict_set_uint64(aggr, key, value);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "unsigned-file value");
+        }
+    }
+
+    keylen = snprintf(key, sizeof(key), "last-scrub-time-%d", src_count);
+    ret = dict_get_strn(rsp_dict, key, keylen, &last_scrub_time);
+    if (!ret) {
+        scrub_time = gf_strdup(last_scrub_time);
+        keylen = snprintf(key, sizeof(key), "last-scrub-time-%d",
+                          src_count + dst_count);
+        ret = dict_set_dynstrn(aggr, key, keylen, scrub_time);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "last scrub time value");
+        }
+    }
+
+    snprintf(key, sizeof(key), "scrub-duration-%d", src_count);
+    ret = dict_get_uint64(rsp_dict, key, &value);
+    if (!ret) {
+        snprintf(key, sizeof(key), "scrub-duration-%d", src_count + dst_count);
+        ret = dict_set_uint64(aggr, key, value);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrubbed-duration value");
+        }
+    }
+
+    snprintf(key, sizeof(key), "error-count-%d", src_count);
+    ret = dict_get_uint64(rsp_dict, key, &value);
+    if (!ret) {
+        snprintf(key, sizeof(key), "error-count-%d", src_count + dst_count);
+        ret = dict_set_uint64(aggr, key, value);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set error "
+                         "count value");
+        }
+
+        /* Storing all the bad files in the dictionary */
+        for (j = 0; j < value; j++) {
+            keylen = snprintf(key, sizeof(key), "quarantine-%d-%d", j,
+                              src_count);
+            ret = dict_get_strn(rsp_dict, key, keylen, &bad_gfid_str);
+            if (!ret) {
+                snprintf(key, sizeof(key), "quarantine-%d-%d", j,
+                         src_count + dst_count);
+                ret = dict_set_dynstr_with_alloc(aggr, key, bad_gfid_str);
+                if (ret) {
+                    gf_msg_debug(this->name, 0,
+                                 "Failed to"
+                                 "bad file gfid ");
+                }
+            }
+        }
+    }
+
+    ret = dict_get_strn(rsp_dict, "bitrot_log_file", SLEN("bitrot_log_file"),
+                        &bitd_log);
+    if (!ret) {
+        ret = dict_set_dynstr_with_alloc(aggr, "bitrot_log_file", bitd_log);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "bitrot log file location");
+            goto out;
+        }
+    }
+
+    ret = dict_get_strn(rsp_dict, "scrub_log_file", SLEN("scrub_log_file"),
+                        &scrub_log);
+    if (!ret) {
+        ret = dict_set_dynstr_with_alloc(aggr, "scrub_log_file", scrub_log);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrubber log file location");
+            goto out;
+        }
+    }
+
+    ret = dict_get_strn(rsp_dict, "features.scrub-freq",
+                        SLEN("features.scrub-freq"), &scrub_freq);
+    if (!ret) {
+        ret = dict_set_dynstr_with_alloc(aggr, "features.scrub-freq",
+                                         scrub_freq);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrub-frequency value to dictionary");
+            goto out;
+        }
+    }
+
+    ret = dict_get_strn(rsp_dict, "features.scrub-throttle",
+                        SLEN("features.scrub-throttle"), &scrub_impact);
+    if (!ret) {
+        ret = dict_set_dynstr_with_alloc(aggr, "features.scrub-throttle",
+                                         scrub_impact);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrub-throttle value to dictionary");
+            goto out;
+        }
+    }
+
+    ret = dict_get_strn(rsp_dict, "features.scrub", SLEN("features.scrub"),
+                        &scrub_state);
+    if (!ret) {
+        ret = dict_set_dynstr_with_alloc(aggr, "features.scrub", scrub_state);
+        if (ret) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to set "
+                         "scrub state value to dictionary");
+            goto out;
+        }
+    }
+
+    ret = 0;
+out:
+    return ret;
+}
+
+static int
+glusterd_sys_exec_output_rsp_dict(dict_t *dst, dict_t *src)
+{
+    char output_name[64] = "";
+    char *output = NULL;
+    int ret = 0;
+    int i = 0;
+    int keylen;
+    int src_output_count = 0;
+    int dst_output_count = 0;
+
+    if (!dst || !src) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_EMPTY,
+               "Source or Destination "
+               "dict is empty.");
+        goto out;
+    }
+
+    ret = dict_get_int32n(dst, "output_count", SLEN("output_count"),
+                          &dst_output_count);
+
+    ret = dict_get_int32n(src, "output_count", SLEN("output_count"),
+                          &src_output_count);
+    if (ret) {
+        gf_msg_debug("glusterd", 0, "No output from source");
+        ret = 0;
+        goto out;
+    }
+
+    for (i = 1; i <= src_output_count; i++) {
+        keylen = snprintf(output_name, sizeof(output_name), "output_%d", i);
+        if (keylen <= 0 || keylen >= sizeof(output_name)) {
+            ret = -1;
+            goto out;
+        }
+        ret = dict_get_strn(src, output_name, keylen, &output);
+        if (ret) {
+            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Unable to fetch %s", output_name);
+            goto out;
+        }
+
+        keylen = snprintf(output_name, sizeof(output_name), "output_%d",
+                          i + dst_output_count);
+        if (keylen <= 0 || keylen >= sizeof(output_name)) {
+            ret = -1;
+            goto out;
+        }
+
+        ret = dict_set_dynstrn(dst, output_name, keylen, gf_strdup(output));
+        if (ret) {
+            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Unable to set %s", output_name);
+            goto out;
+        }
+    }
+
+    ret = dict_set_int32n(dst, "output_count", SLEN("output_count"),
+                          dst_output_count + src_output_count);
+out:
+    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    return ret;
+}
+
+static int
+glusterd_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
+{
+    int ret = 0;
+
+    GF_ASSERT(aggr);
+    GF_ASSERT(rsp_dict);
+
+    if (aggr)
+        dict_copy(rsp_dict, aggr);
+
+    return ret;
+}
+
+static int
+glusterd_volume_heal_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
+{
+    int ret = 0;
+    dict_t *ctx_dict = NULL;
+    uuid_t *txn_id = NULL;
+    glusterd_op_info_t txn_op_info = {
+        GD_OP_STATE_DEFAULT,
+    };
+    glusterd_op_t op = GD_OP_NONE;
+
+    GF_ASSERT(rsp_dict);
+
+    ret = dict_get_bin(aggr, "transaction_id", (void **)&txn_id);
+    if (ret)
+        goto out;
+    gf_msg_debug(THIS->name, 0, "transaction ID = %s", uuid_utoa(*txn_id));
+
+    ret = glusterd_get_txn_opinfo(txn_id, &txn_op_info);
+    if (ret) {
+        gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0,
+                         GD_MSG_TRANS_OPINFO_GET_FAIL,
+                         "Unable to get transaction opinfo "
+                         "for transaction ID : %s",
+                         uuid_utoa(*txn_id));
+        goto out;
+    }
+
+    op = txn_op_info.op;
+    GF_ASSERT(GD_OP_HEAL_VOLUME == op);
+
+    if (aggr) {
+        ctx_dict = aggr;
+
+    } else {
+        ctx_dict = txn_op_info.op_ctx;
+    }
+
+    if (!ctx_dict)
+        goto out;
+    dict_copy(rsp_dict, ctx_dict);
+out:
+    return ret;
+}
+
+static int
+glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
+{
+    int ret = -1;
+    int i = 0;
+    int count = 0;
+    int rsp_dict_count = 0;
+    char *uuid_str = NULL;
+    char *uuid_str_dup = NULL;
+    char key[64] = "";
+    int keylen;
+    xlator_t *this = THIS;
+    int type = GF_QUOTA_OPTION_TYPE_NONE;
+
+    ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get quota opcode");
+        goto out;
+    }
+
+    if ((type != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
+        (type != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+        (type != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+        (type != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
+        dict_copy(rsp_dict, dict);
+        ret = 0;
+        goto out;
+    }
+
+    ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &rsp_dict_count);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get the count of "
+               "gfids from the rsp dict");
+        goto out;
+    }
+
+    ret = dict_get_int32n(dict, "count", SLEN("count"), &count);
+    if (ret)
+        /* The key "count" is absent in op_ctx when this function is
+         * called after self-staging on the originator. This must not
+         * be treated as error.
+         */
+        gf_msg_debug(this->name, 0,
+                     "Failed to get count of gfids"
+                     " from req dict. This could be because count is not yet"
+                     " copied from rsp_dict into op_ctx");
+
+    for (i = 0; i < rsp_dict_count; i++) {
+        keylen = snprintf(key, sizeof(key), "gfid%d", i);
+        ret = dict_get_strn(rsp_dict, key, keylen, &uuid_str);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Failed to get gfid "
+                   "from rsp dict");
+            goto out;
+        }
+
+        uuid_str_dup = gf_strdup(uuid_str);
+        if (!uuid_str_dup) {
+            ret = -1;
+            goto out;
+        }
+
+        keylen = snprintf(key, sizeof(key), "gfid%d", i + count);
+        ret = dict_set_dynstrn(dict, key, keylen, uuid_str_dup);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set gfid "
+                   "from rsp dict into req dict");
+            GF_FREE(uuid_str_dup);
+            goto out;
+        }
+    }
+
+    ret = dict_set_int32n(dict, "count", SLEN("count"), rsp_dict_count + count);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+               "Failed to set aggregated "
+               "count in req dict");
+        goto out;
+    }
+
+out:
+    return ret;
+}
 
 int
 glusterd_syncop_aggr_rsp_dict(glusterd_op_t op, dict_t *aggr, dict_t *rsp)
@@ -1262,6 +1878,137 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
                  "Sent lock op req for 'Volume %s' "
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
+out:
+    return ret;
+}
+
+static int
+glusterd_validate_and_set_gfid(dict_t *op_ctx, dict_t *req_dict,
+                               char **op_errstr)
+{
+    int ret = -1;
+    int count = 0;
+    int i = 0;
+    int op_code = GF_QUOTA_OPTION_TYPE_NONE;
+    uuid_t uuid1 = {0};
+    uuid_t uuid2 = {
+        0,
+    };
+    char *path = NULL;
+    char key[64] = "";
+    int keylen;
+    char *uuid1_str = NULL;
+    char *uuid1_str_dup = NULL;
+    char *uuid2_str = NULL;
+
+    ret = dict_get_int32n(op_ctx, "type", SLEN("type"), &op_code);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get quota opcode");
+        goto out;
+    }
+
+    if ((op_code != GF_QUOTA_OPTION_TYPE_LIMIT_USAGE) &&
+        (op_code != GF_QUOTA_OPTION_TYPE_LIMIT_OBJECTS) &&
+        (op_code != GF_QUOTA_OPTION_TYPE_REMOVE) &&
+        (op_code != GF_QUOTA_OPTION_TYPE_REMOVE_OBJECTS)) {
+        ret = 0;
+        goto out;
+    }
+
+    ret = dict_get_strn(op_ctx, "path", SLEN("path"), &path);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get path");
+        goto out;
+    }
+
+    ret = dict_get_int32n(op_ctx, "count", SLEN("count"), &count);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get count");
+        goto out;
+    }
+
+    /* If count is 0, fail the command with ENOENT.
+     *
+     * If count is 1, treat gfid0 as the gfid on which the operation
+     * is to be performed and resume the command.
+     *
+     * if count > 1, get the 0th gfid from the op_ctx and,
+     * compare it with the remaining 'count -1' gfids.
+     * If they are found to be the same, set gfid0 in the op_ctx and
+     * resume the operation, else error out.
+     */
+
+    if (count == 0) {
+        gf_asprintf(op_errstr,
+                    "Failed to get trusted.gfid attribute "
+                    "on path %s. Reason : %s",
+                    path, strerror(ENOENT));
+        ret = -ENOENT;
+        goto out;
+    }
+
+    keylen = snprintf(key, sizeof(key), "gfid%d", 0);
+
+    ret = dict_get_strn(op_ctx, key, keylen, &uuid1_str);
+    if (ret) {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+               "Failed to get key '%s'", key);
+        goto out;
+    }
+
+    gf_uuid_parse(uuid1_str, uuid1);
+
+    for (i = 1; i < count; i++) {
+        keylen = snprintf(key, sizeof(key), "gfid%d", i);
+
+        ret = dict_get_strn(op_ctx, key, keylen, &uuid2_str);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+                   "Failed to get key "
+                   "'%s'",
+                   key);
+            goto out;
+        }
+
+        gf_uuid_parse(uuid2_str, uuid2);
+
+        if (gf_uuid_compare(uuid1, uuid2)) {
+            gf_asprintf(op_errstr,
+                        "gfid mismatch between %s and "
+                        "%s for path %s",
+                        uuid1_str, uuid2_str, path);
+            ret = -1;
+            goto out;
+        }
+    }
+
+    if (i == count) {
+        uuid1_str_dup = gf_strdup(uuid1_str);
+        if (!uuid1_str_dup) {
+            ret = -1;
+            goto out;
+        }
+
+        ret = dict_set_dynstrn(req_dict, "gfid", SLEN("gfid"), uuid1_str_dup);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set gfid");
+            GF_FREE(uuid1_str_dup);
+            goto out;
+        }
+    } else {
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_ITER_FAIL,
+               "Failed to iterate through %d"
+               " entries in the req dict",
+               count);
+        ret = -1;
+        goto out;
+    }
+
+    ret = 0;
 out:
     return ret;
 }

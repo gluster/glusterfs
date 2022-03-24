@@ -13,11 +13,8 @@
 #include "dht-mem-types.h"
 #include "dht-messages.h"
 #include <glusterfs/call-stub.h>
-#include "libxlator.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/refcount.h>
-#include <glusterfs/timer.h>
-#include "protocol-common.h"
 #include <glusterfs/glusterfs-acl.h>
 
 #ifndef _DHT_H
@@ -106,11 +103,11 @@ struct dht_layout {
 typedef struct dht_layout dht_layout_t;
 
 struct dht_stat_time {
-    uint32_t atime;
+    uint64_t atime;
     uint32_t atime_nsec;
-    uint32_t ctime;
+    uint64_t ctime;
     uint32_t ctime_nsec;
-    uint32_t mtime;
+    uint64_t mtime;
     uint32_t mtime_nsec;
 };
 
@@ -536,7 +533,6 @@ struct dht_conf {
     int32_t refresh_interval;
     gf_lock_t subvolume_lock;
     time_t last_stat_fetch;
-    gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over
                       dht */
@@ -869,7 +865,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 void
 dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
-dht_layout_ref(xlator_t *this, dht_layout_t *layout);
+dht_layout_ref(dht_layout_t *layout);
 int
 dht_layout_index_for_subvol(dht_layout_t *layout, xlator_t *subvol);
 xlator_t *

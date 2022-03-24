@@ -20,7 +20,6 @@
 #include <pthread.h>
 #include <sys/uio.h>
 #include <inttypes.h>
-#include <rpc/rpc_msg.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/client_t.h>
 

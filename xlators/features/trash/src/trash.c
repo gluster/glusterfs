@@ -155,7 +155,40 @@ check_whether_eliminate_path(trash_elim_path *trav, const char *path)
     }
     return match;
 }
-
+int32_t
+check_pathbuf(inode_t *inode, xlator_t *this, char **pathbuf,
+              trash_local_t **local, const char *name)
+{
+    trash_private_t *priv = this->private;
+    int32_t match = 0;
+    inode_path(inode, NULL, pathbuf);
+    if (!(*pathbuf)) {
+        gf_log(this->name, GF_LOG_DEBUG, "Inode path not found");
+        return -EINVAL;
+    }
+    match = check_whether_eliminate_path(priv->eliminate, *pathbuf);
+    if ((strncmp(*pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
+         0) ||
+        (match)) {
+        if (match) {
+            gf_log(this->name, GF_LOG_DEBUG,
+                   "%s is a file comes under an eliminate path, "
+                   "so it is not moved to trash",
+                   name);
+        }
+        GF_FREE(*pathbuf);
+        *pathbuf = NULL;
+        return 0;
+    }
+    *local = mem_get0(this->local_pool);
+    if (!(*local)) {
+        gf_log(this->name, GF_LOG_DEBUG, "out of memory");
+        GF_FREE(*pathbuf);
+        *pathbuf = NULL;
+        return -ENOMEM;
+    }
+    return 1;
+}
 /**
  * Stores the eliminate path into internal eliminate path structure
  */
@@ -1280,10 +1313,9 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
 {
     trash_private_t *priv = NULL;
     trash_local_t *local = NULL; /* files inside trash */
-    int32_t match = 0;
     int32_t ctr_link_req = 0;
     char *pathbuf = NULL;
-    int ret = 0;
+    int32_t ret = 0;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("trash", priv, out);
@@ -1319,37 +1351,19 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     }
 
     /* This will be more accurate */
-    inode_path(loc->inode, NULL, &pathbuf);
-    /* Check whether the file is present under eliminate paths or
-     * inside trash directory. In both cases we don't need to move the
-     * file to trash directory. Instead delete it permanently
-     */
-    match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
-        (match)) {
-        if (match) {
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "%s is a file comes under an eliminate path, "
-                   "so it is not moved to trash",
-                   loc->name);
-        }
-
+    ret = check_pathbuf(loc->inode, this, &pathbuf, &local, loc->name);
+    if (ret == 0) {
         /* Trying to unlink from the trash-dir. So do the
          * actual unlink without moving to trash-dir.
          */
         STACK_WIND(frame, trash_common_unwind_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->unlink, loc, 0, xdata);
         goto out;
-    }
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        gf_log(this->name, GF_LOG_DEBUG, "out of memory");
-        TRASH_STACK_UNWIND(unlink, frame, -1, ENOMEM, NULL, NULL, xdata);
-        ret = ENOMEM;
+    } else if (ret < 0) {
+        TRASH_STACK_UNWIND(unlink, frame, -1, -ret, NULL, NULL, xdata);
         goto out;
     }
+
     frame->local = local;
     loc_copy(&local->loc, loc);
 
@@ -1380,6 +1394,8 @@ trash_unlink(call_frame_t *frame, xlator_t *this, loc_t *loc, int xflags,
     STACK_WIND(frame, trash_unlink_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
 out:
+    if (pathbuf)
+        GF_FREE(pathbuf);
     return ret;
 }
 
@@ -1727,6 +1743,7 @@ trash_truncate_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             real_path[sizeof(real_path) - 1] = 0;
             strncat(real_path, local->origpath,
                     sizeof(real_path) - strlen(real_path) - 1);
+            real_path[sizeof(real_path) - 1] = 0;
             /* Call create again once directory structure
                is created. */
 
@@ -1950,9 +1967,8 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 {
     trash_private_t *priv = NULL;
     trash_local_t *local = NULL;
-    int32_t match = 0;
     char *pathbuf = NULL;
-    int ret = 0;
+    int32_t ret = 0;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("trash", priv, out);
@@ -1974,37 +1990,16 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         goto out;
     }
     /* This will be more accurate */
-    inode_path(loc->inode, NULL, &pathbuf);
-
-    /* Checks whether file is in trash directory or eliminate path.
-     * In all such cases it does not move to trash directory,
-     * truncate will be performed
-     */
-    match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
-        (match)) {
-        if (match) {
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "%s: file not moved to trash as per option "
-                   "'eliminate path'",
-                   loc->path);
-        }
-
+    ret = check_pathbuf(loc->inode, this, &pathbuf, &local, loc->path);
+    if (ret == 0) {
         /* Trying to truncate from the trash-dir. So do the
          * actual truncate without moving to trash-dir.
          */
         STACK_WIND(frame, trash_common_unwind_buf_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->truncate, loc, offset, xdata);
         goto out;
-    }
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        gf_log(this->name, GF_LOG_DEBUG, "out of memory");
-        TRASH_STACK_UNWIND(truncate, frame, -1, ENOMEM, NULL, NULL, xdata);
-        ret = ENOMEM;
+    } else if (ret < 0) {
+        TRASH_STACK_UNWIND(truncate, frame, -1, -ret, NULL, NULL, xdata);
         goto out;
     }
 
@@ -2019,7 +2014,6 @@ trash_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     STACK_WIND(frame, trash_truncate_stat_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->stat, loc, xdata);
-
 out:
     return ret;
 }
@@ -2036,9 +2030,7 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     trash_private_t *priv = NULL;
     trash_local_t *local = NULL; /* file inside trash */
     char *pathbuf = NULL;        /* path of file from fd */
-    int32_t retval = 0;
-    int32_t match = 0;
-    int ret = 0;
+    int32_t ret = 0;
 
     priv = this->private;
     GF_VALIDATE_OR_GOTO("trash", priv, out);
@@ -2061,38 +2053,13 @@ trash_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
     /* This will be more accurate */
-    retval = inode_path(fd->inode, NULL, &pathbuf);
-
-    /* Checking  the eliminate path */
-
-    /* Checks whether file is trash directory or eliminate path or
-     * invalid fd. In all such cases it does not move to trash directory,
-     * ftruncate will be performed
-     */
-    match = check_whether_eliminate_path(priv->eliminate, pathbuf);
-    if ((strncmp(pathbuf, priv->newtrash_dir, strlen(priv->newtrash_dir)) ==
-         0) ||
-        match || !retval) {
-        if (match) {
-            gf_log(this->name, GF_LOG_DEBUG,
-                   "%s: file matches eliminate path, "
-                   "not moved to trash",
-                   pathbuf);
-        }
-
-        /* Trying to ftruncate from the trash-dir. So do the
-         * actual ftruncate without moving to trash-dir
-         */
+    ret = check_pathbuf(fd->inode, this, &pathbuf, &local, pathbuf);
+    if (ret == 0) {
         STACK_WIND(frame, trash_common_unwind_buf_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->ftruncate, fd, offset, xdata);
         goto out;
-    }
-
-    local = mem_get0(this->local_pool);
-    if (!local) {
-        gf_log(this->name, GF_LOG_DEBUG, "out of memory");
-        TRASH_STACK_UNWIND(ftruncate, frame, -1, ENOMEM, NULL, NULL, xdata);
-        ret = -1;
+    } else if (ret < 0) {
+        TRASH_STACK_UNWIND(ftruncate, frame, -1, -ret, NULL, NULL, xdata);
         goto out;
     }
 

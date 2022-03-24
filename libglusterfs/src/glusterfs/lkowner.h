@@ -11,8 +11,6 @@
 #ifndef _LK_OWNER_H
 #define _LK_OWNER_H
 
-#include "glusterfs/glusterfs-fops.h"
-
 /* LKOWNER to string functions */
 static inline void
 lkowner_unparse(gf_lkowner_t *lkowner, char *buf, int buf_len)

@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 #include "quiesce.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/call-stub.h>
 
 /* TODO: */

@@ -288,9 +288,9 @@ AC_ARG_ENABLE([asan],
                              [Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [__asan_init], ,
+        AC_CHECK_LIB([asan], [_init], ,
                 [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
-        if test "x$ac_cv_lib_asan___asan_init" = xyes; then
+        if test "x$ac_cv_lib_asan__init" = xyes; then
                 AC_MSG_CHECKING([whether asan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=address"
@@ -306,7 +306,9 @@ if test "x$enable_asan" = "xyes"; then
                 CFLAGS=${saved_CFLAGS}
         fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=address -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lasan"
+
+        dnl See: https://groups.google.com/d/msg/address-sanitizer/SD590XDinfQ/NMUPj_G0BgAJ
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=address"
 fi
 
 AC_ARG_ENABLE([tsan],
@@ -317,9 +319,9 @@ if test "x$enable_tsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=tsan
-        AC_CHECK_LIB([tsan], [__tsan_init], ,
+        AC_CHECK_LIB([tsan], [_init], ,
                 [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
-        if test "x$ac_cv_lib_tsan___tsan_init" = xyes; then
+        if test "x$ac_cv_lib_tsan__init" = xyes; then
                 AC_MSG_CHECKING([whether tsan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=thread"
@@ -335,7 +337,7 @@ if test "x$enable_tsan" = "xyes"; then
                 CFLAGS=${saved_CFLAGS}
         fi
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=thread -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -ltsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=thread"
 fi
 
 AC_ARG_ENABLE([ubsan],
@@ -346,10 +348,10 @@ if test "x$enable_ubsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=ubsan
-        AC_CHECK_LIB([ubsan], [__ubsan_default_options], ,
+        AC_CHECK_LIB([ubsan], [_init], ,
                 [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
-        GF_LDFLAGS="${GF_LDFLAGS} -lubsan"
+        GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=undefined"
 fi
 
 # Initialize CFLAGS before usage
@@ -424,11 +426,21 @@ fi
 
 case $host_os in
   darwin*)
-    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7; then
+    # macOS version checking became a bit complicated since 11.x
+    # It is preferred to match against kernel version now instead of product version
+    # Darwin kernel is versioned as A.B.C where
+    # A = Kernel Version Major, starts from 5 (OS X Puma), incremented by 1 for each new release
+    # B = Kernel Version Minor
+    # C = Kernel Version Patch
+
+    # Should be greater than OS X Lion i.e. KernelMajor 11
+    DARWIN_KERNEL_MAJOR="`/usr/bin/uname -r | cut -d . -f 1`"
+    if ! test $DARWIN_KERNEL_MAJOR -ge 11; then
        AC_MSG_ERROR([You need at least OS X 10.7 (Lion) to build Glusterfs])
     fi
     # OSX version lesser than 9 has llvm/clang optimization issues which leads to various segfaults
-    if test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -lt 9; then
+    # If OS X Mavericks or lower i.e KernelMajor = 13
+    if test $DARWIN_KERNEL_MAJOR -lt 13; then
        GF_CFLAGS="${GF_CFLAGS} -g -O0 -DDEBUG"
     fi
     ;;
@@ -798,7 +810,7 @@ AS_IF([test "x$enable_fuse_notifications" != "xno"], [
 dnl Find out OpenSSL trusted certificates path
 AC_MSG_CHECKING([for OpenSSL trusted certificates path])
 SSL_CERT_PATH=$(openssl version -d | sed -e 's|OPENSSLDIR: "\(.*\)".*|\1|')
-if test -d $SSL_CERT_PATH 1>/dev/null 2>&1; then
+if test -d "${SSL_CERT_PATH}" 1>/dev/null 2>&1; then
    AC_MSG_RESULT([$SSL_CERT_PATH])
    AC_DEFINE_UNQUOTED(SSL_CERT_PATH, ["$SSL_CERT_PATH"], [Path to OpenSSL trusted certificates.])
    AC_SUBST(SSL_CERT_PATH)
@@ -1425,7 +1437,7 @@ exec_prefix=$old_exec_prefix
 
 ### Dirty hacky stuff to make LOCALSTATEDIR work
 if test "x$prefix" = xNONE; then
-   test $localstatedir = '${prefix}/var' && localstatedir=$ac_default_prefix/var
+   test "${localstatedir}" = '${prefix}/var' && localstatedir=$ac_default_prefix/var
    localstatedir=/var
 fi
 localstatedir="$(eval echo ${localstatedir})"
@@ -1856,7 +1868,7 @@ AM_CONDITIONAL([GF_LINUX_HOST_OS], test "${GF_HOST_OS}" = "GF_LINUX_HOST_OS")
 AM_CONDITIONAL([GF_DARWIN_HOST_OS], test "${GF_HOST_OS}" = "GF_DARWIN_HOST_OS")
 
 AC_SUBST(GLUSTERD_WORKDIR)
-AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d ${GLUSTERD_WORKDIR} && test -d ${sysconfdir}/glusterd )
+AM_CONDITIONAL([GF_INSTALL_GLUSTERD_WORKDIR], test ! -d "${GLUSTERD_WORKDIR}" && test -d "${sysconfdir}/glusterd" )
 AC_SUBST(GLUSTERD_VOLFILE)
 AC_SUBST(GLUSTERFS_LIBEXECDIR)
 AC_SUBST(GLUSTERFSD_MISCDIR)

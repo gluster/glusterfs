@@ -11,7 +11,7 @@
 #include <inttypes.h>
 #include <libgen.h>
 
-#include "glusterfs/glusterfs.h"
+#include <glusterfs/logging.h>
 #include "glusterfs/store.h"
 #include "glusterfs/xlator.h"
 #include "glusterfs/syscall.h"
@@ -199,6 +199,8 @@ gf_store_read_and_tokenize(FILE *file, char **iter_key, char **iter_val,
     GF_ASSERT(iter_val);
     GF_ASSERT(store_errno);
 
+    str[0] = '\0';
+
 retry:
     temp = fgets(str, buf_size, file);
     if (temp == NULL || feof(file)) {
@@ -273,8 +275,9 @@ gf_store_retrieve_value(gf_store_handle_t *handle, char *key, char **value)
     } else {
         fseek(handle->read, 0, SEEK_SET);
     }
+
+    char buf[8192];
     do {
-        char buf[8192];
         ret = gf_store_read_and_tokenize(handle->read, &iter_key, &iter_val,
                                          &store_errno, buf, 8192);
         if (ret < 0) {
@@ -509,15 +512,15 @@ gf_store_iter_new(gf_store_handle_t *shandle, gf_store_iter_t **iter)
         goto out;
     }
 
-    tmp_iter = GF_CALLOC(1, sizeof(*tmp_iter), gf_common_mt_store_iter_t);
+    tmp_iter = GF_MALLOC(sizeof(*tmp_iter), gf_common_mt_store_iter_t);
     if (!tmp_iter)
         goto out;
 
+    tmp_iter->file = fp;
     if (snprintf(tmp_iter->filepath, sizeof(tmp_iter->filepath), "%s",
                  shandle->path) >= sizeof(tmp_iter->filepath))
         goto out;
-
-    tmp_iter->file = fp;
+    tmp_iter->buf[0] = '\0';
 
     *iter = tmp_iter;
     tmp_iter = NULL;
@@ -534,53 +537,12 @@ out:
 }
 
 int32_t
-gf_store_validate_key_value(char *storepath, char *key, char *val,
-                            gf_store_op_errno_t *op_errno)
-{
-    int ret = 0;
-
-    GF_ASSERT(op_errno);
-    GF_ASSERT(storepath);
-
-    if ((key == NULL) && (val == NULL)) {
-        ret = -1;
-        gf_msg("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-               "Glusterd "
-               "store may be corrupted, Invalid key and value (null)"
-               " in %s",
-               storepath);
-        *op_errno = GD_STORE_KEY_VALUE_NULL;
-    } else if (key == NULL) {
-        ret = -1;
-        gf_msg("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-               "Glusterd "
-               "store may be corrupted, Invalid key (null) in %s",
-               storepath);
-        *op_errno = GD_STORE_KEY_NULL;
-    } else if (val == NULL) {
-        ret = -1;
-        gf_msg("", GF_LOG_ERROR, 0, LG_MSG_INVALID_ENTRY,
-               "Glusterd "
-               "store may be corrupted, Invalid value (null) for key"
-               " %s in %s",
-               key, storepath);
-        *op_errno = GD_STORE_VALUE_NULL;
-    } else {
-        ret = 0;
-        *op_errno = GD_STORE_SUCCESS;
-    }
-
-    return ret;
-}
-
-int32_t
 gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
                        gf_store_op_errno_t *op_errno)
 {
     int32_t ret = -1;
     char *iter_key = NULL;
     char *iter_val = NULL;
-    char buf[8192];
 
     gf_store_op_errno_t store_errno = GD_STORE_SUCCESS;
 
@@ -589,15 +551,10 @@ gf_store_iter_get_next(gf_store_iter_t *iter, char **key, char **value,
     GF_ASSERT(value);
 
     ret = gf_store_read_and_tokenize(iter->file, &iter_key, &iter_val,
-                                     &store_errno, buf, 8192);
+                                     &store_errno, iter->buf, sizeof(iter->buf));
     if (ret < 0) {
         goto out;
     }
-
-    ret = gf_store_validate_key_value(iter->filepath, iter_key, iter_val,
-                                      &store_errno);
-    if (ret)
-        goto out;
 
     *key = gf_strdup(iter_key);
     if (!*key) {

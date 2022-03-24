@@ -11,11 +11,9 @@
 #ifndef __CHANGELOG_RPC_H
 #define __CHANGELOG_RPC_H
 
-#include <glusterfs/xlator.h>
 #include "changelog-helpers.h"
 
 /* one time */
-#include "socket.h"
 #include "changelog-rpc-common.h"
 
 #define CHANGELOG_RPC_PROGNAME "GlusterFS Changelog"

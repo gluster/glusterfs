@@ -15,14 +15,10 @@
 #include <signal.h>
 #include <string.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
-
-#include "afr.h"
 #include "afr-transaction.h"
 
 int32_t

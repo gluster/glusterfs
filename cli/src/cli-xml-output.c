@@ -8,12 +8,12 @@
    cases as published by the Free Software Foundation.
 */
 #include <stdlib.h>
+#include "gd-common-utils.h"
 #include "cli.h"
 #include "cli1-xdr.h"
 #include <glusterfs/run.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/upcall-utils.h>
 
 enum gf_task_types { GF_TASK_TYPE_REBALANCE, GF_TASK_TYPE_REMOVE_BRICK };
 
@@ -1701,7 +1701,7 @@ cli_xml_output_vol_top_rw_perf(xmlTextWriterPtr writer, dict_t *dict,
     if (ret)
         goto out;
 
-    gf_time_fmt_tv(timestr, sizeof timestr, &tv, gf_timefmt_FT);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, NULL);
     ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"time", "%s",
                                           timestr);
     XML_RET_CHECK_AND_GOTO(ret, out);

@@ -1056,17 +1056,9 @@ args_readdirp_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     if (op_ret > 0) {
         list_for_each_entry(entry, &entries->list, list)
         {
-            stub_entry = gf_dirent_for_name(entry->d_name);
+            stub_entry = entry_copy(entry);
             if (!stub_entry)
                 goto out;
-            stub_entry->d_off = entry->d_off;
-            stub_entry->d_ino = entry->d_ino;
-            stub_entry->d_stat = entry->d_stat;
-            stub_entry->d_type = entry->d_type;
-            if (entry->inode)
-                stub_entry->inode = inode_ref(entry->inode);
-            if (entry->dict)
-                stub_entry->dict = dict_ref(entry->dict);
             list_add_tail(&stub_entry->list, &args->entries.list);
         }
     }
@@ -1100,12 +1092,11 @@ args_readdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
     if (op_ret > 0) {
         list_for_each_entry(entry, &entries->list, list)
         {
-            stub_entry = gf_dirent_for_name(entry->d_name);
+            stub_entry = gf_dirent_for_name2(entry->d_name, entry->d_len,
+                                             entry->d_ino, entry->d_off,
+                                             entry->d_type);
             if (!stub_entry)
                 goto out;
-            stub_entry->d_off = entry->d_off;
-            stub_entry->d_ino = entry->d_ino;
-            stub_entry->d_type = entry->d_type;
             list_add_tail(&stub_entry->list, &args->entries.list);
         }
     }

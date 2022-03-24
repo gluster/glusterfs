@@ -14,17 +14,10 @@
 #include <pthread.h>
 #include <stdint.h>
 
-#include "socket.h"
 #include "rpc-clnt.h"
 #include <glusterfs/list.h>
-#include <glusterfs/inode.h>
 #include "client-mem-types.h"
-#include "protocol-common.h"
-#include "glusterfs3.h"
-#include "glusterfs4-xdr.h"
-#include <glusterfs/fd-lk.h>
 #include <glusterfs/defaults.h>
-#include <glusterfs/default-args.h>
 #include "client-messages.h"
 
 /* Threading limits for client event threads. */
@@ -32,6 +25,14 @@
 #define CLIENT_MAX_EVENT_THREADS 32
 
 #define CLIENT_DUMP_LOCKS "trusted.glusterfs.clientlk-dump"
+
+typedef struct {
+    int fop_enum;
+    unsigned int fop_length;
+    int *enum_list;
+    default_args_t *req_list;
+    dict_t *xdata;
+} compound_args_t;
 
 typedef enum {
     DEFAULT_REMOTE_FD = 0,
@@ -309,8 +310,7 @@ serialize_req_locklist_v2(lock_migration_info_t *locklist,
                           gfx_setactivelk_req *req);
 
 int
-clnt_unserialize_rsp_locklist_v2(xlator_t *this,
-                                 struct gfx_getactivelk_rsp *rsp,
+clnt_unserialize_rsp_locklist_v2(struct gfx_getactivelk_rsp *rsp,
                                  lock_migration_info_t *lmi);
 
 int

@@ -15,30 +15,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/statvfs.h>
-#include <netdb.h>
 #include <errno.h>
-#include <dirent.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <arpa/inet.h>
-#include <sys/poll.h>
 #include <pthread.h>
 #include <limits.h> /* For PATH_MAX */
 #include <openssl/sha.h>
 
 #include "glusterfs/glusterfs-fops.h"
 #include "glusterfs/list.h"
-#include "glusterfs/locking.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/lkowner.h"
 #include "glusterfs/compat-uuid.h"
 #include "glusterfs/refcount.h"
-#include "glusterfs/atomic.h"
 
 #define GF_YES 1
 #define GF_NO 0
@@ -95,6 +88,7 @@
 #define IO_THREADS_QUEUE_SIZE_KEY "io-thread-queue-size"
 
 #define GF_XATTR_CLRLK_CMD "glusterfs.clrlk"
+#define GF_XATTR_INTRLK_CMD "glusterfs.intrlk"
 #define GF_XATTR_PATHINFO_KEY "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY "trusted.glusterfs.node-uuid"
 #define GF_XATTR_LIST_NODE_UUIDS_KEY "trusted.glusterfs.list-node-uuids"

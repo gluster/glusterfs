@@ -8,10 +8,7 @@
    cases as published by the Free Software Foundation.
 */
 #include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
 #include <glusterfs/glusterfs.h>
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-geo-rep.h"
 #include "glusterd-store.h"
@@ -164,6 +161,38 @@ int
 glusterd_handle_replace_brick(rpcsvc_request_t *req)
 {
     return glusterd_big_locked_handler(req, __glusterd_handle_replace_brick);
+}
+
+static int
+glusterd_rb_check_bricks(glusterd_volinfo_t *volinfo, glusterd_brickinfo_t *src,
+                         glusterd_brickinfo_t *dst)
+{
+    glusterd_replace_brick_t *rb = NULL;
+
+    GF_ASSERT(volinfo);
+
+    rb = &volinfo->rep_brick;
+
+    if (!rb->src_brick || !rb->dst_brick) {
+        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_INVALID_ARGUMENT, NULL);
+        return -1;
+    }
+
+    if (strcmp(rb->src_brick->hostname, src->hostname) ||
+        strcmp(rb->src_brick->path, src->path)) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RB_SRC_BRICKS_MISMATCH,
+               "Replace brick src bricks differ");
+        return -1;
+    }
+
+    if (strcmp(rb->dst_brick->hostname, dst->hostname) ||
+        strcmp(rb->dst_brick->path, dst->path)) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_RB_DST_BRICKS_MISMATCH,
+               "Replace brick dst bricks differ");
+        return -1;
+    }
+
+    return 0;
 }
 
 int

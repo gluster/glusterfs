@@ -8,18 +8,14 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "glusterd-op-sm.h"
 #include <inttypes.h>
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/dict.h>
-#include "protocol-common.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/timer.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/statedump.h>
@@ -29,7 +25,6 @@
 #include "glusterd-op-sm.h"
 #include "glusterd-utils.h"
 #include "glusterd-hooks.h"
-#include <glusterfs/store.h>
 #include "glusterd-store.h"
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"
@@ -4025,8 +4020,8 @@ glusterd_store_retrieve_missed_snaps_list(xlator_t *this)
         goto out;
     }
 
+    char buf[8192];
     do {
-        char buf[8192];
         ret = gf_store_read_and_tokenize(fp, &missed_node_info, &value,
                                          &store_errno, buf, 8192);
         if (ret) {

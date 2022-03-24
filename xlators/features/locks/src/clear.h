@@ -11,8 +11,6 @@
 #define __CLEAR_H__
 
 #include <glusterfs/compat-errno.h>
-#include <glusterfs/stack.h>
-#include <glusterfs/call-stub.h>
 #include "locks.h"
 
 typedef enum {
@@ -59,7 +57,8 @@ clrlk_parse_args(const char *cmd, clrlk_args *args);
 
 int
 clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
-                    int *blkd, int *granted, int *op_errno);
+                    int *blkd, int *granted, int *op_errno, char *client_uid,
+                    pid_t client_pid, bool setlk_interrupt);
 int
 clrlk_clear_inodelk(xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
                     clrlk_args *args, int *blkd, int *granted, int *op_errno);
