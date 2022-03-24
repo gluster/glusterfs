@@ -63,7 +63,7 @@ meta_default_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, fd->inode, fd->inode->ia_type);
+    meta_iatt_fill(this, &iatt, fd->inode, fd->inode->ia_type);
 
     META_STACK_UNWIND(fstat, frame, 0, 0, &iatt, xdata);
 
@@ -256,7 +256,7 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     ops->link_fill(this, loc->inode, strfd);
 
-    meta_iatt_fill(&iatt, loc->inode, IA_IFLNK);
+    meta_iatt_fill(this, &iatt, loc->inode, IA_IFLNK);
 
     if (strfd->data) {
         len = strlen(strfd->data);
@@ -282,7 +282,7 @@ meta_default_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, fd->inode, IA_IFREG);
+    meta_iatt_fill(this, &iatt, fd->inode, IA_IFREG);
 
     META_STACK_UNWIND(ftruncate, frame, 0, 0, &iatt, &iatt, xdata);
 
@@ -468,7 +468,7 @@ meta_default_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, loc->inode, IA_IFREG);
+    meta_iatt_fill(this, &iatt, loc->inode, IA_IFREG);
 
     META_STACK_UNWIND(truncate, frame, 0, 0, &iatt, &iatt, xdata);
 
@@ -481,7 +481,7 @@ meta_default_stat(call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
+    meta_iatt_fill(this, &iatt, loc->inode, loc->inode->ia_type);
 
     META_STACK_UNWIND(stat, frame, 0, 0, &iatt, xdata);
 
@@ -527,7 +527,7 @@ hook:
 
         dirent->hook(frame, this, loc, xdata);
 
-        meta_iatt_fill(&iatt, loc->inode, dirent->type);
+        meta_iatt_fill(this, &iatt, loc->inode, dirent->type);
 
         META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
                           &parent);

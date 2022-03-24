@@ -80,7 +80,8 @@ typedef struct {
     while (0)
 
 void
-meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type);
+meta_iatt_fill(xlator_t *this, struct iatt *iatt, inode_t *inode,
+               ia_type_t type);
 
 int
 meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,

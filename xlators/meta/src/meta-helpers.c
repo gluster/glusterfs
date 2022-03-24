@@ -217,18 +217,23 @@ default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type,
 }
 
 void
-meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type)
+meta_iatt_fill(xlator_t *this, struct iatt *iatt, inode_t *inode,
+               ia_type_t type)
 {
     struct meta_ops *ops = NULL;
+    xlator_t *xl = this;
 
-    ops = meta_ops_get(inode, THIS);
+    if (xl == NULL)
+        xl = THIS;
+
+    ops = meta_ops_get(inode, xl);
     if (!ops)
         return;
 
     if (!ops->iatt_fill)
         default_meta_iatt_fill(iatt, inode, type, !!ops->file_write);
     else
-        ops->iatt_fill(THIS, inode, iatt);
+        ops->iatt_fill(xl, inode, iatt);
     return;
 }
 
@@ -239,7 +244,7 @@ meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,
     struct iatt iatt = {};
     struct iatt postparent = {};
 
-    meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
+    meta_iatt_fill(this, &iatt, loc->inode, loc->inode->ia_type);
 
     META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
                       &postparent);
