@@ -122,10 +122,11 @@ meta_local_t *
 meta_local(call_frame_t *frame);
 
 int
-meta_file_fill(xlator_t *this, fd_t *fd);
+meta_file_fill(xlator_t *this, meta_fd_t *meta_fd, fd_t *fd);
 
 int
-meta_dir_fill(xlator_t *this, fd_t *fd);
+meta_dir_fill(xlator_t *this, meta_fd_t *meta_fd, struct meta_ops *ops,
+              fd_t *fd);
 
 int
 fixed_dirents_len(struct meta_dirent *dirents);

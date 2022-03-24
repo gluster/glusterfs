@@ -126,7 +126,7 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return default_readv_failure_cbk(frame, ENODATA);
 
     if (!meta_fd->size)
-        meta_file_fill(this, fd);
+        meta_file_fill(this, meta_fd, fd);
 
     iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
     if (!iobuf)
@@ -400,7 +400,7 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!meta_fd)
         goto err;
 
-    meta_dir_fill(this, fd);
+    meta_dir_fill(this, meta_fd, ops, fd);
 
     fixed_dirents = ops->fixed_dirents;
     fixed_size = fixed_dirents_len(fixed_dirents);

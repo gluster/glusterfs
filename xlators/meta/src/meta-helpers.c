@@ -252,16 +252,11 @@ meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,
 }
 
 int
-meta_file_fill(xlator_t *this, fd_t *fd)
+meta_file_fill(xlator_t *this, meta_fd_t *meta_fd, fd_t *fd)
 {
-    meta_fd_t *meta_fd = NULL;
     strfd_t *strfd = NULL;
     struct meta_ops *ops = NULL;
     int ret = 0;
-
-    meta_fd = meta_fd_get(fd, this);
-    if (!meta_fd)
-        return -1;
 
     if (meta_fd->data)
         return meta_fd->size;
@@ -292,23 +287,15 @@ meta_file_fill(xlator_t *this, fd_t *fd)
 }
 
 int
-meta_dir_fill(xlator_t *this, fd_t *fd)
+meta_dir_fill(xlator_t *this, meta_fd_t *meta_fd, struct meta_ops *ops,
+              fd_t *fd)
 {
-    meta_fd_t *meta_fd = NULL;
     struct meta_ops *ops = NULL;
     struct meta_dirent *dp = NULL;
     int ret = 0;
 
-    meta_fd = meta_fd_get(fd, this);
-    if (!meta_fd)
-        return -1;
-
     if (meta_fd->dirents)
         return meta_fd->size;
-
-    ops = meta_ops_get(fd->inode, this);
-    if (!ops)
-        return -1;
 
     if (ops->dir_fill)
         ret = ops->dir_fill(this, fd->inode, &dp);
