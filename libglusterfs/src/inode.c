@@ -577,7 +577,7 @@ __inode_ref(inode_t *inode, bool is_invalidate)
      * in inode table increases which is wrong. So just keep the ref
      * count as 1 always
      */
-    if (inode->ref && __is_root_gfid(inode->gfid))
+    if (__is_root_gfid(inode->gfid) && inode->ref)
         return inode;
 
     if (!inode->ref) {
