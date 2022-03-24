@@ -341,20 +341,20 @@ _gf_smsg(const char *domain, const char *file, const char *function,
 
 /* Logging macro for messages created by GLFS_NEW(). It uses the same logic as
  * gf_log_get_loglevel() but inline and without requiring THIS. */
-#define GF_LOG(_xl, _lvl, _data) \
-    do { \
-        xlator_t *__log_xl = (_xl); \
-        const char *__log_name = ""; \
-        uint32_t __log_level = GF_LOG_INFO; \
-        if ((__log_xl != NULL) && (__log_xl->ctx != NULL)) { \
-            __log_name = __log_xl->name; \
-            __log_level = __log_xl->ctx->log.loglevel; \
-        } \
-        if (__log_level >= (_lvl)) { \
-            typeof(_data) __log_data = _data; \
-            __log_data._process(__log_name, __FILE__, __FUNCTION__, __LINE__, \
-                                _lvl, &__log_data); \
-        } \
+#define GF_LOG(_xl, _lvl, _data)                                               \
+    do {                                                                       \
+        xlator_t *__log_xl = (_xl);                                            \
+        const char *__log_name = "";                                           \
+        uint32_t __log_level = GF_LOG_INFO;                                    \
+        if ((__log_xl != NULL) && (__log_xl->ctx != NULL)) {                   \
+            __log_name = __log_xl->name;                                       \
+            __log_level = __log_xl->ctx->log.loglevel;                         \
+        }                                                                      \
+        if (__log_level >= (_lvl)) {                                           \
+            typeof(_data) __log_data = _data;                                  \
+            __log_data._process(__log_name, __FILE__, __FUNCTION__, __LINE__,  \
+                                _lvl, &__log_data);                            \
+        }                                                                      \
     } while (0)
 
 /* Shortcut macros for different log levels. */
