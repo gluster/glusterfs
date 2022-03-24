@@ -21,14 +21,14 @@ _afr_ignorable_key_match(dict_t *d, char *k, data_t *val, void *mdata)
     return afr_is_xattr_ignorable(k);
 }
 
-void
+static void
 afr_delete_ignorable_xattrs(dict_t *xattr)
 {
     dict_foreach_match(xattr, _afr_ignorable_key_match, NULL,
                        dict_remove_foreach_fn, NULL);
 }
 
-int
+static int
 __afr_selfheal_metadata_do(call_frame_t *frame, xlator_t *this, inode_t *inode,
                            int source, unsigned char *healed_sinks,
                            struct afr_reply *locked_replies)

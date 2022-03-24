@@ -15,7 +15,7 @@
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 
-int
+static int
 afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
                               inode_t *inode, int child,
                               struct afr_reply *replies,

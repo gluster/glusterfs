@@ -111,7 +111,7 @@ afr_handle_quota_size(call_frame_t *frame, xlator_t *this)
 
 /* {{{ access */
 
-int
+static int
 afr_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                int op_errno, dict_t *xdata)
 {
@@ -132,7 +132,7 @@ afr_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     return 0;
 }
 
-int
+static int
 afr_access_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_private_t *priv = NULL;
@@ -184,7 +184,7 @@ out:
 
 /* {{{ stat */
 
-int
+static int
 afr_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
@@ -205,7 +205,7 @@ afr_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-int
+static int
 afr_stat_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_private_t *priv = NULL;
@@ -253,7 +253,7 @@ out:
 
 /* {{{ fstat */
 
-int
+static int
 afr_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iatt *buf, dict_t *xdata)
 {
@@ -274,7 +274,7 @@ afr_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-int
+static int
 afr_fstat_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_private_t *priv = NULL;
@@ -325,7 +325,7 @@ out:
 
 /* {{{ readlink */
 
-int
+static int
 afr_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, const char *buf,
                  struct iatt *sbuf, dict_t *xdata)
@@ -346,7 +346,7 @@ afr_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_readlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -404,7 +404,7 @@ struct _xattr_key {
     struct list_head list;
 };
 
-int
+static int
 __gather_xattr_keys(dict_t *dict, char *key, data_t *value, void *data)
 {
     struct list_head *list = data;
@@ -455,7 +455,7 @@ afr_getxattr_ignorable_errnos(int32_t op_errno)
 
     return _gf_false;
 }
-int
+static int
 afr_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
@@ -479,7 +479,7 @@ afr_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_getxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -501,7 +501,7 @@ afr_getxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int32_t
+static int32_t
 afr_getxattr_unwind(call_frame_t *frame, int op_ret, int op_errno, dict_t *dict,
                     dict_t *xdata)
 
@@ -510,7 +510,7 @@ afr_getxattr_unwind(call_frame_t *frame, int op_ret, int op_errno, dict_t *dict,
     return 0;
 }
 
-int32_t
+static int32_t
 afr_fgetxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *dict,
                         dict_t *xdata)
@@ -597,7 +597,7 @@ unlock:
     return ret;
 }
 
-int32_t
+static int32_t
 afr_getxattr_clrlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict,
                        dict_t *xdata)
@@ -689,7 +689,7 @@ unlock:
 /**
  * node-uuid cbk uses next child querying mechanism
  */
-int32_t
+static int32_t
 afr_getxattr_node_uuid_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *dict,
                            dict_t *xdata)
@@ -737,7 +737,7 @@ unwind:
 /**
  * list-node-uuids cbk returns the list of node_uuids for the subvolume.
  */
-int32_t
+static int32_t
 afr_getxattr_list_node_uuids_cbk(call_frame_t *frame, void *cookie,
                                  xlator_t *this, int32_t op_ret,
                                  int32_t op_errno, dict_t *dict, dict_t *xdata)
@@ -835,7 +835,7 @@ unlock:
     return ret;
 }
 
-int32_t
+static int32_t
 afr_getxattr_quota_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, dict_t *dict,
                             dict_t *xdata)
@@ -912,16 +912,12 @@ afr_update_local_dicts(call_frame_t *frame, dict_t *dict, dict_t *xdata)
         UNLOCK(&frame->lock);
     }
 
-    if (dict != NULL) {
-        if (dict_copy(dict, local->dict) == NULL) {
-            goto done;
-        }
+    if (dict_copy(dict, local->dict) == NULL) {
+        goto done;
     }
 
-    if (xdata != NULL) {
-        if (dict_copy(xdata, local->xdata_rsp) == NULL) {
-            goto done;
-        }
+    if (dict_copy(xdata, local->xdata_rsp) == NULL) {
+        goto done;
     }
 
     ret = 0;
@@ -1043,7 +1039,7 @@ afr_fgetxattr_lockinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 afr_fgetxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *dict,
                            dict_t *xdata)
@@ -1167,7 +1163,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 afr_getxattr_pathinfo_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *dict,
                           dict_t *xdata)
@@ -1302,7 +1298,7 @@ afr_aggregate_stime_xattr(dict_t *this, char *key, data_t *value, void *data)
     return ret;
 }
 
-int32_t
+static int32_t
 afr_common_getxattr_stime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               int32_t op_ret, int32_t op_errno, dict_t *dict,
                               dict_t *xdata)
@@ -1426,7 +1422,7 @@ afr_getxattr_all_subvols(xlator_t *this, call_frame_t *frame, const char *name,
     return;
 }
 
-int
+static int
 afr_marker_populate_args(call_frame_t *frame, int type, int *gauge,
                          xlator_t **subvols)
 {
@@ -1582,7 +1578,7 @@ out:
 
 /* {{{ fgetxattr */
 
-int32_t
+static int32_t
 afr_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *dict, dict_t *xdata)
 {
@@ -1606,7 +1602,7 @@ afr_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_fgetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1710,7 +1706,7 @@ out:
 
 /* {{{ readv */
 
-int
+static int
 afr_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *buf, struct iobref *iobref, dict_t *xdata)
@@ -1732,7 +1728,7 @@ afr_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-int
+static int
 afr_readv_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1789,7 +1785,7 @@ out:
 
 /* {{{ seek */
 
-int
+static int
 afr_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, off_t offset, dict_t *xdata)
 {
@@ -1809,7 +1805,7 @@ afr_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-int
+static int
 afr_seek_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
