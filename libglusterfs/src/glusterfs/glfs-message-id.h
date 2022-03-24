@@ -203,8 +203,8 @@
 
 /* Create the processing function for a message. */
 #define GLFS_PROCESS(_mod, _name, _msg, _num, _fields...)                      \
-    enum { _name##_ID = GLFS_##_mod##_COMP_BASE + __COUNTER__ };               \
-    _Static_assert((int)_name##_ID <= (int)GLFS_MSGID_COMP_##_mod##_END,       \
+    enum { _glfs_##_name = GLFS_##_mod##_COMP_BASE + __COUNTER__ };            \
+    _Static_assert((int)_glfs_##_name <= (int)GLFS_MSGID_COMP_##_mod##_END,    \
                    "Too many messages allocated for component " #_mod);        \
     static inline                                                              \
         __attribute__((__always_inline__)) void _glfs_process_##_name(         \
@@ -214,7 +214,7 @@
         GLFS_VARS(_num, ##_fields)                                             \
         _gf_log(_dom, _file, _func, _line, _level,                             \
                 "[MSGID:%u] " _msg " <" GLFS_FMTS(_num, ##_fields) ">",        \
-                _name##_ID GLFS_DATAS(_num, ##_fields));                       \
+                _glfs_##_name GLFS_DATAS(_num, ##_fields));                    \
     }
 
 /* Create the data capture function for a message. */
