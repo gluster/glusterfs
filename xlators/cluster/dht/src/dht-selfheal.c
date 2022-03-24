@@ -544,8 +544,8 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
     local->selfheal.should_heal = should_heal;
 
     tmp = local->selfheal.layout;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
-    dht_layout_unref(frame->this, tmp);
+    local->selfheal.layout = dht_layout_ref(layout);
+    dht_layout_unref(tmp);
 
     if (!newdir) {
         count = conf->subvolume_cnt;
@@ -1908,7 +1908,7 @@ dht_selfheal_new_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     inode_unref(inode);
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     dht_layout_sort_volname(layout);
     dht_selfheal_layout_new_directory(frame, &local->loc, layout);
@@ -1937,7 +1937,7 @@ dht_fix_directory_layout(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     local = frame->local;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     /* No layout sorting required here */
     tmp_layout = dht_fix_layout_of_directory(frame, &local->loc, layout);
@@ -1968,7 +1968,7 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     this = frame->this;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     if (local->need_attrheal) {
         if (__is_root_gfid(local->stbuf.ia_gfid)) {
@@ -2073,7 +2073,7 @@ dht_selfheal_restore(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     local = frame->local;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     ret = dht_selfheal_dir_mkdir(frame, loc, layout, 1);
 

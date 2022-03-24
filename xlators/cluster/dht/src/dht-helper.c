@@ -1792,18 +1792,40 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
+    dht_layout_t *old_layout = NULL;
 
-    ret = dht_inode_ctx_get(inode, this, &ctx);
-    if (!ret && ctx) {
-        ctx->layout = layout_int;
-    } else {
-        ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
-        if (!ctx)
-            return ret;
-        ctx->layout = layout_int;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx) {
+                old_layout = ctx->layout;
+                ctx->layout = layout_int;
+            }
+        }
+
+        if (!ctx) {
+            ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
+            if (ctx) {
+                ctx->layout = layout_int;
+                ctx_int = (long)ctx;
+                ret = __inode_ctx_set0(inode, this, &ctx_int);
+                if (ret)
+                    GF_FREE(ctx);
+            } else {
+                ret = -1;
+            }
+        }
+        if (!ret && layout_int)
+            dht_layout_ref(ctx->layout);
     }
+    UNLOCK(&inode->lock);
 
     ret = dht_inode_ctx_set(inode, this, ctx);
+    if (old_layout)
+        dht_layout_unref(old_layout);
 
     return ret;
 }
