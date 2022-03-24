@@ -251,6 +251,11 @@
 
 /* Helper to create an error field. */
 #define GLFS_ERROR(_name)                                                      \
+    (int32_t, _name, "%" PRId32 " (%s)", (_name, strerror(_name)))
+
+/* Helper to create an error field where the error code is encoded in a
+ * negative number. */
+#define GLFS_RESULT(_name)                                                     \
     (int32_t, _name, "%" PRId32 " (%s)", (-_name, strerror(-_name)))
 
 /* Helper to create a string field. */

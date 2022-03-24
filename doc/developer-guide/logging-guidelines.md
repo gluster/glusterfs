@@ -231,8 +231,16 @@ to use:
 
 - Errors
 
+  For positive errors:
+
   ```c
   GLFS_ERROR(name)
+  ```
+
+  For negative errors:
+
+  ```c
+  GLFS_RESULT(name)
   ```
 
 - Strings
