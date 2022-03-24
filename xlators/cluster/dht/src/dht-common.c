@@ -3016,6 +3016,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                 (parent_layout->commit_hash == conf->vol_commit_hash)) {
                 lookup_everywhere = _gf_false;
             }
+            if (!ret)
+                dht_layout_unref(parent_layout);
         }
         goto out;
     } else {
@@ -3027,6 +3029,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                     (!parent_layout->search_unhashed)) {
                     lookup_everywhere = _gf_false;
                 }
+                if (!ret)
+                    dht_layout_unref(parent_layout);
             } else {
                 lookup_everywhere = _gf_false;
             }
@@ -11212,18 +11216,26 @@ dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
 
     ret = dht_inode_ctx_get(inode, this, &ctx);
 
-    if (!ret && ctx) {
-        if (ctx->layout) {
-            if (layout)
-                *layout = ctx->layout;
-            ret = 0;
-        } else {
-            ret = -1;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx && ctx->layout) {
+                if (layout) {
+                    *layout = ctx->layout;
+                    dht_layout_ref(ctx->layout);
+                }
+            } else {
+                ret = -1;
+            }
         }
     }
+    UNLOCK(&inode->lock);
 
     return ret;
 }

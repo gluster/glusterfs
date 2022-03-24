@@ -536,7 +536,6 @@ struct dht_conf {
     int32_t refresh_interval;
     gf_lock_t subvolume_lock;
     time_t last_stat_fetch;
-    gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over
                       dht */
@@ -869,7 +868,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 void
 dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
-dht_layout_ref(xlator_t *this, dht_layout_t *layout);
+dht_layout_ref(dht_layout_t *layout);
 int
 dht_layout_index_for_subvol(dht_layout_t *layout, xlator_t *subvol);
 xlator_t *
