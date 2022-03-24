@@ -623,7 +623,7 @@ marker_start_setxattr(call_frame_t *frame, xlator_t *this)
     GF_UUID_ASSERT(local->loc.gfid);
 
     ret = dict_set_static_bin(dict, priv->marker_xattr, (void *)local->timebuf,
-                              8);
+                              sizeof(local->timebuf));
     if (ret) {
         gf_log(this->name, GF_LOG_WARNING, "failed to set marker xattr (%s)",
                local->loc.path);
@@ -650,8 +650,8 @@ marker_gettimeofday(marker_local_t *local)
 
     gettimeofday(&tv, NULL);
 
-    local->timebuf[0] = htonl(tv.tv_sec);
-    local->timebuf[1] = htonl(tv.tv_usec);
+    local->timebuf[0] = gf_host_time_to_net_time(tv.tv_sec);
+    local->timebuf[1] = gf_host_time_to_net_time(tv.tv_usec);
 
     return;
 }

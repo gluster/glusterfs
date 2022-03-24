@@ -84,7 +84,7 @@ enum {
     } while (0)
 
 struct marker_local {
-    uint32_t timebuf[2];
+    unsigned long timebuf[2];
     pid_t pid;
     loc_t loc;
     loc_t parent_loc;

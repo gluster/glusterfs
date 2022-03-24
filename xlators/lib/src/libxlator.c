@@ -27,20 +27,22 @@ static int marker_idx_errno_map[] = {
     [MCNT_MAX] = 0,
 };
 
-/*Copy the contents of oldtimebuf to newtimbuf*/
+/* Copy the contents of oldtimebuf to newtimbuf. */
+
 static void
-update_timebuf(uint32_t *oldtimbuf, uint32_t *newtimebuf)
+update_timebuf(unsigned long *oldtimbuf, unsigned long *newtimebuf)
 {
-    newtimebuf[0] = (oldtimbuf[0]);
-    newtimebuf[1] = (oldtimbuf[1]);
+    newtimebuf[0] = oldtimbuf[0];
+    newtimebuf[1] = oldtimbuf[1];
 }
 
-/* Convert Timebuf in network order to host order */
+/* Convert timebuf in network order to host order. */
+
 static void
-get_hosttime(uint32_t *oldtimbuf, uint32_t *newtimebuf)
+get_hosttime(unsigned long *oldtimbuf, unsigned long *newtimebuf)
 {
-    newtimebuf[0] = ntohl(oldtimbuf[0]);
-    newtimebuf[1] = ntohl(oldtimbuf[1]);
+    newtimebuf[0] = gf_net_time_to_host_time(oldtimbuf[0]);
+    newtimebuf[1] = gf_net_time_to_host_time(oldtimbuf[1]);
 }
 
 /* Match the Incoming trusted.glusterfs.<uuid>.xtime against volume uuid */
@@ -176,8 +178,8 @@ cluster_markerxtime_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 {
     int32_t callcnt = 0;
-    uint32_t *net_timebuf = NULL;
-    uint32_t host_timebuf[2] = {
+    unsigned long *net_timebuf = NULL;
+    unsigned long host_timebuf[2] = {
         0,
     };
     char marker_xattr[128] = {0};
@@ -224,7 +226,8 @@ unlock:
     UNLOCK(&frame->lock);
 post_unlock:
     if (callcnt == 0)
-        cluster_marker_unwind(frame, marker_xattr, local->net_timebuf, 8, dict);
+        cluster_marker_unwind(frame, marker_xattr, local->net_timebuf,
+                              sizeof(local->net_timebuf), dict);
 
     return 0;
 }
@@ -299,23 +302,23 @@ int
 gf_get_min_stime(xlator_t *this, dict_t *dst, char *key, data_t *value)
 {
     int ret = -1;
-    uint32_t *net_timebuf = NULL;
-    uint32_t *value_timebuf = NULL;
-    uint32_t host_timebuf[2] = {
+    unsigned long *net_timebuf = NULL;
+    unsigned long *value_timebuf = NULL;
+    unsigned long host_timebuf[2] = {
         0,
     };
-    uint32_t host_value_timebuf[2] = {
+    unsigned long host_value_timebuf[2] = {
         0,
     };
 
     /* stime should be minimum of all the other nodes */
     ret = dict_get_bin(dst, key, (void **)&net_timebuf);
     if (ret < 0) {
-        net_timebuf = GF_CALLOC(1, sizeof(int64_t), gf_common_mt_char);
+        net_timebuf = GF_CALLOC(2, sizeof(unsigned long), gf_common_mt_char);
         if (!net_timebuf)
             goto out;
 
-        ret = dict_set_bin(dst, key, net_timebuf, sizeof(int64_t));
+        ret = dict_set_bin(dst, key, net_timebuf, 2 * sizeof(unsigned long));
         if (ret < 0) {
             gf_log(this->name, GF_LOG_WARNING, "key=%s: dict set failed", key);
             goto error;
@@ -356,23 +359,23 @@ int
 gf_get_max_stime(xlator_t *this, dict_t *dst, char *key, data_t *value)
 {
     int ret = -ENOMEM;
-    uint32_t *net_timebuf = NULL;
-    uint32_t *value_timebuf = NULL;
-    uint32_t host_timebuf[2] = {
+    unsigned long *net_timebuf = NULL;
+    unsigned long *value_timebuf = NULL;
+    unsigned long host_timebuf[2] = {
         0,
     };
-    uint32_t host_value_timebuf[2] = {
+    unsigned long host_value_timebuf[2] = {
         0,
     };
 
     /* stime should be maximum of all the other nodes */
     ret = dict_get_bin(dst, key, (void **)&net_timebuf);
     if (ret < 0) {
-        net_timebuf = GF_CALLOC(1, sizeof(int64_t), gf_common_mt_char);
+        net_timebuf = GF_CALLOC(2, sizeof(unsigned long), gf_common_mt_char);
         if (!net_timebuf)
             goto out;
 
-        ret = dict_set_bin(dst, key, net_timebuf, sizeof(int64_t));
+        ret = dict_set_bin(dst, key, net_timebuf, 2 * sizeof(unsigned long));
         if (ret < 0) {
             gf_log(this->name, GF_LOG_WARNING, "key=%s: dict set failed", key);
             goto error;

@@ -105,8 +105,8 @@ struct marker_str {
     struct volume_mark *volmark;
     data_t *data;
 
-    uint32_t host_timebuf[2];
-    uint32_t net_timebuf[2];
+    unsigned long host_timebuf[2];
+    unsigned long net_timebuf[2];
     int32_t call_count;
     int gauge[MCNT_MAX];
     int count[MCNT_MAX];
@@ -142,5 +142,35 @@ gf_get_min_stime(xlator_t *this, dict_t *dst, char *key, data_t *value);
 
 int
 gf_get_max_stime(xlator_t *this, dict_t *dst, char *key, data_t *value);
+
+/* These assumes that the network byte order is big endian for sure. */
+
+static inline unsigned long
+gf_net_time_to_host_time(unsigned long t)
+{
+#if __BYTE_ORDER == __BIG_ENDIAN
+    return t;
+#else /* __LITTLE_ENDIAN */
+#if defined(__LP64__)
+    return be64toh(t);
+#else /* assume 32-bit system */
+    return be32toh(t);
+#endif /* __LP64__ */
+#endif /* __BYTE_ORDER */
+}
+
+static inline unsigned long
+gf_host_time_to_net_time(unsigned long t)
+{
+#if __BYTE_ORDER == __BIG_ENDIAN
+    return t;
+#else /* __LITTLE_ENDIAN */
+#if defined(__LP64__)
+    return htobe64(t);
+#else /* assume 32-bit system */
+    return htobe32(t);
+#endif /* __LP64__ */
+#endif /* __BYTE_ORDER */
+}
 
 #endif /* !_LIBXLATOR_H */
