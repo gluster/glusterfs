@@ -45,7 +45,7 @@ done
 shift $((OPTIND-1))
 
 
-branch="devel";
+branch="release-10";
 
 set_hooks_commit_msg()
 {
