@@ -291,7 +291,6 @@ int
 meta_dir_fill(xlator_t *this, meta_fd_t *meta_fd, struct meta_ops *ops,
               fd_t *fd)
 {
-    struct meta_ops *ops = NULL;
     struct meta_dirent *dp = NULL;
     int ret = 0;
 
