@@ -16,8 +16,6 @@
 
 #define META_ROOT_GFID "ba926388-bb9c-4eec-ad60-79dba4cc083a"
 
-#define IS_META_ROOT_GFID(g) (strcmp(uuid_utoa(g), META_ROOT_GFID) == 0)
-
 typedef int (*meta_hook_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                            dict_t *xdata);
 
@@ -27,6 +25,7 @@ typedef struct {
 
 typedef struct {
     char *meta_dir_name;
+    unsigned char meta_root_gfid[GF_UUID_BUF_SIZE];
 } meta_priv_t;
 
 struct meta_dirent {
@@ -56,12 +55,6 @@ typedef struct {
 } meta_fd_t;
 
 #define COUNT(arr) (sizeof(arr) / sizeof(arr[0]))
-
-#define META_HOOK(loc)                                                         \
-    (__is_root_gfid(loc->pargfid) &&                                           \
-     !strcmp(loc->name, META_PRIV(THIS)->meta_dir_name))
-
-#define META_PRIV(t) ((meta_priv_t *)(t->private))
 
 #define META_STACK_UNWIND(fop, frame, params...)                               \
     do {                                                                       \
