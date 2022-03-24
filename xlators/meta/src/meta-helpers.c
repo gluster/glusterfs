@@ -129,7 +129,7 @@ meta_ctx_set(inode_t *inode, xlator_t *this, void *ctx)
 }
 
 void
-meta_local_cleanup(meta_local_t *local, xlator_t *this)
+meta_local_cleanup(meta_local_t *local)
 {
     if (!local)
         return;

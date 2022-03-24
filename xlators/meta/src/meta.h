@@ -59,15 +59,13 @@ typedef struct {
 #define META_STACK_UNWIND(fop, frame, params...)                               \
     do {                                                                       \
         meta_local_t *__local = NULL;                                          \
-        xlator_t *__this = NULL;                                               \
         if (frame) {                                                           \
             __local = frame->local;                                            \
-            __this = frame->this;                                              \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
         if (__local) {                                                         \
-            meta_local_cleanup(__local, __this);                               \
+            meta_local_cleanup(__local);                                       \
         }                                                                      \
     } while (0)
 
@@ -105,7 +103,7 @@ void *
 meta_ctx_get(inode_t *inode, xlator_t *this);
 
 void
-meta_local_cleanup(meta_local_t *local, xlator_t *this);
+meta_local_cleanup(meta_local_t *local);
 
 struct xlator_fops *
 meta_defaults_init(struct xlator_fops *fops);
