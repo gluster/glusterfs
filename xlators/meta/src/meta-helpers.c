@@ -141,7 +141,7 @@ meta_local_cleanup(meta_local_t *local)
     return;
 }
 
-meta_local_t *
+static meta_local_t *
 meta_local(call_frame_t *frame)
 {
     meta_local_t *local = NULL;

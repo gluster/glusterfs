@@ -118,9 +118,6 @@ meta_fd_release(fd_t *fd, xlator_t *this);
 dict_t *
 meta_direct_io_mode(dict_t *xdata, call_frame_t *frame);
 
-meta_local_t *
-meta_local(call_frame_t *frame);
-
 int
 meta_file_fill(xlator_t *this, meta_fd_t *meta_fd, fd_t *fd);
 
