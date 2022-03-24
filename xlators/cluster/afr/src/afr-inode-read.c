@@ -912,16 +912,12 @@ afr_update_local_dicts(call_frame_t *frame, dict_t *dict, dict_t *xdata)
         UNLOCK(&frame->lock);
     }
 
-    if (dict != NULL) {
-        if (dict_copy(dict, local->dict) == NULL) {
-            goto done;
-        }
+    if (dict_copy(dict, local->dict) == NULL) {
+        goto done;
     }
 
-    if (xdata != NULL) {
-        if (dict_copy(xdata, local->xdata_rsp) == NULL) {
-            goto done;
-        }
+    if (dict_copy(xdata, local->xdata_rsp) == NULL) {
+        goto done;
     }
 
     ret = 0;

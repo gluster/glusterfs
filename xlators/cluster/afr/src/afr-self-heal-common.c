@@ -2281,7 +2281,7 @@ afr_is_entry_set(xlator_t *this, dict_t *xdata)
  * we have to proceed with locked reinspection.
  */
 
-static int
+int
 afr_selfheal_unlocked_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                               inode_t **link_inode, gf_boolean_t *data_selfheal,
                               gf_boolean_t *metadata_selfheal,

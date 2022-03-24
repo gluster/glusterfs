@@ -40,7 +40,7 @@ __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
 static void
 afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_changelog_post_op_safe(call_frame_t *frame, xlator_t *this);
 
 static gf_boolean_t

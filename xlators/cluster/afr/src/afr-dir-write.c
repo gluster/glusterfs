@@ -23,7 +23,7 @@
 
 #include "afr-transaction.h"
 
-void
+static void
 afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this);
 
 static int
