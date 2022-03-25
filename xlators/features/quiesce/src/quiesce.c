@@ -174,16 +174,15 @@ __gf_quiesce_perform_failover(xlator_t *this)
                         &priv->failover_list, list) {
                 failover_host->tried = 0;
         }*/
-        gf_msg_debug(this->name, 0,
-                     "all the failover hosts have "
-                     "been tried and looks like didn't succeed");
+        GF_LOG_D(this->name, "All the failover hosts have been tried and looks "
+                             "like didn't succeed", 0);
         ret = -1;
         goto out;
     }
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        gf_msg_debug(this->name, 0, "failed to create the frame");
+        GF_LOG_D(this->name, "Failed to create the frame", 0);
         ret = -1;
         goto out;
     }

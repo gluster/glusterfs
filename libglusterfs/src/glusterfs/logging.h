@@ -356,7 +356,19 @@ _gf_smsg(const char *domain, const char *file, const char *function,
 #define GF_LOG_E(_name, _data) GF_LOG(_name, GF_LOG_ERROR, _data)
 #define GF_LOG_W(_name, _data) GF_LOG(_name, GF_LOG_WARNING, _data)
 #define GF_LOG_I(_name, _data) GF_LOG(_name, GF_LOG_INFO, _data)
-#define GF_LOG_D(_name, _data) GF_LOG(_name, GF_LOG_DEBUG, _data)
-#define GF_LOG_T(_name, _data) GF_LOG(_name, GF_LOG_TRACE, _data)
+
+#define GF_LOG_D(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_DEBUG) {                              \
+            GLFS_DEBUG(_name, _msg, _num, ## _fields);                         \
+        }                                                                      \
+    } while (0)
+
+#define GF_LOG_T(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_TRACE) {                              \
+            GLFS_TRACE(_name, _msg, _num, ## _fields);                         \
+        }                                                                      \
+    } while (0)
 
 #endif /* __LOGGING_H__ */

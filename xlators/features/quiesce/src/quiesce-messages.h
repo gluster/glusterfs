@@ -33,7 +33,7 @@ GLFS_NEW(QUIESCE, QUIESCE_MSG_INVAL_HOST, "Invalid internet address", 1,
 
 GLFS_NEW(QUIESCE, QUIESCE_MSG_FAILOVER_FAILED, "Failed to initiate failover", 2,
     GLFS_STR(host),
-    GLFS_ERROR(error)
+    GLFS_ERR(error)
 )
 
 // clang-format on

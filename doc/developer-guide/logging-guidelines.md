@@ -113,6 +113,14 @@ The main advantages are:
 
 ### Definition of new messages
 
+All messages at log level INFO or above need to be declared inside a header
+file. They will be assigned a unique identifier that will appear in the logs
+so that specific messages can be easily located even if the text description
+changes.
+
+For DEBUG and TRACE messages, we don't assign a unique identifier to them and
+the message is defined in-place where it's used with a very similar format.
+
 #### Creating a new component
 
 If a new xlator or component is created that requires some messages, the first
@@ -122,8 +130,8 @@ This is done by adding a new `GLFS_MSGID_COMP()` entry at the end of the
 `enum _msgid_comp`. A unique name and a number of blocks to reserve must
 be specified (each block can contain up to 1000 messages).
 
-> Example:
->
+Example:
+
 > ```c
 >     GLFS_MSGID_COMP(EXAMPLE, 1),
 >     /* --- new segments for messages goes above this line --- */
@@ -136,8 +144,8 @@ a starting point for the messages of the new component. Check the comments of
 that file for more information, but basically you need to use the macro
 `GLFS_COMPONENT()` before starting defining the messages.
 
-> Example:
->
+Example:
+
 > ```c
 > GLFS_COMPONENT(EXAMPLE);
 > ```
@@ -166,6 +174,10 @@ mandatory arguments:
 If there are extra data fields, for each field you must add field definition
 inside the macro.
 
+For debug and trace logs, messages are not predefined. Wherever a these
+messages are used, the definition of the message itself is used instead of
+the name of the message.
+
 ##### Field definitions
 
 Each field consists of five arguments, written between parenthesis:
@@ -180,86 +192,74 @@ Each field consists of five arguments, written between parenthesis:
    This is the name that will be used to reference the data and to show it in
    the log message. It must be a valid C identifier.
 
-3. **Format string**
+3. **Data source**
+
+   This is only used for in-place messages. It's a simple piece of code to
+   access the data. It can be just a variable name or something a bit more
+   complex like a structure access or even a function call returning a value.
+
+4. **Format string**
 
    This is a string representing the way in which this data will be shown in
    the log. It can be something as simple as '%u' or a bit more elaborated
    like '%d (%s)', depending on how we want to show something.
 
-4. **Format data**
+5. **Format data**
 
    This must be a list of expressions to generate each of the arguments needed
    for the format string. In most cases this will be just the name of the
    field, but it could be something else if the data needs to be processed.
 
-5. **Preparation code**
+6. **Preparation code**
 
    This is optional. If present it must contain any additional variable
    definition and code to prepare the format data.
 
-> Examples:
->
+Examples for message definitions:
+
 > ```c
->     (uint32_t, value, "%u", (value))
+>     (uint32_t, value, , "%u", (value))
 > ```
 >
 > ```c
->     (int32_t, error, "%d (%s)", (error, strerror(error)))
+>     (int32_t, error, , "%d (%s)", (error, strerror(error)))
 > ```
 >
 > ```c
->     (uuid_t *, gfid, "%s", (gfid_str),
+>     (uuid_t *, gfid, , "%s", (gfid_str),
+>      char gfid_str[48]; uuid_unparse(*gfid, gfid_str))
+> ```
+
+Examples for in-place messages:
+
+> ```c
+>     (uint32_t, value, data->count, "%u", (value))
+> ```
+>
+> ```c
+>     (int32_t, error, errno, "%d (%s)", (error, strerror(error)))
+> ```
+>
+> ```c
+>     (uuid_t *, gfid, &inode->gfid, "%s", (gfid_str),
 >      char gfid_str[48]; uuid_unparse(*gfid, gfid_str))
 > ```
 
 ##### Predefined data types
 
-Some macros are available to declare typical data types and make it easier
+Some macros are available to declare typical data types and make them easier
 to use:
 
-- Signed integers
+- Signed integers: `GLFS_INT(name [, src])`
+- Unsigned integers: `GLFS_UINT(name [, src])`
+- Errors:
+  - Positive errors: `GLFS_ERR(name [, src])`
+  - Negative errors: `GLFS_RES(name [, src])`
+- Strings: `GLFS_STR(name [, src])`
+- UUIDs: `GLFS_UUID(name [, src])`
+- Pointers: `GLFS_PTR(name [, src])`
 
-  ```c
-  GLFS_INT(name)
-  ```
-
-- Unsigned integers
-
-  ```c
-  GLFS_UINT(name)
-  ```
-
-- Errors
-
-  For positive errors:
-
-  ```c
-  GLFS_ERROR(name)
-  ```
-
-  For negative errors:
-
-  ```c
-  GLFS_RESULT(name)
-  ```
-
-- Strings
-
-  ```c
-  GLFS_STR(name)
-  ```
-
-- UUIDs
-
-  ```c
-  GLFS_UUID(name)
-  ```
-
-- Pointers
-
-  ```c
-  GLFS_PTR(name)
-  ```
+The `src` argument is only used for in-place messages.
 
 This is a full example that defines a new message using the previous macros:
 
@@ -267,7 +267,7 @@ This is a full example that defines a new message using the previous macros:
 GLFS_NEW(EXAMPLE, MSG_TEST, "This is a test message", 3,
     GLFS_UINT(number),
     GLFS_STR(name),
-    GLFS_ERROR(error)
+    GLFS_ERR(error)
 )
 ```
 
@@ -288,12 +288,13 @@ Once a message is defined, it can be logged using the following macros:
 - `GF_LOG_D()`: log a debug message
 - `GF_LOG_T()`: log a trace message
 
-All macros receive a string, representing the domain of the log message, and
-the message itself. The additional data of the message is passed after the message name
-between parenthesis.
+All macros receive a string, representing the domain of the log message. For
+INFO or higher messages, the name of the messages is passed, including all
+additional data between parenthesis. In case of DEBUG and TRACE messages, a
+message definition follows.
 
-> Example:
->
+Example:
+
 > ```c
 >     GF_LOG_I(this->name, MSG_TEST(10, "something", ENOENT));
 > ```
@@ -303,3 +304,15 @@ The resulting logging message would be similar to this:
 ```c
 "This is a test message <{number=10}, {name='something'}, {error=2 (File not found)}>"
 ```
+
+A similar example with a debug message:
+
+> ```c
+>     GF_LOG_D(this->name, "Debug message",
+>         GLFS_UINT(number, data->value),
+>         GLFS_STR(name),
+>         GLFS_ERR(error, op_errno)
+>     );
+
+Note that if the field name matches the source of the data as in the case of
+the second field, the source argument can be omitted.
