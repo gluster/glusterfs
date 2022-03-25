@@ -48,7 +48,8 @@
  *        GLFS_STR(name),
  *        GLFS_UUID(gfid),
  *        GLFS_PTR(pointer),
- *        GLFS_ERROR(error)
+ *        GLFS_ERR(error),
+ *        GLFS_RES(result)
  *    )
  */
 
