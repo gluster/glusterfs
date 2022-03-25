@@ -105,12 +105,14 @@ call_bail(void *data)
     };
     char peerid[UNIX_PATH_MAX] = {0};
     gf_boolean_t need_unref = _gf_false;
+    glusterfs_ctx_t *ctx = NULL;
 
     GF_VALIDATE_OR_GOTO("client", data, out);
 
     clnt = data;
 
     conn = &clnt->conn;
+    ctx = clnt->ctx;
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
@@ -122,7 +124,7 @@ call_bail(void *data)
     pthread_mutex_unlock(&conn->lock);
     /*rpc_clnt_connection_cleanup will be unwinding all saved frames,
      * bailed or otherwise*/
-    if (!trans)
+    if (!trans || ctx->cleanup_started)
         goto out;
 
     gettimeofday(&current, NULL);
@@ -370,13 +372,15 @@ rpc_clnt_reconnect(void *conn_ptr)
     struct rpc_clnt *clnt = NULL;
     gf_boolean_t need_unref = _gf_false;
     gf_boolean_t canceled_unref = _gf_false;
+    glusterfs_ctx_t *ctx = NULL;
 
     conn = conn_ptr;
     clnt = conn->rpc_clnt;
+    ctx = clnt->ctx;
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
-        if (!trans)
+        if (!trans || ctx->cleanup_started)
             goto out_unlock;
 
         if (conn->reconnect) {
