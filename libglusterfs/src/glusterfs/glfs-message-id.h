@@ -232,7 +232,8 @@
 /* Create the data capture function for a message. */
 #define GLFS_CREATE(_name, _attr, _num, _fields...)                            \
     static inline __attribute__((__always_inline__, __warn_unused_result__))   \
-    _attr struct _glfs_##_name _name(GLFS_ARGS(_num, ##_fields))               \
+    _attr struct _glfs_##_name                                                 \
+    _name(GLFS_ARGS(_num, ##_fields))                                          \
     {                                                                          \
         return (struct _glfs_##_name){                                         \
             _glfs_process_##_name GLFS_NAMES(_num, ##_fields)};                \
