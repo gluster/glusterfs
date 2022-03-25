@@ -359,15 +359,15 @@ _gf_smsg(const char *domain, const char *file, const char *function,
 
 #define GF_LOG_D(_name, _msg, _num, _fields...)                                \
     do {                                                                       \
-        if (global_ctx->log.loglevel >= GF_LOG_DEBUG) {                              \
-            GLFS_DEBUG(_name, _msg, _num, ## _fields);                         \
+        if (global_ctx->log.loglevel >= GF_LOG_DEBUG) {                        \
+            GLFS_DEBUG(_name, _msg, _num, ##_fields);                          \
         }                                                                      \
     } while (0)
 
 #define GF_LOG_T(_name, _msg, _num, _fields...)                                \
     do {                                                                       \
-        if (global_ctx->log.loglevel >= GF_LOG_TRACE) {                              \
-            GLFS_TRACE(_name, _msg, _num, ## _fields);                         \
+        if (global_ctx->log.loglevel >= GF_LOG_TRACE) {                        \
+            GLFS_TRACE(_name, _msg, _num, ##_fields);                          \
         }                                                                      \
     } while (0)
 

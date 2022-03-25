@@ -129,25 +129,25 @@
     _macro _f GLFS_EXPAND _in GLFS_APPLY_1(_macro, _in, _more)
 
 #define GLFS_APPLY_3(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_2(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_2(_macro, _in, ##_more)
 
 #define GLFS_APPLY_4(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_3(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_3(_macro, _in, ##_more)
 
 #define GLFS_APPLY_5(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_4(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_4(_macro, _in, ##_more)
 
 #define GLFS_APPLY_6(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_5(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_5(_macro, _in, ##_more)
 
 #define GLFS_APPLY_7(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_6(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_6(_macro, _in, ##_more)
 
 #define GLFS_APPLY_8(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_7(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_7(_macro, _in, ##_more)
 
 #define GLFS_APPLY_9(_macro, _in, _f, _more...)                                \
-    _macro _f GLFS_EXPAND _in GLFS_APPLY_8(_macro, _in, ## _more)
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_8(_macro, _in, ##_more)
 
 /* Apply a macro to a variable number of fields. */
 #define GLFS_APPLY(_macro, _in, _num, _fields...)                              \
@@ -187,8 +187,7 @@
     GLFS_APPLY(GLFS_FIELD, (), _num, ##_fields)
 
 /* Generate a list of the names of all fields. */
-#define GLFS_NAMES(_num, _fields...)                                           \
-    GLFS_APPLY(GLFS_NAME, (), _num, ##_fields)
+#define GLFS_NAMES(_num, _fields...) GLFS_APPLY(GLFS_NAME, (), _num, ##_fields)
 
 /* Generate a format string for all fields. */
 #define GLFS_FMTS(_num, _fields...)                                            \
@@ -233,8 +232,7 @@
 /* Create the data capture function for a message. */
 #define GLFS_CREATE(_name, _attr, _num, _fields...)                            \
     static inline __attribute__((__always_inline__, __warn_unused_result__))   \
-    _attr struct _glfs_##_name                                                 \
-    _name(GLFS_ARGS(_num, ##_fields))                                          \
+    _attr struct _glfs_##_name _name(GLFS_ARGS(_num, ##_fields))               \
     {                                                                          \
         return (struct _glfs_##_name){                                         \
             _glfs_process_##_name GLFS_NAMES(_num, ##_fields)};                \
@@ -244,16 +242,16 @@
     do {                                                                       \
         GLFS_COPIES(_num, ##_fields)                                           \
         _gf_log(_dom, __FILE__, __FUNCTION__, __LINE__, GF_LOG_DEBUG,          \
-                "[MSGID:DBG] " _msg " <" GLFS_FMTS(_num, ##_fields) ">"        \
-                GLFS_DATAS(_num, ##_fields));                                  \
+                "[MSGID:DBG] " _msg " <" GLFS_FMTS(                            \
+                    _num, ##_fields) ">" GLFS_DATAS(_num, ##_fields));         \
     } while (0)
 
 #define GLFS_TRACE(_dom, _msg, _num, _fields...)                               \
     do {                                                                       \
         GLFS_COPIES(_num, ##_fields)                                           \
         _gf_log(_dom, __FILE__, __FUNCTION__, __LINE__, GF_LOG_TRACE,          \
-                "[MSGID:TRC] " _msg " <" GLFS_FMTS(_num, ##_fields) ">"        \
-                GLFS_NAMES(_num, ##_fields));                                  \
+                "[MSGID:TRC] " _msg " <" GLFS_FMTS(                            \
+                    _num, ##_fields) ">" GLFS_NAMES(_num, ##_fields));         \
     } while (0)
 
 /* Create a new message. */
@@ -278,40 +276,40 @@
 
 /* Map a field name to its source. If source is not present, use the name */
 #define GLFS_MAP1(_dummy, _src, _data...) _src
-#define GLFS_MAP(_name, _src...) GLFS_MAP1(, ## _src, _name)
+#define GLFS_MAP(_name, _src...) GLFS_MAP1(, ##_src, _name)
 
 /* Helper to create an unsigned integer field. */
 #define GLFS_UINT(_name, _src...)                                              \
-    (uint32_t, _name, GLFS_MAP(_name, ## _src), "%" PRIu32, (GLFS_GET(_name)))
+    (uint32_t, _name, GLFS_MAP(_name, ##_src), "%" PRIu32, (GLFS_GET(_name)))
 
 /* Helper to create a signed integer field. */
 #define GLFS_INT(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ## _src), "%" PRId32, (GLFS_GET(_name)))
+    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32, (GLFS_GET(_name)))
 
 /* Helper to create an error field. */
 #define GLFS_ERR(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ## _src), "%" PRId32 " (%s)",             \
+    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32 " (%s)",              \
      (GLFS_GET(_name), strerror(GLFS_GET(_name))))
 
 /* Helper to create an error field where the error code is encoded in a
  * negative number. */
 #define GLFS_RES(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ## _src), "%" PRId32 " (%s)",             \
+    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32 " (%s)",              \
      (-GLFS_GET(_name), strerror(-GLFS_GET(_name))))
 
 /* Helper to create a string field. */
 #define GLFS_STR(_name, _src...)                                               \
-    (const char *, _name, GLFS_MAP(_name, ## _src), "'%s'", (GLFS_GET(_name)))
+    (const char *, _name, GLFS_MAP(_name, ##_src), "'%s'", (GLFS_GET(_name)))
 
 /* Helper to create a gfid field. */
 #define GLFS_UUID(_name, _src...)                                              \
-    (const uuid_t *, _name, GLFS_MAP(_name, ## _src), "%s",                    \
+    (const uuid_t *, _name, GLFS_MAP(_name, ##_src), "%s",                     \
      (*GLFS_GET(_name##_buff)), char GLFS_GET(_name##_buff)[48];               \
      uuid_unparse(*GLFS_GET(_name), GLFS_GET(_name##_buff)))
 
 /* Helper to create a pointer field. */
 #define GLFS_PTR(_name, _src...)                                               \
-    (void *, _name, GLFS_MAP(_name, ## _src), "%p", (GLFS_GET(_name)))
+    (void *, _name, GLFS_MAP(_name, ##_src), "%p", (GLFS_GET(_name)))
 
 /* Per module message segments allocated */
 /* NOTE: For any new module add to the end the modules */

@@ -174,8 +174,10 @@ __gf_quiesce_perform_failover(xlator_t *this)
                         &priv->failover_list, list) {
                 failover_host->tried = 0;
         }*/
-        GF_LOG_D(this->name, "All the failover hosts have been tried and looks "
-                             "like didn't succeed", 0);
+        GF_LOG_D(this->name,
+                 "All the failover hosts have been tried and looks like "
+                 "didn't succeed",
+                 0);
         ret = -1;
         goto out;
     }
