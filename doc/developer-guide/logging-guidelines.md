@@ -316,3 +316,49 @@ A similar example with a debug message:
 
 Note that if the field name matches the source of the data as in the case of
 the second field, the source argument can be omitted.
+
+## Migration from older interfaces
+
+Given the amount of existing messages, it's not feasible to migrate all of
+them at once, so a special macro is provided to allow incremental migration
+of existing log messages.
+
+1. Migrate header file
+
+   The first step is to update the header file where all message IDs are
+   defined.
+
+   - Initialize the component
+
+     You need to add the `GLFS_COMPONENT()` macro at the beginning with the
+     appropriate component name. This name can be found in the first argument
+     of the existing `GLFS_MSGID()` macro.
+
+   - Replace message definitions
+
+     All existing messages inside `GLFS_MSGID()` need to be converted to:
+
+     ```c
+     GLFS_MIG(component, id, "", 0)
+     ```
+
+     Where `component` is the name of the component used in `GLFS_COMPONENT()`,
+     and `id` is each of the existing IDs inside `GLFS_MSGID()`.
+
+     This step will use the new way of defining messages, but is compatible
+     with the old logging interface, so once this is done, the code should
+     compile fine.
+
+2. Migrate a message
+
+   It's possible to migrate the messages one by one without breaking anything.
+
+   For each message to migrate:
+
+   - Choose one message.
+   - Replace `GLFS_MIG` by `GLFS_NEW`.
+   - Add a meaningful message text as the third argument.
+   - Update the number of fields if necessary.
+   - Add the required field definition.
+   - Look for each instance of the log message in the code.
+   - Replace the existing log macro by one of the `GF_LOG_*()` macros.

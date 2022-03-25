@@ -268,13 +268,17 @@
     GLFS_PROCESS(_mod, _name, _msg, _num, ##_fields)                           \
     GLFS_CREATE(_name, __attribute__((__deprecated__)), _num, ##_fields)
 
-/* Map a field name to its source. If source is not present, use the name */
-#define GLFS_MAP1(_dummy, _src, _data...) _src
-#define GLFS_MAP(_name, _src...) GLFS_MAP1(, ## _src, _name)
-
 /* Create a deleted message. */
 #define GLFS_GONE(_mod, _name, _msg, _num, _fields...)                         \
     enum { _name##_ID_GONE = GLFS_##_mod##_COMP_BASE + __COUNTER__ };
+
+/* Create a new message compatible with the old interface. */
+#define GLFS_MIG(_mod, _name, _msg, _num, _fields...)                          \
+    enum { _name = GLFS_##_mod##_COMP_BASE + __COUNTER__ };
+
+/* Map a field name to its source. If source is not present, use the name */
+#define GLFS_MAP1(_dummy, _src, _data...) _src
+#define GLFS_MAP(_name, _src...) GLFS_MAP1(, ## _src, _name)
 
 /* Helper to create an unsigned integer field. */
 #define GLFS_UINT(_name, _src...)                                              \
