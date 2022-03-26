@@ -651,6 +651,8 @@ socket_client_get_remote_sockaddr(rpc_transport_t *this,
     /* Address-family is updated based on remote_host in
        af_inet_client_get_remote_sockaddr
     */
+    if (ret == -1)
+        goto err;
     if (*sa_family != sockaddr->sa_family) {
         *sa_family = sockaddr->sa_family;
     }
