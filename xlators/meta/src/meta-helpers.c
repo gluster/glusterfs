@@ -129,7 +129,7 @@ meta_ctx_set(inode_t *inode, xlator_t *this, void *ctx)
 }
 
 void
-meta_local_cleanup(meta_local_t *local, xlator_t *this)
+meta_local_cleanup(meta_local_t *local)
 {
     if (!local)
         return;
@@ -141,7 +141,7 @@ meta_local_cleanup(meta_local_t *local, xlator_t *this)
     return;
 }
 
-meta_local_t *
+static meta_local_t *
 meta_local(call_frame_t *frame)
 {
     meta_local_t *local = NULL;
@@ -175,9 +175,10 @@ meta_direct_io_mode(dict_t *xdata, call_frame_t *frame)
 static void
 meta_uuid_copy(uuid_t dst, uuid_t src)
 {
-    gf_uuid_copy(dst, src);
-    if (gf_uuid_is_null(dst))
+    if (gf_uuid_is_null(src))
         gf_uuid_generate(dst);
+    else
+        gf_uuid_copy(dst, src);
 }
 
 static void
@@ -217,18 +218,23 @@ default_meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type,
 }
 
 void
-meta_iatt_fill(struct iatt *iatt, inode_t *inode, ia_type_t type)
+meta_iatt_fill(xlator_t *this, struct iatt *iatt, inode_t *inode,
+               ia_type_t type)
 {
     struct meta_ops *ops = NULL;
+    xlator_t *xl = this;
 
-    ops = meta_ops_get(inode, THIS);
+    if (xl == NULL)
+        xl = THIS;
+
+    ops = meta_ops_get(inode, xl);
     if (!ops)
         return;
 
     if (!ops->iatt_fill)
         default_meta_iatt_fill(iatt, inode, type, !!ops->file_write);
     else
-        ops->iatt_fill(THIS, inode, iatt);
+        ops->iatt_fill(xl, inode, iatt);
     return;
 }
 
@@ -239,7 +245,7 @@ meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,
     struct iatt iatt = {};
     struct iatt postparent = {};
 
-    meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
+    meta_iatt_fill(this, &iatt, loc->inode, loc->inode->ia_type);
 
     META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
                       &postparent);
@@ -247,16 +253,11 @@ meta_inode_discover(call_frame_t *frame, xlator_t *this, loc_t *loc,
 }
 
 int
-meta_file_fill(xlator_t *this, fd_t *fd)
+meta_file_fill(xlator_t *this, meta_fd_t *meta_fd, fd_t *fd)
 {
-    meta_fd_t *meta_fd = NULL;
     strfd_t *strfd = NULL;
     struct meta_ops *ops = NULL;
     int ret = 0;
-
-    meta_fd = meta_fd_get(fd, this);
-    if (!meta_fd)
-        return -1;
 
     if (meta_fd->data)
         return meta_fd->size;
@@ -287,23 +288,14 @@ meta_file_fill(xlator_t *this, fd_t *fd)
 }
 
 int
-meta_dir_fill(xlator_t *this, fd_t *fd)
+meta_dir_fill(xlator_t *this, meta_fd_t *meta_fd, struct meta_ops *ops,
+              fd_t *fd)
 {
-    meta_fd_t *meta_fd = NULL;
-    struct meta_ops *ops = NULL;
     struct meta_dirent *dp = NULL;
     int ret = 0;
 
-    meta_fd = meta_fd_get(fd, this);
-    if (!meta_fd)
-        return -1;
-
     if (meta_fd->dirents)
         return meta_fd->size;
-
-    ops = meta_ops_get(fd->inode, this);
-    if (!ops)
-        return -1;
 
     if (ops->dir_fill)
         ret = ops->dir_fill(this, fd->inode, &dp);
