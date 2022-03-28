@@ -455,7 +455,7 @@ fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
     inode_t *parent = NULL;
     int32_t ret = -1;
     char *path = NULL;
-    uuid_t null_gfid = {
+    static uuid_t null_gfid = {
         0,
     };
 
