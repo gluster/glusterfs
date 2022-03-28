@@ -1196,8 +1196,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
     ret = dht_build_parent_loc(this, &parent, loc, &op_errno);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, op_errno, DHT_MSG_LOC_FAILED,
-                "gfid=%s", loc->gfid, "name=%s", loc->name, "path=%s",
-                loc->path, NULL);
+                "gfid=%s", uuid_utoa(loc->gfid), "name=%s", loc->name,
+                "path=%s", loc->path, NULL);
         goto out;
     }
     gf_uuid_unparse(parent.gfid, pgfid);
