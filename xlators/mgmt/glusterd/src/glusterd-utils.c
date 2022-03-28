@@ -4564,15 +4564,12 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
     glusterd_brickinfo_t *old_brickinfo = NULL;
     glusterd_brickinfo_t *new_ta_brickinfo = NULL;
     glusterd_brickinfo_t *old_ta_brickinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     int ret = 0;
     xlator_t *this = THIS;
     char abspath[PATH_MAX] = "";
 
     GF_ASSERT(new_volinfo);
     GF_ASSERT(old_volinfo);
-    priv = this->private;
-    GF_ASSERT(priv);
 
     cds_list_for_each_entry(new_brickinfo, &new_volinfo->bricks, brick_list)
     {
@@ -5205,14 +5202,11 @@ glusterd_compare_friend_data(dict_t *peer_data, dict_t *cmp, int32_t *status,
     int i = 1;
     gf_boolean_t update = _gf_false;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
     glusterd_friend_synctask_args_t *arg = NULL;
 
     GF_ASSERT(peer_data);
     GF_ASSERT(status);
 
-    priv = this->private;
-    GF_ASSERT(priv);
     ret = glusterd_import_global_opts(peer_data);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLOBAL_OPT_IMPORT_FAIL,
@@ -7536,11 +7530,7 @@ glusterd_new_brick_validate(char *brick, glusterd_brickinfo_t *brickinfo,
     int ret = -1;
     gf_boolean_t is_allocated = _gf_false;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     GF_ASSERT(brick);
     GF_ASSERT(op_errstr);
@@ -12376,11 +12366,7 @@ glusterd_get_dst_brick_info(char **dst_brick, char *volname, char **op_errstr,
     char *c = NULL;
     char msg[2048] = "";
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
     int ret = 0;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_strn(dict, "dst-brick", SLEN("dst-brick"), dst_brick);
 

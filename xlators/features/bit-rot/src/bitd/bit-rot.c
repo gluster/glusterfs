@@ -1330,8 +1330,6 @@ br_brick_connect(xlator_t *this, br_child_t *child)
     }
 
     memcpy(child->brick_path, stub->export, strlen(stub->export) + 1);
-    child->tv.tv_sec = ntohl(stub->timebuf[0]);
-    child->tv.tv_usec = ntohl(stub->timebuf[1]);
 
     ret = br_child_enaction(this, child, stub);
 

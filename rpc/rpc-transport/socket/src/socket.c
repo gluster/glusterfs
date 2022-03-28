@@ -342,6 +342,7 @@ static int
 ssl_setup_connection_prefix(rpc_transport_t *this, gf_boolean_t server)
 {
     int ret = -1;
+    BIO *ssl_sbio = NULL;
     socket_private_t *priv = NULL;
 
     priv = this->private;
@@ -370,14 +371,14 @@ ssl_setup_connection_prefix(rpc_transport_t *this, gf_boolean_t server)
         goto done;
     }
 
-    priv->ssl_sbio = BIO_new_socket(priv->sock, BIO_NOCLOSE);
-    if (!priv->ssl_sbio) {
+    ssl_sbio = BIO_new_socket(priv->sock, BIO_NOCLOSE);
+    if (!ssl_sbio) {
         gf_log(this->name, GF_LOG_ERROR, "BIO_new_socket failed");
         ssl_dump_error_stack(this->name);
         goto free_ssl;
     }
 
-    SSL_set_bio(priv->ssl_ssl, priv->ssl_sbio, priv->ssl_sbio);
+    SSL_set_bio(priv->ssl_ssl, ssl_sbio, ssl_sbio);
     ret = 0;
     goto done;
 
@@ -2146,13 +2147,8 @@ __socket_read_frag(rpc_transport_t *this)
 }
 
 static void
-__socket_reset_priv(socket_private_t *priv)
+__socket_reset_incoming(struct gf_sock_incoming *in)
 {
-    struct gf_sock_incoming *in = NULL;
-
-    /* used to reduce the indirection */
-    in = &priv->incoming;
-
     if (in->iobref) {
         iobref_unref(in->iobref);
         in->iobref = NULL;
@@ -2172,8 +2168,8 @@ __socket_reset_priv(socket_private_t *priv)
 }
 
 static int
-__socket_proto_state_machine(rpc_transport_t *this,
-                             rpc_transport_pollin_t **pollin)
+socket_proto_state_machine(rpc_transport_t *this,
+                           rpc_transport_pollin_t **pollin)
 {
     int ret = -1;
     socket_private_t *priv = NULL;
@@ -2260,7 +2256,6 @@ __socket_proto_state_machine(rpc_transport_t *this,
                 }
 
                 in->iobuf = iobuf;
-                in->iobuf_size = 0;
                 in->record_state = SP_STATE_READING_FRAG;
                 /* fall through */
 
@@ -2287,8 +2282,6 @@ __socket_proto_state_machine(rpc_transport_t *this,
                  */
                 if (pollin != NULL) {
                     int count = 0;
-                    in->iobuf_size = (in->total_bytes_read -
-                                      in->payload_vector.iov_len);
 
                     memset(vector, 0, sizeof(vector));
 
@@ -2301,7 +2294,8 @@ __socket_proto_state_machine(rpc_transport_t *this,
                     }
 
                     vector[count].iov_base = iobuf_ptr(in->iobuf);
-                    vector[count].iov_len = in->iobuf_size;
+                    vector[count].iov_len = (in->total_bytes_read -
+                                             in->payload_vector.iov_len);
 
                     iobref = in->iobref;
 
@@ -2344,18 +2338,11 @@ __socket_proto_state_machine(rpc_transport_t *this,
 
     if (in->record_state == SP_STATE_COMPLETE) {
         in->record_state = SP_STATE_NADA;
-        __socket_reset_priv(priv);
+        __socket_reset_incoming(in);
     }
 
 out:
     return ret;
-}
-
-static int
-socket_proto_state_machine(rpc_transport_t *this,
-                           rpc_transport_pollin_t **pollin)
-{
-    return __socket_proto_state_machine(this, pollin);
 }
 
 static void
@@ -4134,11 +4121,12 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
     if (priv->ssl_enabled || priv->mgmt_ssl) {
         BIO *bio = NULL;
+        SSL_METHOD *ssl_meth = NULL;
 
 #if HAVE_TLS_METHOD
-        priv->ssl_meth = (SSL_METHOD *)TLS_method();
+        ssl_meth = (SSL_METHOD *)TLS_method();
 #elif HAVE_TLSV1_2_METHOD
-        priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
+        ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else
 /*
  * Nobody should use an OpenSSL so old it does not support TLS 1.2.
@@ -4148,9 +4136,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
 #error Old and insecure OpenSSL, use -DUSE_INSECURE_OPENSSL to use it anyway
 #endif
         /* SSLv23_method uses highest available protocol */
-        priv->ssl_meth = SSLv23_method();
+        ssl_meth = SSLv23_method();
 #endif
-        priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
+        priv->ssl_ctx = SSL_CTX_new(ssl_meth);
 
         SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv2);
         SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv3);

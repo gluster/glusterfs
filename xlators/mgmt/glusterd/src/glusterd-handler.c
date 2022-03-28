@@ -1676,7 +1676,6 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
     gf_cli_rsp rsp = {
         0,
     };
@@ -1691,9 +1690,6 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -2851,7 +2847,6 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         {0},
     };
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
     gd1_mgmt_friend_update_rsp rsp = {
         {0},
@@ -2871,9 +2866,6 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     int32_t op = 0;
 
     GF_ASSERT(req);
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = xdr_to_generic(req->msg[0], &friend_req,
                          (xdrproc_t)xdr_gd1_mgmt_friend_update);
