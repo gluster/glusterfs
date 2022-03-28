@@ -812,7 +812,7 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
     inode_t *inode = NULL;
     int ret = 0;
 
-    local = mem_get0(THIS->local_pool);
+    local = mem_get0(frame->this->local_pool);
     if (!local)
         goto out;
 
@@ -836,7 +836,9 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
 
     if (inode) {
         local->layout = dht_layout_get(frame->this, inode);
-        local->cached_subvol = dht_subvol_get_cached(frame->this, inode);
+        if (local->layout) {
+            local->cached_subvol = local->layout->list[0].xlator;
+        }
     }
 
     frame->local = local;
