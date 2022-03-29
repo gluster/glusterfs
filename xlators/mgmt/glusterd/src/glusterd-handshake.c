@@ -1867,44 +1867,40 @@ static rpc_clnt_prog_t gd_clnt_mgmt_hndsk_prog = {
 };
 
 static int
-glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
+glusterd_event_connected_inject(xlator_t *this, glusterd_peerctx_t *peerctx)
 {
-    GF_ASSERT(peerctx);
-
     glusterd_friend_sm_event_t *event = NULL;
+    glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_probe_ctx_t *ctx = NULL;
     int ret = -1;
-    glusterd_peerinfo_t *peerinfo = NULL;
 
-    ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_CONNECTED, &event);
-
-    if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
-               "Unable to get new event");
-        goto out;
-    }
+    GF_ASSERT(peerctx);
 
     ctx = GF_CALLOC(1, sizeof(*ctx), gf_gld_mt_probe_ctx_t);
-
     if (!ctx) {
-        ret = -1;
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Memory not available");
-        goto out;
+        return ret;
     }
 
     RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find_by_generation(peerctx->peerinfo_gen);
     if (!peerinfo) {
-        RCU_READ_UNLOCK;
-        ret = -1;
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
-               "Could not find peer %s(%s)", peerctx->peername,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_NOT_FOUND,
+               "Could not find peer %s (%s)", peerctx->peername,
                uuid_utoa(peerctx->peerid));
-        GF_FREE(ctx);
         goto out;
     }
+
+    ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_CONNECTED, &event);
+
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
+               "Unable to get new event");
+        goto out;
+    }
+
     ctx->hostname = gf_strdup(peerinfo->hostname);
     ctx->port = peerinfo->port;
     ctx->req = peerctx->args.req;
@@ -1916,16 +1912,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
 
     ret = glusterd_friend_sm_inject_event(event);
 
+    if (ret)
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
+               "Unable to inject EVENT_CONNECTED ret = %d", ret);
+out:
     RCU_READ_UNLOCK;
 
-    if (ret)
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
-               "Unable to inject "
-               "EVENT_CONNECTED ret = %d",
-               ret);
-
-out:
-    gf_msg_debug("glusterd", 0, "returning %d", ret);
+    gf_msg_debug(this->name, 0, "returning %d", ret);
     return ret;
 }
 
@@ -2057,16 +2050,17 @@ __glusterd_mgmt_hndsk_version_ack_cbk(struct rpc_req *req, struct iovec *iov,
     ret = default_notify(this, GF_EVENT_CHILD_UP, NULL);
 
     if (GD_MODE_ON == peerctx->args.mode) {
-        (void)glusterd_event_connected_inject(peerctx);
+        ret = glusterd_event_connected_inject(this, peerctx);
         peerctx->args.req = NULL;
     } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
         peerctx->args.mode = GD_MODE_ON;
+        ret = 0;
     } else {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UNKNOWN_MODE,
                "unknown mode %d", peerctx->args.mode);
+        ret = -1;
     }
 
-    ret = 0;
 out:
 
     if (ret != 0 && peerinfo)
@@ -2457,16 +2451,16 @@ __glusterd_peer_dump_version_cbk(struct rpc_req *req, struct iovec *iov,
     ret = default_notify(this, GF_EVENT_CHILD_UP, NULL);
 
     if (GD_MODE_ON == peerctx->args.mode) {
-        (void)glusterd_event_connected_inject(peerctx);
+        ret = glusterd_event_connected_inject(this, peerctx);
         peerctx->args.req = NULL;
     } else if (GD_MODE_SWITCH_ON == peerctx->args.mode) {
         peerctx->args.mode = GD_MODE_ON;
+        ret = 0;
     } else {
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_UNKNOWN_MODE,
                "unknown mode %d", peerctx->args.mode);
+        ret = -1;
     }
-
-    ret = 0;
 
 out:
     if (ret != 0 && peerinfo)
