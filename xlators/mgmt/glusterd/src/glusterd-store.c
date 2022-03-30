@@ -4345,7 +4345,7 @@ glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
 {
     char peerdir[PATH_MAX];
     char str[50] = {0};
-    int ret = -1;
+    int32_t ret = -1;
 
     GF_ASSERT(peerinfo);
     GF_ASSERT(peerfpath);
@@ -4391,8 +4391,9 @@ glusterd_store_peerinfo_uuid_shandle_create(glusterd_peerinfo_t *peerinfo)
     char peerfpath[PATH_MAX];
     int32_t ret = -1;
 
-    if (glusterd_store_uuid_peerpath_set(peerinfo, peerfpath,
-                                         sizeof(peerfpath)) < 0)
+    ret = glusterd_store_uuid_peerpath_set(peerinfo, peerfpath,
+                                           sizeof(peerfpath));
+    if (ret)
         return ret;
 
     ret = gf_store_handle_create_on_absence(&peerinfo->shandle, peerfpath);
