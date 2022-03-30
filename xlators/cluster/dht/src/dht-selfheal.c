@@ -1341,7 +1341,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                 if (ret) {
                     gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                             DHT_MSG_DIR_XATTR_HEAL_FAILED, "path=%s",
-                            local->loc.path, "gfid=%s", local->gfid, NULL);
+                            local->loc.path, "gfid=%s", uuid_utoa(local->gfid),
+                            NULL);
                 }
             } else {
                 if (!gf_uuid_is_null(local->gfid))
@@ -1352,8 +1353,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                     return 0;
 
                 gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_SET_XATTR_FAILED,
-                        "path=%s", local->loc.path, "gfid=%s", local->gfid,
-                        NULL);
+                        "path=%s", local->loc.path, "gfid=%s",
+                        uuid_utoa(local->gfid), NULL);
             }
         }
         dht_selfheal_dir_setattr(frame, loc, &local->stbuf, 0xffffffff, layout);
