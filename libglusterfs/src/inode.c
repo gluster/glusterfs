@@ -134,9 +134,6 @@ __inode_unref(inode_t *inode, bool clear, xlator_t *xl);
 static int
 inode_table_prune(inode_table_t *table);
 
-static gf_boolean_t
-__is_root_with_ref(inode_t *inode);
-
 void
 fd_dump(struct list_head *head, char *prefix);
 
@@ -543,8 +540,9 @@ __inode_unref(inode_t *inode, bool clear, xlator_t *xl)
     --inode->ref;
 
     index = __inode_get_xl_index(inode, xl);
-    if (index >= 0)
+    if (index >= 0) {
         inode->_ctx[index].ref--;
+    }
 
     if (!inode->ref && !inode->in_invalidate_list) {
         inode->table->active_size--;
@@ -575,7 +573,7 @@ __inode_ref(inode_t *inode, bool is_invalidate, xlator_t *xl)
      * in inode table increases which is wrong. So just keep the ref
      * count as 1 always. This should be taken care of by the caller and should
      * be preferrably done outside critical section. Call this function only
-     * when __is_root_with_ref returns false.
+     * when __is_root_gfid returns false.
      */
 
     if (!inode->ref) {
@@ -600,8 +598,9 @@ __inode_ref(inode_t *inode, bool is_invalidate, xlator_t *xl)
     inode->ref++;
 
     index = __inode_get_xl_index(inode, xl);
-    if (index >= 0)
+    if (index >= 0) {
         inode->_ctx[index].ref++;
+    }
 
     return inode;
 }
@@ -645,7 +644,7 @@ inode_ref(inode_t *inode)
     table = inode->table;
 
     /* If inode is root inode with a ref count of 1, do nothing */
-    if (__is_root_with_ref(inode))
+    if (__is_root_gfid(inode->gfid))
         return inode;
 
     pthread_mutex_lock(&table->lock);
@@ -723,7 +722,6 @@ inode_new(inode_table_t *table)
 {
     inode_t *inode = NULL;
     xlator_t *xl = THIS;
-    gf_boolean_t root_with_ref = _gf_false;
 
     if (!table) {
         gf_msg_callingfn(xl->name, GF_LOG_WARNING, 0,
@@ -741,8 +739,7 @@ inode_new(inode_table_t *table)
             table->lru_size++;
             GF_ASSERT(!inode->in_lru_list);
             inode->in_lru_list = _gf_true;
-            if (!root_with_ref)
-                __inode_ref(inode, false, xl);
+            __inode_ref(inode, false, xl);
         }
         pthread_mutex_unlock(&table->lock);
 
@@ -843,11 +840,20 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
     {
         dentry = __dentry_grep(table, parent, name, hash);
 
+        if (!dentry) {
+            pthread_mutex_unlock(&table->lock);
+            gf_msg_callingfn(xl->name, GF_LOG_WARNING, EINVAL,
+                             LG_MSG_INVALID_ARG,
+                             "Dentry grep failed for table: %s", table->name);
+
+            return NULL;
+        }
+
         if (dentry->inode) {
             inode = dentry->inode;
         }
 
-        if (!__is_root_with_ref(inode)) {
+        if (!__is_root_gfid(inode->gfid)) {
             __inode_ref(inode, false, xl);
         }
     }
@@ -947,15 +953,6 @@ __is_root_gfid(uuid_t gfid)
     return _gf_false;
 }
 
-static gf_boolean_t
-__is_root_with_ref(inode_t *inode)
-{
-    if (inode->ref && __is_root_gfid(inode->gfid))
-        return _gf_true;
-
-    return _gf_false;
-}
-
 inode_t *
 __inode_find(inode_table_t *table, uuid_t gfid, const int hash)
 {
@@ -996,7 +993,7 @@ inode_find(inode_table_t *table, uuid_t gfid)
     {
         inode = __inode_find(table, gfid, hash);
 
-        if (inode && !__is_root_with_ref(inode)) {
+        if (inode && !__is_root_gfid(inode->gfid)) {
             __inode_ref(inode, false, xl);
         }
     }
@@ -1101,14 +1098,14 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 
             /* dentry linking needs to happen inside lock */
             dentry->parent = parent;
-            if (!__is_root_with_ref(parent))
+            if (!__is_root_gfid(parent->gfid))
                 dentry->parent = __inode_ref(parent, false, xl);
 
             GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
 
             link_inode->ns_inode = parent->ns_inode;
-            if (!__is_root_with_ref(parent->ns_inode))
+            if (!__is_root_gfid(parent->ns_inode->gfid))
                 link_inode->ns_inode = __inode_ref(parent->ns_inode, false, xl);
 
             if (old_inode && __is_dentry_cyclic(dentry)) {
@@ -1155,7 +1152,7 @@ inode_link(inode_t *inode, inode_t *parent, const char *name, struct iatt *iatt)
     {
         linked_inode = __inode_link(inode, parent, name, iatt, hash, xl);
 
-        if (linked_inode && !__is_root_with_ref(linked_inode)) {
+        if (linked_inode && !__is_root_gfid(linked_inode->gfid)) {
             __inode_ref(linked_inode, false, xl);
         }
     }
@@ -1452,16 +1449,12 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
 
         if (dentry)
             parent = dentry->parent;
-    }
-    pthread_mutex_unlock(&table->lock);
 
-    if (parent && !__is_root_with_ref(parent)) {
-        pthread_mutex_lock(&table->lock);
-        {
+        if (parent && !__is_root_gfid(parent->gfid)) {
             __inode_ref(parent, false, xl);
         }
-        pthread_mutex_unlock(&table->lock);
     }
+    pthread_mutex_unlock(&table->lock);
 
     return parent;
 }
@@ -1679,7 +1672,7 @@ inode_table_prune(inode_table_t *table)
                         list_move_tail(&entry->list, &table->lru);
                         continue;
                     }
-                    if (!__is_root_with_ref(entry))
+                    if (!__is_root_gfid(entry->gfid))
                         __inode_ref(entry, true, xl);
                     tmp = entry;
                     break;
@@ -1709,10 +1702,14 @@ inode_table_prune(inode_table_t *table)
         {
             if (!ret1) {
                 tmp->invalidate_sent = true;
-                (void)(!tmp_is_root && __inode_unref(tmp, false, old_THIS));
+                if (!tmp_is_root) {
+                    __inode_unref(tmp, false, old_THIS);
+                }
             } else {
                 /* Move this back to the lru list*/
-                (void)(!tmp_is_root && __inode_unref(tmp, true, old_THIS));
+                if (!tmp_is_root) {
+                    __inode_unref(tmp, true, old_THIS);
+                }
             }
         }
         pthread_mutex_unlock(&table->lock);
