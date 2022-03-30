@@ -31,11 +31,6 @@ glusterd_svc_build_snapd_logdir(char *logdir, char *volname, size_t len)
     snprintf(logdir, len, "%s/snaps/%s", priv->logdir, volname);
 }
 
-static int
-glusterd_svc_build_snapd_logfile(char *logfile, char *logdir, size_t len)
-{
-    return snprintf(logfile, len, "%s/snapd.log", logdir);
-}
 
 void
 glusterd_snapdsvc_build(glusterd_svc_t *svc)
@@ -111,7 +106,7 @@ glusterd_snapdsvc_init(void *data)
                "Unable to create logdir %s", logdir);
         goto out;
     }
-    len = glusterd_svc_build_snapd_logfile(logfile, logdir, sizeof(logfile));
+    len = snprintf(logfile, sizeof(logfile), "%s/snapd.log", logdir);
     if ((len < 0) || (len >= sizeof(logfile))) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
