@@ -180,6 +180,7 @@ enum _gf_special_pid {
     GF_SERVER_PID_TRASH = -11,
     GF_CLIENT_PID_ADD_REPLICA_MOUNT = -12,
     GF_CLIENT_PID_SET_UTIME = -13,
+    GF_CLIENT_PID_QUOTA_HELPER = -14,
 };
 
 enum _gf_xlator_ipc_targets {
