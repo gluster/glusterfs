@@ -152,7 +152,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
                                       char *src_brick)
 {
@@ -169,7 +169,7 @@ afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
     return -1;
 }
 
-int
+static int
 afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
                                        int child_count)
 {
@@ -194,7 +194,7 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
     return -1;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
                                         int child_count)
 {
@@ -215,7 +215,7 @@ afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
     return src;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_latest_mtime(struct afr_reply *replies,
                                          int child_count)
 {
@@ -406,7 +406,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_selfheal_post_op_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
@@ -454,7 +454,7 @@ afr_selfheal_post_op(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return ret;
 }
 
-int
+static int
 afr_check_stale_error(struct afr_reply *replies, afr_private_t *priv)
 {
     int i = 0;
@@ -522,7 +522,7 @@ afr_selfheal_restore_time(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return 0;
 }
 
-dict_t *
+static dict_t *
 afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
                           afr_transaction_type type, int *output_dirty,
                           int **output_matrix, int subvol,
@@ -728,7 +728,7 @@ afr_replies_copy(struct afr_reply *dst, struct afr_reply *src, int count)
     }
 }
 
-int
+static int
 afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
                         dict_t *xdata)
 {
@@ -1061,7 +1061,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_sh_fav_by_majority(xlator_t *this, struct afr_reply *replies,
                        inode_t *inode)
 {
@@ -1261,7 +1261,7 @@ afr_sh_get_fav_by_policy(xlator_t *this, struct afr_reply *replies,
     return fav_child;
 }
 
-int
+static int
 afr_mark_split_brain_source_sinks_by_policy(
     call_frame_t *frame, xlator_t *this, inode_t *inode, unsigned char *sources,
     unsigned char *sinks, unsigned char *healed_sinks, unsigned char *locked_on,
@@ -1525,7 +1525,7 @@ afr_get_quorum_count(afr_private_t *priv)
     }
 }
 
-void
+static void
 afr_selfheal_post_op_failure_accounting(afr_private_t *priv, char *accused,
                                         unsigned char *sources,
                                         unsigned char *locked_on)
@@ -2254,19 +2254,19 @@ afr_selfheal_unentrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_data_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_DATA_TRANSACTION);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_metadata_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_METADATA_TRANSACTION);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_entry_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_ENTRY_TRANSACTION);
@@ -2649,7 +2649,7 @@ none:
     return NULL;
 }
 
-int
+static int
 afr_refresh_selfheal_wrap(void *opaque)
 {
     call_frame_t *heal_frame = opaque;
@@ -2660,7 +2660,7 @@ afr_refresh_selfheal_wrap(void *opaque)
     return ret;
 }
 
-int
+static int
 afr_refresh_heal_done(int ret, call_frame_t *frame, void *opaque)
 {
     call_frame_t *heal_frame = opaque;
