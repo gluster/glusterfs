@@ -13,7 +13,7 @@
 #include "afr-self-heal.h"
 #include "afr-messages.h"
 
-int
+static int
 __afr_selfheal_assign_gfid(xlator_t *this, inode_t *parent, uuid_t pargfid,
                            const char *bname, inode_t *inode,
                            struct afr_reply *replies, void *gfid,
@@ -54,7 +54,7 @@ out:
     return ret;
 }
 
-int
+static int
 __afr_selfheal_name_impunge(call_frame_t *frame, xlator_t *this,
                             inode_t *parent, uuid_t pargfid, const char *bname,
                             inode_t *inode, struct afr_reply *replies,
@@ -93,7 +93,7 @@ __afr_selfheal_name_impunge(call_frame_t *frame, xlator_t *this,
     return ret;
 }
 
-int
+static int
 __afr_selfheal_name_expunge(xlator_t *this, inode_t *parent, uuid_t pargfid,
                             const char *bname, inode_t *inode,
                             struct afr_reply *replies)
@@ -298,7 +298,7 @@ out:
     return source_is_empty;
 }
 
-int
+static int
 __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
                        uuid_t pargfid, const char *bname, inode_t *inode,
                        unsigned char *sources, unsigned char *sinks,
@@ -364,7 +364,7 @@ __afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
     return ret;
 }
 
-int
+static int
 __afr_selfheal_name_finalize_source(xlator_t *this, unsigned char *sources,
                                     unsigned char *healed_sinks,
                                     unsigned char *locked_on, uint64_t *witness)
@@ -395,7 +395,7 @@ __afr_selfheal_name_finalize_source(xlator_t *this, unsigned char *sources,
     return source;
 }
 
-int
+static int
 __afr_selfheal_name_prepare(call_frame_t *frame, xlator_t *this,
                             inode_t *parent, uuid_t pargfid,
                             unsigned char *locked_on, unsigned char *sources,
@@ -448,7 +448,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_selfheal_name_do(call_frame_t *frame, xlator_t *this, inode_t *parent,
                      uuid_t pargfid, const char *bname, void *gfid_req,
                      dict_t *req, dict_t *rsp)
@@ -522,7 +522,7 @@ unlock:
     return ret;
 }
 
-int
+static int
 afr_selfheal_name_unlocked_inspect(call_frame_t *frame, xlator_t *this,
                                    inode_t *parent, uuid_t pargfid,
                                    const char *bname, gf_boolean_t *need_heal)

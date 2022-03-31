@@ -21,7 +21,7 @@
 #include <glusterfs/compat.h>
 #include "afr-transaction.h"
 
-int32_t
+static int32_t
 afr_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
