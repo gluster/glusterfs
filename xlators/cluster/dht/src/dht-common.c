@@ -6340,23 +6340,41 @@ dht_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     gf_boolean_t event = _gf_false;
     qdstatfs_action_t action = qdstatfs_action_OFF;
     dht_local_t *local = NULL;
+    dht_conf_t *conf = this->private;
     int this_call_cnt = 0;
     int bsize = 0;
     int frsize = 0;
     GF_UNUSED int ret = 0;
     unsigned long new_usage = 0;
     unsigned long cur_usage = 0;
+    int32_t simple_quota = 0;
 
     local = frame->local;
     GF_ASSERT(local);
 
-    if (xdata)
+    if (xdata) {
         ret = dict_get_int8(xdata, "quota-deem-statfs", (int8_t *)&event);
+        if (IS_ERROR(ret)) {
+            gf_msg_trace(this->name, ENOENT,
+                         "Failed to get key = quota-deem-statfs");
+        }
+        ret = dict_get_int32(xdata, "simple-quota", &simple_quota);
+        if (IS_ERROR(ret)) {
+            gf_msg_trace(this->name, ENOENT,
+                         "Failed to get key = simple-quota");
+        }
+    }
 
     LOCK(&frame->lock);
     {
+        if (simple_quota) {
+            local->simple_quota = true;
+        }
+
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            /* overload file_count variable for number of failures */
+            local->file_count++;
             goto unlock;
         }
         if (!statvfs) {
@@ -6411,25 +6429,70 @@ dht_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         } else {
             local->statvfs.f_bsize = statvfs->f_bsize;
             local->statvfs.f_frsize = statvfs->f_frsize;
+            local->statvfs.f_fsid = statvfs->f_fsid;
+            local->statvfs.f_flag = statvfs->f_flag;
+            local->statvfs.f_namemax = statvfs->f_namemax;
         }
 
-        local->statvfs.f_blocks += statvfs->f_blocks;
-        local->statvfs.f_bfree += statvfs->f_bfree;
-        local->statvfs.f_bavail += statvfs->f_bavail;
-        local->statvfs.f_files += statvfs->f_files;
-        local->statvfs.f_ffree += statvfs->f_ffree;
-        local->statvfs.f_favail += statvfs->f_favail;
-        local->statvfs.f_fsid = statvfs->f_fsid;
-        local->statvfs.f_flag = statvfs->f_flag;
-        local->statvfs.f_namemax = statvfs->f_namemax;
+        /* when simple-quota is present, DHT acts as aggregator */
+        if (local->simple_quota) {
+            if (!local->statvfs.f_blocks) {
+                local->statvfs = *statvfs;
+            } else {
+                /* Used space reduces */
+                int64_t usage = statvfs->f_blocks - statvfs->f_bfree;
+                int64_t fusage = statvfs->f_files - statvfs->f_ffree;
+                if (local->statvfs.f_bfree >= usage) {
+                    local->statvfs.f_bfree -= usage;
+                    local->statvfs.f_bavail -= usage;
+                } else {
+                    local->statvfs.f_bfree = 0;
+                    local->statvfs.f_bavail = 0;
+                }
+                if (local->statvfs.f_ffree >= fusage) {
+                    local->statvfs.f_ffree -= fusage;
+                    local->statvfs.f_favail -= fusage;
+                } else {
+                    local->statvfs.f_ffree = 0;
+                    local->statvfs.f_favail = 0;
+                }
+            }
+        } else {
+            local->statvfs.f_blocks += statvfs->f_blocks;
+            local->statvfs.f_files += statvfs->f_files;
+            local->statvfs.f_bfree += statvfs->f_bfree;
+            local->statvfs.f_bavail += statvfs->f_bavail;
+            local->statvfs.f_ffree += statvfs->f_ffree;
+            local->statvfs.f_favail += statvfs->f_favail;
+        }
     }
 unlock:
     UNLOCK(&frame->lock);
 
     this_call_cnt = dht_frame_return(frame);
-    if (is_last_call(this_call_cnt))
+    if (is_last_call(this_call_cnt)) {
+        if (local->simple_quota) {
+            /* Even if 1 subvolume passes df, make sure to send the Avg usage in
+             * this case */
+            if ((local->file_count > 0) &&
+                (local->file_count < conf->subvolume_cnt)) {
+                /* handle averaging the block usage */
+                int64_t avg_usage = (local->statvfs.f_blocks -
+                                     local->statvfs.f_bfree) /
+                                    (conf->subvolume_cnt - local->file_count);
+                int64_t update = avg_usage * local->file_count;
+                if (update > local->statvfs.f_bfree) {
+                    local->statvfs.f_bfree = 0;
+                    local->statvfs.f_bavail = 0;
+                } else {
+                    local->statvfs.f_bfree -= update;
+                    local->statvfs.f_bavail -= update;
+                }
+            }
+        }
         DHT_STACK_UNWIND(statfs, frame, local->op_ret, local->op_errno,
                          &local->statvfs, xdata);
+    }
 
     return 0;
 }

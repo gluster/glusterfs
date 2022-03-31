@@ -2780,9 +2780,11 @@ inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode)
     /* Ideally, if we do this, we should do this to complete tree */
     /* FIXME: fix above once we support setting quota after having data in
      * directories */
+    /*
     if (GF_ATOMIC_GET(inode->kids)) {
         gf_log(THIS->name, GF_LOG_WARNING, "Trying to link inode with kids");
     }
+    */
 
     inode_t *old_ns = inode->ns_inode;
     inode->ns_inode = inode_ref(ns_inode);
