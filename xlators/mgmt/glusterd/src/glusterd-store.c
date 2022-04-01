@@ -4339,12 +4339,13 @@ glusterd_store_create_peer_dir()
     return ret;
 }
 
-static void
+static int
 glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
                                  size_t len)
 {
     char peerdir[PATH_MAX];
     char str[50] = {0};
+    int32_t ret = -1;
 
     GF_ASSERT(peerinfo);
     GF_ASSERT(peerfpath);
@@ -4352,7 +4353,10 @@ glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
 
     glusterd_store_peerinfo_dirpath_set(peerdir, sizeof(peerdir));
     gf_uuid_unparse(peerinfo->uuid, str);
-    snprintf(peerfpath, len, "%s/%s", peerdir, str);
+    ret = snprintf(peerfpath, len, "%s/%s", peerdir, str);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
 static void
@@ -4387,7 +4391,11 @@ glusterd_store_peerinfo_uuid_shandle_create(glusterd_peerinfo_t *peerinfo)
     char peerfpath[PATH_MAX];
     int32_t ret = -1;
 
-    glusterd_store_uuid_peerpath_set(peerinfo, peerfpath, sizeof(peerfpath));
+    ret = glusterd_store_uuid_peerpath_set(peerinfo, peerfpath,
+                                           sizeof(peerfpath));
+    if (ret)
+        return ret;
+
     ret = gf_store_handle_create_on_absence(&peerinfo->shandle, peerfpath);
     return ret;
 }

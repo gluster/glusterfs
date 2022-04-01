@@ -34,27 +34,27 @@ afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
 static int
 afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
 
-void
+static void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
 
-void
+static void
 afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_changelog_post_op_safe(call_frame_t *frame, xlator_t *this);
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_pre_op_uninherit(call_frame_t *frame, xlator_t *this);
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_pre_op_update(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_changelog_call_count(afr_transaction_type type,
                          unsigned char *pre_op_subvols,
                          unsigned char *failed_subvols,
                          unsigned int child_count);
-int
+static int
 afr_changelog_do(call_frame_t *frame, xlator_t *this, dict_t *xattr,
                  afr_changelog_resume_t changelog_resume,
                  afr_xattrop_type_t op);
@@ -246,7 +246,7 @@ afr_needs_changelog_update(afr_local_t *local)
     return _gf_false;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_has_quorum(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = NULL;
@@ -269,7 +269,7 @@ afr_changelog_has_quorum(afr_local_t *local, xlator_t *this)
     return _gf_false;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_write_subvol_valid(call_frame_t *frame, xlator_t *this)
 {
     int i = 0;
@@ -341,7 +341,7 @@ afr_transaction_fop(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_transaction_done(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -488,7 +488,7 @@ __mark_all_success(call_frame_t *frame, xlator_t *this)
     }
 }
 
-void
+static void
 afr_compute_pre_op_sources(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -528,7 +528,7 @@ afr_compute_pre_op_sources(call_frame_t *frame, xlator_t *this)
                 local->transaction.pre_op_sources[j] = 0;
 }
 
-void
+static void
 afr_txn_arbitrate_fop(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -557,7 +557,7 @@ afr_txn_arbitrate_fop(call_frame_t *frame, xlator_t *this)
     return;
 }
 
-int
+static int
 afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -726,7 +726,7 @@ afr_ta_process_onwireq(afr_ta_fop_state_t fop_state, xlator_t *this)
     }
 }
 
-int
+static int
 afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -781,7 +781,7 @@ afr_locked_nodes_get(afr_transaction_type type, afr_internal_lock_t *int_lock)
     return int_lock->lockee[0].locked_nodes;
 }
 
-int
+static int
 afr_changelog_call_count(afr_transaction_type type,
                          unsigned char *pre_op_subvols,
                          unsigned char *failed_subvols,
@@ -828,7 +828,7 @@ afr_txn_nothing_failed(call_frame_t *frame, xlator_t *this)
     return _gf_true;
 }
 
-void
+static void
 afr_handle_symmetric_errors(call_frame_t *frame, xlator_t *this)
 {
     if (afr_is_symmetric_error(frame, this))
@@ -923,7 +923,7 @@ afr_has_fop_cbk_quorum(call_frame_t *frame)
     return afr_has_quorum(success, this, NULL);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_need_dirty_marking(call_frame_t *frame, xlator_t *this)
 {
     afr_private_t *priv = this->private;
@@ -949,7 +949,7 @@ afr_need_dirty_marking(call_frame_t *frame, xlator_t *this)
     return need_dirty;
 }
 
-void
+static void
 afr_handle_quorum(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1085,7 +1085,7 @@ afr_ta_post_op_done(int ret, call_frame_t *frame, void *opaque)
     return 0;
 }
 
-int **
+static int **
 afr_set_changelog_xattr(afr_private_t *priv, unsigned char *pending,
                         dict_t *xattr, afr_local_t *local)
 {
@@ -1376,7 +1376,7 @@ afr_handle_failure_using_thin_arbiter(call_frame_t *frame, xlator_t *this)
     afr_ta_decide_post_op_state(frame, this);
 }
 
-void
+static void
 afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
 {
     afr_private_t *priv = this->private;
@@ -1487,7 +1487,7 @@ afr_changelog_post_op_now(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_pre_op_uninherit(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1552,7 +1552,7 @@ unlock:
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_pre_op_inherit(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1598,7 +1598,7 @@ unlock:
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_changelog_pre_op_update(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1652,7 +1652,7 @@ unlock:
     return ret;
 }
 
-int
+static int
 afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, dict_t *xattr, dict_t *xdata)
 {
@@ -1680,7 +1680,7 @@ afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     return 0;
 }
 
-void
+static void
 afr_changelog_populate_xdata(call_frame_t *frame, afr_xattrop_type_t op,
                              dict_t **xdata, dict_t **newloc_xdata)
 {
@@ -1776,7 +1776,7 @@ out:
     return;
 }
 
-int
+static int
 afr_changelog_prepare(xlator_t *this, call_frame_t *frame, int *call_count,
                       afr_changelog_resume_t changelog_resume,
                       afr_xattrop_type_t op, dict_t **xdata,
@@ -1804,7 +1804,7 @@ afr_changelog_prepare(xlator_t *this, call_frame_t *frame, int *call_count,
     return 0;
 }
 
-int
+static int
 afr_changelog_do(call_frame_t *frame, xlator_t *this, dict_t *xattr,
                  afr_changelog_resume_t changelog_resume, afr_xattrop_type_t op)
 {
@@ -2027,7 +2027,7 @@ err:
     return 0;
 }
 
-int
+static int
 afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
 {
     afr_internal_lock_t *int_lock = NULL;
@@ -2052,7 +2052,7 @@ afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_set_transaction_flock(xlator_t *this, afr_local_t *local,
                           afr_lockee_t *lockee)
 {
@@ -2194,7 +2194,7 @@ afr_copy_inodelk_vars(afr_internal_lock_t *dst, afr_internal_lock_t *src,
            priv->child_count * sizeof(*dl->locked_nodes));
 }
 
-void
+static void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared)
 {
     gf_boolean_t conflict = _gf_false;
@@ -2231,7 +2231,7 @@ afr_lock_resume_shared(struct list_head *list)
     }
 }
 
-int
+static int
 afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = frame->local;
@@ -2257,7 +2257,7 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_are_conflicting_ops_waiting(afr_local_t *local, xlator_t *this)
 {
     afr_lock_t *lock = NULL;
@@ -2284,7 +2284,7 @@ afr_are_conflicting_ops_waiting(afr_local_t *local, xlator_t *this)
     return _gf_false;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_delayed_changelog_post_op_needed(call_frame_t *frame, xlator_t *this,
                                         int delay)
 {
@@ -2394,7 +2394,7 @@ afr_fd_has_witnessed_unstable_write(xlator_t *this, inode_t *inode)
     return witness;
 }
 
-int
+static int
 afr_changelog_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, struct iatt *pre,
                         struct iatt *post, dict_t *xdata)
@@ -2427,7 +2427,7 @@ afr_changelog_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_changelog_fsync(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2473,7 +2473,7 @@ afr_changelog_fsync(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_changelog_post_op_safe(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2654,7 +2654,7 @@ __need_previous_lock_unlocked(afr_local_t *local)
     return _gf_false;
 }
 
-void
+static void
 __afr_eager_lock_handle(afr_local_t *local, gf_boolean_t *take_lock,
                         gf_boolean_t *do_pre_op, afr_local_t **timer_local)
 {
@@ -2725,7 +2725,7 @@ out:
     return;
 }
 
-void
+static void
 afr_transaction_start(afr_local_t *local, xlator_t *this)
 {
     afr_private_t *priv = NULL;
@@ -2764,7 +2764,7 @@ lock_phase:
         afr_delayed_changelog_wake_up_cbk(timer_local);
 }
 
-int
+static int
 afr_write_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 {
     afr_local_t *local = frame->local;
@@ -2782,7 +2782,7 @@ fail:
     return 0;
 }
 
-int
+static int
 afr_transaction_lockee_init(call_frame_t *frame)
 {
     afr_local_t *local = frame->local;

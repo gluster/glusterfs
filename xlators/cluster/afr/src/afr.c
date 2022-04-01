@@ -61,7 +61,7 @@ mem_acct_init(xlator_t *this)
     return ret;
 }
 
-int
+static int
 xlator_subvolume_index(xlator_t *this, xlator_t *subvol)
 {
     int index = -1;
@@ -107,7 +107,7 @@ fix_quorum_options(xlator_t *this, afr_private_t *priv, char *qtype,
     }
 }
 
-int
+static int
 afr_set_favorite_child_policy(afr_private_t *priv, char *policy)
 {
     int index = -1;
@@ -135,7 +135,7 @@ set_data_self_heal_algorithm(afr_private_t *priv, char *algo)
     }
 }
 
-void
+static void
 afr_handle_anon_inode_options(afr_private_t *priv, dict_t *options)
 {
     char *volfile_id_str = NULL;
@@ -664,7 +664,7 @@ init(xlator_t *this)
 out:
     return ret;
 }
-void
+static void
 afr_destroy_healer_object(xlator_t *this, struct subvol_healer *healer)
 {
     int ret = -1;
@@ -687,7 +687,7 @@ afr_destroy_healer_object(xlator_t *this, struct subvol_healer *healer)
     pthread_mutex_destroy(&healer->mutex);
 }
 
-void
+static void
 afr_selfheal_daemon_fini(xlator_t *this)
 {
     struct subvol_healer *healer = NULL;
