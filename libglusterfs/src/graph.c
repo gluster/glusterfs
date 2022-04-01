@@ -1509,7 +1509,7 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
     ret = fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
     if (ret < 0) {
         gf_msg("glusterfs", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
-               "%s (%s) set type failed", name, type);
+               "%s (%s) fill uuid failed", name, type);
         goto out;
     }
     parent_graph->id = ctx->graph_id++;
