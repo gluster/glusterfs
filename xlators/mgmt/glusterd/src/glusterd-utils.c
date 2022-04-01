@@ -6577,7 +6577,7 @@ glusterd_restart_bricks(void *opaque)
                 if (!brickinfo->start_triggered) {
                     pthread_mutex_lock(&brickinfo->restart_mutex);
                     {
-                        glusterd_brick_start(volinfo, brickinfo, _gf_false,
+                        glusterd_brick_start(volinfo, brickinfo, _gf_true,
                                              _gf_false);
                     }
                     pthread_mutex_unlock(&brickinfo->restart_mutex);
@@ -6623,7 +6623,7 @@ glusterd_restart_bricks(void *opaque)
                     pthread_mutex_lock(&brickinfo->restart_mutex);
                     {
                         /* coverity[SLEEP] */
-                        glusterd_brick_start(volinfo, brickinfo, _gf_false,
+                        glusterd_brick_start(volinfo, brickinfo, _gf_true,
                                              _gf_false);
                     }
                     pthread_mutex_unlock(&brickinfo->restart_mutex);
