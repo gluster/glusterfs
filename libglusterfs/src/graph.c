@@ -532,10 +532,13 @@ static int
 fill_uuid(char *uuid, int size, struct timeval tv)
 {
     char now_str[GF_TIMESTR_SIZE];
-
+    int32_t ret = 0;
     gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
-    return snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(),
-                    now_str);
+    ret = snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
+    if (ret >= size) {
+        ret = -1;
+    }
+    return ret;
 }
 
 static int
@@ -664,7 +667,7 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     gettimeofday(&graph->dob, NULL);
 
     ret = fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
-    if ((ret < 0) || (ret >= sizeof(graph->graph_uuid))) {
+    if (ret < 0) {
         gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
                "glusterfs fill uuid failed");
         return -1;
@@ -1504,7 +1507,7 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
 
     gettimeofday(&parent_graph->dob, NULL);
     ret = fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
-    if ((ret < 0) || (ret >= 128)) {
+    if (ret < 0) {
         gf_msg("glusterfs", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
                "%s (%s) set type failed", name, type);
         goto out;
