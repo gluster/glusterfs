@@ -132,25 +132,24 @@ afr_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     return 0;
 }
 
-static int
-afr_access_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_access_wind(call_frame_t *frame, int subvol)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     priv = this->private;
     local = frame->local;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(access, frame, local->op_ret, local->op_errno, 0);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(frame, afr_access_cbk, (void *)(long)subvol,
-                      priv->children[subvol],
-                      priv->children[subvol]->fops->access, &local->loc,
-                      local->cont.access.mask, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_access_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->access, &local->loc,
+                          local->cont.access.mask, local->xdata_req);
 }
 
 int
@@ -205,24 +204,23 @@ afr_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-static int
-afr_stat_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_stat_wind(call_frame_t *frame, int subvol)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     priv = this->private;
     local = frame->local;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(stat, frame, local->op_ret, local->op_errno, 0, 0);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(
-        frame, afr_stat_cbk, (void *)(long)subvol, priv->children[subvol],
-        priv->children[subvol]->fops->stat, &local->loc, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(
+            frame, afr_stat_cbk, (void *)(long)subvol, priv->children[subvol],
+            priv->children[subvol]->fops->stat, &local->loc, local->xdata_req);
 }
 
 int
@@ -274,24 +272,23 @@ afr_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-static int
-afr_fstat_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fstat_wind(call_frame_t *frame, int subvol)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     priv = this->private;
     local = frame->local;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(fstat, frame, local->op_ret, local->op_errno, 0, 0);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(
-        frame, afr_fstat_cbk, (void *)(long)subvol, priv->children[subvol],
-        priv->children[subvol]->fops->fstat, local->fd, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(
+            frame, afr_fstat_cbk, (void *)(long)subvol, priv->children[subvol],
+            priv->children[subvol]->fops->fstat, local->fd, local->xdata_req);
 }
 
 int32_t
@@ -346,26 +343,25 @@ afr_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-static int
-afr_readlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_readlink_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(readlink, frame, local->op_ret, local->op_errno, 0, 0,
                          0);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(frame, afr_readlink_cbk, (void *)(long)subvol,
-                      priv->children[subvol],
-                      priv->children[subvol]->fops->readlink, &local->loc,
-                      local->cont.readlink.size, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_readlink_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->readlink, &local->loc,
+                          local->cont.readlink.size, local->xdata_req);
 }
 
 int
@@ -479,26 +475,25 @@ afr_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-static int
-afr_getxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_getxattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(getxattr, frame, local->op_ret, local->op_errno, NULL,
                          NULL);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(frame, afr_getxattr_cbk, (void *)(long)subvol,
-                      priv->children[subvol],
-                      priv->children[subvol]->fops->getxattr, &local->loc,
-                      local->cont.getxattr.name, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_getxattr_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->getxattr, &local->loc,
+                          local->cont.getxattr.name, local->xdata_req);
 }
 
 static int32_t
@@ -1606,26 +1601,25 @@ afr_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-static int
-afr_fgetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fgetxattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(fgetxattr, frame, local->op_ret, local->op_errno, NULL,
                          NULL);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(frame, afr_fgetxattr_cbk, (void *)(long)subvol,
-                      priv->children[subvol],
-                      priv->children[subvol]->fops->fgetxattr, local->fd,
-                      local->cont.getxattr.name, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_fgetxattr_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->fgetxattr, local->fd,
+                          local->cont.getxattr.name, local->xdata_req);
 }
 
 static void
@@ -1732,26 +1726,26 @@ afr_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-static int
-afr_readv_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_readv_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(readv, frame, local->op_ret, local->op_errno, 0, 0, 0,
                          0, 0);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(
-        frame, afr_readv_cbk, (void *)(long)subvol, priv->children[subvol],
-        priv->children[subvol]->fops->readv, local->fd, local->cont.readv.size,
-        local->cont.readv.offset, local->cont.readv.flags, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_readv_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->readv, local->fd,
+                          local->cont.readv.size, local->cont.readv.offset,
+                          local->cont.readv.flags, local->xdata_req);
 }
 
 int
@@ -1809,25 +1803,24 @@ afr_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-static int
-afr_seek_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_seek_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (subvol == -1) {
+    if (subvol == -1)
         AFR_STACK_UNWIND(seek, frame, local->op_ret, local->op_errno, 0, NULL);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(
-        frame, afr_seek_cbk, (void *)(long)subvol, priv->children[subvol],
-        priv->children[subvol]->fops->seek, local->fd, local->cont.seek.offset,
-        local->cont.seek.what, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(
+            frame, afr_seek_cbk, (void *)(long)subvol, priv->children[subvol],
+            priv->children[subvol]->fops->seek, local->fd,
+            local->cont.seek.offset, local->cont.seek.what, local->xdata_req);
 }
 
 int

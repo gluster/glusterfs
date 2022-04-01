@@ -196,7 +196,7 @@ __afr_inode_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /*if it did pre-op, it will do post-op changing ctime*/
             if (priv->consistent_metadata && afr_needs_changelog_update(local))
                 afr_zero_fill_stat(local);
-            local->transaction.unwind(frame, this);
+            local->transaction.unwind(frame);
         }
 
         afr_transaction_resume(frame, this);
@@ -240,8 +240,8 @@ afr_writev_unwind(call_frame_t *frame, xlator_t *this)
                      &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
-static int
-afr_transaction_writev_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_transaction_writev_unwind(call_frame_t *frame)
 {
     call_frame_t *fop_frame = NULL;
 
@@ -249,9 +249,8 @@ afr_transaction_writev_unwind(call_frame_t *frame, xlator_t *this)
 
     if (fop_frame) {
         afr_writev_copy_outvars(frame, fop_frame);
-        afr_writev_unwind(fop_frame, this);
+        afr_writev_unwind(fop_frame, frame->this);
     }
-    return 0;
 }
 
 static void
@@ -397,27 +396,26 @@ afr_arbiter_writev_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
-afr_writev_wind(call_frame_t *frame, xlator_t *this, int subvol)
+void
+afr_writev_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
-    if (AFR_IS_ARBITER_BRICK(priv, subvol)) {
+    if (AFR_IS_ARBITER_BRICK(priv, subvol))
         afr_arbiter_writev_wind(frame, this, subvol);
-        return 0;
-    }
-
-    STACK_WIND_COOKIE(frame, afr_writev_wind_cbk, (void *)(long)subvol,
-                      priv->children[subvol],
-                      priv->children[subvol]->fops->writev, local->fd,
-                      local->cont.writev.vector, local->cont.writev.count,
-                      local->cont.writev.offset, local->cont.writev.flags,
-                      local->cont.writev.iobref, local->xdata_req);
-    return 0;
+    else
+        STACK_WIND_COOKIE(frame, afr_writev_wind_cbk, (void *)(long)subvol,
+                          priv->children[subvol],
+                          priv->children[subvol]->fops->writev, local->fd,
+                          local->cont.writev.vector, local->cont.writev.count,
+                          local->cont.writev.offset, local->cont.writev.flags,
+                          local->cont.writev.iobref, local->xdata_req);
 }
 
 static int
@@ -554,22 +552,19 @@ out:
 
 /* {{{ truncate */
 
-static int
-afr_truncate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_truncate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(truncate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(truncate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -588,12 +583,14 @@ afr_truncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_truncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_truncate_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -601,7 +598,6 @@ afr_truncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->truncate, &local->loc,
                       local->cont.truncate.offset, local->xdata_req);
-    return 0;
 }
 
 int
@@ -667,22 +663,19 @@ out:
 
 /* {{{ ftruncate */
 
-static int
-afr_ftruncate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_ftruncate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(ftruncate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(ftruncate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -701,12 +694,14 @@ afr_ftruncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_ftruncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_ftruncate_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -714,7 +709,6 @@ afr_ftruncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->ftruncate, local->fd,
                       local->cont.ftruncate.offset, local->xdata_req);
-    return 0;
 }
 
 int
@@ -782,22 +776,19 @@ out:
 
 /* {{{ setattr */
 
-static int
-afr_setattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_setattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(setattr, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(setattr, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -809,12 +800,14 @@ afr_setattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postop, NULL, xdata);
 }
 
-static int
-afr_setattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_setattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -823,7 +816,6 @@ afr_setattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->setattr, &local->loc,
                       &local->cont.setattr.in_buf, local->cont.setattr.valid,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -884,22 +876,19 @@ out:
 
 /* {{{ fsetattr */
 
-static int
-afr_fsetattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsetattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsetattr, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsetattr, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -911,12 +900,14 @@ afr_fsetattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postop, NULL, xdata);
 }
 
-static int
-afr_fsetattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fsetattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -925,7 +916,6 @@ afr_fsetattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->fsetattr, local->fd,
                       &local->cont.fsetattr.in_buf, local->cont.fsetattr.valid,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -989,21 +979,18 @@ out:
 
 /* {{{ setxattr */
 
-static int
-afr_setxattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_setxattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(setxattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(setxattr, main_frame, local->op_ret, local->op_errno,
+                         local->xdata_rsp);
 }
 
 static int
@@ -1014,12 +1001,14 @@ afr_setxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-static int
-afr_setxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_setxattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1028,7 +1017,6 @@ afr_setxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->setxattr, &local->loc,
                       local->cont.setxattr.dict, local->cont.setxattr.flags,
                       local->xdata_req);
-    return 0;
 }
 
 static int
@@ -1626,21 +1614,18 @@ out:
 
 /* {{{ fsetxattr */
 
-static int
-afr_fsetxattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsetxattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsetxattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsetxattr, main_frame, local->op_ret, local->op_errno,
+                         local->xdata_rsp);
 }
 
 static int
@@ -1651,12 +1636,14 @@ afr_fsetxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-static int
-afr_fsetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fsetxattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1665,7 +1652,6 @@ afr_fsetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->fsetxattr, local->fd,
                       local->cont.fsetxattr.dict, local->cont.fsetxattr.flags,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -1734,21 +1720,18 @@ out:
 
 /* {{{ removexattr */
 
-static int
-afr_removexattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_removexattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(removexattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(removexattr, main_frame, local->op_ret,
+                         local->op_errno, local->xdata_rsp);
 }
 
 int
@@ -1759,12 +1742,14 @@ afr_removexattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-static int
-afr_removexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_removexattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1772,7 +1757,6 @@ afr_removexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->removexattr, &local->loc,
                       local->cont.removexattr.name, local->xdata_req);
-    return 0;
 }
 
 int
@@ -1836,21 +1820,18 @@ out:
 }
 
 /* ffremovexattr */
-static int
-afr_fremovexattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fremovexattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fremovexattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fremovexattr, main_frame, local->op_ret,
+                         local->op_errno, local->xdata_rsp);
 }
 
 static int
@@ -1861,12 +1842,14 @@ afr_fremovexattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-static int
-afr_fremovexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fremovexattr_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1874,7 +1857,6 @@ afr_fremovexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->fremovexattr, local->fd,
                       local->cont.removexattr.name, local->xdata_req);
-    return 0;
 }
 
 int
@@ -1938,22 +1920,19 @@ out:
     return 0;
 }
 
-static int
-afr_fallocate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fallocate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fallocate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fallocate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -1965,12 +1944,14 @@ afr_fallocate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_fallocate_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fallocate_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1979,7 +1960,6 @@ afr_fallocate_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->fallocate, local->fd,
                       local->cont.fallocate.mode, local->cont.fallocate.offset,
                       local->cont.fallocate.len, local->xdata_req);
-    return 0;
 }
 
 int
@@ -2048,22 +2028,19 @@ out:
 
 /* {{{ discard */
 
-static int
-afr_discard_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_discard_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -2075,12 +2052,14 @@ afr_discard_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_discard_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_discard_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -2089,7 +2068,6 @@ afr_discard_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->discard, local->fd,
                       local->cont.discard.offset, local->cont.discard.len,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -2155,22 +2133,19 @@ out:
 
 /* {{{ zerofill */
 
-static int
-afr_zerofill_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_zerofill_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -2182,12 +2157,14 @@ afr_zerofill_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_zerofill_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_zerofill_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -2196,7 +2173,6 @@ afr_zerofill_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->zerofill, local->fd,
                       local->cont.zerofill.offset, local->cont.zerofill.len,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -2271,12 +2247,14 @@ afr_xattrop_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, xattr, xdata);
 }
 
-static int
-afr_xattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_xattrop_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -2285,24 +2263,20 @@ afr_xattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->xattrop, &local->loc,
                       local->cont.xattrop.optype, local->cont.xattrop.xattr,
                       local->xdata_req);
-    return 0;
 }
 
-static int
-afr_xattrop_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_xattrop_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(xattrop, main_frame, local->op_ret, local->op_errno,
-                     local->xattr_rsp, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(xattrop, main_frame, local->op_ret, local->op_errno,
+                         local->xattr_rsp, local->xdata_rsp);
 }
 
 int32_t
@@ -2365,12 +2339,14 @@ afr_fxattrop_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, xattr, xdata);
 }
 
-int
-afr_fxattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
+void
+afr_fxattrop_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -2379,24 +2355,20 @@ afr_fxattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->fxattrop, local->fd,
                       local->cont.xattrop.optype, local->cont.xattrop.xattr,
                       local->xdata_req);
-    return 0;
 }
 
-int
-afr_fxattrop_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fxattrop_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fxattrop, main_frame, local->op_ret, local->op_errno,
-                     local->xattr_rsp, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fxattrop, main_frame, local->op_ret, local->op_errno,
+                         local->xattr_rsp, local->xdata_rsp);
 }
 
 int32_t
@@ -2451,23 +2423,19 @@ out:
     return 0;
 }
 
-static int
-afr_fsync_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsync_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsync, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsync, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 int
@@ -2479,12 +2447,14 @@ afr_fsync_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-static int
-afr_fsync_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_fsync_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -2492,7 +2462,6 @@ afr_fsync_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->fsync, local->fd,
                       local->cont.fsync.datasync, local->xdata_req);
-    return 0;
 }
 
 int

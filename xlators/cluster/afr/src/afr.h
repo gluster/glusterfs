@@ -43,15 +43,13 @@
 #define PFLAG_PENDING (1 << 0)
 #define PFLAG_SBRAIN (1 << 1)
 
-typedef int (*afr_lock_cbk_t)(call_frame_t *frame, xlator_t *this);
+typedef void (*afr_lock_cbk_t)(call_frame_t *frame);
 
-typedef int (*afr_read_txn_wind_t)(call_frame_t *frame, xlator_t *this,
-                                   int subvol);
+typedef void (*afr_read_txn_wind_t)(call_frame_t *frame, int subvol);
 
-typedef int (*afr_inode_refresh_cbk_t)(call_frame_t *frame, xlator_t *this,
-                                       int err);
+typedef void (*afr_inode_refresh_cbk_t)(call_frame_t *frame, int err);
 
-typedef int (*afr_changelog_resume_t)(call_frame_t *frame, xlator_t *this);
+typedef void (*afr_changelog_resume_t)(call_frame_t *frame);
 
 #define AFR_COUNT(array, max)                                                  \
     ({                                                                         \
@@ -808,9 +806,9 @@ typedef struct _afr_local {
         call_frame_t *main_frame; /*Fop frame*/
         call_frame_t *frame;      /*Transaction frame*/
 
-        int (*wind)(call_frame_t *frame, xlator_t *this, int subvol);
+        void (*wind)(call_frame_t *frame, int subvol);
 
-        int (*unwind)(call_frame_t *frame, xlator_t *this);
+        void (*unwind)(call_frame_t *frame);
 
         off_t start, len;
 

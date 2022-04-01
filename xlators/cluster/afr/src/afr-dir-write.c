@@ -235,7 +235,7 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /*if it did pre-op, it will do post-op changing ctime*/
             if (priv->consistent_metadata && afr_needs_changelog_update(local))
                 afr_zero_fill_stat(local);
-            local->transaction.unwind(frame, this);
+            local->transaction.unwind(frame);
         }
 
         afr_mark_entry_pending_changelog(frame, this);
@@ -379,24 +379,21 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
 
 /* {{{ create */
 
-static int
-afr_create_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_create_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
 
-    if (!main_frame)
-        return 0;
-
-    AFR_STACK_UNWIND(create, main_frame, local->op_ret, local->op_errno,
-                     local->cont.create.fd, local->inode,
-                     &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(create, main_frame, local->op_ret, local->op_errno,
+                         local->cont.create.fd, local->inode,
+                         &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -409,12 +406,14 @@ afr_create_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_create_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_create_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -423,7 +422,6 @@ afr_create_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->create, &local->loc,
                       local->cont.create.flags, local->cont.create.mode,
                       local->umask, local->cont.create.fd, local->xdata_req);
-    return 0;
 }
 
 int
@@ -496,23 +494,20 @@ out:
 
 /* {{{ mknod */
 
-static int
-afr_mknod_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_mknod_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(mknod, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(mknod, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -525,12 +520,14 @@ afr_mknod_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_mknod_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_mknod_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -539,7 +536,6 @@ afr_mknod_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->mknod, &local->loc,
                       local->cont.mknod.mode, local->cont.mknod.dev,
                       local->umask, local->xdata_req);
-    return 0;
 }
 
 int
@@ -604,23 +600,20 @@ out:
 
 /* {{{ mkdir */
 
-static int
-afr_mkdir_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_mkdir_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(mkdir, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(mkdir, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -633,12 +626,14 @@ afr_mkdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_mkdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_mkdir_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -646,7 +641,6 @@ afr_mkdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->mkdir, &local->loc,
                       local->cont.mkdir.mode, local->umask, local->xdata_req);
-    return 0;
 }
 
 int
@@ -718,23 +712,20 @@ out:
 
 /* {{{ link */
 
-static int
-afr_link_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_link_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(link, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(link, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -747,12 +738,14 @@ afr_link_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_link_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_link_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -760,7 +753,6 @@ afr_link_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->link, &local->loc,
                       &local->newloc, local->xdata_req);
-    return 0;
 }
 
 int
@@ -825,23 +817,20 @@ out:
 
 /* {{{ symlink */
 
-static int
-afr_symlink_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_symlink_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(symlink, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(symlink, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -854,12 +843,14 @@ afr_symlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_symlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_symlink_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -868,7 +859,6 @@ afr_symlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol]->fops->symlink,
                       local->cont.symlink.linkpath, &local->loc, local->umask,
                       local->xdata_req);
-    return 0;
 }
 
 int
@@ -933,24 +923,21 @@ out:
 
 /* {{{ rename */
 
-static int
-afr_rename_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_rename_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(rename, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent,
-                     &local->cont.dir_fop.prenewparent,
-                     &local->cont.dir_fop.postnewparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(
+            rename, main_frame, local->op_ret, local->op_errno,
+            &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
+            &local->cont.dir_fop.postparent, &local->cont.dir_fop.prenewparent,
+            &local->cont.dir_fop.postnewparent, local->xdata_rsp);
 }
 
 static int
@@ -965,12 +952,14 @@ afr_rename_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                postnewparent, xdata);
 }
 
-static int
-afr_rename_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_rename_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -978,7 +967,6 @@ afr_rename_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->rename, &local->loc,
                       &local->newloc, local->xdata_req);
-    return 0;
 }
 
 int
@@ -1052,22 +1040,19 @@ out:
 
 /* {{{ unlink */
 
-static int
-afr_unlink_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_unlink_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(unlink, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(unlink, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -1079,12 +1064,14 @@ afr_unlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_unlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_unlink_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1092,7 +1079,6 @@ afr_unlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->unlink, &local->loc,
                       local->xflag, local->xdata_req);
-    return 0;
 }
 
 int
@@ -1155,22 +1141,19 @@ out:
 
 /* {{{ rmdir */
 
-int
-afr_rmdir_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_rmdir_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(rmdir, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(rmdir, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -1182,12 +1165,14 @@ afr_rmdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-static int
-afr_rmdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_rmdir_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -1195,7 +1180,6 @@ afr_rmdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
                       priv->children[subvol],
                       priv->children[subvol]->fops->rmdir, &local->loc,
                       local->cont.rmdir.flags, local->xdata_req);
-    return 0;
 }
 
 int

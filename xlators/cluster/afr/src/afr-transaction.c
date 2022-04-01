@@ -31,8 +31,8 @@ afr_post_op_handle_success(call_frame_t *frame, xlator_t *this);
 static void
 afr_post_op_handle_failure(call_frame_t *frame, xlator_t *this, int op_errno);
 
-static int
-afr_internal_lock_finish(call_frame_t *frame, xlator_t *this);
+static void
+afr_internal_lock_finish(call_frame_t *frame);
 
 static void
 __afr_transaction_wake_shared(afr_local_t *local, struct list_head *shared);
@@ -68,8 +68,8 @@ afr_ta_post_op_do(void *opaque);
 static int
 afr_ta_post_op_synctask(xlator_t *this, afr_local_t *local);
 
-static int
-afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this);
+static void
+afr_changelog_post_op_done(call_frame_t *frame);
 
 static void
 afr_changelog_post_op_fail(call_frame_t *frame, xlator_t *this, int op_errno);
@@ -331,7 +331,7 @@ afr_transaction_fop(call_frame_t *frame, xlator_t *this)
     local->call_count = call_count;
     for (i = 0; i < priv->child_count; i++) {
         if (local->transaction.pre_op[i] && !failed_subvols[i]) {
-            local->transaction.wind(frame, this, i);
+            local->transaction.wind(frame, i);
 
             if (!--call_count)
                 break;
@@ -341,15 +341,17 @@ afr_transaction_fop(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-static int
-afr_transaction_done(call_frame_t *frame, xlator_t *this)
+static void
+afr_transaction_done(call_frame_t *frame)
 {
+    xlator_t *this = NULL;
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     gf_boolean_t unwind = _gf_false;
     afr_lock_t *lock = NULL;
     afr_local_t *lock_local = NULL;
 
+    this = frame->this;
     priv = this->private;
     local = frame->local;
 
@@ -384,13 +386,11 @@ afr_transaction_done(call_frame_t *frame, xlator_t *this)
         afr_lock(lock_local->transaction.frame,
                  lock_local->transaction.frame->this);
     }
-    local->transaction.unwind(frame, this);
+    local->transaction.unwind(frame);
 
     GF_ASSERT(list_empty(&local->transaction.owner_list));
     GF_ASSERT(list_empty(&local->transaction.wait_list));
     AFR_STACK_DESTROY(frame);
-
-    return 0;
 }
 
 static void
@@ -403,8 +403,7 @@ afr_lock_fail_shared(afr_local_t *local, struct list_head *list)
         list_del_init(&each->transaction.wait_list);
         each->op_ret = -1;
         each->op_errno = local->op_errno;
-        afr_transaction_done(each->transaction.frame,
-                             each->transaction.frame->this);
+        afr_transaction_done(each->transaction.frame);
     }
 }
 
@@ -557,17 +556,19 @@ afr_txn_arbitrate_fop(call_frame_t *frame, xlator_t *this)
     return;
 }
 
-static int
-afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
+static void
+afr_transaction_perform_fop(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     int i = 0;
     int ret = 0;
+    xlator_t *this = NULL;
     int failure_count = 0;
     struct list_head shared;
     afr_lock_t *lock = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -595,7 +596,7 @@ afr_transaction_perform_fop(call_frame_t *frame, xlator_t *this)
                               priv->child_count);
     if (failure_count == priv->child_count) {
         afr_handle_lock_acquire_failure(local);
-        return 0;
+        return;
     } else {
         lock = &local->inode_ctx->lock[local->transaction.type];
         LOCK(&local->inode->lock);
@@ -622,7 +623,6 @@ fop:
     }
 
     afr_lock_resume_shared(&shared);
-    return 0;
 }
 
 int
@@ -726,13 +726,15 @@ afr_ta_process_onwireq(afr_ta_fop_state_t fop_state, xlator_t *this)
     }
 }
 
-static int
-afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this)
+static void
+afr_changelog_post_op_done(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     afr_internal_lock_t *int_lock = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
     int_lock = &local->internal_lock;
@@ -755,8 +757,6 @@ afr_changelog_post_op_done(call_frame_t *frame, xlator_t *this)
 
     int_lock->lock_cbk = afr_transaction_done;
     afr_unlock(frame, this);
-
-    return 0;
 }
 
 static void
@@ -770,7 +770,7 @@ afr_changelog_post_op_fail(call_frame_t *frame, xlator_t *this, int op_errno)
            "Failing %s for gfid %s. Fop state is:%d", gf_fop_list[local->op],
            uuid_utoa(local->inode->gfid), local->fop_state);
 
-    afr_changelog_post_op_done(frame, this);
+    afr_changelog_post_op_done(frame);
 }
 
 unsigned char *
@@ -1413,12 +1413,12 @@ afr_changelog_post_op_do(call_frame_t *frame, xlator_t *this)
             goto set_dirty;
         }
 
-        afr_changelog_post_op_done(frame, this);
+        afr_changelog_post_op_done(frame);
         goto out;
     }
 
     if (nothing_failed && !need_undirty) {
-        afr_changelog_post_op_done(frame, this);
+        afr_changelog_post_op_done(frame);
         goto out;
     }
 
@@ -1674,7 +1674,7 @@ afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     call_count = afr_frame_return(frame);
 
     if (call_count == 0) {
-        local->transaction.changelog_resume(frame, this);
+        local->transaction.changelog_resume(frame);
     }
 
     return 0;
@@ -1793,7 +1793,7 @@ afr_changelog_prepare(xlator_t *this, call_frame_t *frame, int *call_count,
         local->transaction.failed_subvols, priv->child_count);
 
     if (*call_count == 0) {
-        changelog_resume(frame, this);
+        changelog_resume(frame);
         return -1;
     }
 
@@ -2008,7 +2008,7 @@ afr_changelog_pre_op(call_frame_t *frame, xlator_t *this)
 
     return 0;
 next:
-    afr_transaction_perform_fop(frame, this);
+    afr_transaction_perform_fop(frame);
 
     if (xdata_req)
         dict_unref(xdata_req);
@@ -2027,12 +2027,14 @@ err:
     return 0;
 }
 
-static int
-afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
+static void
+afr_post_nonblocking_lock_cbk(call_frame_t *frame)
 {
     afr_internal_lock_t *int_lock = NULL;
     afr_local_t *local = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     int_lock = &local->internal_lock;
 
@@ -2046,10 +2048,8 @@ afr_post_nonblocking_lock_cbk(call_frame_t *frame, xlator_t *this)
         gf_msg_debug(this->name, 0,
                      "Non blocking locks done. Proceeding to FOP");
 
-        afr_internal_lock_finish(frame, this);
+        afr_internal_lock_finish(frame);
     }
-
-    return 0;
 }
 
 static int
@@ -2231,17 +2231,18 @@ afr_lock_resume_shared(struct list_head *list)
     }
 }
 
-static int
-afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
+static void
+afr_internal_lock_finish(call_frame_t *frame)
 {
     afr_local_t *local = frame->local;
+    xlator_t *this = frame->this;
     afr_lock_t *lock = NULL;
 
     local->internal_lock.lock_cbk = NULL;
     if (!local->transaction.eager_lock_on) {
         if (local->internal_lock.lock_op_ret < 0) {
-            afr_transaction_done(frame, this);
-            return 0;
+            afr_transaction_done(frame);
+            return;
         }
         afr_changelog_pre_op(frame, this);
     } else {
@@ -2253,8 +2254,6 @@ afr_internal_lock_finish(call_frame_t *frame, xlator_t *this)
             afr_changelog_pre_op(frame, this);
         }
     }
-
-    return 0;
 }
 
 static gf_boolean_t
@@ -2764,9 +2763,10 @@ lock_phase:
         afr_delayed_changelog_wake_up_cbk(timer_local);
 }
 
-static int
-afr_write_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
+static void
+afr_write_txn_refresh_done(call_frame_t *frame, int err)
 {
+    xlator_t *this = frame->this;
     afr_local_t *local = frame->local;
 
     if (err) {
@@ -2775,11 +2775,10 @@ afr_write_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     }
 
     afr_transaction_start(local, this);
-    return 0;
+    return;
 fail:
-    local->transaction.unwind(frame, this);
+    local->transaction.unwind(frame);
     AFR_STACK_DESTROY(frame);
-    return 0;
 }
 
 static int

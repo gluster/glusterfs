@@ -297,7 +297,7 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     UNLOCK(&frame->lock);
 
     if (call_count == 0) {
-        int_lock->lock_cbk(frame, this);
+        int_lock->lock_cbk(frame);
     }
 
     return ret;
@@ -391,7 +391,7 @@ afr_unlock_now(call_frame_t *frame, xlator_t *this)
 
     if (!call_count) {
         gf_msg_trace(this->name, 0, "No internal locks unlocked");
-        int_lock->lock_cbk(frame, this);
+        int_lock->lock_cbk(frame);
         goto out;
     }
 
@@ -571,7 +571,7 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
         gf_msg_debug(this->name, 0, "we're done locking");
 
         int_lock->lock_op_ret = 0;
-        int_lock->lock_cbk(frame, this);
+        int_lock->lock_cbk(frame);
         return 0;
     }
 
@@ -668,7 +668,7 @@ afr_nb_internal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         if (int_lock->lock_count == int_lock->lk_expected_count) {
             gf_msg_trace(this->name, 0, "All servers locked. Calling the cbk");
             int_lock->lock_op_ret = 0;
-            int_lock->lock_cbk(frame, this);
+            int_lock->lock_cbk(frame);
         }
         /* Not all locks were successful. Unlock and try locking
            again, this time with serially blocking locks */
@@ -774,7 +774,7 @@ afr_unlock(call_frame_t *frame, xlator_t *this)
     }
     UNLOCK(&local->inode->lock);
     if (!local->transaction.do_eager_unlock) {
-        local->internal_lock.lock_cbk(frame, this);
+        local->internal_lock.lock_cbk(frame);
         return 0;
     }
 

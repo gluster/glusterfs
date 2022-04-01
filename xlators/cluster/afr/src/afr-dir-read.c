@@ -243,13 +243,15 @@ afr_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-static int
-afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_readdir_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     afr_fd_ctx_t *fd_ctx = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     priv = this->private;
     local = frame->local;
     fd_ctx = afr_fd_ctx_get(local->fd, this);
@@ -260,7 +262,7 @@ afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
 
     if (subvol == -1 || !fd_ctx) {
         AFR_STACK_UNWIND(readdir, frame, local->op_ret, local->op_errno, 0, 0);
-        return 0;
+        return;
     }
 
     fd_ctx->readdir_subvol = subvol;
@@ -277,7 +279,6 @@ afr_readdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
                           priv->children[subvol]->fops->readdirp, local->fd,
                           local->cont.readdir.size, local->cont.readdir.offset,
                           local->xdata_req);
-    return 0;
 }
 
 static int
@@ -315,7 +316,7 @@ afr_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     } else {
         /* But continued readdirs MUST stick to the same subvolume
            without an option to failover */
-        afr_readdir_wind(frame, this, subvol);
+        afr_readdir_wind(frame, subvol);
     }
 
     return 0;

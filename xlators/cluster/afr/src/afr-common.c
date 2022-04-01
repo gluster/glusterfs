@@ -1842,7 +1842,7 @@ afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 
 refresh_done:
     afr_local_replies_wipe(local, this->private);
-    local->refreshfn(frame, this, err);
+    local->refreshfn(frame, err);
 
     return 0;
 }

@@ -29,19 +29,21 @@ afr_pending_read_decrement(afr_private_t *priv, int child_index)
     GF_ATOMIC_DEC(priv->pending_reads[child_index]);
 }
 
-void
-afr_read_txn_wind(call_frame_t *frame, xlator_t *this, int subvol)
+static void
+afr_read_txn_wind(call_frame_t *frame, int subvol)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
     afr_pending_read_decrement(priv, local->read_subvol);
     local->read_subvol = subvol;
     afr_pending_read_increment(priv, subvol);
-    local->readfn(frame, this, subvol);
+    local->readfn(frame, subvol);
 }
 
 static int
@@ -74,7 +76,7 @@ afr_read_txn_next_subvol(call_frame_t *frame, xlator_t *this)
        readable subvols. */
     if (subvol != -1)
         local->read_attempted[subvol] = 1;
-    afr_read_txn_wind(frame, this, subvol);
+    afr_read_txn_wind(frame, subvol);
 
     return 0;
 }
@@ -226,7 +228,7 @@ out:
         local->op_ret = -1;
         local->op_errno = op_errno;
     }
-    afr_read_txn_wind(frame, this, read_subvol);
+    afr_read_txn_wind(frame, read_subvol);
     return ret;
 }
 
@@ -260,19 +262,21 @@ afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
     }
     return;
 out:
-    afr_read_txn_wind(frame, this, -1);
+    afr_read_txn_wind(frame, -1);
 }
 
-static int
-afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
+static void
+afr_read_txn_refresh_done(call_frame_t *frame, int err)
 {
     afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     int read_subvol = -1;
     inode_t *inode = NULL;
+    xlator_t *this = NULL;
     int ret = -1;
     int spb_subvol = -1;
 
+    this = frame->this;
     local = frame->local;
     inode = local->inode;
     priv = this->private;
@@ -284,7 +288,7 @@ afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
             goto readfn;
         /* We need to query the good bricks and/or thin-arbiter.*/
         afr_ta_read_txn_synctask(frame, this);
-        return 0;
+        return;
     }
 
     read_subvol = afr_read_subvol_select_by_policy(inode, this, local->readable,
@@ -296,7 +300,7 @@ afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 
     if (local->read_attempted[read_subvol]) {
         afr_read_txn_next_subvol(frame, this);
-        return 0;
+        return;
     }
 
     local->read_attempted[read_subvol] = 1;
@@ -310,9 +314,7 @@ readfn:
     if (read_subvol == -1) {
         AFR_SET_ERROR_AND_CHECK_SPLIT_BRAIN(-1, err);
     }
-    afr_read_txn_wind(frame, this, read_subvol);
-
-    return 0;
+    afr_read_txn_wind(frame, read_subvol);
 }
 
 int
@@ -482,7 +484,7 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
     local->read_attempted[read_subvol] = 1;
 
 read:
-    afr_read_txn_wind(frame, this, read_subvol);
+    afr_read_txn_wind(frame, read_subvol);
 
     return 0;
 

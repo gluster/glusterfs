@@ -96,14 +96,16 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-static int
-afr_open_continue(call_frame_t *frame, xlator_t *this, int err)
+static void
+afr_open_continue(call_frame_t *frame, int err)
 {
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
+    xlator_t *this = NULL;
     int call_count = 0;
     int i = 0;
 
+    this = frame->this;
     local = frame->local;
     priv = this->private;
 
@@ -125,7 +127,6 @@ afr_open_continue(call_frame_t *frame, xlator_t *this, int err)
             }
         }
     }
-    return 0;
 }
 
 int
@@ -182,7 +183,7 @@ afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         afr_inode_refresh(frame, this, local->inode, local->inode->gfid,
                           afr_open_continue);
     } else {
-        afr_open_continue(frame, this, 0);
+        afr_open_continue(frame, 0);
     }
 
     return 0;
