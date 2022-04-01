@@ -235,7 +235,7 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /*if it did pre-op, it will do post-op changing ctime*/
             if (priv->consistent_metadata && afr_needs_changelog_update(local))
                 afr_zero_fill_stat(local);
-            local->transaction.unwind(frame, this);
+            local->transaction.unwind(frame);
         }
 
         afr_mark_entry_pending_changelog(frame, this);
@@ -379,24 +379,22 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
 
 /* {{{ create */
 
-static int
-afr_create_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_create_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
 
-    if (!main_frame)
-        return 0;
-
-    AFR_STACK_UNWIND(create, main_frame, local->op_ret, local->op_errno,
-                     local->cont.create.fd, local->inode,
-                     &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(create, main_frame, local->op_ret, local->op_errno,
+                         local->cont.create.fd, local->inode,
+                         &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -496,23 +494,21 @@ out:
 
 /* {{{ mknod */
 
-static int
-afr_mknod_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_mknod_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(mknod, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(mknod, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -604,23 +600,21 @@ out:
 
 /* {{{ mkdir */
 
-static int
-afr_mkdir_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_mkdir_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(mkdir, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(mkdir, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -718,23 +712,21 @@ out:
 
 /* {{{ link */
 
-static int
-afr_link_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_link_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(link, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(link, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -825,23 +817,21 @@ out:
 
 /* {{{ symlink */
 
-static int
-afr_symlink_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_symlink_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(symlink, main_frame, local->op_ret, local->op_errno,
-                     local->inode, &local->cont.dir_fop.buf,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(symlink, main_frame, local->op_ret, local->op_errno,
+                         local->inode, &local->cont.dir_fop.buf,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -933,24 +923,22 @@ out:
 
 /* {{{ rename */
 
-static int
-afr_rename_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_rename_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(rename, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent,
-                     &local->cont.dir_fop.prenewparent,
-                     &local->cont.dir_fop.postnewparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(
+            rename, main_frame, local->op_ret, local->op_errno,
+            &local->cont.dir_fop.buf, &local->cont.dir_fop.preparent,
+            &local->cont.dir_fop.postparent, &local->cont.dir_fop.prenewparent,
+            &local->cont.dir_fop.postnewparent, local->xdata_rsp);
 }
 
 static int
@@ -1052,22 +1040,20 @@ out:
 
 /* {{{ unlink */
 
-static int
-afr_unlink_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_unlink_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(unlink, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(unlink, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int
@@ -1155,22 +1141,20 @@ out:
 
 /* {{{ rmdir */
 
-int
-afr_rmdir_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_rmdir_unwind(call_frame_t *frame)
 {
     call_frame_t *main_frame = NULL;
     afr_local_t *local = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(rmdir, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.dir_fop.preparent,
-                     &local->cont.dir_fop.postparent, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(rmdir, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.dir_fop.preparent,
+                         &local->cont.dir_fop.postparent, local->xdata_rsp);
 }
 
 static int

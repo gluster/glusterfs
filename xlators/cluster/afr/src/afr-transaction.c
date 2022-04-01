@@ -384,7 +384,7 @@ afr_transaction_done(call_frame_t *frame, xlator_t *this)
         afr_lock(lock_local->transaction.frame,
                  lock_local->transaction.frame->this);
     }
-    local->transaction.unwind(frame, this);
+    local->transaction.unwind(frame);
 
     GF_ASSERT(list_empty(&local->transaction.owner_list));
     GF_ASSERT(list_empty(&local->transaction.wait_list));
@@ -2777,7 +2777,7 @@ afr_write_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
     afr_transaction_start(local, this);
     return 0;
 fail:
-    local->transaction.unwind(frame, this);
+    local->transaction.unwind(frame);
     AFR_STACK_DESTROY(frame);
     return 0;
 }

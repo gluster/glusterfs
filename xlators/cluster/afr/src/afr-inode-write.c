@@ -196,7 +196,7 @@ __afr_inode_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /*if it did pre-op, it will do post-op changing ctime*/
             if (priv->consistent_metadata && afr_needs_changelog_update(local))
                 afr_zero_fill_stat(local);
-            local->transaction.unwind(frame, this);
+            local->transaction.unwind(frame);
         }
 
         afr_transaction_resume(frame, this);
@@ -240,18 +240,18 @@ afr_writev_unwind(call_frame_t *frame, xlator_t *this)
                      &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
-static int
-afr_transaction_writev_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_transaction_writev_unwind(call_frame_t *frame)
 {
     call_frame_t *fop_frame = NULL;
 
+    GF_ASSERT(frame);
     fop_frame = afr_transaction_detach_fop_frame(frame);
 
     if (fop_frame) {
         afr_writev_copy_outvars(frame, fop_frame);
-        afr_writev_unwind(fop_frame, this);
+        afr_writev_unwind(fop_frame, frame->this);
     }
-    return 0;
 }
 
 static void
@@ -554,22 +554,20 @@ out:
 
 /* {{{ truncate */
 
-static int
-afr_truncate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_truncate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(truncate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(truncate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -667,22 +665,20 @@ out:
 
 /* {{{ ftruncate */
 
-static int
-afr_ftruncate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_ftruncate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(ftruncate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(ftruncate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -782,22 +778,20 @@ out:
 
 /* {{{ setattr */
 
-static int
-afr_setattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_setattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(setattr, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(setattr, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -884,22 +878,20 @@ out:
 
 /* {{{ fsetattr */
 
-static int
-afr_fsetattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsetattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsetattr, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsetattr, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -989,21 +981,19 @@ out:
 
 /* {{{ setxattr */
 
-static int
-afr_setxattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_setxattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(setxattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(setxattr, main_frame, local->op_ret, local->op_errno,
+                         local->xdata_rsp);
 }
 
 static int
@@ -1626,21 +1616,19 @@ out:
 
 /* {{{ fsetxattr */
 
-static int
-afr_fsetxattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsetxattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsetxattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsetxattr, main_frame, local->op_ret, local->op_errno,
+                         local->xdata_rsp);
 }
 
 static int
@@ -1734,21 +1722,19 @@ out:
 
 /* {{{ removexattr */
 
-static int
-afr_removexattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_removexattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(removexattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(removexattr, main_frame, local->op_ret,
+                         local->op_errno, local->xdata_rsp);
 }
 
 int
@@ -1836,21 +1822,19 @@ out:
 }
 
 /* ffremovexattr */
-static int
-afr_fremovexattr_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fremovexattr_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fremovexattr, main_frame, local->op_ret, local->op_errno,
-                     local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fremovexattr, main_frame, local->op_ret,
+                         local->op_errno, local->xdata_rsp);
 }
 
 static int
@@ -1938,22 +1922,20 @@ out:
     return 0;
 }
 
-static int
-afr_fallocate_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fallocate_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fallocate, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fallocate, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -2048,22 +2030,20 @@ out:
 
 /* {{{ discard */
 
-static int
-afr_discard_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_discard_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -2155,22 +2135,20 @@ out:
 
 /* {{{ zerofill */
 
-static int
-afr_zerofill_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_zerofill_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(discard, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 static int
@@ -2288,21 +2266,19 @@ afr_xattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-static int
-afr_xattrop_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_xattrop_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(xattrop, main_frame, local->op_ret, local->op_errno,
-                     local->xattr_rsp, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(xattrop, main_frame, local->op_ret, local->op_errno,
+                         local->xattr_rsp, local->xdata_rsp);
 }
 
 int32_t
@@ -2382,21 +2358,19 @@ afr_fxattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
-afr_fxattrop_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fxattrop_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fxattrop, main_frame, local->op_ret, local->op_errno,
-                     local->xattr_rsp, local->xdata_rsp);
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fxattrop, main_frame, local->op_ret, local->op_errno,
+                         local->xattr_rsp, local->xdata_rsp);
 }
 
 int32_t
@@ -2451,23 +2425,20 @@ out:
     return 0;
 }
 
-static int
-afr_fsync_unwind(call_frame_t *frame, xlator_t *this)
+static void
+afr_fsync_unwind(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
     call_frame_t *main_frame = NULL;
 
+    GF_ASSERT(frame);
     local = frame->local;
-
     main_frame = afr_transaction_detach_fop_frame(frame);
-    if (!main_frame)
-        return 0;
 
-    AFR_STACK_UNWIND(fsync, main_frame, local->op_ret, local->op_errno,
-                     &local->cont.inode_wfop.prebuf,
-                     &local->cont.inode_wfop.postbuf, local->xdata_rsp);
-
-    return 0;
+    if (main_frame)
+        AFR_STACK_UNWIND(fsync, main_frame, local->op_ret, local->op_errno,
+                         &local->cont.inode_wfop.prebuf,
+                         &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
 int

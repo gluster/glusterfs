@@ -810,7 +810,7 @@ typedef struct _afr_local {
 
         int (*wind)(call_frame_t *frame, xlator_t *this, int subvol);
 
-        int (*unwind)(call_frame_t *frame, xlator_t *this);
+        void (*unwind)(call_frame_t *frame);
 
         off_t start, len;
 
