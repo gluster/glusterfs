@@ -16,17 +16,7 @@
 #include <limits.h>
 #include <fnmatch.h>
 
-/* dict_t is always initialized with hash_size = 1
- * with this usage it's implemented as a doubly-linked list
- * and the hash calculation done per operation is not necessary.
- * using this macro to delimit blocks related to hash imp */
-#define DICT_LIST_IMP 1
-
 #include "glusterfs/dict.h"
-#if !DICT_LIST_IMP
-#define XXH_INLINE_ALL
-#include "xxhash.h"
-#endif
 #include "glusterfs/compat.h"
 #include "glusterfs/compat-errno.h"
 #include "glusterfs/statedump.h"
@@ -75,40 +65,13 @@ get_new_data()
 }
 
 static dict_t *
-get_new_dict_full(int size_hint)
+get_new_dict_full()
 {
     dict_t *dict = mem_get0(THIS->ctx->dict_pool);
 
     if (!dict) {
         return NULL;
     }
-
-    dict->hash_size = size_hint;
-#if DICT_LIST_IMP
-    /*
-     * This is the only case we ever see currently.  If we ever
-     * need to support resizing the hash table, the resize function
-     * will have to take into account the possibility that
-     * "members" is not separately allocated (i.e. don't just call
-     * realloc() blindly.
-     */
-    dict->members = &dict->members_internal;
-#else
-    /*
-     * We actually need to allocate space for size_hint *pointers*
-     * but we actually allocate space for one *structure*.  Since
-     * a data_pair_t consists of five pointers, we're wasting four
-     * pointers' worth for N=1, and will overrun what we allocated
-     * for N>5.  If anybody ever starts using size_hint, we'll need
-     * to fix this.
-     */
-    GF_ASSERT(size_hint <= (sizeof(data_pair_t) / sizeof(data_pair_t *)));
-    dict->members = mem_get0(THIS->ctx->dict_pair_pool);
-    if (!dict->members) {
-        mem_put(dict);
-        return NULL;
-    }
-#endif
 
     dict->free_pair.key = NULL;
     dict->totkvlen = 0;
@@ -120,7 +83,7 @@ get_new_dict_full(int size_hint)
 dict_t *
 dict_new(void)
 {
-    dict_t *dict = get_new_dict_full(DICT_LIST_IMP);
+    dict_t *dict = get_new_dict_full();
 
     if (dict)
         dict_ref(dict);
@@ -357,20 +320,12 @@ err_out:
  * checked by callers.
  */
 static data_pair_t *
-dict_lookup_common(const dict_t *this, const char *key, const uint32_t hash)
+dict_lookup_common(const dict_t *this, const char *key)
 {
-    int hashval = 0;
     data_pair_t *pair;
 
-    /* If the divisor is 1, the modulo is always 0,
-     * in such case avoid hash calculation.
-     */
-#if !DICT_LIST_IMP
-    hashval = hash % this->hash_size;
-#endif
-
-    for (pair = this->members[hashval]; pair != NULL; pair = pair->hash_next) {
-        if (pair->key && (hash == pair->key_hash) && !strcmp(pair->key, key))
+    for (pair = this->members_list; pair != NULL; pair = pair->next) {
+        if (pair->key && !strcmp(pair->key, key))
             return pair;
     }
 
@@ -389,15 +344,9 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     data_pair_t *tmp = NULL;
 
-    uint32_t hash = 0;
-
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
-#endif
-
     LOCK(&this->lock);
     {
-        tmp = dict_lookup_common(this, key, hash);
+        tmp = dict_lookup_common(this, key);
     }
     UNLOCK(&this->lock);
 
@@ -410,12 +359,10 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
 static int32_t
 dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
-            const uint32_t hash, gf_boolean_t replace)
+            gf_boolean_t replace)
 {
-    int hashval = 0;
     data_pair_t *pair;
     int key_free = 0;
-    uint32_t key_hash = 0;
     int keylen;
 
     if (!key) {
@@ -424,17 +371,13 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             return -1;
         }
         key_free = 1;
-#if !DICT_LIST_IMP
-        key_hash = (uint32_t)XXH64(key, keylen, 0);
-#endif
     } else {
         keylen = key_len;
-        key_hash = hash;
     }
 
     /* Search for a existing key if 'replace' is asked for */
     if (replace) {
-        pair = dict_lookup_common(this, key, key_hash);
+        pair = dict_lookup_common(this, key);
         if (pair) {
             data_t *unref_data = pair->value;
             pair->value = data_ref(value);
@@ -472,18 +415,8 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         }
         strcpy(pair->key, key);
     }
-    pair->key_hash = key_hash;
     pair->value = data_ref(value);
     this->totkvlen += (keylen + 1 + value->len);
-
-    /* If the divisor is 1, the modulo is always 0,
-     * in such case avoid hash calculation.
-     */
-#if !DICT_LIST_IMP
-    hashval = (key_hash % this->hash_size);
-#endif
-    pair->hash_next = this->members[hashval];
-    this->members[hashval] = pair;
 
     pair->next = this->members_list;
     this->members_list = pair;
@@ -510,7 +443,6 @@ int32_t
 dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
 {
     int32_t ret;
-    uint32_t key_hash = 0;
 
     if (!this || !value) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -520,15 +452,9 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-#if !DICT_LIST_IMP
-    if (key) {
-        key_hash = (uint32_t)XXH64(key, keylen, 0);
-    }
-#endif
-
     LOCK(&this->lock);
 
-    ret = dict_set_lk(this, key, keylen, value, key_hash, 1);
+    ret = dict_set_lk(this, key, keylen, value, 1);
 
     UNLOCK(&this->lock);
 
@@ -548,7 +474,6 @@ int32_t
 dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
 {
     int32_t ret;
-    uint32_t key_hash = 0;
 
     if (!this || !value) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -556,15 +481,9 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
-#if !DICT_LIST_IMP
-    if (key) {
-        key_hash = (uint32_t)XXH64(key, keylen, 0);
-    }
-#endif
-
     LOCK(&this->lock);
 
-    ret = dict_set_lk(this, key, keylen, value, key_hash, 0);
+    ret = dict_set_lk(this, key, keylen, value, 0);
 
     UNLOCK(&this->lock);
 
@@ -579,18 +498,13 @@ dict_get(dict_t *this, char *key)
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
-#if !DICT_LIST_IMP
-    return dict_getn(this, key, strlen(key));
-#else
     return dict_getn(this, key, 0);
-#endif
 }
 
 data_t *
 dict_getn(dict_t *this, char *key, const int keylen)
 {
     data_pair_t *pair;
-    uint32_t hash = 0;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
@@ -598,13 +512,9 @@ dict_getn(dict_t *this, char *key, const int keylen)
         return NULL;
     }
 
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, keylen, 0);
-#endif
-
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key, hash);
+        pair = dict_lookup_common(this, key);
     }
     UNLOCK(&this->lock);
 
@@ -642,18 +552,12 @@ dict_del(dict_t *this, char *key)
                          "!this || key=%s", key);
         return _gf_false;
     }
-#if !DICT_LIST_IMP
-    return dict_deln(this, key, strlen(key));
-#else
     return dict_deln(this, key, 0);
-#endif
 }
 
 gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen)
 {
-    int hashval = 0;
-    uint32_t hash = 0;
     gf_boolean_t rc = _gf_false;
 
     if (!this || !key) {
@@ -662,29 +566,13 @@ dict_deln(dict_t *this, char *key, const int keylen)
         return rc;
     }
 
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, keylen, 0);
-#endif
-
     LOCK(&this->lock);
 
-    /* If the divisor is 1, the modulo is always 0,
-     * in such case avoid hash calculation.
-     */
-#if !DICT_LIST_IMP
-    hashval = hash % this->hash_size;
-#endif
-
-    data_pair_t *pair = this->members[hashval];
+    data_pair_t *pair = this->members_list;
     data_pair_t *prev = NULL;
 
     while (pair) {
-        if ((hash == pair->key_hash) && strcmp(pair->key, key) == 0) {
-            if (prev)
-                prev->hash_next = pair->hash_next;
-            else
-                this->members[hashval] = pair->hash_next;
-
+        if (strcmp(pair->key, key) == 0) {
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
@@ -706,7 +594,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
         }
 
         prev = pair;
-        pair = pair->hash_next;
+        pair = pair->next;
     }
 
     UNLOCK(&this->lock);
@@ -752,9 +640,6 @@ dict_destroy(dict_t *this)
     LOCK_DESTROY(&this->lock);
 
     dict_clear_data(this);
-    if (this->members != &this->members_internal) {
-        mem_put(this->members);
-    }
 
     free(this->extra_stdfree);
 
@@ -1483,7 +1368,7 @@ dict_copy(dict_t *dict, dict_t *new)
     }
 
     if (!new)
-        new = get_new_dict_full(dict->hash_size);
+        new = get_new_dict_full();
 
     dict_foreach(dict, dict_copy_one, new);
 
@@ -1500,12 +1385,9 @@ dict_reset(dict_t *dict)
         goto out;
     }
 
-    int i;
     LOCK(&dict->lock);
 
     dict_clear_data(dict);
-    for (i = 0; i < dict->hash_size; i++)
-        dict->members[i] = NULL;
     dict->members_list = NULL;
 
     UNLOCK(&dict->lock);
@@ -1544,19 +1426,14 @@ fail:
  */
 
 static int
-dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
+dict_get_with_refn(dict_t *this, char *key, data_t **data)
 {
     data_pair_t *pair = NULL;
     int ret = -ENOENT;
-    uint32_t hash = 0;
-
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, keylen, 0);
-#endif
 
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key, hash);
+        pair = dict_lookup_common(this, key);
 
         if (pair) {
             ret = 0;
@@ -1586,11 +1463,7 @@ dict_get_with_ref(dict_t *this, char *key, data_t **data)
 
         return -EINVAL;
     }
-#if !DICT_LIST_IMP
-    return dict_get_with_refn(this, key, strlen(key), data);
-#else
-    return dict_get_with_refn(this, key, 0, data);
-#endif
+    return dict_get_with_refn(this, key, data);
 }
 
 static int
@@ -1863,7 +1736,7 @@ dict_get_int32n(dict_t *this, char *key, const int keylen, int32_t *val)
         goto err;
     }
 
-    ret = dict_get_with_refn(this, key, keylen, &data);
+    ret = dict_get_with_refn(this, key, &data);
     if (ret != 0) {
         goto err;
     }
@@ -2164,8 +2037,6 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
     int ret = 0;
     data_pair_t *pair = NULL;
     char *ptr = NULL;
-    int hashval = 0;
-    uint32_t hash = 0;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -2180,13 +2051,9 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
      */
     GF_ASSERT(flag >= 0 && flag < DICT_MAX_FLAGS);
 
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
-#endif
-
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key, hash);
+        pair = dict_lookup_common(this, key);
 
         if (pair) {
             data = pair->value;
@@ -2238,14 +2105,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
                 goto err;
             }
             strcpy(pair->key, key);
-            pair->key_hash = hash;
             pair->value = data_ref(data);
             this->totkvlen += (strlen(key) + 1 + data->len);
-#if !DICT_LIST_IMP
-            hashval = hash % this->hash_size;
-#endif
-            pair->hash_next = this->members[hashval];
-            this->members[hashval] = pair;
 
             pair->next = this->members_list;
             this->members_list = pair;
@@ -2458,7 +2319,7 @@ dict_get_strn(dict_t *this, char *key, const int keylen, char **str)
     if (!this || !key || !str) {
         goto err;
     }
-    ret = dict_get_with_refn(this, key, keylen, &data);
+    ret = dict_get_with_refn(this, key, &data);
     if (ret < 0) {
         goto err;
     }
@@ -2906,8 +2767,6 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
 {
     data_pair_t *pair = NULL;
     int ret = -EINVAL;
-    uint32_t hash = 0;
-    uint32_t replacekey_hash = 0;
     int replacekey_len = 0;
 
     /* replacing a key by itself is a NO-OP */
@@ -2921,20 +2780,16 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     }
 
     replacekey_len = strlen(replace_key);
-#if !DICT_LIST_IMP
-    hash = (uint32_t)XXH64(key, strlen(key), 0);
-    replacekey_hash = (uint32_t)XXH64(replace_key, replacekey_len, 0);
-#endif
 
     LOCK(&this->lock);
     {
         /* no need to data_ref(pair->value), dict_set_lk() does it */
-        pair = dict_lookup_common(this, key, hash);
+        pair = dict_lookup_common(this, key);
         if (!pair)
             ret = -ENODATA;
         else
             ret = dict_set_lk(this, replace_key, replacekey_len, pair->value,
-                              replacekey_hash, 1);
+                              1);
     }
     UNLOCK(&this->lock);
 
@@ -3534,7 +3389,6 @@ int
 dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
 {
     int i = 0;
-    uint32_t hash = 0;
 
     if (!dict || !strings || !result)
         return -EINVAL;
@@ -3542,10 +3396,7 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
     LOCK(&dict->lock);
     {
         for (i = 0; strings[i]; i++) {
-#if !DICT_LIST_IMP
-            hash = (uint32_t)XXH64(strings[i], strlen(strings[i]), 0);
-#endif
-            if (dict_lookup_common(dict, strings[i], hash)) {
+            if (dict_lookup_common(dict, strings[i])) {
                 *result = _gf_true;
                 goto unlock;
             }
