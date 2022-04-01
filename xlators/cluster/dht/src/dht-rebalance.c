@@ -62,7 +62,7 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
     }
 }
 
-void
+static void
 gf_defrag_free_container(struct dht_container *container)
 {
     if (container) {
@@ -78,7 +78,7 @@ gf_defrag_free_container(struct dht_container *container)
     }
 }
 
-void
+static void
 dht_set_global_defrag_error(gf_defrag_info_t *defrag, int ret)
 {
     LOCK(&defrag->lock);
@@ -1261,7 +1261,7 @@ out:
     return ret;
 }
 
-int
+static int
 migrate_special_files(xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                       struct iatt *buf, int *fop_errno)
 {
@@ -2428,7 +2428,7 @@ gf_listener_stop(xlator_t *this)
     return ret;
 }
 
-void
+static void
 dht_build_root_inode(xlator_t *this, inode_t **inode)
 {
     inode_table_t *itable = NULL;
@@ -2454,7 +2454,7 @@ dht_build_root_loc(inode_t *inode, loc_t *loc)
 /* return values: 1 -> error, bug ignore and continue
                   0 -> proceed
                  -1 -> error, handle it */
-int32_t
+static int32_t
 gf_defrag_handle_migrate_error(int32_t op_errno, gf_defrag_info_t *defrag)
 {
     int ret = 0;
@@ -2502,7 +2502,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_dfreaddirp_done(dht_dfoffset_ctx_t *offset_var, int cnt)
 {
     int i;
@@ -2566,7 +2566,7 @@ out:
  * all hardlinks.
  */
 
-gf_boolean_t
+static gf_boolean_t
 gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
 {
     gf_boolean_t ret = _gf_false;
@@ -2622,7 +2622,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_migrate_single_file(void *opaque)
 {
     xlator_t *this = NULL;
@@ -3528,7 +3528,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                       dict_t *fix_layout)
 {
@@ -3587,7 +3587,7 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     return 0;
 }
 
-int
+static int
 gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                      dict_t *fix_layout, dict_t *migrate_data)
 {
@@ -3885,7 +3885,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_init_local_subvols_and_nodeuuids(xlator_t *this, dht_conf_t *conf,
                                      loc_t *loc)
 {
@@ -3945,7 +3945,7 @@ out:
 
 /* Functions for the rebalance estimates feature */
 
-uint64_t
+static uint64_t
 gf_defrag_subvol_file_size(xlator_t *this, loc_t *root_loc)
 {
     int ret = -1;
@@ -4040,7 +4040,7 @@ dht_file_counter_thread(void *args)
     return NULL;
 }
 
-int
+static int
 gf_defrag_estimates_cleanup(xlator_t *this, gf_defrag_info_t *defrag,
                             pthread_t filecnt_thread)
 {
@@ -4165,7 +4165,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
                                      pthread_t *tid_array, int thread_index)
 {
@@ -4205,7 +4205,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_start_crawl(void *data)
 {
     xlator_t *this = NULL;

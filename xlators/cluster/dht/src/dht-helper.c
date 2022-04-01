@@ -262,7 +262,7 @@ dht_mig_info_is_invalid(xlator_t *current, xlator_t *src_subvol,
  *
  */
 
-int
+static int
 dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
                                          void *data)
 {
@@ -473,7 +473,7 @@ out:
  * If not, open and update the fd_ctx.
  */
 
-int
+static int
 dht_check_and_open_fd_on_subvol_task(void *data)
 {
     loc_t loc = {
@@ -724,8 +724,7 @@ dht_local_wipe(dht_local_t *local)
     if (local->xattr)
         dict_unref(local->xattr);
 
-    if (local->inode)
-        inode_unref(local->inode);
+    inode_unref(local->inode);
 
     if (local->layout) {
         dht_layout_unref(local->layout);
@@ -737,8 +736,7 @@ dht_local_wipe(dht_local_t *local)
     if (local->linkfile.xattr)
         dict_unref(local->linkfile.xattr);
 
-    if (local->linkfile.inode)
-        inode_unref(local->linkfile.inode);
+    inode_unref(local->linkfile.inode);
 
     if (local->fd) {
         fd_unref(local->fd);
@@ -951,9 +949,8 @@ dht_subvol_get_hashed(xlator_t *this, loc_t *loc)
     }
 
 out:
-    if (layout) {
-        dht_layout_unref(layout);
-    }
+
+    dht_layout_unref(layout);
 
     return subvol;
 }
@@ -976,9 +973,8 @@ dht_subvol_get_cached(xlator_t *this, inode_t *inode)
     subvol = layout->list[0].xlator;
 
 out:
-    if (layout) {
-        dht_layout_unref(layout);
-    }
+
+    dht_layout_unref(layout);
 
     return subvol;
 }
@@ -1263,7 +1259,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_migration_complete_check_task(void *data)
 {
     int ret = -1;
@@ -1825,8 +1821,7 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
     }
     UNLOCK(&inode->lock);
 
-    if (old_layout)
-        dht_layout_unref(old_layout);
+    dht_layout_unref(old_layout);
 
     return ret;
 }

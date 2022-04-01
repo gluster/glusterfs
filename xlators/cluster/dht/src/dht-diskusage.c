@@ -15,7 +15,7 @@
 #include <sys/time.h>
 #include <glusterfs/events.h>
 
-int
+static int
 dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 int op_errno, struct statvfs *statvfs, dict_t *xdata)
 {
@@ -328,8 +328,7 @@ out:
         avail_subvol = subvol;
     }
 
-    if (layout)
-        dht_layout_unref(layout);
+    dht_layout_unref(layout);
     return avail_subvol;
 }
 
