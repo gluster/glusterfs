@@ -1138,7 +1138,7 @@ glusterd_store_volfpath_set(glusterd_volinfo_t *volinfo, char *volfpath,
     snprintf(volfpath, len, "%s/%s", voldirpath, GLUSTERD_VOLUME_INFO_FILE);
 }
 
-static void
+static int
 glusterd_store_node_state_path_set(glusterd_volinfo_t *volinfo,
                                    char *node_statepath, size_t len)
 {
@@ -1148,13 +1148,16 @@ glusterd_store_node_state_path_set(glusterd_volinfo_t *volinfo,
     GF_ASSERT(volinfo);
     GF_ASSERT(node_statepath);
     GF_ASSERT(len <= PATH_MAX);
-
+    int32_t ret = 0;
     glusterd_store_voldirpath_set(volinfo, voldirpath);
-    snprintf(node_statepath, len, "%s/%s", voldirpath,
-             GLUSTERD_NODE_STATE_FILE);
+    ret = snprintf(node_statepath, len, "%s/%s", voldirpath,
+                   GLUSTERD_NODE_STATE_FILE);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
-static void
+static int
 glusterd_store_quota_conf_path_set(glusterd_volinfo_t *volinfo,
                                    char *quota_conf_path, size_t len)
 {
@@ -1164,10 +1167,13 @@ glusterd_store_quota_conf_path_set(glusterd_volinfo_t *volinfo,
     GF_ASSERT(volinfo);
     GF_ASSERT(quota_conf_path);
     GF_ASSERT(len <= PATH_MAX);
-
+    int32_t ret = 0;
     glusterd_store_voldirpath_set(volinfo, voldirpath);
-    snprintf(quota_conf_path, len, "%s/%s", voldirpath,
-             GLUSTERD_VOLUME_QUOTA_CONFIG);
+    ret = snprintf(quota_conf_path, len, "%s/%s", voldirpath,
+                   GLUSTERD_VOLUME_QUOTA_CONFIG);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
 static void
@@ -1220,8 +1226,10 @@ glusterd_store_create_nodestate_sh_on_absence(glusterd_volinfo_t *volinfo)
 
     GF_ASSERT(volinfo);
 
-    glusterd_store_node_state_path_set(volinfo, node_state_path,
-                                       sizeof(node_state_path));
+    ret = glusterd_store_node_state_path_set(volinfo, node_state_path,
+                                             sizeof(node_state_path));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&volinfo->node_state_shandle,
                                             node_state_path);
 
@@ -1236,8 +1244,10 @@ glusterd_store_create_quota_conf_sh_on_absence(glusterd_volinfo_t *volinfo)
 
     GF_ASSERT(volinfo);
 
-    glusterd_store_quota_conf_path_set(volinfo, quota_conf_path,
-                                       sizeof(quota_conf_path));
+    ret = glusterd_store_quota_conf_path_set(volinfo, quota_conf_path,
+                                             sizeof(quota_conf_path));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&volinfo->quota_conf_shandle,
                                             quota_conf_path);
 
@@ -4359,18 +4369,21 @@ glusterd_store_uuid_peerpath_set(glusterd_peerinfo_t *peerinfo, char *peerfpath,
     return 0;
 }
 
-static void
+static int
 glusterd_store_hostname_peerpath_set(glusterd_peerinfo_t *peerinfo,
                                      char *peerfpath, size_t len)
 {
     char peerdir[PATH_MAX];
-
+    int32_t ret = 0;
     GF_ASSERT(peerinfo);
     GF_ASSERT(peerfpath);
     GF_ASSERT(len >= PATH_MAX);
 
     glusterd_store_peerinfo_dirpath_set(peerdir, sizeof(peerdir));
-    snprintf(peerfpath, len, "%s/%s", peerdir, peerinfo->hostname);
+    ret = snprintf(peerfpath, len, "%s/%s", peerdir, peerinfo->hostname);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
 int32_t
@@ -4379,8 +4392,10 @@ glusterd_store_peerinfo_hostname_shandle_create(glusterd_peerinfo_t *peerinfo)
     char peerfpath[PATH_MAX];
     int32_t ret = -1;
 
-    glusterd_store_hostname_peerpath_set(peerinfo, peerfpath,
-                                         sizeof(peerfpath));
+    ret = glusterd_store_hostname_peerpath_set(peerinfo, peerfpath,
+                                               sizeof(peerfpath));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&peerinfo->shandle, peerfpath);
     return ret;
 }
@@ -4409,8 +4424,10 @@ glusterd_peerinfo_hostname_shandle_check_destroy(glusterd_peerinfo_t *peerinfo)
         0,
     };
 
-    glusterd_store_hostname_peerpath_set(peerinfo, peerfpath,
-                                         sizeof(peerfpath));
+    ret = glusterd_store_hostname_peerpath_set(peerinfo, peerfpath,
+                                               sizeof(peerfpath));
+    if (ret)
+        return ret;
     ret = sys_stat(peerfpath, &stbuf);
     if (!ret) {
         if (peerinfo->shandle)
