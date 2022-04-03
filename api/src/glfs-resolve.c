@@ -514,6 +514,12 @@ priv_glfs_resolve_at(struct glfs *fs, xlator_t *subvol, inode_t *at,
         goto invalid_fs;
     }
 
+    /* better to prevent a crash by someone passing a null loc */
+    if (!loc) {
+        errno = EINVAL;
+        goto invalid_fs;
+    }
+
     parent = NULL;
     if (at && origpath[0] != '/') {
         /* A relative resolution of a path which starts with '/'

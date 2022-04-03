@@ -598,6 +598,36 @@ glfs_open(glfs_t *fs, const char *path, int flags) __THROW
 /*
   SYNOPSIS
 
+  glfs_openat: Open a file, with reference to a fd (man 2 openat).
+
+  DESCRIPTION
+
+  This function opens a file on a virtual mount.
+
+  PARAMETERS
+
+  @glfd: The 'gluster fd' object (should belong to the directory).
+
+  @path: Path of the file with reference to the fd (of the directory)
+
+  @flags: Open flags. See openat(2).
+
+  @mode: Permission of the file to be created.
+
+  RETURN VALUES
+
+  NULL   : Failure. @errno will be set with the type of failure.
+  Others : Pointer to the opened glfs_fd_t.
+
+ */
+
+glfs_fd_t *
+glfs_openat(struct glfs_fd *glfd, const char *path, int flags,
+            mode_t mode) __THROW GFAPI_PUBLIC(glfs_openat, 11.0);
+
+/*
+  SYNOPSIS
+
   glfs_creat: Create a file.
 
   DESCRIPTION
