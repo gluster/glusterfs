@@ -281,3 +281,8 @@ GFAPI_7.0 {
 	global:
 		glfs_set_statedump_path;
 } GFAPI_6.6;
+
+GFAPI_11.0 {
+	global:
+		glfs_openat;
+} GFAPI_7.0;
