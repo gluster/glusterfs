@@ -3546,13 +3546,6 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         return 0;
     }
 
-    conf = this->private;
-    if (!conf) {
-        /*Uh oh
-         */
-        return -1;
-    }
-
     if (conf->local_subvols_cnt == 0 || !conf->lookup_optimize) {
         /* Commit hash updates are only done on local subvolumes and
          * only when lookup optimization is needed (for older client
@@ -3610,12 +3603,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     inode_t *linked_inode = NULL, *inode = NULL;
     dht_conf_t *conf = NULL;
     int perrno = 0;
-
-    conf = this->private;
-    if (!conf) {
-        ret = -1;
-        goto out;
-    }
 
     ret = syncop_lookup(this, loc, &iatt, NULL, NULL, NULL);
     if (ret) {
@@ -3961,7 +3948,7 @@ gf_defrag_subvol_file_size(xlator_t *this, loc_t *root_loc)
     return ((buf.f_blocks - buf.f_bfree) * buf.f_frsize);
 }
 
-uint64_t
+static uint64_t
 gf_defrag_total_file_size(xlator_t *this, loc_t *root_loc)
 {
     dht_conf_t *conf = NULL;
@@ -4100,7 +4087,7 @@ out:
 }
 
 /* Init and cleanup functions for parallel file migration*/
-int
+static int
 gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
                                   pthread_t **tid_array, int *thread_index)
 {
@@ -4108,9 +4095,6 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
     int thread_spawn_count = 0;
     int index = 0;
     pthread_t *tid = NULL;
-
-    if (!defrag)
-        goto out;
 
     /* Initialize global entry queue */
     defrag->queue = GF_CALLOC(1, sizeof(struct dht_container),
@@ -4499,7 +4483,7 @@ out:
     return NULL;
 }
 
-uint64_t
+static uint64_t
 gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
 {
     gf_defrag_info_t *defrag = NULL;
