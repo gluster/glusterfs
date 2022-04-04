@@ -2108,17 +2108,17 @@ ec_wind_writev(ec_t *ec, ec_fop_data_t *fop, int32_t idx)
 {
     ec_trace("WIND", fop, "idx=%d", idx);
 
-    struct iovec vector[1];
+    struct iovec vector;
     size_t size;
 
     size = fop->vector[1].iov_len;
 
-    vector[0].iov_base = fop->vector[1].iov_base + idx * size;
-    vector[0].iov_len = size;
+    vector.iov_base = fop->vector[1].iov_base + idx * size;
+    vector.iov_len = size;
 
     STACK_WIND_COOKIE(fop->frame, ec_writev_cbk, (void *)(uintptr_t)idx,
                       ec->xl_list[idx], ec->xl_list[idx]->fops->writev, fop->fd,
-                      vector, 1, fop->offset / ec->fragments, fop->uint32,
+                      &vector, 1, fop->offset / ec->fragments, fop->uint32,
                       fop->buffers, fop->xdata);
 }
 

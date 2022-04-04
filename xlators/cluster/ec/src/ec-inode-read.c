@@ -1148,7 +1148,7 @@ out:
 int32_t
 ec_readv_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
 {
-    struct iovec vector[1];
+    struct iovec vector;
     ec_cbk_data_t *ans = NULL;
     struct iobref *iobref = NULL;
     void *ptr;
@@ -1199,8 +1199,8 @@ ec_readv_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
             goto out;
         }
 
-        vector[0].iov_base = ptr + fop->head;
-        vector[0].iov_len = size - fop->head;
+        vector.iov_base = ptr + fop->head;
+        vector.iov_len = size - fop->head;
 
         max = fop->offset * ec->fragments + size;
         if (max > cbk->iatt[0].ia_size) {
@@ -1212,7 +1212,7 @@ ec_readv_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
         }
         size -= fop->head;
         if (size > max) {
-            vector[0].iov_len -= size - max;
+            vector.iov_len -= size - max;
             size = max;
         }
 
@@ -1223,7 +1223,7 @@ ec_readv_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
         cbk->buffers = iobref;
 
         GF_FREE(cbk->vector);
-        cbk->vector = iov_dup(vector, 1);
+        cbk->vector = iov_dup(&vector, 1);
         if (cbk->vector == NULL) {
             return -ENOMEM;
         }
