@@ -528,13 +528,17 @@ glusterfs_graph_unknown_options(glusterfs_graph_t *graph)
     return 0;
 }
 
-static void
+static int
 fill_uuid(char *uuid, int size, struct timeval tv)
 {
     char now_str[GF_TIMESTR_SIZE];
-
+    int32_t ret = 0;
     gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
-    snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
+    ret = snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
+    if (ret >= size) {
+        ret = -1;
+    }
+    return ret;
 }
 
 static int
@@ -662,8 +666,12 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     /* XXX: DOB setting */
     gettimeofday(&graph->dob, NULL);
 
-    fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
-
+    ret = fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
+    if (ret < 0) {
+        gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+               "glusterfs fill uuid failed");
+        return -1;
+    }
     graph->id = ctx->graph_id++;
 
     /* XXX: --xlator-option additions */
@@ -1498,7 +1506,12 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
     ixl = NULL;
 
     gettimeofday(&parent_graph->dob, NULL);
-    fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
+    ret = fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
+    if (ret < 0) {
+        gf_msg("glusterfs", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
+               "%s (%s) fill uuid failed", name, type);
+        goto out;
+    }
     parent_graph->id = ctx->graph_id++;
     ret = 0;
 out:
