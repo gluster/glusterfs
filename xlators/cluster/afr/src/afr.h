@@ -1214,8 +1214,8 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
 gf_boolean_t
 afr_is_symmetric_error(call_frame_t *frame, xlator_t *this);
 
-int
-__afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx);
+afr_inode_ctx_t *
+__afr_inode_ctx_get(xlator_t *this, inode_t *inode);
 
 uint64_t
 afr_write_subvol_get(call_frame_t *frame, xlator_t *this);

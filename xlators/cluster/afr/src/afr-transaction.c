@@ -2382,7 +2382,7 @@ afr_fd_has_witnessed_unstable_write(xlator_t *this, inode_t *inode)
 
     LOCK(&inode->lock);
     {
-        (void)__afr_inode_ctx_get(this, inode, &ctx);
+        ctx = __afr_inode_ctx_get(this, inode);
 
         if (ctx->witnessed_unstable_write) {
             witness = _gf_true;

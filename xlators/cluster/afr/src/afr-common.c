@@ -777,33 +777,33 @@ afr_inode_ctx_destroy(afr_inode_ctx_t *ctx)
     GF_FREE(ctx);
 }
 
-int
-__afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
+afr_inode_ctx_t *
+__afr_inode_ctx_get(xlator_t *this, inode_t *inode)
 {
     uint64_t ctx_int = 0;
-    int ret = -1;
-    int i = -1;
-    int num_locks = -1;
+    int ret;
+    int i;
+    int num_locks;
     afr_inode_ctx_t *ictx = NULL;
     afr_lock_t *lock = NULL;
-    afr_private_t *priv = this->private;
+    afr_private_t *priv = NULL;
 
     ret = __inode_ctx_get(inode, this, &ctx_int);
     if (ret == 0) {
-        *ctx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
-        return 0;
+        ictx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
+        goto out;
     }
 
     ictx = GF_CALLOC(1, sizeof(afr_inode_ctx_t), gf_afr_mt_inode_ctx_t);
     if (!ictx)
-        goto out;
+        goto err;
 
+    priv = this->private;
     for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
         ictx->pre_op_done[i] = GF_CALLOC(sizeof *ictx->pre_op_done[i],
                                          priv->child_count, gf_afr_mt_int32_t);
         if (!ictx->pre_op_done[i]) {
-            ret = -ENOMEM;
-            goto out;
+            goto err;
         }
     }
 
@@ -819,20 +819,20 @@ __afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
     ctx_int = (uint64_t)(uintptr_t)ictx;
     ret = __inode_ctx_set(inode, this, &ctx_int);
     if (ret) {
-        goto out;
+        goto err;
     }
 
     ictx->spb_choice = -1;
     ictx->read_subvol = 0;
     ictx->write_subvol = 0;
     ictx->lock_count = 0;
-    ret = 0;
-    *ctx = ictx;
 out:
-    if (ret) {
+    return ictx;
+err:
+    if (ictx) {
         afr_inode_ctx_destroy(ictx);
     }
-    return ret;
+    return NULL;
 }
 
 /*
@@ -1031,7 +1031,6 @@ __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
                                   int *event_p)
 {
     afr_private_t *priv = NULL;
-    int ret = -1;
     uint16_t datamap = 0;
     uint16_t metadatamap = 0;
     uint32_t event = 0;
@@ -1041,9 +1040,9 @@ __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
 
     priv = this->private;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret < 0)
-        return ret;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     val = ctx->read_subvol;
 
@@ -1060,7 +1059,7 @@ __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
 
     if (event_p)
         *event_p = event;
-    return ret;
+    return 0;
 }
 
 static int
@@ -1073,14 +1072,13 @@ __afr_inode_read_subvol_set_small(inode_t *inode, xlator_t *this,
     uint16_t metadatamap = 0;
     uint64_t val = 0;
     int i = 0;
-    int ret = -1;
     afr_inode_ctx_t *ctx = NULL;
 
     priv = this->private;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret)
-        goto out;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     for (i = 0; i < priv->child_count; i++) {
         if (data[i])
@@ -1094,9 +1092,7 @@ __afr_inode_read_subvol_set_small(inode_t *inode, xlator_t *this,
 
     ctx->read_subvol = val;
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
 }
 
 static int
@@ -1116,21 +1112,6 @@ __afr_inode_read_subvol_get(inode_t *inode, xlator_t *this, unsigned char *data,
         ret = -1;
 
     return ret;
-}
-
-static int
-__afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
-                                   int *spb_choice)
-{
-    afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
-
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret < 0)
-        return ret;
-
-    *spb_choice = ctx->spb_choice;
-    return 0;
 }
 
 static int
@@ -1156,17 +1137,14 @@ __afr_inode_split_brain_choice_set(inode_t *inode, xlator_t *this,
                                    int spb_choice)
 {
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret)
-        goto out;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     ctx->spb_choice = spb_choice;
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
 }
 
 int
@@ -1239,15 +1217,20 @@ static int
 afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
                                  int *spb_choice)
 {
-    int ret = -1;
-    GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    int ret = 0;
+    afr_inode_ctx_t *ctx = NULL;
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_split_brain_choice_get(inode, this, spb_choice);
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx) {
+            *spb_choice = ctx->spb_choice;
+        } else {
+            ret = -1;
+        }
     }
     UNLOCK(&inode->lock);
-out:
+
     return ret;
 }
 
@@ -1328,14 +1311,13 @@ afr_is_inode_refresh_reqd(inode_t *inode, xlator_t *this, int event_gen1,
 {
     gf_boolean_t need_refresh = _gf_false;
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret)
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL)
             goto unlock;
 
         need_refresh = ctx->need_refresh;
@@ -1355,15 +1337,15 @@ out:
 static int
 __afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
 {
-    int ret = -1;
     afr_inode_ctx_t *ctx = NULL;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret == 0) {
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx) {
         ctx->need_refresh = _gf_true;
+        return 0;
     }
 
-    return ret;
+    return -1;
 }
 
 int
@@ -1382,35 +1364,31 @@ out:
     return ret;
 }
 
-static int
+static void
 afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
 {
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
     if (!inode)
-        return ret;
+        return;
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret < 0 || !ctx) {
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL) {
             UNLOCK(&inode->lock);
             gf_msg(this->name, GF_LOG_WARNING, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to cancel split-brain choice timer.");
-            goto out;
+            return;
         }
         ctx->spb_choice = -1;
         if (ctx->timer) {
             gf_timer_call_cancel(this->ctx, ctx->timer);
             ctx->timer = NULL;
         }
-        ret = 0;
     }
     UNLOCK(&inode->lock);
-out:
-    return ret;
 }
 
 static void
@@ -1482,13 +1460,16 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret) {
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL) {
             UNLOCK(&inode->lock);
+            ret = -1;
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to get inode_ctx for %s", loc->name);
             goto post_unlock;
+        } else {
+            ret = 0;
         }
 
         old_spb_choice = ctx->spb_choice;
@@ -4279,7 +4260,7 @@ afr_delayed_changelog_wake_resume(xlator_t *this, inode_t *inode,
     afr_local_t *data_local = NULL;
     LOCK(&inode->lock);
     {
-        (void)__afr_inode_ctx_get(this, inode, &ctx);
+        ctx = __afr_inode_ctx_get(this, inode);
         lock = &ctx->lock[AFR_DATA_TRANSACTION];
         data_local = afr_wakeup_same_fd_delayed_op(this, lock, stub->args.fd);
         lock = &ctx->lock[AFR_METADATA_TRANSACTION];
@@ -7600,20 +7581,25 @@ afr_write_subvol_reset(call_frame_t *frame, xlator_t *this)
 int
 afr_set_inode_local(xlator_t *this, afr_local_t *local, inode_t *inode)
 {
-    int ret = 0;
+    afr_inode_ctx_t *inode_ctx = NULL;
 
     local->inode = inode_ref(inode);
     LOCK(&local->inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, local->inode, &local->inode_ctx);
+        inode_ctx = __afr_inode_ctx_get(this, local->inode);
+        if (inode_ctx) {
+            local->inode_ctx = inode_ctx;
+        }
     }
     UNLOCK(&local->inode->lock);
-    if (ret < 0) {
+    if (inode_ctx == NULL) {
         gf_msg_callingfn(
             this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_INODE_CTX_GET_FAILED,
             "Error getting inode ctx %s", uuid_utoa(local->inode->gfid));
+        return -1;
     }
-    return ret;
+
+    return 0;
 }
 
 gf_boolean_t
