@@ -518,7 +518,7 @@ static int32_t
 ob_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
           mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-    ob_inode_t *ob_inode;
+    ob_inode_t *ob_inode = NULL;
     call_stub_t *stub;
     fd_t *first_fd;
     ob_state_t state;
@@ -551,13 +551,13 @@ ob_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     /* In case of failure we need to decrement the number of open files because
      * ob_fdclose() won't be called. */
-
-    LOCK(&fd->inode->lock);
-    {
-        ob_inode->open_count--;
+    if (ob_inode != NULL) {
+        LOCK(&fd->inode->lock);
+        {
+            ob_inode->open_count--;
+        }
+        UNLOCK(&fd->inode->lock);
     }
-    UNLOCK(&fd->inode->lock);
-
     gf_smsg(this->name, GF_LOG_ERROR, -state, OPEN_BEHIND_MSG_FAILED, "fop=%s",
             "create", "path=%s", loc->path, NULL);
 
