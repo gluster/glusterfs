@@ -105,22 +105,26 @@ glusterd_store_key_vol_brick_set(glusterd_brickinfo_t *brickinfo,
     glusterd_replace_slash_with_hyphen(key_vol_brick);
 }
 
-static void
+static int
 glusterd_store_brickinfofname_set(glusterd_brickinfo_t *brickinfo,
                                   char *brickfname, size_t len)
 {
     char key_vol_brick[PATH_MAX] = {0};
-
+    int32_t ret = 0;
     GF_ASSERT(brickfname);
     GF_ASSERT(brickinfo);
     GF_ASSERT(len >= PATH_MAX);
 
     glusterd_store_key_vol_brick_set(brickinfo, key_vol_brick,
                                      sizeof(key_vol_brick));
-    snprintf(brickfname, len, "%s:%s", brickinfo->hostname, key_vol_brick);
+    ret = snprintf(brickfname, len, "%s:%s", brickinfo->hostname,
+                   key_vol_brick);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
-static void
+static int
 glusterd_store_brickinfopath_set(glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t *brickinfo,
                                  char *brickpath, size_t len)
@@ -130,7 +134,7 @@ glusterd_store_brickinfopath_set(glusterd_volinfo_t *volinfo,
         0,
     };
     glusterd_conf_t *priv = NULL;
-
+    int32_t ret = 0;
     GF_ASSERT(brickpath);
     GF_ASSERT(brickinfo);
     GF_ASSERT(len >= PATH_MAX);
@@ -139,12 +143,17 @@ glusterd_store_brickinfopath_set(glusterd_volinfo_t *volinfo,
     GF_ASSERT(priv);
 
     GLUSTERD_GET_BRICK_DIR(brickdirpath, volinfo, priv);
-    glusterd_store_brickinfofname_set(brickinfo, brickfname,
-                                      sizeof(brickfname));
-    snprintf(brickpath, len, "%s/%s", brickdirpath, brickfname);
+    ret = glusterd_store_brickinfofname_set(brickinfo, brickfname,
+                                            sizeof(brickfname));
+    if (ret)
+        return ret;
+    ret = snprintf(brickpath, len, "%s/%s", brickdirpath, brickfname);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
-static void
+static int
 glusterd_store_snapd_path_set(glusterd_volinfo_t *volinfo, char *snapd_path,
                               size_t len)
 {
@@ -152,7 +161,7 @@ glusterd_store_snapd_path_set(glusterd_volinfo_t *volinfo, char *snapd_path,
         0,
     };
     glusterd_conf_t *priv = NULL;
-
+    int32_t ret = 0;
     GF_ASSERT(volinfo);
     GF_ASSERT(len >= PATH_MAX);
 
@@ -161,7 +170,10 @@ glusterd_store_snapd_path_set(glusterd_volinfo_t *volinfo, char *snapd_path,
 
     GLUSTERD_GET_VOLUME_DIR(volpath, volinfo, priv);
 
-    snprintf(snapd_path, len, "%s/snapd.info", volpath);
+    ret = snprintf(snapd_path, len, "%s/snapd.info", volpath);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
 gf_boolean_t
@@ -265,8 +277,10 @@ glusterd_store_volinfo_brick_fname_write(int vol_fd,
         snprintf(key, sizeof(key), "%s-%d", GLUSTERD_STORE_KEY_VOL_TA_BRICK,
                  brick_count);
     }
-    glusterd_store_brickinfofname_set(brickinfo, brickfname,
-                                      sizeof(brickfname));
+    ret = glusterd_store_brickinfofname_set(brickinfo, brickfname,
+                                            sizeof(brickfname));
+    if (ret)
+        return ret;
     ret = gf_store_save_value(vol_fd, key, brickfname);
     return ret;
 }
@@ -283,8 +297,10 @@ glusterd_store_create_brick_shandle_on_absence(glusterd_volinfo_t *volinfo,
     GF_ASSERT(volinfo);
     GF_ASSERT(brickinfo);
 
-    glusterd_store_brickinfopath_set(volinfo, brickinfo, brickpath,
-                                     sizeof(brickpath));
+    ret = glusterd_store_brickinfopath_set(volinfo, brickinfo, brickpath,
+                                           sizeof(brickpath));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&brickinfo->shandle, brickpath);
     return ret;
 }
@@ -299,7 +315,10 @@ glusterd_store_create_snapd_shandle_on_absence(glusterd_volinfo_t *volinfo)
 
     GF_ASSERT(volinfo);
 
-    glusterd_store_snapd_path_set(volinfo, snapd_path, sizeof(snapd_path));
+    ret = glusterd_store_snapd_path_set(volinfo, snapd_path,
+                                        sizeof(snapd_path));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&volinfo->snapd.handle, snapd_path);
     return ret;
 }
@@ -1123,7 +1142,7 @@ out:
     return ret;
 }
 
-static void
+static int
 glusterd_store_volfpath_set(glusterd_volinfo_t *volinfo, char *volfpath,
                             size_t len)
 {
@@ -1133,9 +1152,13 @@ glusterd_store_volfpath_set(glusterd_volinfo_t *volinfo, char *volfpath,
     GF_ASSERT(volinfo);
     GF_ASSERT(volfpath);
     GF_ASSERT(len <= PATH_MAX);
-
+    int32_t ret = 0;
     glusterd_store_voldirpath_set(volinfo, voldirpath);
-    snprintf(volfpath, len, "%s/%s", voldirpath, GLUSTERD_VOLUME_INFO_FILE);
+    ret = snprintf(volfpath, len, "%s/%s", voldirpath,
+                   GLUSTERD_VOLUME_INFO_FILE);
+    if (ret < 0 || ret >= len)
+        return -1;
+    return 0;
 }
 
 static int
@@ -1213,7 +1236,9 @@ glusterd_store_create_vol_shandle_on_absence(glusterd_volinfo_t *volinfo)
 
     GF_ASSERT(volinfo);
 
-    glusterd_store_volfpath_set(volinfo, volfpath, sizeof(volfpath));
+    ret = glusterd_store_volfpath_set(volinfo, volfpath, sizeof(volfpath));
+    if (ret)
+        return ret;
     ret = gf_store_handle_create_on_absence(&volinfo->shandle, volfpath);
     return ret;
 }
