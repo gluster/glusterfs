@@ -487,9 +487,6 @@ glfs_free_xlator_options(cmd_args_t *cmd_args)
     xlator_cmdline_option_t *xo = NULL;
     xlator_cmdline_option_t *tmp_xo = NULL;
 
-    if (!(&cmd_args->xlator_options))
-        return;
-
     list_for_each_entry_safe(xo, tmp_xo, &cmd_args->xlator_options, cmd_args)
     {
         list_del_init(&xo->cmd_args);
