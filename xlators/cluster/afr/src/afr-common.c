@@ -731,7 +731,7 @@ afr_copy_frame(call_frame_t *base)
 /* Check if an entry or inode could be undergoing a transaction. */
 static gf_boolean_t
 afr_is_possibly_under_txn(afr_transaction_type type, afr_local_t *local,
-                          unsigned int child_count)
+                          const unsigned int child_count)
 {
     int i = 0;
     int tmp = 0;
@@ -2411,11 +2411,12 @@ afr_read_subvol_get(inode_t *inode, xlator_t *this, int *subvol_p,
 }
 
 static void
-afr_local_transaction_cleanup(afr_local_t *local, afr_private_t *priv)
+afr_local_transaction_cleanup(afr_local_t *local,
+                              const unsigned int child_count)
 {
     int i = 0;
 
-    afr_matrix_cleanup(local->pending, priv->child_count);
+    afr_matrix_cleanup(local->pending, child_count);
 
     afr_lockees_cleanup(&local->internal_lock);
 
@@ -2423,7 +2424,7 @@ afr_local_transaction_cleanup(afr_local_t *local, afr_private_t *priv)
 
     GF_FREE(local->transaction.pre_op_sources);
     if (local->transaction.changelog_xdata) {
-        for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < child_count; i++) {
             if (!local->transaction.changelog_xdata[i])
                 continue;
             dict_unref(local->transaction.changelog_xdata[i]);
@@ -2580,7 +2581,7 @@ afr_local_cleanup(afr_local_t *local, xlator_t *this)
 
     syncbarrier_destroy(&local->barrier);
 
-    afr_local_transaction_cleanup(local, priv);
+    afr_local_transaction_cleanup(local, priv->child_count);
 
     loc_wipe(&local->loc);
     loc_wipe(&local->newloc);
@@ -5735,12 +5736,11 @@ __get_heard_from_all_status(afr_private_t *priv)
     return 1;
 }
 
-glusterfs_event_t
-__afr_transform_event_from_state(xlator_t *this)
+static glusterfs_event_t
+__afr_transform_event_from_state(afr_private_t *priv)
 {
     int i = 0;
     int up_children = 0;
-    afr_private_t *priv = this->private;
 
     if (__get_heard_from_all_status(priv))
         /* have_heard_from_all. Let afr_notify() do the propagation. */
@@ -5784,7 +5784,7 @@ afr_notify_cbk(void *data)
             goto unlock;
         }
         priv->timer = NULL;
-        event = __afr_transform_event_from_state(this);
+        event = __afr_transform_event_from_state(priv);
         if (event != GF_EVENT_MAXVAL)
             propagate = _gf_true;
     }
