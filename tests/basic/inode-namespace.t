@@ -65,6 +65,6 @@ echo "$(grep 'cross-device' $(glusterfsd --print-logdir)/bricks/* | grep server_
 TEST mv $M1/test2/file12 $M1/test2/file10 ;
 
 
-TEST ! setfattr -x trusted.glusterfs.namespace -v true $M2/test1;
+TEST ! setfattr -x trusted.glusterfs.namespace $M2/test1;
 
 cleanup;

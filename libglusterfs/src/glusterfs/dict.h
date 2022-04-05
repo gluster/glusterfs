@@ -99,26 +99,21 @@ struct _data {
 };
 
 struct _data_pair {
-    struct _data_pair *hash_next;
     struct _data_pair *next;
     data_t *value;
     char *key;
-    uint32_t key_hash;
 };
 
 struct _dict {
     uint64_t max_count;
-    int32_t hash_size;
     int32_t count;
-    gf_atomic_t refcount;
-    gf_lock_t lock;
-    data_pair_t **members;
-    data_pair_t *members_list;
-    data_pair_t free_pair;
-    data_pair_t *members_internal;
-    char *extra_stdfree;
     /* Variable to store total keylen + value->len */
     uint32_t totkvlen;
+    gf_atomic_t refcount;
+    gf_lock_t lock;
+    data_pair_t *members_list;
+    data_pair_t free_pair;
+    char *extra_stdfree;
 };
 
 typedef gf_boolean_t (*dict_match_t)(dict_t *d, char *k, data_t *v, void *data);

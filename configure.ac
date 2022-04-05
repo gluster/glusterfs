@@ -117,6 +117,8 @@ AC_CONFIG_FILES([Makefile
                 xlators/features/changelog/lib/src/Makefile
                 xlators/features/locks/Makefile
                 xlators/features/locks/src/Makefile
+                xlators/features/simple-quota/Makefile
+                xlators/features/simple-quota/src/Makefile
                 xlators/features/quota/Makefile
                 xlators/features/quota/src/Makefile
                 xlators/features/marker/Makefile
@@ -426,11 +428,21 @@ fi
 
 case $host_os in
   darwin*)
-    if ! test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -ge 7; then
+    # macOS version checking became a bit complicated since 11.x
+    # It is preferred to match against kernel version now instead of product version
+    # Darwin kernel is versioned as A.B.C where
+    # A = Kernel Version Major, starts from 5 (OS X Puma), incremented by 1 for each new release
+    # B = Kernel Version Minor
+    # C = Kernel Version Patch
+
+    # Should be greater than OS X Lion i.e. KernelMajor 11
+    DARWIN_KERNEL_MAJOR="`/usr/bin/uname -r | cut -d . -f 1`"
+    if ! test $DARWIN_KERNEL_MAJOR -ge 11; then
        AC_MSG_ERROR([You need at least OS X 10.7 (Lion) to build Glusterfs])
     fi
     # OSX version lesser than 9 has llvm/clang optimization issues which leads to various segfaults
-    if test "`/usr/bin/sw_vers | grep ProductVersion: | cut -f 2 | cut -d. -f2`" -lt 9; then
+    # If OS X Mavericks or lower i.e KernelMajor = 13
+    if test $DARWIN_KERNEL_MAJOR -lt 13; then
        GF_CFLAGS="${GF_CFLAGS} -g -O0 -DDEBUG"
     fi
     ;;

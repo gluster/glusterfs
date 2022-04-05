@@ -595,7 +595,7 @@ typedef struct _afr_local {
             struct gf_flock ret_flock;
             unsigned char *locked_nodes;
             int32_t cmd;
-            /*For lock healing only.*/
+            /* For lock healing only. */
             unsigned char *dom_locked_nodes;
             int32_t *dom_lock_op_ret;
             int32_t *dom_lock_op_errno;
@@ -606,32 +606,20 @@ typedef struct _afr_local {
 
         struct {
             int32_t mask;
-            int last_index; /* index of the child we tried previously */
         } access;
 
         struct {
-            int last_index;
-        } stat;
-
-        struct {
-            int last_index;
-        } fstat;
-
-        struct {
             size_t size;
-            int last_index;
         } readlink;
 
         struct {
             char *name;
             long xattr_len;
-            int last_index;
         } getxattr;
 
         struct {
             size_t size;
             off_t offset;
-            int last_index;
             uint32_t flags;
         } readv;
 
@@ -640,18 +628,12 @@ typedef struct _afr_local {
         struct {
             uint32_t *checksum;
             int success_count;
-            int32_t op_ret;
-            int32_t op_errno;
         } opendir;
 
         struct {
-            int32_t op_ret;
-            int32_t op_errno;
             size_t size;
             off_t offset;
             dict_t *dict;
-            int last_index;
-            gf_boolean_t failed;
         } readdir;
         /* inode write */
 
@@ -664,7 +646,6 @@ typedef struct _afr_local {
             struct iovec *vector;
             struct iobref *iobref;
             off_t offset;
-            int32_t op_ret;
             int32_t count;
             uint32_t flags;
         } writev;
@@ -754,8 +735,6 @@ typedef struct _afr_local {
         struct {
             off_t offset;
             off_t len;
-            struct iatt prebuf;
-            struct iatt postbuf;
         } zerofill;
 
         struct {
@@ -1235,8 +1214,8 @@ afr_serialize_xattrs_with_delimiter(call_frame_t *frame, xlator_t *this,
 gf_boolean_t
 afr_is_symmetric_error(call_frame_t *frame, xlator_t *this);
 
-int
-__afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx);
+afr_inode_ctx_t *
+__afr_inode_ctx_get(xlator_t *this, inode_t *inode);
 
 uint64_t
 afr_write_subvol_get(call_frame_t *frame, xlator_t *this);

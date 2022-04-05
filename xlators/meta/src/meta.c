@@ -16,19 +16,22 @@
 
 #include "meta-hooks.h"
 
-int
+static int
 meta_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     inode_t *inode = NULL;
+    meta_priv_t *priv = this->private;
 
-    if (META_HOOK(loc) || IS_META_ROOT_GFID(loc->gfid)) {
+    if ((loc->name && !strcmp(loc->name, priv->meta_dir_name) &&
+         __is_root_gfid(loc->pargfid)) ||
+        !gf_uuid_compare(loc->gfid, priv->meta_root_gfid)) {
         struct iatt iatt = {};
         struct iatt parent = {};
 
         meta_root_dir_hook(frame, this, loc, xdata);
 
-        meta_iatt_fill(&iatt, loc->inode, IA_IFDIR);
-        gf_uuid_parse(META_ROOT_GFID, iatt.ia_gfid);
+        meta_iatt_fill(this, &iatt, loc->inode, IA_IFDIR);
+        gf_uuid_copy(iatt.ia_gfid, priv->meta_root_gfid);
 
         META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
                           &parent);
@@ -211,17 +214,18 @@ init(xlator_t *this)
     meta_priv_t *priv = NULL;
     int ret = -1;
 
-    priv = GF_CALLOC(sizeof(*priv), 1, gf_meta_mt_priv_t);
+    priv = GF_MALLOC(sizeof(meta_priv_t), gf_meta_mt_priv_t);
     if (!priv)
         return ret;
 
-    GF_OPTION_INIT("meta-dir-name", priv->meta_dir_name, str, out);
+    GF_OPTION_INIT("meta-dir-name", priv->meta_dir_name, str, err);
+
+    gf_uuid_parse(META_ROOT_GFID, priv->meta_root_gfid);
 
     this->private = priv;
-    ret = 0;
-out:
-    if (ret)
-        GF_FREE(priv);
+    return 0;
+err:
+    GF_FREE(priv);
 
     return ret;
 }

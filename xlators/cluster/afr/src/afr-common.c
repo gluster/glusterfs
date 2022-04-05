@@ -102,13 +102,13 @@ afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
 int
 afr_fav_child_reset_sink_xattrs(void *opaque);
 
-int
+static int
 afr_fav_child_reset_sink_xattrs_cbk(int ret, call_frame_t *frame, void *opaque);
 
 static void
 afr_discover_done(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_dom_lock_acquire_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xdata)
 {
@@ -132,7 +132,7 @@ afr_dom_lock_acquire_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_dom_lock_acquire(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
@@ -194,7 +194,7 @@ blocking_lock:
     return 0;
 }
 
-int
+static int
 afr_dom_lock_release_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xdata)
 {
@@ -369,7 +369,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_lock_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
                   dict_t *xdata)
@@ -389,7 +389,7 @@ afr_lock_heal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_getlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
 {
@@ -729,7 +729,7 @@ afr_copy_frame(call_frame_t *base)
 }
 
 /* Check if an entry or inode could be undergoing a transaction. */
-gf_boolean_t
+static gf_boolean_t
 afr_is_possibly_under_txn(afr_transaction_type type, afr_local_t *local,
                           xlator_t *this)
 {
@@ -777,33 +777,33 @@ afr_inode_ctx_destroy(afr_inode_ctx_t *ctx)
     GF_FREE(ctx);
 }
 
-int
-__afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
+afr_inode_ctx_t *
+__afr_inode_ctx_get(xlator_t *this, inode_t *inode)
 {
     uint64_t ctx_int = 0;
-    int ret = -1;
-    int i = -1;
-    int num_locks = -1;
+    int ret;
+    int i;
+    int num_locks;
     afr_inode_ctx_t *ictx = NULL;
     afr_lock_t *lock = NULL;
-    afr_private_t *priv = this->private;
+    afr_private_t *priv = NULL;
 
     ret = __inode_ctx_get(inode, this, &ctx_int);
     if (ret == 0) {
-        *ctx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
-        return 0;
+        ictx = (afr_inode_ctx_t *)(uintptr_t)ctx_int;
+        goto out;
     }
 
     ictx = GF_CALLOC(1, sizeof(afr_inode_ctx_t), gf_afr_mt_inode_ctx_t);
     if (!ictx)
-        goto out;
+        goto err;
 
+    priv = this->private;
     for (i = 0; i < AFR_NUM_CHANGE_LOGS; i++) {
         ictx->pre_op_done[i] = GF_CALLOC(sizeof *ictx->pre_op_done[i],
                                          priv->child_count, gf_afr_mt_int32_t);
         if (!ictx->pre_op_done[i]) {
-            ret = -ENOMEM;
-            goto out;
+            goto err;
         }
     }
 
@@ -819,20 +819,20 @@ __afr_inode_ctx_get(xlator_t *this, inode_t *inode, afr_inode_ctx_t **ctx)
     ctx_int = (uint64_t)(uintptr_t)ictx;
     ret = __inode_ctx_set(inode, this, &ctx_int);
     if (ret) {
-        goto out;
+        goto err;
     }
 
     ictx->spb_choice = -1;
     ictx->read_subvol = 0;
     ictx->write_subvol = 0;
     ictx->lock_count = 0;
-    ret = 0;
-    *ctx = ictx;
 out:
-    if (ret) {
+    return ictx;
+err:
+    if (ictx) {
         afr_inode_ctx_destroy(ictx);
     }
-    return ret;
+    return NULL;
 }
 
 /*
@@ -865,7 +865,7 @@ out:
  *                                to be called to recalculate the bitmaps.
  */
 
-int
+static int
 __afr_set_in_flight_sb_status(xlator_t *this, afr_local_t *local,
                               inode_t *inode)
 {
@@ -1025,13 +1025,12 @@ afr_set_in_flight_sb_status(xlator_t *this, call_frame_t *frame, inode_t *inode)
     return ret;
 }
 
-int
+static int
 __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
                                   unsigned char *data, unsigned char *metadata,
                                   int *event_p)
 {
     afr_private_t *priv = NULL;
-    int ret = -1;
     uint16_t datamap = 0;
     uint16_t metadatamap = 0;
     uint32_t event = 0;
@@ -1041,9 +1040,9 @@ __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
 
     priv = this->private;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret < 0)
-        return ret;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     val = ctx->read_subvol;
 
@@ -1060,10 +1059,10 @@ __afr_inode_read_subvol_get_small(inode_t *inode, xlator_t *this,
 
     if (event_p)
         *event_p = event;
-    return ret;
+    return 0;
 }
 
-int
+static int
 __afr_inode_read_subvol_set_small(inode_t *inode, xlator_t *this,
                                   unsigned char *data, unsigned char *metadata,
                                   int event)
@@ -1073,14 +1072,13 @@ __afr_inode_read_subvol_set_small(inode_t *inode, xlator_t *this,
     uint16_t metadatamap = 0;
     uint64_t val = 0;
     int i = 0;
-    int ret = -1;
     afr_inode_ctx_t *ctx = NULL;
 
     priv = this->private;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret)
-        goto out;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     for (i = 0; i < priv->child_count; i++) {
         if (data[i])
@@ -1094,9 +1092,7 @@ __afr_inode_read_subvol_set_small(inode_t *inode, xlator_t *this,
 
     ctx->read_subvol = val;
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
 }
 
 static int
@@ -1118,21 +1114,6 @@ __afr_inode_read_subvol_get(inode_t *inode, xlator_t *this, unsigned char *data,
     return ret;
 }
 
-int
-__afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
-                                   int *spb_choice)
-{
-    afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
-
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret < 0)
-        return ret;
-
-    *spb_choice = ctx->spb_choice;
-    return 0;
-}
-
 static int
 __afr_inode_read_subvol_set(inode_t *inode, xlator_t *this, unsigned char *data,
                             unsigned char *metadata, int event)
@@ -1151,22 +1132,19 @@ __afr_inode_read_subvol_set(inode_t *inode, xlator_t *this, unsigned char *data,
     return ret;
 }
 
-int
+static int
 __afr_inode_split_brain_choice_set(inode_t *inode, xlator_t *this,
                                    int spb_choice)
 {
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret)
-        goto out;
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx == NULL)
+        return -1;
 
     ctx->spb_choice = spb_choice;
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
 }
 
 int
@@ -1239,15 +1217,20 @@ static int
 afr_inode_split_brain_choice_get(inode_t *inode, xlator_t *this,
                                  int *spb_choice)
 {
-    int ret = -1;
-    GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    int ret = 0;
+    afr_inode_ctx_t *ctx = NULL;
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_split_brain_choice_get(inode, this, spb_choice);
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx) {
+            *spb_choice = ctx->spb_choice;
+        } else {
+            ret = -1;
+        }
     }
     UNLOCK(&inode->lock);
-out:
+
     return ret;
 }
 
@@ -1328,14 +1311,13 @@ afr_is_inode_refresh_reqd(inode_t *inode, xlator_t *this, int event_gen1,
 {
     gf_boolean_t need_refresh = _gf_false;
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret)
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL)
             goto unlock;
 
         need_refresh = ctx->need_refresh;
@@ -1355,15 +1337,15 @@ out:
 static int
 __afr_inode_need_refresh_set(inode_t *inode, xlator_t *this)
 {
-    int ret = -1;
     afr_inode_ctx_t *ctx = NULL;
 
-    ret = __afr_inode_ctx_get(this, inode, &ctx);
-    if (ret == 0) {
+    ctx = __afr_inode_ctx_get(this, inode);
+    if (ctx) {
         ctx->need_refresh = _gf_true;
+        return 0;
     }
 
-    return ret;
+    return -1;
 }
 
 int
@@ -1382,38 +1364,34 @@ out:
     return ret;
 }
 
-static int
+static void
 afr_spb_choice_timeout_cancel(xlator_t *this, inode_t *inode)
 {
     afr_inode_ctx_t *ctx = NULL;
-    int ret = -1;
 
     if (!inode)
-        return ret;
+        return;
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret < 0 || !ctx) {
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL) {
             UNLOCK(&inode->lock);
             gf_msg(this->name, GF_LOG_WARNING, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to cancel split-brain choice timer.");
-            goto out;
+            return;
         }
         ctx->spb_choice = -1;
         if (ctx->timer) {
             gf_timer_call_cancel(this->ctx, ctx->timer);
             ctx->timer = NULL;
         }
-        ret = 0;
     }
     UNLOCK(&inode->lock);
-out:
-    return ret;
 }
 
-void
+static void
 afr_set_split_brain_choice_cbk(void *data)
 {
     inode_t *inode = data;
@@ -1482,13 +1460,16 @@ afr_set_split_brain_choice(int ret, call_frame_t *frame, void *opaque)
 
     LOCK(&inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, inode, &ctx);
-        if (ret) {
+        ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL) {
             UNLOCK(&inode->lock);
+            ret = -1;
             gf_msg(this->name, GF_LOG_ERROR, 0,
                    AFR_MSG_SPLIT_BRAIN_CHOICE_ERROR,
                    "Failed to get inode_ctx for %s", loc->name);
             goto post_unlock;
+        } else {
+            ret = 0;
         }
 
         old_spb_choice = ctx->spb_choice;
@@ -1572,7 +1553,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
                  afr_transaction_type type)
 {
@@ -1596,7 +1577,7 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
     return 0;
 }
 
-int
+static int
 afr_accuse_smallfiles(xlator_t *this, struct afr_reply *replies,
                       unsigned char *data_accused)
 {
@@ -1628,7 +1609,7 @@ afr_accuse_smallfiles(xlator_t *this, struct afr_reply *replies,
     return 0;
 }
 
-int
+static int
 afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
                    unsigned char *data_accused, unsigned char *metadata_accused,
                    unsigned char *data_readable,
@@ -1743,7 +1724,7 @@ afr_replies_interpret(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return ret;
 }
 
-int
+static int
 afr_refresh_selfheal_done(int ret, call_frame_t *heal, void *opaque)
 {
     if (heal)
@@ -1751,7 +1732,7 @@ afr_refresh_selfheal_done(int ret, call_frame_t *heal, void *opaque)
     return 0;
 }
 
-int
+static int
 afr_inode_refresh_err(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1774,7 +1755,7 @@ ret:
     return err;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_selfheal_enabled(const xlator_t *this)
 {
     const afr_private_t *priv = this->private;
@@ -1783,7 +1764,7 @@ afr_selfheal_enabled(const xlator_t *this)
            priv->entry_self_heal;
 }
 
-int
+static int
 afr_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 {
     call_frame_t *heal_frame = NULL;
@@ -1847,7 +1828,7 @@ refresh_done:
     return 0;
 }
 
-int
+static int
 afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
 {
     call_frame_t *heal_frame = NULL;
@@ -1907,7 +1888,7 @@ refresh_done:
     return 0;
 }
 
-void
+static void
 afr_inode_refresh_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                              int op_ret, int op_errno, struct iatt *buf,
                              dict_t *xdata, struct iatt *par)
@@ -1949,7 +1930,7 @@ afr_inode_refresh_subvol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 }
 
-int
+static int
 afr_inode_refresh_subvol_with_lookup_cbk(call_frame_t *frame, void *cookie,
                                          xlator_t *this, int op_ret,
                                          int op_errno, inode_t *inode,
@@ -1961,7 +1942,7 @@ afr_inode_refresh_subvol_with_lookup_cbk(call_frame_t *frame, void *cookie,
     return 0;
 }
 
-int
+static int
 afr_inode_refresh_subvol_with_lookup(call_frame_t *frame, xlator_t *this, int i,
                                      inode_t *inode, uuid_t gfid, dict_t *xdata)
 {
@@ -1998,7 +1979,7 @@ afr_inode_refresh_subvol_with_fstat_cbk(call_frame_t *frame, void *cookie,
     return 0;
 }
 
-int
+static int
 afr_inode_refresh_subvol_with_fstat(call_frame_t *frame, xlator_t *this, int i,
                                     dict_t *xdata)
 {
@@ -2014,7 +1995,7 @@ afr_inode_refresh_subvol_with_fstat(call_frame_t *frame, xlator_t *this, int i,
     return 0;
 }
 
-int
+static int
 afr_inode_refresh_do(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2164,7 +2145,7 @@ afr_xattr_req_prepare(xlator_t *this, dict_t *xattr_req)
     return ret;
 }
 
-int
+static int
 afr_lookup_xattr_req_prepare(afr_local_t *local, xlator_t *this,
                              dict_t *xattr_req, loc_t *loc)
 {
@@ -2212,7 +2193,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_least_pending_reads_child(afr_private_t *priv, unsigned char *readable)
 {
     int i = 0;
@@ -2278,7 +2259,7 @@ afr_least_latency_times_pending_reads_child(afr_private_t *priv,
     return child;
 }
 
-int
+static int
 afr_hash_child(afr_read_subvol_args_t *args, afr_private_t *priv,
                unsigned char *readable)
 {
@@ -2379,7 +2360,7 @@ afr_inode_read_subvol_type_get(inode_t *inode, xlator_t *this,
         return afr_inode_read_subvol_get(inode, this, readable, 0, event_p);
 }
 
-void
+static void
 afr_readables_intersect_get(inode_t *inode, xlator_t *this, int *event,
                             unsigned char *intersection)
 {
@@ -2850,7 +2831,7 @@ afr_get_parent_read_subvol(xlator_t *this, inode_t *parent,
     return par_read_subvol_iter;
 }
 
-int
+static int
 afr_read_subvol_decide(inode_t *inode, xlator_t *this,
                        afr_read_subvol_args_t *args, unsigned char *readable)
 {
@@ -3236,7 +3217,7 @@ afr_attempt_local_discovery(xlator_t *this, int32_t child_index)
                       GF_XATTR_PATHINFO_KEY, NULL);
 }
 
-int
+static int
 afr_lookup_sh_metadata_wrap(void *opaque)
 {
     call_frame_t *frame = opaque;
@@ -3470,7 +3451,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -3925,7 +3906,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_lookup_do(call_frame_t *frame, xlator_t *this, int err)
 {
     int ret = 0;
@@ -4247,7 +4228,7 @@ afr_flush_wrapper(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     return 0;
 }
 
-afr_local_t *
+static afr_local_t *
 afr_wakeup_same_fd_delayed_op(xlator_t *this, afr_lock_t *lock, fd_t *fd)
 {
     afr_local_t *local = NULL;
@@ -4269,7 +4250,7 @@ afr_wakeup_same_fd_delayed_op(xlator_t *this, afr_lock_t *lock, fd_t *fd)
     return local;
 }
 
-void
+static void
 afr_delayed_changelog_wake_resume(xlator_t *this, inode_t *inode,
                                   call_stub_t *stub)
 {
@@ -4279,7 +4260,7 @@ afr_delayed_changelog_wake_resume(xlator_t *this, inode_t *inode,
     afr_local_t *data_local = NULL;
     LOCK(&inode->lock);
     {
-        (void)__afr_inode_ctx_get(this, inode, &ctx);
+        ctx = __afr_inode_ctx_get(this, inode);
         lock = &ctx->lock[AFR_DATA_TRANSACTION];
         data_local = afr_wakeup_same_fd_delayed_op(this, lock, stub->args.fd);
         lock = &ctx->lock[AFR_METADATA_TRANSACTION];
@@ -4481,7 +4462,7 @@ afr_fop_lock_wind(call_frame_t *frame, xlator_t *this, int child_index,
     }
 }
 
-void
+static void
 afr_fop_lock_proceed(call_frame_t *frame)
 {
     afr_local_t *local = NULL;
@@ -4628,7 +4609,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 afr_fop_lock_done(call_frame_t *frame, xlator_t *this)
 {
     int i = 0;
@@ -5868,7 +5849,7 @@ find_best_down_child(xlator_t *this)
     return best_child;
 }
 
-int
+static int
 find_worst_up_child(xlator_t *this)
 {
     afr_private_t *priv = NULL;
@@ -5893,7 +5874,7 @@ find_worst_up_child(xlator_t *this)
     return worst_child;
 }
 
-void
+static void
 __afr_handle_ping_event(xlator_t *this, xlator_t *child_xlator, const int idx,
                         int64_t halo_max_latency_msec, int32_t *event,
                         int64_t child_latency_msec)
@@ -5972,7 +5953,7 @@ afr_get_halo_latency(xlator_t *this)
     return halo_max_latency_msec;
 }
 
-void
+static void
 __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
                             const int idx, int64_t child_latency_msec,
                             int32_t *event, int32_t *call_psh,
@@ -6873,7 +6854,7 @@ afr_update_heal_status(xlator_t *this, struct afr_reply *replies,
 }
 
 /*return EIO, EAGAIN or pending*/
-int
+static int
 afr_lockless_inspect(call_frame_t *frame, xlator_t *this, uuid_t gfid,
                      inode_t **inode, gf_boolean_t *entry_selfheal,
                      gf_boolean_t *data_selfheal,
@@ -7368,7 +7349,7 @@ afr_get_need_heal(afr_private_t *priv)
     return need_heal;
 }
 
-int
+static int
 afr_fav_child_reset_sink_xattrs_cbk(int ret, call_frame_t *heal_frame,
                                     void *opaque)
 {
@@ -7600,20 +7581,25 @@ afr_write_subvol_reset(call_frame_t *frame, xlator_t *this)
 int
 afr_set_inode_local(xlator_t *this, afr_local_t *local, inode_t *inode)
 {
-    int ret = 0;
+    afr_inode_ctx_t *inode_ctx = NULL;
 
     local->inode = inode_ref(inode);
     LOCK(&local->inode->lock);
     {
-        ret = __afr_inode_ctx_get(this, local->inode, &local->inode_ctx);
+        inode_ctx = __afr_inode_ctx_get(this, local->inode);
+        if (inode_ctx) {
+            local->inode_ctx = inode_ctx;
+        }
     }
     UNLOCK(&local->inode->lock);
-    if (ret < 0) {
+    if (inode_ctx == NULL) {
         gf_msg_callingfn(
             this->name, GF_LOG_ERROR, ENOMEM, AFR_MSG_INODE_CTX_GET_FAILED,
             "Error getting inode ctx %s", uuid_utoa(local->inode->gfid));
+        return -1;
     }
-    return ret;
+
+    return 0;
 }
 
 gf_boolean_t

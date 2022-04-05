@@ -1072,34 +1072,30 @@ void
 loc_gfid(loc_t *loc, uuid_t gfid)
 {
     if (!gfid)
-        goto out;
-    gf_uuid_clear(gfid);
-
-    if (!loc)
-        goto out;
+        return;
+    else if (!loc)
+        gf_uuid_clear(gfid);
     else if (!gf_uuid_is_null(loc->gfid))
         gf_uuid_copy(gfid, loc->gfid);
     else if (loc->inode && (!gf_uuid_is_null(loc->inode->gfid)))
         gf_uuid_copy(gfid, loc->inode->gfid);
-out:
-    return;
+    else
+        gf_uuid_clear(gfid);
 }
 
 void
 loc_pargfid(loc_t *loc, uuid_t gfid)
 {
     if (!gfid)
-        goto out;
-    gf_uuid_clear(gfid);
-
-    if (!loc)
-        goto out;
+        return;
+    else if (!loc)
+        gf_uuid_clear(gfid);
     else if (!gf_uuid_is_null(loc->pargfid))
         gf_uuid_copy(gfid, loc->pargfid);
     else if (loc->parent && (!gf_uuid_is_null(loc->parent->gfid)))
         gf_uuid_copy(gfid, loc->parent->gfid);
-out:
-    return;
+    else
+        gf_uuid_clear(gfid);
 }
 
 char *

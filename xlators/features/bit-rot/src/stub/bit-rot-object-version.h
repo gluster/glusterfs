@@ -16,7 +16,7 @@
  */
 typedef struct br_version {
     unsigned long ongoingversion;
-    uint32_t timebuf[2];
+    unsigned long timebuf[2];
 } br_version_t;
 
 typedef struct __attribute__((__packed__)) br_signature {

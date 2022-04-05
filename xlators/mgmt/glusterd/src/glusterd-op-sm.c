@@ -1571,10 +1571,6 @@ glusterd_op_stage_reset_volume(dict_t *dict, char **op_errstr)
     char *key_fixed = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
 
@@ -7068,12 +7064,9 @@ glusterd_shd_select_brick_xlator(dict_t *dict, gf_xl_afr_op_t heal_op,
                                  int *hxlator_count, dict_t *rsp_dict)
 {
     int ret = -1;
-    glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
     glusterd_svc_t *svc = NULL;
 
-    priv = this->private;
-    GF_ASSERT(priv);
     svc = &(volinfo->shd.svc);
 
     switch (heal_op) {
@@ -7149,7 +7142,6 @@ glusterd_bricks_select_heal_volume(dict_t *dict, char **op_errstr,
 {
     int ret = -1;
     char *volname = NULL;
-    glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     xlator_t *this = THIS;
     char msg[2048] = {
@@ -7159,9 +7151,6 @@ glusterd_bricks_select_heal_volume(dict_t *dict, char **op_errstr,
     gf_xl_afr_op_t heal_op = GF_SHD_OP_INVALID;
     int hxlator_count = 0;
     int index = 0;
-
-    priv = this->private;
-    GF_ASSERT(priv);
 
     ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
     if (ret) {

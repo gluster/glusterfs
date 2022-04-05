@@ -115,7 +115,7 @@ typedef struct br_stub_local {
 typedef struct br_stub_private {
     gf_boolean_t do_versioning;
 
-    uint32_t boot[2];
+    unsigned long boot[2];
     char export[PATH_MAX];
 
     pthread_mutex_t lock;

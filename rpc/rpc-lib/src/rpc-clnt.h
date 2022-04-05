@@ -30,9 +30,9 @@ typedef enum {
     RPC_STATUS_DISCONNECTED
 } rpc_clnt_status_t;
 
-#define SFRAME_GET_PROGNUM(sframe) (sframe->rpcreq->prog->prognum)
-#define SFRAME_GET_PROGVER(sframe) (sframe->rpcreq->prog->progver)
-#define SFRAME_GET_PROCNUM(sframe) (sframe->rpcreq->procnum)
+#define RPCREQ_GET_PROGNUM(_rpcreq) (_rpcreq->prog->prognum)
+#define RPCREQ_GET_PROGVER(_rpcreq) (_rpcreq->prog->progver)
+#define RPCREQ_GET_PROCNUM(_rpcreq) (_rpcreq->procnum)
 
 struct rpc_req;
 struct rpc_clnt;
@@ -155,16 +155,12 @@ typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
 struct rpc_req {
     rpc_clnt_connection_t *conn;
-    struct iovec req[2];
-    struct iobref *req_iobref;
     struct iovec rsp[2];
     int rspcnt;
-    int reqcnt;
     struct iobref *rsp_iobref;
     rpc_clnt_prog_t *prog;
     rpc_auth_data_t verf;
     fop_cbk_fn_t cbkfn;
-    void *conn_private;
     int procnum;
     int rpc_status;
     uint32_t xid;
@@ -175,7 +171,8 @@ typedef struct rpc_clnt {
     rpc_clnt_notify_t notifyfn;
     rpc_clnt_connection_t conn;
     void *mydata;
-    gf_atomic_t xid;
+    gf_atomic_uint32_t xid;
+    int auth_value;
 
     /* list of cb programs registered with rpc-clnt */
     struct list_head programs;
@@ -188,7 +185,6 @@ typedef struct rpc_clnt {
     glusterfs_ctx_t *ctx;
     gf_atomic_t refcount;
     xlator_t *owner;
-    int auth_value;
     char disabled;
 } rpc_clnt_t;
 
@@ -241,9 +237,6 @@ int
 rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn);
 rpc_clnt_status_t
 rpc_clnt_connection_status(rpc_clnt_connection_t *conn);
-
-void
-rpc_clnt_reconnect(void *trans_ptr);
 
 void
 rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config);

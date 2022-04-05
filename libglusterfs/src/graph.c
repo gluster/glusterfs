@@ -412,11 +412,61 @@ glusterfs_graph_validate_options(glusterfs_graph_t *graph)
     return 0;
 }
 
+/* The function is set xl_id , child_count, level
+   for every xlator after generating a graph.
+   In case of client graph(like shd,nfs) a single graph
+   is generated for all the volumes and because of this
+   huge memory consumption per inode for these graphs.
+   While a xlator calls inode_table_new it sets the ctxcount
+   based on the total xlator attached with a graph. In case
+   of these graphs (shd, nfs) xl_count is huge if high number
+   of volumes are active in the environment so in case if
+   100 volumes are exists per inode it will create memory
+   for 702 ctx (100 * 7 xlators per volume in nfs graph)
+   and if per ctx memory consumption is 32 bytes per inode
+   will consume  22464 Bytes that is huge. In case if lru
+   list is full the consumption will be huge so to reduce memory consumption
+   the function reset xl_id based on the volume. An inode
+   can not be associated more than one volume simultaneously
+   so at the time of get|set ctx on the inode use the parameter
+   xlator->level, xlator->xl_id to take decision about the index
+   for specific xlator to save the data on inode
+*/
+
+static uint32_t
+gluster_graph_set_params(xlator_t *xl, uint32_t level, uint32_t id)
+{
+    xlator_list_t *list;
+    uint32_t count;
+
+    xl->level = level++;
+    xl->xl_id = id++;
+    xl->child_count = 0;
+
+    for (list = xl->children; list != NULL; list = list->next) {
+        count = gluster_graph_set_params(list->xlator, level, id);
+        xl->child_count += count;
+        id += count;
+    }
+
+    return xl->child_count + 1;
+}
+
 int
 glusterfs_graph_init(glusterfs_graph_t *graph)
 {
     xlator_t *trav = NULL;
     int ret = -1;
+    xlator_t *top = NULL;
+    int start = 1;
+
+    top = graph->top;
+    /* Always start the level and id to 1, in case of
+       fuse graph fuse_xlator is not part of the graph
+       the graph always start from meta-autoload in volfile
+       so 0th index is reserve for fuse xlator
+    */
+    gluster_graph_set_params(top, start, start);
 
     trav = graph->first;
 
@@ -478,13 +528,17 @@ glusterfs_graph_unknown_options(glusterfs_graph_t *graph)
     return 0;
 }
 
-static void
+static int
 fill_uuid(char *uuid, int size, struct timeval tv)
 {
     char now_str[GF_TIMESTR_SIZE];
-
+    int32_t ret = 0;
     gf_time_fmt_tv(now_str, sizeof now_str, &tv, gf_timefmt_dirent);
-    snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
+    ret = snprintf(uuid, size, "%s-%d-%s", gf_gethostname(), getpid(), now_str);
+    if (ret >= size) {
+        ret = -1;
+    }
+    return ret;
 }
 
 static int
@@ -612,8 +666,12 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     /* XXX: DOB setting */
     gettimeofday(&graph->dob, NULL);
 
-    fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
-
+    ret = fill_uuid(graph->graph_uuid, sizeof(graph->graph_uuid), graph->dob);
+    if (ret < 0) {
+        gf_msg("graph", GF_LOG_ERROR, 0, LG_MSG_GRAPH_ERROR,
+               "glusterfs fill uuid failed");
+        return -1;
+    }
     graph->id = ctx->graph_id++;
 
     /* XXX: --xlator-option additions */
@@ -1448,7 +1506,12 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
     ixl = NULL;
 
     gettimeofday(&parent_graph->dob, NULL);
-    fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
+    ret = fill_uuid(parent_graph->graph_uuid, 128, parent_graph->dob);
+    if (ret < 0) {
+        gf_msg("glusterfs", GF_LOG_ERROR, EINVAL, LG_MSG_GRAPH_SETUP_FAILED,
+               "%s (%s) fill uuid failed", name, type);
+        goto out;
+    }
     parent_graph->id = ctx->graph_id++;
     ret = 0;
 out:

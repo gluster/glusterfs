@@ -1232,13 +1232,15 @@ pl_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int32_t
 pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
-                  dict_t **dict, int32_t *op_errno)
+                  dict_t **dict, int32_t *op_errno, char *client_uid,
+                  pid_t client_pid)
 {
     int32_t bcount = 0;
     int32_t gcount = 0;
     char *key = NULL;
     char *lk_summary = NULL;
     pl_inode_t *pl_inode = NULL;
+    bool setlk_interrupt = false;
     clrlk_args args = {
         0,
     };
@@ -1271,8 +1273,13 @@ pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
                                                     &bcount, &gcount, op_errno);
             break;
         case CLRLK_POSIX:
+            if (!strncmp(name, GF_XATTR_INTRLK_CMD,
+                         SLEN(GF_XATTR_INTRLK_CMD))) {
+                setlk_interrupt = true;
+            }
             op_ret = clrlk_clear_posixlk(this, pl_inode, &args, &bcount,
-                                         &gcount, op_errno);
+                                         &gcount, op_errno, client_uid,
+                                         client_pid, setlk_interrupt);
             break;
         default:
             op_ret = -1;
@@ -1351,6 +1358,8 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     int32_t op_errno = EINVAL;
     int32_t op_ret = -1;
     dict_t *dict = NULL;
+    char *client_uid = NULL;
+    pid_t client_pid = -1;
 
     if (!name)
         goto usual;
@@ -1358,8 +1367,21 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)))
         goto usual;
 
-    op_ret = pl_getxattr_clrlk(this, name, loc->inode, &dict, &op_errno);
+    GF_ASSERT(frame->root);
 
+    if (frame->root->client) {
+        client_uid = frame->root->client->client_uid;
+        client_pid = frame->root->pid;
+    }
+    if (strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) == 0) {
+        if (!client_uid || client_pid < 0)
+            goto unwind;
+    }
+
+    op_ret = pl_getxattr_clrlk(this, name, loc->inode, &dict, &op_errno,
+                               client_uid, client_pid);
+
+unwind:
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, xdata);
 
     if (dict)
@@ -1592,9 +1614,26 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 {
     int32_t op_ret = 0, op_errno = 0;
     dict_t *dict = NULL;
+    char *client_uid = NULL;
+    pid_t client_pid = -1;
 
     if (!name) {
         goto usual;
+    }
+
+    GF_ASSERT(frame->root);
+
+    if (frame->root->client) {
+        client_uid = frame->root->client->client_uid;
+        client_pid = frame->root->pid;
+    }
+
+    if (strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) == 0) {
+        if (!client_uid || client_pid < 0) {
+            op_ret = -1;
+            op_errno = EINVAL;
+            goto unwind;
+        }
     }
 
     if (strcmp(name, GF_XATTR_LOCKINFO_KEY) == 0) {
@@ -1615,8 +1654,11 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
         goto unwind;
     } else if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) ==
-               0) {
-        op_ret = pl_getxattr_clrlk(this, name, fd->inode, &dict, &op_errno);
+                   0 ||
+               strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) ==
+                   0) {
+        op_ret = pl_getxattr_clrlk(this, name, fd->inode, &dict, &op_errno,
+                                   client_uid, client_pid);
 
         goto unwind;
     } else {

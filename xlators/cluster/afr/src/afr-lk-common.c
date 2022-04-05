@@ -17,7 +17,7 @@
 #define LOCKED_YES 0x1   /* for DATA, METADATA, ENTRY and higher_path */
 #define LOCKED_LOWER 0x2 /* for lower path */
 
-void
+static void
 afr_lockee_cleanup(afr_lockee_t *lockee)
 {
     if (lockee->fd) {
@@ -73,7 +73,7 @@ afr_entry_lockee_cmp(const void *l1, const void *l2)
         return 1;
 }
 
-int
+static int
 afr_lock_blocking(call_frame_t *frame, xlator_t *this, int child_index);
 
 void
@@ -85,7 +85,7 @@ afr_set_lk_owner(call_frame_t *frame, xlator_t *this, void *lk_owner)
     set_lk_owner_from_ptr(&frame->root->lk_owner, lk_owner);
 }
 
-int32_t
+static int32_t
 internal_lock_count(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -192,7 +192,7 @@ initialize_internal_lock_variables(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_lockee_locked_nodes_count(afr_internal_lock_t *int_lock)
 {
     int call_count = 0;
@@ -303,7 +303,7 @@ afr_unlock_common_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return ret;
 }
 
-void
+static void
 afr_internal_lock_wind(call_frame_t *frame,
                        int32_t (*cbk)(call_frame_t *, void *, xlator_t *,
                                       int32_t, int32_t, dict_t *),
@@ -521,7 +521,7 @@ is_blocking_locks_count_sufficient(call_frame_t *frame, xlator_t *this)
     return ret;
 }
 
-int
+static int
 afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
 {
     afr_internal_lock_t *int_lock = NULL;

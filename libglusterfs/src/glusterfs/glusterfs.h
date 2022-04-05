@@ -88,6 +88,7 @@
 #define IO_THREADS_QUEUE_SIZE_KEY "io-thread-queue-size"
 
 #define GF_XATTR_CLRLK_CMD "glusterfs.clrlk"
+#define GF_XATTR_INTRLK_CMD "glusterfs.intrlk"
 #define GF_XATTR_PATHINFO_KEY "trusted.glusterfs.pathinfo"
 #define GF_XATTR_NODE_UUID_KEY "trusted.glusterfs.node-uuid"
 #define GF_XATTR_LIST_NODE_UUIDS_KEY "trusted.glusterfs.list-node-uuids"
@@ -223,6 +224,10 @@ enum gf_internal_fop_indicator {
 #define QUOTA_LIMIT_OBJECTS_KEY "trusted.glusterfs.quota.limit-objects"
 #define VIRTUAL_QUOTA_XATTR_CLEANUP_KEY "glusterfs.quota-xattr-cleanup"
 #define QUOTA_READ_ONLY_KEY "trusted.glusterfs.quota.read-only"
+
+/* simple-quota */
+#define SQUOTA_SIZE_KEY "trusted.gfs.squota.size"
+#define SQUOTA_LIMIT_KEY "trusted.gfs.squota.limit"
 
 /* ctime related */
 #define CTIME_MDATA_XDATA_KEY "set-ctime-mdata"

@@ -87,8 +87,6 @@ struct br_child {
 
     struct mem_pool *timer_pool; /* timer-wheel's timer mem-pool */
 
-    struct timeval tv;
-
     struct br_scanfs fsscan; /* per subvolume FS scanner */
 
     gf_boolean_t active_scrubbing; /* Actively scrubbing or not */
@@ -144,7 +142,7 @@ struct br_monitor {
 
     xlator_t *this;
     /* scheduler */
-    uint32_t boot;
+    time_t boot;
 
     int32_t active_child_count; /* Number of children currently scrubbing */
     gf_boolean_t kick;          /* This variable tracks the scrubber is
