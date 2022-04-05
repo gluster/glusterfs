@@ -17,7 +17,7 @@ void
 dht_lock_array_free(dht_lock_t **lk_array, int count);
 
 int32_t
-dht_lock_count(dht_lock_t **lk_array, int lk_count);
+dht_lock_count(dht_lock_wrap_t *lock_wrap);
 
 dht_lock_t *
 dht_lock_new(xlator_t *this, xlator_t *xl, loc_t *loc, short type,
@@ -25,21 +25,14 @@ dht_lock_new(xlator_t *this, xlator_t *xl, loc_t *loc, short type,
              dht_reaction_type_t do_on_failure);
 
 int32_t
-dht_unlock_entrylk_wrapper(call_frame_t *, dht_elock_wrap_t *);
-
-void
-dht_blocking_entrylk_rec(call_frame_t *frame, int i);
-
-int
-dht_blocking_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
-                     fop_inodelk_cbk_t entrylk_cbk);
+dht_unlock_entrylk_wrapper(call_frame_t *, dht_lock_wrap_t *);
 
 int32_t
-dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
+dht_unlock_inodelk(call_frame_t *frame, dht_lock_wrap_t *lock_wrap,
                    fop_inodelk_cbk_t inodelk_cbk);
 
 int32_t
-dht_unlock_inodelk_wrapper(call_frame_t *, dht_ilock_wrap_t *);
+dht_unlock_inodelk_wrapper(call_frame_t *, dht_lock_wrap_t *);
 
 /* Acquire blocking inodelk on a list of xlators.
  *
@@ -55,17 +48,9 @@ dht_unlock_inodelk_wrapper(call_frame_t *, dht_ilock_wrap_t *);
  *          locks are unlocked before invoking cbk.
  */
 
-void
-dht_blocking_inodelk_rec(call_frame_t *frame, int i);
-
 int
 dht_blocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                      fop_inodelk_cbk_t inodelk_cbk);
-
-int32_t
-dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
-                                   xlator_t *this, int32_t op_ret,
-                                   int32_t op_errno, dict_t *xdata);
 
 void
 dht_unlock_namespace(call_frame_t *, dht_dir_transaction_t *);

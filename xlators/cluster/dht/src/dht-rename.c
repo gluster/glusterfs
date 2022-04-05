@@ -14,8 +14,6 @@
 #include "dht-common.h"
 #include "dht-lock.h"
 
-int
-dht_rename_unlock(call_frame_t *frame, xlator_t *this);
 int32_t
 dht_rename_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata);
@@ -57,8 +55,6 @@ dht_rename_dir_unlock_dst(call_frame_t *frame, xlator_t *this)
 {
     dht_local_t *local = NULL;
     int op_ret = -1;
-    char src_gfid[GF_UUID_BUF_SIZE] = {0};
-    char dst_gfid[GF_UUID_BUF_SIZE] = {0};
 
     local = frame->local;
 
@@ -66,10 +62,11 @@ dht_rename_dir_unlock_dst(call_frame_t *frame, xlator_t *this)
     dht_unlock_entrylk_wrapper(frame, &local->lock[1].ns.directory_ns);
 
     /* Unlock inodelk */
-    op_ret = dht_unlock_inodelk(frame, local->lock[1].ns.parent_layout.locks,
-                                local->lock[1].ns.parent_layout.lk_count,
+    op_ret = dht_unlock_inodelk(frame, &local->lock[1].ns.parent_layout,
                                 dht_rename_unlock_cbk);
     if (op_ret < 0) {
+        char src_gfid[GF_UUID_BUF_SIZE];
+        char dst_gfid[GF_UUID_BUF_SIZE] = {0};
         uuid_utoa_r(local->loc.inode->gfid, src_gfid);
 
         if (local->loc2.inode)
@@ -702,18 +699,18 @@ dht_rename_unlock(call_frame_t *frame, xlator_t *this)
 {
     dht_local_t *local = NULL;
     int op_ret = -1;
-    char src_gfid[GF_UUID_BUF_SIZE] = {0};
-    char dst_gfid[GF_UUID_BUF_SIZE] = {0};
-    dht_ilock_wrap_t inodelk_wrapper = {
-        0,
-    };
+    dht_lock_wrap_t inodelk_wrapper;
 
     local = frame->local;
+
+    memset(&inodelk_wrapper, 0, sizeof(dht_lock_wrap_t));
     inodelk_wrapper.locks = local->rename_inodelk_backward_compatible;
     inodelk_wrapper.lk_count = local->rename_inodelk_bc_count;
 
     op_ret = dht_unlock_inodelk_wrapper(frame, &inodelk_wrapper);
     if (op_ret < 0) {
+        char src_gfid[GF_UUID_BUF_SIZE];
+        char dst_gfid[GF_UUID_BUF_SIZE] = {0};
         uuid_utoa_r(local->loc.inode->gfid, src_gfid);
 
         if (local->loc2.inode)
