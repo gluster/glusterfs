@@ -4261,12 +4261,15 @@ afr_delayed_changelog_wake_resume(xlator_t *this, inode_t *inode,
     LOCK(&inode->lock);
     {
         ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL)
+            goto unlock;
         lock = &ctx->lock[AFR_DATA_TRANSACTION];
         data_local = afr_wakeup_same_fd_delayed_op(this, lock, stub->args.fd);
         lock = &ctx->lock[AFR_METADATA_TRANSACTION];
         metadata_local = afr_wakeup_same_fd_delayed_op(this, lock,
                                                        stub->args.fd);
     }
+unlock:
     UNLOCK(&inode->lock);
 
     if (data_local) {
