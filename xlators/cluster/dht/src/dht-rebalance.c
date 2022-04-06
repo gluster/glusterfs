@@ -3546,6 +3546,8 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         return 0;
     }
 
+    conf = this->private;
+
     if (conf->local_subvols_cnt == 0 || !conf->lookup_optimize) {
         /* Commit hash updates are only done on local subvolumes and
          * only when lookup optimization is needed (for older client
@@ -3604,6 +3606,7 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     dht_conf_t *conf = NULL;
     int perrno = 0;
 
+    conf = this->private;
     ret = syncop_lookup(this, loc, &iatt, NULL, NULL, NULL);
     if (ret) {
         if (-ret == ENOENT || -ret == ESTALE) {
