@@ -533,7 +533,6 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
     char *num = NULL;
     char *pattern_str = NULL;
     char *pattern = NULL;
-    gf_defrag_pattern_list_t *temp_list = NULL;
     gf_defrag_pattern_list_t *pattern_list = NULL;
 
     if (!this || !defrag || !data)
@@ -551,6 +550,7 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
         if (!pattern_list) {
             goto out;
         }
+        INIT_LIST_HEAD(&pattern_list->list);
         pattern = strtok_r(dup_str, ":", &tmp_str1);
         num = strtok_r(NULL, ":", &tmp_str1);
         if (!pattern)
@@ -566,21 +566,10 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
                    num);
             goto out;
         }
-        memcpy(pattern_list->path_pattern, pattern, strlen(dup_str));
-
-        if (!defrag->defrag_pattern)
-            temp_list = NULL;
-        else
-            temp_list = defrag->defrag_pattern;
-
-        pattern_list->next = temp_list;
-
-        defrag->defrag_pattern = pattern_list;
+        pattern_list->path_pattern = pattern;
+        list_add_tail(&pattern_list->list, &defrag->defrag_pattern);
         pattern_list = NULL;
-
-        GF_FREE(dup_str);
         dup_str = NULL;
-
         pattern_str = strtok_r(NULL, ",", &tmp_str);
     }
 
@@ -664,6 +653,7 @@ dht_init(xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, defrag, err);
 
         LOCK_INIT(&defrag->lock);
+        INIT_LIST_HEAD(&defrag->defrag_pattern);
 
         defrag->is_exiting = 0;
 

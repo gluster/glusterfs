@@ -427,9 +427,9 @@ typedef enum gf_defrag_status_t gf_defrag_status_t;
 typedef struct gf_defrag_pattern_list gf_defrag_pattern_list_t;
 
 struct gf_defrag_pattern_list {
-    char path_pattern[256];
+    struct list_head list;
+    char *path_pattern;
     uint64_t size;
-    gf_defrag_pattern_list_t *next;
 };
 
 struct dht_container {
@@ -477,7 +477,7 @@ struct gf_defrag_info_ {
     time_t start_time;
     uint32_t new_commit_hash;
     gf_defrag_status_t defrag_status;
-    gf_defrag_pattern_list_t *defrag_pattern;
+    struct list_head defrag_pattern;
 
     pthread_cond_t parallel_migration_cond;
     pthread_mutex_t dfq_mutex;
