@@ -1258,7 +1258,7 @@ dht_migration_complete_check_done(int op_ret, call_frame_t *frame, void *data)
     subvol = local->cached_subvol;
 
 out:
-    local->rebalance.target_op_fn(THIS, subvol, frame, op_ret);
+    local->rebalance.target_op_fn(subvol, frame, op_ret);
 
     return 0;
 }
@@ -1541,7 +1541,7 @@ dht_inprogress_check_done(int op_ret, call_frame_t *frame, void *data)
     }
 
 out:
-    local->rebalance.target_op_fn(THIS, dst_subvol, frame, op_ret);
+    local->rebalance.target_op_fn(dst_subvol, frame, op_ret);
 
     return 0;
 }
