@@ -78,7 +78,7 @@ struct gf_event {
 
     struct list_head list;
 
-    struct iovec iov[0];
+    struct iovec iov[];
 };
 #define GF_EVENT_CALLOC_SIZE(cnt, len)                                         \
     (sizeof(struct gf_event) + (cnt * sizeof(struct iovec)) + len)

@@ -634,7 +634,7 @@ struct dht_disk_layout {
     struct {
         uint32_t start;
         uint32_t stop;
-    } list[1];
+    } list[];
 };
 typedef struct dht_disk_layout dht_disk_layout_t;
 
