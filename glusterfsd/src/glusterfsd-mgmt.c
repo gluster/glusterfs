@@ -1597,6 +1597,8 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
 out:
     if (dict)
         dict_unref(dict);
+    if (output)
+        dict_unref(output);
     free(node_req.input.input_val);
     if (node_req.dict.dict_val)
         free(node_req.dict.dict_val);
