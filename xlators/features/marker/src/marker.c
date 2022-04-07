@@ -2884,7 +2884,7 @@ __has_quota_xattrs(dict_t *xattrs)
     return _gf_false;
 }
 
-int32_t
+static int32_t
 marker_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, dict_t *dict, struct iatt *postparent)
@@ -2963,24 +2963,31 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 marker_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc,
               dict_t *xattr_req)
 {
     int32_t ret = 0;
     marker_local_t *local = NULL;
     marker_conf_t *priv = NULL;
+    gf_boolean_t unref = _gf_false;  // do we need to unref the dict
 
     priv = this->private;
 
+    if (priv->version <= 0)
+        goto check_feature;
+
     xattr_req = xattr_req ? dict_ref(xattr_req) : dict_new();
-    if (!xattr_req)
+    if (xattr_req)
+        unref = _gf_true;
+    else
         goto err;
 
     ret = marker_key_replace_with_ver(this, xattr_req);
     if (ret < 0)
         goto err;
 
+check_feature:
     if (priv->feature_enabled == 0)
         goto wind;
 
@@ -3001,7 +3008,8 @@ wind:
     STACK_WIND(frame, marker_lookup_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->lookup, loc, xattr_req);
 
-    dict_unref(xattr_req);
+    if (unref)
+        dict_unref(xattr_req);
 
     return 0;
 err:
