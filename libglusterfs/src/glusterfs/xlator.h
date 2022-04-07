@@ -807,7 +807,7 @@ struct _xlator {
         gf_atomic_t total_fop_cbk;
         gf_atomic_t interval_fop_cbk;
         gf_latency_t latencies;
-    } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
+    } stats[GF_FOP_MAXVALUE];
 
     /* op_version: initialized in xlator code itself */
     uint32_t op_version[GF_MAX_RELEASES];
