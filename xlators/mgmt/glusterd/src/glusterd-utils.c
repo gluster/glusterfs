@@ -7706,11 +7706,11 @@ out:
 
     if (*in_use) {
         if (path && curdir && !strcmp(path, curdir)) {
-            ret = snprintf(msg, sizeof(msg),
-                           "%s is already part of a "
-                           "volume",
-                           path);
-            if (ret < 0 || ret >= sizeof(msg)) {
+            int z = snprintf(msg, sizeof(msg),
+                             "%s is already part of a "
+                             "volume",
+                             path);
+            if (z < 0 || z >= sizeof(msg)) {
                 snprintf(msg, sizeof(msg), "path too big");
                 ret = -1;
             }
