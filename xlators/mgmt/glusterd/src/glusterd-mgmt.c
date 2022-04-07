@@ -1922,9 +1922,6 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
         goto out;
     }
 
-    dict_unref(rsp_dict);
-    rsp_dict = NULL;
-
     /* Sending post commit req to other nodes in the cluster */
     ret = gd_syncargs_init(&args, op_ctx);
     if (ret)
@@ -1975,6 +1972,10 @@ glusterd_mgmt_v3_post_commit(glusterd_op_t op, dict_t *op_ctx, dict_t *req_dict,
                  "peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    if (rsp_dict) {
+        dict_unref(rsp_dict);
+        rsp_dict = NULL;
+    }
     glusterd_op_modify_op_ctx(op, op_ctx);
     gd_syncargs_fini(&args);
     return ret;
