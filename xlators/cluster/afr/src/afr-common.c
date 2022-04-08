@@ -5963,6 +5963,7 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
     int up_children = 0;
     int worst_up_child = -1;
     int64_t halo_max_latency_msec = afr_get_halo_latency(this);
+    gf_boolean_t have_quorum = _gf_false;
 
     priv = this->private;
 
@@ -6032,12 +6033,11 @@ __afr_handle_child_up_event(xlator_t *this, xlator_t *child_xlator,
                      worst_up_child, up_children, priv->halo_max_replicas);
     }
 out:
-    if (up_children == 1) {
-        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SUBVOL_UP,
-               "Subvolume '%s' came back up; "
-               "going online.",
-               child_xlator->name);
-        gf_event(EVENT_AFR_SUBVOL_UP, "client-pid=%d; subvol=%s",
+    have_quorum = afr_has_quorum(priv->child_up, this, NULL);
+    if (have_quorum) {
+        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
+               "Client-quorum is met");
+        gf_event(EVENT_AFR_QUORUM_MET, "client-pid=%d; subvol=%s",
                  this->ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_UP;
@@ -6056,6 +6056,7 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
     int up_children = 0;
     int down_children = 0;
     int best_down_child = -1;
+    gf_boolean_t have_quorum = _gf_false;
 
     priv = this->private;
 
@@ -6110,12 +6111,12 @@ __afr_handle_child_down_event(xlator_t *this, xlator_t *child_xlator, int idx,
     for (i = 0; i < priv->child_count; i++)
         if (priv->child_up[i] == 0)
             down_children++;
-    if (down_children == priv->child_count) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SUBVOLS_DOWN,
-               "All subvolumes are down. Going "
-               "offline until at least one of them "
-               "comes back up.");
-        gf_event(EVENT_AFR_SUBVOLS_DOWN, "client-pid=%d; subvol=%s",
+
+    have_quorum = afr_has_quorum(priv->child_up, this, NULL);
+    if (!have_quorum) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_QUORUM_FAIL,
+               "Client-quorum is not met");
+        gf_event(EVENT_AFR_QUORUM_FAIL, "client-pid=%d; subvol=%s",
                  this->ctx->cmd_args.client_pid, this->name);
     } else {
         *event = GF_EVENT_SOME_DESCENDENT_DOWN;

@@ -11045,6 +11045,11 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                 break;
             }
 
+            if (conf->subvolume_status[cnt] == 1) {
+                propagate = 1;
+                break;
+            }
+
             LOCK(&conf->subvolume_lock);
             {
                 conf->subvolume_status[cnt] = 1;
@@ -11096,6 +11101,11 @@ dht_notify(xlator_t *this, int event, void *data, ...)
                              "got GF_EVENT_CHILD_DOWN bad "
                              "subvolume %s",
                              subvol->name);
+                break;
+            }
+
+            if (conf->subvolume_status[cnt] == 0) {
+                propagate = 1;
                 break;
             }
 
