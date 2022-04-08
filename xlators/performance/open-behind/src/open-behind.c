@@ -121,8 +121,8 @@ typedef struct ob_inode {
 
 #define OB_POST_FD(_fop, _xl, _frame, _fd, _trigger, _args...)                 \
     do {                                                                       \
-        ob_inode_t *__ob_inode;                                                \
-        fd_t *__first_fd;                                                      \
+        ob_inode_t *__ob_inode = NULL;                                         \
+        fd_t *__first_fd = NULL;                                               \
         ob_state_t __ob_state = ob_open_and_resume_fd(                         \
             _xl, _fd, 0, true, _trigger, &__ob_inode, &__first_fd);            \
         switch (__ob_state) {                                                  \
