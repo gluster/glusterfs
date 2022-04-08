@@ -12,6 +12,7 @@
 #define __EC_TYPES_H__
 
 #include <glusterfs/timer.h>
+#include <glusterfs/syncop.h>
 #include "libxlator.h"
 #include <glusterfs/atomic.h>
 
@@ -561,30 +562,21 @@ struct _ec_matrix_list {
 };
 
 struct _ec_heal {
-    struct list_head list;
     gf_lock_t lock;
     xlator_t *xl;
     ec_fop_data_t *fop;
-    void *data;
-    ec_fop_data_t *lookup;
+    syncbarrier_t barrier;
     loc_t loc;
-    struct iatt iatt;
-    char *symlink;
+    ia_type_t ia_type;
     fd_t *fd;
-    int32_t partial;
-    int32_t done;
+    gf_boolean_t done;
     int32_t error;
-    gf_boolean_t nameheal;
-    uintptr_t available;
     uintptr_t good;
     uintptr_t bad;
     uintptr_t open;
-    uintptr_t fixed;
     uint64_t offset;
     uint64_t size;
     uint64_t total_size;
-    uint64_t version[2];
-    uint64_t raw_size;
 };
 
 struct subvol_healer {
