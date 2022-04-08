@@ -487,6 +487,8 @@ glfs_free_xlator_options(cmd_args_t *cmd_args)
     xlator_cmdline_option_t *xo = NULL;
     xlator_cmdline_option_t *tmp_xo = NULL;
 
+    GF_VALIDATE_OR_GOTO(THIS->name, cmd_args, out);
+
     list_for_each_entry_safe(xo, tmp_xo, &cmd_args->xlator_options, cmd_args)
     {
         list_del_init(&xo->cmd_args);
@@ -495,6 +497,9 @@ glfs_free_xlator_options(cmd_args_t *cmd_args)
         GF_FREE(xo->value);
         GF_FREE(xo);
     }
+
+out:
+    return;
 }
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_setfsuid, 3.4.2)
