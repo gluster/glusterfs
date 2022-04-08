@@ -16,7 +16,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <pthread.h>
-#include "glusterfs/list.h"
+
+#include <glusterfs/list.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_FSBLK "u"
@@ -337,6 +338,37 @@ _gf_smsg(const char *domain, const char *file, const char *function,
     do {                                                                       \
         _gf_smsg(dom, __FILE__, __FUNCTION__, __LINE__, level, errnum, 0,      \
                  msgid, msgid##_STR, ##event);                                 \
+    } while (0)
+
+/* Logging macro for messages created by GLFS_NEW(). It uses the same logic as
+ * gf_log_get_loglevel() but inline and without requiring THIS. */
+#define GF_LOG(_name, _lvl, _data)                                             \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= (_lvl)) {                              \
+            typeof(_data) __log_data = _data;                                  \
+            __log_data._process(_name, __FILE__, __FUNCTION__, __LINE__, _lvl, \
+                                &__log_data);                                  \
+        }                                                                      \
+    } while (0)
+
+/* Shortcut macros for different log levels. */
+#define GF_LOC_C(_name, _data) GF_LOG(_name, GF_LOG_CRITICAL, _data)
+#define GF_LOG_E(_name, _data) GF_LOG(_name, GF_LOG_ERROR, _data)
+#define GF_LOG_W(_name, _data) GF_LOG(_name, GF_LOG_WARNING, _data)
+#define GF_LOG_I(_name, _data) GF_LOG(_name, GF_LOG_INFO, _data)
+
+#define GF_LOG_D(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_DEBUG) {                        \
+            GLFS_DEBUG(_name, _msg, _num, ##_fields);                          \
+        }                                                                      \
+    } while (0)
+
+#define GF_LOG_T(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_TRACE) {                        \
+            GLFS_TRACE(_name, _msg, _num, ##_fields);                          \
+        }                                                                      \
     } while (0)
 
 #endif /* __LOGGING_H__ */
