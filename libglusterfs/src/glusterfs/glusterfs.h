@@ -757,6 +757,7 @@ struct _glusterfs_ctx {
 
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
+    gf_boolean_t async_thread;
     char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };

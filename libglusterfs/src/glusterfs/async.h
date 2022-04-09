@@ -203,4 +203,23 @@ gf_async(gf_async_t *async, gf_async_callback_f cbk)
     }
 }
 
+static inline void
+gf_async_xlator(gf_async_t *async, gf_async_callback_f cbk)
+{
+    async->cbk = cbk;
+    cds_wfcq_node_init(&async->queue);
+    if (caa_unlikely(!cds_wfcq_enqueue(&gf_async_ctrl.queue.head,
+                                       &gf_async_ctrl.queue.tail,
+                                       &async->queue))) {
+        /* The queue was empty, so the leader could be sleeping. We need to
+         * wake it so that the new item can be processed. If the queue was not
+         * empty, we don't need to do anything special since the leader will
+         * take care of it. */
+        if (caa_unlikely(kill(gf_async_ctrl.pid, GF_ASYNC_SIGQUEUE) < 0)) {
+            gf_async_fatal(errno, "Unable to wake leader worker.");
+        };
+    }
+}
+
+
 #endif /* !__GLUSTERFS_ASYNC_H__ */

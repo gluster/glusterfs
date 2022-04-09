@@ -232,12 +232,22 @@ iot_worker(void *data)
     return NULL;
 }
 
+static void
+iot_worker_async(gf_async_t *async)
+{
+    call_stub_t *stub = NULL;
+
+    stub = caa_container_of(async, call_stub_t, async);
+
+    call_resume(stub);
+}
+
 static int
 do_iot_schedule(iot_conf_t *conf, call_stub_t *stub, int pri)
 {
     int ret = 0;
 
-    pthread_mutex_lock(&conf->mutex);
+    /*pthread_mutex_lock(&conf->mutex);
     {
         __iot_enqueue(conf, stub, pri);
 
@@ -246,7 +256,8 @@ do_iot_schedule(iot_conf_t *conf, call_stub_t *stub, int pri)
         ret = __iot_workers_scale(conf);
     }
     pthread_mutex_unlock(&conf->mutex);
-
+    */
+    gf_async_xlator(&stub->async, iot_worker_async);
     return ret;
 }
 
@@ -1169,6 +1180,7 @@ init(xlator_t *this)
     iot_conf_t *conf = NULL;
     int ret = -1;
     int i = 0;
+    void *local_ctx = NULL;
 
     if (!this->children || this->children->next) {
         gf_smsg("io-threads", GF_LOG_ERROR, 0,
@@ -1239,6 +1251,13 @@ init(xlator_t *this)
         INIT_LIST_HEAD(&conf->fops_data[i].clients);
         INIT_LIST_HEAD(&conf->fops_data[i].no_client.reqs);
         INIT_LIST_HEAD(&conf->fops_data[i].no_client.clients);
+    }
+
+    local_ctx = (glusterfs_ctx_t *)glusterfs_ctx_new();
+    if (local_ctx) {
+        ((glusterfs_ctx_t *)local_ctx)->async_thread = _gf_true;
+        gf_async_init(local_ctx);
+        gf_async_adjust_threads(16);
     }
 
     if (!this->pass_through) {

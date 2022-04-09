@@ -14,6 +14,7 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
+#include <glusterfs/async.h>
 #include <stdlib.h>
 #include "iot-mem-types.h"
 #include <semaphore.h>

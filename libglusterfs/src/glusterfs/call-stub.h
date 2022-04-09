@@ -14,6 +14,7 @@
 #include "glusterfs/defaults.h"
 #include "glusterfs/default-args.h"
 #include "glusterfs/list.h"
+#include "glusterfs/async.h"
 
 typedef struct _call_stub {
     struct list_head list;
@@ -134,6 +135,7 @@ typedef struct _call_stub {
     uint32_t wind;
     default_args_t args;
     default_args_cbk_t args_cbk;
+    gf_async_t async;
 } call_stub_t;
 
 call_stub_t *

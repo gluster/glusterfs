@@ -629,7 +629,7 @@ gf_async_init(glusterfs_ctx_t *ctx)
 
     gf_async_cleanup();
 
-    if (!ctx->cmd_args.global_threading ||
+    if ((!ctx->cmd_args.global_threading && (!ctx->async_thread))||
         (ctx->process_mode == GF_GLUSTERD_PROCESS)) {
         return 0;
     }
@@ -704,7 +704,10 @@ gf_async_init(glusterfs_ctx_t *ctx)
         gf_async_fatal(-ENOMEM, "No worker thread has started");
     }
 
-    gf_async_ctrl.enabled = true;
+    if (!ctx->async_thread) {
+        gf_log("MY_LOG", GF_LOG_INFO, "Set ctr.enabled to true");
+        gf_async_ctrl.enabled = true;
+    }
 
     ret = 0;
 
