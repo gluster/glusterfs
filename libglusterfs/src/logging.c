@@ -869,7 +869,7 @@ _gf_log_callingfn(const char *domain, const char *file, const char *function,
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, &ctx->log);
 
     ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %s %d-%s: %s\n", timestr,
                       gf_level_strings[level], basename, line, function,
@@ -1136,7 +1136,7 @@ _gf_msg_nomem(const char *domain, const char *file, const char *function,
     ret = gettimeofday(&tv, NULL);
     if (-1 == ret)
         goto out;
-    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, &ctx->log);
 
     /* TODO: Currently we print in the enhanced format, with a message ID
      * of 0. Need to enhance this to support format as configured */
@@ -1306,7 +1306,7 @@ gf_log_glusterlog(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     gf_log_rotate(ctx);
 
     /* format the time stamp */
-    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, &ctx->log);
 
     /* generate footer */
     if (errnum) {
@@ -1410,8 +1410,10 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
 
     SET_LOG_PRIO(level, priority);
 
-    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, ctx);
-    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, ctx);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest,
+                      &ctx->log);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest,
+                      &ctx->log);
 
     if (errnum) {
         syslog(priority,
@@ -1469,9 +1471,11 @@ gf_glusterlog_log_repetitions(glusterfs_ctx_t *ctx, const char *domain,
         goto err;
     }
 
-    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, ctx);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest,
+                      &ctx->log);
 
-    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, ctx);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest,
+                      &ctx->log);
 
     if (errnum)
         snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(errnum));
@@ -2105,7 +2109,7 @@ log:
     if (-1 == ret)
         goto out;
 
-    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, &ctx->log);
 
     ret = gf_asprintf(&logline, "[%s] %c [%s:%d:%s] %d-%s: %s\n", timestr,
                       gf_level_strings[level], basename, line, function,
@@ -2262,7 +2266,7 @@ gf_cmd_log(const char *domain, const char *fmt, ...)
         goto out;
     }
 
-    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+    gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, &ctx->log);
 
     ret = gf_asprintf(&logline, "[%s] %s : %s\n", timestr, domain, msg);
     if (ret == -1) {

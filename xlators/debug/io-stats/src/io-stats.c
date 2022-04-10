@@ -666,7 +666,7 @@ ios_dump_file_stats(struct ios_stat_head *list_head, xlator_t *this,
     return 0;
 }
 
-int
+static int
 ios_dump_throughput_stats(struct ios_stat_head *list_head, xlator_t *this,
                           FILE *logfp, ios_stats_thru_t type)
 {
@@ -676,12 +676,16 @@ ios_dump_throughput_stats(struct ios_stat_head *list_head, xlator_t *this,
     };
     glusterfs_ctx_t *ctx = this->ctx;
 
+    if (ctx == NULL)
+        return 0;
+
     LOCK(&list_head->lock);
     {
         list_for_each_entry(entry, &list_head->iosstats->list, list)
         {
             gf_time_fmt_tv_FT(timestr, sizeof timestr,
-                              &entry->iosstat->thru_counters[type].time, ctx);
+                              &entry->iosstat->thru_counters[type].time,
+                              &ctx->log);
 
             ios_log(this, logfp, "%s \t %-10.2f  \t  %s", timestr, entry->value,
                     entry->iosstat->filename);
@@ -1287,7 +1291,7 @@ out:
     return ret;
 }
 
-int
+static int
 io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
                               time_t now, int interval, FILE *logfp)
 {
@@ -1305,8 +1309,13 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     uint64_t fop_hits = 0;
     uint64_t block_count_read = 0;
     uint64_t block_count_write = 0;
+    glusterfs_ctx_t *ctx;
 
     conf = this->private;
+    ctx = this->ctx;
+
+    if (ctx == NULL)
+        return 0;
 
     if (interval == -1)
         ios_log(this, logfp, "\n=== Cumulative stats ===");
@@ -1406,7 +1415,7 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
         LOCK(&conf->lock);
         {
             gf_time_fmt_tv_FT(timestr, sizeof timestr,
-                              &conf->cumulative.max_openfd_time, this->ctx);
+                              &conf->cumulative.max_openfd_time, &ctx->log);
             ios_log(this, logfp,
                     "Current open fd's: %" PRId64 " Max open fd's: %" PRId64
                     " time %s",
@@ -1861,7 +1870,7 @@ update_ios_latency(struct ios_conf *conf, call_frame_t *frame,
     return 0;
 }
 
-int32_t
+static int32_t
 io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
                             ios_stats_type_t flags, int32_t list_cnt)
 {
@@ -1877,8 +1886,13 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
         0,
     };
     char *dict_timestr = NULL;
+    glusterfs_ctx_t *ctx;
 
     conf = this->private;
+    ctx = this->ctx;
+
+    if (ctx == NULL)
+        goto out;
 
     switch (flags) {
         case IOS_STATS_TYPE_OPEN:
@@ -1893,7 +1907,7 @@ io_stats_dump_stats_to_dict(xlator_t *this, dict_t *resp,
                                       conf->cumulative.max_nr_opens);
 
                 gf_time_fmt_tv_FT(timestr, sizeof timestr,
-                                  &conf->cumulative.max_openfd_time, this->ctx);
+                                  &conf->cumulative.max_openfd_time, &ctx->log);
 
                 dict_timestr = gf_strdup(timestr);
                 if (!dict_timestr)

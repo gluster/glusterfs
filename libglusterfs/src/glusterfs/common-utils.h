@@ -863,15 +863,15 @@ gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
 
 static inline size_t
 gf_time_fmt_tv_FT(char *dst, size_t sz_dst, struct timeval *tv,
-                  glusterfs_ctx_t *ctx)
+                  gf_log_handle_t *log)
 {
     struct tm tm, *res;
     int localtime = 0;
     int len = 0;
     int pos = 0;
 
-    if (ctx != NULL)
-        localtime = ctx->log.localtime;
+    if (log != NULL)
+        localtime = log->localtime;
     else
         localtime = gf_log_get_localtime();
     res = localtime ? localtime_r(&tv->tv_sec, &tm)
