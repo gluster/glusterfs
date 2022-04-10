@@ -131,7 +131,7 @@ main(int argc, char *argv[])
 
     /* TEST 4: Check flush, nothing noticeable should occur :) */
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
-    gf_log_flush();
+    gf_log_flush(ctx);
     gf_msg("logchecks", GF_LOG_CRITICAL, 0, logchecks_msg_6);
     gf_msg("logchecks", GF_LOG_ALERT, 0, logchecks_msg_11);
 

@@ -3757,7 +3757,7 @@ ios_set_log_format_code(struct ios_conf *conf, char *dump_format_str)
         conf->dump_format = IOS_DUMP_TYPE_SAMPLES;
 }
 
-void
+static void
 xlator_set_loglevel(xlator_t *this, int log_level)
 {
     glusterfs_ctx_t *ctx = NULL;
@@ -3925,11 +3925,11 @@ reconfigure(xlator_t *this, dict_t *options)
     }
 
     GF_OPTION_RECONF("log-buf-size", log_buf_size, options, uint32, out);
-    gf_log_set_log_buf_size(log_buf_size);
+    gf_log_set_log_buf_size(this->ctx, log_buf_size);
 
     GF_OPTION_RECONF("log-flush-timeout", log_flush_timeout, options, time,
                      out);
-    gf_log_set_log_flush_timeout(log_flush_timeout);
+    gf_log_set_log_flush_timeout(this->ctx, log_flush_timeout);
 
     GF_OPTION_RECONF("threads", threads, options, int32, out);
     gf_async_adjust_threads(threads);
@@ -4159,10 +4159,10 @@ init(xlator_t *this)
     }
 
     GF_OPTION_INIT("log-buf-size", log_buf_size, uint32, out);
-    gf_log_set_log_buf_size(log_buf_size);
+    gf_log_set_log_buf_size(this->ctx, log_buf_size);
 
     GF_OPTION_INIT("log-flush-timeout", log_flush_timeout, time, out);
-    gf_log_set_log_flush_timeout(log_flush_timeout);
+    gf_log_set_log_flush_timeout(this->ctx, log_flush_timeout);
 
     GF_OPTION_INIT("threads", threads, int32, out);
     gf_async_adjust_threads(threads);

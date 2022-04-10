@@ -1292,7 +1292,7 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
     int ret = -1;
     int log_level = -1;
     gf_boolean_t syslog_flag = 0;
-    glusterfs_ctx_t *ctx = NULL;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     if (!strcmp("trusted.glusterfs.syslog", name)) {
         ret = gf_bin_to_string(key, sizeof(key), value, size);
@@ -1305,9 +1305,9 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
             goto out;
         }
         if (syslog_flag)
-            gf_log_enable_syslog();
+            gf_log_enable_syslog(ctx);
         else
-            gf_log_disable_syslog();
+            gf_log_disable_syslog(ctx);
 
         goto out;
     }
@@ -1331,7 +1331,7 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         gf_smsg("glusterfs", gf_log_get_loglevel(), 0, LG_MSG_SET_LOG_LEVEL,
                 "new-value=%d", log_level, "old-value=%d",
                 gf_log_get_loglevel(), NULL);
-        gf_log_set_loglevel(this->ctx, log_level);
+        gf_log_set_loglevel(ctx, log_level);
         ret = 0;
         goto out;
     }
@@ -1346,7 +1346,6 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         goto out;
     }
 
-    ctx = this->ctx;
     if (!ctx)
         goto out;
     if (!ctx->active)

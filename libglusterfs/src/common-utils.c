@@ -641,7 +641,7 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
      * contents of the buffer to the log file before printing the backtrace
      * which helps in debugging.
      */
-    gf_log_flush();
+    gf_log_flush(ctx);
 
     gf_log_disable_suppression_before_exit(ctx);
 
