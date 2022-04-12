@@ -39,9 +39,6 @@ static int
 dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
                  xlator_t *hashed_subvol, int flag, int *fop_errno);
 
-uint64_t g_totalfiles = 0;
-uint64_t g_totalsize = 0;
-
 void
 gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 {
@@ -4035,8 +4032,9 @@ dht_file_counter_thread(void *args)
                    "the total data size. Unable to estimate "
                    "time to complete rebalance.");
         } else {
-            g_totalsize = tmp_size;
-            gf_msg_debug("dht", 0, "total data size =%" PRIu64, g_totalsize);
+            defrag->total_size = tmp_size;
+            gf_msg_debug("dht", 0, "total data size =%" PRIu64,
+                         defrag->total_size);
         }
     }
 
@@ -4078,8 +4076,8 @@ gf_defrag_estimates_init(xlator_t *this, loc_t *loc, pthread_t *filecnt_thread)
     conf = this->private;
     defrag = conf->defrag;
 
-    g_totalsize = gf_defrag_total_file_size(this, loc);
-    if (!g_totalsize) {
+    defrag->total_size = gf_defrag_total_file_size(this, loc);
+    if (!defrag->total_size) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                "Failed to get "
                "the total data size. Unable to estimate "
@@ -4514,7 +4512,7 @@ gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
 
     defrag = conf->defrag;
 
-    if (!g_totalsize)
+    if (!defrag->total_size)
         goto out;
 
     elapsed = gf_time() - defrag->start_time;
@@ -4538,7 +4536,7 @@ gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
     /* rate at which files processed */
     rate_processed = (total_processed) / elapsed;
 
-    tmp_count = g_totalsize;
+    tmp_count = defrag->total_size;
 
     if (rate_processed) {
         time_to_complete = (tmp_count) / rate_processed;

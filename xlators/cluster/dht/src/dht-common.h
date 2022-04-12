@@ -465,6 +465,7 @@ struct gf_defrag_info_ {
     uint64_t skipped;
     uint64_t num_dirs_processed;
     uint64_t size_processed;
+    uint64_t total_size;
     gf_lock_t lock;
     pthread_t th;
     struct rpc_clnt *rpc;
