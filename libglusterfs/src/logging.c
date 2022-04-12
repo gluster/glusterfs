@@ -1390,12 +1390,7 @@ err:
 }
 
 static int
-gf_syslog_log_repetitions(const char *domain, const char *file,
-                          const char *function, int32_t line,
-                          gf_loglevel_t level, int errnum, uint64_t msgid,
-                          char *appmsgstr, char *callstr, int refcount,
-                          struct timeval oldest, struct timeval latest,
-                          int graph_id, gf_log_handle_t *log)
+gf_syslog_log_repetitions(log_buf_t *buf, gf_log_handle_t *log)
 {
     int priority;
     char timestr_latest[GF_TIMESTR_SIZE] = {
@@ -1405,38 +1400,35 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
         0,
     };
 
-    SET_LOG_PRIO(level, priority);
+    SET_LOG_PRIO(buf->level, priority);
 
-    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, log);
-    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, log);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &buf->latest, log);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &buf->oldest, log);
 
-    if (errnum) {
+    if (buf->errnum) {
         syslog(priority,
                "The message \"[MSGID: %" PRIu64
                "] [%s:%d:%s] "
                "%d-%s: %s [%s] \" repeated %d times between %s"
                " and %s",
-               msgid, file, line, function, graph_id, domain, appmsgstr,
-               strerror(errnum), refcount, timestr_oldest, timestr_latest);
+               buf->msg_id, buf->file, buf->line, buf->function, buf->graph_id,
+               buf->domain, buf->msg, strerror(buf->errnum), buf->refcount,
+               timestr_oldest, timestr_latest);
     } else {
         syslog(priority,
                "The message \"[MSGID: %" PRIu64
                "] [%s:%d:%s] "
                "%d-%s: %s \" repeated %d times between %s"
                " and %s",
-               msgid, file, line, function, graph_id, domain, appmsgstr,
-               refcount, timestr_oldest, timestr_latest);
+               buf->msg_id, buf->file, buf->line, buf->function, buf->graph_id,
+               buf->domain, buf->msg, buf->refcount, timestr_oldest,
+               timestr_latest);
     }
     return 0;
 }
 
 static int
-gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
-                              const char *file, const char *function,
-                              int32_t line, gf_loglevel_t level, int errnum,
-                              uint64_t msgid, char *appmsgstr, char *callstr,
-                              int refcount, struct timeval oldest,
-                              struct timeval latest, int graph_id)
+gf_glusterlog_log_repetitions(log_buf_t *buf, gf_log_handle_t *log)
 {
     int ret = 0;
     char timestr_latest[GF_TIMESTR_SIZE] = {
@@ -1457,21 +1449,22 @@ gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
                       "The message \"%c [MSGID: %" PRIu64
                       "]"
                       " [%s:%d:%s] %d-%s: %s",
-                      gf_level_strings[level], msgid, file, line, function,
-                      graph_id, domain, appmsgstr);
+                      gf_level_strings[buf->level], buf->msg_id, buf->file,
+                      buf->line, buf->function, buf->graph_id, buf->domain,
+                      buf->msg);
     if (-1 == ret) {
         goto err;
     }
 
-    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &latest, log);
+    gf_time_fmt_tv_FT(timestr_latest, sizeof timestr_latest, &buf->latest, log);
 
-    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &oldest, log);
+    gf_time_fmt_tv_FT(timestr_oldest, sizeof timestr_oldest, &buf->oldest, log);
 
-    if (errnum)
-        snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(errnum));
+    if (buf->errnum)
+        snprintf(errstr, sizeof(errstr) - 1, " [%s]", strerror(buf->errnum));
 
     ret = gf_asprintf(&footer, "%s\" repeated %d times between [%s] and [%s]",
-                      errstr, refcount, timestr_oldest, timestr_latest);
+                      errstr, buf->refcount, timestr_oldest, timestr_latest);
     if (-1 == ret) {
         ret = -1;
         goto err;
@@ -1482,7 +1475,7 @@ gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
         if (log->logfile) {
             fprintf(log->logfile, "%s%s\n", header, footer);
             fflush(log->logfile);
-        } else if (log->loglevel >= level) {
+        } else if (log->loglevel >= buf->level) {
             fprintf(stderr, "%s%s\n", header, footer);
             fflush(stderr);
         }
@@ -1490,8 +1483,9 @@ gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
 #ifdef GF_LINUX_HOST_OS
         /* We want only serious logs in 'syslog', not our debug
          * and trace logs */
-        if (log->gf_log_syslog && level && (level <= log->sys_log_level))
-            syslog((level - 1), "%s%s\n", header, footer);
+        if (log->gf_log_syslog && buf->level &&
+            (buf->level <= log->sys_log_level))
+            syslog((buf->level - 1), "%s%s\n", header, footer);
 #endif
     }
 
@@ -1509,12 +1503,7 @@ err:
 }
 
 static int
-gf_log_print_with_repetitions(gf_log_handle_t *log, const char *domain,
-                              const char *file, const char *function,
-                              int32_t line, gf_loglevel_t level, int errnum,
-                              uint64_t msgid, char *appmsgstr, char *callstr,
-                              int refcount, struct timeval oldest,
-                              struct timeval latest, int graph_id)
+gf_log_print_with_repetitions(log_buf_t *buf, gf_log_handle_t *log)
 {
     int ret = -1;
     gf_log_logger_t logger = log->logger;
@@ -1522,10 +1511,7 @@ gf_log_print_with_repetitions(gf_log_handle_t *log, const char *domain,
     switch (logger) {
         case gf_logger_syslog:
             if (log->log_control_file_found && log->gf_log_syslog) {
-                ret = gf_syslog_log_repetitions(domain, file, function, line,
-                                                level, errnum, msgid, appmsgstr,
-                                                callstr, refcount, oldest,
-                                                latest, graph_id, log);
+                ret = gf_syslog_log_repetitions(buf, log);
                 break;
             }
             /* NOTE: If syslog control file is absent, which is another
@@ -1534,9 +1520,7 @@ gf_log_print_with_repetitions(gf_log_handle_t *log, const char *domain,
              * not have the extra control file check */
 
         case gf_logger_glusterlog:
-            ret = gf_glusterlog_log_repetitions(
-                log, domain, file, function, line, level, errnum, msgid,
-                appmsgstr, callstr, refcount, oldest, latest, graph_id);
+            ret = gf_glusterlog_log_repetitions(buf, log);
             break;
     }
 
@@ -1588,10 +1572,7 @@ gf_log_flush_message(log_buf_t *buf, gf_log_handle_t *log)
     }
 
     if (buf->refcount > 1) {
-        gf_log_print_with_repetitions(
-            log, buf->domain, buf->file, buf->function, buf->line, buf->level,
-            buf->errnum, buf->msg_id, buf->msg, NULL, buf->refcount,
-            buf->oldest, buf->latest, buf->graph_id);
+        gf_log_print_with_repetitions(buf, log);
     }
     return;
 }
