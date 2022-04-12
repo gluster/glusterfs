@@ -89,7 +89,7 @@ gf_log_flush_extra_msgs(gf_log_handle_t *log, uint32_t new);
 static int
 log_buf_init(log_buf_t *buf, const char *domain, const char *file,
              const char *function, int32_t line, gf_loglevel_t level,
-             int errnum, uint64_t msgid, char **appmsgstr, int graph_id);
+             int errnum, uint64_t msgid, char *appmsgstr, int graph_id);
 static void
 gf_log_rotate(gf_log_handle_t *log);
 
@@ -272,14 +272,14 @@ gf_log_set_log_flush_timeout(glusterfs_ctx_t *ctx, uint32_t timeout)
 static int
 log_buf_init(log_buf_t *buf, const char *domain, const char *file,
              const char *function, int32_t line, gf_loglevel_t level,
-             int errnum, uint64_t msgid, char **appmsgstr, int graph_id)
+             int errnum, uint64_t msgid, char *appmsgstr, int graph_id)
 {
     int ret = -1;
 
-    if (!buf || !domain || !file || !function || !appmsgstr || !*appmsgstr)
+    if (!buf || !domain || !file || !function || !appmsgstr)
         goto out;
 
-    buf->msg = gf_strdup(*appmsgstr);
+    buf->msg = gf_strdup(appmsgstr);
     if (!buf->msg)
         goto out;
 
@@ -1210,8 +1210,7 @@ out:
 static int
 gf_log_syslog(const char *domain, const char *file, const char *function,
               int32_t line, gf_loglevel_t level, int errnum, uint64_t msgid,
-              char **appmsgstr, char *callstr, int graph_id,
-              gf_log_format_t fmt)
+              char *appmsgstr, char *callstr, int graph_id, gf_log_format_t fmt)
 {
     int priority;
 
@@ -1223,21 +1222,21 @@ gf_log_syslog(const char *domain, const char *file, const char *function,
             if (!callstr) {
                 if (errnum)
                     syslog(priority, "[%s:%d:%s] %d-%s: %s [%s]", file, line,
-                           function, graph_id, domain, *appmsgstr,
+                           function, graph_id, domain, appmsgstr,
                            strerror(errnum));
                 else
                     syslog(priority, "[%s:%d:%s] %d-%s: %s", file, line,
-                           function, graph_id, domain, *appmsgstr);
+                           function, graph_id, domain, appmsgstr);
             } else {
                 if (errnum)
                     syslog(priority,
                            "[%s:%d:%s] %s %d-%s:"
                            " %s [%s]",
                            file, line, function, callstr, graph_id, domain,
-                           *appmsgstr, strerror(errnum));
+                           appmsgstr, strerror(errnum));
                 else
                     syslog(priority, "[%s:%d:%s] %s %d-%s: %s", file, line,
-                           function, callstr, graph_id, domain, *appmsgstr);
+                           function, callstr, graph_id, domain, appmsgstr);
             }
             break;
         case gf_logformat_withmsgid:
@@ -1248,14 +1247,14 @@ gf_log_syslog(const char *domain, const char *file, const char *function,
                            "]"
                            " [%s:%d:%s] %d-%s: %s [%s]",
                            msgid, file, line, function, graph_id, domain,
-                           *appmsgstr, strerror(errnum));
+                           appmsgstr, strerror(errnum));
                 else
                     syslog(priority,
                            "[MSGID: %" PRIu64
                            "]"
                            " [%s:%d:%s] %d-%s: %s",
                            msgid, file, line, function, graph_id, domain,
-                           *appmsgstr);
+                           appmsgstr);
             } else {
                 if (errnum)
                     syslog(priority,
@@ -1263,20 +1262,20 @@ gf_log_syslog(const char *domain, const char *file, const char *function,
                            "]"
                            " [%s:%d:%s] %s %d-%s: %s [%s]",
                            msgid, file, line, function, callstr, graph_id,
-                           domain, *appmsgstr, strerror(errnum));
+                           domain, appmsgstr, strerror(errnum));
                 else
                     syslog(priority,
                            "[MSGID: %" PRIu64
                            "]"
                            " [%s:%d:%s] %s %d-%s: %s",
                            msgid, file, line, function, callstr, graph_id,
-                           domain, *appmsgstr);
+                           domain, appmsgstr);
             }
             break;
         case gf_logformat_cee:
             /* TODO: Enhance CEE with additional parameters */
             gf_syslog(priority, "[%s:%d:%s] %d-%s: %s", file, line, function,
-                      graph_id, domain, *appmsgstr);
+                      graph_id, domain, appmsgstr);
             break;
 
         default:
@@ -1291,7 +1290,7 @@ gf_log_syslog(const char *domain, const char *file, const char *function,
 static int
 gf_log_glusterlog(gf_log_handle_t *log, const char *domain, const char *file,
                   const char *function, int32_t line, gf_loglevel_t level,
-                  int errnum, uint64_t msgid, char **appmsgstr, char *callstr,
+                  int errnum, uint64_t msgid, char *appmsgstr, char *callstr,
                   struct timeval tv, int graph_id, gf_log_format_t fmt)
 {
     char timestr[GF_TIMESTR_SIZE] = {
@@ -1324,13 +1323,13 @@ gf_log_glusterlog(gf_log_handle_t *log, const char *domain, const char *file,
                               "[%s] %c [%s:%d:%s]"
                               " %d-%s: %s",
                               timestr, gf_level_strings[level], file, line,
-                              function, graph_id, domain, *appmsgstr);
+                              function, graph_id, domain, appmsgstr);
         } else {
             ret = gf_asprintf(&header,
                               "[%s] %c [%s:%d:%s] %s"
                               " %d-%s: %s",
                               timestr, gf_level_strings[level], file, line,
-                              function, callstr, graph_id, domain, *appmsgstr);
+                              function, callstr, graph_id, domain, appmsgstr);
         }
     } else { /* gf_logformat_withmsgid */
         /* CEE log format unsupported in logger_glusterlog, so just
@@ -1341,7 +1340,7 @@ gf_log_glusterlog(gf_log_handle_t *log, const char *domain, const char *file,
                               "]"
                               " [%s:%d:%s] %d-%s: %s",
                               timestr, gf_level_strings[level], msgid, file,
-                              line, function, graph_id, domain, *appmsgstr);
+                              line, function, graph_id, domain, appmsgstr);
         } else {
             ret = gf_asprintf(&header,
                               "[%s] %c [MSGID: %" PRIu64
@@ -1349,7 +1348,7 @@ gf_log_glusterlog(gf_log_handle_t *log, const char *domain, const char *file,
                               " [%s:%d:%s] %s %d-%s: %s",
                               timestr, gf_level_strings[level], msgid, file,
                               line, function, callstr, graph_id, domain,
-                              *appmsgstr);
+                              appmsgstr);
         }
     }
     if (-1 == ret) {
@@ -1394,7 +1393,7 @@ static int
 gf_syslog_log_repetitions(const char *domain, const char *file,
                           const char *function, int32_t line,
                           gf_loglevel_t level, int errnum, uint64_t msgid,
-                          char **appmsgstr, char *callstr, int refcount,
+                          char *appmsgstr, char *callstr, int refcount,
                           struct timeval oldest, struct timeval latest,
                           int graph_id, gf_log_handle_t *log)
 {
@@ -1417,7 +1416,7 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
                "] [%s:%d:%s] "
                "%d-%s: %s [%s] \" repeated %d times between %s"
                " and %s",
-               msgid, file, line, function, graph_id, domain, *appmsgstr,
+               msgid, file, line, function, graph_id, domain, appmsgstr,
                strerror(errnum), refcount, timestr_oldest, timestr_latest);
     } else {
         syslog(priority,
@@ -1425,7 +1424,7 @@ gf_syslog_log_repetitions(const char *domain, const char *file,
                "] [%s:%d:%s] "
                "%d-%s: %s \" repeated %d times between %s"
                " and %s",
-               msgid, file, line, function, graph_id, domain, *appmsgstr,
+               msgid, file, line, function, graph_id, domain, appmsgstr,
                refcount, timestr_oldest, timestr_latest);
     }
     return 0;
@@ -1435,7 +1434,7 @@ static int
 gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
                               const char *file, const char *function,
                               int32_t line, gf_loglevel_t level, int errnum,
-                              uint64_t msgid, char **appmsgstr, char *callstr,
+                              uint64_t msgid, char *appmsgstr, char *callstr,
                               int refcount, struct timeval oldest,
                               struct timeval latest, int graph_id)
 {
@@ -1459,7 +1458,7 @@ gf_glusterlog_log_repetitions(gf_log_handle_t *log, const char *domain,
                       "]"
                       " [%s:%d:%s] %d-%s: %s",
                       gf_level_strings[level], msgid, file, line, function,
-                      graph_id, domain, *appmsgstr);
+                      graph_id, domain, appmsgstr);
     if (-1 == ret) {
         goto err;
     }
@@ -1513,7 +1512,7 @@ static int
 gf_log_print_with_repetitions(gf_log_handle_t *log, const char *domain,
                               const char *file, const char *function,
                               int32_t line, gf_loglevel_t level, int errnum,
-                              uint64_t msgid, char **appmsgstr, char *callstr,
+                              uint64_t msgid, char *appmsgstr, char *callstr,
                               int refcount, struct timeval oldest,
                               struct timeval latest, int graph_id)
 {
@@ -1548,7 +1547,7 @@ static int
 gf_log_print_plain_fmt(gf_log_handle_t *log, const char *domain,
                        const char *file, const char *function, int32_t line,
                        gf_loglevel_t level, int errnum, uint64_t msgid,
-                       char **appmsgstr, char *callstr, struct timeval tv,
+                       char *appmsgstr, char *callstr, struct timeval tv,
                        int graph_id, gf_log_format_t fmt)
 {
     int ret = -1;
@@ -1584,14 +1583,14 @@ gf_log_flush_message(log_buf_t *buf, gf_log_handle_t *log)
     if (buf->refcount == 1) {
         (void)gf_log_print_plain_fmt(log, buf->domain, buf->file, buf->function,
                                      buf->line, buf->level, buf->errnum,
-                                     buf->msg_id, &buf->msg, NULL, buf->latest,
+                                     buf->msg_id, buf->msg, NULL, buf->latest,
                                      buf->graph_id, gf_logformat_withmsgid);
     }
 
     if (buf->refcount > 1) {
         gf_log_print_with_repetitions(
             log, buf->domain, buf->file, buf->function, buf->line, buf->level,
-            buf->errnum, buf->msg_id, &buf->msg, NULL, buf->refcount,
+            buf->errnum, buf->msg_id, buf->msg, NULL, buf->refcount,
             buf->oldest, buf->latest, buf->graph_id);
     }
     return;
@@ -1747,7 +1746,7 @@ gf_log_flush_timeout_cbk(void *data)
 static int
 _gf_msg_internal(glusterfs_ctx_t *ctx, const char *domain, const char *file,
                  const char *function, int32_t line, gf_loglevel_t level,
-                 int errnum, uint64_t msgid, char **appmsgstr, char *callstr,
+                 int errnum, uint64_t msgid, char *appmsgstr, char *callstr,
                  int graph_id)
 {
     int ret = -1;
@@ -1821,7 +1820,7 @@ _gf_msg_internal(glusterfs_ctx_t *ctx, const char *domain, const char *file,
             if (strcmp(function, iter->function))
                 continue;
 
-            if (strcmp(*appmsgstr, iter->msg))
+            if (strcmp(appmsgstr, iter->msg))
                 continue;
 
             // Ah! Found a match!
@@ -1968,12 +1967,12 @@ _gf_msg(const char *domain, const char *file, const char *function,
 
         if (!log_inited && ctx->log.gf_log_syslog) {
             ret = gf_log_syslog(domain, file, function, line, level, errnum,
-                                msgid, &msgstr, (callstr ? callstr : NULL),
+                                msgid, msgstr, (callstr ? callstr : NULL),
                                 (this->graph) ? this->graph->id : 0,
                                 gf_logformat_traditional);
         } else {
             ret = _gf_msg_internal(ctx, domain, file, function, line, level,
-                                   errnum, msgid, &msgstr,
+                                   errnum, msgid, msgstr,
                                    (callstr ? callstr : NULL),
                                    (this->graph) ? this->graph->id : 0);
         }
