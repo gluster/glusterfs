@@ -56,7 +56,8 @@
 #if !defined(DEFAULT_VERIFY_DEPTH)
 #define DEFAULT_VERIFY_DEPTH 1
 #endif
-#define DEFAULT_CIPHER_LIST "AES128:EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
+#define DEFAULT_CIPHER_LIST                                                    \
+    "AES128:EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
 #define DEFAULT_DH_PARAM SSL_CERT_PATH "/dhparam.pem"
 #define DEFAULT_EC_CURVE "prime256v1"
 

@@ -31,7 +31,6 @@ glusterd_svc_build_snapd_logdir(char *logdir, char *volname, size_t len)
     snprintf(logdir, len, "%s/snaps/%s", priv->logdir, volname);
 }
 
-
 void
 glusterd_snapdsvc_build(glusterd_svc_t *svc)
 {
