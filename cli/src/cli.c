@@ -203,8 +203,8 @@ logging_init(glusterfs_ctx_t *ctx, struct cli_state *state)
 
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
-                   rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
-                   xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+                   rpc_clnt_prog_t *prog, int procnum, xlator_t *this,
+                   fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -212,7 +212,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         0,
     };
     struct iobuf *iobuf = NULL;
-    char new_iobref = 0;
+    struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
 
     GF_ASSERT(this);
@@ -224,13 +224,9 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
             goto out;
         };
 
+        iobref = iobref_new();
         if (!iobref) {
-            iobref = iobref_new();
-            if (!iobref) {
-                goto out;
-            }
-
-            new_iobref = 1;
+            goto out;
         }
 
         iobref_add(iobref, iobuf);
@@ -255,10 +251,8 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
     /* Send the msg */
     ret = rpc_clnt_submit(rpc, prog, procnum, cbkfn, &iov, count, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
-    ret = 0;
-
 out:
-    if (new_iobref)
+    if (iobref)
         iobref_unref(iobref);
     if (iobuf)
         iobuf_unref(iobuf);
