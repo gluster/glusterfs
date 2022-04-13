@@ -294,7 +294,7 @@ _run_dir_scan_task(call_frame_t *frame, xlator_t *subvol, loc_t *parent,
     int ret = 0;
     struct syncop_dir_scan_data *scan_data = NULL;
 
-    scan_data = GF_CALLOC(1, sizeof(struct syncop_dir_scan_data),
+    scan_data = GF_MALLOC(sizeof(struct syncop_dir_scan_data),
                           gf_common_mt_scan_data);
     if (!scan_data) {
         ret = -ENOMEM;
