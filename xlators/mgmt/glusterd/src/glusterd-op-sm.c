@@ -4733,6 +4733,8 @@ glusterd_op_build_payload(dict_t **req, char **op_errstr, dict_t *op_ctx)
     ret = 0;
 
 out:
+    if (ret && req_dict)
+        dict_unref(req_dict);
     return ret;
 }
 

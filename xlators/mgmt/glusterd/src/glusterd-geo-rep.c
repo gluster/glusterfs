@@ -4578,13 +4578,15 @@ glusterd_read_status_file(glusterd_volinfo_t *volinfo, char *secondary,
     if (!confd) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
                "Not able to create dict.");
-        return -1;
+        ret = -1;
+        goto out;
     }
 
     len = snprintf(temp_conf_path, sizeof(temp_conf_path),
                    "%s/" GSYNC_CONF_TEMPLATE, priv->workdir);
     if ((len < 0) || (len >= sizeof(temp_conf_path))) {
-        return -1;
+        ret = -1;
+        goto out;
     }
 
     ret = sys_lstat(conf_path, &stbuf);
@@ -4786,14 +4788,13 @@ fetch_data:
     }
 
     ret = dict_set_int32(dict, "gsync-count", gsync_count);
-    if (ret)
-        goto out;
 
 out:
     GF_FREE(temp_inp);
-    dict_unref(confd);
+    if (confd)
+        dict_unref(confd);
 
-    return 0;
+    return ret;
 }
 
 int

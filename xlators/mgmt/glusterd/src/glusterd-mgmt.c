@@ -985,13 +985,6 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
     GF_ASSERT(op_errstr);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
-    rsp_dict = dict_new();
-    if (!rsp_dict) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
-               "Failed to create response dictionary");
-        goto out;
-    }
-
     if (op == GD_OP_PROFILE_VOLUME || op == GD_OP_STOP_VOLUME ||
         op == GD_OP_REBALANCE || op == GD_OP_REMOVE_BRICK) {
         ret = glusterd_validate_quorum(this, op, req_dict, op_errstr);
@@ -1000,6 +993,13 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
                    "Server quorum not met. Rejecting operation.");
             goto out;
         }
+    }
+
+    rsp_dict = dict_new();
+    if (!rsp_dict) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_CREATE_FAIL,
+               "Failed to create response dictionary");
+        goto out;
     }
 
     /* Pre Validation on local node */
@@ -1091,6 +1091,8 @@ glusterd_mgmt_v3_pre_validate(glusterd_op_t op, dict_t *req_dict,
                  gd_op_list[op], peer_cnt, ret);
 out:
     gd_syncargs_fini(&args);
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     return ret;
 }
 
@@ -1170,6 +1172,8 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
     *req = req_dict;
     ret = 0;
 out:
+    if (ret && req_dict)
+        dict_unref(req_dict);
     return ret;
 }
 
