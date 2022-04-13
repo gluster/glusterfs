@@ -59,7 +59,10 @@
 #define GF_IO_URING_FLAG_TIMER GF_IO_ID_FLAG_1
 
 /* Helper macro to define names of bits. */
-#define GF_IO_BITNAME(_prefix, _name) { _prefix##_##_name, #_name }
+#define GF_IO_BITNAME(_prefix, _name)                                          \
+    {                                                                          \
+        _prefix##_##_name, #_name                                              \
+    }
 
 /* Structure to keep names of bits. */
 typedef struct _gf_io_uring_bitname {
@@ -170,8 +173,7 @@ gf_io_uring_dump_params(struct io_uring_params *params)
         GF_IO_BITNAME(IORING_SETUP, CLAMP),
         GF_IO_BITNAME(IORING_SETUP, ATTACH_WQ),
         GF_IO_BITNAME(IORING_SETUP, R_DISABLED),
-        {}
-    };
+        {}};
     static gf_io_uring_bitname_t feature_names[] = {
         GF_IO_BITNAME(IORING_FEAT, SINGLE_MMAP),
         GF_IO_BITNAME(IORING_FEAT, NODROP),
@@ -183,8 +185,7 @@ gf_io_uring_dump_params(struct io_uring_params *params)
         GF_IO_BITNAME(IORING_FEAT, SQPOLL_NONFIXED),
         GF_IO_BITNAME(IORING_FEAT, EXT_ARG),
         GF_IO_BITNAME(IORING_FEAT, NATIVE_WORKERS),
-        {}
-    };
+        {}};
 
     char names[256];
 
@@ -240,8 +241,7 @@ gf_io_uring_dump_ops(struct io_uring_probe *probe)
         [IORING_OP_TEE] = "TEE",
         [IORING_OP_SHUTDOWN] = "SHUTDOWN",
         [IORING_OP_RENAMEAT] = "RENAMEAT",
-        [IORING_OP_UNLINKAT] = "UNLINKAT"
-    };
+        [IORING_OP_UNLINKAT] = "UNLINKAT"};
 
     char names[4096];
     char *ptr;
@@ -874,5 +874,4 @@ const gf_io_engine_t gf_io_engine_io_uring = {
     .flush = gf_io_uring_flush,
 
     .cancel = gf_io_uring_cancel,
-    .callback = gf_io_uring_callback
-};
+    .callback = gf_io_uring_callback};

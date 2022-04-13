@@ -52,7 +52,6 @@
 /* refer 2717 */
 #define GF_O_PATH 010000000
 
-
 #define XLATE_BIT(from, to, bit)                                               \
     do {                                                                       \
         if (from & bit)                                                        \

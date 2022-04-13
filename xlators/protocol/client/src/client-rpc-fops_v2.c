@@ -4320,8 +4320,7 @@ client4_0_getxattr(call_frame_t *frame, xlator_t *this, void *data)
 
     conf = this->private;
 
-    ret = client_pre_getxattr_v2(&req, args->loc, args->name,
-                                 args->xdata);
+    ret = client_pre_getxattr_v2(&req, args->loc, args->name, args->xdata);
     if (ret) {
         op_errno = -ret;
         goto unwind;

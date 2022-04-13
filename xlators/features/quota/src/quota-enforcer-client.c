@@ -477,9 +477,10 @@ out:
     return rpc;
 }
 
-static struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] = {
-    [GF_AGGREGATOR_NULL] = {"NULL", NULL},
-    [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", NULL},
+static struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] =
+    {
+        [GF_AGGREGATOR_NULL] = {"NULL", NULL},
+        [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", NULL},
 };
 
 static struct rpc_clnt_program quota_enforcer_clnt = {
