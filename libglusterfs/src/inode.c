@@ -842,19 +842,16 @@ inode_grep(inode_table_t *table, inode_t *parent, const char *name)
 
         if (!dentry) {
             pthread_mutex_unlock(&table->lock);
-            gf_msg_callingfn(xl->name, GF_LOG_WARNING, EINVAL,
-                             LG_MSG_INVALID_ARG,
-                             "Dentry grep failed for table: %s", table->name);
 
             return NULL;
         }
 
         if (dentry->inode) {
             inode = dentry->inode;
-        }
 
-        if (!__is_root_gfid(inode->gfid)) {
-            __inode_ref(inode, false, xl);
+            if (!__is_root_gfid(inode->gfid)) {
+                __inode_ref(inode, false, xl);
+            }
         }
     }
     pthread_mutex_unlock(&table->lock);
