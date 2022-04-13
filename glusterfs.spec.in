@@ -335,7 +335,6 @@ and client framework.
 %package cli
 Summary:          GlusterFS CLI
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
-Requires:         libglusterd0%{?_isa} = %{version}-%{release}
 
 %description cli
 GlusterFS is a distributed file-system capable of scaling to several
@@ -655,21 +654,6 @@ It borrows a powerful concept called Translators from GNU Hurd kernel.
 Much of the code in GlusterFS is in user space and easily manageable.
 
 This package provides libgfxdr.so.
-
-%package -n libglusterd0
-Summary:          GlusterFS libglusterd library
-Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
-Obsoletes:        %{name}-libs <= %{version}-%{release}
-
-%description -n libglusterd0
-GlusterFS is a distributed file-system capable of scaling to several
-petabytes. It aggregates various storage bricks over TCP/IP interconnect
-into one large parallel network filesystem. GlusterFS is one of the
-most sophisticated file systems in terms of features and extensibility.
-It borrows a powerful concept called Translators from GNU Hurd kernel.
-Much of the code in GlusterFS is in user space and easily manageable.
-
-This package provides the libglusterd library
 
 %package -n python%{_pythonver}-gluster
 Summary:          GlusterFS python library
@@ -1058,9 +1042,6 @@ exit 0
 %post -n libgfxdr0
 /sbin/ldconfig
 
-%post -n libglusterd0
-/sbin/ldconfig
-
 %if ( 0%{!?_without_server:1} )
 %post server
 # Legacy server
@@ -1446,10 +1427,6 @@ exit 0
 
 %files -n libgfxdr0
 %{_libdir}/libgfxdr.so.*
-
-%files -n libglusterd0
-%{_libdir}/libglusterd.so.*
-%exclude %{_libdir}/libglusterd.so
 
 %files -n python%{_pythonver}-gluster
 # introducing glusterfs module in site packages.

@@ -41,7 +41,7 @@
 #include "glusterd-server-quorum.h"
 #include <glusterfs/quota-common-utils.h>
 #include "glusterd-shd-svc-helper.h"
-#include "gd-common-utils.h"
+#include "protocol-utils.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
