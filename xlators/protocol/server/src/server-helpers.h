@@ -15,25 +15,8 @@
 
 #define CALL_STATE(frame) ((server_state_t *)frame->root->state)
 
-#define XPRT_FROM_FRAME(frame) ((rpc_transport_t *)CALL_STATE(frame)->xprt)
-
-#define SERVER_CONF(frame)                                                     \
-    ((server_conf_t *)XPRT_FROM_FRAME(frame)->this->private)
-
-#define XPRT_FROM_XLATOR(this) ((((server_conf_t *)this->private))->listen)
-
-#define INODE_LRU_LIMIT(this)                                                  \
-    (((server_conf_t *)(this->private))->config.inode_lru_limit)
-
-#define IS_ROOT_INODE(inode) (inode == inode->table->root)
-
-#define IS_NOT_ROOT(pathlen) ((pathlen > 2) ? 1 : 0)
-
 void
 free_state(server_state_t *state);
-
-void
-server_loc_wipe(loc_t *loc);
 
 void
 server_print_request(call_frame_t *frame);
