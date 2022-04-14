@@ -2411,8 +2411,7 @@ afr_read_subvol_get(inode_t *inode, xlator_t *this, int *subvol_p,
 }
 
 static void
-afr_local_transaction_cleanup(afr_local_t *local,
-                              const unsigned int child_count)
+afr_local_transaction_cleanup(afr_local_t *local, unsigned int child_count)
 {
     int i = 0;
 
