@@ -39,7 +39,7 @@ static int
 dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
                  xlator_t *hashed_subvol, int flag, int *fop_errno);
 
-void
+static void
 gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 {
     int i = 0;
