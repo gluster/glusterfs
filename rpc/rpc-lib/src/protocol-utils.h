@@ -1,17 +1,9 @@
-/*
-  Copyright (c) 2019 Red Hat, Inc. <http://www.redhat.com>
-  This file is part of GlusterFS.
+#ifndef _PROTOCOL_UTILS_H
+#define _PROTOCOL_UTILS_H
 
-  This file is licensed to you under your choice of the GNU Lesser
-  General Public License, version 3 or any later version (LGPLv3 or
-  later), or the GNU General Public License, version 2 (GPLv2), in all
-  cases as published by the Free Software Foundation.
-*/
+#include "protocol-common.h"
 
-#include "gd-common-utils.h"
-#include "cli1-xdr.h"
-
-int
+static inline int
 get_vol_type(int type, int dist_count, int brick_count)
 {
     if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
@@ -21,7 +13,7 @@ get_vol_type(int type, int dist_count, int brick_count)
     return type;
 }
 
-char *
+static inline char *
 get_struct_variable(int mem_num, gf_gsync_status_t *sts_val)
 {
     switch (mem_num) {
@@ -70,9 +62,8 @@ get_struct_variable(int mem_num, gf_gsync_status_t *sts_val)
         case 21:
             return (sts_val->session_secondary);
         default:
-            goto out;
+            return NULL;
     }
-
-out:
-    return NULL;
 }
+
+#endif /* _PROTOCOL_UTILS_H */

@@ -10,7 +10,7 @@ EXTRA_DIST = autogen.sh \
 	$(shell find $(top_srcdir)/tests -type f -print)
 
 
-SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc libglusterd api \
+SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api \
 	glusterfsd xlators $(FUSERMOUNT_SUBDIR) doc extras cli heal \
 	@SYNCDAEMON_SUBDIR@ @UMOUNTD_SUBDIR@ tools events
 

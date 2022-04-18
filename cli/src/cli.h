@@ -205,9 +205,6 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 
 typedef const char *(*cli_selector_t)(void *wcon);
 
-char *
-get_struct_variable(int mem_num, gf_gsync_status_t *sts_val);
-
 void *
 cli_getunamb(const char *tok, void **choices, cli_selector_t sel);
 
