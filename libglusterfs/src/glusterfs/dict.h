@@ -367,7 +367,15 @@ dict_set_dynstr(dict_t *this, char *key, char *str);
 GF_MUST_CHECK int
 dict_set_dynstrn(dict_t *this, char *key, const int keylen, char *str);
 GF_MUST_CHECK int
-dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str);
+dict_set_dynstrn_with_alloc(dict_t *this, char *key, const int keylen,
+                            const char *str);
+
+static inline int
+dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str)
+{
+    return dict_set_dynstrn_with_alloc(this, key, strlen(key), str);
+}
+
 GF_MUST_CHECK int
 dict_add_dynstr_with_alloc(dict_t *this, char *key, char *str);
 GF_MUST_CHECK int

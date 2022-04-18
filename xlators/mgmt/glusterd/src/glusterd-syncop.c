@@ -562,9 +562,10 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
                               src_count);
             ret = dict_get_strn(rsp_dict, key, keylen, &bad_gfid_str);
             if (!ret) {
-                snprintf(key, sizeof(key), "quarantine-%d-%d", j,
-                         src_count + dst_count);
-                ret = dict_set_dynstr_with_alloc(aggr, key, bad_gfid_str);
+                keylen = snprintf(key, sizeof(key), "quarantine-%d-%d", j,
+                                  src_count + dst_count);
+                ret = dict_set_dynstrn_with_alloc(aggr, key, keylen,
+                                                  bad_gfid_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Failed to"

@@ -3012,8 +3012,9 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
         if (ret)
             goto out;
 
-        snprintf(key, sizeof(key), "%s.brick%d.uuid", pfx, i);
-        ret = dict_set_dynstr_with_alloc(dict, key, uuid_utoa(brickinfo->uuid));
+        keylen = snprintf(key, sizeof(key), "%s.brick%d.uuid", pfx, i);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          uuid_utoa(brickinfo->uuid));
         if (ret)
             goto out;
 
@@ -3053,9 +3054,9 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
             if (ret)
                 goto out;
 
-            snprintf(key, sizeof(key), "%s.ta-brick%d.uuid", pfx, i);
-            ret = dict_set_dynstr_with_alloc(dict, key,
-                                             uuid_utoa(ta_brickinfo->uuid));
+            keylen = snprintf(key, sizeof(key), "%s.ta-brick%d.uuid", pfx, i);
+            ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                              uuid_utoa(ta_brickinfo->uuid));
             if (ret)
                 goto out;
 
@@ -3106,6 +3107,7 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
     xlator_t *this = THIS;
     char type = 0;
     float version = 0.0f;
+    int keylen = -1;
 
     GF_ASSERT(prefix);
 
@@ -3139,8 +3141,9 @@ glusterd_vol_add_quota_conf_to_dict(glusterd_volinfo_t *volinfo, dict_t *load,
             goto out;
         }
 
-        snprintf(key, sizeof(key) - 1, "%s.gfid%d", key_prefix, gfid_idx);
-        ret = dict_set_dynstr_with_alloc(load, key, uuid_utoa(buf));
+        keylen = snprintf(key, sizeof(key) - 1, "%s.gfid%d", key_prefix,
+                          gfid_idx);
+        ret = dict_set_dynstrn_with_alloc(load, key, keylen, uuid_utoa(buf));
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
@@ -6678,6 +6681,7 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     gf_boolean_t is_template_in_use = _gf_false;
     gf_boolean_t is_paused = _gf_false;
     char key1[1024] = "";
+    int keylen = 0;
     xlator_t *this1 = THIS;
 
     priv = this1->private;
@@ -6762,7 +6766,8 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     }
 
     /* Form key1 which is "<user@><secondary_host>::<secondaryvol>" */
-    snprintf(key1, sizeof(key1), "%s::%s", secondary_url, secondary_vol);
+    keylen = snprintf(key1, sizeof(key1), "%s::%s", secondary_url,
+                      secondary_vol);
 
     /* Looks for the last status, to find if the session was running
      * when the node went down. If the session was just created or
@@ -6789,8 +6794,8 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
                              NULL, _gf_true);
     } else {
         /* Add secondary to the dict indicating geo-rep session is running*/
-        ret = dict_set_dynstr_with_alloc(volinfo->gsync_active_secondaries,
-                                         key1, "running");
+        ret = dict_set_dynstrn_with_alloc(volinfo->gsync_active_secondaries,
+                                          key1, keylen, "running");
         if (ret) {
             gf_msg(this1->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set key:%s"
@@ -7008,9 +7013,10 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
     struct fs_info *fs = NULL;
     static dict_t *cached_fs = NULL;
     xlator_t *this = THIS;
+    int keylen = -1;
 
-    ret = snprintf(key, sizeof(key), "brick%d.device", count);
-    ret = dict_get_strn(dict, key, ret, &device);
+    keylen = snprintf(key, sizeof(key), "brick%d.device", count);
+    ret = dict_get_strn(dict, key, keylen, &device);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=%s", key, NULL);
@@ -7114,9 +7120,8 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
     }
 
 cached:
-    snprintf(key, sizeof(key), "brick%d.inode_size", count);
-
-    ret = dict_set_dynstr_with_alloc(dict, key, cur_word);
+    keylen = snprintf(key, sizeof(key), "brick%d.inode_size", count);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, cur_word);
 
 out:
     if (ret)
@@ -7170,6 +7175,7 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
                                  int count)
 {
     int ret = -1;
+    int keylen = -1;
     char key[64] = "";
     char buff[PATH_MAX] = "";
     char base_key[32] = "";
@@ -7197,9 +7203,8 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
     }
 
     /* get device file */
-    snprintf(key, sizeof(key), "%s.device", base_key);
-
-    ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_fsname);
+    keylen = snprintf(key, sizeof(key), "%s.device", base_key);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, entry->mnt_fsname);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=%s", key, NULL);
@@ -7207,9 +7212,8 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
     }
 
     /* fs type */
-    snprintf(key, sizeof(key), "%s.fs_name", base_key);
-
-    ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_type);
+    keylen = snprintf(key, sizeof(key), "%s.fs_name", base_key);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, entry->mnt_type);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=%s", key, NULL);
@@ -7217,9 +7221,8 @@ glusterd_add_brick_mount_details(glusterd_brickinfo_t *brickinfo, dict_t *dict,
     }
 
     /* mount options */
-    snprintf(key, sizeof(key), "%s.mnt_options", base_key);
-
-    ret = dict_set_dynstr_with_alloc(dict, key, entry->mnt_opts);
+    keylen = snprintf(key, sizeof(key), "%s.mnt_options", base_key);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, entry->mnt_opts);
 
 out:
     if (mnt_pt)
@@ -7402,8 +7405,9 @@ glusterd_add_brick_to_dict(glusterd_volinfo_t *volinfo,
         goto out;
 
     /* add peer uuid */
-    snprintf(key, sizeof(key), "%s.peerid", base_key);
-    ret = dict_set_dynstr_with_alloc(dict, key, uuid_utoa(brickinfo->uuid));
+    keylen = snprintf(key, sizeof(key), "%s.peerid", base_key);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                      uuid_utoa(brickinfo->uuid));
     if (ret) {
         goto out;
     }
@@ -9180,7 +9184,7 @@ glusterd_aggr_brick_mount_dirs(dict_t *aggr, dict_t *rsp_dict)
             continue;
         }
 
-        ret = dict_set_dynstr_with_alloc(aggr, key, brick_mount_dir);
+        ret = dict_set_dynstrn_with_alloc(aggr, key, keylen, brick_mount_dir);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
@@ -9815,8 +9819,8 @@ glusterd_bitrot_volume_node_rsp(dict_t *aggr, dict_t *rsp_dict)
 
     snprintf(buf, sizeof(buf), "%s", uuid_utoa(MY_UUID));
 
-    snprintf(key, sizeof(key), "node-uuid-%d", i);
-    ret = dict_set_dynstr_with_alloc(aggr, key, buf);
+    keylen = snprintf(key, sizeof(key), "node-uuid-%d", i);
+    ret = dict_set_dynstrn_with_alloc(aggr, key, keylen, buf);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "failed to set node-uuid");
@@ -9958,8 +9962,9 @@ glusterd_bitrot_volume_node_rsp(dict_t *aggr, dict_t *rsp_dict)
             keylen = snprintf(key, sizeof(key), "quarantine-%d", j);
             ret = dict_get_strn(rsp_dict, key, keylen, &bad_gfid_str);
             if (!ret) {
-                snprintf(key, sizeof(key), "quarantine-%d-%d", j, i);
-                ret = dict_set_dynstr_with_alloc(aggr, key, bad_gfid_str);
+                keylen = snprintf(key, sizeof(key), "quarantine-%d-%d", j, i);
+                ret = dict_set_dynstrn_with_alloc(aggr, key, keylen,
+                                                  bad_gfid_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Failed to"
@@ -11503,8 +11508,8 @@ glusterd_get_global_max_op_version(rpcsvc_request_t *req, dict_t *ctx,
         goto out;
     }
 
-    sprintf(dict_key, "value%d", count);
-    ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
+    keylen = sprintf(dict_key, "value%d", count);
+    ret = dict_set_dynstrn_with_alloc(ctx, dict_key, keylen, def_val);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set %s for key %s in dictionary", def_val,
@@ -11533,6 +11538,7 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
     char err_str[PATH_MAX] = "";
     char *allvolopt = NULL;
     int32_t i = 0;
+    int keylen = -1;
     gf_boolean_t exists = _gf_false;
     gf_boolean_t need_free = _gf_false;
 
@@ -11603,16 +11609,16 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
         }
 
         count++;
-        ret = sprintf(dict_key, "key%d", count);
-        ret = dict_set_strn(ctx, dict_key, ret, allvolopt);
+        keylen = snprintf(dict_key, sizeof(dict_key), "key%d", count);
+        ret = dict_set_strn(ctx, dict_key, keylen, allvolopt);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s in dictionary", allvolopt);
             goto out;
         }
 
-        sprintf(dict_key, "value%d", count);
-        ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
+        keylen = snprintf(dict_key, sizeof(dict_key), "value%d", count);
+        ret = dict_set_dynstrn_with_alloc(ctx, dict_key, keylen, def_val);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s for key %s in dictionary", def_val,
@@ -11741,14 +11747,15 @@ glusterd_get_default_val_for_volopt(dict_t *ctx, gf_boolean_t all_opts,
                    vme->key);
             goto out;
         }
-        sprintf(dict_key, "value%d", count);
+        keylen = sprintf(dict_key, "value%d", count);
         if (get_value_vme) {  // the value was never changed  - DEFAULT is used
             gf_asprintf(&def_val_str, "%s (DEFAULT)", def_val);
-            ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val_str);
+            ret = dict_set_dynstrn_with_alloc(ctx, dict_key, keylen,
+                                              def_val_str);
             GF_FREE(def_val_str);
             def_val_str = NULL;
         } else
-            ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
+            ret = dict_set_dynstrn_with_alloc(ctx, dict_key, keylen, def_val);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to "

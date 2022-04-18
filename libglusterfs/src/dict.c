@@ -2422,7 +2422,8 @@ err:
 }
 
 int
-dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str)
+dict_set_dynstrn_with_alloc(dict_t *this, char *key, const int keylen,
+                            const char *str)
 {
     char *alloc_str = gf_strdup(str);
     int ret = -1;
@@ -2430,7 +2431,7 @@ dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str)
     if (!alloc_str)
         return ret;
 
-    ret = dict_set_dynstr(this, key, alloc_str);
+    ret = dict_set_dynstrn(this, key, keylen, alloc_str);
     if (ret == -EINVAL)
         GF_FREE(alloc_str);
 

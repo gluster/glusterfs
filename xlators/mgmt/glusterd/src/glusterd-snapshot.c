@@ -1425,7 +1425,7 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
             continue;
         }
 
-        ret = dict_set_dynstr_with_alloc(dst, key, value);
+        ret = dict_set_dynstrn_with_alloc(dst, key, keylen, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
@@ -1453,9 +1453,10 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
                 goto out;
             }
 
-            snprintf(key, sizeof(key), "vol%" PRId64 ".brickdir%" PRId64, i + 1,
-                     brick_order);
-            ret = dict_set_dynstr_with_alloc(dst, key, snap_brick_dir);
+            keylen = snprintf(key, sizeof(key),
+                              "vol%" PRId64 ".brickdir%" PRId64, i + 1,
+                              brick_order);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, snap_brick_dir);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Failed to set %s", key);
@@ -1471,9 +1472,9 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
                 continue;
             }
 
-            snprintf(key, sizeof(key), "vol%" PRId64 ".fstype%" PRId64, i + 1,
-                     brick_order);
-            ret = dict_set_dynstr_with_alloc(dst, key, value);
+            keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".fstype%" PRId64,
+                              i + 1, brick_order);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, value);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Failed to set %s", key);
@@ -1489,9 +1490,10 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
                 continue;
             }
 
-            snprintf(key, sizeof(key), "vol%" PRId64 ".snap_type%" PRId64,
-                     i + 1, brick_order);
-            ret = dict_set_dynstr_with_alloc(dst, key, value);
+            keylen = snprintf(key, sizeof(key),
+                              "vol%" PRId64 ".snap_type%" PRId64, i + 1,
+                              brick_order);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, value);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Failed to set %s", key);
@@ -1507,9 +1509,10 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
                 continue;
             }
 
-            snprintf(key, sizeof(key), "vol%" PRId64 ".mnt_opts%" PRId64, i + 1,
-                     brick_order);
-            ret = dict_set_dynstr_with_alloc(dst, key, value);
+            keylen = snprintf(key, sizeof(key),
+                              "vol%" PRId64 ".mnt_opts%" PRId64, i + 1,
+                              brick_order);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, value);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Failed to set %s", key);
@@ -1525,10 +1528,10 @@ glusterd_snap_create_clone_pre_val_use_rsp_dict(dict_t *dst, dict_t *src)
                 goto out;
             }
 
-            snprintf(key, sizeof(key),
-                     "vol%" PRId64 ".brick_snapdevice%" PRId64, i + 1,
-                     brick_order);
-            ret = dict_set_dynstr_with_alloc(dst, key, snap_device);
+            keylen = snprintf(key, sizeof(key),
+                              "vol%" PRId64 ".brick_snapdevice%" PRId64, i + 1,
+                              brick_order);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, snap_device);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Failed to set %s", key);
@@ -1611,7 +1614,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                 ret = 0;
                 continue;
             }
-            ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
             if (ret) {
                 gf_msg_debug(this->name, 0, "Failed to set %s", key);
                 goto out;
@@ -1640,7 +1643,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                        "Failed to get %s", key);
                 goto out;
             }
-            ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
             if (ret) {
                 gf_msg_debug(this->name, 0, "Failed to set %s", key);
                 goto out;
@@ -1653,7 +1656,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Failed to get %s", key);
             } else {
-                ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+                ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
                 if (ret) {
                     gf_msg_debug(this->name, 0, "Failed to set %s", key);
                     goto out;
@@ -1667,7 +1670,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                        "Failed to get %s", key);
                 goto out;
             }
-            ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
             if (ret) {
                 gf_msg_debug(this->name, 0, "Failed to set %s", key);
                 goto out;
@@ -1681,7 +1684,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                        "Failed to get %s", key);
                 goto out;
             }
-            ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
             if (ret) {
                 gf_msg_debug(this->name, 0, "Failed to set %s", key);
                 goto out;
@@ -1695,7 +1698,7 @@ glusterd_snap_restore_use_rsp_dict(dict_t *dst, dict_t *src)
                        "Failed to get %s", key);
                 goto out;
             }
-            ret = dict_set_dynstr_with_alloc(dst, key, strvalue);
+            ret = dict_set_dynstrn_with_alloc(dst, key, keylen, strvalue);
             if (ret) {
                 gf_msg_debug(this->name, 0, "Failed to set %s", key);
                 goto out;
@@ -1813,6 +1816,7 @@ glusterd_snap_create_clone_common_prevalidate(
     char key[128] = "";
     int ret = -1;
     int64_t i = 1;
+    int keylen = -1;
     int64_t brick_order = 0;
     int64_t brick_count = 0;
     xlator_t *this = THIS;
@@ -1883,8 +1887,9 @@ glusterd_snap_create_clone_common_prevalidate(
             goto out;
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".snap_plugin", i);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, brickinfo->snap->name);
+        keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".snap_plugin", i);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                          brickinfo->snap->name);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
@@ -1893,9 +1898,10 @@ glusterd_snap_create_clone_common_prevalidate(
 
         snprintf(device, sizeof(device), "%s_%" PRId64, snap_volname,
                  brick_order);
-        snprintf(key, sizeof(key), "vol%" PRId64 ".brick_snapdevice%" PRId64, i,
-                 brick_count);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, device);
+        keylen = snprintf(key, sizeof(key),
+                          "vol%" PRId64 ".brick_snapdevice%" PRId64, i,
+                          brick_count);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen, device);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
@@ -1910,36 +1916,40 @@ glusterd_snap_create_clone_common_prevalidate(
                    brickinfo->path);
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".fstype%" PRId64, i,
-                 brick_count);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, brickinfo->fstype);
+        keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".fstype%" PRId64, i,
+                          brick_count);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                          brickinfo->fstype);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
             goto out;
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".snap_type%" PRId64, i,
-                 brick_count);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, brickinfo->snap_type);
+        keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".snap_type%" PRId64,
+                          i, brick_count);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                          brickinfo->snap_type);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
             goto out;
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".mnt_opts%" PRId64, i,
-                 brick_count);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, brickinfo->mnt_opts);
+        keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".mnt_opts%" PRId64,
+                          i, brick_count);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                          brickinfo->mnt_opts);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
             goto out;
         }
 
-        snprintf(key, sizeof(key), "vol%" PRId64 ".brickdir%" PRId64, i,
-                 brick_count);
-        ret = dict_set_dynstr_with_alloc(rsp_dict, key, brickinfo->mount_dir);
+        keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".brickdir%" PRId64,
+                          i, brick_count);
+        ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                          brickinfo->mount_dir);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set %s", key);
@@ -3486,6 +3496,7 @@ int
 glusterd_snapshot_get_vol_snapnames(dict_t *dict, glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
+    int keylen = -1;
     int snapcount = 0;
     char *snapname = NULL;
     char key[32] = "";
@@ -3500,10 +3511,9 @@ glusterd_snapshot_get_vol_snapnames(dict_t *dict, glusterd_volinfo_t *volinfo)
                                  snapvol_list)
     {
         snapcount++;
-        snprintf(key, sizeof(key), "snapname%d", snapcount);
-
-        ret = dict_set_dynstr_with_alloc(dict, key,
-                                         snap_vol->snapshot->snapname);
+        keylen = snprintf(key, sizeof(key), "snapname%d", snapcount);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          snap_vol->snapshot->snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to "
@@ -3757,8 +3767,8 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
             goto out;
         }
         GLUSTERD_GET_UUID_NOHYPHEN(snap_volname, *uuid_ptr);
-        snprintf(key, sizeof(key), "snap-volname%d", i);
-        ret = dict_set_dynstr_with_alloc(dict, key, snap_volname);
+        keylen = snprintf(key, sizeof(key), "snap-volname%d", i);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen, snap_volname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set snap volname");
@@ -3944,8 +3954,8 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
         GF_FREE(uuid_ptr);
         goto out;
     }
-    snprintf(key, sizeof(key), "clone-volname%d", i);
-    ret = dict_set_dynstr_with_alloc(dict, key, snap_volname);
+    keylen = snprintf(key, sizeof(key), "clone-volname%d", i);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, snap_volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set snap volname");
@@ -4189,6 +4199,7 @@ glusterd_add_missed_snaps_to_dict(dict_t *rsp_dict,
     char name_buf[PATH_MAX] = "";
     int32_t missed_snap_count = -1;
     int32_t ret = -1;
+    int keylen = -1;
     xlator_t *this = THIS;
     int32_t len = 0;
 
@@ -4222,8 +4233,10 @@ glusterd_add_missed_snaps_to_dict(dict_t *rsp_dict,
     }
 
     /* Setting the missed_snap_entry in the rsp_dict */
-    snprintf(name_buf, sizeof(name_buf), "missed_snaps_%d", missed_snap_count);
-    ret = dict_set_dynstr_with_alloc(rsp_dict, name_buf, missed_snap_entry);
+    keylen = snprintf(name_buf, sizeof(name_buf), "missed_snaps_%d",
+                      missed_snap_count);
+    ret = dict_set_dynstrn_with_alloc(rsp_dict, name_buf, keylen,
+                                      missed_snap_entry);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set missed_snap_entry (%s) "
@@ -4349,13 +4362,14 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
     GF_ASSERT(snap_vol);
     GF_ASSERT(original_brickinfo);
 
-    snprintf(key, sizeof(key), "vol%" PRId64 ".origin_path%d", volcount,
-             brick_count);
+    keylen = snprintf(key, sizeof(key), "vol%" PRId64 ".origin_path%d",
+                      volcount, brick_count);
     if (clone)
-        ret = dict_set_dynstr_with_alloc(dict, key,
-                                         original_brickinfo->origin_path);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          original_brickinfo->origin_path);
     else
-        ret = dict_set_dynstr_with_alloc(dict, key, original_brickinfo->path);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          original_brickinfo->path);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -5288,7 +5302,7 @@ glusterd_handle_snapshot_delete_all(dict_t *dict)
             goto out;
         }
 
-        ret = dict_set_dynstr_with_alloc(dict, key, snap->snapname);
+        ret = dict_set_dynstrn_with_alloc(dict, key, ret, snap->snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Could not save "
@@ -9431,6 +9445,7 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
     glusterd_volinfo_t *tmp_vol = NULL;
     xlator_t *this = THIS;
     int op_errno = 0;
+    int keylen = -1;
 
     GF_ASSERT(volname);
     GF_VALIDATE_OR_GOTO_WITH_ERROR(this->name, dict, out, op_errno, EINVAL);
@@ -9455,9 +9470,9 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
         snapcount++;
 
         /* Set Snap Name */
-        snprintf(key, sizeof(key), "snapname.%d", snapcount);
-        ret = dict_set_dynstr_with_alloc(dict, key,
-                                         snap_vol->snapshot->snapname);
+        keylen = snprintf(key, sizeof(key), "snapname.%d", snapcount);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          snap_vol->snapshot->snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set "
@@ -9466,9 +9481,9 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
         }
 
         /* Set Snap ID */
-        snprintf(key, sizeof(key), "snap-id.%d", snapcount);
-        ret = dict_set_dynstr_with_alloc(
-            dict, key, uuid_utoa(snap_vol->snapshot->snap_id));
+        keylen = snprintf(key, sizeof(key), "snap-id.%d", snapcount);
+        ret = dict_set_dynstrn_with_alloc(
+            dict, key, keylen, uuid_utoa(snap_vol->snapshot->snap_id));
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set "
@@ -9477,8 +9492,8 @@ glusterd_snapshot_get_volnames_uuids(dict_t *dict, char *volname,
         }
 
         /* Snap Volname which is used to activate the snap vol */
-        snprintf(key, sizeof(key), "snap-volname.%d", snapcount);
-        ret = dict_set_dynstr_with_alloc(dict, key, snap_vol->volname);
+        keylen = snprintf(key, sizeof(key), "snap-volname.%d", snapcount);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen, snap_vol->volname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set "

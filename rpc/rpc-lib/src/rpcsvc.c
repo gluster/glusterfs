@@ -2533,6 +2533,7 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
     xlator_list_t *volentry = NULL;
     char *srchkey = NULL;
     char *keyval = NULL;
+    int keylen = -1;
     int ret = -1;
 
     if ((!svc) || (!svc->options) || (!options))
@@ -2546,9 +2547,9 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
     /* Reconfigure the volume specific rpc-auth.addr allow part */
     volentry = xlator->children;
     while (volentry) {
-        ret = gf_asprintf(&srchkey, "rpc-auth.addr.%s.allow",
-                          volentry->xlator->name);
-        if (ret == -1) {
+        keylen = gf_asprintf(&srchkey, "rpc-auth.addr.%s.allow",
+                             volentry->xlator->name);
+        if (keylen == -1) {
             gf_log(GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
             return (-1);
         }
@@ -2564,7 +2565,8 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
          */
         dict_del(svc->options, srchkey);
         if (!dict_get_str(options, srchkey, &keyval)) {
-            ret = dict_set_dynstr_with_alloc(svc->options, srchkey, keyval);
+            ret = dict_set_dynstrn_with_alloc(svc->options, srchkey, keylen,
+                                              keyval);
             if (ret < 0) {
                 gf_log(GF_RPCSVC, GF_LOG_ERROR, "dict_set_str error");
                 GF_FREE(srchkey);
@@ -2579,9 +2581,9 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
     /* Reconfigure the volume specific rpc-auth.addr reject part */
     volentry = xlator->children;
     while (volentry) {
-        ret = gf_asprintf(&srchkey, "rpc-auth.addr.%s.reject",
-                          volentry->xlator->name);
-        if (ret == -1) {
+        keylen = gf_asprintf(&srchkey, "rpc-auth.addr.%s.reject",
+                             volentry->xlator->name);
+        if (keylen == -1) {
             gf_log(GF_RPCSVC, GF_LOG_ERROR, "asprintf failed");
             return (-1);
         }
@@ -2596,7 +2598,8 @@ rpcsvc_reconfigure_options(rpcsvc_t *svc, dict_t *options)
          */
         dict_del(svc->options, srchkey);
         if (!dict_get_str(options, srchkey, &keyval)) {
-            ret = dict_set_dynstr_with_alloc(svc->options, srchkey, keyval);
+            ret = dict_set_dynstrn_with_alloc(svc->options, srchkey, keylen,
+                                              keyval);
             if (ret < 0) {
                 gf_log(GF_RPCSVC, GF_LOG_ERROR, "dict_set_str error");
                 GF_FREE(srchkey);

@@ -614,6 +614,7 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
                                 glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
+    int keylen = -1;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[256] = {
@@ -632,9 +633,9 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
         goto out;
     }
 
-    snprintf(key, sizeof(key), "%s.restored_from_snap", prefix);
-    ret = dict_set_dynstr_with_alloc(dict, key,
-                                     uuid_utoa(volinfo->restored_from_snap));
+    keylen = snprintf(key, sizeof(key), "%s.restored_from_snap", prefix);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                      uuid_utoa(volinfo->restored_from_snap));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set %s for volume"
@@ -644,9 +645,10 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     }
 
     if (strlen(volinfo->restored_from_snapname_id) > 0) {
-        snprintf(key, sizeof(key), "%s.restored_from_snapname_id", prefix);
-        ret = dict_set_dynstr_with_alloc(dict, key,
-                                         volinfo->restored_from_snapname_id);
+        keylen = snprintf(key, sizeof(key), "%s.restored_from_snapname_id",
+                          prefix);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          volinfo->restored_from_snapname_id);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set %s for volume"
@@ -657,9 +659,10 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     }
 
     if (strlen(volinfo->restored_from_snapname) > 0) {
-        snprintf(key, sizeof(key), "%s.restored_from_snapname", prefix);
-        ret = dict_set_dynstr_with_alloc(dict, key,
-                                         volinfo->restored_from_snapname);
+        keylen = snprintf(key, sizeof(key), "%s.restored_from_snapname",
+                          prefix);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          volinfo->restored_from_snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set %s for volume"
@@ -670,8 +673,9 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     }
 
     if (strlen(volinfo->parent_volname) > 0) {
-        snprintf(key, sizeof(key), "%s.parent_volname", prefix);
-        ret = dict_set_dynstr_with_alloc(dict, key, volinfo->parent_volname);
+        keylen = snprintf(key, sizeof(key), "%s.parent_volname", prefix);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          volinfo->parent_volname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set %s "
@@ -701,8 +705,9 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     }
 
     if (strlen(volinfo->snap_plugin) > 0) {
-        snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
-        ret = dict_set_dynstr_with_alloc(dict, key, volinfo->snap_plugin);
+        keylen = snprintf(key, sizeof(key), "%s.snap_plugin", prefix);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                          volinfo->snap_plugin);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set %s "
@@ -723,6 +728,7 @@ glusterd_add_missed_snaps_to_export_dict(dict_t *peer_data)
     char value[PATH_MAX] = "";
     int32_t missed_snap_count = 0;
     int32_t ret = -1;
+    int keylen = -1;
     glusterd_conf_t *priv = NULL;
     glusterd_missed_snap_info *missed_snapinfo = NULL;
     glusterd_snap_op_t *snap_opinfo = NULL;
@@ -740,15 +746,16 @@ glusterd_add_missed_snaps_to_export_dict(dict_t *peer_data)
         cds_list_for_each_entry(snap_opinfo, &missed_snapinfo->snap_ops,
                                 snap_ops_list)
         {
-            snprintf(name_buf, sizeof(name_buf), "missed_snaps_%d",
-                     missed_snap_count);
+            keylen = snprintf(name_buf, sizeof(name_buf), "missed_snaps_%d",
+                              missed_snap_count);
             snprintf(value, sizeof(value), "%s:%s=%s:%d:%s:%d:%d",
                      missed_snapinfo->node_uuid, missed_snapinfo->snap_uuid,
                      snap_opinfo->snap_vol_id, snap_opinfo->brick_num,
                      snap_opinfo->brick_path, snap_opinfo->op,
                      snap_opinfo->status);
 
-            ret = dict_set_dynstr_with_alloc(peer_data, name_buf, value);
+            ret = dict_set_dynstrn_with_alloc(peer_data, name_buf, keylen,
+                                              value);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                        "Unable to set %s", name_buf);
@@ -777,6 +784,7 @@ glusterd_add_snap_to_dict(glusterd_snap_t *snap, dict_t *peer_data,
     char buf[64] = "";
     char prefix[32] = "";
     int32_t ret = -1;
+    int keylen = -1;
     int32_t volcount = 0;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
@@ -838,16 +846,17 @@ glusterd_add_snap_to_dict(glusterd_snap_t *snap, dict_t *peer_data,
         goto out;
     }
 
-    snprintf(buf, sizeof(buf), "%s.snapname", prefix);
-    ret = dict_set_dynstr_with_alloc(peer_data, buf, snap->snapname);
+    keylen = snprintf(buf, sizeof(buf), "%s.snapname", prefix);
+    ret = dict_set_dynstrn_with_alloc(peer_data, buf, keylen, snap->snapname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set snapname for snap %s", snap->snapname);
         goto out;
     }
 
-    snprintf(buf, sizeof(buf), "%s.snap_id", prefix);
-    ret = dict_set_dynstr_with_alloc(peer_data, buf, uuid_utoa(snap->snap_id));
+    keylen = snprintf(buf, sizeof(buf), "%s.snap_id", prefix);
+    ret = dict_set_dynstrn_with_alloc(peer_data, buf, keylen,
+                                      uuid_utoa(snap->snap_id));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set snap_id for snap %s", snap->snapname);
@@ -855,8 +864,9 @@ glusterd_add_snap_to_dict(glusterd_snap_t *snap, dict_t *peer_data,
     }
 
     if (snap->description) {
-        snprintf(buf, sizeof(buf), "%s.description", prefix);
-        ret = dict_set_dynstr_with_alloc(peer_data, buf, snap->description);
+        keylen = snprintf(buf, sizeof(buf), "%s.description", prefix);
+        ret = dict_set_dynstrn_with_alloc(peer_data, buf, keylen,
+                                          snap->description);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Unable to set description for snap %s", snap->snapname);

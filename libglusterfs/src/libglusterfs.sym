@@ -408,7 +408,7 @@ dict_set_double
 dict_set_dynptr
 dict_set_dynstr
 dict_set_dynstrn
-dict_set_dynstr_with_alloc
+dict_set_dynstrn_with_alloc
 dict_set_gfuuid
 dict_set_iatt
 dict_set_mdata
