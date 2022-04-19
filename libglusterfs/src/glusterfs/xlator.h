@@ -802,7 +802,7 @@ struct _xlator {
         gf_atomic_t total_fop_cbk;
         gf_atomic_t interval_fop_cbk;
         gf_latency_t latencies;
-    } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
+    } stats[GF_FOP_MAXVALUE];
 
     /* Misc */
     eh_t *history; /* event history context */
