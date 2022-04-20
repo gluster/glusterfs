@@ -1570,6 +1570,8 @@ syncop_readdir(xlator_t *subvol, fd_t *fd, size_t size, off_t off,
         0,
     };
 
+    INIT_LIST_HEAD(&args.entries.list);
+
     SYNCOP(subvol, (&args), syncop_readdir_cbk, subvol->fops->readdir, fd, size,
            off, xdata_in);
 
