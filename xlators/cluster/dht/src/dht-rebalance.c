@@ -4152,16 +4152,11 @@ out:
     return ret;
 }
 
-static int
+static void
 gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
                                      pthread_t *tid_array, int thread_index)
 {
-    int ret = -1;
     int i = 0;
-
-    if (!defrag)
-        goto out;
-
     /* Wake up all migration threads */
     pthread_mutex_lock(&defrag->dfq_mutex);
     {
@@ -4186,10 +4181,6 @@ gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
     }
 
     GF_FREE(defrag->queue);
-
-    ret = 0;
-out:
-    return ret;
 }
 
 static int
