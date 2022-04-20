@@ -119,22 +119,6 @@ server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
 }
 
 void
-server_loc_wipe(loc_t *loc)
-{
-    if (loc->parent) {
-        inode_unref(loc->parent);
-        loc->parent = NULL;
-    }
-
-    if (loc->inode) {
-        inode_unref(loc->inode);
-        loc->inode = NULL;
-    }
-
-    GF_FREE((void *)loc->path);
-}
-
-void
 server_resolve_wipe(server_resolve_t *resolve)
 {
     GF_FREE((void *)resolve->path);
@@ -176,8 +160,8 @@ free_state(server_state_t *state)
 
     GF_FREE((void *)state->name);
 
-    server_loc_wipe(&state->loc);
-    server_loc_wipe(&state->loc2);
+    loc_wipe(&state->loc);
+    loc_wipe(&state->loc2);
 
     server_resolve_wipe(&state->resolve);
     server_resolve_wipe(&state->resolve2);
