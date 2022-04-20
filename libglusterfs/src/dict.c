@@ -431,15 +431,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
 }
 
 int32_t
-dict_set(dict_t *this, char *key, data_t *value)
-{
-    if (key)
-        return dict_setn(this, key, strlen(key), value);
-    else
-        return dict_setn(this, NULL, 0, value);
-}
-
-int32_t
 dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
 {
     int32_t ret;
@@ -459,15 +450,6 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
     UNLOCK(&this->lock);
 
     return ret;
-}
-
-int32_t
-dict_add(dict_t *this, char *key, data_t *value)
-{
-    if (key)
-        return dict_addn(this, key, strlen(key), value);
-    else
-        return dict_addn(this, NULL, 0, value);
 }
 
 int32_t
@@ -492,17 +474,6 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
 
 data_t *
 dict_get(dict_t *this, char *key)
-{
-    if (!this || !key) {
-        gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
-                         "!this || key=%s", (key) ? key : "()");
-        return NULL;
-    }
-    return dict_getn(this, key, 0);
-}
-
-data_t *
-dict_getn(dict_t *this, char *key, const int keylen)
 {
     data_pair_t *pair;
 
@@ -542,17 +513,6 @@ dict_key_count(dict_t *this)
     UNLOCK(&this->lock);
 
     return ret;
-}
-
-gf_boolean_t
-dict_del(dict_t *this, char *key)
-{
-    if (!this || !key) {
-        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "!this || key=%s", key);
-        return _gf_false;
-    }
-    return dict_deln(this, key, 0);
 }
 
 gf_boolean_t
@@ -2537,7 +2497,7 @@ err:
 
 /********************************************************************
  *
- * dict_set_bin_common:
+ * dict_setn_bin_common:
  *      This is the common function to set key and its value in
  *      dictionary. Flag(is_static) should be set appropriately based
  *      on the type of memory type used for value(*ptr). If flag is set
@@ -2545,8 +2505,9 @@ err:
  *
  *******************************************************************/
 static int
-dict_set_bin_common(dict_t *this, char *key, void *ptr, size_t size,
-                    gf_boolean_t is_static, gf_dict_data_type_t type)
+dict_setn_bin_common(dict_t *this, char *key, const int keylen, void *ptr,
+                     size_t size, gf_boolean_t is_static,
+                     gf_dict_data_type_t type)
 {
     data_t *data = NULL;
     int ret = 0;
@@ -2565,7 +2526,7 @@ dict_set_bin_common(dict_t *this, char *key, void *ptr, size_t size,
     data->is_static = is_static;
     data->data_type = type;
 
-    ret = dict_set(this, key, data);
+    ret = dict_setn(this, key, keylen, data);
     if (ret < 0) {
         /* don't free data->data, let callers handle it */
         data->data = NULL;
@@ -2578,38 +2539,39 @@ err:
 
 /********************************************************************
  *
- * dict_set_bin:
+ * dict_setn_bin:
  *      Set key and its value in the dictionary. This function should
  *      be called if the value is stored in dynamic memory.
  *
  *******************************************************************/
 int
-dict_set_bin(dict_t *this, char *key, void *ptr, size_t size)
+dict_setn_bin(dict_t *this, char *key, const int keylen, void *ptr, size_t size)
 {
-    return dict_set_bin_common(this, key, ptr, size, _gf_false,
-                               GF_DATA_TYPE_PTR);
+    return dict_setn_bin_common(this, key, keylen, ptr, size, _gf_false,
+                                GF_DATA_TYPE_PTR);
 }
 
 /********************************************************************
  *
- * dict_set_static_bin:
+ * dict_setn_static_bin:
  *      Set key and its value in the dictionary. This function should
  *      be called if the value is stored in static memory.
  *
  *******************************************************************/
 int
-dict_set_static_bin(dict_t *this, char *key, void *ptr, size_t size)
+dict_setn_static_bin(dict_t *this, char *key, const int keylen, void *ptr,
+                     size_t size)
 {
-    return dict_set_bin_common(this, key, ptr, size, _gf_true,
-                               GF_DATA_TYPE_PTR);
+    return dict_setn_bin_common(this, key, keylen, ptr, size, _gf_true,
+                                GF_DATA_TYPE_PTR);
 }
 
-/*  */
 int
-dict_set_gfuuid(dict_t *this, char *key, uuid_t gfid, bool is_static)
+dict_setn_gfuuid(dict_t *this, char *key, const int keylen, uuid_t gfid,
+                 bool is_static)
 {
-    return dict_set_bin_common(this, key, gfid, sizeof(uuid_t), is_static,
-                               GF_DATA_TYPE_GFUUID);
+    return dict_setn_bin_common(this, key, keylen, gfid, sizeof(uuid_t),
+                                is_static, GF_DATA_TYPE_GFUUID);
 }
 
 int
@@ -2641,8 +2603,9 @@ int
 dict_set_mdata(dict_t *this, char *key, struct mdata_iatt *mdata,
                bool is_static)
 {
-    return dict_set_bin_common(this, key, mdata, sizeof(struct mdata_iatt),
-                               is_static, GF_DATA_TYPE_MDATA);
+    return dict_setn_bin_common(this, key, strlen(key), mdata,
+                                sizeof(struct mdata_iatt), is_static,
+                                GF_DATA_TYPE_MDATA);
 }
 
 int
@@ -2679,8 +2642,9 @@ err:
 int
 dict_set_iatt(dict_t *this, char *key, struct iatt *iatt, bool is_static)
 {
-    return dict_set_bin_common(this, key, iatt, sizeof(struct iatt), is_static,
-                               GF_DATA_TYPE_IATT);
+    return dict_setn_bin_common(this, key, strlen(key), iatt,
+                                sizeof(struct iatt), is_static,
+                                GF_DATA_TYPE_IATT);
 }
 
 int
