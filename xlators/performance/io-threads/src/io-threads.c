@@ -17,6 +17,7 @@
 #include "io-threads.h"
 #include <signal.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <sys/time.h>
 #include <time.h>
 #include <glusterfs/locking.h>
@@ -53,175 +54,175 @@ struct volume_options options[];
         }                                                                      \
     } while (0)
 
-iot_client_ctx_t *
-iot_get_ctx(xlator_t *this, client_t *client)
+iot_threads_t *
+iot_thread_rec_init(iot_conf_t *conf)
 {
-    iot_client_ctx_t *ctx = NULL;
-    iot_client_ctx_t *setted_ctx = NULL;
-    int i;
+    iot_threads_t *th = NULL;
 
-    if (client_ctx_get(client, this, (void **)&ctx) != 0) {
-        ctx = GF_MALLOC(GF_FOP_PRI_MAX * sizeof(*ctx), gf_iot_mt_client_ctx_t);
-        if (ctx) {
-            for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
-                INIT_LIST_HEAD(&ctx[i].clients);
-                INIT_LIST_HEAD(&ctx[i].reqs);
-            }
-            setted_ctx = client_ctx_set(client, this, ctx);
-            if (ctx != setted_ctx) {
-                GF_FREE(ctx);
-                ctx = setted_ctx;
-            }
-        }
-    }
-
-    return ctx;
-}
-
-call_stub_t *
-__iot_dequeue(iot_conf_t *conf, int *pri)
-{
-    call_stub_t *stub = NULL;
-    int i = 0;
-    iot_client_ctx_t *ctx;
-
-    *pri = -1;
-    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
-        if (conf->ac_iot_count[i] >= conf->ac_iot_limit[i]) {
-            continue;
-        }
-
-        if (list_empty(&conf->clients[i])) {
-            continue;
-        }
-
-        /* Get the first per-client queue for this priority. */
-        ctx = list_first_entry(&conf->clients[i], iot_client_ctx_t, clients);
-        if (!ctx) {
-            continue;
-        }
-
-        if (list_empty(&ctx->reqs)) {
-            continue;
-        }
-
-        /* Get the first request on that queue. */
-        stub = list_first_entry(&ctx->reqs, call_stub_t, list);
-        list_del_init(&stub->list);
-        if (list_empty(&ctx->reqs)) {
-            list_del_init(&ctx->clients);
-        } else {
-            list_rotate_left(&conf->clients[i]);
-        }
-
-        conf->ac_iot_count[i]++;
-        conf->queue_marked[i] = _gf_false;
-        *pri = i;
-        break;
-    }
-
-    if (!stub)
+    th = GF_MALLOC(sizeof(*th), gf_iot_mt_thread_t);
+    if (!th || !conf)
         return NULL;
 
-    conf->queue_size--;
-    conf->queue_sizes[*pri]--;
-
-    return stub;
+    th->conf = conf;
+    th->running = _gf_false;
+    cds_wfs_node_init(&th->node);
+    th->job = NULL;
+    sem_init(&th->sem, 0, 0);
+    return th;
 }
 
 void
-__iot_enqueue(iot_conf_t *conf, call_stub_t *stub, int pri)
+iot_thread_rec_fini(iot_threads_t *th)
 {
-    client_t *client = stub->frame->root->client;
-    iot_client_ctx_t *ctx;
+    if (!th)
+        return;
+
+    th->conf = NULL;
+    th->job = NULL;
+    cds_wfs_node_init(&th->node);
+    sem_destroy(&th->sem);
+    GF_FREE(th);
+    return;
+}
+
+void
+iot_enqueue(iot_conf_t *conf, iot_worker_t *job)
+{
+    int pri = -1;
+
+    GF_VALIDATE_OR_GOTO("io-threads", job, out);
+
+    pri = job->pri;
 
     if (pri < 0 || pri >= GF_FOP_PRI_MAX)
         pri = GF_FOP_PRI_MAX - 1;
 
-    if (client) {
-        ctx = iot_get_ctx(THIS, client);
-        if (ctx) {
-            ctx = &ctx[pri];
+    cds_wfcq_enqueue(&conf->client_queues[pri].head,
+                     &conf->client_queues[pri].tail, &job->node);
+
+    uatomic_add(&conf->stub_cnt, 1);
+    uatomic_add(&(conf->queue_sizes[pri]), 1);
+    if (uatomic_add_return(&conf->queue_size, 1) == 1) {
+        // Which means the queue was zero, so wake up the scheduler
+        sem_post(&conf->sem);
+    }
+out:
+    return;
+}
+
+iot_threads_t *
+__iot_get_threads(struct __cds_wfs_stack *available)
+{
+    struct cds_wfs_node *snode = NULL;
+    iot_threads_t *th = NULL;
+
+    snode = __cds_wfs_pop_blocking(available);
+    if (!snode) {
+        return NULL;
+    }
+    th = caa_container_of(snode, iot_threads_t, node);
+    return th;
+}
+
+void
+iot_worker_scaledown(iot_conf_t *conf, gf_boolean_t down)
+{
+    iot_threads_t *th = NULL;
+    struct cds_wfcq_node *node = NULL;
+    iot_worker_t *job = NULL;
+    int i = 0;
+
+    GF_VALIDATE_OR_GOTO("io-threads", conf, out);
+
+    if (down) {
+        uatomic_set(&conf->max_count, 0);
+    }
+
+    while (uatomic_read(&conf->curr_count) > uatomic_read(&conf->max_count)) {
+        th = NULL;
+
+        th = __iot_get_threads(&conf->available);
+        if (th == NULL) {
+            return;
         }
-    } else {
-        ctx = NULL;
+        uatomic_set(&th->running, _gf_false);
+        sem_post(&th->sem);
+        if (!down) {
+            /* Kill one by one */
+            break;
+        }
     }
-    if (!ctx) {
-        ctx = &conf->no_client[pri];
+    if (down) {
+        for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+            do {
+                job = NULL;
+                node = NULL;
+                node = __cds_wfcq_dequeue_blocking(
+                    &conf->client_queues[i].head, &conf->client_queues[i].tail);
+                if (node) {
+                    job = caa_container_of(node, iot_worker_t, node);
+                    job->stub = NULL;
+                    job->xl = NULL;
+                    cds_wfcq_node_init(&job->node);
+                    GF_FREE(job);
+                }
+            } while (node);
+        }
     }
-
-    if (list_empty(&ctx->reqs)) {
-        list_add_tail(&ctx->clients, &conf->clients[pri]);
-    }
-    list_add_tail(&stub->list, &ctx->reqs);
-
-    conf->queue_size++;
-    GF_ATOMIC_INC(conf->stub_cnt);
-    conf->queue_sizes[pri]++;
+out:
+    return;
 }
 
 void *
 iot_worker(void *data)
 {
     iot_conf_t *conf = NULL;
+    iot_threads_t *th = NULL;
     xlator_t *this = NULL;
     call_stub_t *stub = NULL;
+    iot_worker_t *job = NULL;
     struct timespec sleep_till = {
         0,
     };
-    int ret = 0;
     int pri = -1;
-    gf_boolean_t bye = _gf_false;
+    uint32_t counts = 0;
 
-    conf = data;
+    gf_boolean_t running = _gf_true;
+
+    th = data;
+    conf = th->conf;
     this = conf->this;
     THIS = this;
 
+    th->running = _gf_true;
+    cds_wfs_push(&conf->available, &th->node);
     for (;;) {
-        pthread_mutex_lock(&conf->mutex);
-        {
-            if (pri != -1) {
-                conf->ac_iot_count[pri]--;
-                pri = -1;
-            }
-            while (conf->queue_size == 0) {
-                if (conf->down) {
-                    bye = _gf_true; /*Avoid sleep*/
-                    break;
-                }
-
+        do {
+            job = NULL;
+            if (!(job = uatomic_read(&th->job))) {
                 clock_gettime(CLOCK_REALTIME_COARSE, &sleep_till);
                 sleep_till.tv_sec += conf->idle_time;
 
-                conf->sleep_count++;
-                ret = pthread_cond_timedwait(&conf->cond, &conf->mutex,
-                                             &sleep_till);
-                conf->sleep_count--;
-
-                if (conf->down || ret == ETIMEDOUT) {
-                    bye = _gf_true;
-                    break;
-                }
+                sem_timedwait(&th->sem, &sleep_till);
+                job = uatomic_read(&th->job);
             }
+        } while (!job && (running = uatomic_read(&th->running)));
 
-            if (bye) {
-                if (conf->down || conf->curr_count > IOT_MIN_THREADS) {
-                    conf->curr_count--;
-                    if (conf->curr_count == 0)
-                        pthread_cond_broadcast(&conf->cond);
-                    gf_msg_debug(conf->this->name, 0,
-                                 "terminated. "
-                                 "conf->curr_count=%d",
-                                 conf->curr_count);
-                } else {
-                    bye = _gf_false;
-                }
-            }
+        if (!running)
+            break;
 
-            if (!bye)
-                stub = __iot_dequeue(conf, &pri);
+        if (!job) {
+            continue;
         }
-        pthread_mutex_unlock(&conf->mutex);
+        uatomic_set(&th->job, NULL);
+        stub = job->stub;
+        pri = job->pri;
+        job->stub = NULL;
+        job->xl = NULL;
+        cds_wfcq_node_init(&job->node);
+        GF_FREE(job);
+        // mem_put(job);
+        job = NULL;
 
         if (stub) { /* guard against spurious wakeups */
             if (stub->poison) {
@@ -231,32 +232,184 @@ iot_worker(void *data)
             } else {
                 call_resume(stub);
             }
-            GF_ATOMIC_DEC(conf->stub_cnt);
+            uatomic_add(&conf->stub_cnt, -1);
         }
         stub = NULL;
 
-        if (bye)
-            break;
+        uatomic_add(&conf->ac_iot_count[pri], -1);
+        cds_wfs_node_init(&th->node);
+        cds_wfs_push(&conf->available, &th->node);
+    }
+    if (!running) {
+        gf_msg_debug(conf->this->name, 0, "terminated. conf->curr_count=%d",
+                     conf->curr_count);
+
+        uatomic_add(&conf->stub_cnt, -1);
+        counts = uatomic_add_return(&conf->curr_count, -1);
+        if (counts == 0) {
+            pthread_mutex_lock(&conf->mutex);
+            pthread_cond_broadcast(&conf->cond);
+            pthread_mutex_unlock(&conf->mutex);
+        }
+    }
+    iot_thread_rec_fini(th);
+    th = NULL;
+    return NULL;
+}
+void
+iot_client_poison(iot_conf_t *conf, iot_client_t *dis_client)
+{
+    struct cds_wfcq_node *node = NULL;
+    iot_worker_t *job = NULL;
+    call_stub_t *curr = NULL;
+    client_t *client = NULL;
+    xlator_t *this = NULL;
+    int i = 0;
+
+    GF_VALIDATE_OR_GOTO("io-threads", conf, out);
+    GF_VALIDATE_OR_GOTO("io-threads", dis_client, out);
+    GF_VALIDATE_OR_GOTO("io-threads", conf->this, out);
+
+    this = conf->this;
+    client = dis_client->client;
+    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+        job = NULL;
+        node = NULL;
+
+        __cds_wfcq_for_each_blocking(&conf->client_queues[i].head,
+                                     &conf->client_queues[i].tail, node)
+        {
+            job = caa_container_of(node, iot_worker_t, node);
+            if (!job) {
+                /* Sould not happend */
+                continue;
+            }
+            curr = job->stub;
+            if (curr->frame->root->client == client) {
+                gf_log(this->name, GF_LOG_INFO,
+                       "poisoning %s fop at %p for client %s",
+                       gf_fop_list[curr->fop], curr, client->client_uid);
+                curr->poison = _gf_true;
+            }
+        }
     }
 
+    sem_post(&dis_client->sem);
+out:
+    return;
+}
+
+void *
+iot_dispatcher(void *data)
+{
+    iot_conf_t *conf = data;
+    struct cds_wfcq_node *node = NULL;
+    iot_worker_t *job = NULL;
+    iot_threads_t *th = NULL;
+    iot_client_t *dis_client = NULL;
+    gf_boolean_t down = _gf_false;
+
+    int ret = -1;
+    int i = 0;
+    int pri = -1;
+
+    for (;;) {
+        do {
+            node = NULL;
+            node = __cds_wfcq_dequeue_blocking(&conf->disconnect_queue.head,
+                                               &conf->disconnect_queue.tail);
+            if (node) {
+                dis_client = caa_container_of(node, iot_client_t, node);
+                if (dis_client) {
+                    iot_client_poison(conf, dis_client);
+                }
+                dis_client = NULL;
+            }
+        } while (node);
+
+        down = uatomic_read(&conf->down);
+        iot_worker_scaledown(conf, down);
+        if (down)
+            break;
+
+        if (!job) {
+            for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+                job = NULL;
+                node = NULL;
+
+                node = __cds_wfcq_dequeue_blocking(
+                    &conf->client_queues[i].head, &conf->client_queues[i].tail);
+                if (!node) {
+                    continue;
+                }
+                job = caa_container_of(node, iot_worker_t, node);
+                if (job) {
+                    break;
+                }
+            }
+        }
+        if (job == NULL) {
+            if (uatomic_read(&conf->queue_size) == 0)
+                sem_wait(&conf->sem);
+            //        usleep(.001);
+            continue;
+        }
+        th = __iot_get_threads(&conf->available);
+        if (th == NULL) {
+            ret = __iot_workers_scale(conf);
+            if (ret <= 0)
+                usleep(.001);
+            continue;
+        }
+
+        pri = job->pri;
+        uatomic_set(&th->job, job);
+        sem_post(&th->sem);
+        job = NULL;
+        uatomic_add(&conf->ac_iot_count[i], 1);
+        conf->queue_marked[i] = _gf_false;
+        uatomic_add(&conf->queue_size, -1);
+        uatomic_add(&(conf->queue_sizes[pri]), -1);
+    }
     return NULL;
+}
+
+static iot_worker_t *
+iot_get_worker_t(xlator_t *this, call_stub_t *stub, gf_fop_pri_t pri)
+{
+    iot_worker_t *job = NULL;
+
+    GF_VALIDATE_OR_GOTO("io-threads", this, out);
+
+    job = GF_MALLOC(sizeof(*job), gf_iot_job_t);
+    if (!job)
+        goto out;
+    job->xl = this;
+    job->pri = 0;
+    job->stub = stub;
+    cds_wfcq_node_init(&job->node);
+out:
+    return job;
 }
 
 int
 do_iot_schedule(iot_conf_t *conf, call_stub_t *stub, int pri)
 {
-    int ret = 0;
+    int ret = -1;
+    iot_worker_t *job = NULL;
 
-    pthread_mutex_lock(&conf->mutex);
-    {
-        __iot_enqueue(conf, stub, pri);
+    GF_VALIDATE_OR_GOTO("io-threads", conf, out);
+    GF_VALIDATE_OR_GOTO("io-threads", stub, out);
 
-        pthread_cond_signal(&conf->cond);
-
-        ret = __iot_workers_scale(conf);
+    job = iot_get_worker_t(conf->this, stub, pri);
+    if (!job) {
+        gf_smsg("io-threads", GF_LOG_ERROR, 0, IO_THREADS_MSG_JOB_GET_FAILED,
+                NULL);
+        goto out;
     }
-    pthread_mutex_unlock(&conf->mutex);
-
+    iot_enqueue(conf, job);
+    ret = 0;
+out:
     return ret;
 }
 
@@ -815,28 +968,38 @@ __iot_workers_scale(iot_conf_t *conf)
     pthread_t thread;
     int ret = 0;
     int i = 0;
+    uint32_t value;
+    uint32_t max_value;
+    iot_threads_t *th = NULL;
 
     for (i = 0; i < GF_FOP_PRI_MAX; i++)
-        scale += min(conf->queue_sizes[i], conf->ac_iot_limit[i]);
+        scale += min(uatomic_read(&(conf->queue_sizes[i])),
+                     uatomic_read(&(conf->ac_iot_limit[i])));
 
+    max_value = uatomic_read(&conf->max_count);
     if (scale < IOT_MIN_THREADS)
         scale = IOT_MIN_THREADS;
 
-    if (scale > conf->max_count)
-        scale = conf->max_count;
+    else if (scale > max_value)
+        scale = max_value;
 
-    if (conf->curr_count < scale) {
-        diff = scale - conf->curr_count;
+    value = uatomic_read(&conf->curr_count);
+    if (value + scale > max_value) {
+        diff = max_value - value;
+    } else {
+        diff = scale;
     }
 
-    while (diff) {
+    while (diff > 0) {
         diff--;
 
-        ret = gf_thread_create(&thread, &conf->w_attr, iot_worker, conf,
-                               "iotwr%03hx", conf->curr_count & 0x3ff);
+        th = iot_thread_rec_init(conf);
+        ret = gf_thread_create(&thread, &conf->w_attr, iot_worker, th,
+                               "iotwr%03hx",
+                               uatomic_read(&conf->curr_count) & 0x3ff);
         if (ret == 0) {
             pthread_detach(thread);
-            conf->curr_count++;
+            uatomic_add(&conf->curr_count, 1);
             gf_msg_debug(conf->this->name, 0,
                          "scaled threads to %d (queue_size=%d/%d)",
                          conf->curr_count, conf->queue_size, scale);
@@ -941,7 +1104,6 @@ iot_priv_dump(xlator_t *this)
 
     gf_proc_dump_write("maximum_threads_count", "%d", conf->max_count);
     gf_proc_dump_write("current_threads_count", "%d", conf->curr_count);
-    gf_proc_dump_write("sleep_count", "%d", conf->sleep_count);
     gf_proc_dump_write("idle_time", "%d", conf->idle_time);
     gf_proc_dump_write("stack_size", "%zd", conf->stack_size);
     gf_proc_dump_write("max_high_priority_threads", "%d",
@@ -1075,7 +1237,7 @@ iot_watchdog(void *arg)
                      * We might not get here if the event
                      * put us over our threshold.
                      */
-                    ++(priv->ac_iot_limit[i]);
+                    uatomic_add(&(priv->ac_iot_limit[i]), 1);
                     bad_times[i] = 0;
                 }
             } else {
@@ -1137,12 +1299,14 @@ reconfigure(xlator_t *this, dict_t *options)
 {
     iot_conf_t *conf = NULL;
     int ret = -1;
+    uint32_t value = 0;
 
     conf = this->private;
     if (!conf)
         goto out;
 
-    GF_OPTION_RECONF("thread-count", conf->max_count, options, int32, out);
+    GF_OPTION_RECONF("thread-count", value, options, uint32, out);
+    uatomic_set(&conf->max_count, value);
 
     GF_OPTION_RECONF("high-prio-threads", conf->ac_iot_limit[GF_FOP_PRI_HI],
                      options, int32, out);
@@ -1182,6 +1346,8 @@ int
 init(xlator_t *this)
 {
     iot_conf_t *conf = NULL;
+    uint32_t value = 0;
+    pthread_t thread;
     int ret = -1;
     int i = 0;
 
@@ -1208,6 +1374,7 @@ init(xlator_t *this)
                 "pthread_cond_init ret=%d", ret, NULL);
         goto out;
     }
+    sem_init(&conf->sem, 0, 0);
     conf->cond_inited = _gf_true;
 
     if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
@@ -1215,7 +1382,19 @@ init(xlator_t *this)
                 "pthread_mutex_init ret=%d", ret, NULL);
         goto out;
     }
+
     conf->mutex_inited = _gf_true;
+
+    conf->curr_count = 0;
+    conf->queue_size = 0;
+    conf->stub_cnt = 0;
+    __cds_wfs_init(&conf->available);
+    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
+        cds_wfcq_init(&conf->client_queues[i].head,
+                      &conf->client_queues[i].tail);
+    }
+
+    cds_wfcq_init(&conf->disconnect_queue.head, &conf->disconnect_queue.tail);
 
     ret = set_stack_size(conf);
 
@@ -1224,7 +1403,8 @@ init(xlator_t *this)
 
     ret = -1;
 
-    GF_OPTION_INIT("thread-count", conf->max_count, int32, out);
+    GF_OPTION_INIT("thread-count", value, uint32, out);
+    uatomic_set(&conf->max_count, value);
 
     GF_OPTION_INIT("high-prio-threads", conf->ac_iot_limit[GF_FOP_PRI_HI],
                    int32, out);
@@ -1248,13 +1428,6 @@ init(xlator_t *this)
     GF_OPTION_INIT("pass-through", this->pass_through, bool, out);
 
     conf->this = this;
-    GF_ATOMIC_INIT(conf->stub_cnt, 0);
-
-    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
-        INIT_LIST_HEAD(&conf->clients[i]);
-        INIT_LIST_HEAD(&conf->no_client[i].clients);
-        INIT_LIST_HEAD(&conf->no_client[i].reqs);
-    }
 
     if (!this->pass_through) {
         ret = iot_workers_scale(conf);
@@ -1264,6 +1437,10 @@ init(xlator_t *this)
                     IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED, NULL);
             goto out;
         }
+        ret = gf_thread_create(&thread, NULL, iot_dispatcher, conf,
+                               "iotDispatcher");
+        if (ret == 0)
+            pthread_detach(thread);
     }
 
     this->private = conf;
@@ -1276,8 +1453,9 @@ init(xlator_t *this)
 
     ret = 0;
 out:
-    if (ret)
+    if (ret) {
         GF_FREE(conf);
+    }
 
     return ret;
 }
@@ -1290,7 +1468,7 @@ iot_exit_threads(iot_conf_t *conf)
         conf->down = _gf_true;
         /*Let all the threads know that xl is going down*/
         pthread_cond_broadcast(&conf->cond);
-        while (conf->curr_count) /*Wait for threads to exit*/
+        while (uatomic_read(&conf->curr_count)) /*Wait for threads to exit*/
             pthread_cond_wait(&conf->cond, &conf->mutex);
     }
     pthread_mutex_unlock(&conf->mutex);
@@ -1309,7 +1487,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     if (GF_EVENT_PARENT_DOWN == event) {
         if (victim->cleanup_starting) {
             /* Wait for draining stub from queue before notify PARENT_DOWN */
-            stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
+            stub_cnt = uatomic_read(&conf->stub_cnt);
             if (stub_cnt) {
                 clock_gettime(CLOCK_REALTIME, &sleep_till);
                 sleep_till.tv_sec += 1;
@@ -1318,7 +1496,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                     while (stub_cnt) {
                         (void)pthread_cond_timedwait(&conf->cond, &conf->mutex,
                                                      &sleep_till);
-                        stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
+                        stub_cnt = uatomic_read(&conf->stub_cnt);
                     }
                 }
                 pthread_mutex_unlock(&conf->mutex);
@@ -1363,6 +1541,7 @@ fini(xlator_t *this)
 
     stop_iot_watchdog(this);
 
+    sem_destroy(&conf->sem);
     GF_FREE(conf);
 
     this->private = NULL;
@@ -1381,35 +1560,51 @@ iot_client_destroy(xlator_t *this, client_t *client)
     return 0;
 }
 
+iot_client_t *
+iot_get_client()
+{
+    iot_client_t *client = NULL;
+    client = GF_MALLOC(sizeof(*client), gf_iot_mt_client_t);
+    if (!client)
+        return NULL;
+
+    sem_init(&client->sem, 0, 0);
+    cds_wfcq_node_init(&client->node);
+    return client;
+}
+
+void
+iot_free_client(iot_client_t *client)
+{
+    sem_destroy(&client->sem);
+    cds_wfcq_node_init(&client->node);
+    GF_FREE(client);
+    return;
+}
+
 static int
 iot_disconnect_cbk(xlator_t *this, client_t *client)
 {
-    int i;
-    call_stub_t *curr;
-    call_stub_t *next;
     iot_conf_t *conf = this->private;
-    iot_client_ctx_t *ctx;
-
+    iot_client_t *dis_client = NULL;
+    /* TODO */
     if (!conf || !conf->cleanup_disconnected_reqs) {
         goto out;
     }
 
-    pthread_mutex_lock(&conf->mutex);
-    for (i = 0; i < GF_FOP_PRI_MAX; i++) {
-        ctx = &conf->no_client[i];
-        list_for_each_entry_safe(curr, next, &ctx->reqs, list)
-        {
-            if (curr->frame->root->client != client) {
-                continue;
-            }
-            gf_log(this->name, GF_LOG_INFO,
-                   "poisoning %s fop at %p for client %s",
-                   gf_fop_list[curr->fop], curr, client->client_uid);
-            curr->poison = _gf_true;
-        }
+    dis_client = iot_get_client();
+    if (!dis_client) {
+        gf_smsg("io-threads", GF_LOG_ERROR, 0, IO_THREADS_MSG_CLIENT_GET_FAILED,
+                NULL);
+        goto out;
     }
-    pthread_mutex_unlock(&conf->mutex);
 
+    dis_client->client = client;
+    cds_wfcq_enqueue(&conf->disconnect_queue.head, &conf->disconnect_queue.tail,
+                     &dis_client->node);
+
+    sem_wait(&dis_client->sem);
+    iot_free_client(dis_client);
 out:
     return 0;
 }

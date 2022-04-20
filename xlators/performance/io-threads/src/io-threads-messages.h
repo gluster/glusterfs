@@ -26,7 +26,8 @@ GLFS_MSGID(IO_THREADS, IO_THREADS_MSG_INIT_FAILED,
            IO_THREADS_MSG_XLATOR_CHILD_MISCONFIGURED, IO_THREADS_MSG_NO_MEMORY,
            IO_THREADS_MSG_VOL_MISCONFIGURED, IO_THREADS_MSG_SIZE_NOT_SET,
            IO_THREADS_MSG_OUT_OF_MEMORY, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
-           IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED);
+           IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED,
+           IO_THREADS_MSG_CLIENT_GET_FAILED, IO_THREADS_MSG_JOB_GET_FAILED);
 
 #define IO_THREADS_MSG_INIT_FAILED_STR "Thread attribute initialization failed"
 #define IO_THREADS_MSG_SIZE_NOT_SET_STR "Using default thread stack size"
@@ -38,4 +39,7 @@ GLFS_MSGID(IO_THREADS, IO_THREADS_MSG_INIT_FAILED,
 #define IO_THREADS_MSG_PTHREAD_INIT_FAILED_STR "init failed"
 #define IO_THREADS_MSG_WORKER_THREAD_INIT_FAILED_STR                           \
     "cannot initialize worker threads, exiting init"
+#define IO_THREADS_MSG_CLIENT_GET_FAILED_STR                                   \
+    "Failed to get client disconnect object, skipping the cleanup"
+#define IO_THREADS_MSG_JOB_GET_FAILED_STR "Failed to get job object"
 #endif /* _IO_THREADS_MESSAGES_H_ */
