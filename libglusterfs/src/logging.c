@@ -1733,7 +1733,6 @@ _gf_msg_internal(glusterfs_ctx_t *ctx, const char *domain, const char *file,
     int ret = -1;
     uint32_t size = 0;
     const char *basename = NULL;
-    xlator_t *this = NULL;
     log_buf_t *iter = NULL;
     log_buf_t *buf_tmp = NULL;
     log_buf_t *buf_new = NULL;

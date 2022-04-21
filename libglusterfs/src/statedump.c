@@ -921,12 +921,9 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
 
         // swallow the errors of write for start and end marker
         (void)sys_write(gf_dump_fd, sign_string, len);
+        memset(timestr, 0, sizeof(timestr));
     }
-
-    if (GF_PROC_DUMP_IS_OPTION_ENABLED(mem)) {
-        gf_proc_dump_mem_info();
-        gf_proc_dump_mempool_info(ctx);
-    }
+    gf_proc_dump_mempool_info(ctx);
 
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(iobuf))
         iobuf_stats_dump(ctx->iobuf_pool);
