@@ -3278,7 +3278,7 @@ glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
                     goto out;
                 }
 
-                keylen = strlen(pair->key);
+                keylen = pair->keylen;
                 netword = htobe32(keylen);
                 memcpy(buf, &netword, sizeof(netword));
                 buf += DICT_DATA_HDR_KEY_LEN;

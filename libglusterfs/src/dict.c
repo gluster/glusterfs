@@ -320,12 +320,15 @@ err_out:
  * checked by callers.
  */
 static data_pair_t *
-dict_lookup_common(const dict_t *this, const char *key)
+dict_lookup_common(const dict_t *this, const char *key, const int keylen)
 {
     data_pair_t *pair;
 
+    GF_ASSERT(key && strlen(key) == keylen);
+
     for (pair = this->members_list; pair != NULL; pair = pair->next) {
-        if (pair->key && !strcmp(pair->key, key))
+        GF_ASSERT(pair->key && strlen(pair->key) == pair->keylen);
+        if (pair->keylen == keylen && !memcmp(pair->key, key, keylen))
             return pair;
     }
 
@@ -346,7 +349,7 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 
     LOCK(&this->lock);
     {
-        tmp = dict_lookup_common(this, key);
+        tmp = dict_lookup_common(this, key, strlen(key));
     }
     UNLOCK(&this->lock);
 
@@ -377,7 +380,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
 
     /* Search for a existing key if 'replace' is asked for */
     if (replace) {
-        pair = dict_lookup_common(this, key);
+        pair = dict_lookup_common(this, key, keylen);
         if (pair) {
             data_t *unref_data = pair->value;
             pair->value = data_ref(value);
@@ -404,6 +407,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     if (key_free) {
         /* It's ours.  Use it. */
         pair->key = key;
+        pair->keylen = keylen;
         key_free = 0;
     } else {
         pair->key = (char *)GF_MALLOC(keylen + 1, gf_common_mt_char);
@@ -413,7 +417,8 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             }
             return -1;
         }
-        strcpy(pair->key, key);
+        memcpy(pair->key, key, keylen + 1);
+        pair->keylen = keylen;
     }
     pair->value = data_ref(value);
     this->totkvlen += (keylen + 1 + value->len);
@@ -498,7 +503,7 @@ dict_get(dict_t *this, char *key)
                          "!this || key=%s", (key) ? key : "()");
         return NULL;
     }
-    return dict_getn(this, key, 0);
+    return dict_getn(this, key, strlen(key));
 }
 
 data_t *
@@ -514,7 +519,7 @@ dict_getn(dict_t *this, char *key, const int keylen)
 
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key);
+        pair = dict_lookup_common(this, key, keylen);
     }
     UNLOCK(&this->lock);
 
@@ -552,7 +557,7 @@ dict_del(dict_t *this, char *key)
                          "!this || key=%s", key);
         return _gf_false;
     }
-    return dict_deln(this, key, 0);
+    return dict_deln(this, key, strlen(key));
 }
 
 gf_boolean_t
@@ -566,13 +571,16 @@ dict_deln(dict_t *this, char *key, const int keylen)
         return rc;
     }
 
+    GF_ASSERT(key && strlen(key) == keylen);
+
     LOCK(&this->lock);
 
     data_pair_t *pair = this->members_list;
     data_pair_t *prev = NULL;
 
     while (pair) {
-        if (strcmp(pair->key, key) == 0) {
+        GF_ASSERT(pair->key && strlen(pair->key) == pair->keylen);
+        if (pair->keylen == keylen && !memcmp(pair->key, key, keylen)) {
             this->totkvlen -= pair->value->len;
             data_unref(pair->value);
 
@@ -1344,7 +1352,7 @@ dict_keys_join(void *value, int size, dict_t *dict, int (*filter_fn)(char *k))
         if (value && (size > len))
             strncpy(value + len, pairs->key, size - len);
 
-        len += (strlen(pairs->key) + 1);
+        len += (pairs->keylen + 1);
 
         pairs = next;
     }
@@ -1426,14 +1434,14 @@ fail:
  */
 
 static int
-dict_get_with_refn(dict_t *this, char *key, data_t **data)
+dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data)
 {
     data_pair_t *pair = NULL;
     int ret = -ENOENT;
 
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key);
+        pair = dict_lookup_common(this, key, keylen);
 
         if (pair) {
             ret = 0;
@@ -1463,7 +1471,7 @@ dict_get_with_ref(dict_t *this, char *key, data_t **data)
 
         return -EINVAL;
     }
-    return dict_get_with_refn(this, key, data);
+    return dict_get_with_refn(this, key, strlen(key), data);
 }
 
 static int
@@ -1736,7 +1744,7 @@ dict_get_int32n(dict_t *this, char *key, const int keylen, int32_t *val)
         goto err;
     }
 
-    ret = dict_get_with_refn(this, key, &data);
+    ret = dict_get_with_refn(this, key, keylen, &data);
     if (ret != 0) {
         goto err;
     }
@@ -2035,6 +2043,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
 {
     data_t *data = NULL;
     int ret = 0;
+    int len = 0;
     data_pair_t *pair = NULL;
     char *ptr = NULL;
 
@@ -2053,7 +2062,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
 
     LOCK(&this->lock);
     {
-        pair = dict_lookup_common(this, key);
+        len = strlen(key);
+        pair = dict_lookup_common(this, key, len);
 
         if (pair) {
             data = pair->value;
@@ -2097,16 +2107,17 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
                 pair = &this->free_pair;
             }
 
-            pair->key = (char *)GF_MALLOC(strlen(key) + 1, gf_common_mt_char);
+            pair->key = (char *)GF_MALLOC(len + 1, gf_common_mt_char);
             if (!pair->key) {
                 gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
                         "dict pair", NULL);
                 ret = -ENOMEM;
                 goto err;
             }
-            strcpy(pair->key, key);
+            memcpy(pair->key, key, len + 1);
+            pair->keylen = len;
             pair->value = data_ref(data);
-            this->totkvlen += (strlen(key) + 1 + data->len);
+            this->totkvlen += (len + 1 + data->len);
 
             pair->next = this->members_list;
             this->members_list = pair;
@@ -2128,6 +2139,7 @@ err:
         if (pair->key) {
             GF_FREE(pair->key);
             pair->key = NULL;
+            pair->keylen = 0;
         }
         if (pair != &this->free_pair) {
             mem_put(pair);
@@ -2319,7 +2331,7 @@ dict_get_strn(dict_t *this, char *key, const int keylen, char **str)
     if (!this || !key || !str) {
         goto err;
     }
-    ret = dict_get_with_refn(this, key, &data);
+    ret = dict_get_with_refn(this, key, keylen, &data);
     if (ret < 0) {
         goto err;
     }
@@ -2768,6 +2780,7 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     data_pair_t *pair = NULL;
     int ret = -EINVAL;
     int replacekey_len = 0;
+    int keylen = 0;
 
     /* replacing a key by itself is a NO-OP */
     if (strcmp(key, replace_key) == 0)
@@ -2780,11 +2793,12 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     }
 
     replacekey_len = strlen(replace_key);
+    keylen = strlen(key);
 
     LOCK(&this->lock);
     {
         /* no need to data_ref(pair->value), dict_set_lk() does it */
-        pair = dict_lookup_common(this, key);
+        pair = dict_lookup_common(this, key, keylen);
         if (!pair)
             ret = -ENODATA;
         else
@@ -2795,7 +2809,7 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
 
     if (!ret)
         /* only delete the key on success */
-        dict_del(this, key);
+        dict_deln(this, key, keylen);
 
     return ret;
 }
@@ -2883,7 +2897,7 @@ dict_serialize_lk(dict_t *this, char *buf)
             goto out;
         }
 
-        keylen = strlen(pair->key);
+        keylen = pair->keylen;
         netword = htobe32(keylen);
         memcpy(buf, &netword, sizeof(netword));
         buf += DICT_DATA_HDR_KEY_LEN;
@@ -3396,7 +3410,7 @@ dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result)
     LOCK(&dict->lock);
     {
         for (i = 0; strings[i]; i++) {
-            if (dict_lookup_common(dict, strings[i])) {
+            if (dict_lookup_common(dict, strings[i], strlen(strings[i]))) {
                 *result = _gf_true;
                 goto unlock;
             }
