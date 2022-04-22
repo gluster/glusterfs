@@ -19,6 +19,8 @@
 #include "glusterd-snapshot-utils.h"
 #include "glusterd-messages.h"
 #include "glusterd-errno.h"
+#include <netdb.h>
+#include <glusterfs/syscall.h>
 
 extern glusterd_op_info_t opinfo;
 
@@ -2537,6 +2539,68 @@ out:
     return ret;
 }
 
+int
+gd_try_connect(char *remote_host, int remote_port, struct sockaddr *sockaddr)
+{
+    int sock = -1;
+    int ret = -1;
+    socklen_t sockaddr_len = 0;
+    struct addrinfo *addr_info = NULL;
+    struct addrinfo hints;
+    int flags = 0;
+    char *port_str = NULL;
+
+
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_family = sockaddr->sa_family;
+
+    ret = gf_asprintf(&port_str, "%d", remote_port);
+    if (ret < 0) {
+        goto out;
+    }
+    ret = getaddrinfo(remote_host, port_str, &hints, &addr_info);
+    if (ret)
+        goto out;
+    sock = sys_socket(sockaddr->sa_family, SOCK_STREAM, 0);
+    if (sock < 0) {
+        ret = -1;
+        goto out;
+    }
+    memcpy(sockaddr, addr_info->ai_addr, addr_info->ai_addrlen);
+    sockaddr_len = addr_info->ai_addrlen;
+
+    flags = fcntl(sock, F_GETFL);
+
+    if (flags >= 0) {
+        ret = fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+        if (ret)
+            gf_msg_debug(THIS->name, 0, "fcntl returns: %d, %s", ret,
+                         strerror(errno));
+    }
+
+    ret = connect(sock, (struct sockaddr *)sockaddr, sockaddr_len);
+
+    if (ret) {
+        gf_msg_debug(THIS->name, 0, "connect returns: %d, %s", ret,
+                     strerror(errno));
+        if (errno != EINPROGRESS)
+            goto out;
+
+        fd_set wfds;
+        FD_ZERO(&wfds);
+        FD_SET(sock, &wfds);
+        struct timeval tv = {3, 0};
+        if (select(sock + 1, NULL, &wfds, NULL, &tv) != 1)
+            goto out;
+    }
+
+    ret = 0;
+out:
+    if (sock > 0)
+        sys_close(sock);
+    return ret;
+}
+
 void
 gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
 {
@@ -2560,9 +2624,30 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     uint32_t op_errno = 0;
     gf_boolean_t cluster_lock = _gf_false;
     time_t timeout = 0;
+    glusterd_peerinfo_t *peerinfo = NULL;
+    char *af = NULL;
 
     conf = this->private;
     GF_ASSERT(conf);
+
+    ret = dict_get_str(this->options, "transport.address-family", &af);
+    if (ret || af == NULL)
+        af = "inet";
+    RCU_READ_LOCK;
+    cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
+    {
+        if (peerinfo->connected == 0)
+            continue;
+        struct sockaddr sockaddr = {0};
+        if (!strcmp("inet6", af))
+            sockaddr.sa_family = AF_INET6;
+        else
+            sockaddr.sa_family = AF_INET;
+        ret = gd_try_connect(peerinfo->hostname, peerinfo->port, &sockaddr);
+        if (ret)
+            peerinfo->connected = 0;
+    }
+    RCU_READ_UNLOCK;
 
     ret = dict_get_int32(op_ctx, GD_SYNC_OPCODE_KEY, &tmp_op);
     if (ret) {
