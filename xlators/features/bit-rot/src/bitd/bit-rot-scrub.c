@@ -1635,6 +1635,7 @@ br_read_bad_object_dir(xlator_t *this, br_child_t *child, fd_t *fd,
     char key[32] = {
         0,
     };
+    int keylen = -1;
     dict_t *out_dict = NULL;
 
     INIT_LIST_HEAD(&entries.list);
@@ -1648,14 +1649,14 @@ br_read_bad_object_dir(xlator_t *this, br_child_t *child, fd_t *fd,
         {
             offset = entry->d_off;
 
-            snprintf(key, sizeof(key), "quarantine-%d", count);
+            keylen = snprintf(key, sizeof(key), "quarantine-%d", count);
 
             /*
              * ignore the dict_set errors for now. The intention is
              * to get as many bad objects as possible instead of
              * erroring out at the first failure.
              */
-            ret = dict_set_dynstr_with_alloc(dict, key, entry->d_name);
+            ret = dict_set_dynstrn_with_alloc(dict, key, keylen, entry->d_name);
             if (!ret)
                 count++;
 
@@ -1785,9 +1786,9 @@ br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
         if ((len < 0) || (len >= PATH_MAX)) {
             continue;
         }
-        snprintf(main_key, sizeof(main_key), "quarantine-%d", tmp_count);
 
-        ret = dict_set_dynstr_with_alloc(dict, main_key, tmp);
+        len = snprintf(main_key, sizeof(main_key), "quarantine-%d", tmp_count);
+        ret = dict_set_dynstrn_with_alloc(dict, main_key, len, tmp);
         if (!ret)
             tmp_count++;
         path = NULL;

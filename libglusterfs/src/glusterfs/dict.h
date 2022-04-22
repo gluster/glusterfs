@@ -22,10 +22,6 @@ typedef struct _data_pair data_pair_t;
 
 #define dict_set_sizen(this, key, value) dict_setn(this, key, SLEN(key), value)
 
-#define dict_add_sizen(this, key, value) dict_addn(this, key, SLEN(key), value)
-
-#define dict_get_sizen(this, key) dict_getn(this, key, SLEN(key))
-
 #define dict_del_sizen(this, key) dict_deln(this, key, SLEN(key))
 
 #define dict_set_str_sizen(this, key, str)                                     \
@@ -102,6 +98,7 @@ struct _data_pair {
     struct _data_pair *next;
     data_t *value;
     char *key;
+    uint32_t keylen;
 };
 
 struct _dict {
@@ -125,25 +122,57 @@ data_destroy(data_t *data);
 
 /* function to set a key/value pair (overwrite existing if matches the key */
 int32_t
-dict_set(dict_t *this, char *key, data_t *value);
-int32_t
 dict_setn(dict_t *this, char *key, const int keylen, data_t *value);
+
+static inline int32_t
+dict_set(dict_t *this, char *key, data_t *value)
+{
+    return dict_setn(this, key, key ? strlen(key) : 0, value);
+}
 
 /* function to set a new key/value pair (without checking for duplicate) */
 int32_t
-dict_add(dict_t *this, char *key, data_t *value);
-int32_t
 dict_addn(dict_t *this, char *key, const int keylen, data_t *value);
+
+static inline int32_t
+dict_add(dict_t *this, char *key, data_t *value)
+{
+    return dict_addn(this, key, key ? strlen(key) : 0, value);
+}
+
 int
-dict_get_with_ref(dict_t *this, char *key, data_t **data);
-data_t *
-dict_get(dict_t *this, char *key);
+dict_get_with_refn(dict_t *this, char *key, const int keylen, data_t **data);
+
+static inline int
+dict_get_with_ref(dict_t *this, char *key, data_t **data)
+{
+    return dict_get_with_refn(this, key, strlen(key), data);
+}
+
 data_t *
 dict_getn(dict_t *this, char *key, const int keylen);
-gf_boolean_t
-dict_del(dict_t *this, char *key);
+
+static inline data_t *
+dict_get(dict_t *this, char *key)
+{
+    return dict_getn(this, key, strlen(key));
+}
+
+static inline data_t *
+dict_get_sizen(dict_t *this, char *key)
+{
+    return dict_getn(this, key, strlen(key));
+}
+
 gf_boolean_t
 dict_deln(dict_t *this, char *key, const int keylen);
+
+static inline gf_boolean_t
+dict_del(dict_t *this, char *key)
+{
+    return dict_deln(this, key, strlen(key));
+}
+
 int
 dict_reset(dict_t *dict);
 
@@ -349,16 +378,37 @@ dict_set_dynptr(dict_t *this, char *key, void *ptr, size_t size);
 GF_MUST_CHECK int
 dict_get_bin(dict_t *this, char *key, void **ptr);
 GF_MUST_CHECK int
-dict_set_bin(dict_t *this, char *key, void *ptr, size_t size);
+dict_setn_bin(dict_t *this, char *key, const int keylen, void *ptr,
+              size_t size);
+
+static inline int
+dict_set_bin(dict_t *this, char *key, void *ptr, size_t size)
+{
+    return dict_setn_bin(this, key, strlen(key), ptr, size);
+}
+
 GF_MUST_CHECK int
-dict_set_static_bin(dict_t *this, char *key, void *ptr, size_t size);
+dict_setn_static_bin(dict_t *this, char *key, const int keylen, void *ptr,
+                     size_t size);
+
+static inline int
+dict_set_static_bin(dict_t *this, char *key, void *ptr, size_t size)
+{
+    return dict_setn_static_bin(this, key, strlen(key), ptr, size);
+}
 
 GF_MUST_CHECK int
 dict_set_option(dict_t *this, char *key, char *str);
-GF_MUST_CHECK int
-dict_set_str(dict_t *this, char *key, char *str);
+
 GF_MUST_CHECK int
 dict_set_strn(dict_t *this, char *key, const int keylen, char *str);
+
+static inline int
+dict_set_str(dict_t *this, char *key, char *str)
+{
+    return dict_set_strn(this, key, strlen(key), str);
+}
+
 GF_MUST_CHECK int
 dict_set_nstrn(dict_t *this, char *key, const int keylen, char *str,
                const int vallen);
@@ -367,13 +417,26 @@ dict_set_dynstr(dict_t *this, char *key, char *str);
 GF_MUST_CHECK int
 dict_set_dynstrn(dict_t *this, char *key, const int keylen, char *str);
 GF_MUST_CHECK int
-dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str);
+dict_set_dynstrn_with_alloc(dict_t *this, char *key, const int keylen,
+                            const char *str);
+
+static inline int
+dict_set_dynstr_with_alloc(dict_t *this, char *key, const char *str)
+{
+    return dict_set_dynstrn_with_alloc(this, key, strlen(key), str);
+}
+
 GF_MUST_CHECK int
 dict_add_dynstr_with_alloc(dict_t *this, char *key, char *str);
-GF_MUST_CHECK int
-dict_get_str(dict_t *this, char *key, char **str);
+
 GF_MUST_CHECK int
 dict_get_strn(dict_t *this, char *key, const int keylen, char **str);
+
+static inline int
+dict_get_str(dict_t *this, char *key, char **str)
+{
+    return dict_get_strn(this, key, strlen(key), str);
+}
 
 GF_MUST_CHECK int
 dict_get_str_boolean(dict_t *this, char *key, int default_val);
@@ -382,9 +445,16 @@ dict_rename_key(dict_t *this, char *key, char *replace_key);
 GF_MUST_CHECK int
 dict_serialize_value_with_delim(dict_t *this, char *buf, int32_t *serz_len,
                                 char delimiter);
-
 GF_MUST_CHECK int
-dict_set_gfuuid(dict_t *this, char *key, uuid_t uuid, bool is_static);
+dict_setn_gfuuid(dict_t *this, char *key, const int keylen, uuid_t gfid,
+                 bool is_static);
+
+static inline int
+dict_set_gfuuid(dict_t *this, char *key, uuid_t uuid, bool is_static)
+{
+    return dict_setn_gfuuid(this, key, strlen(key), uuid, is_static);
+}
+
 GF_MUST_CHECK int
 dict_get_gfuuid(dict_t *this, char *key, uuid_t *uuid);
 

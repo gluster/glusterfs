@@ -906,6 +906,7 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
     int32_t local_brick_count = 0;
     int32_t i = 0;
     int32_t type = 0;
+    int keylen = -1;
     int32_t replica_count = 0;
     int32_t disperse_count = 0;
     char *brick = NULL;
@@ -1104,9 +1105,9 @@ glusterd_op_stage_create_volume(dict_t *dict, char **op_errstr,
                     goto out;
                 }
 
-                snprintf(key, sizeof(key), "brick%d.mount_dir", i);
-                ret = dict_set_dynstr_with_alloc(rsp_dict, key,
-                                                 brick_info->mount_dir);
+                keylen = snprintf(key, sizeof(key), "brick%d.mount_dir", i);
+                ret = dict_set_dynstrn_with_alloc(rsp_dict, key, keylen,
+                                                  brick_info->mount_dir);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                            "Failed to set %s", key);
@@ -1382,9 +1383,10 @@ glusterd_op_stage_start_volume(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                     goto out;
                 }
 
-                snprintf(key, sizeof(key), "brick%d.mount_dir", brick_count);
-                ret = dict_set_dynstr_with_alloc(rsp_dict, key,
-                                                 brickinfo->mount_dir);
+                len = snprintf(key, sizeof(key), "brick%d.mount_dir",
+                               brick_count);
+                ret = dict_set_dynstrn_with_alloc(rsp_dict, key, len,
+                                                  brickinfo->mount_dir);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                            "Failed to set %s", key);

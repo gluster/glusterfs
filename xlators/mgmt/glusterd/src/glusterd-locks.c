@@ -609,11 +609,13 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
 
 #ifdef DEBUG
     char *bt = NULL;
+    int keylen = -1;
 
     /* Saving the backtrace into the pre-allocated buffer, ctx->btbuf*/
     if ((bt = gf_backtrace_save(NULL))) {
-        snprintf(key, sizeof(key), "debug.last-success-bt-%s", key_dup);
-        ret = dict_set_dynstr_with_alloc(priv->mgmt_v3_lock, key, bt);
+        keylen = snprintf(key, sizeof(key), "debug.last-success-bt-%s",
+                          key_dup);
+        ret = dict_set_dynstrn_with_alloc(priv->mgmt_v3_lock, key, keylen, bt);
         if (ret)
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to save "

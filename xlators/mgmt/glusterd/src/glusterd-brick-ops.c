@@ -1593,9 +1593,9 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                     goto out;
                 }
 
-                snprintf(key, sizeof(key), "brick%d.mount_dir", i + 1);
-                ret = dict_set_dynstr_with_alloc(rsp_dict, key,
-                                                 brickinfo->mount_dir);
+                len = snprintf(key, sizeof(key), "brick%d.mount_dir", i + 1);
+                ret = dict_set_dynstrn_with_alloc(rsp_dict, key, len,
+                                                  brickinfo->mount_dir);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, -ret,
                            GD_MSG_DICT_SET_FAILED, "Failed to set %s", key);

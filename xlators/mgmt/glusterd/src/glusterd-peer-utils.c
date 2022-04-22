@@ -676,6 +676,7 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
                       const char *prefix)
 {
     int ret = -1;
+    int keylen = -1;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[100] = {
@@ -691,8 +692,9 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
 
-    snprintf(key, sizeof(key), "%s.uuid", prefix);
-    ret = dict_set_dynstr_with_alloc(dict, key, uuid_utoa(friend->uuid));
+    keylen = snprintf(key, sizeof(key), "%s.uuid", prefix);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen,
+                                      uuid_utoa(friend->uuid));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set key %s in dict", key);
@@ -702,10 +704,10 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
     /* Setting the first hostname from the list with this key for backward
      * compatibility
      */
-    snprintf(key, sizeof(key), "%s.hostname", prefix);
+    keylen = snprintf(key, sizeof(key), "%s.hostname", prefix);
     address = cds_list_entry(&friend->hostnames, glusterd_peer_hostname_t,
                              hostname_list);
-    ret = dict_set_dynstr_with_alloc(dict, key, address->hostname);
+    ret = dict_set_dynstrn_with_alloc(dict, key, keylen, address->hostname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set key %s in dict", key);
@@ -723,8 +725,8 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
     {
         GF_VALIDATE_OR_GOTO(this->name, (address != NULL), out);
 
-        snprintf(key, sizeof(key), "%s.hostname%d", prefix, count);
-        ret = dict_set_dynstr_with_alloc(dict, key, address->hostname);
+        keylen = snprintf(key, sizeof(key), "%s.hostname%d", prefix, count);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen, address->hostname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set key %s in dict", key);
@@ -732,8 +734,8 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
         }
         count++;
     }
-    ret = snprintf(key, sizeof(key), "%s.address-count", prefix);
-    ret = dict_set_int32n(dict, key, ret, count);
+    keylen = snprintf(key, sizeof(key), "%s.address-count", prefix);
+    ret = dict_set_int32n(dict, key, keylen, count);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set key %s in dict", key);
@@ -884,6 +886,7 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                               const char *prefix)
 {
     int ret = -1;
+    int keylen = -1;
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     char key[64] = {
@@ -906,8 +909,8 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
 
     cds_list_for_each_entry(addr, &peerinfo->hostnames, hostname_list)
     {
-        snprintf(key, sizeof(key), "%s.hostname%d", prefix, count);
-        ret = dict_set_dynstr_with_alloc(dict, key, addr->hostname);
+        keylen = snprintf(key, sizeof(key), "%s.hostname%d", prefix, count);
+        ret = dict_set_dynstrn_with_alloc(dict, key, keylen, addr->hostname);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
@@ -916,8 +919,8 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
         count++;
     }
 
-    ret = snprintf(key, sizeof(key), "%s.hostname_count", prefix);
-    ret = dict_set_int32n(dict, key, ret, count);
+    keylen = snprintf(key, sizeof(key), "%s.hostname_count", prefix);
+    ret = dict_set_int32n(dict, key, keylen, count);
 
 out:
     return ret;
