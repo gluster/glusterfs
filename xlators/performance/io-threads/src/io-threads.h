@@ -48,17 +48,16 @@ typedef struct {
 
 struct iot_conf {
     pthread_mutex_t mutex;
+    sem_t sem;
     int32_t max_count;  /* configured maximum */
     int32_t curr_count; /* actual number of threads running */
     int32_t sleep_count;
     int32_t queue_size;
     time_t idle_time; /* in seconds */
-    pthread_cond_t cond;
     gf_atomic_t stub_cnt;
     uint32_t down;               /*PARENT_DOWN event is notified*/
     gf_boolean_t least_priority; /*Enable/Disable least-priority */
     gf_boolean_t mutex_inited;
-    gf_boolean_t cond_inited;
 
     gf_boolean_t watchdog_running;
 

@@ -53,31 +53,6 @@ struct volume_options options[];
         }                                                                      \
     } while (0)
 
-static iot_client_ctx_t *
-iot_get_ctx(xlator_t *this, client_t *client)
-{
-    iot_client_ctx_t *ctx = NULL;
-    iot_client_ctx_t *setted_ctx = NULL;
-    int i;
-
-    if (client_ctx_get(client, this, (void **)&ctx) != 0) {
-        ctx = GF_MALLOC(GF_FOP_PRI_MAX * sizeof(*ctx), gf_iot_mt_client_ctx_t);
-        if (ctx) {
-            for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
-                INIT_LIST_HEAD(&ctx[i].reqs);
-                INIT_LIST_HEAD(&ctx[i].clients);
-            }
-            setted_ctx = client_ctx_set(client, this, ctx);
-            if (ctx != setted_ctx) {
-                GF_FREE(ctx);
-                ctx = setted_ctx;
-            }
-        }
-    }
-
-    return ctx;
-}
-
 static call_stub_t *
 __iot_dequeue(iot_conf_t *conf, int *pri)
 {
@@ -126,21 +101,8 @@ __iot_dequeue(iot_conf_t *conf, int *pri)
 static void
 __iot_enqueue(iot_conf_t *conf, call_stub_t *stub, int pri)
 {
-    client_t *client = stub->frame->root->client;
-    iot_client_ctx_t *ctx;
     iot_fop_data_t *fop_data = &conf->fops_data[pri];
-
-    if (client) {
-        ctx = iot_get_ctx(conf->this, client);
-        if (ctx) {
-            ctx = &ctx[pri];
-        }
-    } else {
-        ctx = NULL;
-    }
-    if (!ctx) {
-        ctx = &fop_data->no_client;
-    }
+    iot_client_ctx_t *ctx = &fop_data->no_client;
 
     if (list_empty(&ctx->reqs)) {
         list_add_tail(&ctx->clients, &fop_data->clients);
@@ -162,6 +124,7 @@ iot_worker(void *data)
     int ret = 0;
     int pri = -1;
     gf_boolean_t bye = _gf_false;
+    time_t idle_time;
 
     conf = data;
     this = conf->this;
@@ -180,15 +143,19 @@ iot_worker(void *data)
                     break;
                 }
 
-                clock_gettime(CLOCK_REALTIME_COARSE, &sleep_till);
-                sleep_till.tv_sec += conf->idle_time;
-
+                idle_time = conf->idle_time;
                 conf->sleep_count++;
-                ret = pthread_cond_timedwait(&conf->cond, &conf->mutex,
-                                             &sleep_till);
+                pthread_mutex_unlock(&conf->mutex);
+
+                clock_gettime(CLOCK_REALTIME_COARSE, &sleep_till);
+                sleep_till.tv_sec += idle_time;
+
+                ret = sem_timedwait(&conf->sem, &sleep_till);
+
+                pthread_mutex_lock(&conf->mutex);
                 conf->sleep_count--;
 
-                if (conf->down || ret == ETIMEDOUT) {
+                if (conf->down || (ret != 0 && errno == ETIMEDOUT)) {
                     bye = _gf_true;
                     break;
                 }
@@ -198,7 +165,8 @@ iot_worker(void *data)
                 if (conf->down || conf->curr_count > IOT_MIN_THREADS) {
                     conf->curr_count--;
                     if (conf->curr_count == 0)
-                        pthread_cond_broadcast(&conf->cond);
+                        sem_post(&conf->sem);
+
                     gf_msg_debug(conf->this->name, 0,
                                  "terminated. "
                                  "conf->curr_count=%d",
@@ -241,7 +209,7 @@ do_iot_schedule(iot_conf_t *conf, call_stub_t *stub, int pri)
     {
         __iot_enqueue(conf, stub, pri);
 
-        pthread_cond_signal(&conf->cond);
+        sem_post(&conf->sem);
 
         ret = __iot_workers_scale(conf);
     }
@@ -1169,6 +1137,7 @@ init(xlator_t *this)
     iot_conf_t *conf = NULL;
     int ret = -1;
     int i = 0;
+    pthread_mutexattr_t attr;
 
     if (!this->children || this->children->next) {
         gf_smsg("io-threads", GF_LOG_ERROR, 0,
@@ -1188,14 +1157,16 @@ init(xlator_t *this)
         goto out;
     }
 
-    if ((ret = pthread_cond_init(&conf->cond, NULL)) != 0) {
-        gf_smsg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
-                "pthread_cond_init ret=%d", ret, NULL);
+    ret = sem_init(&conf->sem, 0, 0);
+    if (ret) {
+        gf_log(this->name, GF_LOG_EMERG, "sem_init is failing");
         goto out;
     }
-    conf->cond_inited = _gf_true;
 
-    if ((ret = pthread_mutex_init(&conf->mutex, NULL)) != 0) {
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_ADAPTIVE_NP);
+
+    if ((ret = pthread_mutex_init(&conf->mutex, &attr)) != 0) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, IO_THREADS_MSG_PTHREAD_INIT_FAILED,
                 "pthread_mutex_init ret=%d", ret, NULL);
         goto out;
@@ -1270,13 +1241,36 @@ out:
 static void
 iot_exit_threads(iot_conf_t *conf)
 {
+    int32_t curr_count = 0;
+    struct timespec sleep_till = {
+        0,
+    };
+
     pthread_mutex_lock(&conf->mutex);
     {
         conf->down = _gf_true;
-        /*Let all the threads know that xl is going down*/
-        pthread_cond_broadcast(&conf->cond);
-        while (conf->curr_count) /*Wait for threads to exit*/
-            pthread_cond_wait(&conf->cond, &conf->mutex);
+        curr_count = conf->curr_count;
+    }
+    pthread_mutex_unlock(&conf->mutex);
+    /*Let all the threads know that xl is going down*/
+    while (curr_count) {
+        sem_post(&conf->sem);
+        curr_count--;
+    }
+
+    timespec_now_realtime(&sleep_till);
+    sleep_till.tv_sec += 1;
+
+    pthread_mutex_lock(&conf->mutex);
+    {
+        /*Wait for threads to exit*/
+        while (conf->curr_count) {
+            pthread_mutex_unlock(&conf->mutex);
+            sem_post(&conf->sem);
+            sem_timedwait(&conf->sem, &sleep_till);
+            sleep_till.tv_sec += 1;
+            pthread_mutex_lock(&conf->mutex);
+        }
     }
     pthread_mutex_unlock(&conf->mutex);
 }
@@ -1298,15 +1292,10 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             if (stub_cnt) {
                 timespec_now_realtime(&sleep_till);
                 sleep_till.tv_sec += 1;
-                pthread_mutex_lock(&conf->mutex);
-                {
-                    while (stub_cnt) {
-                        (void)pthread_cond_timedwait(&conf->cond, &conf->mutex,
-                                                     &sleep_till);
-                        stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
-                    }
+                while (stub_cnt) {
+                    (void)sem_timedwait(&conf->sem, &sleep_till);
+                    stub_cnt = GF_ATOMIC_GET(conf->stub_cnt);
                 }
-                pthread_mutex_unlock(&conf->mutex);
             }
 
             gf_log(this->name, GF_LOG_INFO,
@@ -1337,11 +1326,10 @@ fini(xlator_t *this)
     if (!conf)
         return;
 
-    if (conf->mutex_inited && conf->cond_inited)
+    if (conf->mutex_inited)
         iot_exit_threads(conf);
 
-    if (conf->cond_inited)
-        pthread_cond_destroy(&conf->cond);
+    sem_destroy(&conf->sem);
 
     if (conf->mutex_inited)
         pthread_mutex_destroy(&conf->mutex);
