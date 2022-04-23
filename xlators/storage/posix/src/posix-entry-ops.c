@@ -292,7 +292,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
                        "Found stale gfid "
                        "handle %s, removing it.",
                        gfid_path);
-                posix_handle_unset(this, gfid, NULL);
+                posix_handle_unset_gfid(this, gfid);
             }
         }
         goto parent;
@@ -844,7 +844,7 @@ posix_mkdir(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
                  * remove the old symlink in order for
                  * posix_gfid_set to set the symlink to the
                  * new dir.*/
-                posix_handle_unset(this, stbuf.ia_gfid, NULL);
+                posix_handle_unset_gfid(this, stbuf.ia_gfid);
         }
     } else if (frame->root->pid != GF_SERVER_PID_TRASH) {
         op_ret = -1;
@@ -1151,7 +1151,7 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
 
         if (loc->inode->fd_count == 0) {
             UNLOCK(&loc->inode->lock);
-            ret = posix_handle_unset(this, stbuf->ia_gfid, NULL);
+            ret = posix_handle_unset_gfid(this, stbuf->ia_gfid);
         } else {
             UNLOCK(&loc->inode->lock);
             ret = posix_move_gfid_to_unlink(this, stbuf->ia_gfid, loc);
@@ -1644,7 +1644,7 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     if (op_ret == 0) {
         if (posix_symlinks_match(this, loc, stbuf.ia_gfid))
-            posix_handle_unset(this, stbuf.ia_gfid, NULL);
+            posix_handle_unset_gfid(this, stbuf.ia_gfid);
     }
 
     if (op_errno == EEXIST)
@@ -1989,7 +1989,7 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     }
 
     if (IA_ISDIR(oldloc->inode->ia_type))
-        posix_handle_unset(this, oldloc->inode->gfid, NULL);
+        posix_handle_unset_gfid(this, oldloc->inode->gfid);
 
     pthread_mutex_lock(&ctx_old->pgfid_lock);
     {
@@ -2081,10 +2081,10 @@ unlock:
     }
 
     if (was_dir)
-        posix_handle_unset(this, victim, NULL);
+        posix_handle_unset_gfid(this, victim);
 
     if (was_present && !was_dir && nlink == 1)
-        posix_handle_unset(this, victim, NULL);
+        posix_handle_unset_gfid(this, victim);
 
     if (IA_ISDIR(oldloc->inode->ia_type)) {
         posix_handle_soft(this, real_newpath, newloc, oldloc->inode->gfid,

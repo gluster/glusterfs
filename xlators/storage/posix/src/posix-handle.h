@@ -208,7 +208,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
                   uuid_t gfid, struct stat *buf);
 
 int
-posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename);
+posix_handle_unset_gfid(xlator_t *this, uuid_t gfid);
 
 int
 posix_create_link_if_gfid_exists(xlator_t *this, uuid_t gfid, char *real_path,

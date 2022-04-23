@@ -975,7 +975,7 @@ posix_gfid_unset(xlator_t *this, dict_t *xdata)
         goto out;
     }
 
-    posix_handle_unset(this, uuid, NULL);
+    posix_handle_unset_gfid(this, uuid);
 out:
     return;
 }
@@ -1413,7 +1413,7 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
             gf_msg_trace(THIS->name, 0, "unlinking %s", fpath);
             sys_unlink(fpath);
             if (stbuf.ia_nlink == 1)
-                posix_handle_unset(this, stbuf.ia_gfid, NULL);
+                posix_handle_unset_gfid(this, stbuf.ia_gfid);
             break;
 
         case S_IFDIR:
