@@ -386,10 +386,12 @@ server_alloc_frame(rpcsvc_request_t *req, client_t *client)
     if (!frame)
         goto out;
 
-    frame->root->type = GF_OP_TYPE_FOP;
     state = GF_CALLOC(1, sizeof(*state), gf_server_mt_state_t);
-    if (!state)
+    if (caa_unlikely(!state)) {
+        mem_put(frame);
+        frame = NULL;
         goto out;
+    }
 
     if (client->bound_xl)
         state->itable = client->bound_xl->itable;
@@ -398,8 +400,8 @@ server_alloc_frame(rpcsvc_request_t *req, client_t *client)
     state->resolve.fd_no = -1;
     state->resolve2.fd_no = -1;
 
-    frame->root->client = client;
     frame->root->state = state; /* which socket */
+    frame->root->type = GF_OP_TYPE_FOP;
 
     frame->this = client->this;
 out:
