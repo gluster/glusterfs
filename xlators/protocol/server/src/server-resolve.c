@@ -12,27 +12,27 @@
 #include "server-helpers.h"
 #include "server-messages.h"
 
-int
-server_resolve_all(call_frame_t *frame);
-int
-resolve_entry_simple(call_frame_t *frame);
-int
-resolve_inode_simple(call_frame_t *frame);
-int
-resolve_continue(call_frame_t *frame);
-int
-resolve_anonfd_simple(call_frame_t *frame);
+static int
+server_resolve_all(call_frame_t *frame, server_state_t *state);
+static int
+resolve_entry_simple(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve);
+static int
+resolve_inode_simple(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve);
+static int
+resolve_continue(call_frame_t *frame, server_state_t *state,
+                 server_resolve_t *resolve);
+static int
+resolve_anonfd_simple(call_frame_t *frame, server_state_t *state,
+                      server_resolve_t *resolve);
 
-int
-resolve_loc_touchup(call_frame_t *frame)
+static int
+resolve_loc_touchup(call_frame_t *frame, server_state_t *state,
+                    server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    server_resolve_t *resolve = NULL;
     loc_t *loc = NULL;
 
-    state = CALL_STATE(frame);
-
-    resolve = state->resolve_now;
     loc = state->loc_now;
 
     loc_touchup(loc, resolve->bname);
@@ -96,20 +96,17 @@ resolve_name_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 out:
     loc_wipe(resolve_loc);
 
-    resolve_continue(frame);
+    resolve_continue(frame, state, resolve);
     return 0;
 }
 
 static int
-resolve_name(call_frame_t *frame, inode_t *parent)
+resolve_name(call_frame_t *frame, inode_t *parent, server_state_t *state,
+             server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    server_resolve_t *resolve = NULL;
     loc_t *resolve_loc = NULL;
     dict_t *dict = NULL;
 
-    state = CALL_STATE(frame);
-    resolve = state->resolve_now;
     resolve_loc = &resolve->resolve_loc;
     resolve_loc->parent = inode_ref(parent);
     gf_uuid_copy(resolve_loc->pargfid, resolve_loc->parent->gfid);
@@ -138,7 +135,7 @@ resolve_name(call_frame_t *frame, inode_t *parent)
     return 0;
 }
 
-int
+static int
 resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, inode_t *inode, struct iatt *buf, dict_t *xdata,
                  struct iatt *postparent)
@@ -193,27 +190,22 @@ resolve_gfid_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         goto out;
     }
 
-    resolve_name(frame, link_inode);
+    resolve_name(frame, link_inode, state, resolve);
     inode_unref(link_inode);
 
     return 0;
 out:
-    resolve_continue(frame);
+    resolve_continue(frame, state, resolve);
     return 0;
 }
 
-int
-resolve_gfid(call_frame_t *frame)
+static int
+resolve_gfid(call_frame_t *frame, server_state_t *state,
+             server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    xlator_t *this = NULL;
-    server_resolve_t *resolve = NULL;
     loc_t *resolve_loc = NULL;
     dict_t *xdata = NULL;
 
-    state = CALL_STATE(frame);
-    this = frame->this;
-    resolve = state->resolve_now;
     resolve_loc = &resolve->resolve_loc;
 
     if (!gf_uuid_is_null(resolve->pargfid))
@@ -227,7 +219,7 @@ resolve_gfid(call_frame_t *frame)
     if (state->xdata) {
         xdata = dict_copy_with_ref(state->xdata, NULL);
         if (!xdata)
-            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
+            gf_msg(frame->this->name, GF_LOG_ERROR, ENOMEM, PS_MSG_NO_MEMORY,
                    "BUG: dict allocation failed (gfid: %s), "
                    "still continuing",
                    uuid_utoa(resolve_loc->gfid));
@@ -243,37 +235,31 @@ resolve_gfid(call_frame_t *frame)
     return 0;
 }
 
-int
-resolve_continue(call_frame_t *frame)
+static int
+resolve_continue(call_frame_t *frame, server_state_t *state,
+                 server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    xlator_t *this = NULL;
-    server_resolve_t *resolve = NULL;
     int ret = 0;
-
-    state = CALL_STATE(frame);
-    this = frame->this;
-    resolve = state->resolve_now;
 
     resolve->op_ret = 0;
     resolve->op_errno = 0;
 
     if (resolve->fd_no != -1) {
-        ret = resolve_anonfd_simple(frame);
+        ret = resolve_anonfd_simple(frame, state, resolve);
         goto out;
     } else if (!gf_uuid_is_null(resolve->pargfid))
-        ret = resolve_entry_simple(frame);
+        ret = resolve_entry_simple(frame, state, resolve);
     else if (!gf_uuid_is_null(resolve->gfid))
-        ret = resolve_inode_simple(frame);
+        ret = resolve_inode_simple(frame, state, resolve);
     if (ret)
-        gf_msg_debug(this->name, 0,
+        gf_msg_debug(frame->this->name, 0,
                      "return value of resolve_*_"
                      "simple %d",
                      ret);
 
-    resolve_loc_touchup(frame);
+    resolve_loc_touchup(frame, state, resolve);
 out:
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
@@ -285,19 +271,13 @@ out:
   > 0  - indecisive, need to perform deep resolution
 */
 
-int
-resolve_entry_simple(call_frame_t *frame)
+static int
+resolve_entry_simple(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    xlator_t *this = NULL;
-    server_resolve_t *resolve = NULL;
     inode_t *parent = NULL;
     inode_t *inode = NULL;
     int ret = 0;
-
-    state = CALL_STATE(frame);
-    this = frame->this;
-    resolve = state->resolve_now;
 
     parent = inode_find(state->itable, resolve->pargfid);
     if (!parent) {
@@ -311,9 +291,9 @@ resolve_entry_simple(call_frame_t *frame)
 
     if (parent->ia_type != IA_IFDIR) {
         /* Parent type should be 'directory', and nothing else */
-        gf_msg(this->name, GF_LOG_ERROR, EPERM, PS_MSG_GFID_RESOLVE_FAILED,
-               "%s: parent type not directory (%d)", uuid_utoa(parent->gfid),
-               parent->ia_type);
+        gf_msg(frame->this->name, GF_LOG_ERROR, EPERM,
+               PS_MSG_GFID_RESOLVE_FAILED, "%s: parent type not directory (%d)",
+               uuid_utoa(parent->gfid), parent->ia_type);
         resolve->op_ret = -1;
         resolve->op_errno = EPERM;
         ret = 1;
@@ -327,7 +307,8 @@ resolve_entry_simple(call_frame_t *frame)
         /* basename should be a string (without '/') in a directory,
            it can't span multiple levels. This can also lead to
            resolving outside the parent's tree, which is not allowed */
-        gf_msg(this->name, GF_LOG_ERROR, EPERM, PS_MSG_GFID_RESOLVE_FAILED,
+        gf_msg(frame->this->name, GF_LOG_ERROR, EPERM,
+               PS_MSG_GFID_RESOLVE_FAILED,
                "%s: basename sent by client not allowed", resolve->bname);
         resolve->op_ret = -1;
         resolve->op_errno = EPERM;
@@ -358,7 +339,7 @@ resolve_entry_simple(call_frame_t *frame)
     }
 
     if (resolve->type == RESOLVE_NOT) {
-        gf_msg_debug(this->name, 0,
+        gf_msg_debug(frame->this->name, 0,
                      "inode (pointer: %p gfid:%s found"
                      " for path (%s) while type is RESOLVE_NOT. "
                      "Performing lookup on backend to rule out any "
@@ -384,16 +365,14 @@ out:
     return ret;
 }
 
-int
-server_resolve_entry(call_frame_t *frame)
+static int
+server_resolve_entry(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
     int ret = 0;
     inode_t *parent = NULL;
 
-    state = CALL_STATE(frame);
-
-    ret = resolve_entry_simple(frame);
+    ret = resolve_entry_simple(frame, state, resolve);
 
     if (ret > 0) {
         if (ret == 2) {
@@ -402,32 +381,28 @@ server_resolve_entry(call_frame_t *frame)
         /*Wipe state->loc_now before calling resolve_xxxx()*/
         loc_wipe(state->loc_now);
         if (parent) {
-            resolve_name(frame, parent);
+            resolve_name(frame, parent, state, resolve);
             inode_unref(parent);
         } else {
-            resolve_gfid(frame);
+            resolve_gfid(frame, state, resolve);
         }
         return 0;
     }
 
     if (ret == 0)
-        resolve_loc_touchup(frame);
+        resolve_loc_touchup(frame, state, resolve);
 
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
 
-int
-resolve_inode_simple(call_frame_t *frame)
+static int
+resolve_inode_simple(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    server_resolve_t *resolve = NULL;
     inode_t *inode = NULL;
     int ret = 0;
-
-    state = CALL_STATE(frame);
-    resolve = state->resolve_now;
 
     inode = inode_find(state->itable, resolve->gfid);
 
@@ -455,42 +430,37 @@ out:
     return ret;
 }
 
-int
-server_resolve_inode(call_frame_t *frame)
+static int
+server_resolve_inode(call_frame_t *frame, server_state_t *state,
+                     server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
     int ret = 0;
     loc_t *loc = NULL;
 
-    state = CALL_STATE(frame);
     loc = state->loc_now;
 
-    ret = resolve_inode_simple(frame);
+    ret = resolve_inode_simple(frame, state, resolve);
 
     if (ret > 0) {
         loc_wipe(loc);
-        resolve_gfid(frame);
+        resolve_gfid(frame, state, resolve);
         return 0;
     }
 
     if (ret == 0)
-        resolve_loc_touchup(frame);
+        resolve_loc_touchup(frame, state, resolve);
 
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
 
-int
-resolve_anonfd_simple(call_frame_t *frame)
+static int
+resolve_anonfd_simple(call_frame_t *frame, server_state_t *state,
+                      server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
-    server_resolve_t *resolve = NULL;
     inode_t *inode = NULL;
     int ret = 0;
-
-    state = CALL_STATE(frame);
-    resolve = state->resolve_now;
 
     inode = inode_find(state->itable, resolve->gfid);
 
@@ -519,45 +489,39 @@ out:
     return ret;
 }
 
-int
-server_resolve_anonfd(call_frame_t *frame)
+static int
+server_resolve_anonfd(call_frame_t *frame, server_state_t *state,
+                      server_resolve_t *resolve)
 {
-    server_state_t *state = NULL;
     int ret = 0;
     loc_t *loc = NULL;
 
-    state = CALL_STATE(frame);
-    loc = state->loc_now;
-
-    ret = resolve_anonfd_simple(frame);
+    ret = resolve_anonfd_simple(frame, state, resolve);
 
     if (ret > 0) {
+        loc = state->loc_now;
         loc_wipe(loc);
-        resolve_gfid(frame);
+        resolve_gfid(frame, state, resolve);
         return 0;
     }
 
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
 
-int
-server_resolve_fd(call_frame_t *frame)
+static int
+server_resolve_fd(call_frame_t *frame, server_state_t *state,
+                  server_resolve_t *resolve)
 {
     server_ctx_t *serv_ctx = NULL;
-    server_state_t *state = NULL;
     client_t *client = NULL;
-    server_resolve_t *resolve = NULL;
     uint64_t fd_no = -1;
-
-    state = CALL_STATE(frame);
-    resolve = state->resolve_now;
 
     fd_no = resolve->fd_no;
 
     if (fd_no == GF_ANON_FD_NO) {
-        server_resolve_anonfd(frame);
+        server_resolve_anonfd(frame, state, resolve);
         return 0;
     }
 
@@ -608,28 +572,26 @@ server_resolve_fd(call_frame_t *frame)
         }
     }
 
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
 
-int
-server_resolve(call_frame_t *frame)
+static int
+server_resolve(call_frame_t *frame, server_state_t *state)
 {
-    server_state_t *state = NULL;
     server_resolve_t *resolve = NULL;
 
-    state = CALL_STATE(frame);
     resolve = state->resolve_now;
 
     if (resolve->fd_no != -1) {
-        server_resolve_fd(frame);
+        server_resolve_fd(frame, state, resolve);
 
     } else if (!gf_uuid_is_null(resolve->pargfid)) {
-        server_resolve_entry(frame);
+        server_resolve_entry(frame, state, resolve);
 
     } else if (!gf_uuid_is_null(resolve->gfid)) {
-        server_resolve_inode(frame);
+        server_resolve_inode(frame, state, resolve);
 
     } else {
         if (resolve == &state->resolve)
@@ -640,19 +602,15 @@ server_resolve(call_frame_t *frame)
         resolve->op_ret = -1;
         resolve->op_errno = EINVAL;
 
-        server_resolve_all(frame);
+        server_resolve_all(frame, state);
     }
 
     return 0;
 }
 
-int
-server_resolve_done(call_frame_t *frame)
+static int
+server_resolve_done(call_frame_t *frame, server_state_t *state)
 {
-    server_state_t *state = NULL;
-
-    state = CALL_STATE(frame);
-
     server_print_request(frame);
 
     state->resume_fn(frame, frame->root->client->bound_xl);
@@ -664,32 +622,26 @@ server_resolve_done(call_frame_t *frame)
  * This function is called multiple times, once per resolving one location/fd.
  * state->resolve_now is used to decide which location/fd is to be resolved now
  */
-int
-server_resolve_all(call_frame_t *frame)
+static int
+server_resolve_all(call_frame_t *frame, server_state_t *state)
 {
-    server_state_t *state = NULL;
-    xlator_t *this = NULL;
-
-    this = frame->this;
-    state = CALL_STATE(frame);
-
     if (state->resolve_now == NULL) {
         state->resolve_now = &state->resolve;
         state->loc_now = &state->loc;
 
-        server_resolve(frame);
+        server_resolve(frame, state);
 
     } else if (state->resolve_now == &state->resolve) {
         state->resolve_now = &state->resolve2;
         state->loc_now = &state->loc2;
 
-        server_resolve(frame);
+        server_resolve(frame, state);
 
     } else if (state->resolve_now == &state->resolve2) {
-        server_resolve_done(frame);
+        server_resolve_done(frame, state);
 
     } else {
-        gf_msg(this->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
+        gf_msg(frame->this->name, GF_LOG_ERROR, EINVAL, PS_MSG_INVALID_ENTRY,
                "Invalid pointer for "
                "state->resolve_now");
     }
@@ -705,7 +657,7 @@ resolve_and_resume(call_frame_t *frame, server_resume_fn_t fn)
     state = CALL_STATE(frame);
     state->resume_fn = fn;
 
-    server_resolve_all(frame);
+    server_resolve_all(frame, state);
 
     return 0;
 }
