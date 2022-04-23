@@ -735,9 +735,10 @@ cli_local_get()
     cli_local_t *local = NULL;
 
     local = GF_CALLOC(1, sizeof(*local), cli_mt_cli_local_t);
-    LOCK_INIT(&local->lock);
-    INIT_LIST_HEAD(&local->dict_list);
-
+    if (caa_likely(local)) {
+        LOCK_INIT(&local->lock);
+        INIT_LIST_HEAD(&local->dict_list);
+    }
     return local;
 }
 
