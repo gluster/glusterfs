@@ -879,41 +879,6 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 }
 
 int
-posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename)
-{
-    int ret;
-    struct iatt stat;
-    char *path = NULL;
-
-    if (!basename) {
-        ret = posix_handle_unset_gfid(this, gfid);
-        return ret;
-    }
-
-    MAKE_HANDLE_PATH(path, this, gfid, basename);
-    if (!path) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_DELETE,
-               "Failed to create handle path for %s (%s)", basename,
-               uuid_utoa(gfid));
-        return -1;
-    }
-
-    /* stat is being used only for gfid, so passing a NULL inode
-     * doesn't fetch time attributes which is fine
-     */
-    ret = posix_istat(this, NULL, gfid, basename, &stat, _gf_false);
-    if (ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
-               path);
-        return -1;
-    }
-
-    ret = posix_handle_unset_gfid(this, stat.ia_gfid);
-
-    return ret;
-}
-
-int
 posix_create_link_if_gfid_exists(xlator_t *this, uuid_t gfid, char *real_path,
                                  inode_table_t *itable)
 {
