@@ -657,24 +657,23 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
 {
     int ret = 0;
     struct stat fstatbuf;
-    struct iatt stbuf = {
-        0,
-    };
     struct posix_private *priv = NULL;
 
-    priv = this->private;
+    if (stbuf_p == NULL)
+        goto out;
 
     ret = sys_fstat(fd, &fstatbuf);
-    if (ret == -1)
+    if (ret != 0)
         goto out;
 
     if (fstatbuf.st_nlink && !S_ISDIR(fstatbuf.st_mode))
         fstatbuf.st_nlink--;
 
-    iatt_from_stat(&stbuf, &fstatbuf);
+    iatt_from_stat(stbuf_p, &fstatbuf);
 
+    priv = this->private;
     if (inode && fetch_time && priv->ctime) {
-        ret = posix_get_mdata_xattr(this, NULL, fd, inode, &stbuf);
+        ret = posix_get_mdata_xattr(this, NULL, fd, inode, stbuf_p);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
                    "posix get mdata failed on gfid: %s",
@@ -682,14 +681,10 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
             goto out;
         }
     }
-    ret = posix_fill_gfid_fd(fd, &stbuf);
-    stbuf.ia_flags |= IATT_GFID;
+    ret = posix_fill_gfid_fd(fd, stbuf_p);
+    stbuf_p->ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(&stbuf);
-
-    if (stbuf_p)
-        memcpy(stbuf_p, &stbuf, sizeof(struct iatt));
-    ;
+    posix_fill_ino_from_gfid(stbuf_p);
 
 out:
     return ret;
