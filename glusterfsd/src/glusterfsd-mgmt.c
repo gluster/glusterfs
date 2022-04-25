@@ -1444,6 +1444,11 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
+    if (!dict) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        goto out;
+    }
+
     ret = dict_unserialize(node_req.input.input_val, node_req.input.input_len,
                            &dict);
     if (ret < 0) {
@@ -1532,6 +1537,11 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     }
 
     output = dict_new();
+    if (!output) {
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        goto out;
+    }
+
     switch (cmd & GF_CLI_STATUS_MASK) {
         case GF_CLI_STATUS_MEM:
             ret = 0;
