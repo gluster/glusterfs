@@ -304,12 +304,12 @@ _run_dir_scan_task(call_frame_t *frame, xlator_t *subvol, loc_t *parent,
     scan_data->subvol = subvol;
     scan_data->parent = parent;
     scan_data->data = data;
-    scan_data->mut = mut;
+    scan_data->q = q;
+    scan_data->entry = entry;
     scan_data->cond = cond;
+    scan_data->mut = mut;
     scan_data->fn = fn;
     scan_data->jobs_running = jobs_running;
-    scan_data->entry = entry;
-    scan_data->q = q;
     scan_data->qlen = qlen;
     scan_data->retval = retval;
 
