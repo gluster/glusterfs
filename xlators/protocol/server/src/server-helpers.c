@@ -388,7 +388,7 @@ server_alloc_frame(rpcsvc_request_t *req, client_t *client)
 
     state = GF_CALLOC(1, sizeof(*state), gf_server_mt_state_t);
     if (caa_unlikely(!state)) {
-        mem_put(frame);
+        STACK_DESTROY(frame->root);
         frame = NULL;
         goto out;
     }
