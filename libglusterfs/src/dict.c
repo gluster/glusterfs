@@ -688,27 +688,6 @@ data_ref(data_t *this)
 }
 
 data_t *
-int_to_data(int64_t value)
-{
-    data_t *data = get_new_data();
-
-    if (!data) {
-        return NULL;
-    }
-
-    data->len = gf_asprintf(&data->data, "%" PRId64, value);
-    if (-1 == data->len) {
-        gf_msg_debug("dict", 0, "asprintf failed");
-        data_destroy(data);
-        return NULL;
-    }
-    data->len++; /* account for terminating NULL */
-    data->data_type = GF_DATA_TYPE_INT;
-
-    return data;
-}
-
-data_t *
 data_from_int64(int64_t value)
 {
     data_t *data = get_new_data();
