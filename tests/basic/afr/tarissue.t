@@ -23,7 +23,7 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT "1" is_nfs_export_available;
 
 # Mount NFS
-mount_nfs $H0:/$V0 $N0 vers=3
+mount_nfs $H0:/$V0 $N0
 
 #Create files
 TEST mkdir -p $N0/nfs/dir1/dir2
