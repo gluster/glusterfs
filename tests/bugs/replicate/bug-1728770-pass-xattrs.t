@@ -33,7 +33,7 @@ TEST $CLI volume start $V0;
 
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
 #corrupt last disk
-dd if=/dev/urandom of=/dev/mapper/patchy_snap_vg_6-brick_lvm bs=512K count=200 status=progress && sync
+dd if=/dev/urandom of=/dev/mapper/${LVM_PREFIX}_vg_6-brick_lvm bs=512K count=200 status=progress && sync
 
 
 # Test the disk is now returning EIO for touch and ls

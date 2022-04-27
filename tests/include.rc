@@ -23,6 +23,7 @@ META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared g
 
 CC=cc
 OSTYPE=$(uname -s)
+GFREG_ID="$(hostname -s)"
 
 env_dir=$(dirname $0)
 while true; do
@@ -645,7 +646,7 @@ function cleanup()
         rpcinfo -d 100227 3 2>/dev/null || true;
 
         # unmount brick filesystems after killing daemons
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        MOUNTPOINTS=`findmnt -nRlT "${B0}" -o TARGET,SOURCE | grep "$B0/" | awk '{print $2}'`
         for m in $MOUNTPOINTS;
         do
                 umount $flag $m
