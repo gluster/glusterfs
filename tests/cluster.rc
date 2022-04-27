@@ -204,6 +204,15 @@ function volinfo_field_2()
     $CLI_2 volume info $vol | grep "^$field: " | sed 's/.*: //';
 }
 
+function volume_exists_1() {
+        $CLI_1 volume info $1 > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
+}
+
 function cluster_brick_up_status {
         local vol=$2
         local host=$3

@@ -338,26 +338,6 @@ echo "Success"
 return 0;
 }
 
-
-# TODO: Cleanup code duplication
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI_1 volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
-
-function volume_exists() {
-        $CLI_1 volume info $1 > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-                echo "Y"
-        else
-                echo "N"
-        fi
-}
-
 # arg-1 : From which node the command should be trigerred
 #         Ex : $CLI_1, $CLI_2, etc.
 # arg-2 : Volume name
