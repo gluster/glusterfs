@@ -2,14 +2,6 @@
 # Copyright (c) 2013-2014 Red Hat, Inc. <http://www.redhat.com>
 #
 
-# As many tests are designed to take values of variables from 'env.rc',
-# it is good to source the file. While it is also required to source the
-# file individually in each tests (as it should be possible to run the
-# tests separately), exporting variables from env.rc is not harmful if
-# done here
-
-source ./tests/env.rc
-
 export TZ=UTC
 force="no"
 head="yes"
@@ -23,6 +15,8 @@ section_separator="========================================"
 run_timeout=200
 kill_after_time=5
 nfs_tests=$RUN_NFS_TESTS
+list_only="no"
+secho="echo"
 
 # Option below preserves log tarballs for each run of a test separately
 #       named: <test>-iteration-<n>.tar
@@ -351,7 +345,7 @@ function run_tests()
     # This is not supported on centos6, but spuported on centos7
     # The flags is required for running the command in both flavors
     timeout_cmd_exists="yes"
-    timeout -k 1 10 echo "testing 'timeout' command"
+    timeout -k 1 10 ${secho} "testing 'timeout' command"
     if [ $? -ne 0 ]; then
         timeout_cmd_exists="no"
     fi
@@ -363,34 +357,38 @@ function run_tests()
         total_tests=$((total_tests+1))
         if match $t "$@" ; then
             selected_tests=$((selected_tests+1))
-            echo
-            echo $section_separator "(${total_tests} / ${all_tests_cnt})" $section_separator
+            ${secho}
+            ${secho} $section_separator "(${total_tests} / ${all_tests_cnt})" $section_separator
             if [[ $(get_test_status $t) =~ "BAD_TEST" ]] && \
                [[ $skip_bad_tests == "yes" ]]
             then
                 skipped_bad_tests=$((skipped_bad_tests+1))
-                echo "Skipping bad test file $t"
-                echo "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
-                echo $section_separator$section_separator
-                echo
+                ${secho} "Skipping bad test file $t"
+                ${secho} "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
+                ${secho} $section_separator$section_separator
+                ${secho}
                 continue
             fi
             if [[ $(get_test_status $t) == "KNOWN_ISSUE" ]] && \
                [[ $skip_known_bugs == "yes" ]]
             then
                 skipped_known_issue_tests=$((skipped_known_issue_tests+1))
-                echo "Skipping test file $t due to known issue"
-                echo "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
-                echo $section_separator$section_separator
-                echo
+                ${secho} "Skipping test file $t due to known issue"
+                ${secho} "Reason: bug(s):" $(get_bug_list_for_disabled_test $t)
+                ${secho} $section_separator$section_separator
+                ${secho}
                 continue
             fi
             if [[ $(get_test_status $t) == "NFS_TEST" ]] && \
                [[ $nfs_tests == "no" ]]
             then
-                echo "Skipping nfs test file $t"
-                echo $section_separator$section_separator
-                echo
+                ${secho} "Skipping nfs test file $t"
+                ${secho} $section_separator$section_separator
+                ${secho}
+                continue
+            fi
+            if [ x"$list_only" == x"yes" ]; then
+                echo ${t}
                 continue
             fi
             total_run_tests=$((total_run_tests+1))
@@ -468,6 +466,11 @@ function run_tests()
             fi
         fi
     done
+
+    if [ x"$list_only" == x"yes" ]; then
+        return 0
+    fi
+
     echo
     echo "Run complete"
     echo $section_separator$section_separator
@@ -555,6 +558,7 @@ Options:
 -o  OUTPUT
 -t  TIMEOUT
 -n  skip NFS tests
+-l  list tests that should be executed
 --help
 EOF
 }
@@ -563,7 +567,7 @@ usage="no"
 
 function parse_args ()
 {
-    args=`getopt -u -l help frRcbkphHno:t: "$@"`
+    args=`getopt -u -l help frRcbkphHnlo:t: "$@"`
     if ! [ $? -eq 0 ]; then
 	show_usage
 	exit 1
@@ -583,6 +587,7 @@ function parse_args ()
         -o)    result_output="$2"; shift;;
         -t)    run_timeout="$2"; shift;;
         -n)    nfs_tests="no";;
+        -l)    list_only="yes";;
         --help) usage="yes" ;;
         --)    shift; break;;
         esac
@@ -591,11 +596,6 @@ function parse_args ()
     tests="$@"
 }
 
-
-echo
-echo ... GlusterFS Test Framework ...
-echo
-
 # Get user options
 parse_args "$@"
 if [ x"$usage" == x"yes" ]; then
@@ -603,11 +603,28 @@ if [ x"$usage" == x"yes" ]; then
     exit 0
 fi
 
-# Make sure we're running as the root user
-check_user
+if [ x"${list_only}" == x"no" ]; then
+    echo
+    echo ... GlusterFS Test Framework ...
+    echo
 
-# Make sure the needed programs are available
-check_dependencies
+    # As many tests are designed to take values of variables from 'env.rc',
+    # it is good to source the file. While it is also required to source the
+    # file individually in each tests (as it should be possible to run the
+    # tests separately), exporting variables from env.rc is not harmful if
+    # done here
+
+    source ./tests/env.rc
+
+    # Make sure we're running as the root user
+    check_user
+
+    # Make sure the needed programs are available
+    check_dependencies
+else
+    head="no"
+    secho="true"
+fi
 
 # Check we're running from the right location
 check_location
