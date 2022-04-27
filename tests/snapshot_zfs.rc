@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ZFS_DEFINED=0
-ZFS_PREFIX="patchy_snap"
+ZFS_PREFIX="patchy_snap_${GFREG_ID}"
 ZFS_COUNT=0
 VHD_SIZE="300M"
 
@@ -62,8 +62,7 @@ function cleanup_zfs() {
 
     _cleanup_zfs_again >/dev/null 2>&1
     \rm -rf /var/run/gluster/snaps/*
-    zfs list | grep "patchy_snap" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
-    \rm -rf /patchy*
+    zfs list | grep "${ZFS_PREFIX}" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
     return 0
 }
 
@@ -108,6 +107,8 @@ function _cleanup_zfs_again() {
     /sbin/zfs list | grep $ZFS_PREFIX | awk '{print $1}' | xargs -r -L 1 zpool destroy -f
 
     find $B0 -name "${ZFS_PREFIX}_loop" | xargs -r losetup -d
+
+    find $B0 -name "*${ZFS_PREFIX}*" | xargs -r rm -rf
 
     find /run/gluster/snaps -name "*${ZFS_PREFIX}*" | xargs -r rm -rf
 
