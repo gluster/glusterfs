@@ -1035,6 +1035,8 @@ iot_watchdog(void *arg)
     xlator_t *this = arg;
     iot_conf_t *priv = this->private;
     int i;
+    int j;
+    int high_count;
     int bad_times[GF_FOP_PRI_MAX] = {
         0,
     };
@@ -1047,7 +1049,13 @@ iot_watchdog(void *arg)
         sleep(max(priv->watchdog_secs / 5, 1));
         pthread_setcancelstate(PTHREAD_CANCEL_DISABLE, NULL);
         pthread_mutex_lock(&priv->mutex);
-        for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
+        /*
+         * GF_FOP_PRI_LEAST priority may have a large number
+         * of calls to rebalance fsync, which will cause thread
+         * blocking, so ignore the detection of GF_FOP_PRI_LEAST
+         * priority thread.
+         */
+        for (i = 0; i < GF_FOP_PRI_LEAST; ++i) {
             fop_data = &priv->fops_data[i];
             if (fop_data->queue_marked) {
                 if (++bad_times[i] >= 5) {
@@ -1057,13 +1065,32 @@ iot_watchdog(void *arg)
                      * We might not get here if the event
                      * put us over our threshold.
                      */
-                    ++(fop_data->ac_iot_limit);
+                    if (fop_data->ac_iot_count == fop_data->ac_iot_limit)
+                        ++(fop_data->ac_iot_limit);
                     bad_times[i] = 0;
                 }
             } else {
                 bad_times[i] = 0;
             }
-            fop_data->queue_marked = (fop_data->queue_sizes > 0);
+
+            high_count = 0;
+            for (j = 0; j < i; j++) {
+                high_count += fop_data->queue_sizes;
+            }
+            gf_log(this->name, GF_LOG_DEBUG,
+                   "the length of the higher priority queue: %d", high_count);
+
+            /*
+             * When the number of running threads is greater than
+             * the total number of thread queues with higher priority,
+             * we consider that the fop request of the current
+             * priority queue can be executed.
+             */
+            if ((priv->curr_count - priv->sleep_count) > high_count) {
+                fop_data->queue_marked = (fop_data->queue_sizes > 0);
+            } else {
+                fop_data->queue_marked = _gf_false;
+            }
         }
         pthread_mutex_unlock(&priv->mutex);
         pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
