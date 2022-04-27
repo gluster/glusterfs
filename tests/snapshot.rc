@@ -115,7 +115,10 @@ function _cleanup_lvm_again() {
 
     vgremove -fyS "vg_name=~^${LVM_PREFIX}_vg"
 
-    find $B0 -name "${LVM_PREFIX}_loop" | xargs -r losetup -d
+    for dev in ${DEVDIR}/loop*; do
+        losetup -d "${dev}"
+        rm -f "${dev}"
+    done
 
     find $B0 -name "${LVM_PREFIX}*" | xargs -r rm -rf
 }
@@ -124,12 +127,11 @@ function _cleanup_lvm_again() {
 ########################################################
 function _create_vhd() {
     local dir=$1
-    local num=$2
-    local loop_num=`expr $2 + 8`
 
     fallocate -l${VHD_SIZE} $dir/${LVM_PREFIX}_vhd
-    mknod -m660 $dir/${LVM_PREFIX}_loop b 7 $loop_num
-    /sbin/losetup $dir/${LVM_PREFIX}_loop $dir/${LVM_PREFIX}_vhd
+    dev="$(losetup -f --show "${dir}/${LVM_PREFIX}_vhd")"
+    ln -sf "${dev}" "${DEVDIR}/$(basename "${dev}")"
+    ln -sf "${DEVDIR}/$(basename "${dev}")" "${dir}/${LVM_PREFIX}_loop"
 }
 
 function _create_lv() {
@@ -176,6 +178,7 @@ function _remove_vhd() {
     local dir=$1
 
     losetup -d $dir/${LVM_PREFIX}_loop
+    rm -f "$(readlink "${dir}/${LVM_PREFIX}_loop")"
     rm -f $dir/${LVM_PREFIX}_loop
     rm -f $dir/${LVM_PREFIX}_vhd
 }

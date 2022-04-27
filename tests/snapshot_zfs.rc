@@ -108,7 +108,10 @@ function _cleanup_zfs_again() {
 
     /sbin/zfs list | grep $ZFS_PREFIX | awk '{print $1}' | xargs -r -L 1 zpool destroy -f
 
-    find $B0 -name "${ZFS_PREFIX}_loop" | xargs -r losetup -d
+    for dev in ${DEVDIR}/loop*; do
+        losetup -d "${dev}"
+        rm -f "${dev}"
+    done
 
     find $B0 -name "*${ZFS_PREFIX}*" | xargs -r rm -rf
 
@@ -123,13 +126,12 @@ function _cleanup_zfs_again() {
 ########################################################
 function _create_zfs_vhd() {
     local dir=$1
-    local num=$2
-    local loop_num=`expr $2 + 8`
 
     mkdir -p $dir
     fallocate -l${VHD_SIZE} $dir/${ZFS_PREFIX}_vhd
-    mknod -m660 $dir/${ZFS_PREFIX}_loop b 7 $loop_num
-    /sbin/losetup $dir/${ZFS_PREFIX}_loop $dir/${ZFS_PREFIX}_vhd
+    dev="$(losetup -f --show "${dir}/${ZFS_PREFIX}_vhd")"
+    ln -sf "${dev}" "${DEVDIR}/$(basename "${dev}")"
+    ln -sf "${DEVDIR}/$(basename "${dev}")" "${dir}/${ZFS_PREFIX}_loop"
 }
 
 function _create_zpool() {
@@ -166,6 +168,7 @@ function _remove_zfs_vhd() {
     local dir=$1
 
     losetup -d $dir/${ZFS_PREFIX}_loop
+    rm -f "$(readlink "${dir}/${ZFS_PREFIX}_loop")"
     rm -f $dir/${ZFS_PREFIX}_loop
     rm -f $dir/${ZFS_PREFIX}_vhd
 }
