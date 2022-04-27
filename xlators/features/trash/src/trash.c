@@ -210,7 +210,7 @@ store_eliminate_path(char *str, trash_elim_path **eliminate)
 
     component = strtok_r(str, ",", &strtokptr);
     while (component) {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_trash_mt_trash_elim_path);
+        trav = GF_MALLOC(sizeof(*trav), gf_trash_mt_trash_elim_path);
         if (!trav) {
             ret = ENOMEM;
             goto out;
