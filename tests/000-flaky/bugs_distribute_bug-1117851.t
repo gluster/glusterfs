@@ -16,23 +16,12 @@ create_files () {
 	sync
 }
 
-move_files_inner () {
-	sfile=$M0/status_$(basename $1)
+move_files () {
 	for i in {1..1000}; do
 		src=$(printf %s/src%04d $1 $i)
 		dst=$(printf %s/dst%04d $1 $i)
 		mv $src $dst 2> /dev/null
 	done
-	echo "done" > $sfile
-}
-
-move_files () {
-        #Create the status file here to prevent spurious failures
-        #caused by the file not being created in time by the
-        #background process
-	sfile=$M0/status_$(basename $1)
-	echo "running" > $sfile
-	move_files_inner $* &
 }
 
 check_files () {
@@ -76,16 +65,9 @@ TEST create_files $M0
 ## Mount FUSE with caching disabled (read-write) again
 TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M1;
 
-TEST move_files $M0
-TEST move_files $M1
-
-# It's regrettable that renaming 1000 files might take more than 30 seconds,
-# but on our test systems sometimes it does, so double the time from what we'd
-# use otherwise.  There still seem to be some spurious failures, 1 in 20 when
-# this does not complete, added an additional 60 seconds to take false reports
-# out of the system, during test runs, especially on slower test systems.
-EXPECT_WITHIN 120 "done" cat $M0/status_0
-EXPECT_WITHIN 120 "done" cat $M1/status_1
+move_files $M0 &
+move_files $M1 &
+wait
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M1
