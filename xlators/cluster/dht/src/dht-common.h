@@ -629,16 +629,6 @@ struct dht_dfoffset_ctx {
 };
 typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
 
-struct dht_disk_layout {
-    uint32_t cnt;
-    uint32_t type;
-    struct {
-        uint32_t start;
-        uint32_t stop;
-    } list[1];
-};
-typedef struct dht_disk_layout dht_disk_layout_t;
-
 typedef enum {
     GF_DHT_MIGRATE_DATA,
     GF_DHT_MIGRATE_DATA_EVEN_IF_LINK_EXISTS,
