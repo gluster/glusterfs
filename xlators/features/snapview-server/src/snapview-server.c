@@ -1372,7 +1372,8 @@ svs_forget(xlator_t *this, inode_t *inode)
     if (!inode_ctx)
         goto out;
 
-    GF_FREE(inode_ctx->snapname);
+    if (inode_ctx->snapname)
+        GF_FREE(inode_ctx->snapname);
 
     /*
      * glfs_h_close leads to unref and forgetting of the
