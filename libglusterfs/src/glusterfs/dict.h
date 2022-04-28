@@ -153,8 +153,6 @@ dict_key_count(dict_t *this);
 int32_t
 dict_serialized_length(dict_t *dict);
 int32_t
-dict_serialize(dict_t *dict, char *buf);
-int32_t
 dict_unserialize(char *buf, int32_t size, dict_t **fill);
 
 int32_t
