@@ -1,0 +1,59 @@
+FROM centos:7.9.2009
+
+ENV container docker
+ENV PYTHON /usr/bin/python2
+
+RUN yum install -y systemd epel-release
+
+RUN yum install -y \
+        @"Development Tools" diffutils util-linux file \
+        hostname which less e2fsprogs xfsprogs attr net-tools procps psmisc \
+        nfs-utils bind-utils iproute bc vim-common dbench git sysvinit-tools initscripts cronie \
+        libselinux-utils perl-Test-Harness yajl rsync lvm2 python3 python-devel python3-prettytable \
+        pyxattr gperftools-devel openssh-server openssl openssl-devel \
+        libuuid-devel libacl-devel libaio-devel libxml2-devel \
+        userspace-rcu-devel readline-devel && \
+    yum clean all
+
+RUN (cd /lib/systemd/system/sysinit.target.wants/ && \
+     for i in *; do \
+         [ $i == systemd-tmpfiles-setup.service ] || rm -f $i; \
+     done); \
+    (cd /lib/systemd/system/multi-user.target.wants/ && \
+     for i in *; do \
+         [ $i == systemd-user-sessions.service ] || rm -f $i; \
+     done); \
+    rm -f /etc/systemd/system/*.wants/*;\
+    rm -f /lib/systemd/system/local-fs.target.wants/*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*udev*; \
+    rm -f /lib/systemd/system/sockets.target.wants/*initctl*; \
+    rm -f /lib/systemd/system/basic.target.wants/*;\
+    rm -f /lib/systemd/system/anaconda.target.wants/*;
+
+RUN systemctl enable sshd
+RUN systemctl enable rpcbind
+
+# Prefer IPv4 over IPv6
+RUN echo "precedence ::ffff:0:0/96 100" >/etc/gai.conf
+
+RUN sed -i 's/^\s*#\?\s*\(udev_rules\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(thin_pool_discards\)\s*=.*/\1 = "passdown"/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(issue_discards\)\s*=.*/\1 = 1/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(cache_mode\)\s*=.*/\1 = "writeback"/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(sysfs_scan\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(error_when_full\)\s*=.*/\1 = 1/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(use_lvmetad\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(use_lvmpolld\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(notify_dbus\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(udev_sync\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(scan\)\s*=.*/\1 = ["\/d\/dev"]/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(obtain_device_list_from_udev\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+RUN sed -i 's/^\s*#\?\s*\(write_cache_state\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+
+RUN sed -i 's/^\s*hosts\s*:.*/hosts: files/' /etc/nsswitch.conf
+RUN sed -i 's/^\s*#\?\s*PasswordAuthentication\s.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+RUN ssh-keygen -t rsa -b 2048 -N "" -f /root/.ssh/id_rsa
+RUN cp /root/.ssh/id_rsa.pub /root/.ssh/authorized_keys
+
+CMD ["/sbin/init"]

@@ -1,0 +1,58 @@
+<domain type="kvm">
+  <name>$vm_name</name>
+  <metadata>
+    <libosinfo:libosinfo xmlns:libosinfo="http://libosinfo.org/xmlns/libvirt/domain/1.0">
+      <libosinfo:os id="http://centos.org/centos/7.0"/>
+    </libosinfo:libosinfo>
+  </metadata>
+  <memory unit="GiB">$vm_memory</memory>
+  <currentMemory unit="GiB">$vm_memory</currentMemory>
+  <vcpu>$vm_cpus</vcpu>
+  <sysinfo type="smbios">
+    <system>
+      <entry name="serial">$cloud_init_datasource</entry>
+    </system>
+  </sysinfo>
+  <os>
+    <type arch="$vm_arch" machine="$vm_machine">hvm</type>
+    <boot dev="hd"/>
+    <smbios mode="sysinfo"/>
+  </os>
+  <features>
+    <acpi/>
+    <apic/>
+  </features>
+  <cpu mode="host-model"/>
+  <clock offset="utc">
+    <timer name="rtc" tickpolicy="catchup"/>
+    <timer name="pit" tickpolicy="delay"/>
+    <timer name="hpet" present="no"/>
+  </clock>
+  <pm>
+    <suspend-to-mem enabled="no"/>
+    <suspend-to-disk enabled="no"/>
+  </pm>
+  <devices>
+    <emulator>$vm_emulator</emulator>
+    <disk type="file" device="disk">
+      <driver name="qemu" type="qcow2" cache="unsafe" discard="unmap"/>
+      <source file="$vm_disk"/>
+      <target dev="vda" bus="virtio"/>
+    </disk>
+    <console type="pty"/>
+    <channel type="unix">
+      <source mode="bind"/>
+      <target type="virtio" name="org.qemu.guest_agent.0"/>
+    </channel>
+    <rng model="virtio">
+      <backend model="random">/dev/urandom</backend>
+    </rng>
+  </devices>
+  <commandline xmlns="http://libvirt.org/schemas/domain/qemu/1.0">
+    <arg value="-netdev"/>
+    <arg value="user,id=gfnet0,net=$vm_network,hostfwd=tcp:127.0.0.1:$host_port-:22"/>
+    <arg value="-device"/>
+    <arg value="virtio-net-pci,netdev=gfnet0"/>
+  </commandline>
+</domain>
+

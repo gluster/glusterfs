@@ -1,0 +1,23 @@
+#!/bin/bash
+
+touch /etc/cloud/cloud-init.disabled
+
+sed -i 's/myhostname//g' /etc/nsswitch.conf
+
+pip3 install requests
+
+echo "precedence ::ffff:0:0/96 100" >/etc/gai.conf
+
+sed -i 's/^\s*#\?\s*\(udev_rules\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(thin_pool_discards\)\s*=.*/\1 = "passdown"/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(issue_discards\)\s*=.*/\1 = 1/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(cache_mode\)\s*=.*/\1 = "writeback"/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(sysfs_scan\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(error_when_full\)\s*=.*/\1 = 1/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(use_lvmetad\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(use_lvmpolld\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(notify_dbus\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(udev_sync\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(obtain_device_list_from_udev\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+sed -i 's/^\s*#\?\s*\(write_cache_state\)\s*=.*/\1 = 0/' /etc/lvm/lvm.conf
+

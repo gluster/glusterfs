@@ -1,0 +1,27 @@
+#cloud-config
+
+preserve_hostname: false
+hostname: $vm_name
+fqdn: $vm_name.glusterfs.local
+
+system_info:
+  default_user:
+    name: root
+
+users:
+  - name: root
+    ssh_authorized_keys:
+      - $vm_key
+
+ssh_pwauth: false
+
+packages:
+  - lvm2
+  - git
+  - podman
+  - python3
+
+power_state:
+  delay: now
+  mode: poweroff
+

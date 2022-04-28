@@ -1,0 +1,14 @@
+FROM glusterfs/builder
+
+COPY . /root/glusterfs
+
+WORKDIR /root/glusterfs
+
+RUN ./autogen.sh
+RUN ./configure --enable-debug --enable-gnfs --disable-linux-io_uring
+RUN make -j install
+
+RUN echo "/usr/local/lib" >/etc/ld.so.conf.d/glusterfs.conf
+RUN ldconfig
+
+CMD ["/sbin/init"]

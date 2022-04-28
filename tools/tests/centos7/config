@@ -1,0 +1,30 @@
+{
+    "templates": [
+        "domain.xml",
+        "meta-data",
+        "user-data",
+        "user-data-settings"
+    ],
+
+    "vm": {
+        "image": {
+            "url": "https://cloud.centos.org/centos/7/images/CentOS-7-x86_64-GenericCloud-2009.qcow2",
+            "checksums": "https://cloud.centos.org/centos/7/images/sha256sum.txt.asc",
+            "key": "https://centos.org/keys/RPM-GPG-KEY-CentOS-7",
+            "fingerprint": "6341 ab27 53d7 8a78 a7c2 7bb1 24c6 a8a7 f4a8 0eb5"
+        },
+        "domain": "domain.xml",
+        "cpus": 4,
+        "memory": 8,
+        "disk": 20
+    },
+
+    "containers": {
+        "images": {
+            "builder": "gf-builder",
+            "testing": "gf-testing"
+        },
+        "space": 10,
+        "workers": 6
+    }
+}
