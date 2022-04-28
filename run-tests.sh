@@ -388,7 +388,7 @@ function run_tests()
                 continue
             fi
             if [ x"$list_only" == x"yes" ]; then
-                echo ${t}
+                echo $(realpath --relative-to "$(dirname "${0}")" "${t}")
                 continue
             fi
             total_run_tests=$((total_run_tests+1))
