@@ -281,6 +281,8 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
 
         *addr_info = cache->next;
     }
+    if (!*addr_info)
+        goto err;
 
     if (cache->next)
         cache->next = cache->next->ai_next;
@@ -299,8 +301,6 @@ gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
                      "ip-%s port-%s",
                      host, service);
     }
-    if (!cache->next)
-        goto err;
 
     return 0;
 
@@ -651,8 +651,7 @@ socket_client_get_remote_sockaddr(rpc_transport_t *this,
     /* Address-family is updated based on remote_host in
        af_inet_client_get_remote_sockaddr
     */
-    if (ret == -1)
-        goto err;
+
     if (*sa_family != sockaddr->sa_family) {
         *sa_family = sockaddr->sa_family;
     }
