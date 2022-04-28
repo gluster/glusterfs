@@ -2955,25 +2955,6 @@ out:
  *          failure: -errno
  */
 
-int
-dict_serialize(dict_t *this, char *buf)
-{
-    int ret = -1;
-
-    if (!this || !buf) {
-        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict is null!");
-        goto out;
-    }
-
-    LOCK(&this->lock);
-    {
-        ret = dict_serialize_lk(this, buf);
-    }
-    UNLOCK(&this->lock);
-out:
-    return ret;
-}
 
 /**
  * dict_unserialize - unserialize a buffer into a dict
