@@ -12,7 +12,7 @@
 #include "server-helpers.h"
 #include "server-messages.h"
 
-static int
+static void
 server_resolve_all(call_frame_t *frame, server_state_t *state);
 static int
 resolve_entry_simple(call_frame_t *frame, server_state_t *state,
@@ -20,24 +20,12 @@ resolve_entry_simple(call_frame_t *frame, server_state_t *state,
 static int
 resolve_inode_simple(call_frame_t *frame, server_state_t *state,
                      server_resolve_t *resolve);
-static int
+static void
 resolve_continue(call_frame_t *frame, server_state_t *state,
                  server_resolve_t *resolve);
 static int
 resolve_anonfd_simple(call_frame_t *frame, server_state_t *state,
                       server_resolve_t *resolve);
-
-static int
-resolve_loc_touchup(call_frame_t *frame, server_state_t *state,
-                    server_resolve_t *resolve)
-{
-    loc_t *loc = NULL;
-
-    loc = state->loc_now;
-
-    loc_touchup(loc, resolve->bname);
-    return 0;
-}
 
 static int
 resolve_name_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -199,7 +187,7 @@ out:
     return 0;
 }
 
-static int
+static void
 resolve_gfid(call_frame_t *frame, server_state_t *state,
              server_resolve_t *resolve)
 {
@@ -231,11 +219,9 @@ resolve_gfid(call_frame_t *frame, server_state_t *state,
 
     if (xdata)
         dict_unref(xdata);
-
-    return 0;
 }
 
-static int
+static void
 resolve_continue(call_frame_t *frame, server_state_t *state,
                  server_resolve_t *resolve)
 {
@@ -257,11 +243,9 @@ resolve_continue(call_frame_t *frame, server_state_t *state,
                      "simple %d",
                      ret);
 
-    resolve_loc_touchup(frame, state, resolve);
+    loc_touchup(state->loc_now, resolve->bname);
 out:
     server_resolve_all(frame, state);
-
-    return 0;
 }
 
 /*
@@ -365,7 +349,7 @@ out:
     return ret;
 }
 
-static int
+static void
 server_resolve_entry(call_frame_t *frame, server_state_t *state,
                      server_resolve_t *resolve)
 {
@@ -386,15 +370,10 @@ server_resolve_entry(call_frame_t *frame, server_state_t *state,
         } else {
             resolve_gfid(frame, state, resolve);
         }
-        return 0;
+    } else {
+        loc_touchup(state->loc_now, resolve->bname);
+        server_resolve_all(frame, state);
     }
-
-    if (ret == 0)
-        resolve_loc_touchup(frame, state, resolve);
-
-    server_resolve_all(frame, state);
-
-    return 0;
 }
 
 static int
@@ -409,7 +388,6 @@ resolve_inode_simple(call_frame_t *frame, server_state_t *state,
     if (!inode) {
         if (resolve->type == RESOLVE_DONTCARE) {
             gf_uuid_copy(state->loc_now->gfid, resolve->gfid);
-            ret = 0;
         } else {
             resolve->op_ret = -1;
             resolve->op_errno = ESTALE;
@@ -417,8 +395,6 @@ resolve_inode_simple(call_frame_t *frame, server_state_t *state,
         }
         goto out;
     }
-
-    ret = 0;
 
     state->loc_now->inode = inode_ref(inode);
     gf_uuid_copy(state->loc_now->gfid, resolve->gfid);
@@ -430,29 +406,23 @@ out:
     return ret;
 }
 
-static int
+static void
 server_resolve_inode(call_frame_t *frame, server_state_t *state,
                      server_resolve_t *resolve)
 {
     int ret = 0;
     loc_t *loc = NULL;
 
-    loc = state->loc_now;
-
     ret = resolve_inode_simple(frame, state, resolve);
 
     if (ret > 0) {
+        loc = state->loc_now;
         loc_wipe(loc);
         resolve_gfid(frame, state, resolve);
-        return 0;
+    } else {
+        loc_touchup(state->loc_now, resolve->bname);
+        server_resolve_all(frame, state);
     }
-
-    if (ret == 0)
-        resolve_loc_touchup(frame, state, resolve);
-
-    server_resolve_all(frame, state);
-
-    return 0;
 }
 
 static int
@@ -468,10 +438,12 @@ resolve_anonfd_simple(call_frame_t *frame, server_state_t *state,
         resolve->op_ret = -1;
         resolve->op_errno = ENOENT;
         ret = 1;
+        gf_msg_debug("server", 0,
+                     "inode for the gfid"
+                     "(%s) is not found. anonymous fd creation failed",
+                     uuid_utoa(resolve->gfid));
         goto out;
     }
-
-    ret = 0;
 
     if (frame->root->op == GF_FOP_READ || frame->root->op == GF_FOP_WRITE)
         state->fd = fd_anonymous_with_flags(inode, state->flags);
@@ -481,15 +453,10 @@ out:
     if (inode)
         inode_unref(inode);
 
-    if (ret != 0)
-        gf_msg_debug("server", 0,
-                     "inode for the gfid"
-                     "(%s) is not found. anonymous fd creation failed",
-                     uuid_utoa(resolve->gfid));
     return ret;
 }
 
-static int
+static void
 server_resolve_anonfd(call_frame_t *frame, server_state_t *state,
                       server_resolve_t *resolve)
 {
@@ -502,27 +469,24 @@ server_resolve_anonfd(call_frame_t *frame, server_state_t *state,
         loc = state->loc_now;
         loc_wipe(loc);
         resolve_gfid(frame, state, resolve);
-        return 0;
+    } else {
+        server_resolve_all(frame, state);
     }
-
-    server_resolve_all(frame, state);
-
-    return 0;
 }
 
-static int
+static void
 server_resolve_fd(call_frame_t *frame, server_state_t *state,
                   server_resolve_t *resolve)
 {
     server_ctx_t *serv_ctx = NULL;
     client_t *client = NULL;
-    uint64_t fd_no = -1;
+    uint64_t fd_no;
 
     fd_no = resolve->fd_no;
 
     if (fd_no == GF_ANON_FD_NO) {
         server_resolve_anonfd(frame, state, resolve);
-        return 0;
+        return;
     }
 
     client = frame->root->client;
@@ -534,7 +498,7 @@ server_resolve_fd(call_frame_t *frame, server_state_t *state,
                "server_ctx_get() failed");
         resolve->op_ret = -1;
         resolve->op_errno = ENOMEM;
-        return 0;
+        return;
     }
 
     /*
@@ -573,11 +537,9 @@ server_resolve_fd(call_frame_t *frame, server_state_t *state,
     }
 
     server_resolve_all(frame, state);
-
-    return 0;
 }
 
-static int
+static void
 server_resolve(call_frame_t *frame, server_state_t *state)
 {
     server_resolve_t *resolve = NULL;
@@ -604,25 +566,21 @@ server_resolve(call_frame_t *frame, server_state_t *state)
 
         server_resolve_all(frame, state);
     }
-
-    return 0;
 }
 
-static int
+static void
 server_resolve_done(call_frame_t *frame, server_state_t *state)
 {
     server_print_request(frame);
 
     state->resume_fn(frame, frame->root->client->bound_xl);
-
-    return 0;
 }
 
 /*
  * This function is called multiple times, once per resolving one location/fd.
  * state->resolve_now is used to decide which location/fd is to be resolved now
  */
-static int
+static void
 server_resolve_all(call_frame_t *frame, server_state_t *state)
 {
     if (state->resolve_now == NULL) {
@@ -645,11 +603,9 @@ server_resolve_all(call_frame_t *frame, server_state_t *state)
                "Invalid pointer for "
                "state->resolve_now");
     }
-
-    return 0;
 }
 
-int
+void
 resolve_and_resume(call_frame_t *frame, server_resume_fn_t fn)
 {
     server_state_t *state = NULL;
@@ -658,6 +614,4 @@ resolve_and_resume(call_frame_t *frame, server_resume_fn_t fn)
     state->resume_fn = fn;
 
     server_resolve_all(frame, state);
-
-    return 0;
 }

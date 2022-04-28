@@ -102,7 +102,7 @@ typedef struct {
 
 typedef int (*server_resume_fn_t)(call_frame_t *frame, xlator_t *bound_xl);
 
-int
+void
 resolve_and_resume(call_frame_t *frame, server_resume_fn_t fn);
 
 struct _server_state {
