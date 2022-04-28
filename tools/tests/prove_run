@@ -1,0 +1,78 @@
+#!/bin/bash
+
+set -u
+
+function reset() {
+    while pgrep gluster >/dev/null; do
+        pkill -9 gluster
+        sleep 0.1
+    done
+
+    findmnt -t fuse.glusterfs -o TARGET | tail -n +2 | xargs -r -n 1 umount
+    mkdir -p /d/dev
+    vgremove -fyS "vg_name=~_$(hostname -s)_"
+    for dev in $(ls /d/dev/ 2>/dev/null); do
+        losetup -d /d/dev/${dev}
+        rm -f /d/dev/${dev}
+    done
+}
+
+function clean_all() {
+    rm -rf /d/* 2>/dev/null
+    mkdir /d/dev
+    fstrim /d
+
+    rm -rf /var/log/glusterfs 2>/dev/null
+    mkdir -p /var/log/glusterfs 2>/dev/null
+
+    rm -rf /var/lib/glusterd 2>/dev/null
+    tar -xf /tmp/glusterd-backup.tgz -C /var/lib
+}
+
+function prepare() {
+    reset
+
+    tar -czf /tmp/glusterd-backup.tgz -C /var/lib glusterd
+
+    clean_all
+}
+
+function terminate() {
+    local name="${1}"
+    local url
+
+    reset
+
+    tar -czf /tmp/glusterfs-logs.tgz -C /var/log glusterfs
+
+    if [[ -n "${HOST_URL}" ]]; then
+        url="${HOST_URL}/run/${name%.t}.$(date --utc +"%Y%m%d%H%M%S").tgz"
+        curl -s -X PUT --upload-file /tmp/glusterfs-logs.tgz "${url}" >/dev/null
+    fi
+
+    clean_all
+}
+
+prepare
+
+ROOT="/root/glusterfs"
+NAME="$(realpath --relative-to "${ROOT}" "${1}")"
+LOG="/tmp/output.log"
+
+pushd "${ROOT}" >/dev/null
+
+echo "$(date --utc --rfc-3339 seconds) - $(hostname -s)" >"${LOG}"
+res="0"
+if ! prove -vmfe /bin/bash "${NAME}" >>"${LOG}" 2>&1; then
+    res="1"
+fi
+echo "$(date --utc --rfc-3339 seconds) - Result: ${res}" >>"${LOG}"
+
+mv "${LOG}" /var/log/glusterfs/
+
+popd >/dev/null
+
+terminate "${NAME}"
+
+exit ${res}
+
