@@ -379,26 +379,16 @@ cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 }
 
 int
-cli_cmd_pattern_cmp(void *a, void *b)
+cli_cmd_pattern_cmp(const void *a, const void *b)
 {
-    struct cli_cmd *ia = NULL;
-    struct cli_cmd *ib = NULL;
-    int ret = 0;
+    const struct cli_cmd *ia = (const struct cli_cmd *)a;
+    const struct cli_cmd *ib = (const struct cli_cmd *)b;
 
-    ia = a;
-    ib = b;
-    if (strcmp(ia->pattern, ib->pattern) > 0)
-        ret = 1;
-    else if (strcmp(ia->pattern, ib->pattern) < 0)
-        ret = -1;
-    else
-        ret = 0;
-    return ret;
+    return strcmp(ia->pattern, ib->pattern);
 }
 
 void
 cli_cmd_sort(struct cli_cmd *cmd, int count)
 {
-    gf_array_insertionsort(cmd, 1, count - 2, sizeof(struct cli_cmd),
-                           cli_cmd_pattern_cmp);
+    qsort(cmd, count - 1, sizeof(struct cli_cmd), cli_cmd_pattern_cmp);
 }

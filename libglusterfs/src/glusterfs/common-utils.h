@@ -1035,9 +1035,6 @@ gf_leaseid_get(void);
 char *
 gf_existing_leaseid(void);
 
-void
-gf_array_insertionsort(void *a, int l, int r, size_t elem_size, gf_cmp cmp);
-
 char *gf_uint64_2human_readable(uint64_t);
 char *
 get_host_name(char *word, char **host);
