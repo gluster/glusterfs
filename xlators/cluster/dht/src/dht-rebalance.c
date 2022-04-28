@@ -2487,13 +2487,12 @@ gf_defrag_pattern_match(gf_defrag_info_t *defrag, char *name, uint64_t size)
 
     GF_VALIDATE_OR_GOTO("dht", defrag, out);
 
-    trav = defrag->defrag_pattern;
-    while (trav) {
+    list_for_each_entry(trav, &defrag->defrag_pattern, list)
+    {
         if (!fnmatch(trav->path_pattern, name, FNM_NOESCAPE)) {
             match = _gf_true;
             break;
         }
-        trav = trav->next;
     }
 
     if ((match == _gf_true) && (size >= trav->size))
@@ -2693,7 +2692,7 @@ gf_defrag_migrate_single_file(void *opaque)
         gettimeofday(&start, NULL);
     }
 
-    if (defrag->defrag_pattern &&
+    if (!list_empty(&defrag->defrag_pattern) &&
         (gf_defrag_pattern_match(defrag, entry->d_name,
                                  entry->d_stat.ia_size) == _gf_false)) {
         gf_log(this->name, GF_LOG_ERROR, "pattern_match failed");
@@ -3167,7 +3166,7 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
 
         defrag->num_files_lookedup++;
 
-        if (defrag->defrag_pattern &&
+        if (!list_empty(&defrag->defrag_pattern) &&
             (gf_defrag_pattern_match(defrag, df_entry->d_name,
                                      df_entry->d_stat.ia_size) == _gf_false)) {
             defrag->size_processed += df_entry->d_stat.ia_size;
