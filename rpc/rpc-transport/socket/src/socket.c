@@ -160,7 +160,6 @@ ssl_setup_connection_params(rpc_transport_t *this);
 struct socket_connect_error_state_ {
     xlator_t *this;
     rpc_transport_t *trans;
-    gf_boolean_t refd;
 };
 typedef struct socket_connect_error_state_ socket_connect_error_state_t;
 
@@ -3281,8 +3280,7 @@ socket_connect_error_cbk(void *opaque)
 
     rpc_transport_notify(arg->trans, RPC_TRANSPORT_DISCONNECT, arg->trans);
 
-    if (arg->refd)
-        rpc_transport_unref(arg->trans);
+    rpc_transport_unref(arg->trans);
 
     GF_FREE(opaque);
     return NULL;
@@ -3607,7 +3605,11 @@ err:
         arg = GF_CALLOC(1, sizeof(*arg), gf_sock_connect_error_state_t);
         arg->this = THIS;
         arg->trans = this;
-        arg->refd = refd;
+        if (!refd) {
+            /* A reference is required by the thread that will handle the
+             * error. */
+            rpc_transport_ref(this);
+        }
         th_ret = gf_thread_create_detached(&th_id, socket_connect_error_cbk,
                                            arg, "scleanup");
         if (th_ret) {
