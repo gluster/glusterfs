@@ -1,7 +1,9 @@
 #!/bin/bash
 
 LVM_DEFINED=0
-LVM_PREFIX="patchy_snap_${GFREG_ID}"
+# Replace any '-' by '_' to avoid that device manager modifies the name of
+# the device (it replaces '-' by '--' in /dev/mapper)
+LVM_PREFIX="patchy_snap_${GFREG_ID//-/_}"
 LVM_COUNT=0
 VHD_SIZE="300M"
 
