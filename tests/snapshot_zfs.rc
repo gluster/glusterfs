@@ -1,7 +1,9 @@
 #!/bin/bash
 
 ZFS_DEFINED=0
-ZFS_PREFIX="patchy_snap_${GFREG_ID}"
+# Replace any '-' by '_' to avoid that device manager modifies the name of
+# the device (it replaces '-' by '--' in /dev/mapper)
+ZFS_PREFIX="patchy_snap_${GFREG_ID//-/_}"
 ZFS_COUNT=0
 VHD_SIZE="300M"
 
