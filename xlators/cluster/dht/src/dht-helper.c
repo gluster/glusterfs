@@ -724,7 +724,8 @@ dht_local_wipe(dht_local_t *local)
     if (local->xattr)
         dict_unref(local->xattr);
 
-    inode_unref(local->inode);
+    if (local->inode)
+        inode_unref(local->inode);
 
     if (local->layout) {
         dht_layout_unref(local->layout);
@@ -736,7 +737,8 @@ dht_local_wipe(dht_local_t *local)
     if (local->linkfile.xattr)
         dict_unref(local->linkfile.xattr);
 
-    inode_unref(local->linkfile.inode);
+    if (local->linkfile.inode)
+        inode_unref(local->linkfile.inode);
 
     if (local->fd) {
         fd_unref(local->fd);
@@ -949,8 +951,9 @@ dht_subvol_get_hashed(xlator_t *this, loc_t *loc)
     }
 
 out:
-
-    dht_layout_unref(layout);
+    if (layout) {
+        dht_layout_unref(layout);
+    }
 
     return subvol;
 }
@@ -973,8 +976,9 @@ dht_subvol_get_cached(xlator_t *this, inode_t *inode)
     subvol = layout->list[0].xlator;
 
 out:
-
-    dht_layout_unref(layout);
+    if (layout) {
+        dht_layout_unref(layout);
+    }
 
     return subvol;
 }
@@ -1821,7 +1825,8 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
     }
     UNLOCK(&inode->lock);
 
-    dht_layout_unref(old_layout);
+    if (old_layout)
+        dht_layout_unref(old_layout);
 
     return ret;
 }

@@ -327,8 +327,8 @@ out:
                               and/or inodes to create");
         avail_subvol = subvol;
     }
-
-    dht_layout_unref(layout);
+    if (layout)
+        dht_layout_unref(layout);
     return avail_subvol;
 }
 
