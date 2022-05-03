@@ -18,7 +18,7 @@
 
 #include "glfs-internal.h"
 
-int
+static int
 gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
 {
     int ret = 0;
@@ -56,7 +56,7 @@ gf_setcredentials(uid_t *uid, gid_t *gid, uint16_t ngrps, uint32_t *groups)
     return 0;
 }
 
-int32_t
+static int32_t
 svs_lookup_entry_point(xlator_t *this, loc_t *loc, inode_t *parent,
                        struct iatt *buf, struct iatt *postparent,
                        int32_t *op_errno)
@@ -232,7 +232,7 @@ out:
    the name-less lookup on the gfid (which can be obtained from
    parent's context
 */
-int32_t
+static int32_t
 svs_lookup_snapshot(xlator_t *this, loc_t *loc, struct iatt *buf,
                     struct iatt *postparent, inode_t *parent,
                     svs_inode_t *parent_ctx, int32_t *op_errno)
@@ -887,7 +887,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 svs_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
              dict_t *xdata)
 {
@@ -1211,7 +1211,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_releasedir(xlator_t *this, fd_t *fd)
 {
     svs_fd_t *sfd = NULL;
@@ -1256,7 +1256,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     int32_t op_ret = -1;
@@ -1305,7 +1305,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_release(xlator_t *this, fd_t *fd)
 {
     svs_fd_t *sfd = NULL;
@@ -1349,7 +1349,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_forget(xlator_t *this, inode_t *inode)
 {
     int ret = -1;
@@ -1403,7 +1403,7 @@ out:
     return 0;
 }
 
-int
+static int
 svs_fill_readdir(xlator_t *this, gf_dirent_t *entries, size_t size, off_t off)
 {
     gf_dirent_t *entry = NULL;
@@ -1461,7 +1461,7 @@ out:
     return count;
 }
 
-int32_t
+static int32_t
 svs_glfs_readdir(xlator_t *this, glfs_fd_t *glfd, gf_dirent_t *entries,
                  int32_t *op_errno, struct iatt *buf, gf_boolean_t readdirplus,
                  size_t size)
@@ -1560,7 +1560,7 @@ out:
       structure is used with the exception that the gfid and the inode
       numbers will be newly generated and filled in.
 */
-void
+static void
 svs_readdirp_fill(xlator_t *this, inode_t *parent, svs_inode_t *parent_ctx,
                   gf_dirent_t *entry)
 {
@@ -1661,7 +1661,7 @@ out:
    costly operation. So the fs and handle is NULL in the inode context
    and is filled in when lookup comes on that object.
 */
-int32_t
+static int32_t
 svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t off, dict_t *dict)
 {
@@ -1758,7 +1758,7 @@ unwind:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             off_t off, dict_t *xdata)
 {
@@ -2122,7 +2122,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
 {
     struct statvfs buf = {
@@ -2182,7 +2182,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata)
 {
@@ -2255,7 +2255,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
           off_t offset, uint32_t flags, dict_t *xdata)
 {
@@ -2369,7 +2369,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 svs_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc, size_t size,
              dict_t *xdata)
 {
