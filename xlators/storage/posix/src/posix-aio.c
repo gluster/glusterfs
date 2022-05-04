@@ -173,7 +173,7 @@ out:
     return 0;
 }
 
-int
+static int
 posix_aio_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                 off_t offset, uint32_t flags, dict_t *xdata)
 {
@@ -314,7 +314,7 @@ out:
     return 0;
 }
 
-int
+static int
 posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
                  struct iovec *iov, int count, off_t offset, uint32_t flags,
                  struct iobref *iobref, dict_t *xdata)
@@ -453,7 +453,7 @@ out:
     return 0;
 }
 
-int
+static int
 posix_aio_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
                 dict_t *xdata)
 {
@@ -517,7 +517,7 @@ err:
     return 0;
 }
 
-void *
+static void *
 posix_aio_thread(void *data)
 {
     xlator_t *this = NULL;
@@ -570,7 +570,7 @@ posix_aio_thread(void *data)
     return NULL;
 }
 
-int
+static int
 posix_aio_init(xlator_t *this)
 {
     struct posix_private *priv = NULL;
