@@ -14,10 +14,10 @@ TEST $CLI_1 peer probe $H2
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 
 TEST $CLI_1 volume create $V0 $H1:$L1/B1 $H2:$L2/B1
-EXPECT 'Created' volinfo_field $V0 'Status'
+EXPECT 'Created' volinfo_field_1 $V0 'Status'
 
 TEST $CLI_1 volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT 'Started' volinfo_field_1 $V0 'Status'
 
 TEST $CLI_1 snapshot create ${V0}_snap1 ${V0} no-timestamp
 TEST snapshot_exists 1 ${V0}_snap1
