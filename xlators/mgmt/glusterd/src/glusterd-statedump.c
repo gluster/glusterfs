@@ -56,7 +56,7 @@ glusterd_dump_peer(glusterd_peerinfo_t *peerinfo, char *input_key, int index,
     gf_proc_dump_write(key, "%d", peerinfo->port);
 
     gf_proc_dump_build_key(key, subkey, "state");
-    gf_proc_dump_write(key, "%d", peerinfo->state.state);
+    gf_proc_dump_write(key, "%d", peerinfo->state);
 
     gf_proc_dump_build_key(key, subkey, "quorum-action");
     gf_proc_dump_write(key, "%d", peerinfo->quorum_action);

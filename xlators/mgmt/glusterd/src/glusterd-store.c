@@ -4490,7 +4490,7 @@ glusterd_store_peer_write(int fd, glusterd_peerinfo_t *peerinfo)
 
     ret = snprintf(buf + total_len, sizeof(buf) - total_len, "%s=%s\n%s=%d\n",
                    GLUSTERD_STORE_KEY_PEER_UUID, uuid_utoa(peerinfo->uuid),
-                   GLUSTERD_STORE_KEY_PEER_STATE, peerinfo->state.state);
+                   GLUSTERD_STORE_KEY_PEER_STATE, peerinfo->state);
     if (ret < 0 || ret >= sizeof(buf) - total_len) {
         ret = -1;
         goto out;
@@ -4656,7 +4656,7 @@ glusterd_store_retrieve_peers(xlator_t *this)
                     gf_uuid_parse(value, peerinfo->uuid);
             } else if (!strncmp(GLUSTERD_STORE_KEY_PEER_STATE, key,
                                 SLEN(GLUSTERD_STORE_KEY_PEER_STATE))) {
-                peerinfo->state.state = atoi(value);
+                peerinfo->state = atoi(value);
             } else if (!strncmp(GLUSTERD_STORE_KEY_PEER_HOSTNAME, key,
                                 SLEN(GLUSTERD_STORE_KEY_PEER_HOSTNAME))) {
                 ret = gd_add_address_to_peer(peerinfo, value, _gf_false);

@@ -435,9 +435,10 @@ glusterd_muxsvc_common_rpc_notify(glusterd_svc_proc_t *mux_proc,
                 }
             }
             if (mux_proc->status != GF_SVC_DIED) {
-                svc = (cds_list_empty(&mux_proc->svcs) ? NULL :
-                       cds_list_entry(mux_proc->svcs.next, glusterd_svc_t,
-                                      mux_svc));
+                svc = (cds_list_empty(&mux_proc->svcs)
+                           ? NULL
+                           : cds_list_entry(mux_proc->svcs.next, glusterd_svc_t,
+                                            mux_svc));
                 if (svc && !glusterd_proc_is_running(&svc->proc)) {
                     mux_proc->status = GF_SVC_DIED;
                 } else {
@@ -509,7 +510,6 @@ glusterd_muxsvc_conn_init(glusterd_conn_t *conn, glusterd_svc_proc_t *mux_proc,
     else
         ret = 0;
 
-    conn->frame_timeout = frame_timeout;
     conn->rpc = rpc;
     mux_proc->notify = notify;
 out:

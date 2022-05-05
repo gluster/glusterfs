@@ -113,7 +113,7 @@ gd_peerinfo_find_from_hostname(const char *hoststr)
         {
             if (!strncasecmp(tmphost->hostname, hoststr, 1024)) {
                 gf_msg_debug(this->name, 0, "Friend %s found.. state: %d",
-                             tmphost->hostname, peer->state.state);
+                             tmphost->hostname, peer->state);
                 found = peer; /* Probably needs to be
                                  dereferenced*/
                 goto unlock;
@@ -314,7 +314,7 @@ glusterd_peerinfo_find_by_uuid(uuid_t uuid)
     {
         if (!gf_uuid_compare(entry->uuid, uuid)) {
             found = entry; /* Probably should be rcu_dereferenced */
-            state = found->state.state;
+            state = found->state;
             break;
         }
     }
@@ -391,7 +391,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
 
     CDS_INIT_LIST_HEAD(&new_peer->uuid_list);
 
-    new_peer->state.state = state;
+    new_peer->state = state;
 
     CDS_INIT_LIST_HEAD(&new_peer->hostnames);
     if (hostname) {
@@ -415,7 +415,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
     if (ret)
         goto out;
 
-    if (new_peer->state.state == GD_FRIEND_STATE_BEFRIENDED)
+    if (new_peer->state == GD_FRIEND_STATE_BEFRIENDED)
         new_peer->quorum_contrib = QUORUM_WAITING;
     new_peer->port = port;
 
@@ -450,7 +450,7 @@ glusterd_chk_peers_connected_befriended(uuid_t skip_uuid)
             !gf_uuid_compare(skip_uuid, peerinfo->uuid))
             continue;
 
-        if ((GD_FRIEND_STATE_BEFRIENDED != peerinfo->state.state) ||
+        if ((GD_FRIEND_STATE_BEFRIENDED != peerinfo->state) ||
             !(peerinfo->connected)) {
             ret = _gf_false;
             break;
@@ -555,7 +555,7 @@ glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
             /*Found peer who owns the brick, return false
              * if peer is not connected or not friend */
             if (!(peerinfo->connected) ||
-                (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
+                (peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)) {
                 *down_peerstr = gf_strdup(peerinfo->hostname);
                 RCU_READ_UNLOCK;
                 gf_msg_debug(THIS->name, 0, "Peer %s is down. ", *down_peerstr);
@@ -964,7 +964,7 @@ gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
     }
 
     keylen = snprintf(key, sizeof(key), "friend%d.stateId", count);
-    ret = dict_set_int32n(friends, key, keylen, peerinfo->state.state);
+    ret = dict_set_int32n(friends, key, keylen, peerinfo->state);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                 "Key=%s in dict", key, NULL);
@@ -972,9 +972,8 @@ gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
     }
 
     keylen = snprintf(key, sizeof(key), "friend%d.state", count);
-    ret = dict_set_strn(
-        friends, key, keylen,
-        glusterd_friend_sm_state_name_get(peerinfo->state.state));
+    ret = dict_set_strn(friends, key, keylen,
+                        glusterd_friend_sm_state_name_get(peerinfo->state));
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "key=%s",
                 key, NULL);
@@ -1018,7 +1017,7 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
     {
         if (entry->generation == generation) {
             found = entry; /* Probably should be rcu_dereferenced */
-            state = found->state.state;
+            state = found->state;
             break;
         }
     }

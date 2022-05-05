@@ -42,11 +42,6 @@ typedef enum glusterd_friend_sm_state_ {
     GD_FRIEND_STATE_MAX
 } glusterd_friend_sm_state_t;
 
-typedef struct glusterd_peer_state_info_ {
-    glusterd_friend_sm_state_t state;
-    struct timeval transition_time;
-} glusterd_peer_state_info_t;
-
 typedef struct glusterd_peer_hostname_ {
     char *hostname;
     struct cds_list_head hostname_list;
@@ -73,7 +68,7 @@ struct glusterd_peerinfo_ {
     char uuid_str[50]; /* Retrieve this using
                         * gd_peer_uuid_str ()
                         */
-    glusterd_peer_state_info_t state;
+    glusterd_friend_sm_state_t state;
     char *hostname;
     struct cds_list_head hostnames;
     int port;
