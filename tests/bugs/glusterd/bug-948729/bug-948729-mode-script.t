@@ -70,6 +70,9 @@ UMOUNT_LOOP $B1/$V0
 UMOUNT_LOOP $B2/$V0
 UMOUNT_LOOP $B3/$V0
 
+rm -rf /$uuid1/.glusterfs /$uuid2/.glusterfs /$uuid3/.glusterfs;
+rmdir /$uuid1 /$uuid2 /$uuid3;
+
 rm -f  $B1/brick1
 rm -f  $B2/brick2
 rm -f  $B3/brick3

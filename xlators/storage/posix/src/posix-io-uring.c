@@ -203,7 +203,7 @@ posix_prep_readv(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
                         ctx->fop.read.offset);
 }
 
-int
+static int
 posix_io_uring_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                      off_t offset, uint32_t flags, dict_t *xdata)
 {
@@ -318,7 +318,7 @@ posix_prep_writev(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
                          ctx->fop.write.count, ctx->fop.write.offset);
 }
 
-int
+static int
 posix_io_uring_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
                       struct iovec *iov, int count, off_t offset,
                       uint32_t flags, struct iobref *iobref, dict_t *xdata)
@@ -409,7 +409,7 @@ posix_prep_fsync(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
     io_uring_prep_fsync(sqe, ctx->_fd, ctx->fop.fsync.datasync);
 }
 
-int
+static int
 posix_io_uring_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd,
                      int32_t datasync, dict_t *xdata)
 {
@@ -560,11 +560,9 @@ posix_io_uring_drain(struct posix_private *priv)
     return ret;
 }
 
-void
-posix_io_uring_fini(xlator_t *this)
+static void
+posix_io_uring_fini(struct posix_private *priv)
 {
-    struct posix_private *priv = this->private;
-
     posix_io_uring_drain(priv);
     (void)pthread_join(priv->uring_thread, NULL);
     io_uring_queue_exit(&priv->ring);
@@ -613,7 +611,7 @@ posix_io_uring_off(xlator_t *this)
     this->fops->writev = posix_writev;
     this->fops->fsync = posix_fsync;
     if (priv->io_uring_capable)
-        posix_io_uring_fini(this);
+        posix_io_uring_fini(priv);
 
     return 0;
 }

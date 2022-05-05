@@ -49,6 +49,10 @@
 
 #define GF_O_FMODE_EXEC 040
 
+/* refer 2717 */
+#define GF_O_PATH 010000000
+
+
 #define XLATE_BIT(from, to, bit)                                               \
     do {                                                                       \
         if (from & bit)                                                        \
@@ -118,6 +122,9 @@ gf_flags_from_flags(uint32_t flags)
 #endif
     XLATE_BIT(flags, gf_flags, O_LARGEFILE);
     XLATE_BIT(flags, gf_flags, O_FMODE_EXEC);
+#ifdef O_PATH
+    XLATE_BIT(flags, gf_flags, O_PATH);
+#endif
 
     return gf_flags;
 }
@@ -149,6 +156,9 @@ gf_flags_to_flags(uint32_t gf_flags)
 #endif
     UNXLATE_BIT(gf_flags, flags, O_LARGEFILE);
     UNXLATE_BIT(gf_flags, flags, O_FMODE_EXEC);
+#ifdef O_PATH
+    UNXLATE_BIT(gf_flags, flags, O_PATH);
+#endif
 
     return flags;
 }
@@ -216,14 +226,15 @@ gf_proto_lease_from_lease(struct gf_proto_lease *gf_proto_lease,
 }
 
 static inline int
-gf_proto_recall_lease_to_upcall(struct gfs3_recall_lease_req *recall_lease,
+gf_proto_recall_lease_to_upcall(xlator_t *this,
+                                struct gfs3_recall_lease_req *recall_lease,
                                 struct gf_upcall *gf_up_data)
 {
     struct gf_upcall_recall_lease *tmp = NULL;
     int ret = 0;
 
-    GF_VALIDATE_OR_GOTO(THIS->name, recall_lease, out);
-    GF_VALIDATE_OR_GOTO(THIS->name, gf_up_data, out);
+    GF_VALIDATE_OR_GOTO(this->name, recall_lease, out);
+    GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
 
     tmp = (struct gf_upcall_recall_lease *)gf_up_data->data;
     tmp->lease_type = recall_lease->lease_type;
@@ -231,7 +242,7 @@ gf_proto_recall_lease_to_upcall(struct gfs3_recall_lease_req *recall_lease,
     memcpy(tmp->tid, recall_lease->tid, 16);
 
     GF_PROTOCOL_DICT_UNSERIALIZE(
-        THIS, tmp->dict, (recall_lease->xdata).xdata_val,
+        this, tmp->dict, (recall_lease->xdata).xdata_val,
         (recall_lease->xdata).xdata_len, ret, errno, out);
 out:
     return ret;
@@ -428,15 +439,13 @@ out:
 }
 
 static inline int
-gf_proto_inodelk_contention_to_upcall(struct gfs4_inodelk_contention_req *lc,
+gf_proto_inodelk_contention_to_upcall(xlator_t *this,
+                                      struct gfs4_inodelk_contention_req *lc,
                                       struct gf_upcall *gf_up_data)
 {
     struct gf_upcall_inodelk_contention *tmp = NULL;
-    xlator_t *this = NULL;
     int ret = -1;
     int op_errno = EINVAL;
-
-    this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, lc, out);
     GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);
@@ -502,15 +511,13 @@ out:
 }
 
 static inline int
-gf_proto_entrylk_contention_to_upcall(struct gfs4_entrylk_contention_req *lc,
+gf_proto_entrylk_contention_to_upcall(xlator_t *this,
+                                      struct gfs4_entrylk_contention_req *lc,
                                       struct gf_upcall *gf_up_data)
 {
     struct gf_upcall_entrylk_contention *tmp = NULL;
-    xlator_t *this = NULL;
     int ret = -1;
     int op_errno = EINVAL;
-
-    this = THIS;
 
     GF_VALIDATE_OR_GOTO(this->name, lc, out);
     GF_VALIDATE_OR_GOTO(this->name, gf_up_data, out);

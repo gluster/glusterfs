@@ -13,8 +13,8 @@ libgfrpc_la_LDFLAGS = -version-info $(LIBGFRPC_LT_VERSION) $(GF_LDFLAGS) \
 		      -export-symbols $(top_srcdir)/rpc/rpc-lib/src/libgfrpc.sym
 
 libgfrpc_la_HEADERS = rpcsvc.h rpc-transport.h xdr-common.h xdr-rpc.h xdr-rpcclnt.h \
-	rpc-clnt.h rpcsvc-common.h protocol-common.h rpc-drc.h rpc-clnt-ping.h \
-	rpc-lib-messages.h
+	rpc-clnt.h rpcsvc-common.h protocol-common.h protocol-utils.h \
+	rpc-drc.h rpc-clnt-ping.h rpc-lib-messages.h
 
 libgfrpc_ladir = $(includedir)/glusterfs/rpc
 

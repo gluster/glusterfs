@@ -121,8 +121,8 @@ typedef struct ob_inode {
 
 #define OB_POST_FD(_fop, _xl, _frame, _fd, _trigger, _args...)                 \
     do {                                                                       \
-        ob_inode_t *__ob_inode;                                                \
-        fd_t *__first_fd;                                                      \
+        ob_inode_t *__ob_inode = NULL;                                         \
+        fd_t *__first_fd = NULL;                                               \
         ob_state_t __ob_state = ob_open_and_resume_fd(                         \
             _xl, _fd, 0, true, _trigger, &__ob_inode, &__first_fd);            \
         switch (__ob_state) {                                                  \
@@ -143,8 +143,8 @@ typedef struct ob_inode {
 
 #define OB_POST_FLUSH(_xl, _frame, _fd, _args...)                              \
     do {                                                                       \
-        ob_inode_t *__ob_inode;                                                \
-        fd_t *__first_fd;                                                      \
+        ob_inode_t *__ob_inode = NULL;                                         \
+        fd_t *__first_fd = NULL;                                               \
         ob_state_t __ob_state = ob_open_and_resume_fd(                         \
             _xl, _fd, 0, true, false, &__ob_inode, &__first_fd);               \
         switch (__ob_state) {                                                  \
@@ -447,7 +447,7 @@ ob_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags, fd_t *fd,
     ob_inode_t *ob_inode = NULL;
     call_frame_t *open_frame;
     call_stub_t *stub;
-    fd_t *first_fd;
+    fd_t *first_fd = NULL;
     ob_state_t state;
 
     state = ob_open_behind(this, fd, flags, &ob_inode, &first_fd);
@@ -518,9 +518,9 @@ static int32_t
 ob_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
           mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
 {
-    ob_inode_t *ob_inode;
+    ob_inode_t *ob_inode = NULL;
     call_stub_t *stub;
-    fd_t *first_fd;
+    fd_t *first_fd = NULL;
     ob_state_t state;
 
     /* Create requests are never delayed. We always send them synchronously. */
@@ -551,13 +551,13 @@ ob_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
 
     /* In case of failure we need to decrement the number of open files because
      * ob_fdclose() won't be called. */
-
-    LOCK(&fd->inode->lock);
-    {
-        ob_inode->open_count--;
+    if (ob_inode != NULL) {
+        LOCK(&fd->inode->lock);
+        {
+            ob_inode->open_count--;
+        }
+        UNLOCK(&fd->inode->lock);
     }
-    UNLOCK(&fd->inode->lock);
-
     gf_smsg(this->name, GF_LOG_ERROR, -state, OPEN_BEHIND_MSG_FAILED, "fop=%s",
             "create", "path=%s", loc->path, NULL);
 

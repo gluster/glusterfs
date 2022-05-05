@@ -41,7 +41,7 @@
 #include "glusterd-server-quorum.h"
 #include <glusterfs/quota-common-utils.h>
 #include "glusterd-shd-svc-helper.h"
-#include "gd-common-utils.h"
+#include "protocol-utils.h"
 
 #include <sys/resource.h>
 #include <inttypes.h>
@@ -6577,7 +6577,7 @@ glusterd_restart_bricks(void *opaque)
                 if (!brickinfo->start_triggered) {
                     pthread_mutex_lock(&brickinfo->restart_mutex);
                     {
-                        glusterd_brick_start(volinfo, brickinfo, _gf_false,
+                        glusterd_brick_start(volinfo, brickinfo, _gf_true,
                                              _gf_false);
                     }
                     pthread_mutex_unlock(&brickinfo->restart_mutex);
@@ -6623,7 +6623,7 @@ glusterd_restart_bricks(void *opaque)
                     pthread_mutex_lock(&brickinfo->restart_mutex);
                     {
                         /* coverity[SLEEP] */
-                        glusterd_brick_start(volinfo, brickinfo, _gf_false,
+                        glusterd_brick_start(volinfo, brickinfo, _gf_true,
                                              _gf_false);
                     }
                     pthread_mutex_unlock(&brickinfo->restart_mutex);
@@ -7706,10 +7706,14 @@ out:
 
     if (*in_use) {
         if (path && curdir && !strcmp(path, curdir)) {
-            snprintf(msg, sizeof(msg),
-                     "%s is already part of a "
-                     "volume",
-                     path);
+            int z = snprintf(msg, sizeof(msg),
+                             "%s is already part of a "
+                             "volume",
+                             path);
+            if (z < 0 || z >= sizeof(msg)) {
+                snprintf(msg, sizeof(msg), "path too big");
+                ret = -1;
+            }
         } else {
             snprintf(msg, sizeof(msg),
                      "parent directory %s is "
@@ -7740,12 +7744,17 @@ glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
     /* Check for xattr support in backend fs */
     ret = sys_lsetxattr(path, "trusted.glusterfs.test", "working", 8, 0);
     if (ret == -1) {
-        snprintf(msg, sizeof(msg),
-                 "Glusterfs is not"
-                 " supported on brick: %s:%s.\nSetting"
-                 " extended attributes failed, reason:"
-                 " %s.",
-                 host, path, strerror(errno));
+        ret = snprintf(msg, sizeof(msg),
+                       "Glusterfs is not"
+                       " supported on brick: %s:%s.\nSetting"
+                       " extended attributes failed, reason:"
+                       " %s.",
+                       host, path, strerror(errno));
+        if (ret < 0 || ret >= sizeof(msg)) {
+            snprintf(msg, sizeof(msg), "path too big");
+            ret = -1;
+            goto out;
+        }
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SET_XATTR_BRICK_FAIL,
                 "Host=%s, Path=%s", host, path, NULL);
         goto out;

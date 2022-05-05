@@ -26,6 +26,8 @@ function create_bricks {
 
 function create_files {
         local i=1
+        local size="$(df --output=avail "${B0}/${V0}2/" | tail -n 1)"
+        fallocate -l $((${size} * 1024 - 262144)) ${B0}/${V0}2/.glusterfs/space
         while (true)
         do
                 touch $M0/file$i

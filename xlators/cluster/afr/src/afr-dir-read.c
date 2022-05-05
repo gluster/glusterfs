@@ -184,8 +184,7 @@ afr_readdir_transform_entries(pid_t pid, xlator_t *this,
          * which we check once (above) for all entries
          */
         if (is_root_gfid) {
-            if (afr_is_private_directory(priv, fd->inode->gfid, entry->d_name,
-                                         pid)) {
+            if (afr_is_private_directory(priv, entry->d_name, pid)) {
                 continue;
             }
         }

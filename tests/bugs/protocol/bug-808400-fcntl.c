@@ -39,7 +39,9 @@ run_child(char *filename)
         goto out;
     }
 
-    if ((lock.l_type == F_UNLCK) || (ppid != lock.l_pid)) {
+    /* In containerized environments, fuse may not be able to send a
+     * proper pid. In those cases it's 0. */
+    if ((lock.l_type == F_UNLCK) || ((lock.l_pid != 0) && (ppid != lock.l_pid))) {
         fprintf(stderr,
                 "no locks present, though parent has held "
                 "one\n");

@@ -206,10 +206,6 @@ void
 ec_handle_healers_done(ec_fop_data_t *fop);
 
 int32_t
-ec_heal_inspect(call_frame_t *frame, ec_t *ec, inode_t *inode,
-                unsigned char *locked_on, gf_boolean_t self_locked,
-                gf_boolean_t thorough, ec_heal_need_t *need_heal);
-int32_t
 ec_get_heal_info(xlator_t *this, loc_t *loc, dict_t **dict);
 
 int32_t
@@ -219,12 +215,7 @@ ec_lock_unlocked(call_frame_t *frame, void *cookie, xlator_t *this,
 void
 ec_update_fd_status(fd_t *fd, xlator_t *xl, int child_index,
                     int32_t ret_status);
-gf_boolean_t
-ec_is_entry_healing(ec_fop_data_t *fop);
-void
-ec_set_entry_healing(ec_fop_data_t *fop);
-void
-ec_reset_entry_healing(ec_fop_data_t *fop);
+
 char *
 ec_msg_str(ec_fop_data_t *fop);
 gf_boolean_t

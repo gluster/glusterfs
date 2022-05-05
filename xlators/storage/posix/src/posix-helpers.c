@@ -178,7 +178,7 @@ posix_set_mode_in_dict(dict_t *in_dict, dict_t *out_dict, struct iatt *in_stbuf)
     int ret = -1;
     mode_t mode = 0;
 
-    if ((!in_dict) || (!in_stbuf) || (!out_dict)) {
+    if ((!in_stbuf) || (!out_dict)) {
         goto out;
     }
 
@@ -657,24 +657,23 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
 {
     int ret = 0;
     struct stat fstatbuf;
-    struct iatt stbuf = {
-        0,
-    };
     struct posix_private *priv = NULL;
 
-    priv = this->private;
+    if (stbuf_p == NULL)
+        goto out;
 
     ret = sys_fstat(fd, &fstatbuf);
-    if (ret == -1)
+    if (ret != 0)
         goto out;
 
     if (fstatbuf.st_nlink && !S_ISDIR(fstatbuf.st_mode))
         fstatbuf.st_nlink--;
 
-    iatt_from_stat(&stbuf, &fstatbuf);
+    iatt_from_stat(stbuf_p, &fstatbuf);
 
+    priv = this->private;
     if (inode && fetch_time && priv->ctime) {
-        ret = posix_get_mdata_xattr(this, NULL, fd, inode, &stbuf);
+        ret = posix_get_mdata_xattr(this, NULL, fd, inode, stbuf_p);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
                    "posix get mdata failed on gfid: %s",
@@ -682,14 +681,10 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
             goto out;
         }
     }
-    ret = posix_fill_gfid_fd(fd, &stbuf);
-    stbuf.ia_flags |= IATT_GFID;
+    ret = posix_fill_gfid_fd(fd, stbuf_p);
+    stbuf_p->ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(&stbuf);
-
-    if (stbuf_p)
-        memcpy(stbuf_p, &stbuf, sizeof(struct iatt));
-    ;
+    posix_fill_ino_from_gfid(stbuf_p);
 
 out:
     return ret;
@@ -1434,7 +1429,7 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
     return 0; /* 0 = FTW_CONTINUE */
 }
 
-void
+static void
 __posix_janitor_timer_start(xlator_t *this);
 
 static int
@@ -1528,7 +1523,7 @@ posix_janitor_task_initator(struct gf_tw_timer_list *timer, void *data,
     return;
 }
 
-void
+static void
 __posix_janitor_timer_start(xlator_t *this)
 {
     struct posix_private *priv = NULL;
@@ -2378,13 +2373,11 @@ out:
     return ret;
 }
 
-int
-posix_fsyncer_pick(xlator_t *this, struct list_head *head)
+static int
+posix_fsyncer_pick(struct posix_private *priv, struct list_head *head)
 {
-    struct posix_private *priv = NULL;
     int count = 0;
 
-    priv = this->private;
     pthread_mutex_lock(&priv->fsync_mutex);
     {
         while (list_empty(&priv->fsyncs))
@@ -2399,7 +2392,7 @@ posix_fsyncer_pick(xlator_t *this, struct list_head *head)
     return count;
 }
 
-void
+static void
 posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
 {
     struct posix_fd *pfd = NULL;
@@ -2480,7 +2473,7 @@ posix_fsyncer(void *d)
     for (;;) {
         INIT_LIST_HEAD(&list);
 
-        count = posix_fsyncer_pick(this, &list);
+        count = posix_fsyncer_pick(priv, &list);
 
         gf_nanosleep(priv->batch_fsync_delay_usec * GF_US_IN_NS);
 
@@ -2960,9 +2953,6 @@ posix_check_internal_writes(xlator_t *this, inode_t *fd_inode, int sysfd,
 {
     int ret = 0;
     data_t *val = NULL;
-
-    if (!xdata)
-        return 0;
 
     val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
     if (!val) {

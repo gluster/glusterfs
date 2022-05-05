@@ -33,7 +33,7 @@ __allocate_domain(const char *volume)
 {
     pl_dom_list_t *dom = NULL;
 
-    dom = GF_CALLOC(1, sizeof(*dom), gf_locks_mt_pl_dom_list_t);
+    dom = GF_MALLOC(sizeof(*dom), gf_locks_mt_pl_dom_list_t);
     if (!dom)
         goto out;
 

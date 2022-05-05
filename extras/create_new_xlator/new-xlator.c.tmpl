@@ -136,16 +136,48 @@ enum gf_mdc_mem_types_ {
 
 #include <glusterfs/glfs-message-id.h>
 
-/* To add new message IDs, append new identifiers at the end of the list.
+/* First of all the new component needs to be declared at the end of
+ * enum _msgid_comp in glusterfs/glfs-message-id.h. Then the ID used
+ * needs to be referenced here to start defining messages associated
+ * with this component.
  *
- * Never remove a message ID. If it's not used anymore, you can rename it or
- * leave it as it is, but not delete it. This is to prevent reutilization of
- * IDs by other messages.
+ * More than one component can be defined, but its messages need to
+ * be defined sequentially. There can't be definitions of messages
+ * from different components interleaved. */
+
+/* Example:
  *
- * The component name must match one of the entries defined in
- * glfs-message-id.h.
+ *    GLFS_COMPONENT(COMPONENT);
  */
 
-GLFS_MSGID(@FOP_PREFIX@, @FOP_PREFIX@_MSG_NO_MEMORY);
+/* Add every new message at the end. The position of the message
+ * determines its ID, so adding the message at the beginning would
+ * change the IDs of all other messages. Also never remove one message
+ * once it has been present in at least one release. This would cause
+ * the same message id to be reused by another message.
+ *
+ * For new messages, use GLFS_NEW(). To deprecate a message, leave
+ * it as it is, but change GLFS_NEW by GLFS_OLD. To remove a message
+ * (i.e. the message cannot be used by the code), replace GLFS_OLD
+ * by GLFS_GONE. */
+
+// clang-format off
+
+/* Example:
+ *
+ *    GLFS_NEW(COMPONENT, MSGID, "Message text", 7 /* num fields */,
+ *        GLFS_INT(integer),
+ *        GLFS_UINT(number),
+ *        GLFS_STR(name),
+ *        GLFS_UUID(gfid),
+ *        GLFS_PTR(pointer),
+ *        GLFS_ERR(error),
+ *        GLFS_RES(result)
+ *    )
+ */
+
+/* Add new messages above this line. */
+
+// clang-format on
 
 #endif /* __@HFL_NAME@_H__ */
