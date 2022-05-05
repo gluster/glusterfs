@@ -267,8 +267,8 @@ _cli_err(const char *fmt, ...);
 
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
-                   rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
-                   xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
+                   rpc_clnt_prog_t *prog, int procnum, xlator_t *this,
+                   fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int32_t
 cli_cmd_volume_create_parse(struct cli_state *state, const char **words,

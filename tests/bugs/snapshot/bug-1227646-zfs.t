@@ -1,9 +1,9 @@
 #!/bin/bash
 
+. $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../snapshot.rc
 . $(dirname $0)/../../snapshot_zfs.rc
-. $(dirname $0)/../../include.rc
 
 if ! verify_zfs_version; then
     SKIP_TESTS

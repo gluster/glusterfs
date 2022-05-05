@@ -252,7 +252,7 @@ out:
  * happen to change priv->path. This ensures that, a lock
  * is taken before accessing priv->path.
  **/
-int
+static int
 gf_svc_get_entry_point(xlator_t *this, char *entry_point, size_t dest_size)
 {
     int ret = -1;
@@ -1594,7 +1594,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 gf_svc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                    dict_t *xdata)

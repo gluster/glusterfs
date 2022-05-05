@@ -15,7 +15,6 @@ function count_brick_processes {
 }
 
 # Setup 3 LVMS
-LVM_PREFIX="test"
 TEST init_n_bricks 3
 TEST setup_lvm 3
 
@@ -71,7 +70,7 @@ TEST [ $n -eq 0 ]
 
 # Mount the brick root
 TEST mkdir -p $brick_root
-TEST mount -t xfs -o nouuid  /dev/test_vg_3/brick_lvm $brick_root
+TEST mount -t xfs -o nouuid  /dev/${LVM_PREFIX}_vg_3/brick_lvm $brick_root
 
 # Replace brick_pid file to test brick_attach code
 TEST cp $b1_pid_file $b3_pid_file

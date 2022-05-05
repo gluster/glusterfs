@@ -1284,6 +1284,5 @@ afr_fill_success_replies(afr_local_t *local, afr_private_t *priv,
                          unsigned char *replies);
 
 gf_boolean_t
-afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
-                         pid_t pid);
+afr_is_private_directory(afr_private_t *priv, const char *name, pid_t pid);
 #endif /* __AFR_H__ */

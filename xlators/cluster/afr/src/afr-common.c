@@ -50,13 +50,8 @@ afr_quorum_errno(afr_private_t *priv)
 }
 
 gf_boolean_t
-afr_is_private_directory(afr_private_t *priv, uuid_t pargfid, const char *name,
-                         pid_t pid)
+afr_is_private_directory(afr_private_t *priv, const char *name, pid_t pid)
 {
-    if (!__is_root_gfid(pargfid)) {
-        return _gf_false;
-    }
-
     if (strcmp(name, GF_REPLICATE_TRASH_DIR) == 0) {
         /*For backward compatibility /.landfill is private*/
         return _gf_true;
@@ -731,15 +726,12 @@ afr_copy_frame(call_frame_t *base)
 /* Check if an entry or inode could be undergoing a transaction. */
 static gf_boolean_t
 afr_is_possibly_under_txn(afr_transaction_type type, afr_local_t *local,
-                          xlator_t *this)
+                          const unsigned int child_count)
 {
     int i = 0;
     int tmp = 0;
-    afr_private_t *priv = NULL;
     GF_UNUSED char *key = NULL;
     int keylen = 0;
-
-    priv = this->private;
 
     if (type == AFR_ENTRY_TRANSACTION) {
         key = GLUSTERFS_PARENT_ENTRYLK;
@@ -751,7 +743,7 @@ afr_is_possibly_under_txn(afr_transaction_type type, afr_local_t *local,
         key = GLUSTERFS_INODELK_COUNT;
         keylen = SLEN(GLUSTERFS_INODELK_COUNT);
     }
-    for (i = 0; i < priv->child_count; i++) {
+    for (i = 0; i < child_count; i++) {
         if (!local->replies[i].xdata)
             continue;
         if (dict_get_int32n(local->replies[i].xdata, key, keylen, &tmp) == 0)
@@ -1554,16 +1546,13 @@ out:
 }
 
 static int
-afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
+afr_accused_fill(afr_private_t *priv, dict_t *xdata, unsigned char *accused,
                  afr_transaction_type type)
 {
-    afr_private_t *priv = NULL;
     int i = 0;
     int idx = afr_index_for_transaction_type(type);
     void *pending_raw = NULL;
     int ret = 0;
-
-    priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
         ret = dict_get_ptr(xdata, priv->pending_key[i], &pending_raw);
@@ -1578,14 +1567,11 @@ afr_accused_fill(xlator_t *this, dict_t *xdata, unsigned char *accused,
 }
 
 static int
-afr_accuse_smallfiles(xlator_t *this, struct afr_reply *replies,
+afr_accuse_smallfiles(afr_private_t *priv, struct afr_reply *replies,
                       unsigned char *data_accused)
 {
     int i = 0;
-    afr_private_t *priv = NULL;
     uint64_t maxsize = 0;
-
-    priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
         if (replies[i].valid && replies[i].xdata &&
@@ -1653,11 +1639,11 @@ afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
 
         if (!xdata)
             continue; /* mkdir_cbk sends NULL xdata_rsp. */
-        afr_accused_fill(this, xdata, data_accused,
+        afr_accused_fill(priv, xdata, data_accused,
                          (ia_type == IA_IFDIR) ? AFR_ENTRY_TRANSACTION
                                                : AFR_DATA_TRANSACTION);
 
-        afr_accused_fill(this, xdata, metadata_accused,
+        afr_accused_fill(priv, xdata, metadata_accused,
                          AFR_METADATA_TRANSACTION);
     }
 
@@ -1667,8 +1653,9 @@ afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
          * ia_sizes obtained in post-refresh replies may
          * mismatch due to a race between inode-refresh and
          * ongoing writes, causing spurious heal launches*/
-        !afr_is_possibly_under_txn(AFR_DATA_TRANSACTION, local, this)) {
-        afr_accuse_smallfiles(this, replies, data_accused);
+        !afr_is_possibly_under_txn(AFR_DATA_TRANSACTION, local,
+                                   priv->child_count)) {
+        afr_accuse_smallfiles(priv, replies, data_accused);
     }
 
     for (i = 0; i < priv->child_count; i++) {
@@ -2419,14 +2406,11 @@ afr_read_subvol_get(inode_t *inode, xlator_t *this, int *subvol_p,
 }
 
 static void
-afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
+afr_local_transaction_cleanup(afr_local_t *local, unsigned int child_count)
 {
-    afr_private_t *priv = NULL;
     int i = 0;
 
-    priv = this->private;
-
-    afr_matrix_cleanup(local->pending, priv->child_count);
+    afr_matrix_cleanup(local->pending, child_count);
 
     afr_lockees_cleanup(&local->internal_lock);
 
@@ -2434,7 +2418,7 @@ afr_local_transaction_cleanup(afr_local_t *local, xlator_t *this)
 
     GF_FREE(local->transaction.pre_op_sources);
     if (local->transaction.changelog_xdata) {
-        for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < child_count; i++) {
             if (!local->transaction.changelog_xdata[i])
                 continue;
             dict_unref(local->transaction.changelog_xdata[i]);
@@ -2587,12 +2571,11 @@ afr_local_cleanup(afr_local_t *local, xlator_t *this)
 
     if (!local)
         return;
+    priv = this->private;
 
     syncbarrier_destroy(&local->barrier);
 
-    afr_local_transaction_cleanup(local, this);
-
-    priv = this->private;
+    afr_local_transaction_cleanup(local, priv->child_count);
 
     loc_wipe(&local->loc);
     loc_wipe(&local->newloc);
@@ -2948,7 +2931,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
     parent = local->loc.parent;
 
     locked_entry = afr_is_possibly_under_txn(AFR_ENTRY_TRANSACTION, local,
-                                             this);
+                                             priv->child_count);
 
     readable = alloca0(priv->child_count);
     success_replies = alloca0(priv->child_count);
@@ -3999,8 +3982,8 @@ afr_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
         return 0;
     }
 
-    if (afr_is_private_directory(this->private, loc->parent->gfid, loc->name,
-                                 frame->root->pid)) {
+    if (__is_root_gfid(loc->parent->gfid) &&
+        afr_is_private_directory(this->private, loc->name, frame->root->pid)) {
         op_errno = EPERM;
         goto out;
     }
@@ -5349,7 +5332,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 afr_lease_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct gf_lease *lease,
                      dict_t *xdata)
@@ -5735,9 +5718,8 @@ __afr_get_up_children_count(afr_private_t *priv)
 }
 
 static int
-__get_heard_from_all_status(xlator_t *this)
+__get_heard_from_all_status(afr_private_t *priv)
 {
-    afr_private_t *priv = this->private;
     int i;
 
     for (i = 0; i < priv->child_count; i++) {
@@ -5751,14 +5733,13 @@ __get_heard_from_all_status(xlator_t *this)
     return 1;
 }
 
-glusterfs_event_t
-__afr_transform_event_from_state(xlator_t *this)
+static glusterfs_event_t
+__afr_transform_event_from_state(afr_private_t *priv)
 {
     int i = 0;
     int up_children = 0;
-    afr_private_t *priv = this->private;
 
-    if (__get_heard_from_all_status(this))
+    if (__get_heard_from_all_status(priv))
         /* have_heard_from_all. Let afr_notify() do the propagation. */
         return GF_EVENT_MAXVAL;
 
@@ -5800,7 +5781,7 @@ afr_notify_cbk(void *data)
             goto unlock;
         }
         priv->timer = NULL;
-        event = __afr_transform_event_from_state(this);
+        event = __afr_transform_event_from_state(priv);
         if (event != GF_EVENT_MAXVAL)
             propagate = _gf_true;
     }
@@ -6321,7 +6302,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     if (event == GF_EVENT_TRANSLATOR_OP) {
         LOCK(&priv->lock);
         {
-            had_heard_from_all = __get_heard_from_all_status(this);
+            had_heard_from_all = __get_heard_from_all_status(priv);
         }
         UNLOCK(&priv->lock);
 
@@ -6341,7 +6322,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
 
     LOCK(&priv->lock);
     {
-        had_heard_from_all = __get_heard_from_all_status(this);
+        had_heard_from_all = __get_heard_from_all_status(priv);
         switch (event) {
             case GF_EVENT_PARENT_UP:
                 __afr_launch_notify_timer(this, priv);
@@ -6386,7 +6367,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
                 propagate = 1;
                 break;
         }
-        have_heard_from_all = __get_heard_from_all_status(this);
+        have_heard_from_all = __get_heard_from_all_status(priv);
         if (!had_heard_from_all && have_heard_from_all) {
             if (priv->timer) {
                 gf_timer_call_cancel(this->ctx, priv->timer);

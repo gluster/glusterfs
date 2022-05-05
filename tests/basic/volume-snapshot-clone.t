@@ -47,12 +47,12 @@ TEST $CLI_1 peer probe $H3;
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
 create_volumes
-EXPECT 'Created' volinfo_field $V0 'Status';
-EXPECT 'Created' volinfo_field $V1 'Status';
+EXPECT 'Created' volinfo_field_1 $V0 'Status';
+EXPECT 'Created' volinfo_field_1 $V1 'Status';
 
 start_volumes 2
-EXPECT 'Started' volinfo_field $V0 'Status';
-EXPECT 'Started' volinfo_field $V1 'Status';
+EXPECT 'Started' volinfo_field_1 $V0 'Status';
+EXPECT 'Started' volinfo_field_1 $V1 'Status';
 
 TEST $CLI_1 snapshot config activate-on-create enable
 
@@ -67,14 +67,14 @@ sleep 5
 TEST $CLI_1 snapshot clone ${V0}_clone ${V0}_snap
 TEST $CLI_1 snapshot clone ${V1}_clone ${V1}_snap
 
-EXPECT 'Created' volinfo_field ${V0}_clone 'Status';
-EXPECT 'Created' volinfo_field ${V1}_clone 'Status';
+EXPECT 'Created' volinfo_field_1 ${V0}_clone 'Status';
+EXPECT 'Created' volinfo_field_1 ${V1}_clone 'Status';
 
 TEST $CLI_1 volume start ${V0}_clone force;
 TEST $CLI_1 volume start ${V1}_clone force;
 
-EXPECT 'Started' volinfo_field ${V0}_clone 'Status';
-EXPECT 'Started' volinfo_field ${V1}_clone 'Status';
+EXPECT 'Started' volinfo_field_1 ${V0}_clone 'Status';
+EXPECT 'Started' volinfo_field_1 ${V1}_clone 'Status';
 
 
 TEST glusterfs -s $H1 --volfile-id=/${V0}_clone $M0
@@ -96,8 +96,8 @@ sleep 15
 
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count;
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V0}_clone 'Status';
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field ${V1}_clone 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field_1 ${V0}_clone 'Status';
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field_1 ${V1}_clone 'Status';
 
 TEST $CLI_1 volume stop ${V0}_clone
 TEST $CLI_1 volume stop ${V1}_clone
@@ -108,13 +108,13 @@ TEST $CLI_1 volume delete ${V1}_clone
 TEST $CLI_1 snapshot clone ${V0}_clone ${V0}_snap
 TEST $CLI_1 snapshot clone ${V1}_clone ${V1}_snap
 
-EXPECT 'Created' volinfo_field ${V0}_clone 'Status';
-EXPECT 'Created' volinfo_field ${V1}_clone 'Status';
+EXPECT 'Created' volinfo_field_1 ${V0}_clone 'Status';
+EXPECT 'Created' volinfo_field_1 ${V1}_clone 'Status';
 
 #Clean up
 stop_force_volumes 2
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field $V0 'Status';
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field $V1 'Status';
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field_1 $V0 'Status';
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field_1 $V1 'Status';
 
 TEST delete_snapshot ${V0}_snap
 TEST delete_snapshot ${V1}_snap
@@ -123,7 +123,7 @@ TEST ! snapshot_exists 1 ${V0}_snap
 TEST ! snapshot_exists 1 ${V1}_snap
 
 delete_volumes 2
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V0
-EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists $V1
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists_1 $V0
+EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "N" volume_exists_1 $V1
 
 cleanup;
