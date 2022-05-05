@@ -43,6 +43,7 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
                      dict_t *dict)
 {
     glusterfs_ctx_t *ctx = NULL;
+    xlator_t *this = NULL;
     int ret = 0;
     FILE *tmpfp = NULL;
     gf_volfile_t *volfile_obj = NULL;
@@ -54,7 +55,9 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
     char template[] = "/tmp/glfs.volfile.XXXXXX";
 
     glusterfs_compute_sha256((const unsigned char *)volfile, size, sha256_hash);
-    ctx = THIS->ctx;
+    this = THIS;
+    ctx = this->ctx;
+
     LOCK(&ctx->volfile_lock);
     {
         list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
@@ -63,7 +66,7 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
                 if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
                             sizeof(volfile_obj->volfile_checksum))) {
                     UNLOCK(&ctx->volfile_lock);
-                    gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
+                    gf_smsg(this->name, GF_LOG_INFO, 0, glusterfsd_msg_40,
                             NULL);
                     goto out;
                 }
@@ -76,7 +79,7 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
         tmp_fd = mkstemp(template);
         if (-1 == tmp_fd) {
             UNLOCK(&ctx->volfile_lock);
-            gf_smsg(THIS->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
+            gf_smsg(this->name, GF_LOG_ERROR, 0, glusterfsd_msg_39,
                     "create template=%s", template, NULL);
             ret = -1;
             goto out;
@@ -87,7 +90,7 @@ mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
          */
         ret = sys_unlink(template);
         if (ret < 0) {
-            gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
+            gf_smsg(this->name, GF_LOG_INFO, 0, glusterfsd_msg_39,
                     "delete template=%s", template, NULL);
             ret = 0;
         }
@@ -142,6 +145,8 @@ glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
     struct iobuf *iob = NULL;
     ssize_t retlen = -1;
     ssize_t xdr_size = 0;
+    xlator_t *this = NULL;
+    this = THIS;
 
     /* First, get the io buffer into which the reply in arg will
      * be serialized.
@@ -149,7 +154,7 @@ glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
     xdr_size = xdr_sizeof(xdrproc, arg);
     iob = iobuf_get2(req->svc->ctx->iobuf_pool, xdr_size);
     if (!iob) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to get iobuf");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to get iobuf");
         goto ret;
     }
 
@@ -162,7 +167,7 @@ glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
      */
     retlen = xdr_serialize_generic(*outmsg, arg, xdrproc);
     if (retlen == -1) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to encode message");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to encode message");
         GF_FREE(iob);
         goto ret;
     }
@@ -182,6 +187,8 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
                        xdrproc_t xdrproc)
 {
     struct iobuf *iob = NULL;
+    xlator_t *this = NULL;
+    this = THIS;
     int ret = -1;
     struct iovec rsp = {
         0,
@@ -196,7 +203,7 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
     if (!iobref) {
         iobref = iobref_new();
         if (!iobref) {
-            gf_log(THIS->name, GF_LOG_ERROR, "out of memory");
+            gf_log(this->name, GF_LOG_ERROR, "out of memory");
             goto out;
         }
 
@@ -205,7 +212,7 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
 
     iob = glusterfs_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
-        gf_log_callingfn(THIS->name, GF_LOG_ERROR, "Failed to serialize reply");
+        gf_log_callingfn(this->name, GF_LOG_ERROR, "Failed to serialize reply");
     } else {
         iobref_add(iobref, iob);
     }
@@ -213,7 +220,7 @@ glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
 
     if (ret == -1) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Reply submission failed");
+        gf_log(this->name, GF_LOG_ERROR, "Reply submission failed");
         goto out;
     }
 
@@ -1018,7 +1025,7 @@ glusterfs_handle_svc_attach(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_41, "volfile-id=%s",
+    gf_smsg(this->name, GF_LOG_INFO, 0, glusterfsd_msg_41, "volfile-id=%s",
             xlator_req.name, NULL);
 
     dict = dict_new();
@@ -1423,6 +1430,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     };
     glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
+    xlator_t *this = NULL;
     xlator_t *any = NULL;
     xlator_t *node = NULL;
     xlator_t *subvol = NULL;
@@ -1433,7 +1441,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     char *subvol_name = NULL;
     uint32_t cmd = 0;
     char *msg = NULL;
-
+    this = THIS;
     GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &node_req,
@@ -1446,14 +1454,14 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     dict = dict_new();
     if (!dict) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
         goto out;
     }
 
     ret = dict_unserialize(node_req.input.input_val, node_req.input.input_len,
                            &dict);
     if (ret < 0) {
-        gf_log(THIS->name, GF_LOG_ERROR,
+        gf_log(this->name, GF_LOG_ERROR,
                "Failed to unserialize "
                "req buffer to dictionary");
         goto out;
@@ -1461,13 +1469,13 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
 
     ret = dict_get_uint32(dict, "cmd", &cmd);
     if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Couldn't get status op");
+        gf_log(this->name, GF_LOG_ERROR, "Couldn't get status op");
         goto out;
     }
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Couldn't get volname");
+        gf_log(this->name, GF_LOG_ERROR, "Couldn't get volname");
         goto out;
     }
 
@@ -1475,7 +1483,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     GF_ASSERT(ctx);
     active = ctx->active;
     if (active == NULL) {
-        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        gf_log(this->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
         goto out;
     }
@@ -1499,14 +1507,14 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         goto out;
     }
     if (ret == -1) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to set node xlator name");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to set node xlator name");
         goto out;
     }
 
     node = xlator_search_by_name(any, node_name);
     if (!node) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR, "%s xlator is not loaded", node_name);
+        gf_log(this->name, GF_LOG_ERROR, "%s xlator is not loaded", node_name);
         goto out;
     }
 
@@ -1525,14 +1533,14 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         goto out;
     }
     if (ret == -1) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to set node xlator name");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to set node xlator name");
         goto out;
     }
 
     subvol = xlator_search_by_name(node, subvol_name);
     if (!subvol) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR, "%s xlator is not loaded",
+        gf_log(this->name, GF_LOG_ERROR, "%s xlator is not loaded",
                subvol_name);
         goto out;
     }
@@ -1540,7 +1548,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     output = dict_new();
     if (!output) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        gf_log(this->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
         goto out;
     }
 
@@ -1558,7 +1566,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
 
             ret = dict_set_str(output, "volname", volname);
             if (ret) {
-                gf_log(THIS->name, GF_LOG_ERROR,
+                gf_log(this->name, GF_LOG_ERROR,
                        "Error setting volname to dict");
                 goto out;
             }
@@ -1584,7 +1592,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         default:
             ret = -1;
             msg = gf_strdup("Unknown status op");
-            gf_log(THIS->name, GF_LOG_ERROR, "%s", msg);
+            gf_log(this->name, GF_LOG_ERROR, "%s", msg);
             break;
     }
     rsp.op_ret = ret;
@@ -1597,7 +1605,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     ret = dict_allocate_and_serialize(output, &rsp.output.output_val,
                                       &rsp.output.output_len);
     if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR,
+        gf_log(this->name, GF_LOG_ERROR,
                "Failed to serialize output dict to rsp");
         goto out;
     }
@@ -1619,7 +1627,7 @@ out:
     GF_FREE(node_name);
     GF_FREE(subvol_name);
 
-    gf_log(THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+    gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
 
@@ -1636,6 +1644,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     dict_t *dict = NULL;
     glusterfs_ctx_t *ctx = NULL;
     glusterfs_graph_t *active = NULL;
+    xlator_t *this = NULL;
     xlator_t *any = NULL;
     xlator_t *nfs = NULL;
     xlator_t *subvol = NULL;
@@ -1643,6 +1652,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     dict_t *output = NULL;
 
     GF_ASSERT(req);
+    this = THIS;
 
     ret = xdr_to_generic(req->msg[0], &nfs_req,
                          (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
@@ -1655,7 +1665,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     ret = dict_unserialize(nfs_req.input.input_val, nfs_req.input.input_len,
                            &dict);
     if (ret < 0) {
-        gf_log(THIS->name, GF_LOG_ERROR,
+        gf_log(this->name, GF_LOG_ERROR,
                "Failed to "
                "unserialize req-buffer to dict");
         goto out;
@@ -1663,7 +1673,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR, "Couldn't get volname");
+        gf_log(this->name, GF_LOG_ERROR, "Couldn't get volname");
         goto out;
     }
 
@@ -1672,7 +1682,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
 
     active = ctx->active;
     if (active == NULL) {
-        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        gf_log(this->name, GF_LOG_ERROR, "ctx->active returned NULL");
         ret = -1;
         goto out;
     }
@@ -1683,7 +1693,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     nfs = xlator_search_by_name(any, "nfs-server");
     if (!nfs) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR,
+        gf_log(this->name, GF_LOG_ERROR,
                "xlator nfs-server is "
                "not loaded");
         goto out;
@@ -1692,7 +1702,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     subvol = xlator_search_by_name(nfs, volname);
     if (!subvol) {
         ret = -1;
-        gf_log(THIS->name, GF_LOG_ERROR, "xlator %s is no loaded", volname);
+        gf_log(this->name, GF_LOG_ERROR, "xlator %s is no loaded", volname);
         goto out;
     }
 
@@ -1706,7 +1716,7 @@ glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
     ret = dict_allocate_and_serialize(output, &rsp.output.output_val,
                                       &rsp.output.output_len);
     if (ret) {
-        gf_log(THIS->name, GF_LOG_ERROR,
+        gf_log(this->name, GF_LOG_ERROR,
                "Failed to serialize output dict to rsp");
         goto out;
     }
@@ -1725,7 +1735,7 @@ out:
         dict_unref(output);
     GF_FREE(rsp.output.output_val);
 
-    gf_log(THIS->name, GF_LOG_DEBUG, "Returning %d", ret);
+    gf_log(this->name, GF_LOG_DEBUG, "Returning %d", ret);
     return ret;
 }
 

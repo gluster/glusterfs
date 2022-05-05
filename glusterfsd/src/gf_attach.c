@@ -54,7 +54,7 @@ my_callback(struct rpc_req *req, struct iovec *iov, int count, void *frame)
 }
 
 /* copied from gd_syncop_submit_request */
-int
+static int
 send_brick_req(xlator_t *this, struct rpc_clnt *rpc, char *path, int op)
 {
     int ret = -1;
