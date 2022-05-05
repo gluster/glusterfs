@@ -115,7 +115,7 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
              * if peer is not connected or not   *
              * friend add it to missed snap list */
             if (!(peerinfo->connected) ||
-                (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
+                (peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)) {
                 ret = glusterd_add_missed_snaps_to_dict(
                     rsp_dict, vol, brickinfo, brick_count + 1, op);
                 if (ret) {

@@ -799,7 +799,7 @@ glusterd_count_connected_peers(int32_t *count)
     {
         /* Find peer who is connected and is a friend */
         if ((peerinfo->connected) &&
-            (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED)) {
+            (peerinfo->state == GD_FRIEND_STATE_BEFRIENDED)) {
             (*count)++;
         }
     }
@@ -4089,7 +4089,7 @@ glusterd_op_ac_send_lock(glusterd_op_sm_event_t *event, void *ctx)
 
         if (!peerinfo->connected || !peerinfo->mgmt)
             continue;
-        if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+        if ((peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) &&
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
 
@@ -4191,7 +4191,7 @@ glusterd_op_ac_send_unlock(glusterd_op_sm_event_t *event, void *ctx)
 
         if (!peerinfo->connected || !peerinfo->mgmt || !peerinfo->locked)
             continue;
-        if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+        if ((peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) &&
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
         /* Based on the op_version,
@@ -4806,7 +4806,7 @@ glusterd_op_ac_send_stage_op(glusterd_op_sm_event_t *event, void *ctx)
 
         if (!peerinfo->connected || !peerinfo->mgmt)
             continue;
-        if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+        if ((peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) &&
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
 
@@ -5423,7 +5423,7 @@ glusterd_op_ac_send_commit_op(glusterd_op_sm_event_t *event, void *ctx)
 
         if (!peerinfo->connected || !peerinfo->mgmt)
             continue;
-        if ((peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED) &&
+        if ((peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) &&
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
 
