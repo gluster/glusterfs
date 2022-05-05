@@ -2277,7 +2277,7 @@ index_make_xattrop_watchlist(xlator_t *this, index_priv_t *priv,
         goto out;
     }
 
-    dummy = int_to_data(1);
+    dummy = data_from_int32(1);
     if (!dummy) {
         ret = -1;
         goto out;

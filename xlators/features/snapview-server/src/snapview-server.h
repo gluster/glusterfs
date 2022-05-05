@@ -231,7 +231,7 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
                                  int32_t *op_errno);
 
 snap_dirent_t *
-__svs_get_snap_dirent(xlator_t *this, const char *name);
+__svs_get_snap_dirent(svs_private_t *private, const char *name);
 
 int
 svs_mgmt_init(xlator_t *this);

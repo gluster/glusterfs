@@ -133,6 +133,7 @@ create_frame
 data_copy
 data_destroy
 data_from_dynptr
+data_from_int32
 data_from_uint64
 data_ref
 data_to_bin
@@ -352,13 +353,11 @@ default_copy_file_range
 default_copy_file_range_cbk
 default_copy_file_range_failure_cbk
 default_copy_file_range_resume
-dict_add
 dict_addn
 dict_add_dynstr_with_alloc
 dict_allocate_and_serialize
 dict_copy
 dict_copy_with_ref
-dict_del
 dict_deln
 dict_dump_to_statedump
 dict_dump_to_str
@@ -368,7 +367,6 @@ dict_foreach_fnmatch
 dict_foreach_match
 dict_for_key_value
 dict_get
-dict_getn
 dict_get_bin
 dict_get_double
 dict_get_gfuuid
@@ -401,15 +399,14 @@ dict_serialize
 dict_serialized_length
 dict_serialized_length_lk
 dict_serialize_value_with_delim
-dict_set
 dict_setn
-dict_set_bin
+dict_setn_bin
 dict_set_double
 dict_set_dynptr
 dict_set_dynstr
 dict_set_dynstrn
 dict_set_dynstr_with_alloc
-dict_set_gfuuid
+dict_setn_gfuuid
 dict_set_iatt
 dict_set_mdata
 dict_set_int16
@@ -417,7 +414,7 @@ dict_set_int32
 dict_set_int32n
 dict_set_int64
 dict_set_int8
-dict_set_static_bin
+dict_setn_static_bin
 dict_set_static_ptr
 dict_set_str
 dict_set_strn
@@ -807,7 +804,6 @@ __inode_table_set_lru_limit
 inode_table_set_lru_limit
 inode_unlink
 inode_unref
-int_to_data
 iobref_add
 iobref_clear
 iobref_merge

@@ -59,6 +59,11 @@
 #define O_DIRECTORY 0
 #endif
 
+#ifndef O_PATH
+#define O_PATH 010000000 /* from asm-generic/fcntl.h */
+#endif
+
+
 #ifndef EBADFD
 /* Mac OS X does not have EBADFD */
 #define EBADFD EBADF

@@ -27,16 +27,7 @@
         ret = RPCSVC_ACTOR_ERROR;                                              \
     } while (0)
 
-extern void
-set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid);
-extern int
-_gf_server_log_setxattr_failure(dict_t *d, char *k, data_t *v, void *tmp);
-extern int
-rpc_receive_common(rpcsvc_request_t *req, call_frame_t **fr,
-                   server_state_t **st, ssize_t *xdrlen, void *args,
-                   void *xdrfn, glusterfs_fop_t fop);
-
-int
+static int
 _gf_server_log_setxattr_failure(dict_t *d, char *k, data_t *v, void *tmp)
 {
     server_state_t *state = NULL;
@@ -67,7 +58,7 @@ forget_inode_if_no_dentry(inode_t *inode)
     return;
 }
 
-void
+static void
 set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid)
 {
     if (client->subdir_mount && __is_root_gfid((unsigned char *)on_wire_gfid)) {
@@ -78,7 +69,7 @@ set_resolve_gfid(client_t *client, uuid_t resolve_gfid, char *on_wire_gfid)
     }
 }
 
-int
+static int
 rpc_receive_common(rpcsvc_request_t *req, call_frame_t **fr,
                    server_state_t **st, ssize_t *xdrlen, void *args,
                    void *xdrfn, glusterfs_fop_t fop)

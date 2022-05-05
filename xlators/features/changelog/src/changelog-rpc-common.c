@@ -78,7 +78,8 @@ changelog_rpc_client_init(xlator_t *this, void *cbkdata, char *sockfile,
 dealloc_rpc_clnt:
     rpc_clnt_unref(rpc);
 dealloc_dict:
-    dict_unref(options);
+    if (options)
+        dict_unref(options);
 error_return:
     return NULL;
 }

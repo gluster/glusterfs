@@ -37,8 +37,8 @@
 
 #include "glusterd-syncop.h"
 #include "glusterd-messages.h"
+#include "protocol-utils.h"
 
-#include "gd-common-utils.h"
 #define STATUS_STRLEN 128
 
 enum gf_deprobe_resp {

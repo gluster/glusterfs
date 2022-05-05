@@ -2383,12 +2383,15 @@ afr_fd_has_witnessed_unstable_write(xlator_t *this, inode_t *inode)
     LOCK(&inode->lock);
     {
         ctx = __afr_inode_ctx_get(this, inode);
+        if (ctx == NULL)
+            goto unlock;
 
         if (ctx->witnessed_unstable_write) {
             witness = _gf_true;
             ctx->witnessed_unstable_write = _gf_false;
         }
     }
+unlock:
     UNLOCK(&inode->lock);
 
     return witness;

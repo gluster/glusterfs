@@ -427,9 +427,9 @@ typedef enum gf_defrag_status_t gf_defrag_status_t;
 typedef struct gf_defrag_pattern_list gf_defrag_pattern_list_t;
 
 struct gf_defrag_pattern_list {
-    char path_pattern[256];
+    struct list_head list;
+    char *path_pattern;
     uint64_t size;
-    gf_defrag_pattern_list_t *next;
 };
 
 struct dht_container {
@@ -465,6 +465,7 @@ struct gf_defrag_info_ {
     uint64_t skipped;
     uint64_t num_dirs_processed;
     uint64_t size_processed;
+    uint64_t total_size;
     gf_lock_t lock;
     pthread_t th;
     struct rpc_clnt *rpc;
@@ -477,7 +478,7 @@ struct gf_defrag_info_ {
     time_t start_time;
     uint32_t new_commit_hash;
     gf_defrag_status_t defrag_status;
-    gf_defrag_pattern_list_t *defrag_pattern;
+    struct list_head defrag_pattern;
 
     pthread_cond_t parallel_migration_cond;
     pthread_mutex_t dfq_mutex;
@@ -627,16 +628,6 @@ struct dht_dfoffset_ctx {
     int32_t readdir_done;
 };
 typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
-
-struct dht_disk_layout {
-    uint32_t cnt;
-    uint32_t type;
-    struct {
-        uint32_t start;
-        uint32_t stop;
-    } list[1];
-};
-typedef struct dht_disk_layout dht_disk_layout_t;
 
 typedef enum {
     GF_DHT_MIGRATE_DATA,
