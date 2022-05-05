@@ -24,7 +24,7 @@
 
 #include <glusterfs/compat-errno.h>
 
-int
+static int
 posix_handle_mkdir_hashes(xlator_t *this, int dfd, uuid_t gfid);
 
 inode_t *
@@ -82,7 +82,7 @@ out:
     return inode;
 }
 
-int
+static int
 posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
                           gf_dirent_t *head, char *dir_name, struct iatt *iabuf,
                           inode_t *inode, int type, dict_t *xdata)
@@ -289,7 +289,7 @@ posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
 /*
   TODO: explain how this pump fixes ELOOP
 */
-gf_boolean_t
+static gf_boolean_t
 posix_is_malformed_link(xlator_t *this, char *base_str, char *linkname,
                         size_t len)
 {
@@ -322,7 +322,7 @@ err:
     return _gf_true;
 }
 
-int
+static int
 posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
                   char *base_str, int base_len, int pfx_len)
 {
@@ -602,7 +602,7 @@ posix_handle_init(xlator_t *this)
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 posix_does_old_trash_exists(char *old_trash)
 {
     uuid_t gfid = {0};
@@ -619,7 +619,7 @@ posix_does_old_trash_exists(char *old_trash)
     return exists;
 }
 
-int
+static int
 posix_handle_new_trash_init(xlator_t *this, char *trash)
 {
     int ret = 0;
@@ -654,7 +654,7 @@ posix_handle_new_trash_init(xlator_t *this, char *trash)
     return ret;
 }
 
-int
+static int
 posix_mv_old_trash_into_new_trash(xlator_t *this, char *old, char *new)
 {
     char dest_old[PATH_MAX] = {0};
@@ -705,7 +705,7 @@ out:
     return ret;
 }
 
-int
+static int
 posix_handle_mkdir_hashes(xlator_t *this, int dirfd, uuid_t gfid)
 {
     int ret = -1;
@@ -854,7 +854,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     return ret;
 }
 
-int
+static int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     int ret = 0;

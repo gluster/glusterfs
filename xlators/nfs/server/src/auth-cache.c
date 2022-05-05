@@ -345,10 +345,14 @@ auth_cache_entry_purge(dict_t *d, char *k, data_t *v, void *_unused)
 void
 auth_cache_purge(struct auth_cache *cache)
 {
-    dict_t *new_cache_dict = dict_new();
+    dict_t *new_cache_dict = NULL;
     dict_t *old_cache_dict = NULL;
 
-    if (!cache || !new_cache_dict)
+    if (!cache)
+        goto out;
+
+    new_cache_dict = dict_new();
+    if (!new_cache_dict)
         goto out;
 
     LOCK(&cache->lock);

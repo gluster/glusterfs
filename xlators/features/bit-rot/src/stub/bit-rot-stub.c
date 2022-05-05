@@ -1647,7 +1647,7 @@ br_stub_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     int32_t ret = 0;
     size_t totallen = 0;
-    size_t signaturelen = 0;
+    uint32_t signaturelen = 0;
     br_stub_private_t *priv = NULL;
     br_version_t *obuf = NULL;
     br_signature_t *sbuf = NULL;

@@ -53,8 +53,8 @@ TEST python3 extras/glusterfs-georep-upgrade.py $brick
 #After upgrade
 ###############################################################################################
 echo "After upgrade:"
-EXPECT '1' echo $(grep $updated_data1 $htime_file1 | wc -l)
-EXPECT '1' echo $(grep $updated_data2 $htime_file2 | wc -l)
+EXPECT '1' echo $(grep -a $updated_data1 $htime_file1 | wc -l)
+EXPECT '1' echo $(grep -a $updated_data2 $htime_file2 | wc -l)
 
 #Check directory structure inside changelogs
 TEST ! ls /bricks/brick1/.glusterfs/changelogs/CHANGELOG.$epoch1

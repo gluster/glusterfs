@@ -96,10 +96,7 @@ gf_quiesce_populate_failover_hosts(xlator_t *this, quiesce_priv_t *priv,
 
         while (addr_tok) {
             if (!valid_internet_address(addr_tok, _gf_true, _gf_false)) {
-                gf_msg(this->name, GF_LOG_INFO, 0, QUIESCE_MSG_INVAL_HOST,
-                       "Specified "
-                       "invalid internet address:%s",
-                       addr_tok);
+                GF_LOG_I(this->name, QUIESCE_MSG_INVAL_HOST(addr_tok));
                 continue;
             }
             failover_host = GF_CALLOC(1, sizeof(*failover_host),
@@ -130,8 +127,7 @@ gf_quiesce_failover_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
          * just abort the failover attempts without retrying with other
          * hosts.
          */
-        gf_msg(this->name, GF_LOG_INFO, op_errno, QUIESCE_MSG_FAILOVER_FAILED,
-               "Initiating failover to host:%s failed:", (char *)cookie);
+        GF_LOG_I(this->name, QUIESCE_MSG_FAILOVER_FAILED(cookie, op_errno));
     }
 
     GF_FREE(cookie);
@@ -178,16 +174,17 @@ __gf_quiesce_perform_failover(xlator_t *this)
                         &priv->failover_list, list) {
                 failover_host->tried = 0;
         }*/
-        gf_msg_debug(this->name, 0,
-                     "all the failover hosts have "
-                     "been tried and looks like didn't succeed");
+        GF_LOG_D(this->name,
+                 "All the failover hosts have been tried and looks like "
+                 "didn't succeed",
+                 0);
         ret = -1;
         goto out;
     }
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
-        gf_msg_debug(this->name, 0, "failed to create the frame");
+        GF_LOG_D(this->name, "Failed to create the frame", 0);
         ret = -1;
         goto out;
     }

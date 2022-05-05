@@ -37,8 +37,7 @@ fi
 
 rm -f ./.symbol-check-errors
 
-TEST find ${buildscratch} -name \*.o -exec ./tests/basic/symbol-check.sh {} \\\;
-
+TEST ./tests/basic/symbol-check.sh "${buildscratch}"
 TEST [ ! -e ./.symbol-check-errors ]
 
 rm -f ./.symbol-check-errors

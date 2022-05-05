@@ -5,8 +5,7 @@ endif
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/mgmt
 glusterd_la_CPPFLAGS = $(AM_CPPFLAGS) \
 	-DFILTERDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/filter\" \
-	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\" \
-	-I$(top_srcdir)/libglusterd/src/
+	-DXLATORDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator\"
 
 glusterd_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
@@ -30,7 +29,6 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 	$(CONTRIBDIR)/mount/mntent.c
 
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	$(top_builddir)/libglusterd/src/libglusterd.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(XML_LIBS) -lcrypto $(URCU_LIBS) $(URCU_CDS_LIBS) $(LIB_DL) $(GF_XLATOR_MGNT_LIBADD)
@@ -60,9 +58,7 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-DGSYNCD_PREFIX=\"$(GLUSTERFS_LIBEXECDIR)\" \
 	-DCONFDIR=\"$(localstatedir)/run/gluster/shared_storage/nfs-ganesha\" \
 	-DGANESHA_PREFIX=\"$(libexecdir)/ganesha\" \
-	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE) \
-	-I$(top_srcdir)/libglusterd/src/
-
+	-DSYNCDAEMON_COMPILE=$(SYNCDAEMON_COMPILE)
 
 AM_CFLAGS = -Wall $(GF_CFLAGS) $(URCU_CFLAGS) $(URCU_CDS_CFLAGS) $(XML_CFLAGS)
 

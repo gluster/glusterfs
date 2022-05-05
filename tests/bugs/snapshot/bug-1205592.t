@@ -17,10 +17,10 @@ TEST $CLI_1 peer probe $H3
 EXPECT_WITHIN $PROBE_TIMEOUT 2 peer_count
 
 TEST $CLI_1 volume create $V0 $H1:$L1 $H2:$L2 $H3:$L3
-EXPECT 'Created' volinfo_field $V0 'Status'
+EXPECT 'Created' volinfo_field_1 $V0 'Status'
 
 TEST $CLI_1 volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT 'Started' volinfo_field_1 $V0 'Status'
 
 
 kill_glusterd 3

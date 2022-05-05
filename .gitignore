@@ -5,6 +5,12 @@ config.*
 configure
 cscope.*
 tags
+TAGS
+ID
+GPATH
+GRTAGS
+GTAGS
+GSYMS
 depcomp
 INSTALL
 install-sh

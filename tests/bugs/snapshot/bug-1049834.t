@@ -14,10 +14,10 @@ TEST $CLI_1 peer probe $H2
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 
 TEST $CLI_1 volume create $V0 $H1:$L1 $H2:$L2
-EXPECT 'Created' volinfo_field $V0 'Status'
+EXPECT 'Created' volinfo_field_1 $V0 'Status'
 
 TEST $CLI_1 volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT 'Started' volinfo_field_1 $V0 'Status'
 
 #Setting the snap-max-hard-limit to 4
 TEST $CLI_1 snapshot config $V0 snap-max-hard-limit 4
