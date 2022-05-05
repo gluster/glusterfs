@@ -83,6 +83,10 @@ struct synctask {
     } tsan;
 #endif
 
+#ifdef HAVE_ASAN_API
+    void *fake_stack;
+#endif
+
 #ifdef HAVE_VALGRIND_API
     unsigned stackid;
 #endif
@@ -105,6 +109,10 @@ struct syncproc {
         void *fiber;
         char name[TSAN_THREAD_NAMELEN];
     } tsan;
+#endif
+
+#ifdef HAVE_ASAN_API
+    void *fake_stack;
 #endif
 
 #ifdef HAVE_VALGRIND_API

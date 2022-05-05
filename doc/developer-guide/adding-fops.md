@@ -11,7 +11,6 @@ Steps to be followed when adding a new FOP to GlusterFS:
 4. Edit `protocol.h` and add struct necessary for the new FOP.
 5. Edit `defaults.[ch]` and provide default implementation.
 6. Edit `call-stub.[ch]` and provide stub implementation.
-7. Edit `common-utils.c` and add to gf_global_variable_init().
 8. Edit client-protocol and add your FOP.
 9. Edit server-protocol and add your FOP.
 10. Implement your FOP in any translator for which the default implementation

@@ -24,7 +24,7 @@
 
 #include <glusterfs/compat-errno.h>
 
-int
+static int
 posix_handle_mkdir_hashes(xlator_t *this, int dfd, uuid_t gfid);
 
 inode_t *
@@ -34,7 +34,7 @@ posix_resolve(xlator_t *this, inode_table_t *itable, inode_t *parent,
     inode_t *inode = NULL;
     int ret = -1;
 
-    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf);
+    ret = posix_istat(this, NULL, parent->gfid, bname, iabuf, _gf_false);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_WARNING,
                "gfid: %s, bname: %s "
@@ -82,7 +82,7 @@ out:
     return inode;
 }
 
-int
+static int
 posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
                           gf_dirent_t *head, char *dir_name, struct iatt *iabuf,
                           inode_t *inode, int type, dict_t *xdata)
@@ -97,8 +97,9 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         0,
     };
     int ret = -1;
+    const size_t dir_name_len = strlen(dir_name);
 
-    len = strlen(path) + strlen(dir_name) + 1;
+    len = strlen(path) + dir_name_len + 1;
     if (len > pathsize) {
         goto out;
     }
@@ -108,7 +109,7 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         strcat(path, "/");
 
     if (type & POSIX_ANCESTRY_DENTRY) {
-        entry = gf_dirent_for_name(dir_name);
+        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0);
         if (!entry)
             goto out;
 
@@ -288,7 +289,7 @@ posix_handle_relpath(xlator_t *this, uuid_t gfid, const char *basename,
 /*
   TODO: explain how this pump fixes ELOOP
 */
-gf_boolean_t
+static gf_boolean_t
 posix_is_malformed_link(xlator_t *this, char *base_str, char *linkname,
                         size_t len)
 {
@@ -321,7 +322,7 @@ err:
     return _gf_true;
 }
 
-int
+static int
 posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
                   char *base_str, int base_len, int pfx_len)
 {
@@ -507,6 +508,7 @@ posix_handle_init(xlator_t *this)
     char *rootstr = NULL;
     static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     int dfd = 0;
+    struct stat handledir;
 
     priv = this->private;
 
@@ -548,13 +550,16 @@ posix_handle_init(xlator_t *this)
             break;
     }
 
-    ret = sys_stat(handle_pfx, &priv->handledir);
+    ret = sys_stat(handle_pfx, &handledir);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_HANDLE_CREATE,
                "stat for %s failed", handle_pfx);
         return -1;
     }
+
+    priv->handledir_st_ino = handledir.st_ino;
+    priv->handledir_st_dev = handledir.st_dev;
 
     MAKE_HANDLE_ABSPATH_FD(rootstr, this, gfid, dfd);
     ret = sys_fstatat(dfd, rootstr, &rootbuf, 0);
@@ -597,7 +602,7 @@ posix_handle_init(xlator_t *this)
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 posix_does_old_trash_exists(char *old_trash)
 {
     uuid_t gfid = {0};
@@ -614,7 +619,7 @@ posix_does_old_trash_exists(char *old_trash)
     return exists;
 }
 
-int
+static int
 posix_handle_new_trash_init(xlator_t *this, char *trash)
 {
     int ret = 0;
@@ -649,7 +654,7 @@ posix_handle_new_trash_init(xlator_t *this, char *trash)
     return ret;
 }
 
-int
+static int
 posix_mv_old_trash_into_new_trash(xlator_t *this, char *old, char *new)
 {
     char dest_old[PATH_MAX] = {0};
@@ -700,7 +705,7 @@ out:
     return ret;
 }
 
-int
+static int
 posix_handle_mkdir_hashes(xlator_t *this, int dirfd, uuid_t gfid)
 {
     int ret = -1;
@@ -849,7 +854,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     return ret;
 }
 
-int
+static int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     int ret = 0;
@@ -896,7 +901,7 @@ posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename)
     /* stat is being used only for gfid, so passing a NULL inode
      * doesn't fetch time attributes which is fine
      */
-    ret = posix_istat(this, NULL, gfid, basename, &stat);
+    ret = posix_istat(this, NULL, gfid, basename, &stat, _gf_false);
     if (ret == -1) {
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
                path);

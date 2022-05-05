@@ -11,7 +11,6 @@
 #ifndef __EC_CODE_H__
 #define __EC_CODE_H__
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/list.h>
 
 #include "ec-types.h"

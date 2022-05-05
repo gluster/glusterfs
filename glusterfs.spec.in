@@ -276,7 +276,7 @@ BuildRequires:    libtsan
 BuildRequires:    bison flex
 BuildRequires:    gcc make libtool
 BuildRequires:    ncurses-devel readline-devel
-BuildRequires:    libxml2-devel openssl-devel
+BuildRequires:    libxml2-devel openssl-devel openssl
 BuildRequires:    libaio-devel libacl-devel
 BuildRequires:    python%{_pythonver}-devel
 %if ( 0%{!?_without_tcmalloc:1} )
@@ -335,7 +335,6 @@ and client framework.
 %package cli
 Summary:          GlusterFS CLI
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
-Requires:         libglusterd0%{?_isa} = %{version}-%{release}
 
 %description cli
 GlusterFS is a distributed file-system capable of scaling to several
@@ -655,21 +654,6 @@ It borrows a powerful concept called Translators from GNU Hurd kernel.
 Much of the code in GlusterFS is in user space and easily manageable.
 
 This package provides libgfxdr.so.
-
-%package -n libglusterd0
-Summary:          GlusterFS libglusterd library
-Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
-Obsoletes:        %{name}-libs <= %{version}-%{release}
-
-%description -n libglusterd0
-GlusterFS is a distributed file-system capable of scaling to several
-petabytes. It aggregates various storage bricks over TCP/IP interconnect
-into one large parallel network filesystem. GlusterFS is one of the
-most sophisticated file systems in terms of features and extensibility.
-It borrows a powerful concept called Translators from GNU Hurd kernel.
-Much of the code in GlusterFS is in user space and easily manageable.
-
-This package provides the libglusterd library
 
 %package -n python%{_pythonver}-gluster
 Summary:          GlusterFS python library
@@ -1058,9 +1042,6 @@ exit 0
 %post -n libgfxdr0
 /sbin/ldconfig
 
-%post -n libglusterd0
-/sbin/ldconfig
-
 %if ( 0%{!?_without_server:1} )
 %post server
 # Legacy server
@@ -1296,7 +1277,7 @@ exit 0
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/system/posix-acl.so
 %dir %attr(0775,gluster,gluster) %{_rundir}/gluster
-%if 0%{?_tmpfilesdir:1} && 0%{!?_without_server:1}
+%if 0%{?_tmpfilesdir:1}
 %{_tmpfilesdir}/gluster.conf
 %endif
 
@@ -1447,10 +1428,6 @@ exit 0
 %files -n libgfxdr0
 %{_libdir}/libgfxdr.so.*
 
-%files -n libglusterd0
-%{_libdir}/libglusterd.so.*
-%exclude %{_libdir}/libglusterd.so
-
 %files -n python%{_pythonver}-gluster
 # introducing glusterfs module in site packages.
 # so that all other gluster submodules can reside in the same namespace.
@@ -1540,6 +1517,7 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/posix*
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/snapview-server.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/marker.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/simple-quota.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/quota*
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/selinux.so
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/trash.so
@@ -1663,6 +1641,9 @@ exit 0
 %endif
 
 %changelog
+* Mon Feb 21 2022 Xavi Hernandez <xhernandez@redhat.com>
+- add openssl as a build dependency.
+
 * Mon Nov 1 2021 Kaleb S. KEITHLEY <kkeithle [at] redhat.com>
 - tcmalloc issues
 

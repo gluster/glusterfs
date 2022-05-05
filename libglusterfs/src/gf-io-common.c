@@ -14,6 +14,7 @@
 
 #include <urcu/uatomic.h>
 
+#include <glusterfs/list.h>
 #include <glusterfs/gf-io-common.h>
 
 #define LG_MSG_IO_THREAD_BAD_PRIORITY_LVL(_res) GF_LOG_ERROR
@@ -497,8 +498,8 @@ gf_io_thread_join(pthread_t thread, struct timespec *timeout)
 {
 #ifdef GF_LINUX_HOST_OS
     if (timeout != NULL) {
-        gf_io_success(gf_io_call_ret(pthread_timedjoin_np, thread, NULL,
-                                     timeout));
+        gf_io_success(
+            gf_io_call_ret(pthread_timedjoin_np, thread, NULL, timeout));
 
         return;
     }

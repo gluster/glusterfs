@@ -11,13 +11,9 @@
 #define __CLI_H__
 
 #include "rpc-clnt.h"
-#include <glusterfs/glusterfs.h>
-#include "protocol-common.h"
-#include <glusterfs/logging.h>
 #include <glusterfs/quota-common-utils.h>
 
 #include "cli1-xdr.h"
-#include "gd-common-utils.h"
 
 #if (HAVE_LIB_XML)
 #include <libxml/encoding.h>
@@ -209,9 +205,6 @@ extern rpc_clnt_prog_t *cli_rpc_prog;
 
 typedef const char *(*cli_selector_t)(void *wcon);
 
-char *
-get_struct_variable(int mem_num, gf_gsync_status_t *sts_val);
-
 void *
 cli_getunamb(const char *tok, void **choices, cli_selector_t sel);
 
@@ -274,8 +267,8 @@ _cli_err(const char *fmt, ...);
 
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
-                   rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
-                   xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
+                   rpc_clnt_prog_t *prog, int procnum, xlator_t *this,
+                   fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int32_t
 cli_cmd_volume_create_parse(struct cli_state *state, const char **words,

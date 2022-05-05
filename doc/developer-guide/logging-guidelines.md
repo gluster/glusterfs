@@ -1,132 +1,364 @@
-Guidelines on using the logging framework within a component
-============================================================
+# Guidelines on using the logging framework within a component
+
 Gluster library libglusterfs.so provides message logging abstractions that
 are intended to be used across all code/components within gluster.
 
 There could be potentially 2 major cases how the logging infrastructure is
 used,
-  - A new gluster service daemon or end point is created
-    - The service daemon infrastructure itself initlializes the logging
+
+- A new gluster service daemon or end point is created
+
+  - The service daemon infrastructure itself initlializes the logging
     infrastructure (i.e calling gf_log_init and related set functions)
-      - See, glusterfsd.c:logging_init
-    - Alternatively there could be a case where an end point service (say
+
+    - See, glusterfsd.c:logging_init
+
+  - Alternatively there could be a case where an end point service (say
     gfapi) may need to do the required initialization
-    - This document does not (yet?) cover guidelines for these cases. Best
+
+  - This document does not (yet?) cover guidelines for these cases. Best
     bet would be to look at code in glusterfsd.c:logging_init (or equivalent)
     in case a need arises and you reach this document.
-  - A new xlator or subcomponent is written as a part of the stack
-    - Primarily in this case, the consumer of the logging APIs would only
+
+- A new xlator or subcomponent is written as a part of the stack
+
+  - Primarily in this case, the consumer of the logging APIs would only
     invoke an API to *log* a particular message at a certain severity
-    - This document elaborates on this use of the message logging framework
+
+  - This document elaborates on this use of the message logging framework
     in this context
 
-There are 2 interfaces provided to log messages,
-1. The older gf_log* interface
-2. The newer gf_msg* interface
+There are 3 interfaces provided to log messages:
 
-1. Older _to_be_deprecated_ gf_log* interface
-  - Not much documentation is provided for this interface here, as these are
-  meant to be deprecated and all code should be moved to the newer gf_msg*
-  interface
+1. GF_LOG* structured message interface
 
-2. New gf_msg* interface
-  - The set of interfaces provided by gf_msg are,
-    - NOTE: It is best to consult logging.h for the latest interfaces, as
-    this document may get out of sync with the code
+   All new messages should be defined using this interface. More details
+   about it in the next section.
 
-    *gf_msg(dom, levl, errnum, msgid, fmt...)*
-      - Used predominantly to log a message above TRACE and DEBUG levels
-      - See further guidelines below
+2. gf_msg* interface
 
-    *gf_msg_debug(dom, errnum, fmt...)*
-    *gf_msg_trace(dom, errnum, fmt...)*
-      - Above are handy shortcuts for TRACE and DEBUG level messages
-      - See further guidelines below
+   This interface is deprecated now. New log messages should use the
+   new structured interface.
 
-    *gf_msg_callingfn(dom, levl, errnum, msgid, fmt...)*
-      - Useful function when a backtrace to detect calling routines that
-      reached this execution point needs to be logged in addition to the
-      message
-      - This is very handy for framework libraries or code, as there could
-      be many callers to the same, and the real failure would need the call
-      stack to determine who the caller actually was
-      - A good example is the dict interfaces using this function to log who
-      called, when a particular error/warning needs to be displayed
-      - See further guidelines below
+3. gf_log* interface
 
-    *gf_msg_plain(levl, fmt...)*
-    *gf_msg_plain_nomem(levl, msg)*
-    *gf_msg_vplain(levl, fmt, va)*
-    *gf_msg_backtrace_nomem*
-      - The above interfaces are provided to log messages without any typical
-      headers (like the time stamp, dom, errnum etc.). The primary users of
-      the above interfaces are, when printing the final graph, or printing
-      the configuration when a process is about dump core or abort, or
-      printing the backtrace when a process receives a critical signal
-      - These interfaces should not be used outside the scope of the users
-      above, unless you know what you are doing
+   This interface was deprecated long ago and it must not be used
+   anymore.
 
-    *gf_msg_nomem(dom, levl, size)*
-      - Very crisp messages, throwing out file, function, line numbers, in
-      addition to the passed in size
-      - These are used in the memory allocation abstractions interfaces in
-      gluster, when the allocation fails (hence a no-mem log message, so that
-      further allocation is not attempted by the logging infrastructure)
-      - If you are contemplating using these, then you know why and how
+## Structured log messages
 
-  - Guidelines for the various arguments to the interfaces
-    **dom**
-      - The domain from which this message appears, IOW for xlators it should
-      be the name of the xlator (as in this->name)
+This interface is designed to be easy to use, flexible and consistent.
 
-      - The intention of this string is to distinguish from which
-      component/xlator the message is being printed
+The main advantages are:
 
-      - This information can also be gleaned from the FILE:LINE:FUNCTION
-      information printed in the message anyway, but is retained to provide
-      backward compatability to the messages as seen by admins earlier
+- **Centralized message definition**
 
-    **levl**
-      - Consult logging.h:gf_loglevel_t for logging levels (they pretty much
-      map to syslog levels)
+  All messages are defined in a unique location. If a message text needs to be
+  updated, only one place has to be changed, even if the same log message is
+  used in many places.
 
-    **errnum**
-      - errno should be passed in here, if available, 0 otherwise. This auto
-      enables the logging infrastructure to print (man 3) strerror form of the
-      same at the end of the message in a consistent format
+- **Customizable list of additional data per message**
 
-      - If any message is already adding the strerror as a parameter to the
-      message, it is suggested/encouraged to remove the same and pass it as
-      errnum
+  Each message can contain a list of additional info that will be logged as
+  part of the message itself. This extra data is:
 
-      - The intention is that, if all messages did this using errnum and not
-      as a part of their own argument list, the output would look consistent
-      for the admin and cross component developers when reading logs
+  - **Declared once**
 
-    **msgid**
-      - This is a unique message ID per message (which now is more a message
-      ID per group of messages in the implementation)
+    It's defined as part of the centralized message definition itself
 
-      - Rules for generating this ID can be found in dht-messages.h (it used
-      to be template-common-messages.h, but that template is not updated,
-      this comment should be changed once that is done) and glfs-message-id.h
+  - **Typed**
 
-      - Every message that is *above* TRACE and DEBUG should get a message
-      ID, as this helps generating message catalogs that can help admins to
-      understand the context of messages better. Another intention is that
-      automated message parsers could detect a class of message IDs and send
-      out notifications on the same, rather than parse the message string
-      itself (which if it changes, the input to the parser has to change, etc.
-      and hence is better to retain message IDs)
+    Each value has a type that is checked by the C compiler at build time to
+    ensure correctness.
 
-      - Ok so if intention is not yet clear, look at journald MESSAGE ID
-      motivation, as that coupled with ident/dom above is expected to provide
-      us with similar advantages
+  - **Enforced**
 
-      - Bottomline: Every message gets its own ID, in case a message is
-      *not* DEBUG or TRACE and still is developer centric, a generic message
-      ID per component *maybe* assigned to the same to provide ease of use
-      of the API
+    Each extra data field needs to be specified when a message of that type
+    is logged. If the fields passed when a message is logged doesn't match the
+    definition, the compiler will generate an error. This way it's easy to
+    identify all places where a message has been used and update them.
 
-    **fmt**
-      - As in format argument of (man 3) printf
+- **Better uniformity in data type representation**
+
+  Each data types are represented in the same way in all messages, increasing
+  the consistency of the logs.
+
+- **Compile-time generation of messages**
+
+  The text and the extra data is formatted at compile time to reduce run time
+  cost.
+
+- **All argument preparation is done only if the message will be logged**
+
+  Data types that need some preprocessing to be logged, are not computed until
+  we are sure that the message needs to be logged based on the current log
+  level.
+
+- **Very easy to use**
+
+  Definition of messages and its utilization is quite simple. There are some
+  predefined types, but it's easy to create new data types if needed.
+
+- **Code auto-completion friendly**
+
+  Once a message is defined, logging it is very simple when an IDE with code
+  auto-completion is used. The code auto-completion will help to find the
+  name of the message and the list of arguments it needs.
+
+- **All extra overhead is optimally optimized by gcc/clang**
+
+  The additional code and structures required to make all this possible are
+  easily optimized by compilers, so resulting code is equivalent to directly
+  logging the message.
+
+### Definition of new messages
+
+All messages at log level INFO or above need to be declared inside a header
+file. They will be assigned a unique identifier that will appear in the logs
+so that specific messages can be easily located even if the text description
+changes.
+
+For DEBUG and TRACE messages, we don't assign a unique identifier to them and
+the message is defined in-place where it's used with a very similar format.
+
+#### Creating a new component
+
+If a new xlator or component is created that requires some messages, the first
+thing to do is to reserve a component ID in file glusterfs/glfs-message-id.h.
+
+This is done by adding a new `GLFS_MSGID_COMP()` entry at the end of the
+`enum _msgid_comp`. A unique name and a number of blocks to reserve must
+be specified (each block can contain up to 1000 messages).
+
+Example:
+
+> ```c
+>     GLFS_MSGID_COMP(EXAMPLE, 1),
+>     /* --- new segments for messages goes above this line --- */
+>
+>     GLFS_MSGID_END
+> ```
+
+Once created, a copy of glusterfs/template-component-messages.h can be used as
+a starting point for the messages of the new component. Check the comments of
+that file for more information, but basically you need to use the macro
+`GLFS_COMPONENT()` before starting defining the messages.
+
+Example:
+
+> ```c
+> GLFS_COMPONENT(EXAMPLE);
+> ```
+
+#### Creating new messages
+
+Each message is automatically assigned a unique sequential number and it
+should remain the same once created. This means that you must create new
+messages at the end of the file, after any other message. This way the newly
+created message will take the next free sequential id, without touching any
+previously assigned id.
+
+To define a message, the macro `GLFS_NEW()` must be used. It requires four
+mandatory arguments:
+
+1. The name of the component. This is the one created in the previous section.
+
+2. The name of the message. This is the name to use when you want to log the
+   message.
+
+3. The text associated to the message. This must be a fixed string without
+   any formatting.
+
+4. The number of extra data fields to include to the message.
+
+If there are extra data fields, for each field you must add field definition
+inside the macro.
+
+For debug and trace logs, messages are not predefined. Wherever a these
+messages are used, the definition of the message itself is used instead of
+the name of the message.
+
+##### Field definitions
+
+Each field consists of five arguments, written between parenthesis:
+
+1. **Data type**
+
+   This is a regular C type that will be used to manipulate the data. It can
+   be anything valid.
+
+2. **Field name**
+
+   This is the name that will be used to reference the data and to show it in
+   the log message. It must be a valid C identifier.
+
+3. **Data source**
+
+   This is only used for in-place messages. It's a simple piece of code to
+   access the data. It can be just a variable name or something a bit more
+   complex like a structure access or even a function call returning a value.
+
+4. **Format string**
+
+   This is a string representing the way in which this data will be shown in
+   the log. It can be something as simple as '%u' or a bit more elaborated
+   like '%d (%s)', depending on how we want to show something.
+
+5. **Format data**
+
+   This must be a list of expressions to generate each of the arguments needed
+   for the format string. In most cases this will be just the name of the
+   field, but it could be something else if the data needs to be processed.
+
+6. **Preparation code**
+
+   This is optional. If present it must contain any additional variable
+   definition and code to prepare the format data.
+
+Examples for message definitions:
+
+> ```c
+>     (uint32_t, value, , "%u", (value))
+> ```
+>
+> ```c
+>     (int32_t, error, , "%d (%s)", (error, strerror(error)))
+> ```
+>
+> ```c
+>     (uuid_t *, gfid, , "%s", (gfid_str),
+>      char gfid_str[48]; uuid_unparse(*gfid, gfid_str))
+> ```
+
+Examples for in-place messages:
+
+> ```c
+>     (uint32_t, value, data->count, "%u", (value))
+> ```
+>
+> ```c
+>     (int32_t, error, errno, "%d (%s)", (error, strerror(error)))
+> ```
+>
+> ```c
+>     (uuid_t *, gfid, &inode->gfid, "%s", (gfid_str),
+>      char gfid_str[48]; uuid_unparse(*gfid, gfid_str))
+> ```
+
+##### Predefined data types
+
+Some macros are available to declare typical data types and make them easier
+to use:
+
+- Signed integers: `GLFS_INT(name [, src])`
+- Unsigned integers: `GLFS_UINT(name [, src])`
+- Errors:
+  - Positive errors: `GLFS_ERR(name [, src])`
+  - Negative errors: `GLFS_RES(name [, src])`
+- Strings: `GLFS_STR(name [, src])`
+- UUIDs: `GLFS_UUID(name [, src])`
+- Pointers: `GLFS_PTR(name [, src])`
+
+The `src` argument is only used for in-place messages.
+
+This is a full example that defines a new message using the previous macros:
+
+```c
+GLFS_NEW(EXAMPLE, MSG_TEST, "This is a test message", 3,
+    GLFS_UINT(number),
+    GLFS_STR(name),
+    GLFS_ERR(error)
+)
+```
+
+This will generate a log message with the following format:
+
+```c
+"This is a test message <{number=%u}, {name='%s'}, {error=%d (%s)}>"
+```
+
+#### Logging messages
+
+Once a message is defined, it can be logged using the following macros:
+
+- `GF_LOG_C()`: log a critical message
+- `GF_LOG_E()`: log an error message
+- `GF_LOG_W()`: log a warning message
+- `GF_LOG_I()`: log an info message
+- `GF_LOG_D()`: log a debug message
+- `GF_LOG_T()`: log a trace message
+
+All macros receive a string, representing the domain of the log message. For
+INFO or higher messages, the name of the messages is passed, including all
+additional data between parenthesis. In case of DEBUG and TRACE messages, a
+message definition follows.
+
+Example:
+
+> ```c
+>     GF_LOG_I(this->name, MSG_TEST(10, "something", ENOENT));
+> ```
+
+The resulting logging message would be similar to this:
+
+```c
+"This is a test message <{number=10}, {name='something'}, {error=2 (File not found)}>"
+```
+
+A similar example with a debug message:
+
+> ```c
+>     GF_LOG_D(this->name, "Debug message",
+>         GLFS_UINT(number, data->value),
+>         GLFS_STR(name),
+>         GLFS_ERR(error, op_errno)
+>     );
+
+Note that if the field name matches the source of the data as in the case of
+the second field, the source argument can be omitted.
+
+## Migration from older interfaces
+
+Given the amount of existing messages, it's not feasible to migrate all of
+them at once, so a special macro is provided to allow incremental migration
+of existing log messages.
+
+1. Migrate header file
+
+   The first step is to update the header file where all message IDs are
+   defined.
+
+   - Initialize the component
+
+     You need to add the `GLFS_COMPONENT()` macro at the beginning with the
+     appropriate component name. This name can be found in the first argument
+     of the existing `GLFS_MSGID()` macro.
+
+   - Replace message definitions
+
+     All existing messages inside `GLFS_MSGID()` need to be converted to:
+
+     ```c
+     GLFS_MIG(component, id, "", 0)
+     ```
+
+     Where `component` is the name of the component used in `GLFS_COMPONENT()`,
+     and `id` is each of the existing IDs inside `GLFS_MSGID()`.
+
+     This step will use the new way of defining messages, but is compatible
+     with the old logging interface, so once this is done, the code should
+     compile fine.
+
+2. Migrate a message
+
+   It's possible to migrate the messages one by one without breaking anything.
+
+   For each message to migrate:
+
+   - Choose one message.
+   - Replace `GLFS_MIG` by `GLFS_NEW`.
+   - Add a meaningful message text as the third argument.
+   - Update the number of fields if necessary.
+   - Add the required field definition.
+   - Look for each instance of the log message in the code.
+   - Replace the existing log macro by one of the `GF_LOG_*()` macros.

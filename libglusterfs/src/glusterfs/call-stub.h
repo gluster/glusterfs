@@ -11,10 +11,8 @@
 #ifndef _CALL_STUB_H_
 #define _CALL_STUB_H_
 
-#include "glusterfs/xlator.h"
 #include "glusterfs/defaults.h"
 #include "glusterfs/default-args.h"
-#include "glusterfs/stack.h"
 #include "glusterfs/list.h"
 
 typedef struct _call_stub {
@@ -607,12 +605,5 @@ void
 call_unwind_error(call_stub_t *stub, int op_ret, int op_errno);
 void
 call_unwind_error_keep_stub(call_stub_t *stub, int op_ret, int op_errno);
-
-/*
- * Sometimes we might want to call just this, perhaps repeatedly, without
- * having (or being able) to destroy and recreate it.
- */
-void
-call_resume_wind(call_stub_t *stub);
 
 #endif

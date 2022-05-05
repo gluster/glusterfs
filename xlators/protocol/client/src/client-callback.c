@@ -10,7 +10,6 @@
 
 #include "client.h"
 #include "rpc-clnt.h"
-#include <glusterfs/defaults.h>
 #include "client-messages.h"
 
 static int
@@ -50,30 +49,32 @@ client_cbk_recall_lease(struct rpc_clnt *rpc, void *mydata, void *data)
             0,
         },
     };
+    xlator_t *this;
 
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
+    this = THIS;
     iov = (struct iovec *)data;
     ret = xdr_to_generic(*iov, &recall_lease,
                          (xdrproc_t)xdr_gfs3_recall_lease_req);
 
     if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, -ret, PC_MSG_RECALL_LEASE_FAIL,
+        gf_smsg(this->name, GF_LOG_WARNING, -ret, PC_MSG_RECALL_LEASE_FAIL,
                 NULL);
         goto out;
     }
 
     upcall_data.data = &rl_data;
-    ret = gf_proto_recall_lease_to_upcall(&recall_lease, &upcall_data);
+    ret = gf_proto_recall_lease_to_upcall(this, &recall_lease, &upcall_data);
     if (ret < 0)
         goto out;
 
     upcall_data.event_type = GF_UPCALL_RECALL_LEASE;
 
-    gf_msg_trace(THIS->name, 0, "Upcall gfid = %s, ret = %d", recall_lease.gfid,
+    gf_msg_trace(this->name, 0, "Upcall gfid = %s, ret = %d", recall_lease.gfid,
                  ret);
 
-    default_notify(THIS, GF_EVENT_UPCALL, &upcall_data);
+    default_notify(this, GF_EVENT_UPCALL, &upcall_data);
 
 out:
     if (recall_lease.xdata.xdata_val)
@@ -99,8 +100,9 @@ client_cbk_cache_invalidation(struct rpc_clnt *rpc, void *mydata, void *data)
     gfs3_cbk_cache_invalidation_req ca_req = {
         0,
     };
+    xlator_t *this = THIS;
 
-    gf_msg_trace(THIS->name, 0, "Upcall callback is called");
+    gf_msg_trace(this->name, 0, "Upcall callback is called");
 
     if (!data)
         goto out;
@@ -110,22 +112,22 @@ client_cbk_cache_invalidation(struct rpc_clnt *rpc, void *mydata, void *data)
                          (xdrproc_t)xdr_gfs3_cbk_cache_invalidation_req);
 
     if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+        gf_smsg(this->name, GF_LOG_WARNING, -ret,
                 PC_MSG_CACHE_INVALIDATION_FAIL, NULL);
         goto out;
     }
 
     upcall_data.data = &ca_data;
-    ret = gf_proto_cache_invalidation_to_upcall(THIS, &ca_req, &upcall_data);
+    ret = gf_proto_cache_invalidation_to_upcall(this, &ca_req, &upcall_data);
     if (ret < 0)
         goto out;
 
-    gf_msg_trace(THIS->name, 0,
+    gf_msg_trace(this->name, 0,
                  "Cache invalidation cbk received for gfid:"
                  " %s, ret = %d",
                  ca_req.gfid, ret);
 
-    default_notify(THIS, GF_EVENT_UPCALL, &upcall_data);
+    default_notify(this, GF_EVENT_UPCALL, &upcall_data);
 
 out:
     if (ca_req.gfid)
@@ -194,27 +196,29 @@ client_cbk_inodelk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
             0,
         },
     };
+    xlator_t *this;
 
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
+    this = THIS;
     iov = (struct iovec *)data;
     ret = xdr_to_generic(*iov, &proto_lc,
                          (xdrproc_t)xdr_gfs4_inodelk_contention_req);
 
     if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+        gf_smsg(this->name, GF_LOG_WARNING, -ret,
                 PC_MSG_INODELK_CONTENTION_FAIL, NULL);
         goto out;
     }
 
     upcall_data.data = &lc;
-    ret = gf_proto_inodelk_contention_to_upcall(&proto_lc, &upcall_data);
+    ret = gf_proto_inodelk_contention_to_upcall(this, &proto_lc, &upcall_data);
     if (ret < 0)
         goto out;
 
     upcall_data.event_type = GF_UPCALL_INODELK_CONTENTION;
 
-    default_notify(THIS, GF_EVENT_UPCALL, &upcall_data);
+    default_notify(this, GF_EVENT_UPCALL, &upcall_data);
 
 out:
     if (proto_lc.domain)
@@ -245,27 +249,29 @@ client_cbk_entrylk_contention(struct rpc_clnt *rpc, void *mydata, void *data)
             0,
         },
     };
+    xlator_t *this;
 
     GF_VALIDATE_OR_GOTO("client-callback", data, out);
 
+    this = THIS;
     iov = (struct iovec *)data;
     ret = xdr_to_generic(*iov, &proto_lc,
                          (xdrproc_t)xdr_gfs4_entrylk_contention_req);
 
     if (ret < 0) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, -ret,
+        gf_smsg(this->name, GF_LOG_WARNING, -ret,
                 PC_MSG_ENTRYLK_CONTENTION_FAIL, NULL);
         goto out;
     }
 
     upcall_data.data = &lc;
-    ret = gf_proto_entrylk_contention_to_upcall(&proto_lc, &upcall_data);
+    ret = gf_proto_entrylk_contention_to_upcall(this, &proto_lc, &upcall_data);
     if (ret < 0)
         goto out;
 
     upcall_data.event_type = GF_UPCALL_ENTRYLK_CONTENTION;
 
-    default_notify(THIS, GF_EVENT_UPCALL, &upcall_data);
+    default_notify(this, GF_EVENT_UPCALL, &upcall_data);
 
 out:
     if (proto_lc.name)

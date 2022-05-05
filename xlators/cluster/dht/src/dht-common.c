@@ -16,7 +16,6 @@
 #include <glusterfs/quota-common-utils.h>
 #include <glusterfs/upcall-utils.h>
 #include "glusterfs/compat-errno.h"  // for ENODATA on BSD
-#include <glusterfs/common-utils.h>
 
 #include <sys/time.h>
 #include <libgen.h>
@@ -475,10 +474,10 @@ dht_lookup_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         ret = dht_layout_set(this, local->inode, layout);
     }
 
-    dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+    dht_inode_ctx_time_update(local->inode, this, NULL, &local->stbuf);
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, &local->postparent,
-                                  1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                  &local->postparent);
     }
 
     DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -718,6 +717,7 @@ dht_common_mark_mdsxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (!local->mds_heal_fresh_lookup && layout) {
         dht_selfheal_dir_setattr(frame, &local->loc, &local->stbuf, 0xffffffff,
                                  layout);
+        return 0;
     }
 out:
     if (mds_heal_fresh_lookup)
@@ -1551,12 +1551,13 @@ unlock:
 
             dht_layout_set(this, local->inode, layout);
             if (local->inode) {
-                dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+                dht_inode_ctx_time_update(local->inode, this, NULL,
+                                          &local->stbuf);
             }
 
             if (local->loc.parent) {
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                          &local->postparent);
             }
         }
 
@@ -1574,7 +1575,6 @@ unlock:
     return 0;
 
 selfheal:
-    FRAME_SU_DO(frame, dht_local_t);
     ret = dht_selfheal_directory(frame, dht_lookup_selfheal_cbk, &local->loc,
                                  layout);
 out:
@@ -1950,8 +1950,8 @@ unlock:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2024,7 +2024,7 @@ dht_lookup_linkfile_create_cbk(call_frame_t *frame, void *cooie, xlator_t *this,
     }
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
 unwind:
@@ -2498,8 +2498,8 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
                  */
 
                 if (!local->op_ret && local->loc.parent) {
-                    dht_inode_ctx_time_update(local->loc.parent, this,
-                                              &local->postparent, 1);
+                    dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                              &local->postparent);
                 }
 
                 gf_msg_debug(this->name, 0,
@@ -2579,8 +2579,8 @@ preset_layout:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2611,8 +2611,8 @@ preset_layout:
         }
 
         if (local->loc.parent) {
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+            dht_inode_ctx_time_update(local->loc.parent, this, NULL,
+                                      &local->postparent);
         }
 
         DHT_STRIP_PHASE1_FLAGS(&local->stbuf);
@@ -2969,7 +2969,7 @@ dht_lookup_linkfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
 unwind:
@@ -3014,6 +3014,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                 (parent_layout->commit_hash == conf->vol_commit_hash)) {
                 lookup_everywhere = _gf_false;
             }
+            if (!ret)
+                dht_layout_unref(parent_layout);
         }
         goto out;
     } else {
@@ -3025,6 +3027,8 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
                     (!parent_layout->search_unhashed)) {
                     lookup_everywhere = _gf_false;
                 }
+                if (!ret)
+                    dht_layout_unref(parent_layout);
             } else {
                 lookup_everywhere = _gf_false;
             }
@@ -3174,7 +3178,7 @@ out:
      */
 
     if (!op_ret && local && local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, NULL, postparent);
     }
 
     DHT_STRIP_PHASE1_FLAGS(stbuf);
@@ -3644,9 +3648,7 @@ dht_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         if (local->loc.parent) {
             dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->preparent, 0);
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+                                      &local->preparent, &local->postparent);
         }
     }
     UNLOCK(&frame->lock);
@@ -6338,23 +6340,41 @@ dht_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     gf_boolean_t event = _gf_false;
     qdstatfs_action_t action = qdstatfs_action_OFF;
     dht_local_t *local = NULL;
+    dht_conf_t *conf = this->private;
     int this_call_cnt = 0;
     int bsize = 0;
     int frsize = 0;
     GF_UNUSED int ret = 0;
     unsigned long new_usage = 0;
     unsigned long cur_usage = 0;
+    int32_t simple_quota = 0;
 
     local = frame->local;
     GF_ASSERT(local);
 
-    if (xdata)
+    if (xdata) {
         ret = dict_get_int8(xdata, "quota-deem-statfs", (int8_t *)&event);
+        if (IS_ERROR(ret)) {
+            gf_msg_trace(this->name, ENOENT,
+                         "Failed to get key = quota-deem-statfs");
+        }
+        ret = dict_get_int32(xdata, "simple-quota", &simple_quota);
+        if (IS_ERROR(ret)) {
+            gf_msg_trace(this->name, ENOENT,
+                         "Failed to get key = simple-quota");
+        }
+    }
 
     LOCK(&frame->lock);
     {
+        if (simple_quota) {
+            local->simple_quota = true;
+        }
+
         if (op_ret == -1) {
             local->op_errno = op_errno;
+            /* overload file_count variable for number of failures */
+            local->file_count++;
             goto unlock;
         }
         if (!statvfs) {
@@ -6409,25 +6429,70 @@ dht_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         } else {
             local->statvfs.f_bsize = statvfs->f_bsize;
             local->statvfs.f_frsize = statvfs->f_frsize;
+            local->statvfs.f_fsid = statvfs->f_fsid;
+            local->statvfs.f_flag = statvfs->f_flag;
+            local->statvfs.f_namemax = statvfs->f_namemax;
         }
 
-        local->statvfs.f_blocks += statvfs->f_blocks;
-        local->statvfs.f_bfree += statvfs->f_bfree;
-        local->statvfs.f_bavail += statvfs->f_bavail;
-        local->statvfs.f_files += statvfs->f_files;
-        local->statvfs.f_ffree += statvfs->f_ffree;
-        local->statvfs.f_favail += statvfs->f_favail;
-        local->statvfs.f_fsid = statvfs->f_fsid;
-        local->statvfs.f_flag = statvfs->f_flag;
-        local->statvfs.f_namemax = statvfs->f_namemax;
+        /* when simple-quota is present, DHT acts as aggregator */
+        if (local->simple_quota) {
+            if (!local->statvfs.f_blocks) {
+                local->statvfs = *statvfs;
+            } else {
+                /* Used space reduces */
+                int64_t usage = statvfs->f_blocks - statvfs->f_bfree;
+                int64_t fusage = statvfs->f_files - statvfs->f_ffree;
+                if (local->statvfs.f_bfree >= usage) {
+                    local->statvfs.f_bfree -= usage;
+                    local->statvfs.f_bavail -= usage;
+                } else {
+                    local->statvfs.f_bfree = 0;
+                    local->statvfs.f_bavail = 0;
+                }
+                if (local->statvfs.f_ffree >= fusage) {
+                    local->statvfs.f_ffree -= fusage;
+                    local->statvfs.f_favail -= fusage;
+                } else {
+                    local->statvfs.f_ffree = 0;
+                    local->statvfs.f_favail = 0;
+                }
+            }
+        } else {
+            local->statvfs.f_blocks += statvfs->f_blocks;
+            local->statvfs.f_files += statvfs->f_files;
+            local->statvfs.f_bfree += statvfs->f_bfree;
+            local->statvfs.f_bavail += statvfs->f_bavail;
+            local->statvfs.f_ffree += statvfs->f_ffree;
+            local->statvfs.f_favail += statvfs->f_favail;
+        }
     }
 unlock:
     UNLOCK(&frame->lock);
 
     this_call_cnt = dht_frame_return(frame);
-    if (is_last_call(this_call_cnt))
+    if (is_last_call(this_call_cnt)) {
+        if (local->simple_quota) {
+            /* Even if 1 subvolume passes df, make sure to send the Avg usage in
+             * this case */
+            if ((local->file_count > 0) &&
+                (local->file_count < conf->subvolume_cnt)) {
+                /* handle averaging the block usage */
+                int64_t avg_usage = (local->statvfs.f_blocks -
+                                     local->statvfs.f_bfree) /
+                                    (conf->subvolume_cnt - local->file_count);
+                int64_t update = avg_usage * local->file_count;
+                if (update > local->statvfs.f_bfree) {
+                    local->statvfs.f_bfree = 0;
+                    local->statvfs.f_bavail = 0;
+                } else {
+                    local->statvfs.f_bfree -= update;
+                    local->statvfs.f_bavail -= update;
+                }
+            }
+        }
         DHT_STACK_UNWIND(statfs, frame, local->op_ret, local->op_errno,
                          &local->statvfs, xdata);
+    }
 
     return 0;
 }
@@ -6838,7 +6903,9 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
 
     list:
-        entry = gf_dirent_for_name(orig_entry->d_name);
+        entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                    orig_entry->d_ino, orig_entry->d_off,
+                                    orig_entry->d_type);
         if (!entry) {
             goto unwind;
         }
@@ -6853,11 +6920,7 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             }
         }
 
-        entry->d_off = orig_entry->d_off;
         entry->d_stat = orig_entry->d_stat;
-        entry->d_ino = orig_entry->d_ino;
-        entry->d_type = orig_entry->d_type;
-        entry->d_len = orig_entry->d_len;
 
         if (orig_entry->dict)
             entry->dict = dict_ref(orig_entry->dict);
@@ -6869,8 +6932,8 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             entry->d_stat.ia_blocks = DHT_DIR_STAT_BLOCKS;
             entry->d_stat.ia_size = DHT_DIR_STAT_SIZE;
             if (orig_entry->inode) {
-                dht_inode_ctx_time_update(orig_entry->inode, this,
-                                          &entry->d_stat, 1);
+                dht_inode_ctx_time_update(orig_entry->inode, this, NULL,
+                                          &entry->d_stat);
 
                 if (conf->subvolume_cnt == 1) {
                     dht_populate_inode_for_dentry(this, prev, entry,
@@ -7086,17 +7149,14 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
         if (add) {
             add = _gf_false;
-            entry = gf_dirent_for_name(orig_entry->d_name);
+            entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                        orig_entry->d_ino, orig_entry->d_off,
+                                        orig_entry->d_type);
             if (!entry) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
                        "Memory allocation failed ");
                 goto unwind;
             }
-
-            entry->d_off = orig_entry->d_off;
-            entry->d_ino = orig_entry->d_ino;
-            entry->d_type = orig_entry->d_type;
-            entry->d_len = orig_entry->d_len;
 
             gf_msg_debug(this->name, 0, "%s: Adding = entry %s", prev->name,
                          entry->d_name);
@@ -7373,8 +7433,8 @@ dht_newfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     prev = cookie;
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     ret = dht_layout_preset(this, prev, inode);
@@ -8219,8 +8279,8 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     /* Update parent on success, even if P1/2 checks are positive.
      * The second call on success will further update the parent */
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     /* Update linkto attrs, if this is the first call and non-P2,
@@ -8532,9 +8592,8 @@ dht_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     prev = cookie;
 
     if (local->loc.parent) {
-        dht_inode_ctx_time_update(local->loc.parent, this, preparent, 0);
-
-        dht_inode_ctx_time_update(local->loc.parent, this, postparent, 1);
+        dht_inode_ctx_time_update(local->loc.parent, this, preparent,
+                                  postparent);
     }
 
     ret = dht_fd_ctx_set(this, fd, prev);
@@ -9174,13 +9233,10 @@ dht_mkdir_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (op_ret == 0) {
         dht_layout_set(this, local->inode, layout);
 
-        dht_inode_ctx_time_update(local->inode, this, &local->stbuf, 1);
+        dht_inode_ctx_time_update(local->inode, this, NULL, &local->stbuf);
         if (local->loc.parent) {
             dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->preparent, 0);
-
-            dht_inode_ctx_time_update(local->loc.parent, this,
-                                      &local->postparent, 1);
+                                      &local->preparent, &local->postparent);
         }
     }
 
@@ -9493,7 +9549,6 @@ dht_mkdir_hashed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     if (local->call_cnt == 0) {
         /*Unlock namespace lock once mkdir is done on all subvols*/
         dht_unlock_namespace(frame, &local->lock[0]);
-        FRAME_SU_DO(frame, dht_local_t);
         dht_selfheal_directory(frame, dht_mkdir_selfheal_cbk, &local->loc,
                                layout);
         return 0;
@@ -9772,10 +9827,8 @@ unlock:
         } else {
             if (local->loc.parent) {
                 dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->preparent, 0);
-
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                                          &local->preparent,
+                                          &local->postparent);
             }
 
             dht_set_fixed_dir_stat(&local->preparent);
@@ -9964,10 +10017,8 @@ unlock:
 
             if (local->loc.parent) {
                 dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->preparent, 0);
-
-                dht_inode_ctx_time_update(local->loc.parent, this,
-                                          &local->postparent, 1);
+                                          &local->preparent,
+                                          &local->postparent);
             }
 
             dht_set_fixed_dir_stat(&local->preparent);
@@ -11210,18 +11261,24 @@ dht_inode_ctx_layout_get(inode_t *inode, xlator_t *this, dht_layout_t **layout)
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
 
-    ret = dht_inode_ctx_get(inode, this, &ctx);
-
-    if (!ret && ctx) {
-        if (ctx->layout) {
-            if (layout)
-                *layout = ctx->layout;
-            ret = 0;
-        } else {
-            ret = -1;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx && ctx->layout) {
+                if (layout) {
+                    *layout = ctx->layout;
+                    dht_layout_ref(ctx->layout);
+                }
+            } else {
+                ret = -1;
+            }
         }
     }
+    UNLOCK(&inode->lock);
 
     return ret;
 }

@@ -23,233 +23,225 @@
 #include <sys/stat.h>
 #include <sys/mount.h>
 
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/globals.h"
+#include "glusterfs/glusterfs.h"
 #include "glusterfs/logging.h"
 #include "glusterfs/syscall.h"
 #include "glusterfs/mem-types.h"
 
 static void
-usage (void)
+usage(void)
 {
-        fprintf (stderr, "Usage: umountd [-d dev] [-t timeout] [-r] path\n");
-        exit (EXIT_FAILURE);
+    fprintf(stderr, "Usage: umountd [-d dev] [-t timeout] [-r] path\n");
+    exit(EXIT_FAILURE);
 }
 
-
 static int
-sanity_check (char *path, dev_t *devp)
+sanity_check(char *path, dev_t *devp)
 {
-        struct stat st;
-        struct stat parent_st;
-        int ret;
-        char pathtmp[PATH_MAX];
-        char *parent;
+    struct stat st;
+    struct stat parent_st;
+    int ret;
+    char pathtmp[PATH_MAX];
+    char *parent;
 
-        if (path == NULL)
-                usage ();
+    if (path == NULL)
+        usage();
 
-        if ((ret = stat (path, &st)) != 0) {
-                switch (errno) {
-                case ENOTCONN:
-                        /* volume is stopped */
-                        break;
-                default:
-                        gf_log ("umountd", GF_LOG_ERROR,
-                                "Cannot access %s: %s\n",
-                                path, strerror (errno));
-                        goto out;
-                }
-        }
-
-        /* If dev was not specified, get it from path */
-        if (*devp == -1 && ret == 0)
-                *devp = st.st_dev;
-
-        snprintf (pathtmp, PATH_MAX, "%s", path);
-        parent = dirname (pathtmp);
-
-        if (stat (parent, &parent_st) != 0) {
-                gf_log ("umountd", GF_LOG_ERROR,
-                        "Cannot access %s: %s\n",
-                        parent, strerror (errno));
+    if ((ret = stat(path, &st)) != 0) {
+        switch (errno) {
+            case ENOTCONN:
+                /* volume is stopped */
+                break;
+            default:
+                gf_log("umountd", GF_LOG_ERROR, "Cannot access %s: %s\n", path,
+                       strerror(errno));
                 goto out;
         }
+    }
 
-        if (st.st_dev == parent_st.st_dev) {
-                gf_log ("umountd", GF_LOG_ERROR,
-                        "No filesystem mounted on %s\n", path);
-                goto out;
-        }
+    /* If dev was not specified, get it from path */
+    if (*devp == -1 && ret == 0)
+        *devp = st.st_dev;
 
-        ret = 0;
+    snprintf(pathtmp, PATH_MAX, "%s", path);
+    parent = dirname(pathtmp);
+
+    if (stat(parent, &parent_st) != 0) {
+        gf_log("umountd", GF_LOG_ERROR, "Cannot access %s: %s\n", parent,
+               strerror(errno));
+        goto out;
+    }
+
+    if (st.st_dev == parent_st.st_dev) {
+        gf_log("umountd", GF_LOG_ERROR, "No filesystem mounted on %s\n", path);
+        goto out;
+    }
+
+    ret = 0;
 
 out:
-        return ret;
+    return ret;
 }
 
 static void
-log_rotate (int signum)
+log_rotate(int signum)
 {
-        gf_log_logrotate (1);
+    gf_log_logrotate(1);
 
-        if (signal (SIGHUP, *log_rotate) == SIG_ERR) {
-                gf_log ("umountd", GF_LOG_ERROR, "signal () failed");
-                exit (EXIT_FAILURE);
-        }
+    if (signal(SIGHUP, *log_rotate) == SIG_ERR) {
+        gf_log("umountd", GF_LOG_ERROR, "signal () failed");
+        exit(EXIT_FAILURE);
+    }
 
-        return;
+    return;
 }
 
 static int
-logging_init (void)
+logging_init(void)
 {
-        glusterfs_ctx_t *ctx;
-        char log_file[PATH_MAX];
-        int ret = -1;
+    glusterfs_ctx_t *ctx;
+    char log_file[PATH_MAX];
+    int ret = -1;
 
-        ctx = glusterfs_ctx_new ();
-        if (!ctx) {
-                fprintf (stderr, "glusterfs_ctx_new failed\n");
-                goto out;
-        }
+    ctx = glusterfs_ctx_new();
+    if (!ctx) {
+        fprintf(stderr, "glusterfs_ctx_new failed\n");
+        goto out;
+    }
 
-        ret = glusterfs_globals_init (ctx);
-        if (ret) {
-                fprintf (stderr, "glusterfs_globals_init failed\n");
-                goto out;
-        }
+    ret = glusterfs_globals_init(ctx);
+    if (ret) {
+        fprintf(stderr, "glusterfs_globals_init failed\n");
+        goto out;
+    }
 
-        THIS->ctx = ctx;
-        xlator_mem_acct_init (THIS, gf_common_mt_end);
+    THIS->ctx = ctx;
+    xlator_mem_acct_init(THIS, gf_common_mt_end);
 
-        snprintf (log_file, PATH_MAX,
-                  "%s/umountd.log", DEFAULT_LOG_FILE_DIRECTORY);
+    snprintf(log_file, PATH_MAX, "%s/umountd.log", DEFAULT_LOG_FILE_DIRECTORY);
 
-        ret = gf_log_init (ctx, log_file, "umountd");
-        if (ret) {
-                fprintf (stderr, "gf_log_init failed\n");
-                goto out;
-        }
+    ret = gf_log_init(ctx, log_file, "umountd");
+    if (ret) {
+        fprintf(stderr, "gf_log_init failed\n");
+        goto out;
+    }
 
-        if (signal (SIGHUP, *log_rotate) == SIG_ERR) {
-                gf_log ("umountd", GF_LOG_ERROR, "signal () failed");
-                goto out;
-        }
+    if (signal(SIGHUP, *log_rotate) == SIG_ERR) {
+        gf_log("umountd", GF_LOG_ERROR, "signal () failed");
+        goto out;
+    }
 
-        ret = 0;
+    ret = 0;
 out:
-        return ret;
+    return ret;
 }
 
 static int
-umountd_async (char *path, dev_t dev, int frmdir, int timeout)
+umountd_async(char *path, dev_t dev, int frmdir, int timeout)
 {
-        int                   ret        = -1;
-        struct stat           stbuf      = {0, };
-        int                       unmount_ret = 0;
+    int ret = -1;
+    struct stat stbuf = {
+        0,
+    };
+    int unmount_ret = 0;
 
-        do {
-                unmount_ret = unmount (path, 0);
-                if (unmount_ret == 0)
-                        gf_log ("umountd", GF_LOG_INFO, "Unmounted %s", path);
+    do {
+        unmount_ret = unmount(path, 0);
+        if (unmount_ret == 0)
+            gf_log("umountd", GF_LOG_INFO, "Unmounted %s", path);
 
-                if (unmount_ret != 0 && errno != EBUSY) {
-                               gf_log ("umountd", GF_LOG_WARNING,
-                                      "umount %s failed: %s",
-                                path, strerror (errno));
-                }
-
-                ret = sys_lstat (path, &stbuf);
-                if (ret != 0) {
-                        gf_log ("umountd", GF_LOG_WARNING,
-                                      "Cannot stat device from %s",
-                                path, strerror (errno));
-                        break;
-                }
-
-                if (stbuf.st_dev != dev) {
-                        if (unmount_ret != 0)
-                                gf_log ("umountd", GF_LOG_INFO,
-                                        "device mismatch "
-                                        "(expect %lld, found %lld), "
-                                        "someone else unmounted %s",
-                                        dev, stbuf.st_dev, path);
-                        ret = 0;
-                        break;
-                }
-
-                sleep (timeout);
-        } while (1/*CONSTCOND*/);
-
-        if (ret) {
-                gf_log ("umountd", GF_LOG_ERROR,
-                        "Asynchronous unmount of %s failed: %s",
-                        path, strerror (errno));
-        } else {
-                if (frmdir) {
-                        ret = rmdir (path);
-                        if (ret)
-                                gf_log ("umountd", GF_LOG_WARNING,
-                                         "rmdir %s failed: %s",
-                                         path, strerror (errno));
-                        else
-                                gf_log ("umountd", GF_LOG_INFO,
-                                         "Removed %s", path);
-                }
+        if (unmount_ret != 0 && errno != EBUSY) {
+            gf_log("umountd", GF_LOG_WARNING, "umount %s failed: %s", path,
+                   strerror(errno));
         }
 
-        return ret;
+        ret = sys_lstat(path, &stbuf);
+        if (ret != 0) {
+            gf_log("umountd", GF_LOG_WARNING, "Cannot stat device from %s",
+                   path, strerror(errno));
+            break;
+        }
+
+        if (stbuf.st_dev != dev) {
+            if (unmount_ret != 0)
+                gf_log("umountd", GF_LOG_INFO,
+                       "device mismatch "
+                       "(expect %lld, found %lld), "
+                       "someone else unmounted %s",
+                       dev, stbuf.st_dev, path);
+            ret = 0;
+            break;
+        }
+
+        sleep(timeout);
+    } while (1 /*CONSTCOND*/);
+
+    if (ret) {
+        gf_log("umountd", GF_LOG_ERROR, "Asynchronous unmount of %s failed: %s",
+               path, strerror(errno));
+    } else {
+        if (frmdir) {
+            ret = rmdir(path);
+            if (ret)
+                gf_log("umountd", GF_LOG_WARNING, "rmdir %s failed: %s", path,
+                       strerror(errno));
+            else
+                gf_log("umountd", GF_LOG_INFO, "Removed %s", path);
+        }
+    }
+
+    return ret;
 }
 
 int
-main (int argc, char **argv)
+main(int argc, char **argv)
 {
-        char *path = NULL;
-        dev_t dev = -1;
-        int frmdir = 0;
-        int timeout = 30;
-        int f;
+    char *path = NULL;
+    dev_t dev = -1;
+    int frmdir = 0;
+    int timeout = 30;
+    int f;
 
-        while ((f = getopt (argc, argv, "d:rt:")) != -1) {
-                switch (f) {
-                case 'p':
-                        path = optarg;
-                        break;
-                case 'd':
-                        dev = strtoll (optarg, NULL, 10);
-                        break;
-                case 't':
-                        timeout = atoi (optarg);
-                        break;
-                case 'r':
-                        frmdir = 1;
-                        break;
-                default:
-                        usage ();
-                        break;
-                }
+    while ((f = getopt(argc, argv, "d:rt:")) != -1) {
+        switch (f) {
+            case 'p':
+                path = optarg;
+                break;
+            case 'd':
+                dev = strtoll(optarg, NULL, 10);
+                break;
+            case 't':
+                timeout = atoi(optarg);
+                break;
+            case 'r':
+                frmdir = 1;
+                break;
+            default:
+                usage();
+                break;
         }
+    }
 
-        argc -= optind;
-        argv += optind;
+    argc -= optind;
+    argv += optind;
 
-        if (argc != 1)
-                usage ();
+    if (argc != 1)
+        usage();
 
-        path = argv[0];
+    path = argv[0];
 
-        if (logging_init () != 0)
-                exit (EXIT_FAILURE);
+    if (logging_init() != 0)
+        exit(EXIT_FAILURE);
 
-        if (sanity_check (path, &dev) != 0)
-                exit (EXIT_FAILURE);
+    if (sanity_check(path, &dev) != 0)
+        exit(EXIT_FAILURE);
 
-        if (daemon (0, 0) != 0)
-                exit (EXIT_FAILURE);
+    if (daemon(0, 0) != 0)
+        exit(EXIT_FAILURE);
 
-        if (umountd_async (path, dev, frmdir, timeout) != 0)
-                exit (EXIT_FAILURE);
+    if (umountd_async(path, dev, frmdir, timeout) != 0)
+        exit(EXIT_FAILURE);
 
-        return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }

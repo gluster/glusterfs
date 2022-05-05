@@ -1,7 +1,9 @@
 #!/bin/bash
 
 LVM_DEFINED=0
-LVM_PREFIX="patchy_snap"
+# Replace any '-' by '_' to avoid that device manager modifies the name of
+# the device (it replaces '-' by '--' in /dev/mapper)
+LVM_PREFIX="patchy_snap_${GFREG_ID//-/_}"
 LVM_COUNT=0
 VHD_SIZE="300M"
 
@@ -78,19 +80,7 @@ function cleanup_lvm() {
     pkill gluster
     sleep 2
 
-    if [ "$LVM_DEFINED" = "1" ]; then
-        _cleanup_lvm >/dev/null 2>&1
-    fi
-
-    _cleanup_lvm_again >/dev/null 2>&1
-    # TODO Delete cleanup has open bug
-    # once fixed delete this
-    mount | grep "run/gluster/snaps" | awk '{print $3}' | xargs umount 2> /dev/null
-    mount | grep "patchy_snap" | awk '{print $3}' | xargs umount 2> /dev/null
-    \rm -rf /var/run/gluster/snaps/*
-    lvscan | grep "/dev/patchy_snap" | awk '{print $2}'| xargs lvremove -f 2> /dev/null
-    vgs | grep patchy_snap | awk '{print $1}' | xargs vgremove -f 2>/dev/null
-    \rm -rf /dev/patchy*
+    _cleanup_lvm_again
     return 0
 }
 
@@ -116,35 +106,18 @@ function _setup_lvm() {
     done
 }
 
-function _cleanup_lvm() {
-    local count=$LVM_COUNT
-    local b
-    local i
-
-    for i in `seq 1 $count`; do
-        b="B$i"
-        _umount_lv $i
-        _remove_lv $i
-        _remove_vhd ${!b}
-    done
-}
-
 function _cleanup_lvm_again() {
     local file
 
-    mount | grep $LVM_PREFIX | awk '{print $3}' | xargs -r ${UMOUNT_F}
+    findmnt -nRlT "${B0}" -o TARGET,SOURCE | grep "${LVM_PREFIX}" | awk '{print $2}' | xargs -r ${UMOUNT_F}
+    findmnt -nRlo TARGET,SOURCE | grep "run/gluster/snaps" | awk '{print $2}' | xargs -r ${UMOUNT_F}
+    \rm -rf /var/run/gluster/snaps/*
 
-    /sbin/vgs | grep $LVM_PREFIX | awk '{print $1}' | xargs -r vgremove -f
+    vgremove -fyS "vg_name=~^${LVM_PREFIX}_vg"
 
     find $B0 -name "${LVM_PREFIX}_loop" | xargs -r losetup -d
 
     find $B0 -name "${LVM_PREFIX}*" | xargs -r rm -rf
-
-    find /run/gluster/snaps -name "*${LVM_PREFIX}*" | xargs -r rm -rf
-
-    for file in `ls /run/gluster/snaps`; do
-        find /run/gluster/snaps/$file -mmin -2 | xargs -r rm -rf
-    done
 }
 
 ########################################################
@@ -166,11 +139,12 @@ function _create_lv() {
     local thinpoolsize="200M"
     local virtualsize="150M"
 
+    wipefs -a "${dir}/${LVM_PREFIX}_loop"
     /sbin/pvcreate $dir/${LVM_PREFIX}_loop
     /sbin/vgcreate ${!vg} $dir/${LVM_PREFIX}_loop
 
-    /sbin/lvcreate -L ${thinpoolsize} -T /dev/${!vg}/thinpool
-    /sbin/lvcreate -V ${virtualsize} -T /dev/${!vg}/thinpool -n brick_lvm
+    /sbin/lvcreate -L ${thinpoolsize} -T ${!vg}/thinpool
+    /sbin/lvcreate -V ${virtualsize} -T ${!vg}/thinpool -n brick_lvm
 
     mkfs.xfs -f /dev/${!vg}/brick_lvm
 }
@@ -195,7 +169,7 @@ function _remove_lv() {
     local num=$1
     local vg="VG$num"
 
-    vgremove -f ${!vg}
+    vgremove -fy ${!vg}
 }
 
 function _remove_vhd() {
@@ -336,26 +310,6 @@ function snapshot_snap_status()
     done;
 echo "Success"
 return 0;
-}
-
-
-# TODO: Cleanup code duplication
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI_1 volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
-
-
-function volume_exists() {
-        $CLI_1 volume info $1 > /dev/null 2>&1
-        if [ $? -eq 0 ]; then
-                echo "Y"
-        else
-                echo "N"
-        fi
 }
 
 # arg-1 : From which node the command should be trigerred

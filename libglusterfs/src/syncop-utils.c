@@ -10,7 +10,6 @@
 
 #include "glusterfs/syncop.h"
 #include "glusterfs/syncop-utils.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/libglusterfs-messages.h"
 
 struct syncop_dir_scan_data {
@@ -120,7 +119,7 @@ syncop_ftw(xlator_t *subvol, loc_t *loc, int pid, void *data,
             if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
                 continue;
 
-            gf_link_inode_from_dirent(NULL, fd->inode, entry);
+            gf_link_inode_from_dirent(fd->inode, entry);
 
             ret = fn(subvol, entry, loc, data);
             if (ret)
@@ -208,7 +207,7 @@ syncop_ftw_throttle(xlator_t *subvol, loc_t *loc, int pid, void *data,
                 sleep(sleep_time);
             }
 
-            gf_link_inode_from_dirent(NULL, fd->inode, entry);
+            gf_link_inode_from_dirent(fd->inode, entry);
 
             ret = fn(subvol, entry, loc, data);
             if (ret)
@@ -295,7 +294,7 @@ _run_dir_scan_task(call_frame_t *frame, xlator_t *subvol, loc_t *parent,
     int ret = 0;
     struct syncop_dir_scan_data *scan_data = NULL;
 
-    scan_data = GF_CALLOC(1, sizeof(struct syncop_dir_scan_data),
+    scan_data = GF_MALLOC(sizeof(struct syncop_dir_scan_data),
                           gf_common_mt_scan_data);
     if (!scan_data) {
         ret = -ENOMEM;
@@ -305,12 +304,12 @@ _run_dir_scan_task(call_frame_t *frame, xlator_t *subvol, loc_t *parent,
     scan_data->subvol = subvol;
     scan_data->parent = parent;
     scan_data->data = data;
-    scan_data->mut = mut;
+    scan_data->q = q;
+    scan_data->entry = entry;
     scan_data->cond = cond;
+    scan_data->mut = mut;
     scan_data->fn = fn;
     scan_data->jobs_running = jobs_running;
-    scan_data->entry = entry;
-    scan_data->q = q;
     scan_data->qlen = qlen;
     scan_data->retval = retval;
 

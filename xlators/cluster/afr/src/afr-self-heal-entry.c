@@ -12,11 +12,10 @@
 #include "afr-self-heal.h"
 #include "afr-transaction.h"
 #include "afr-messages.h"
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/events.h>
 
-int
+static int
 afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
                               inode_t *inode, int child,
                               struct afr_reply *replies,
@@ -771,8 +770,8 @@ afr_selfheal_entry_dirent(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     priv = this->private;
 
-    if (afr_is_private_directory(priv, fd->inode->gfid, name,
-                                 GF_CLIENT_PID_SELF_HEALD)) {
+    if (__is_root_gfid(fd->inode->gfid) &&
+        afr_is_private_directory(priv, name, GF_CLIENT_PID_SELF_HEALD)) {
         return 0;
     }
 

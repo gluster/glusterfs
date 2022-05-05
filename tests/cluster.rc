@@ -50,7 +50,7 @@ function define_glusterds() {
         sopt="management.glusterd-sockfile=${!b}/glusterd/gd.sock"
         #Get the logdir
         logdir=`gluster --print-logdir`
-        clopt="management.cluster-test-mode=${logdir}/$i";
+        clopt="management.logging-directory=${logdir}/$i";
         #Fetch the testcases name and prefix the glusterd log with it
         logfile=`echo ${0##*/}`_glusterd$i.log
         lopt="--log-file=$logdir/$i/$logfile"
@@ -202,6 +202,15 @@ function volinfo_field_2()
     local field=$2;
 
     $CLI_2 volume info $vol | grep "^$field: " | sed 's/.*: //';
+}
+
+function volume_exists_1() {
+        $CLI_1 volume info $1 > /dev/null 2>&1
+        if [ $? -eq 0 ]; then
+                echo "Y"
+        else
+                echo "N"
+        fi
 }
 
 function cluster_brick_up_status {

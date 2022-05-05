@@ -1,8 +1,8 @@
 #!/bin/bash
 
+. $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../snapshot.rc
-. $(dirname $0)/../../include.rc
 . $(dirname $0)/../../cluster.rc
 
 function create_snapshots() {

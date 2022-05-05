@@ -40,10 +40,7 @@
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/timer.h>
-#include "glusterfs3-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
 #include "posix-gfid-path.h"
 #include <glusterfs/events.h>
@@ -181,7 +178,7 @@ posix_set_mode_in_dict(dict_t *in_dict, dict_t *out_dict, struct iatt *in_stbuf)
     int ret = -1;
     mode_t mode = 0;
 
-    if ((!in_dict) || (!in_stbuf) || (!out_dict)) {
+    if ((!in_stbuf) || (!out_dict)) {
         goto out;
     }
 
@@ -563,10 +560,10 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     } else if (GF_POSIX_ACL_REQUEST(key)) {
         if (filler->real_path)
             ret = posix_pstat(filler->this, NULL, NULL, filler->real_path,
-                              &stbuf, _gf_false);
+                              &stbuf, _gf_false, _gf_false);
         else
             ret = posix_fdstat(filler->this, filler->fd->inode, filler->fdnum,
-                               &stbuf);
+                               &stbuf, _gf_false);
         if (ret < 0) {
             gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                    P_MSG_XDATA_GETXATTR, "lstat on %s failed",
@@ -616,83 +613,67 @@ out:
     return 0;
 }
 
-int
-posix_fill_gfid_path(xlator_t *this, const char *path, struct iatt *iatt)
+static int
+posix_fill_gfid_path(const char *path, struct iatt *iatt)
 {
-    int ret = 0;
     ssize_t size = 0;
-
-    if (!iatt)
-        return 0;
 
     size = sys_lgetxattr(path, GFID_XATTR_KEY, iatt->ia_gfid, 16);
     /* Return value of getxattr */
     if ((size == 16) || (size == -1))
-        ret = 0;
+        return 0;
     else
-        ret = size;
-
-    return ret;
+        return size;
 }
 
-int
-posix_fill_gfid_fd(xlator_t *this, int fd, struct iatt *iatt)
+static int
+posix_fill_gfid_fd(int fd, struct iatt *iatt)
 {
-    int ret = 0;
     ssize_t size = 0;
-
-    if (!iatt)
-        return 0;
 
     size = sys_fgetxattr(fd, GFID_XATTR_KEY, iatt->ia_gfid, 16);
     /* Return value of getxattr */
     if ((size == 16) || (size == -1))
-        ret = 0;
+        return 0;
     else
-        ret = size;
-
-    return ret;
+        return size;
 }
 
-void
-posix_fill_ino_from_gfid(xlator_t *this, struct iatt *buf)
+static void
+posix_fill_ino_from_gfid(struct iatt *buf)
 {
     /* consider least significant 8 bytes of value out of gfid */
     if (gf_uuid_is_null(buf->ia_gfid)) {
         buf->ia_ino = -1;
-        goto out;
+    } else {
+        buf->ia_flags |= IATT_INO;
+        buf->ia_ino = gfid_to_ino(buf->ia_gfid);
     }
-    buf->ia_ino = gfid_to_ino(buf->ia_gfid);
-    buf->ia_flags |= IATT_INO;
-out:
-    return;
 }
 
 int
-posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
+posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
+             gf_boolean_t fetch_time)
 {
     int ret = 0;
-    struct stat fstatbuf = {
-        0,
-    };
-    struct iatt stbuf = {
-        0,
-    };
+    struct stat fstatbuf;
     struct posix_private *priv = NULL;
 
-    priv = this->private;
+    if (stbuf_p == NULL)
+        goto out;
 
     ret = sys_fstat(fd, &fstatbuf);
-    if (ret == -1)
+    if (ret != 0)
         goto out;
 
     if (fstatbuf.st_nlink && !S_ISDIR(fstatbuf.st_mode))
         fstatbuf.st_nlink--;
 
-    iatt_from_stat(&stbuf, &fstatbuf);
+    iatt_from_stat(stbuf_p, &fstatbuf);
 
-    if (inode && priv->ctime) {
-        ret = posix_get_mdata_xattr(this, NULL, fd, inode, &stbuf);
+    priv = this->private;
+    if (inode && fetch_time && priv->ctime) {
+        ret = posix_get_mdata_xattr(this, NULL, fd, inode, stbuf_p);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
                    "posix get mdata failed on gfid: %s",
@@ -700,13 +681,10 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p)
             goto out;
         }
     }
-    ret = posix_fill_gfid_fd(this, fd, &stbuf);
-    stbuf.ia_flags |= IATT_GFID;
+    ret = posix_fill_gfid_fd(fd, stbuf_p);
+    stbuf_p->ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(this, &stbuf);
-
-    if (stbuf_p)
-        *stbuf_p = stbuf;
+    posix_fill_ino_from_gfid(stbuf_p);
 
 out:
     return ret;
@@ -718,7 +696,7 @@ out:
  */
 int
 posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
-            struct iatt *buf_p)
+            struct iatt *buf_p, gf_boolean_t fetch_time)
 {
     char *real_path = NULL;
     struct stat lstatbuf = {
@@ -762,8 +740,8 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
@@ -773,7 +751,7 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
-    if (inode && priv->ctime) {
+    if (inode && fetch_time && priv->ctime) {
         ret = posix_get_mdata_xattr(this, real_path, -1, inode, &stbuf);
         if (ret) {
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_GETMDATA_FAILED,
@@ -783,22 +761,23 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     }
 
     if (basename)
-        posix_fill_gfid_path(this, real_path, &stbuf);
+        posix_fill_gfid_path(real_path, &stbuf);
     else
         gf_uuid_copy(stbuf.ia_gfid, gfid);
     stbuf.ia_flags |= IATT_GFID;
 
-    posix_fill_ino_from_gfid(this, &stbuf);
+    posix_fill_ino_from_gfid(&stbuf);
 
     if (buf_p)
-        *buf_p = stbuf;
+        memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
 
 int
 posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
-            struct iatt *buf_p, gf_boolean_t inode_locked)
+            struct iatt *buf_p, gf_boolean_t inode_locked,
+            gf_boolean_t fetch_time)
 {
     struct stat lstatbuf = {
         0,
@@ -815,7 +794,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
     if (gfid && !gf_uuid_is_null(gfid))
         gf_uuid_copy(stbuf.ia_gfid, gfid);
     else
-        posix_fill_gfid_path(this, path, &stbuf);
+        posix_fill_gfid_path(path, &stbuf);
     stbuf.ia_flags |= IATT_GFID;
 
     ret = sys_lstat(path, &lstatbuf);
@@ -833,8 +812,8 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
         goto out;
     }
 
-    if ((lstatbuf.st_ino == priv->handledir.st_ino) &&
-        (lstatbuf.st_dev == priv->handledir.st_dev)) {
+    if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
+        (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
@@ -844,7 +823,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
-    if (priv->ctime) {
+    if (fetch_time && priv->ctime) {
         if (inode) {
             if (!inode_locked) {
                 ret = posix_get_mdata_xattr(this, path, -1, inode, &stbuf);
@@ -867,10 +846,10 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
         }
     }
 
-    posix_fill_ino_from_gfid(this, &stbuf);
+    posix_fill_ino_from_gfid(&stbuf);
 
     if (buf_p)
-        *buf_p = stbuf;
+        memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
@@ -1423,7 +1402,7 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
     /* posix_mdata_t is not filled, no time or size attributes
      * are being used, so fine.
      */
-    posix_pstat(this, NULL, NULL, fpath, &stbuf, _gf_false);
+    posix_pstat(this, NULL, NULL, fpath, &stbuf, _gf_false, _gf_false);
     switch (sb->st_mode & S_IFMT) {
         case S_IFREG:
         case S_IFBLK:
@@ -1450,7 +1429,7 @@ janitor_walker(const char *fpath, const struct stat *sb, int typeflag,
     return 0; /* 0 = FTW_CONTINUE */
 }
 
-void
+static void
 __posix_janitor_timer_start(xlator_t *this);
 
 static int
@@ -1544,7 +1523,7 @@ posix_janitor_task_initator(struct gf_tw_timer_list *timer, void *data,
     return;
 }
 
-void
+static void
 __posix_janitor_timer_start(xlator_t *this)
 {
     struct posix_private *priv = NULL;
@@ -1992,8 +1971,7 @@ posix_fs_health_check(xlator_t *this, char *file_path)
     }
 
     time_sec = gf_time();
-    gf_time_fmt(timestamp, sizeof timestamp, time_sec, gf_timefmt_FT);
-    timelen = strlen(timestamp);
+    timelen = gf_time_fmt_FT(timestamp, sizeof timestamp, time_sec);
 
     memset(&aiocb, 0, sizeof(struct aiocb));
     aiocb.aio_fildes = fd;
@@ -2263,9 +2241,7 @@ posix_disk_space_check(struct posix_private *priv)
     char *subvol_path = NULL;
     int op_ret = 0;
     double size = 0;
-    double percent = 0;
     struct statvfs buf = {0};
-    double totsz = 0;
     double freesz = 0;
 
     GF_VALIDATE_OR_GOTO("posix-helpers", priv, out);
@@ -2274,21 +2250,20 @@ posix_disk_space_check(struct posix_private *priv)
 
     op_ret = sys_statvfs(subvol_path, &buf);
 
-    if (op_ret == -1) {
+    if (op_ret != 0) {
         gf_msg("posix-disk", GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
                "statvfs failed on %s", subvol_path);
         goto out;
     }
 
-    if (priv->disk_unit == 'p') {
-        percent = priv->disk_reserve;
-        totsz = (buf.f_blocks * buf.f_bsize);
-        size = ((totsz * percent) / 100);
+    if (priv->disk_unit_percent) {
+        size = ((buf.f_blocks * priv->disk_reserve) / 100);
+        freesz = buf.f_bfree;
     } else {
         size = priv->disk_reserve;
+        freesz = (buf.f_bfree * buf.f_bsize);
     }
 
-    freesz = (buf.f_bfree * buf.f_bsize);
     if (freesz <= size) {
         priv->disk_space_full = 1;
     } else {
@@ -2398,13 +2373,11 @@ out:
     return ret;
 }
 
-int
-posix_fsyncer_pick(xlator_t *this, struct list_head *head)
+static int
+posix_fsyncer_pick(struct posix_private *priv, struct list_head *head)
 {
-    struct posix_private *priv = NULL;
     int count = 0;
 
-    priv = this->private;
     pthread_mutex_lock(&priv->fsync_mutex);
     {
         while (list_empty(&priv->fsyncs))
@@ -2419,7 +2392,7 @@ posix_fsyncer_pick(xlator_t *this, struct list_head *head)
     return count;
 }
 
-void
+static void
 posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
 {
     struct posix_fd *pfd = NULL;
@@ -2454,6 +2427,23 @@ posix_fsyncer_process(xlator_t *this, call_stub_t *stub, gf_boolean_t do_fsync)
     call_unwind_error(stub, 0, 0);
 }
 
+static int
+gf_syncfs(int fd)
+{
+    int ret = 0;
+#if defined(HAVE_SYNCFS)
+    /* Linux with glibc recent enough. */
+    ret = syncfs(fd);
+#elif defined(HAVE_SYNCFS_SYS)
+    /* Linux with no library function. */
+    ret = syscall(SYS_syncfs, fd);
+#else
+    /* Fallback to generic UNIX stuff. */
+    sync();
+#endif
+    return ret;
+}
+
 static void
 posix_fsyncer_syncfs(xlator_t *this, struct list_head *head)
 {
@@ -2483,7 +2473,7 @@ posix_fsyncer(void *d)
     for (;;) {
         INIT_LIST_HEAD(&list);
 
-        count = posix_fsyncer_pick(this, &list);
+        count = posix_fsyncer_pick(priv, &list);
 
         gf_nanosleep(priv->batch_fsync_delay_usec * GF_US_IN_NS);
 
@@ -2958,43 +2948,46 @@ posix_override_umask(mode_t mode, mode_t mode_bit)
 }
 
 int
-posix_check_internal_writes(xlator_t *this, fd_t *fd, int sysfd, dict_t *xdata)
+posix_check_internal_writes(xlator_t *this, inode_t *fd_inode, int sysfd,
+                            dict_t *xdata)
 {
     int ret = 0;
-    size_t xattrsize = 0;
     data_t *val = NULL;
 
-    if (!xdata)
-        return 0;
+    val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
+    if (!val) {
+        val = dict_get_sizen(xdata, GF_AVOID_OVERWRITE);
+        if (!val)  // none of the items were found in the dict, return
+            goto out;
+        else  // the 2nd item, GF_AVOID_OVERWRITE is available, we don't need
+              // val
+            val = NULL;
+    }
 
-    LOCK(&fd->inode->lock);
+    LOCK(&fd_inode->lock);
     {
-        val = dict_get_sizen(xdata, GF_PROTECT_FROM_EXTERNAL_WRITES);
-        if (val) {
+        if (val) {  // GF_PROTECT_FROM_EXTERNAL_WRITES was found
             ret = sys_fsetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
                                 val->data, val->len, 0);
-            if (ret == -1) {
+            if (ret < 0) {
                 gf_msg(this->name, GF_LOG_ERROR, P_MSG_XATTR_FAILED, errno,
                        "setxattr failed key %s",
                        GF_PROTECT_FROM_EXTERNAL_WRITES);
             }
-
-            goto out;
-        }
-
-        if (dict_get_sizen(xdata, GF_AVOID_OVERWRITE)) {
-            xattrsize = sys_fgetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES,
-                                      NULL, 0);
-            if ((xattrsize == -1) &&
-                ((errno == ENOATTR) || (errno == ENODATA))) {
+        } else {  // GF_AVOID_OVERWRITE was found, otherwise we would not be
+                  // here
+            ret = sys_fgetxattr(sysfd, GF_PROTECT_FROM_EXTERNAL_WRITES, NULL,
+                                0);
+            if ((ret < 0) && ((errno == ENOATTR) || (errno == ENODATA))) {
                 ret = 0;
             } else {
                 ret = -1;
             }
         }
     }
+    UNLOCK(&fd_inode->lock);
+
 out:
-    UNLOCK(&fd->inode->lock);
     return ret;
 }
 
@@ -3334,7 +3327,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
     }
 
     if (ret == 0) {
-        ret = dict_set_str(*rsp, GF_CS_OBJECT_REMOTE, value);
+        ret = dict_set_str_sizen(*rsp, GF_CS_OBJECT_REMOTE, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "failed to set"
@@ -3352,21 +3345,13 @@ out:
  */
 int
 posix_cs_maintenance(xlator_t *this, fd_t *fd, loc_t *loc, int *pfd,
-                     struct iatt *buf, const char *realpath, dict_t *xattr_req,
-                     dict_t **xattr_rsp, gf_boolean_t ignore_failure)
+                     struct iatt *buf, const char *realpath,
+                     gf_boolean_t is_cs_obj_status,
+                     gf_boolean_t is_cs_obj_repair, dict_t **xattr_rsp,
+                     gf_boolean_t ignore_failure)
 {
     gf_cs_obj_state state = GF_CS_ERROR;
     int ret = 0;
-    gf_boolean_t is_cs_obj_status = _gf_false;
-    gf_boolean_t is_cs_obj_repair = _gf_false;
-
-    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
-        is_cs_obj_status = _gf_true;
-    if (dict_get_sizen(xattr_req, GF_CS_OBJECT_REPAIR))
-        is_cs_obj_repair = _gf_true;
-
-    if (!(is_cs_obj_status || is_cs_obj_repair))
-        return 0;
 
     if (fd) {
         LOCK(&fd->inode->lock);
@@ -3497,18 +3482,12 @@ out:
 }
 
 void
-posix_update_iatt_buf(struct iatt *buf, int fd, char *loc, dict_t *xattr_req)
+posix_update_iatt_buf(struct iatt *buf, int fd, char *loc)
 {
     int ret = 0;
-    char val[4096] = {
+    char val[64] = {
         0,
     };
-
-    if (!xattr_req)
-        return;
-
-    if (!dict_get_sizen(xattr_req, GF_CS_OBJECT_STATUS))
-        return;
 
     if (fd != -1) {
         ret = sys_fgetxattr(fd, GF_CS_OBJECT_SIZE, &val, sizeof(val));

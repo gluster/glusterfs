@@ -1,5 +1,3 @@
-#define GFID_STR_LEN 37
-
 #include "metadisp.h"
 
 /*
@@ -13,7 +11,7 @@ int32_t
 build_backend_loc(uuid_t gfid, loc_t *src_loc, loc_t *dst_loc)
 {
     static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-    char gfid_buf[GFID_STR_LEN + 1] = {
+    char gfid_buf[GF_UUID_BUF_SIZE + 1] = {
         0,
     };
     char *path = NULL;
@@ -28,12 +26,12 @@ build_backend_loc(uuid_t gfid, loc_t *src_loc, loc_t *dst_loc)
 
     uuid_utoa_r(gfid, gfid_buf);
 
-    path = GF_CALLOC(GFID_STR_LEN + 1, sizeof(char),
+    path = GF_CALLOC(GF_UUID_BUF_SIZE + 1, sizeof(char),
                      gf_common_mt_char);  // freed via loc_wipe
 
     path[0] = '/';
-    strncpy(path + 1, gfid_buf, GFID_STR_LEN);
-    path[GFID_STR_LEN] = 0;
+    strncpy(path + 1, gfid_buf, GF_UUID_BUF_SIZE);
+    path[GF_UUID_BUF_SIZE] = 0;
     dst_loc->path = path;
     if (src_loc->name)
         dst_loc->name = strrchr(dst_loc->path, '/');

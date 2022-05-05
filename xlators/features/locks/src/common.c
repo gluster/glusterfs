@@ -33,7 +33,7 @@ __allocate_domain(const char *volume)
 {
     pl_dom_list_t *dom = NULL;
 
-    dom = GF_CALLOC(1, sizeof(*dom), gf_locks_mt_pl_dom_list_t);
+    dom = GF_MALLOC(sizeof(*dom), gf_locks_mt_pl_dom_list_t);
     if (!dom)
         goto out;
 
@@ -1043,12 +1043,19 @@ int
 pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
          int can_block)
 {
-    int ret = 0;
-
-    errno = 0;
+    int ret;
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
+        if (GF_ATOMIC_GET(((client_t *)lock->client)->bind) == 0) {
+            /* The client that sent the lock request has disconnected. Unless
+             * this is an unlock request or it's non-blocking, we forbid it. */
+            if (can_block && (lock->fl_type != F_UNLCK)) {
+                pthread_mutex_unlock(&pl_inode->mutex);
+                ret = -ENOTCONN;
+                goto out;
+            }
+        }
         /* Send unlock before the actual lock to
            prevent lock upgrade / downgrade
            problems only if:
@@ -1058,17 +1065,20 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
         if (can_block && !(__is_lock_grantable(pl_inode, lock))) {
             ret = pl_send_prelock_unlock(this, pl_inode, lock);
-            if (ret)
+            if (ret) {
                 gf_log(this->name, GF_LOG_DEBUG,
                        "Could not send pre-lock "
                        "unlock");
+            }
         }
+
+        ret = PL_LOCK_GRANTED;
 
         if (__is_lock_grantable(pl_inode, lock)) {
             if (pl_metalock_is_active(pl_inode)) {
                 __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
-                ret = -2;
+                ret = PL_LOCK_QUEUED;
                 goto out;
             }
             gf_log(this->name, GF_LOG_TRACE,
@@ -1081,7 +1091,7 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
             if (pl_metalock_is_active(pl_inode)) {
                 __pl_queue_lock(pl_inode, lock);
                 pthread_mutex_unlock(&pl_inode->mutex);
-                ret = -2;
+                ret = PL_LOCK_QUEUED;
                 goto out;
             }
             gf_log(this->name, GF_LOG_TRACE,
@@ -1096,15 +1106,14 @@ pl_setlk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
             lock->blocked = 1;
             __insert_lock(pl_inode, lock);
-            ret = -1;
+            ret = PL_LOCK_WOULD_BLOCK;
         } else {
             gf_log(this->name, GF_LOG_TRACE,
                    "%s (pid=%d) lk-owner:%s %" PRId64 " - %" PRId64 " => NOK",
                    lock->fl_type == F_UNLCK ? "Unlock" : "Lock",
                    lock->client_pid, lkowner_utoa(&lock->owner),
                    lock->user_flock.l_start, lock->user_flock.l_len);
-            errno = EAGAIN;
-            ret = -1;
+            ret = PL_LOCK_WOULD_BLOCK;
         }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
@@ -1150,6 +1159,7 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     posix_lock_t *i = NULL;
     pl_rw_req_t *rw = NULL;
     pl_rw_req_t *itr = NULL;
+    pl_local_t *local;
     struct list_head unwind_blist = {
         0,
     };
@@ -1202,9 +1212,9 @@ pl_lock_preempt(pl_inode_t *pl_inode, posix_lock_t *reqlock)
     /* unwind blocked locks */
     list_for_each_entry_safe(lock, i, &unwind_blist, list)
     {
-        PL_STACK_UNWIND_AND_FREE(((pl_local_t *)lock->frame->local), lk,
-                                 lock->frame, -1, EBUSY, &lock->user_flock,
-                                 NULL);
+        local = lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, lock->frame, -1, EBUSY,
+                                 &lock->user_flock, NULL);
         __destroy_lock(lock);
     }
 

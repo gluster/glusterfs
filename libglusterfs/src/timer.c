@@ -10,7 +10,6 @@
 
 #include "glusterfs/timer.h"
 #include "glusterfs/logging.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/globals.h"
 #include "glusterfs/timespec.h"
 #include "glusterfs/libglusterfs-messages.h"

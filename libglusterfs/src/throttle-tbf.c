@@ -24,6 +24,7 @@
  */
 
 #include "glusterfs/mem-pool.h"
+#include <glusterfs/common-utils.h>
 #include "glusterfs/throttle-tbf.h"
 
 typedef struct tbf_throttle {
@@ -42,7 +43,7 @@ tbf_init_throttle(unsigned long tokens_required)
 {
     tbf_throttle_t *throttle = NULL;
 
-    throttle = GF_CALLOC(1, sizeof(*throttle), gf_common_mt_tbf_throttle_t);
+    throttle = GF_MALLOC(sizeof(*throttle), gf_common_mt_tbf_throttle_t);
     if (!throttle)
         return NULL;
 
@@ -174,7 +175,7 @@ tbf_init(tbf_opspec_t *tbfspec, unsigned int count)
     tbf_t *tbf = NULL;
     tbf_opspec_t *opspec = NULL;
 
-    tbf = GF_CALLOC(1, TBF_ALLOC_SIZE, gf_common_mt_tbf_t);
+    tbf = GF_MALLOC(TBF_ALLOC_SIZE, gf_common_mt_tbf_t);
     if (!tbf)
         goto error_return;
 

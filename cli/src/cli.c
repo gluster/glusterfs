@@ -22,7 +22,6 @@
 #include <sys/utsname.h>
 
 #include <stdint.h>
-#include <pthread.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <time.h>
@@ -38,22 +37,15 @@
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
-#include <glusterfs/stack.h>
 #include <glusterfs/revision.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syscall.h>
-#include <glusterfs/call-stub.h>
 #include <fnmatch.h>
-
-#include "xdr-generic.h"
 
 /* using argp for command line parsing */
 
@@ -104,14 +96,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->page_size = 128 * GF_UNIT_KB;
-
-    ctx->iobuf_pool = iobuf_pool_new();
-    if (!ctx->iobuf_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
-        goto out;
-    }
-
     ctx->event_pool = gf_event_pool_new(DEFAULT_EVENT_POOL_SIZE,
                                         STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
@@ -137,12 +121,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
 
     if (!pool->stack_mem_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create stack mem pool.");
-        goto out;
-    }
-
-    ctx->stub_mem_pool = mem_pool_new(call_stub_t, 16);
-    if (!ctx->stub_mem_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to stub mem pool.");
         goto out;
     }
 
@@ -193,7 +171,6 @@ out:
         GF_FREE(pool);
         pool = NULL;
         GF_FREE(ctx->process_uuid);
-        mem_pool_destroy(ctx->stub_mem_pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->dict_data_pool);
@@ -226,8 +203,8 @@ logging_init(glusterfs_ctx_t *ctx, struct cli_state *state)
 
 int
 cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
-                   rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
-                   xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+                   rpc_clnt_prog_t *prog, int procnum, xlator_t *this,
+                   fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     int count = 0;
@@ -235,25 +212,21 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
         0,
     };
     struct iobuf *iobuf = NULL;
-    char new_iobref = 0;
+    struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
 
     GF_ASSERT(this);
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get2(this->ctx->iobuf_pool, xdr_size);
+        iobuf = iobuf_get_from_small(xdr_size);
         if (!iobuf) {
             goto out;
         };
 
+        iobref = iobref_new();
         if (!iobref) {
-            iobref = iobref_new();
-            if (!iobref) {
-                goto out;
-            }
-
-            new_iobref = 1;
+            goto out;
         }
 
         iobref_add(iobref, iobuf);
@@ -278,10 +251,8 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
     /* Send the msg */
     ret = rpc_clnt_submit(rpc, prog, procnum, cbkfn, &iov, count, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
-    ret = 0;
-
 out:
-    if (new_iobref)
+    if (iobref)
         iobref_unref(iobref);
     if (iobuf)
         iobuf_unref(iobuf);
@@ -758,9 +729,10 @@ cli_local_get()
     cli_local_t *local = NULL;
 
     local = GF_CALLOC(1, sizeof(*local), cli_mt_cli_local_t);
-    LOCK_INIT(&local->lock);
-    INIT_LIST_HEAD(&local->dict_list);
-
+    if (caa_likely(local)) {
+        LOCK_INIT(&local->lock);
+        INIT_LIST_HEAD(&local->dict_list);
+    }
     return local;
 }
 

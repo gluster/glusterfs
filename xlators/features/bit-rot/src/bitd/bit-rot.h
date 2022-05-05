@@ -11,11 +11,8 @@
 #ifndef __BIT_ROT_H__
 #define __BIT_ROT_H__
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include "changelog.h"
@@ -27,8 +24,6 @@
 #include "bit-rot-common.h"
 #include "bit-rot-stub-mem-types.h"
 #include "bit-rot-scrub-status.h"
-
-#include <openssl/sha.h>
 
 typedef enum scrub_throttle {
     BR_SCRUB_THROTTLE_VOID = -1,
@@ -92,8 +87,6 @@ struct br_child {
 
     struct mem_pool *timer_pool; /* timer-wheel's timer mem-pool */
 
-    struct timeval tv;
-
     struct br_scanfs fsscan; /* per subvolume FS scanner */
 
     gf_boolean_t active_scrubbing; /* Actively scrubbing or not */
@@ -149,7 +142,7 @@ struct br_monitor {
 
     xlator_t *this;
     /* scheduler */
-    uint32_t boot;
+    time_t boot;
 
     int32_t active_child_count; /* Number of children currently scrubbing */
     gf_boolean_t kick;          /* This variable tracks the scrubber is

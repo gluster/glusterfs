@@ -534,7 +534,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
     local->selfheal.should_heal = should_heal;
 
     tmp = local->selfheal.layout;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
     dht_layout_unref(tmp);
 
     if (!newdir) {
@@ -1341,7 +1341,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                 if (ret) {
                     gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                             DHT_MSG_DIR_XATTR_HEAL_FAILED, "path=%s",
-                            local->loc.path, "gfid=%s", local->gfid, NULL);
+                            local->loc.path, "gfid=%s", uuid_utoa(local->gfid),
+                            NULL);
                 }
             } else {
                 if (!gf_uuid_is_null(local->gfid))
@@ -1352,8 +1353,8 @@ dht_selfheal_dir_mkdir(call_frame_t *frame, loc_t *loc, dht_layout_t *layout,
                     return 0;
 
                 gf_smsg(this->name, GF_LOG_INFO, 0, DHT_MSG_SET_XATTR_FAILED,
-                        "path=%s", local->loc.path, "gfid=%s", local->gfid,
-                        NULL);
+                        "path=%s", local->loc.path, "gfid=%s",
+                        uuid_utoa(local->gfid), NULL);
             }
         }
         dht_selfheal_dir_setattr(frame, loc, &local->stbuf, 0xffffffff, layout);
@@ -1898,7 +1899,7 @@ dht_selfheal_new_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     inode_unref(inode);
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     dht_layout_sort_volname(layout);
     dht_selfheal_layout_new_directory(frame, &local->loc, layout);
@@ -1927,7 +1928,7 @@ dht_fix_directory_layout(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     local = frame->local;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     /* No layout sorting required here */
     tmp_layout = dht_fix_layout_of_directory(frame, &local->loc, layout);
@@ -1954,11 +1955,13 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     char gfid[GF_UUID_BUF_SIZE] = {0};
     inode_t *linked_inode = NULL, *inode = NULL;
 
+    FRAME_SU_DO(frame, dht_local_t);
+
     local = frame->local;
     this = frame->this;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     if (local->need_attrheal) {
         if (__is_root_gfid(local->stbuf.ia_gfid)) {
@@ -2063,7 +2066,7 @@ dht_selfheal_restore(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
     local = frame->local;
 
     local->selfheal.dir_cbk = dir_cbk;
-    local->selfheal.layout = dht_layout_ref(frame->this, layout);
+    local->selfheal.layout = dht_layout_ref(layout);
 
     ret = dht_selfheal_dir_mkdir(frame, loc, layout, 1);
 

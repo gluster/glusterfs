@@ -9,13 +9,6 @@
 */
 
 #include <glusterfs/defaults.h>
-#include <glusterfs/compat-errno.h>
-#ifdef __FreeBSD__
-#include <sys/endian.h>
-#else
-#include <endian.h>
-#endif
-#include <glusterfs/syncop.h>
 #include <glusterfs/syncop-utils.h>
 #include <glusterfs/cluster-syncop.h>
 
@@ -38,24 +31,17 @@
                 __res++;                                                       \
         __res;                                                                 \
     })
+
 #define EC_INTERSECT(dst, src1, src2, max)                                     \
     ({                                                                         \
         int __i;                                                               \
         for (__i = 0; __i < max; __i++)                                        \
             dst[__i] = src1[__i] && src2[__i];                                 \
     })
-#define EC_ADJUST_SOURCE(source, sources, max)                                 \
-    ({                                                                         \
-        int __i;                                                               \
-        if (sources[source] == 0) {                                            \
-            source = -1;                                                       \
-            for (__i = 0; __i < max; __i++)                                    \
-                if (sources[__i])                                              \
-                    source = __i;                                              \
-        }                                                                      \
-    })
+
 #define IA_EQUAL(f, s, field)                                                  \
     (memcmp(&(f.ia_##field), &(s.ia_##field), sizeof(s.ia_##field)) == 0)
+
 #define EC_REPLIES_ALLOC(replies, numsubvols)                                  \
     do {                                                                       \
         int __i = 0;                                                           \
@@ -63,6 +49,11 @@
         for (__i = 0; __i < numsubvols; __i++)                                 \
             INIT_LIST_HEAD(&replies[__i].entries.list);                        \
     } while (0)
+
+static int32_t
+ec_heal_inspect(call_frame_t *frame, ec_t *ec, inode_t *inode,
+                unsigned char *locked_on, gf_boolean_t self_locked,
+                gf_boolean_t thorough, ec_heal_need_t *need_heal);
 
 struct ec_name_data {
     call_frame_t *frame;
@@ -106,7 +97,7 @@ ec_sh_key_match(dict_t *dict, char *key, data_t *val, void *mdata)
 }
 /* FOP: heal */
 
-void
+static void
 ec_set_entry_healing(ec_fop_data_t *fop)
 {
     ec_inode_t *ctx = NULL;
@@ -126,7 +117,7 @@ ec_set_entry_healing(ec_fop_data_t *fop)
     UNLOCK(&loc->inode->lock);
 }
 
-void
+static void
 ec_reset_entry_healing(ec_fop_data_t *fop)
 {
     ec_inode_t *ctx = NULL;
@@ -148,7 +139,7 @@ ec_reset_entry_healing(ec_fop_data_t *fop)
     GF_ASSERT(heal_count >= 0);
 }
 
-uintptr_t
+static uintptr_t
 ec_heal_check(ec_fop_data_t *fop, uintptr_t *pgood)
 {
     ec_cbk_data_t *cbk;
@@ -166,7 +157,7 @@ ec_heal_check(ec_fop_data_t *fop, uintptr_t *pgood)
     return mask[0];
 }
 
-void
+static void
 ec_heal_update(ec_fop_data_t *fop, int32_t is_open)
 {
     ec_heal_t *heal = fop->data;
@@ -186,7 +177,7 @@ ec_heal_update(ec_fop_data_t *fop, int32_t is_open)
     fop->error = 0;
 }
 
-void
+static void
 ec_heal_avoid(ec_fop_data_t *fop)
 {
     ec_heal_t *heal = fop->data;
@@ -201,7 +192,7 @@ ec_heal_avoid(ec_fop_data_t *fop)
     UNLOCK(&heal->lock);
 }
 
-int32_t
+static int32_t
 ec_heal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -216,7 +207,7 @@ ec_heal_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-void
+static void
 ec_heal_lock(ec_heal_t *heal, int32_t type, fd_t *fd, loc_t *loc, off_t offset,
              size_t size)
 {
@@ -344,7 +335,7 @@ ec_heal_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          uuid_utoa(heal->fd->inode->gfid), heal->offset);
             heal->bad = 0;
         }
-        heal->done = 1;
+        heal->done = _gf_true;
     }
 
     return 0;
@@ -355,8 +346,7 @@ ec_heal_data_block(ec_heal_t *heal)
 {
     ec_trace("DATA", heal->fop, "good=%lX, bad=%lX", heal->good, heal->bad);
 
-    if ((heal->good != 0) && (heal->bad != 0) &&
-        (heal->iatt.ia_type == IA_IFREG)) {
+    if ((heal->good != 0) && (heal->bad != 0) && (heal->ia_type == IA_IFREG)) {
         ec_readv(heal->fop->frame, heal->xl, heal->good, EC_MINIMUM_MIN,
                  ec_heal_readv_cbk, heal, heal->fd, heal->size, heal->offset, 0,
                  NULL);
@@ -647,7 +637,7 @@ ec_heal_metadata_find_direction(ec_t *ec, default_args_cbk_t *replies,
                 !IA_EQUAL(source_ia, child_ia, gid))
                 continue;
             if (!are_dicts_equal(replies[i].xdata, replies[j].xdata,
-                                 ec_sh_key_match, NULL))
+                                 ec_sh_key_match, NULL, NULL))
                 continue;
             groups[j] = i;
             same_count++;
@@ -2036,7 +2026,7 @@ ec_heal_block_done(call_frame_t *frame, void *cookie, xlator_t *this,
     }
     heal->fop = NULL;
     heal->error = op_ret < 0 ? op_errno : 0;
-    syncbarrier_wake(heal->data);
+    syncbarrier_wake(&heal->barrier);
     return 0;
 }
 
@@ -2045,7 +2035,7 @@ ec_sync_heal_block(call_frame_t *frame, xlator_t *this, ec_heal_t *heal)
 {
     ec_heal_block(frame, this, heal->bad | heal->good, EC_MINIMUM_ONE,
                   ec_heal_block_done, heal);
-    syncbarrier_wait(heal->data, 1);
+    syncbarrier_wait(&heal->barrier, 1);
     if (heal->error != 0) {
         return -heal->error;
     }
@@ -2058,17 +2048,16 @@ int
 ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
                 unsigned char *sources, unsigned char *healed_sinks)
 {
-    ec_heal_t *heal = NULL;
+    ec_heal_t obj, *heal = &obj;
     int ret = 0;
-    syncbarrier_t barrier;
 
-    if (syncbarrier_init(&barrier))
+    memset(&obj, 0, sizeof(obj));
+    if (syncbarrier_init(&heal->barrier))
         return -ENOMEM;
 
-    heal = alloca0(sizeof(*heal));
     heal->fd = fd_ref(fd);
     heal->xl = ec->xl;
-    heal->data = &barrier;
+
     ec_adjust_size_up(ec, &size, _gf_false);
     heal->total_size = size;
     heal->size = (128 * GF_UNIT_KB * (ec->self_heal_window_size));
@@ -2079,7 +2068,7 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     heal->size -= heal->size % ec->stripe_size;
     heal->bad = ec_char_array_to_mask(healed_sinks, ec->nodes);
     heal->good = ec_char_array_to_mask(sources, ec->nodes);
-    heal->iatt.ia_type = IA_IFREG;
+    heal->ia_type = IA_IFREG;
     LOCK_INIT(&heal->lock);
 
     for (heal->offset = 0; (heal->offset < size) && !heal->done;
@@ -2110,7 +2099,7 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     ec_mask_to_char_array(heal->bad, healed_sinks, ec->nodes);
     fd_unref(heal->fd);
     LOCK_DESTROY(&heal->lock);
-    syncbarrier_destroy(heal->data);
+    syncbarrier_destroy(&heal->barrier);
     if (ret < 0)
         gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
                      uuid_utoa(fd->inode->gfid));
@@ -2803,7 +2792,7 @@ ec_handle_healers_done(ec_fop_data_t *fop)
         ec_launch_heal(ec, heal_fop);
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_is_entry_healing(ec_fop_data_t *fop)
 {
     ec_inode_t *ctx = NULL;
@@ -2824,7 +2813,7 @@ ec_is_entry_healing(ec_fop_data_t *fop)
     return heal_count;
 }
 
-void
+static void
 ec_heal_throttle(xlator_t *this, ec_fop_data_t *fop)
 {
     gf_boolean_t can_heal = _gf_true;
@@ -2919,7 +2908,7 @@ fail:
         func(frame, data, this, -1, err, 0, 0, 0, 0, NULL);
 }
 
-int
+static int
 ec_replace_heal_done(int ret, call_frame_t *heal, void *opaque)
 {
     ec_t *ec = opaque;
@@ -2940,7 +2929,7 @@ ec_replace_heal_done(int ret, call_frame_t *heal, void *opaque)
     return 0;
 }
 
-int32_t
+static int32_t
 ec_replace_heal(ec_t *ec, inode_t *inode)
 {
     loc_t loc = {0};
@@ -2965,7 +2954,7 @@ ec_replace_heal(ec_t *ec, inode_t *inode)
     return ret;
 }
 
-int32_t
+static int32_t
 ec_replace_brick_heal_wrap(void *opaque)
 {
     ec_t *ec = opaque;
@@ -3002,7 +2991,7 @@ ec_launch_replace_heal(ec_t *ec)
     return ret;
 }
 
-int32_t
+static int32_t
 ec_set_heal_info(dict_t **dict_rsp, char *status)
 {
     dict_t *dict = NULL;
@@ -3194,7 +3183,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 ec_heal_inspect(call_frame_t *frame, ec_t *ec, inode_t *inode,
                 unsigned char *locked_on, gf_boolean_t self_locked,
                 gf_boolean_t thorough, ec_heal_need_t *need_heal)

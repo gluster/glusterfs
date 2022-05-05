@@ -19,7 +19,6 @@
 #include "common.h"
 #include <glusterfs/statedump.h>
 #include "clear.h"
-#include <glusterfs/defaults.h>
 #include <glusterfs/syncop.h>
 
 #ifndef LLONG_MAX
@@ -1157,6 +1156,7 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
 {
     posix_lock_t *tmp = NULL;
     posix_lock_t *l = NULL;
+    pl_local_t *local;
 
     struct list_head blocked_list;
 
@@ -1181,7 +1181,9 @@ delete_locks_of_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd)
     list_for_each_entry_safe(l, tmp, &blocked_list, list)
     {
         list_del_init(&l->list);
-        STACK_UNWIND_STRICT(lk, l->frame, -1, EAGAIN, &l->user_flock, NULL);
+        local = l->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, l->frame, -1, EAGAIN,
+                                 &l->user_flock, NULL);
         __destroy_lock(l);
     }
 
@@ -1230,13 +1232,15 @@ pl_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 static int32_t
 pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
-                  dict_t **dict, int32_t *op_errno)
+                  dict_t **dict, int32_t *op_errno, char *client_uid,
+                  pid_t client_pid)
 {
     int32_t bcount = 0;
     int32_t gcount = 0;
     char *key = NULL;
     char *lk_summary = NULL;
     pl_inode_t *pl_inode = NULL;
+    bool setlk_interrupt = false;
     clrlk_args args = {
         0,
     };
@@ -1269,8 +1273,13 @@ pl_getxattr_clrlk(xlator_t *this, const char *name, inode_t *inode,
                                                     &bcount, &gcount, op_errno);
             break;
         case CLRLK_POSIX:
+            if (!strncmp(name, GF_XATTR_INTRLK_CMD,
+                         SLEN(GF_XATTR_INTRLK_CMD))) {
+                setlk_interrupt = true;
+            }
             op_ret = clrlk_clear_posixlk(this, pl_inode, &args, &bcount,
-                                         &gcount, op_errno);
+                                         &gcount, op_errno, client_uid,
+                                         client_pid, setlk_interrupt);
             break;
         default:
             op_ret = -1;
@@ -1349,6 +1358,8 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     int32_t op_errno = EINVAL;
     int32_t op_ret = -1;
     dict_t *dict = NULL;
+    char *client_uid = NULL;
+    pid_t client_pid = -1;
 
     if (!name)
         goto usual;
@@ -1356,8 +1367,21 @@ pl_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
     if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)))
         goto usual;
 
-    op_ret = pl_getxattr_clrlk(this, name, loc->inode, &dict, &op_errno);
+    GF_ASSERT(frame->root);
 
+    if (frame->root->client) {
+        client_uid = frame->root->client->client_uid;
+        client_pid = frame->root->pid;
+    }
+    if (strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) == 0) {
+        if (!client_uid || client_pid < 0)
+            goto unwind;
+    }
+
+    op_ret = pl_getxattr_clrlk(this, name, loc->inode, &dict, &op_errno,
+                               client_uid, client_pid);
+
+unwind:
     STACK_UNWIND_STRICT(getxattr, frame, op_ret, op_errno, dict, xdata);
 
     if (dict)
@@ -1590,9 +1614,26 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 {
     int32_t op_ret = 0, op_errno = 0;
     dict_t *dict = NULL;
+    char *client_uid = NULL;
+    pid_t client_pid = -1;
 
     if (!name) {
         goto usual;
+    }
+
+    GF_ASSERT(frame->root);
+
+    if (frame->root->client) {
+        client_uid = frame->root->client->client_uid;
+        client_pid = frame->root->pid;
+    }
+
+    if (strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) == 0) {
+        if (!client_uid || client_pid < 0) {
+            op_ret = -1;
+            op_errno = EINVAL;
+            goto unwind;
+        }
     }
 
     if (strcmp(name, GF_XATTR_LOCKINFO_KEY) == 0) {
@@ -1613,8 +1654,11 @@ pl_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
 
         goto unwind;
     } else if (strncmp(name, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) ==
-               0) {
-        op_ret = pl_getxattr_clrlk(this, name, fd->inode, &dict, &op_errno);
+                   0 ||
+               strncmp(name, GF_XATTR_INTRLK_CMD, SLEN(GF_XATTR_INTRLK_CMD)) ==
+                   0) {
+        op_ret = pl_getxattr_clrlk(this, name, fd->inode, &dict, &op_errno,
+                                   client_uid, client_pid);
 
         goto unwind;
     } else {
@@ -2725,7 +2769,8 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 if (pl_inode->migrated) {
                     op_errno = EREMOTE;
                     pthread_mutex_unlock(&pl_inode->mutex);
-                    STACK_UNWIND_STRICT(lk, frame, -1, op_errno, flock, xdata);
+                    PL_STACK_UNWIND(lk, xdata, frame, -1, op_errno, flock,
+                                    xdata);
 
                     __destroy_lock(reqlock);
                     goto out;
@@ -2755,7 +2800,13 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
             }
 
             ret = pl_setlk(this, pl_inode, reqlock, can_block);
-            if (ret == -1) {
+            if (ret < 0) {
+                op_ret = -1;
+                op_errno = -ret;
+                __destroy_lock(reqlock);
+                goto out;
+            }
+            if (ret == PL_LOCK_WOULD_BLOCK) {
                 if ((can_block) && (F_UNLCK != lock_type)) {
                     goto out;
                 }
@@ -2763,7 +2814,7 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
                 op_ret = -1;
                 op_errno = EAGAIN;
                 __destroy_lock(reqlock);
-            } else if (ret == -2) {
+            } else if (ret == PL_LOCK_QUEUED) {
                 goto out;
             } else if ((0 == ret) && (F_UNLCK == flock->l_type)) {
                 /* For NLM's last "unlock on fd" detection */
@@ -2788,6 +2839,7 @@ int
 pl_forget(xlator_t *this, inode_t *inode)
 {
     pl_inode_t *pl_inode = NULL;
+    pl_local_t *local;
 
     posix_lock_t *ext_tmp = NULL;
     posix_lock_t *ext_l = NULL;
@@ -2888,8 +2940,9 @@ pl_forget(xlator_t *this, inode_t *inode)
     if (!list_empty(&posixlks_released)) {
         list_for_each_entry_safe(ext_l, ext_tmp, &posixlks_released, list)
         {
-            STACK_UNWIND_STRICT(lk, ext_l->frame, -1, 0, &ext_l->user_flock,
-                                NULL);
+            local = ext_l->frame->local;
+            PL_STACK_UNWIND_AND_FREE(local, lk, ext_l->frame, -1, 0,
+                                     &ext_l->user_flock, NULL);
             __destroy_lock(ext_l);
         }
     }
@@ -3352,6 +3405,7 @@ int
 pl_metaunlock(call_frame_t *frame, xlator_t *this, inode_t *inode, dict_t *dict)
 {
     pl_inode_t *pl_inode = NULL;
+    pl_local_t *local;
     int ret = 0;
     pl_meta_lock_t *meta_lock = NULL;
     pl_meta_lock_t *tmp_metalk = NULL;
@@ -3437,8 +3491,9 @@ out:
     {
         list_del_init(&posix_lock->list);
 
-        STACK_UNWIND_STRICT(lk, posix_lock->frame, -1, EREMOTE,
-                            &posix_lock->user_flock, NULL);
+        local = posix_lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, posix_lock->frame, -1, EREMOTE,
+                                 &posix_lock->user_flock, NULL);
 
         __destroy_lock(posix_lock);
     }
@@ -3535,9 +3590,9 @@ pl_dump_lock(char *str, int size, struct gf_flock *flock, gf_lkowner_t *owner,
     };
 
     if (granted_time)
-        gf_time_fmt(granted, sizeof(granted), *granted_time, gf_timefmt_FT);
+        gf_time_fmt_FT(granted, sizeof(granted), *granted_time);
     if (blkd_time)
-        gf_time_fmt(blocked, sizeof(blocked), *blkd_time, gf_timefmt_FT);
+        gf_time_fmt_FT(blocked, sizeof(blocked), *blkd_time);
     switch (flock->l_type) {
         case F_RDLCK:
             type_str = "READ";
@@ -3604,8 +3659,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->entrylk_list, domain_list)
         {
-            gf_time_fmt(granted, sizeof(granted), lock->granted_time,
-                        gf_timefmt_FT);
+            gf_time_fmt_FT(granted, sizeof(granted), lock->granted_time);
             gf_proc_dump_build_key(key, k, "entrylk[%d](ACTIVE)", count);
             if (lock->blkd_time == 0) {
                 snprintf(tmp, sizeof(tmp), ENTRY_GRNTD_FMT,
@@ -3615,8 +3669,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
                          lkowner_utoa(&lock->owner), lock->client,
                          lock->connection_id, granted);
             } else {
-                gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
-                            gf_timefmt_FT);
+                gf_time_fmt_FT(blocked, sizeof(blocked), lock->blkd_time);
                 snprintf(tmp, sizeof(tmp), ENTRY_BLKD_GRNTD_FMT,
                          lock->type == ENTRYLK_RDLCK ? "ENTRYLK_RDLCK"
                                                      : "ENTRYLK_WRLCK",
@@ -3632,8 +3685,7 @@ __dump_entrylks(pl_inode_t *pl_inode)
 
         list_for_each_entry(lock, &dom->blocked_entrylks, blocked_locks)
         {
-            gf_time_fmt(blocked, sizeof(blocked), lock->blkd_time,
-                        gf_timefmt_FT);
+            gf_time_fmt_FT(blocked, sizeof(blocked), lock->blkd_time);
 
             gf_proc_dump_build_key(key, k, "entrylk[%d](BLOCKED)", count);
             snprintf(
@@ -3900,6 +3952,7 @@ pl_metalk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
     pl_inode_t *pl_inode = NULL;
     posix_lock_t *posix_lock = NULL;
     posix_lock_t *tmp_posixlk = NULL;
+    pl_local_t *local;
     struct list_head tmp_posixlk_list;
 
     INIT_LIST_HEAD(&tmp_posixlk_list);
@@ -3949,8 +4002,9 @@ unlock:
     {
         list_del_init(&posix_lock->list);
 
-        STACK_UNWIND_STRICT(lk, posix_lock->frame, -1, EREMOTE,
-                            &posix_lock->user_flock, NULL);
+        local = posix_lock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, posix_lock->frame, -1, EREMOTE,
+                                 &posix_lock->user_flock, NULL);
 
         __destroy_lock(posix_lock);
     }

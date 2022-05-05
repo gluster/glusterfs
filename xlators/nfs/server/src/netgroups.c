@@ -306,7 +306,7 @@ _netgroup_entry_deinit(struct netgroup_entry *ngentry)
          */
         name = strdupa(ngentry->netgroup_name);
 
-        dint = int_to_data(1);
+        dint = data_from_int32(1);
         dict_set(__deleted_entries, name, dint);
 
         GF_FREE(ngentry->netgroup_name);

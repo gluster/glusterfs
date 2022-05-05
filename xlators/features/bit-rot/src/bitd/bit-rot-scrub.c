@@ -12,9 +12,7 @@
 #include <ctype.h>
 #include <sys/uio.h>
 
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/common-utils.h>
 
 #include "bit-rot-scrub.h"
 #include <pthread.h>
@@ -610,7 +608,7 @@ br_scrubber_log_time(xlator_t *this, const char *sfx)
     now = gf_time();
     priv = this->private;
 
-    gf_time_fmt(timestr, sizeof(timestr), now, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now);
 
     if (strcasecmp(sfx, "started") == 0) {
         br_update_scrub_start_time(&priv->scrub_stat, now);
@@ -632,7 +630,7 @@ br_fsscanner_log_time(xlator_t *this, br_child_t *child, const char *sfx)
     time_t now = 0;
 
     now = gf_time();
-    gf_time_fmt(timestr, sizeof(timestr), now, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now);
 
     if (strcasecmp(sfx, "started") == 0) {
         gf_msg_debug(this->name, 0, "Scrubbing \"%s\" %s at %s",
@@ -865,12 +863,6 @@ br_kickstart_scanner(struct gf_tw_timer_list *timer, void *data,
     return;
 }
 
-static uint32_t
-br_fsscan_calculate_delta(uint32_t times)
-{
-    return times;
-}
-
 #define BR_SCRUB_ONDEMAND (1)
 #define BR_SCRUB_MINUTE (60)
 #define BR_SCRUB_HOURLY (60 * 60)
@@ -879,29 +871,29 @@ br_fsscan_calculate_delta(uint32_t times)
 #define BR_SCRUB_BIWEEKLY (14 * 24 * 60 * 60)
 #define BR_SCRUB_MONTHLY (30 * 24 * 60 * 60)
 
-static unsigned int
+static time_t
 br_fsscan_calculate_timeout(scrub_freq_t freq)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
 
     switch (freq) {
         case BR_FSSCRUB_FREQ_MINUTE:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_MINUTE);
+            timo = BR_SCRUB_MINUTE;
             break;
         case BR_FSSCRUB_FREQ_HOURLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_HOURLY);
+            timo = BR_SCRUB_HOURLY;
             break;
         case BR_FSSCRUB_FREQ_DAILY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_DAILY);
+            timo = BR_SCRUB_DAILY;
             break;
         case BR_FSSCRUB_FREQ_WEEKLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_WEEKLY);
+            timo = BR_SCRUB_WEEKLY;
             break;
         case BR_FSSCRUB_FREQ_BIWEEKLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_BIWEEKLY);
+            timo = BR_SCRUB_BIWEEKLY;
             break;
         case BR_FSSCRUB_FREQ_MONTHLY:
-            timo = br_fsscan_calculate_delta(BR_SCRUB_MONTHLY);
+            timo = BR_SCRUB_MONTHLY;
             break;
         default:
             timo = 0;
@@ -913,7 +905,7 @@ br_fsscan_calculate_timeout(scrub_freq_t freq)
 int32_t
 br_fsscan_schedule(xlator_t *this)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
     br_private_t *priv = NULL;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
@@ -950,8 +942,7 @@ br_fsscan_schedule(xlator_t *this)
     gf_tw_add_timer(priv->timer_wheel, timer);
     _br_monitor_set_scrub_state(scrub_monitor, BR_SCRUB_STATE_PENDING);
 
-    gf_time_fmt(timestr, sizeof(timestr), (scrub_monitor->boot + timo),
-                gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), (scrub_monitor->boot + timo));
     gf_msg(this->name, GF_LOG_INFO, 0, BRB_MSG_SCRUB_INFO,
            "Scrubbing is "
            "scheduled to run at %s",
@@ -966,7 +957,7 @@ error_return:
 int32_t
 br_fsscan_activate(xlator_t *this)
 {
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
@@ -993,7 +984,7 @@ br_fsscan_activate(xlator_t *this)
     }
     pthread_mutex_unlock(&scrub_monitor->donelock);
 
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
     (void)gf_tw_mod_timer(priv->timer_wheel, scrub_monitor->timer, timo);
 
     _br_monitor_set_scrub_state(scrub_monitor, BR_SCRUB_STATE_PENDING);
@@ -1009,7 +1000,7 @@ int32_t
 br_fsscan_reschedule(xlator_t *this)
 {
     int32_t ret = 0;
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
@@ -1033,7 +1024,7 @@ br_fsscan_reschedule(xlator_t *this)
         return -1;
     }
 
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
 
     pthread_mutex_lock(&scrub_monitor->donelock);
     {
@@ -1060,7 +1051,7 @@ int32_t
 br_fsscan_ondemand(xlator_t *this)
 {
     int32_t ret = 0;
-    uint32_t timo = 0;
+    time_t timo = 0;
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
@@ -1073,7 +1064,7 @@ br_fsscan_ondemand(xlator_t *this)
 
     now = gf_time();
     timo = BR_SCRUB_ONDEMAND;
-    gf_time_fmt(timestr, sizeof(timestr), now + timo, gf_timefmt_FT);
+    gf_time_fmt_FT(timestr, sizeof(timestr), now + timo);
 
     pthread_mutex_lock(&scrub_monitor->donelock);
     {
@@ -1301,21 +1292,23 @@ br_scrubber_scale_up(xlator_t *this, struct br_scrubber *fsscrub,
            "Scaling up scrubbers [%d => %d]", v1, v2);
 
     for (i = 0; i < diff; i++) {
-        scrub = GF_CALLOC(diff, sizeof(*scrub), gf_br_mt_br_scrubber_t);
+        scrub = GF_CALLOC(1, sizeof(*scrub), gf_br_mt_br_scrubber_t);
         if (!scrub)
             break;
 
         INIT_LIST_HEAD(&scrub->list);
         ret = gf_thread_create(&scrub->scrubthread, NULL, br_scrubber_proc,
                                fsscrub, "brsproc");
-        if (ret)
+        if (ret) {
+            GF_FREE(scrub);
             break;
+        }
 
         fsscrub->nr_scrubbers++;
         list_add_tail(&scrub->list, &fsscrub->scrubbers);
     }
 
-    if ((i != diff) && !scrub)
+    if (ret && i == 0)
         goto error_return;
 
     if (i != diff) /* degraded scaling.. */

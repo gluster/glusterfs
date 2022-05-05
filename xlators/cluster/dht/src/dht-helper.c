@@ -812,7 +812,7 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
     inode_t *inode = NULL;
     int ret = 0;
 
-    local = mem_get0(THIS->local_pool);
+    local = mem_get0(frame->this->local_pool);
     if (!local)
         goto out;
 
@@ -836,7 +836,9 @@ dht_local_init(call_frame_t *frame, loc_t *loc, fd_t *fd, glusterfs_fop_t fop)
 
     if (inode) {
         local->layout = dht_layout_get(frame->this, inode);
-        local->cached_subvol = dht_subvol_get_cached(frame->this, inode);
+        if (local->layout) {
+            local->cached_subvol = local->layout->list[0].xlator;
+        }
     }
 
     frame->local = local;
@@ -1792,18 +1794,39 @@ dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
 {
     dht_inode_ctx_t *ctx = NULL;
     int ret = -1;
+    uint64_t ctx_int = 0;
+    dht_layout_t *old_layout = NULL;
 
-    ret = dht_inode_ctx_get(inode, this, &ctx);
-    if (!ret && ctx) {
-        ctx->layout = layout_int;
-    } else {
-        ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
-        if (!ctx)
-            return ret;
-        ctx->layout = layout_int;
+    LOCK(&inode->lock);
+    {
+        ret = __inode_ctx_get(inode, this, &ctx_int);
+        if (!ret) {
+            ctx = (dht_inode_ctx_t *)(uintptr_t)ctx_int;
+            if (ctx) {
+                old_layout = ctx->layout;
+                ctx->layout = layout_int;
+            }
+        }
+
+        if (!ctx) {
+            ctx = GF_CALLOC(1, sizeof(*ctx), gf_dht_mt_inode_ctx_t);
+            if (ctx) {
+                ctx->layout = layout_int;
+                ctx_int = (long)ctx;
+                ret = __inode_ctx_set0(inode, this, &ctx_int);
+                if (ret)
+                    GF_FREE(ctx);
+            } else {
+                ret = -1;
+            }
+        }
+        if (!ret && layout_int)
+            dht_layout_ref(ctx->layout);
     }
+    UNLOCK(&inode->lock);
 
-    ret = dht_inode_ctx_set(inode, this, ctx);
+    if (old_layout)
+        dht_layout_unref(old_layout);
 
     return ret;
 }
@@ -1835,15 +1858,16 @@ dht_inode_ctx_time_set(inode_t *inode, xlator_t *this, struct iatt *stat)
 }
 
 int
-dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
-                          int32_t post)
+dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *prestat,
+                          struct iatt *poststat)
 {
     dht_inode_ctx_t *ctx = NULL;
     dht_stat_time_t *time = 0;
-    int ret = -1;
+    int ret;
 
-    GF_VALIDATE_OR_GOTO(this->name, stat, out);
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
+    if (!prestat && !poststat)
+        goto out;
 
     ret = dht_inode_ctx_get(inode, this, &ctx);
 
@@ -1857,12 +1881,22 @@ dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
 
     LOCK(&inode->lock);
     {
-        DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, stat->ia_mtime,
-                        stat->ia_mtime_nsec, post);
-        DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, stat->ia_ctime,
-                        stat->ia_ctime_nsec, post);
-        DHT_UPDATE_TIME(time->atime, time->atime_nsec, stat->ia_atime,
-                        stat->ia_atime_nsec, post);
+        if (prestat) {
+            DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, prestat->ia_mtime,
+                            prestat->ia_mtime_nsec, 0);
+            DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, prestat->ia_ctime,
+                            prestat->ia_ctime_nsec, 0);
+            DHT_UPDATE_TIME(time->atime, time->atime_nsec, prestat->ia_atime,
+                            prestat->ia_atime_nsec, 0);
+        }
+        if (poststat) {
+            DHT_UPDATE_TIME(time->mtime, time->mtime_nsec, poststat->ia_mtime,
+                            poststat->ia_mtime_nsec, 1);
+            DHT_UPDATE_TIME(time->ctime, time->ctime_nsec, poststat->ia_ctime,
+                            poststat->ia_ctime_nsec, 1);
+            DHT_UPDATE_TIME(time->atime, time->atime_nsec, poststat->ia_atime,
+                            poststat->ia_atime_nsec, 1);
+        }
     }
     UNLOCK(&inode->lock);
 

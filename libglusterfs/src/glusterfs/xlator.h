@@ -36,13 +36,6 @@
 #define GF_ATTR_ATIME_NOW 0x80
 #define GF_ATTR_MTIME_NOW 0x100
 
-#define gf_attr_mode_set(mode) ((mode)&GF_SET_ATTR_MODE)
-#define gf_attr_uid_set(mode) ((mode)&GF_SET_ATTR_UID)
-#define gf_attr_gid_set(mode) ((mode)&GF_SET_ATTR_GID)
-#define gf_attr_size_set(mode) ((mode)&GF_SET_ATTR_SIZE)
-#define gf_attr_atime_set(mode) ((mode)&GF_SET_ATTR_ATIME)
-#define gf_attr_mtime_set(mode) ((mode)&GF_SET_ATTR_MTIME)
-
 struct _xlator;
 typedef struct _xlator xlator_t;
 struct _dir_entry;
@@ -60,7 +53,6 @@ typedef int32_t (*event_notify_fn_t)(xlator_t *this, int32_t event, void *data,
 #include "glusterfs/stack.h"
 #include "glusterfs/iobuf.h"
 #include "glusterfs/globals.h"
-#include "glusterfs/iatt.h"
 #include "glusterfs/options.h"
 #include "glusterfs/client_t.h"
 
@@ -408,15 +400,6 @@ typedef int32_t (*fop_create_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                                 int32_t flags, mode_t mode, mode_t umask,
                                 fd_t *fd, dict_t *xdata);
 
-/* Tell subsequent writes on the fd_t to fsync after every writev fop without
- * requiring a fsync fop.
- */
-#define GF_OPEN_FSYNC 0x01
-
-/* Tell write-behind to disable writing behind despite O_SYNC not being set.
- */
-#define GF_OPEN_NOWB 0x02
-
 typedef int32_t (*fop_open_t)(call_frame_t *frame, xlator_t *this, loc_t *loc,
                               int32_t flags, fd_t *fd, dict_t *xdata);
 
@@ -763,11 +746,6 @@ typedef struct xlator_list {
     struct xlator_list *next;
 } xlator_list_t;
 
-typedef struct fop_metrics {
-    gf_atomic_t fop;
-    gf_atomic_t cbk; /* only updaed when there is failure */
-} fop_metrics_t;
-
 struct _xlator {
     /* Built during parsing */
     char *name;
@@ -796,50 +774,52 @@ struct _xlator {
 
     gf_loglevel_t loglevel; /* Log level for translator */
 
-    struct {
-        gf_atomic_t total_fop;
-        gf_atomic_t interval_fop;
-        gf_atomic_t total_fop_cbk;
-        gf_atomic_t interval_fop_cbk;
-        gf_latency_t latencies;
-    } stats[GF_FOP_MAXVALUE] __attribute__((aligned(CAA_CACHE_LINE_SIZE)));
+    /* Its used as an index to inode_ctx*/
+    uint32_t xl_id;
 
     /* Misc */
     eh_t *history; /* event history context */
     glusterfs_ctx_t *ctx;
     glusterfs_graph_t *graph; /* not set for fuse */
     inode_table_t *itable;
-    char init_succeeded;
+    uint32_t init_succeeded;
+    uint32_t switched;
     void *private;
     struct mem_acct *mem_acct;
     uint64_t winds;
-    char switched;
 
     /* for the memory pool of 'frame->local' */
+
     struct mem_pool *local_pool;
+
+    /* Flag to avoid throw duplicate PARENT_DOWN event */
+    uint32_t parent_down;
+
     gf_boolean_t is_autoloaded;
-
-    /* Saved volfile ID (used for multiplexing) */
-    char *volfile_id;
-
-    /* Its used as an index to inode_ctx*/
-    uint32_t xl_id;
-
-    /* op_version: initialized in xlator code itself */
-    uint32_t op_version[GF_MAX_RELEASES];
-
-    /* flags: initialized in xlator code itself */
-    uint32_t flags;
-
-    /* id: unique, initialized in xlator code itself */
-    uint32_t id;
-
-    /* identifier: a full string which can unique identify the xlator */
-    char *identifier;
 
     /* Is this pass_through? */
     gf_boolean_t pass_through;
     struct xlator_fops *pass_through_fops;
+
+    struct {
+        gf_atomic_t total_fop;
+        gf_atomic_t interval_fop;
+        gf_atomic_t total_fop_cbk;
+        gf_atomic_t interval_fop_cbk;
+        gf_latency_t latencies;
+    } stats[GF_FOP_MAXVALUE];
+
+    /* op_version: initialized in xlator code itself */
+    uint32_t op_version[GF_MAX_RELEASES];
+
+    /* Saved volfile ID (used for multiplexing) */
+    char *volfile_id;
+
+    /* identifier: a full string which can unique identify the xlator */
+    char *identifier;
+
+    /* Variable to save xprt associated for detach brick */
+    gf_atomic_t xprtrefcnt;
 
     /* cleanup flag to avoid races during xlator cleanup */
     uint32_t cleanup_starting;
@@ -850,14 +830,16 @@ struct _xlator {
     /* Flag to understand how this xlator is categorized */
     gf_category_t category;
 
-    /* Variable to save xprt associated for detach brick */
-    gf_atomic_t xprtrefcnt;
-
     /* Flag to notify got CHILD_DOWN event for detach brick */
     uint32_t notify_down;
 
-    /* Flag to avoid throw duplicate PARENT_DOWN event */
-    uint32_t parent_down;
+    /* The level represents the specific xlator level in a tree that is useful
+       to access index of the xlator */
+    uint32_t level;
+
+    /* The child_count represents total children are associated at specific
+     * xlator */
+    uint32_t child_count;
 };
 
 /* This would be the only structure which needs to be exported by
@@ -873,15 +855,6 @@ typedef struct {
        operating version.
        default value: 0, which means good to insert always */
     uint32_t op_version[GF_MAX_RELEASES];
-
-    /* flags: will be used by volume generation logic to optimize the
-       placements etc.
-       default value: 0, which means don't treat it specially */
-    uint32_t flags;
-
-    /* xlator_id: unique per xlator. make sure to have no collission
-       in this ID */
-    uint32_t xlator_id;
 
     /* identifier: a string constant */
     char *identifier;
@@ -945,8 +918,6 @@ typedef struct {
     struct xlator_fops *pass_through_fops;
 } xlator_api_t;
 
-#define xlator_has_parent(xl) (xl->parents != NULL)
-
 #define XLATOR_NOTIFY(ret, _xl, params...)                                     \
     do {                                                                       \
         xlator_t *_old_THIS = NULL;                                            \
@@ -968,9 +939,6 @@ xlator_set_type(xlator_t *xl, const char *type);
 int32_t
 xlator_dynload(xlator_t *xl);
 
-xlator_t *
-file_to_xlator_tree(glusterfs_ctx_t *ctx, FILE *fp);
-
 int
 xlator_notify(xlator_t *this, int32_t event, void *data, ...);
 int
@@ -978,8 +946,6 @@ xlator_init(xlator_t *this);
 int
 xlator_destroy(xlator_t *xl);
 
-int32_t
-xlator_tree_init(xlator_t *xl);
 int32_t
 xlator_tree_free_members(xlator_t *xl);
 int32_t
@@ -1006,9 +972,6 @@ get_xlator_by_type(xlator_t *this, char *target);
 void
 xlator_set_inode_lru_limit(xlator_t *this, void *data);
 
-void
-inode_destroy_notify(inode_t *inode, const char *xlname);
-
 int
 loc_copy(loc_t *dst, loc_t *src);
 int
@@ -1026,8 +989,6 @@ char *
 loc_gfid_utoa(loc_t *loc);
 gf_boolean_t
 loc_is_root(loc_t *loc);
-int32_t
-loc_build_child(loc_t *child, loc_t *parent, char *name);
 gf_boolean_t
 loc_is_nameless(loc_t *loc);
 int
@@ -1045,10 +1006,25 @@ enum gf_hdsk_event_notify_op {
     GF_EN_DEFRAG_STATUS,
     GF_EN_MAX,
 };
+
 gf_boolean_t
 is_graph_topology_equal(glusterfs_graph_t *graph1, glusterfs_graph_t *graph2);
+
 int
 glusterfs_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx);
+
+int
+glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
+                                  gf_volfile_t *volfile_obj, char *checksum,
+                                  dict_t *dict);
+
+int
+glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
+                                   char *volfile_id, char *checksum,
+                                   dict_t *dict);
+
+int
+glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
 
 int
 gf_volfile_reconfigure(int oldvollen, FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
@@ -1075,8 +1051,6 @@ copy_opts_to_child(xlator_t *src, xlator_t *dst, char *glob);
 
 int
 glusterfs_delete_volfile_checksum(glusterfs_ctx_t *ctx, const char *volfile_id);
-int
-xlator_memrec_free(xlator_t *xl);
 
 void
 xlator_mem_cleanup(xlator_t *this);

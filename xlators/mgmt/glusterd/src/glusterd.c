@@ -16,12 +16,12 @@
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
 
+#include "rpc-common-xdr.h"
+
 #include "glusterd.h"
 #include "rpcsvc.h"
 #include "fnmatch.h"
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/list.h>
 #include <glusterfs/dict.h>
 #include <glusterfs/options.h>
@@ -49,7 +49,6 @@
 #include "glusterd-geo-rep.h"
 #include <glusterfs/run.h>
 #include "rpc-clnt-ping.h"
-#include "rpc-common-xdr.h"
 
 #include <glusterfs/syncop.h>
 
@@ -126,6 +125,14 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
     [GD_OP_RESET_BRICK] = "Reset Brick",
     [GD_OP_MAX_OPVERSION] = "Maximum supported op-version",
     [GD_OP_MAX] = "Invalid op"};
+
+#define GLUSTERD_DEFAULT_SNAPS_BRICK_DIR "/gluster/snaps"
+#define GLUSTERD_BITD_RUN_DIR "/bitd"
+#define GLUSTERD_SCRUB_RUN_DIR "/scrub"
+#define GLUSTERD_NFS_RUN_DIR "/nfs"
+#define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
+#define GLUSTERD_VAR_RUN_DIR "/var/run"
+#define GLUSTERD_RUN_DIR "/run"
 
 static int
 glusterd_opinfo_init()
@@ -464,6 +471,7 @@ out:
 }
 
 #if SYNCDAEMON_COMPILE
+
 static int
 glusterd_check_gsync_present(int *valid_state)
 {
@@ -692,17 +700,20 @@ runinit_gsyncd_setrx(runner_t *runner, glusterd_conf_t *conf)
 }
 
 static int
+run_gsyncd_cmd(runner_t *runner, xlator_t *this)
+{
+    int ret = 0;
+
+    ret = runner_run_reuse(runner);
+    if (ret < 0) {
+        runner_log(runner, this->name, GF_LOG_ERROR, "command failed");
+    }
+    runner_end(runner);
+    return ret;
+}
+
+static int
 configure_syncdaemon(glusterd_conf_t *conf)
-#define RUN_GSYNCD_CMD                                                         \
-    do {                                                                       \
-        ret = runner_run_reuse(&runner);                                       \
-        if (ret == -1) {                                                       \
-            runner_log(&runner, "glusterd", GF_LOG_ERROR, "command failed");   \
-            runner_end(&runner);                                               \
-            goto out;                                                          \
-        }                                                                      \
-        runner_end(&runner);                                                   \
-    } while (0)
 {
     int ret = 0;
     runner_t runner = {
@@ -712,6 +723,11 @@ configure_syncdaemon(glusterd_conf_t *conf)
         0,
     };
     int valid_state = 0;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(conf);
+    GF_ASSERT(conf->xl);
+    this = conf->xl;
 
     ret = setenv("_GLUSTERD_CALLED_", "1", 1);
     if (ret < 0) {
@@ -739,24 +755,32 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "remote-gsyncd", GSYNCD_PREFIX "/gsyncd", ".", ".",
                     NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "remote-gsyncd", "/nonexistent/gsyncd", ".",
                     "^ssh:", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* gluster-command-dir */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "gluster-command-dir", SBIN_DIR "/", ".", ".",
                     NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* gluster-params */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "gluster-params", "aux-gfid-mount acl", ".", ".",
                     NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* ssh-command */
     runinit_gsyncd_setrx(&runner, conf);
@@ -767,7 +791,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
                      "-i %s/secret.pem",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* ssh-command tar */
     runinit_gsyncd_setrx(&runner, conf);
@@ -778,7 +804,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
                      "-i %s/tar_ssh.pem",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* pid-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -787,7 +815,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
         &runner, "%s/${primaryvol}_${remotehost}_${secondaryvol}/monitor.pid",
         georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* geo-rep working dir */
     runinit_gsyncd_setrx(&runner, conf);
@@ -795,7 +825,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(&runner, "%s/${primaryvol}_${remotehost}_${secondaryvol}/",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* state-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -805,7 +837,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
         "%s/${primaryvol}_${remotehost}_${secondaryvol}/monitor.status",
         georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* state-detail-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -815,7 +849,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
                      "${eSecondary}-detail.status",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* state-detail-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -825,7 +861,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
                      "${eSecondary}-detail.status",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* state-socket */
     runinit_gsyncd_setrx(&runner, conf);
@@ -833,12 +871,16 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(&runner, "%s/${primaryvol}/${eSecondary}.socket",
                      georepdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* socketdir */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "socketdir", GLUSTERD_SOCK_DIR, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -846,7 +888,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runner_argprintf(&runner, "%s/" GEOREP "/${primaryvol}/${eSecondary}.log",
                      conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -856,29 +900,39 @@ configure_syncdaemon(glusterd_conf_t *conf)
                      "/${primaryvol}/${eSecondary}${local_id}.gluster.log",
                      conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* ignore-deletes */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "ignore-deletes", "true", ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* special-sync-mode */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "special-sync-mode", "partial", ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* change-detector == changelog */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "change-detector", "changelog", ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_arg(&runner, "working-dir");
     runner_argprintf(&runner, "%s/${primaryvol}/${eSecondary}",
                      DEFAULT_VAR_RUN_DIRECTORY);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /************
      * secondary pre-configuration
@@ -888,12 +942,16 @@ configure_syncdaemon(glusterd_conf_t *conf)
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "secondary-gluster-command-dir", SBIN_DIR "/", ".",
                     NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* gluster-params */
     runinit_gsyncd_setrx(&runner, conf);
     runner_add_args(&runner, "gluster-params", "aux-gfid-mount acl", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* log-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -905,7 +963,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
         "${session_owner}:${local_node}${local_id}.${secondaryvol}.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* MountBroker log-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -917,7 +977,9 @@ configure_syncdaemon(glusterd_conf_t *conf)
         "${session_owner}:${local_node}${local_id}.${secondaryvol}.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
+    ret = run_gsyncd_cmd(&runner, this);
+    if (ret)
+        goto out;
 
     /* gluster-log-file */
     runinit_gsyncd_setrx(&runner, conf);
@@ -929,18 +991,19 @@ configure_syncdaemon(glusterd_conf_t *conf)
         "${session_owner}:${local_node}${local_id}.${secondaryvol}.gluster.log",
         conf->logdir);
     runner_add_args(&runner, ".", ".", NULL);
-    RUN_GSYNCD_CMD;
-
+    ret = run_gsyncd_cmd(&runner, this);
 out:
     return ret ? -1 : 0;
 }
-#undef RUN_GSYNCD_CMD
-#else  /* SYNCDAEMON_COMPILE */
+
+#else /* SYNCDAEMON_COMPILE */
+
 static int
 configure_syncdaemon(glusterd_conf_t *conf)
 {
     return 0;
 }
+
 #endif /* !SYNCDAEMON_COMPILE */
 
 static int
@@ -1401,6 +1464,38 @@ glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
     }
 }
 
+static int32_t
+glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
+                                  gf_boolean_t upgrade, gf_boolean_t downgrade)
+{
+    int ret = 0;
+    gf_boolean_t regenerate_volfiles = _gf_false;
+    gf_boolean_t terminate = _gf_false;
+
+    if (_gf_true == upgrade)
+        regenerate_volfiles = _gf_true;
+
+    if (upgrade && downgrade) {
+        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_WRONG_OPTS_SETTING,
+               "Both upgrade and downgrade"
+               " options are set. Only one should be on");
+        ret = -1;
+        goto out;
+    }
+
+    if (!upgrade && !downgrade)
+        ret = 0;
+    else
+        terminate = _gf_true;
+    if (regenerate_volfiles) {
+        ret = glusterd_recreate_volfiles(conf);
+    }
+out:
+    if (terminate && (ret == 0))
+        kill(getpid(), SIGTERM);
+    return ret;
+}
+
 /*
  * init - called during glusterd initialization
  *
@@ -1485,15 +1580,28 @@ init(xlator_t *this)
     if (len < 0 || len >= PATH_MAX)
         exit(2);
 
-    dir_data = dict_get(this->options, "cluster-test-mode");
+    dir_data = dict_get(this->options, "logging-directory");
     if (!dir_data) {
-        /* Use default working dir */
-        len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
-                       DEFAULT_LOG_FILE_DIRECTORY);
+        // Check for deprecated 'cluster-test-mode' option
+        dir_data = dict_get(this->options, "cluster-test-mode");
+        if (dir_data) {
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           dir_data->data);
+            gf_msg(
+                this->name, GF_LOG_WARNING, 0, GD_MSG_CLUSTER_RC_ENABLE,
+                "gluster log directory is set to %s. The option "
+                "'cluster-test-mode' is deprecated and will be removed soon. "
+                "Please use the new option 'logging-directory' instead.",
+                dir_data->data);
+        } else {
+            /* Use default working dir */
+            len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s",
+                           DEFAULT_LOG_FILE_DIRECTORY);
+        }
     } else {
         len = snprintf(logdir, VALID_GLUSTERD_PATHMAX, "%s", dir_data->data);
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLUSTER_RC_ENABLE,
-               "cluster-test-mode is enabled logdir is %s", dir_data->data);
+               "gluster log directory is set to %s", dir_data->data);
     }
     if (len < 0 || len >= PATH_MAX)
         exit(2);
@@ -1890,6 +1998,8 @@ init(xlator_t *this)
     conf->gfs_mgmt = &gd_brick_prog;
     conf->restart_shd = _gf_false;
     this->private = conf;
+    conf->xl = this;
+
     /* conf->workdir and conf->rundir are smaller than PATH_MAX; gcc's
      * snprintf checking will throw an error here if sprintf is used.
      * Dueling gcc-8 and coverity, now coverity isn't smart enough to

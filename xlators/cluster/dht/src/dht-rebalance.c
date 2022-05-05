@@ -39,9 +39,6 @@ static int
 dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
                  xlator_t *hashed_subvol, int flag, int *fop_errno);
 
-uint64_t g_totalfiles = 0;
-uint64_t g_totalsize = 0;
-
 void
 gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 {
@@ -912,7 +909,7 @@ __dht_check_free_space(xlator_t *this, xlator_t *to, xlator_t *from, loc_t *loc,
     }
 
 check_avail_space:
-    if (conf->disk_unit == 'p' && dst_statfs.f_blocks) {
+    if (conf->disk_unit_percent && dst_statfs.f_blocks) {
         dst_post_availspacepercent = (dst_statfs_blocks * 100) /
                                      dst_total_blocks;
 
@@ -936,7 +933,7 @@ check_avail_space:
         }
     }
 
-    if (conf->disk_unit != 'p') {
+    if (!conf->disk_unit_percent) {
         if ((dst_statfs_blocks * GF_DISK_SECTOR_SIZE) < conf->min_free_disk) {
             gf_msg_debug(this->name, 0,
                          "file : %s,  destination frsize: %lu "
@@ -2490,13 +2487,12 @@ gf_defrag_pattern_match(gf_defrag_info_t *defrag, char *name, uint64_t size)
 
     GF_VALIDATE_OR_GOTO("dht", defrag, out);
 
-    trav = defrag->defrag_pattern;
-    while (trav) {
+    list_for_each_entry(trav, &defrag->defrag_pattern, list)
+    {
         if (!fnmatch(trav->path_pattern, name, FNM_NOESCAPE)) {
             match = _gf_true;
             break;
         }
-        trav = trav->next;
     }
 
     if ((match == _gf_true) && (size >= trav->size))
@@ -2696,7 +2692,7 @@ gf_defrag_migrate_single_file(void *opaque)
         gettimeofday(&start, NULL);
     }
 
-    if (defrag->defrag_pattern &&
+    if (!list_empty(&defrag->defrag_pattern) &&
         (gf_defrag_pattern_match(defrag, entry->d_name,
                                  entry->d_stat.ia_size) == _gf_false)) {
         gf_log(this->name, GF_LOG_ERROR, "pattern_match failed");
@@ -3170,7 +3166,7 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
 
         defrag->num_files_lookedup++;
 
-        if (defrag->defrag_pattern &&
+        if (!list_empty(&defrag->defrag_pattern) &&
             (gf_defrag_pattern_match(defrag, df_entry->d_name,
                                      df_entry->d_stat.ia_size) == _gf_false)) {
             defrag->size_processed += df_entry->d_stat.ia_size;
@@ -3204,7 +3200,9 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
             ret = -1;
             goto out;
         }
-        tmp_container->df_entry = gf_dirent_for_name(df_entry->d_name);
+        tmp_container->df_entry = gf_dirent_for_name2(
+            df_entry->d_name, df_entry->d_len, df_entry->d_ino, 0,
+            df_entry->d_type);
         if (!tmp_container->df_entry) {
             gf_log(this->name, GF_LOG_ERROR,
                    "Failed to allocate "
@@ -3216,12 +3214,6 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
         tmp_container->local_subvol_index = i;
 
         tmp_container->df_entry->d_stat = df_entry->d_stat;
-
-        tmp_container->df_entry->d_ino = df_entry->d_ino;
-
-        tmp_container->df_entry->d_type = df_entry->d_type;
-
-        tmp_container->df_entry->d_len = df_entry->d_len;
 
         tmp_container->parent_loc = GF_CALLOC(1, sizeof(*loc), gf_dht_mt_loc_t);
         if (!tmp_container->parent_loc) {
@@ -4039,8 +4031,9 @@ dht_file_counter_thread(void *args)
                    "the total data size. Unable to estimate "
                    "time to complete rebalance.");
         } else {
-            g_totalsize = tmp_size;
-            gf_msg_debug("dht", 0, "total data size =%" PRIu64, g_totalsize);
+            defrag->total_size = tmp_size;
+            gf_msg_debug("dht", 0, "total data size =%" PRIu64,
+                         defrag->total_size);
         }
     }
 
@@ -4082,8 +4075,8 @@ gf_defrag_estimates_init(xlator_t *this, loc_t *loc, pthread_t *filecnt_thread)
     conf = this->private;
     defrag = conf->defrag;
 
-    g_totalsize = gf_defrag_total_file_size(this, loc);
-    if (!g_totalsize) {
+    defrag->total_size = gf_defrag_total_file_size(this, loc);
+    if (!defrag->total_size) {
         gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                "Failed to get "
                "the total data size. Unable to estimate "
@@ -4444,6 +4437,9 @@ out:
     if (migrate_data)
         dict_unref(migrate_data);
 
+    if (fix_layout)
+        dict_unref(fix_layout);
+
     if (statfs_frame) {
         STACK_DESTROY(statfs_frame->root);
     }
@@ -4515,7 +4511,7 @@ gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
 
     defrag = conf->defrag;
 
-    if (!g_totalsize)
+    if (!defrag->total_size)
         goto out;
 
     elapsed = gf_time() - defrag->start_time;
@@ -4539,7 +4535,7 @@ gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
     /* rate at which files processed */
     rate_processed = (total_processed) / elapsed;
 
-    tmp_count = g_totalsize;
+    tmp_count = defrag->total_size;
 
     if (rate_processed) {
         time_to_complete = (tmp_count) / rate_processed;

@@ -15,16 +15,10 @@
 #include <signal.h>
 #include <pthread.h>
 
-#include <glusterfs/glusterfs.h>
-#include "glfs.h"
 #include <glusterfs/dict.h>
 
 #include "rpc-clnt.h"
-#include "protocol-common.h"
-#include "xdr-generic.h"
 #include "rpc-common-xdr.h"
-
-#include <glusterfs/syncop.h>
 
 #include "glfs-internal.h"
 #include "gfapi-messages.h"

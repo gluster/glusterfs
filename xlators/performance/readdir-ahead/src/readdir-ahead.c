@@ -25,11 +25,9 @@
 
 #include <math.h>
 #include <glusterfs/glusterfs.h>
-#include <glusterfs/xlator.h>
 #include <glusterfs/call-stub.h>
 #include "readdir-ahead.h"
 #include "readdir-ahead-mem-types.h"
-#include <glusterfs/defaults.h>
 #include "readdir-ahead-messages.h"
 static int
 rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
@@ -84,7 +82,7 @@ out:
 static rda_inode_ctx_t *
 __rda_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
-    int ret = -1;
+    int ret;
     uint64_t ctx_uint = 0;
     rda_inode_ctx_t *ctx_p = NULL;
 
@@ -114,9 +112,7 @@ __rda_inode_ctx_update_iatts(inode_t *inode, xlator_t *this,
                              uint64_t generation)
 {
     rda_inode_ctx_t *ctx_p = NULL;
-    struct iatt tmp_stat = {
-        0,
-    };
+    struct iatt *tmp_stat;
 
     ctx_p = __rda_inode_ctx_get(inode, this);
     if (!ctx_p)
@@ -131,12 +127,12 @@ __rda_inode_ctx_update_iatts(inode_t *inode, xlator_t *this,
          * that is cached in write-behind.
          */
         if (stbuf_in)
-            tmp_stat = *stbuf_in;
+            tmp_stat = stbuf_in;
         else
-            tmp_stat = ctx_p->statbuf;
+            tmp_stat = &ctx_p->statbuf;
         memset(&ctx_p->statbuf, 0, sizeof(ctx_p->statbuf));
-        gf_uuid_copy(ctx_p->statbuf.ia_gfid, tmp_stat.ia_gfid);
-        ctx_p->statbuf.ia_type = tmp_stat.ia_type;
+        gf_uuid_copy(ctx_p->statbuf.ia_gfid, tmp_stat->ia_gfid);
+        ctx_p->statbuf.ia_type = tmp_stat->ia_type;
         GF_ATOMIC_INC(ctx_p->generation);
     } else {
         if (ctx_p->statbuf.ia_ctime) {
@@ -169,7 +165,7 @@ rda_inode_ctx_update_iatts(inode_t *inode, xlator_t *this,
                            struct iatt *stbuf_in, struct iatt *stbuf_out,
                            uint64_t generation)
 {
-    int ret = -1;
+    int ret;
 
     LOCK(&inode->lock);
     {
@@ -228,9 +224,10 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
                     continue;
 
                 fd_ctx = (void *)(uintptr_t)val;
-                uuid_utoa_r(inode->gfid, gfid);
                 if (!GF_ATOMIC_GET(fd_ctx->prefetching))
                     continue;
+
+                uuid_utoa_r(inode->gfid, gfid);
 
                 LOCK(&fd_ctx->lock);
                 {
@@ -277,25 +274,22 @@ rda_can_serve_readdirp(struct rda_fd_ctx *ctx, size_t request_size)
     return _gf_false;
 }
 
-void
+static void
 rda_inode_ctx_get_iatt(inode_t *inode, xlator_t *this, struct iatt *attr)
 {
     rda_inode_ctx_t *ctx_p = NULL;
-
-    if (!inode || !this || !attr)
-        goto out;
 
     LOCK(&inode->lock);
     {
         ctx_p = __rda_inode_ctx_get(inode, this);
         if (ctx_p) {
-            *attr = ctx_p->statbuf;
+            memcpy(attr, &ctx_p->statbuf, sizeof(struct iatt));
         }
     }
     UNLOCK(&inode->lock);
 
-out:
-    return;
+    if (ctx_p == NULL)  // if we did not find one, return a zero'ed iatt struct.
+        memset(attr, 0, sizeof(struct iatt));
 }
 
 /*
@@ -310,24 +304,18 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
     size_t dirent_size, size = 0;
     int32_t count = 0;
     struct rda_priv *priv = NULL;
-    struct iatt tmp_stat = {
-        0,
-    };
 
     priv = this->private;
 
     list_for_each_entry_safe(dirent, tmp, &ctx->entries.list, list)
     {
-        dirent_size = gf_dirent_size(dirent->d_name);
+        dirent_size = gf_dirent_len(dirent->d_len);
         if (size + dirent_size > request_size)
             break;
 
-        memset(&tmp_stat, 0, sizeof(tmp_stat));
-
         if (dirent->inode && (!((strcmp(dirent->d_name, ".") == 0) ||
                                 (strcmp(dirent->d_name, "..") == 0)))) {
-            rda_inode_ctx_get_iatt(dirent->inode, this, &tmp_stat);
-            dirent->d_stat = tmp_stat;
+            rda_inode_ctx_get_iatt(dirent->inode, this, &dirent->d_stat);
         }
 
         size += dirent_size;
@@ -521,23 +509,22 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /* must preserve entry order */
             list_add_tail(&dirent->list, &ctx->entries.list);
             if (dirent->inode) {
-                /* If ctxp->stat is invalidated, don't update it
-                 * with dirent->d_stat as we don't have
-                 * generation number of the inode when readdirp
-                 * request was initiated. So, we pass 0 for
-                 * generation number
-                 */
-
-                generation = -1;
-                if (ctx->writes_during_prefetch) {
-                    memset(gfid, 0, sizeof(gfid));
-                    uuid_utoa_r(dirent->inode->gfid, gfid);
-                    if (dict_get(ctx->writes_during_prefetch, gfid))
-                        generation = 0;
-                }
-
                 if (!((strcmp(dirent->d_name, ".") == 0) ||
                       (strcmp(dirent->d_name, "..") == 0))) {
+                    /* If ctxp->stat is invalidated, don't update it
+                     * with dirent->d_stat as we don't have
+                     * generation number of the inode when readdirp
+                     * request was initiated. So, we pass 0 for
+                     * generation number
+                     */
+
+                    generation = -1;
+                    if (ctx->writes_during_prefetch) {
+                        uuid_utoa_r(dirent->inode->gfid, gfid);
+                        if (dict_get(ctx->writes_during_prefetch, gfid))
+                            generation = 0;
+                    }
+
                     rda_inode_ctx_update_iatts(dirent->inode, this,
                                                &dirent->d_stat, &dirent->d_stat,
                                                generation);
@@ -706,7 +693,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 err:
     if (nframe) {
         rda_local_wipe(nframe->local);
-        FRAME_DESTROY(nframe);
+        FRAME_DESTROY(nframe, frame->root->ctx->measure_latency);
     }
 
     return -1;

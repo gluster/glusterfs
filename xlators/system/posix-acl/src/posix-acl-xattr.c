@@ -15,6 +15,7 @@
 #else
 #include <endian.h>
 #endif
+#include <glusterfs/xlator.h>
 #include "posix-acl.h"
 #include "posix-acl-xattr.h"
 

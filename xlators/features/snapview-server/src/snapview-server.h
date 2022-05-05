@@ -17,19 +17,14 @@
 #include <glusterfs/iatt.h>
 #include <ctype.h>
 #include <sys/uio.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/logging.h>
-#include "glfs.h"
-#include "glfs-handles.h"
 #include "glfs-internal.h"
-#include "glusterfs3-xdr.h"
 #include <glusterfs/glusterfs-acl.h>
 #include <glusterfs/syncop.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
 #include "rpc-clnt.h"
 #include "protocol-common.h"
-#include "xdr-generic.h"
 #include "snapview-server-messages.h"
 
 #define DEFAULT_SVD_LOG_FILE_DIRECTORY DATADIR "/log/glusterfs"
@@ -236,7 +231,7 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
                                  int32_t *op_errno);
 
 snap_dirent_t *
-__svs_get_snap_dirent(xlator_t *this, const char *name);
+__svs_get_snap_dirent(svs_private_t *private, const char *name);
 
 int
 svs_mgmt_init(xlator_t *this);

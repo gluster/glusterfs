@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include <glusterfs/defaults.h>
 
 #include "meta-mem-types.h"
@@ -64,7 +63,7 @@ meta_default_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, fd->inode, fd->inode->ia_type);
+    meta_iatt_fill(this, &iatt, fd->inode, fd->inode->ia_type);
 
     META_STACK_UNWIND(fstat, frame, 0, 0, &iatt, xdata);
 
@@ -127,7 +126,7 @@ meta_default_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         return default_readv_failure_cbk(frame, ENODATA);
 
     if (!meta_fd->size)
-        meta_file_fill(this, fd);
+        meta_file_fill(this, meta_fd, fd);
 
     iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
     if (!iobuf)
@@ -257,7 +256,7 @@ meta_default_readlink(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     ops->link_fill(this, loc->inode, strfd);
 
-    meta_iatt_fill(&iatt, loc->inode, IA_IFLNK);
+    meta_iatt_fill(this, &iatt, loc->inode, IA_IFLNK);
 
     if (strfd->data) {
         len = strlen(strfd->data);
@@ -283,7 +282,7 @@ meta_default_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, fd->inode, IA_IFREG);
+    meta_iatt_fill(this, &iatt, fd->inode, IA_IFREG);
 
     META_STACK_UNWIND(ftruncate, frame, 0, 0, &iatt, &iatt, xdata);
 
@@ -389,6 +388,7 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     struct meta_dirent *dirents = NULL;
     struct meta_dirent *end = NULL;
     struct meta_ops *ops = NULL;
+    size_t dirents_name_len;
 
     INIT_LIST_HEAD(&head.list);
 
@@ -400,7 +400,7 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (!meta_fd)
         goto err;
 
-    meta_dir_fill(this, fd);
+    meta_dir_fill(this, meta_fd, ops, fd);
 
     fixed_dirents = ops->fixed_dirents;
     fixed_size = fixed_dirents_len(fixed_dirents);
@@ -418,42 +418,16 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         }
 
         while (dirents < end) {
-            this_size = sizeof(gf_dirent_t) + strlen(dirents->name) + 1;
+            dirents_name_len = strlen(dirents->name);
+            this_size = gf_dirent_len(dirents_name_len);
             if (this_size + filled_size > size)
                 goto unwind;
 
-            list = gf_dirent_for_name(dirents->name);
+            list = gf_dirent_for_name2(dirents->name, dirents_name_len, i + 42,
+                                       i + 1,
+                                       gf_d_type_from_ia_type(dirents->type));
             if (!list)
                 break;
-
-            list->d_off = i + 1;
-            list->d_ino = i + 42;
-            switch (dirents->type) {
-                case IA_IFDIR:
-                    list->d_type = DT_DIR;
-                    break;
-                case IA_IFCHR:
-                    list->d_type = DT_CHR;
-                    break;
-                case IA_IFBLK:
-                    list->d_type = DT_BLK;
-                    break;
-                case IA_IFIFO:
-                    list->d_type = DT_FIFO;
-                    break;
-                case IA_IFLNK:
-                    list->d_type = DT_LNK;
-                    break;
-                case IA_IFREG:
-                    list->d_type = DT_REG;
-                    break;
-                case IA_IFSOCK:
-                    list->d_type = DT_SOCK;
-                    break;
-                case IA_INVAL:
-                    list->d_type = DT_UNKNOWN;
-                    break;
-            }
 
             list_add_tail(&list->list, &head.list);
             ret++;
@@ -494,7 +468,7 @@ meta_default_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, loc->inode, IA_IFREG);
+    meta_iatt_fill(this, &iatt, loc->inode, IA_IFREG);
 
     META_STACK_UNWIND(truncate, frame, 0, 0, &iatt, &iatt, xdata);
 
@@ -507,7 +481,7 @@ meta_default_stat(call_frame_t *frame, xlator_t *this, loc_t *loc,
 {
     struct iatt iatt = {};
 
-    meta_iatt_fill(&iatt, loc->inode, loc->inode->ia_type);
+    meta_iatt_fill(this, &iatt, loc->inode, loc->inode->ia_type);
 
     META_STACK_UNWIND(stat, frame, 0, 0, &iatt, xdata);
 
@@ -553,7 +527,7 @@ hook:
 
         dirent->hook(frame, this, loc, xdata);
 
-        meta_iatt_fill(&iatt, loc->inode, dirent->type);
+        meta_iatt_fill(this, &iatt, loc->inode, dirent->type);
 
         META_STACK_UNWIND(lookup, frame, 0, 0, loc->inode, &iatt, xdata,
                           &parent);

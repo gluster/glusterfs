@@ -52,7 +52,7 @@ free_fuse_state(fuse_state_t *state)
     xlator_t *this = NULL;
     fuse_private_t *priv = NULL;
     uint64_t winds = 0;
-    char switched = 0;
+    uint32_t switched = 0;
 
     this = state->this;
 
@@ -455,7 +455,7 @@ fuse_loc_fill(loc_t *loc, fuse_state_t *state, ino_t ino, ino_t par,
     inode_t *parent = NULL;
     int32_t ret = -1;
     char *path = NULL;
-    uuid_t null_gfid = {
+    static uuid_t null_gfid = {
         0,
     };
 
@@ -579,7 +579,7 @@ gf_fuse_fill_dirent(gf_dirent_t *entry, struct fuse_dirent *fde,
 
     fde->off = entry->d_off;
     fde->type = entry->d_type;
-    fde->namelen = strlen(entry->d_name);
+    fde->namelen = entry->d_len;
     (void)memcpy(fde->name, entry->d_name, fde->namelen);
 }
 

@@ -14,7 +14,6 @@
 #include "upcall-mem-types.h"
 #include <glusterfs/client_t.h>
 #include "upcall-messages.h"
-#include "upcall-cache-invalidation.h"
 #include <glusterfs/upcall-utils.h>
 
 #define EXIT_IF_UPCALL_OFF(this, label)                                        \
@@ -26,37 +25,33 @@
 #define UPCALL_STACK_UNWIND(fop, frame, params...)                             \
     do {                                                                       \
         upcall_local_t *__local = NULL;                                        \
-        xlator_t *__xl = NULL;                                                 \
         if (frame) {                                                           \
-            __xl = frame->this;                                                \
             __local = frame->local;                                            \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
-        upcall_local_wipe(__xl, __local);                                      \
+        upcall_local_wipe(__local);                                            \
     } while (0)
 
 #define UPCALL_STACK_DESTROY(frame)                                            \
     do {                                                                       \
         upcall_local_t *__local = NULL;                                        \
-        xlator_t *__xl = NULL;                                                 \
-        __xl = frame->this;                                                    \
         __local = frame->local;                                                \
         frame->local = NULL;                                                   \
         STACK_DESTROY(frame->root);                                            \
-        upcall_local_wipe(__xl, __local);                                      \
+        upcall_local_wipe(__local);                                            \
     } while (0)
 
 struct _upcall_private {
-    gf_boolean_t cache_invalidation_enabled;
     time_t cache_invalidation_timeout;
     struct list_head inode_ctx_list;
     gf_lock_t inode_ctx_lk;
-    gf_boolean_t reaper_init_done;
     pthread_t reaper_thr;
-    int32_t fini;
     dict_t *xattrs; /* list of xattrs registered by clients
                        for receiving invalidation */
+    int32_t fini;
+    gf_boolean_t cache_invalidation_enabled;
+    gf_boolean_t reaper_init_done;
 };
 typedef struct _upcall_private upcall_private_t;
 
@@ -76,8 +71,8 @@ struct _upcall_inode_ctx {
     struct list_head client_list;
     pthread_mutex_t client_list_lock; /* mutex for clients list
                                          of this upcall entry */
+    uuid_t gfid;                      /* gfid of the entry */
     int destroy;
-    uuid_t gfid; /* gfid of the entry */
 };
 typedef struct _upcall_inode_ctx upcall_inode_ctx_t;
 
@@ -95,13 +90,8 @@ struct upcall_local {
 typedef struct upcall_local upcall_local_t;
 
 void
-upcall_local_wipe(xlator_t *this, upcall_local_t *local);
-upcall_local_t *
-upcall_local_init(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
-                  inode_t *inode, dict_t *xattr);
+upcall_local_wipe(upcall_local_t *local);
 
-upcall_inode_ctx_t *
-upcall_inode_ctx_get(inode_t *inode, xlator_t *this);
 int
 upcall_cleanup_inode_ctx(xlator_t *this, inode_t *inode);
 

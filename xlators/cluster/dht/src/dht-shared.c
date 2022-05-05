@@ -113,7 +113,7 @@ dht_priv_dump(xlator_t *this)
     gf_proc_dump_write("gen", "%d", conf->gen);
     gf_proc_dump_write("min_free_disk", "%lf", conf->min_free_disk);
     gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
-    gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
+    gf_proc_dump_write("disk_unit percentage", "%d", conf->disk_unit_percent);
     gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
     gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
     gf_proc_dump_write("use-readdirp", "%d", conf->use_readdirp);
@@ -169,6 +169,8 @@ dht_inodectx_dump(xlator_t *this, inode_t *inode)
     gf_proc_dump_add_section("xlator.cluster.dht.%s.inode", this->name);
     dht_layout_dump(layout, "layout");
 
+    if (!ret)
+        dht_layout_unref(layout);
 out:
     return ret;
 }
@@ -455,9 +457,9 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("min-free-disk", conf->min_free_disk, options,
                      percent_or_size, out);
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100.0)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     GF_OPTION_RECONF("min-free-inodes", conf->min_free_inodes, options, percent,
                      out);
@@ -531,7 +533,6 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
     char *num = NULL;
     char *pattern_str = NULL;
     char *pattern = NULL;
-    gf_defrag_pattern_list_t *temp_list = NULL;
     gf_defrag_pattern_list_t *pattern_list = NULL;
 
     if (!this || !defrag || !data)
@@ -549,6 +550,7 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
         if (!pattern_list) {
             goto out;
         }
+        INIT_LIST_HEAD(&pattern_list->list);
         pattern = strtok_r(dup_str, ":", &tmp_str1);
         num = strtok_r(NULL, ":", &tmp_str1);
         if (!pattern)
@@ -564,21 +566,10 @@ gf_defrag_pattern_list_fill(xlator_t *this, gf_defrag_info_t *defrag,
                    num);
             goto out;
         }
-        memcpy(pattern_list->path_pattern, pattern, strlen(dup_str));
-
-        if (!defrag->defrag_pattern)
-            temp_list = NULL;
-        else
-            temp_list = defrag->defrag_pattern;
-
-        pattern_list->next = temp_list;
-
-        defrag->defrag_pattern = pattern_list;
+        pattern_list->path_pattern = pattern;
+        list_add_tail(&pattern_list->list, &defrag->defrag_pattern);
         pattern_list = NULL;
-
-        GF_FREE(dup_str);
         dup_str = NULL;
-
         pattern_str = strtok_r(NULL, ",", &tmp_str);
     }
 
@@ -643,7 +634,6 @@ dht_init(xlator_t *this)
     }
 
     LOCK_INIT(&conf->subvolume_lock);
-    LOCK_INIT(&conf->layout_lock);
     LOCK_INIT(&conf->lock);
     synclock_init(&conf->link_lock, SYNC_LOCK_DEFAULT);
 
@@ -663,6 +653,7 @@ dht_init(xlator_t *this)
         GF_VALIDATE_OR_GOTO(this->name, defrag, err);
 
         LOCK_INIT(&defrag->lock);
+        INIT_LIST_HEAD(&defrag->defrag_pattern);
 
         defrag->is_exiting = 0;
 
@@ -770,9 +761,9 @@ dht_init(xlator_t *this)
     }
 
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     ret = dht_init_subvolumes(this, conf);
     if (ret == -1) {

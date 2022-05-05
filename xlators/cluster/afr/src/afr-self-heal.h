@@ -11,6 +11,14 @@
 #ifndef _AFR_SELFHEAL_H
 #define _AFR_SELFHEAL_H
 
+typedef struct afr_granular_esh_args {
+    fd_t *heal_fd;
+    xlator_t *xl;
+    call_frame_t *frame;
+    gf_boolean_t mismatch; /* flag to represent occurrence of type/gfid
+                              mismatch */
+} afr_granular_esh_args_t;
+
 /* Perform fop on all UP subvolumes and wait for all callbacks to return */
 
 #define AFR_ONALL(frame, rfn, fop, args...)                                    \
@@ -146,11 +154,6 @@ int
 afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
                      char *dom, off_t off, size_t size,
                      unsigned char *locked_on);
-
-int
-afr_selfheal_tryinodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
-                        char *dom, off_t off, size_t size,
-                        unsigned char *locked_on);
 
 int
 afr_selfheal_tie_breaker_inodelk(call_frame_t *frame, xlator_t *this,

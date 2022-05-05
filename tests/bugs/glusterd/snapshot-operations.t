@@ -16,10 +16,10 @@ TEST $CLI_1 peer probe $H2;
 EXPECT_WITHIN $PROBE_TIMEOUT 1 peer_count
 
 TEST $CLI_1 volume create $V0 replica 2 $H1:$L1 $H2:$L2
-EXPECT 'Created' volinfo_field $V0 'Status'
+EXPECT 'Created' volinfo_field_1 $V0 'Status'
 
 TEST $CLI_1 volume start $V0
-EXPECT 'Started' volinfo_field $V0 'Status'
+EXPECT 'Started' volinfo_field_1 $V0 'Status'
 
 #bug-1318591 - skip-non-directories-inside-vols
 

@@ -11,7 +11,7 @@
 #include "snapview-server-mem-types.h"
 #include <pthread.h>
 
-int
+static int
 mgmt_cbk_snap(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     xlator_t *this = NULL;

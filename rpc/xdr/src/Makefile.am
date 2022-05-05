@@ -6,7 +6,7 @@ else
     NFS_EXTRA_XDRS = nlm4-xdr.x nsm-xdr.x acl3-xdr.x mount3udp.x
 endif
 
-XDRGENFILES = glusterfs3-xdr.x glusterfs4-xdr.x cli1-xdr.x \
+XDRGENFILES = glusterfs4-xdr.x cli1-xdr.x \
 	rpc-common-xdr.x glusterd1-xdr.x changelog-xdr.x \
 	portmap-xdr.x ${NFS_XDRS}
 

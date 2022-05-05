@@ -11,7 +11,6 @@
 #ifndef __BIT_ROT_COMMON_H__
 #define __BIT_ROT_COMMON_H__
 
-#include <glusterfs/glusterfs.h>
 #include "bit-rot-object-version.h"
 
 #define BR_VXATTR_VERSION (1 << 0)
@@ -104,8 +103,8 @@ typedef struct br_isignature_out {
 
     unsigned long version; /* current signed version    */
 
-    uint32_t time[2]; /* time when the object
-                         got dirtied               */
+    unsigned long time[2]; /* time when the object
+                              got dirtied               */
 
     int8_t signaturetype; /* hash type                 */
     size_t signaturelen;  /* signature length          */
@@ -113,7 +112,7 @@ typedef struct br_isignature_out {
 } br_isignature_out_t;
 
 typedef struct br_stub_init {
-    uint32_t timebuf[2];
+    unsigned long timebuf[2];
     char export[PATH_MAX];
 } br_stub_init_t;
 
@@ -140,7 +139,7 @@ br_is_signature_type_valid(int8_t signaturetype)
 }
 
 static inline void
-br_set_default_ongoingversion(br_version_t *buf, uint32_t *tv)
+br_set_default_ongoingversion(br_version_t *buf, unsigned long *tv)
 {
     buf->ongoingversion = BITROT_DEFAULT_CURRENT_VERSION;
     buf->timebuf[0] = tv[0];
@@ -157,7 +156,8 @@ br_set_default_signature(br_signature_t *buf, size_t *size)
 }
 
 static inline void
-br_set_ongoingversion(br_version_t *buf, unsigned long version, uint32_t *tv)
+br_set_ongoingversion(br_version_t *buf, unsigned long version,
+                      unsigned long *tv)
 {
     buf->ongoingversion = version;
     buf->timebuf[0] = tv[0];

@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
 #include "glusterd.h"
 #include "glusterd-conn-mgmt.h"

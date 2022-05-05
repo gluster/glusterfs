@@ -14,23 +14,19 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
 #include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/list.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 
-#include "afr.h"
 #include "afr-transaction.h"
 
-void
+static void
 afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this);
 
-int
+static int
 afr_build_parent_loc(loc_t *parent, loc_t *child, int32_t *op_errno)
 {
     int ret = -1;
@@ -250,7 +246,7 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_mark_new_entry_changelog_cbk(call_frame_t *frame, void *cookie,
                                  xlator_t *this, int op_ret, int op_errno,
                                  dict_t *xattr, dict_t *xdata)
@@ -337,7 +333,7 @@ out:
     return;
 }
 
-void
+static void
 afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -383,7 +379,7 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
 
 /* {{{ create */
 
-int
+static int
 afr_create_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -403,7 +399,7 @@ afr_create_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_create_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
@@ -413,7 +409,7 @@ afr_create_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_create_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -500,7 +496,7 @@ out:
 
 /* {{{ mknod */
 
-int
+static int
 afr_mknod_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -519,7 +515,7 @@ afr_mknod_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_mknod_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
@@ -529,7 +525,7 @@ afr_mknod_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_mknod_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -608,7 +604,7 @@ out:
 
 /* {{{ mkdir */
 
-int
+static int
 afr_mkdir_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -627,7 +623,7 @@ afr_mkdir_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_mkdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
@@ -637,7 +633,7 @@ afr_mkdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_mkdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -722,7 +718,7 @@ out:
 
 /* {{{ link */
 
-int
+static int
 afr_link_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -741,7 +737,7 @@ afr_link_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_link_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
@@ -751,7 +747,7 @@ afr_link_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_link_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -829,7 +825,7 @@ out:
 
 /* {{{ symlink */
 
-int
+static int
 afr_symlink_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -848,7 +844,7 @@ afr_symlink_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_symlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, inode_t *inode,
                      struct iatt *buf, struct iatt *preparent,
@@ -858,7 +854,7 @@ afr_symlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_symlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -937,7 +933,7 @@ out:
 
 /* {{{ rename */
 
-int
+static int
 afr_rename_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -957,7 +953,7 @@ afr_rename_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_rename_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *buf,
                     struct iatt *preoldparent, struct iatt *postoldparent,
@@ -969,7 +965,7 @@ afr_rename_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                postnewparent, xdata);
 }
 
-int
+static int
 afr_rename_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1056,7 +1052,7 @@ out:
 
 /* {{{ unlink */
 
-int
+static int
 afr_unlink_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *main_frame = NULL;
@@ -1074,7 +1070,7 @@ afr_unlink_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_unlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                     struct iatt *postparent, dict_t *xdata)
@@ -1083,7 +1079,7 @@ afr_unlink_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_unlink_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1177,7 +1173,7 @@ afr_rmdir_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_rmdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
@@ -1186,7 +1182,7 @@ afr_rmdir_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                preparent, postparent, NULL, NULL, xdata);
 }
 
-int
+static int
 afr_rmdir_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;

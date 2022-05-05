@@ -11,8 +11,6 @@
 #ifndef _GLFS_INTERNAL_H
 #define _GLFS_INTERNAL_H
 
-#include <glusterfs/xlator.h>
-#include <glusterfs/glusterfs.h>
 #include <glusterfs/upcall-utils.h>
 #include "glfs-handles.h"
 #include <glusterfs/refcount.h>

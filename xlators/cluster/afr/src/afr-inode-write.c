@@ -13,12 +13,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
-#include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include "protocol-common.h"
@@ -211,7 +207,7 @@ __afr_inode_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
 /* {{{ writev */
 
-void
+static void
 afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame)
 {
     afr_local_t *src_local = NULL;
@@ -228,7 +224,7 @@ afr_writev_copy_outvars(call_frame_t *src_frame, call_frame_t *dst_frame)
         dst_local->xdata_rsp = dict_ref(src_local->xdata_rsp);
 }
 
-void
+static void
 afr_writev_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -244,7 +240,7 @@ afr_writev_unwind(call_frame_t *frame, xlator_t *this)
                      &local->cont.inode_wfop.postbuf, local->xdata_rsp);
 }
 
-int
+static int
 afr_transaction_writev_unwind(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *fop_frame = NULL;
@@ -283,7 +279,7 @@ afr_writev_handle_short_writes(call_frame_t *frame, xlator_t *this)
     }
 }
 
-void
+static int
 afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -292,6 +288,7 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
     afr_local_t *local = frame->local;
     uint32_t open_fd_count = 0;
     uint32_t write_is_append = 0;
+    int call_count;
 
     LOCK(&frame->lock);
     {
@@ -315,10 +312,13 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
         }
     }
 unlock:
+    call_count = --local->call_count;
     UNLOCK(&frame->lock);
+
+    return call_count;
 }
 
-void
+static void
 afr_process_post_writev(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -342,19 +342,17 @@ afr_process_post_writev(call_frame_t *frame, xlator_t *this)
         local->inode_ctx->open_fd_count = local->open_fd_count;
 }
 
-int
+static int
 afr_writev_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
 {
     call_frame_t *fop_frame = NULL;
     int child_index = (long)cookie;
-    int call_count = -1;
+    int call_count;
 
-    afr_inode_write_fill(frame, this, child_index, op_ret, op_errno, prebuf,
-                         postbuf, xdata);
-
-    call_count = afr_frame_return(frame);
+    call_count = afr_inode_write_fill(frame, this, child_index, op_ret,
+                                      op_errno, prebuf, postbuf, xdata);
 
     if (call_count == 0) {
         afr_process_post_writev(frame, this);
@@ -424,7 +422,7 @@ afr_writev_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
+static int
 afr_do_writev(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *transaction_frame = NULL;
@@ -558,7 +556,7 @@ out:
 
 /* {{{ truncate */
 
-int
+static int
 afr_truncate_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -576,7 +574,7 @@ afr_truncate_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_truncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
@@ -592,7 +590,7 @@ afr_truncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_truncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -671,7 +669,7 @@ out:
 
 /* {{{ ftruncate */
 
-int
+static int
 afr_ftruncate_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -689,7 +687,7 @@ afr_ftruncate_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_ftruncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
@@ -705,7 +703,7 @@ afr_ftruncate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_ftruncate_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -786,7 +784,7 @@ out:
 
 /* {{{ setattr */
 
-int
+static int
 afr_setattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -804,7 +802,7 @@ afr_setattr_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_setattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, struct iatt *preop,
                      struct iatt *postop, dict_t *xdata)
@@ -813,7 +811,7 @@ afr_setattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postop, NULL, xdata);
 }
 
-int
+static int
 afr_setattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -888,7 +886,7 @@ out:
 
 /* {{{ fsetattr */
 
-int
+static int
 afr_fsetattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -906,7 +904,7 @@ afr_fsetattr_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_fsetattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *preop,
                       struct iatt *postop, dict_t *xdata)
@@ -915,7 +913,7 @@ afr_fsetattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postop, NULL, xdata);
 }
 
-int
+static int
 afr_fsetattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -993,7 +991,7 @@ out:
 
 /* {{{ setxattr */
 
-int
+static int
 afr_setxattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1010,7 +1008,7 @@ afr_setxattr_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_setxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1018,7 +1016,7 @@ afr_setxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-int
+static int
 afr_setxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1035,7 +1033,7 @@ afr_setxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
+static int
 afr_emptyb_set_pending_changelog_cbk(call_frame_t *frame, void *cookie,
                                      xlator_t *this, int op_ret, int op_errno,
                                      dict_t *xattr, dict_t *xdata)
@@ -1068,7 +1066,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_emptyb_set_pending_changelog(call_frame_t *frame, xlator_t *this,
                                  unsigned char *locked_nodes)
 {
@@ -1179,7 +1177,7 @@ out:
     return ret;
 }
 
-void
+static void
 afr_brick_args_cleanup(void *opaque)
 {
     afr_empty_brick_args_t *data = NULL;
@@ -1189,14 +1187,14 @@ afr_brick_args_cleanup(void *opaque)
     GF_FREE(data);
 }
 
-int
+static int
 _afr_handle_empty_brick_cbk(int ret, call_frame_t *frame, void *opaque)
 {
     afr_brick_args_cleanup(opaque);
     return 0;
 }
 
-int
+static int
 _afr_handle_empty_brick(void *opaque)
 {
     afr_local_t *local = NULL;
@@ -1272,7 +1270,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_split_brain_resolve_do(call_frame_t *frame, xlator_t *this, loc_t *loc,
                            char *data)
 {
@@ -1322,7 +1320,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_get_split_brain_child_index(xlator_t *this, void *value, size_t len)
 {
     int spb_child_index = -1;
@@ -1342,7 +1340,7 @@ afr_get_split_brain_child_index(xlator_t *this, void *value, size_t len)
     return spb_child_index;
 }
 
-int
+static int
 afr_can_set_split_brain_choice(void *opaque)
 {
     afr_spbc_timeout_t *data = opaque;
@@ -1365,7 +1363,7 @@ afr_can_set_split_brain_choice(void *opaque)
     return ret;
 }
 
-int
+static int
 afr_handle_split_brain_commands(xlator_t *this, call_frame_t *frame, loc_t *loc,
                                 dict_t *dict)
 {
@@ -1456,7 +1454,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_handle_spb_choice_timeout(xlator_t *this, call_frame_t *frame, dict_t *dict)
 {
     int ret = -1;
@@ -1475,7 +1473,7 @@ afr_handle_spb_choice_timeout(xlator_t *this, call_frame_t *frame, dict_t *dict)
     return ret;
 }
 
-int
+static int
 afr_handle_empty_brick(xlator_t *this, call_frame_t *frame, loc_t *loc,
                        dict_t *dict)
 {
@@ -1630,7 +1628,7 @@ out:
 
 /* {{{ fsetxattr */
 
-int
+static int
 afr_fsetxattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1647,7 +1645,7 @@ afr_fsetxattr_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_fsetxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1655,7 +1653,7 @@ afr_fsetxattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-int
+static int
 afr_fsetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1738,7 +1736,7 @@ out:
 
 /* {{{ removexattr */
 
-int
+static int
 afr_removexattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1763,7 +1761,7 @@ afr_removexattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-int
+static int
 afr_removexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1840,7 +1838,7 @@ out:
 }
 
 /* ffremovexattr */
-int
+static int
 afr_fremovexattr_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1857,7 +1855,7 @@ afr_fremovexattr_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_fremovexattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -1865,7 +1863,7 @@ afr_fremovexattr_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, NULL, xdata);
 }
 
-int
+static int
 afr_fremovexattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -1942,7 +1940,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_fallocate_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -1960,7 +1958,7 @@ afr_fallocate_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_fallocate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
@@ -1969,7 +1967,7 @@ afr_fallocate_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_fallocate_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -2052,7 +2050,7 @@ out:
 
 /* {{{ discard */
 
-int
+static int
 afr_discard_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2070,7 +2068,7 @@ afr_discard_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_discard_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -2079,7 +2077,7 @@ afr_discard_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_discard_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -2159,7 +2157,7 @@ out:
 
 /* {{{ zerofill */
 
-int
+static int
 afr_zerofill_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2177,7 +2175,7 @@ afr_zerofill_unwind(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 afr_zerofill_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
@@ -2186,7 +2184,7 @@ afr_zerofill_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_zerofill_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -2266,7 +2264,7 @@ out:
 
 /* }}} */
 
-int32_t
+static int32_t
 afr_xattrop_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xattr,
                      dict_t *xdata)
@@ -2275,7 +2273,7 @@ afr_xattrop_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  NULL, xattr, xdata);
 }
 
-int
+static int
 afr_xattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;
@@ -2292,7 +2290,7 @@ afr_xattrop_wind(call_frame_t *frame, xlator_t *this, int subvol)
     return 0;
 }
 
-int
+static int
 afr_xattrop_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2455,7 +2453,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_fsync_unwind(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -2483,7 +2481,7 @@ afr_fsync_wind_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                  postbuf, NULL, xdata);
 }
 
-int
+static int
 afr_fsync_wind(call_frame_t *frame, xlator_t *this, int subvol)
 {
     afr_local_t *local = NULL;

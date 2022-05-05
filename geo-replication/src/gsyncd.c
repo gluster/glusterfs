@@ -26,11 +26,9 @@
 #ifdef USE_LIBGLUSTERFS
 #include <glusterfs/defaults.h>
 #include <glusterfs/globals.h>
-#include <glusterfs/glusterfs.h>
 #endif
 
 #include "procdiggy.h"
-#include <glusterfs/common-utils.h>
 #include <glusterfs/run.h>
 
 #define _GLUSTERD_CALLED_ "_GLUSTERD_CALLED_"
@@ -299,8 +297,8 @@ invoke_gluster(int argc, char **argv)
         }
     }
 
-    argv[0] = "gluster";
-    execvp(SBIN_DIR "/gluster", argv);
+    argv[0] = SBIN_DIR "/gluster";
+    execv(SBIN_DIR "/gluster", argv);
     fprintf(stderr, "exec of gluster failed\n");
     return 127;
 

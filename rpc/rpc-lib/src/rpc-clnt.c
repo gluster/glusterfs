@@ -13,24 +13,22 @@
 #include "rpc-clnt.h"
 #include "rpc-clnt-ping.h"
 #include "xdr-rpcclnt.h"
-#include "rpc-transport.h"
-#include "protocol-common.h"
 #include <glusterfs/mem-pool.h>
 #include "xdr-rpc.h"
+
 #include "rpc-common-xdr.h"
 
-void
-rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool);
+static void
+rpc_clnt_reply_deinit(struct rpc_req *req);
 
-struct saved_frame *
-__saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
-                            struct timeval *current)
+static struct saved_frame *
+__saved_frames_get_timedout(struct saved_frames *frames, time_t latest)
 {
     struct saved_frame *bailout_frame = NULL, *tmp = NULL;
 
     if (!list_empty(&frames->sf.list)) {
         tmp = list_entry(frames->sf.list.next, typeof(*tmp), list);
-        if ((tmp->saved_at.tv_sec + timeout) <= current->tv_sec) {
+        if (tmp->saved_at <= latest) {
             bailout_frame = tmp;
             list_del_init(&bailout_frame->list);
             frames->count--;
@@ -41,13 +39,13 @@ __saved_frames_get_timedout(struct saved_frames *frames, uint32_t timeout,
 }
 
 static int
-_is_lock_fop(struct saved_frame *sframe)
+_is_lock_fop(struct rpc_req *rpcreq)
 {
     int fop = 0;
 
-    if (SFRAME_GET_PROGNUM(sframe) == GLUSTER_FOP_PROGRAM &&
-        SFRAME_GET_PROGVER(sframe) == GLUSTER_FOP_VERSION)
-        fop = SFRAME_GET_PROCNUM(sframe);
+    if (RPCREQ_GET_PROGNUM(rpcreq) == GLUSTER_FOP_PROGRAM &&
+        RPCREQ_GET_PROGVER(rpcreq) == GLUSTER_FOP_VERSION)
+        fop = RPCREQ_GET_PROCNUM(rpcreq);
 
     return ((fop == GFS3_OP_LK) || (fop == GFS3_OP_INODELK) ||
             (fop == GFS3_OP_FINODELK) || (fop == GFS3_OP_ENTRYLK) ||
@@ -55,11 +53,10 @@ _is_lock_fop(struct saved_frame *sframe)
 }
 
 static struct saved_frame *
-__saved_frames_put(struct saved_frames *frames, void *frame,
-                   struct rpc_req *rpcreq)
+__saved_frames_put(struct rpc_clnt *rpc_clnt, struct saved_frames *frames,
+                   void *frame, struct rpc_req *rpcreq)
 {
-    struct saved_frame *saved_frame = mem_get(
-        rpcreq->conn->rpc_clnt->saved_frames_pool);
+    struct saved_frame *saved_frame = mem_get(rpc_clnt->saved_frames_pool);
 
     if (!saved_frame) {
         goto out;
@@ -68,13 +65,13 @@ __saved_frames_put(struct saved_frames *frames, void *frame,
 
     INIT_LIST_HEAD(&saved_frame->list);
 
-    saved_frame->capital_this = THIS;
+    saved_frame->capital_this = rpc_clnt->owner;
     saved_frame->frame = frame;
     saved_frame->rpcreq = rpcreq;
-    gettimeofday(&saved_frame->saved_at, NULL);
+    saved_frame->saved_at = gf_time();
     memset(&saved_frame->rsp, 0, sizeof(rpc_transport_rsp_t));
 
-    if (_is_lock_fop(saved_frame))
+    if (_is_lock_fop(rpcreq))
         list_add_tail(&saved_frame->list, &frames->lk_sf.list);
     else
         list_add_tail(&saved_frame->list, &frames->sf.list);
@@ -91,7 +88,7 @@ call_bail(void *data)
     rpc_transport_t *trans = NULL;
     struct rpc_clnt *clnt = NULL;
     rpc_clnt_connection_t *conn = NULL;
-    struct timeval current;
+    time_t current;
     struct list_head list;
     struct saved_frame *saved_frame = NULL;
     struct saved_frame *trav = NULL;
@@ -104,12 +101,14 @@ call_bail(void *data)
     };
     char peerid[UNIX_PATH_MAX] = {0};
     gf_boolean_t need_unref = _gf_false;
+    glusterfs_ctx_t *ctx = NULL;
 
     GF_VALIDATE_OR_GOTO("client", data, out);
 
     clnt = data;
 
     conn = &clnt->conn;
+    ctx = clnt->ctx;
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
@@ -121,10 +120,10 @@ call_bail(void *data)
     pthread_mutex_unlock(&conn->lock);
     /*rpc_clnt_connection_cleanup will be unwinding all saved frames,
      * bailed or otherwise*/
-    if (!trans)
+    if (!trans || ctx->cleanup_started)
         goto out;
 
-    gettimeofday(&current, NULL);
+    current = gf_time();
     INIT_LIST_HEAD(&list);
 
     pthread_mutex_lock(&conn->lock);
@@ -150,7 +149,7 @@ call_bail(void *data)
 
         do {
             saved_frame = __saved_frames_get_timedout(
-                conn->saved_frames, conn->frame_timeout, &current);
+                conn->saved_frames, current - conn->frame_timeout);
             if (saved_frame)
                 list_add(&saved_frame->list, &list);
 
@@ -163,8 +162,7 @@ call_bail(void *data)
 
     list_for_each_entry_safe(trav, tmp, &list, list)
     {
-        gf_time_fmt_tv(frame_sent, sizeof frame_sent, &trav->saved_at,
-                       gf_timefmt_FT);
+        gf_time_fmt_FT(frame_sent, sizeof frame_sent, trav->saved_at);
 
         gf_log(conn->name, GF_LOG_ERROR,
                "bailing out frame type(%s), op(%s(%d)), xid = 0x%x, "
@@ -183,7 +181,7 @@ call_bail(void *data)
         trav->rpcreq->rpc_status = -1;
         trav->rpcreq->cbkfn(trav->rpcreq, NULL, 0, trav->frame);
 
-        rpc_clnt_reply_deinit(trav->rpcreq, clnt->reqpool);
+        rpc_clnt_reply_deinit(trav->rpcreq);
         clnt = rpc_clnt_unref(clnt);
         list_del_init(&trav->list);
         mem_put(trav);
@@ -204,8 +202,8 @@ __save_frame(struct rpc_clnt *rpc_clnt, call_frame_t *frame,
     struct timespec timeout = {
         0,
     };
-    struct saved_frame *saved_frame = __saved_frames_put(conn->saved_frames,
-                                                         frame, rpcreq);
+    struct saved_frame *saved_frame = __saved_frames_put(
+        rpc_clnt, conn->saved_frames, frame, rpcreq);
 
     if (saved_frame == NULL) {
         goto out;
@@ -224,7 +222,7 @@ out:
     return saved_frame;
 }
 
-struct saved_frames *
+static struct saved_frames *
 saved_frames_new(void)
 {
     struct saved_frames *saved_frames = NULL;
@@ -241,75 +239,58 @@ saved_frames_new(void)
     return saved_frames;
 }
 
-int
-__saved_frame_copy(struct saved_frames *frames, int64_t callid,
-                   struct saved_frame *saved_frame)
+static struct rpc_req *
+__saved_frame_copy(struct saved_frames *frames, uint32_t callid,
+                   rpc_transport_rsp_t *saved_frame_rsp)
 {
     struct saved_frame *tmp = NULL;
-    int ret = -1;
-
-    if (!saved_frame) {
-        ret = 0;
-        goto out;
-    }
 
     list_for_each_entry(tmp, &frames->sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            *saved_frame = *tmp;
-            ret = 0;
-            goto out;
+            memcpy(saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            return tmp->rpcreq;
         }
     }
 
     list_for_each_entry(tmp, &frames->lk_sf.list, list)
     {
         if (tmp->rpcreq->xid == callid) {
-            *saved_frame = *tmp;
-            ret = 0;
-            goto out;
+            memcpy(saved_frame_rsp, &tmp->rsp, sizeof(rpc_transport_rsp_t));
+            return tmp->rpcreq;
         }
     }
 
-out:
-    return ret;
+    return NULL;
 }
 
-struct saved_frame *
-__saved_frame_get(struct saved_frames *frames, int64_t callid)
+static struct saved_frame *
+__saved_frame_get(struct saved_frames *frames, const uint32_t callid)
 {
-    struct saved_frame *saved_frame = NULL;
     struct saved_frame *tmp = NULL;
 
     list_for_each_entry(tmp, &frames->sf.list, list)
     {
-        if (tmp->rpcreq->xid == callid) {
-            list_del_init(&tmp->list);
-            frames->count--;
-            saved_frame = tmp;
-            goto out;
-        }
+        if (tmp->rpcreq->xid == callid)
+            goto found;
     }
 
     list_for_each_entry(tmp, &frames->lk_sf.list, list)
     {
-        if (tmp->rpcreq->xid == callid) {
-            list_del_init(&tmp->list);
-            frames->count--;
-            saved_frame = tmp;
-            goto out;
-        }
+        if (tmp->rpcreq->xid == callid)
+            goto found;
     }
 
-out:
-    if (saved_frame) {
-        THIS = saved_frame->capital_this;
-    }
+    return NULL;
 
-    return saved_frame;
+found:
+    list_del_init(&tmp->list);
+    frames->count--;
+    THIS = tmp->capital_this;
+    return tmp;
 }
 
-void
+static void
 saved_frames_unwind(struct saved_frames *saved_frames)
 {
     struct saved_frame *trav = NULL;
@@ -317,39 +298,39 @@ saved_frames_unwind(struct saved_frames *saved_frames)
     char timestr[GF_TIMESTR_SIZE] = {
         0,
     };
+    struct rpc_req *rpcreq;
 
     list_splice_init(&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
     list_for_each_entry_safe(trav, tmp, &saved_frames->sf.list, list)
     {
-        gf_time_fmt_tv(timestr, sizeof timestr, &trav->saved_at, gf_timefmt_FT);
-
-        if (!trav->rpcreq || !trav->rpcreq->prog)
+        rpcreq = trav->rpcreq;
+        if (!rpcreq || !rpcreq->prog)
             continue;
 
-        gf_log_callingfn(
-            trav->rpcreq->conn->name, GF_LOG_ERROR,
-            "forced unwinding frame type(%s) op(%s(%d)) "
-            "called at %s (xid=0x%x)",
-            trav->rpcreq->prog->progname,
-            ((trav->rpcreq->prog->procnames)
-                 ? trav->rpcreq->prog->procnames[trav->rpcreq->procnum]
-                 : "--"),
-            trav->rpcreq->procnum, timestr, trav->rpcreq->xid);
+        gf_time_fmt_FT(timestr, sizeof timestr, trav->saved_at);
+
+        gf_log_callingfn(rpcreq->conn->name, GF_LOG_ERROR,
+                         "forced unwinding frame type(%s) op(%s(%d)) "
+                         "called at %s (xid=0x%x)",
+                         rpcreq->prog->progname,
+                         ((rpcreq->prog->procnames)
+                              ? rpcreq->prog->procnames[rpcreq->procnum]
+                              : "--"),
+                         rpcreq->procnum, timestr, rpcreq->xid);
         saved_frames->count--;
 
-        trav->rpcreq->rpc_status = -1;
-        trav->rpcreq->cbkfn(trav->rpcreq, NULL, 0, trav->frame);
+        rpcreq->rpc_status = -1;
+        rpcreq->cbkfn(rpcreq, NULL, 0, trav->frame);
 
-        rpc_clnt_reply_deinit(trav->rpcreq,
-                              trav->rpcreq->conn->rpc_clnt->reqpool);
+        rpc_clnt_reply_deinit(rpcreq);
 
         list_del_init(&trav->list);
         mem_put(trav);
     }
 }
 
-void
+static void
 saved_frames_destroy(struct saved_frames *frames)
 {
     if (!frames)
@@ -360,7 +341,7 @@ saved_frames_destroy(struct saved_frames *frames)
     GF_FREE(frames);
 }
 
-void
+static void
 rpc_clnt_reconnect(void *conn_ptr)
 {
     rpc_transport_t *trans = NULL;
@@ -369,13 +350,15 @@ rpc_clnt_reconnect(void *conn_ptr)
     struct rpc_clnt *clnt = NULL;
     gf_boolean_t need_unref = _gf_false;
     gf_boolean_t canceled_unref = _gf_false;
+    glusterfs_ctx_t *ctx = NULL;
 
     conn = conn_ptr;
     clnt = conn->rpc_clnt;
+    ctx = clnt->ctx;
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
-        if (!trans)
+        if (!trans || ctx->cleanup_started)
             goto out_unlock;
 
         if (conn->reconnect) {
@@ -384,7 +367,7 @@ rpc_clnt_reconnect(void *conn_ptr)
         }
         conn->reconnect = 0;
 
-        if ((conn->connected == 0) && !clnt->disabled) {
+        if ((conn->status != RPC_STATUS_CONNECTED) && !clnt->disabled) {
             ts.tv_sec = 3;
             ts.tv_nsec = 0;
 
@@ -413,36 +396,33 @@ out_unlock:
     return;
 }
 
-int
-rpc_clnt_fill_request_info(struct rpc_clnt *clnt, rpc_request_info_t *info)
+static int
+rpc_clnt_fill_request_info(rpc_clnt_connection_t *conn,
+                           rpc_request_info_t *info)
 {
-    struct saved_frame saved_frame;
-    int ret = -1;
+    struct rpc_req *saved_frame_rpcreq = NULL;
 
-    pthread_mutex_lock(&clnt->conn.lock);
+    pthread_mutex_lock(&conn->lock);
     {
-        ret = __saved_frame_copy(clnt->conn.saved_frames, info->xid,
-                                 &saved_frame);
+        saved_frame_rpcreq = __saved_frame_copy(conn->saved_frames, info->xid,
+                                                &info->rsp);
     }
-    pthread_mutex_unlock(&clnt->conn.lock);
+    pthread_mutex_unlock(&conn->lock);
 
-    if (ret == -1) {
-        gf_log(clnt->conn.name, GF_LOG_CRITICAL,
+    if (caa_unlikely(!saved_frame_rpcreq)) {
+        gf_log(conn->name, GF_LOG_CRITICAL,
                "cannot lookup the saved "
-               "frame corresponding to xid (%d)",
+               "frame corresponding to xid (%" PRIu32 ")",
                info->xid);
-        goto out;
+        return -1;
     }
 
-    info->prognum = saved_frame.rpcreq->prog->prognum;
-    info->procnum = saved_frame.rpcreq->procnum;
-    info->progver = saved_frame.rpcreq->prog->progver;
-    info->rpc_req = saved_frame.rpcreq;
-    info->rsp = saved_frame.rsp;
+    info->rpc_req = saved_frame_rpcreq;
+    info->prognum = saved_frame_rpcreq->prog->prognum;
+    info->procnum = saved_frame_rpcreq->procnum;
+    info->progver = saved_frame_rpcreq->prog->progver;
 
-    ret = 0;
-out:
-    return ret;
+    return 0;
 }
 
 int
@@ -518,8 +498,7 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
             conn->reconnect = NULL;
         }
 
-        conn->connected = 0;
-        conn->disconnected = 1;
+        conn->status = RPC_STATUS_DISCONNECTED;
 
         unref = rpc_clnt_remove_ping_timer_locked(clnt);
         /*reset rpc msgs stats*/
@@ -551,7 +530,7 @@ out:
  */
 
 static struct saved_frame *
-lookup_frame(rpc_clnt_connection_t *conn, int64_t callid)
+lookup_frame(rpc_clnt_connection_t *conn, const uint32_t callid)
 {
     struct saved_frame *frame = NULL;
 
@@ -564,17 +543,10 @@ lookup_frame(rpc_clnt_connection_t *conn, int64_t callid)
     return frame;
 }
 
-int
-rpc_clnt_reply_fill(rpc_transport_pollin_t *msg, rpc_clnt_connection_t *conn,
-                    struct rpc_msg *replymsg, struct iovec progmsg,
-                    struct rpc_req *req, struct saved_frame *saved_frame)
+static void
+rpc_clnt_reply_fill(rpc_transport_pollin_t *msg, struct rpc_msg *replymsg,
+                    struct iovec progmsg, struct rpc_req *req)
 {
-    int ret = -1;
-
-    if ((!conn) || (!replymsg) || (!req) || (!saved_frame) || (!msg)) {
-        goto out;
-    }
-
     req->rpc_status = 0;
     if ((rpc_reply_status(replymsg) == MSG_DENIED) ||
         (rpc_accepted_reply_status(replymsg) != SUCCESS)) {
@@ -601,15 +573,10 @@ rpc_clnt_reply_fill(rpc_transport_pollin_t *msg, rpc_clnt_connection_t *conn,
          * req->verf.datalen = rpc_reply_verf_len (replymsg);
          */
     }
-
-    ret = 0;
-
-out:
-    return ret;
 }
 
-void
-rpc_clnt_reply_deinit(struct rpc_req *req, struct mem_pool *pool)
+static void
+rpc_clnt_reply_deinit(struct rpc_req *req)
 {
     if (!req) {
         goto out;
@@ -625,9 +592,9 @@ out:
 }
 
 /* TODO: use mem-pool for allocating requests */
-int
+static int
 rpc_clnt_reply_init(rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
-                    struct rpc_req *req, struct saved_frame *saved_frame)
+                    struct rpc_req *req)
 {
     char *msgbuf = NULL;
     struct rpc_msg rpcmsg;
@@ -645,17 +612,7 @@ rpc_clnt_reply_init(rpc_clnt_connection_t *conn, rpc_transport_pollin_t *msg,
         goto out;
     }
 
-    ret = rpc_clnt_reply_fill(msg, conn, &rpcmsg, progmsg, req, saved_frame);
-    if (ret != 0) {
-        goto out;
-    }
-
-    gf_log(conn->name, GF_LOG_TRACE,
-           "received rpc message (RPC XID: 0x%x"
-           " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
-           saved_frame->rpcreq->xid, saved_frame->rpcreq->prog->progname,
-           saved_frame->rpcreq->prog->progver, saved_frame->rpcreq->procnum,
-           conn->name);
+    rpc_clnt_reply_fill(msg, &rpcmsg, progmsg, req);
 
 out:
     if (ret != 0) {
@@ -665,7 +622,7 @@ out:
     return ret;
 }
 
-int
+static int
 rpc_clnt_handle_cbk(struct rpc_clnt *clnt, rpc_transport_pollin_t *msg)
 {
     char *msgbuf = NULL;
@@ -724,7 +681,7 @@ out:
     return ret;
 }
 
-int
+static int
 rpc_clnt_handle_reply(struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
 {
     rpc_clnt_connection_t *conn = NULL;
@@ -751,16 +708,22 @@ rpc_clnt_handle_reply(struct rpc_clnt *clnt, rpc_transport_pollin_t *pollin)
         goto out;
     }
 
-    ret = rpc_clnt_reply_init(conn, pollin, req, saved_frame);
+    ret = rpc_clnt_reply_init(conn, pollin, req);
     if (ret != 0) {
         req->rpc_status = -1;
         gf_log(conn->name, GF_LOG_WARNING, "initialising rpc reply failed");
+    } else {
+        gf_log(conn->name, GF_LOG_TRACE,
+               "received rpc message (RPC XID: 0x%x"
+               " Program: %s, ProgVers: %d, Proc: %d) from rpc-transport (%s)",
+               req->xid, req->prog->progname, req->prog->progver, req->procnum,
+               conn->name);
     }
 
     req->cbkfn(req, req->rsp, req->rspcnt, saved_frame->frame);
 
     if (req) {
-        rpc_clnt_reply_deinit(req, conn->rpc_clnt->reqpool);
+        rpc_clnt_reply_deinit(req);
     }
 out:
 
@@ -772,21 +735,21 @@ out:
     return ret;
 }
 
-gf_boolean_t
-is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn)
+rpc_clnt_status_t
+rpc_clnt_connection_status(rpc_clnt_connection_t *conn)
 {
-    gf_boolean_t disconnected = _gf_true;
+    rpc_clnt_status_t status = RPC_STATUS_INITIALIZED;
 
     if (!conn)
-        return disconnected;
+        return status;
 
     pthread_mutex_lock(&conn->lock);
     {
-        disconnected = conn->disconnected;
+        status = conn->status;
     }
     pthread_mutex_unlock(&conn->lock);
 
-    return disconnected;
+    return status;
 }
 
 static void
@@ -856,7 +819,7 @@ rpc_clnt_handle_disconnect(struct rpc_clnt *clnt, rpc_clnt_connection_t *conn)
     return 0;
 }
 
-int
+static int
 rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 rpc_transport_event_t event, void *data, ...)
 {
@@ -866,7 +829,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
     rpc_request_info_t *req_info = NULL;
     rpc_transport_pollin_t *pollin = NULL;
     void *clnt_mydata = NULL;
-    DECLARE_OLD_THIS;
+    xlator_t *old_THIS;
 
     conn = mydata;
     if (conn == NULL) {
@@ -915,12 +878,12 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
 
         case RPC_TRANSPORT_MAP_XID_REQUEST: {
             req_info = data;
-            ret = rpc_clnt_fill_request_info(clnt, req_info);
+            ret = rpc_clnt_fill_request_info(&clnt->conn, req_info);
             break;
         }
 
         case RPC_TRANSPORT_MSG_RECEIVED: {
-            timespec_now_realtime(&conn->last_received);
+            conn->last_received = gf_time();
 
             pollin = data;
             if (pollin->is_reply)
@@ -934,7 +897,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
         }
 
         case RPC_TRANSPORT_MSG_SENT: {
-            timespec_now_realtime(&conn->last_sent);
+            conn->last_sent = gf_time();
             ret = 0;
             break;
         }
@@ -949,8 +912,7 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
                 /* Below code makes sure the (re-)configured port lasts
                  * for just one successful attempt */
                 conn->config.remote_port = 0;
-                conn->connected = 1;
-                conn->disconnected = 0;
+                conn->status = RPC_STATUS_CONNECTED;
                 pthread_cond_broadcast(&conn->cond);
             }
             pthread_mutex_unlock(&conn->lock);
@@ -982,8 +944,8 @@ rpc_clnt_notify(rpc_transport_t *trans, void *mydata,
             break;
     }
 
-out:
     RPC_THIS_RESTORE;
+out:
     return ret;
 }
 
@@ -1371,18 +1333,12 @@ out:
     return ret;
 }
 
-int
+static int
 rpc_clnt_fill_request(struct rpc_clnt *clnt, int prognum, int progver,
-                      int procnum, uint64_t xid, call_frame_t *fr,
+                      int procnum, const uint32_t xid, call_frame_t *fr,
                       struct rpc_msg *request, char *auth_data)
 {
-    int ret = -1;
-
-    if (!request) {
-        goto out;
-    }
-
-    memset(request, 0, sizeof(*request));
+    int ret;
 
     request->rm_xid = xid;
     request->rm_direction = CALL;
@@ -1397,6 +1353,7 @@ rpc_clnt_fill_request(struct rpc_clnt *clnt, int prognum, int progver,
         request->rm_call.cb_cred.oa_base = NULL;
         request->rm_call.cb_cred.oa_length = 0;
     } else {
+        memset(auth_data, 0, GF_MAX_AUTH_BYTES);
         ret = xdr_serialize_glusterfs_auth(clnt, fr, auth_data);
         if (ret == -1) {
             gf_log("rpc-clnt", GF_LOG_WARNING,
@@ -1417,65 +1374,48 @@ out:
     return ret;
 }
 
-struct iovec
+static int
 rpc_clnt_record_build_header(char *recordstart, size_t rlen,
-                             struct rpc_msg *request, size_t payload)
+                             struct rpc_msg *request, size_t payload,
+                             struct iovec *recbuf)
 {
-    struct iovec requesthdr = {
-        0,
-    };
-    struct iovec txrecord = {0, 0};
-    int ret = -1;
-    size_t fraglen = 0;
+    int ret;
 
-    ret = rpc_request_to_xdr(request, recordstart, rlen, &requesthdr);
-    if (ret == -1) {
+    ret = rpc_request_to_xdr(request, recordstart, rlen, recbuf);
+    if (ret < 0) {
         gf_log("rpc-clnt", GF_LOG_DEBUG, "Failed to create RPC request");
         goto out;
     }
 
-    fraglen = payload + requesthdr.iov_len;
     gf_log("rpc-clnt", GF_LOG_TRACE,
-           "Request fraglen %zu, payload: %zu, "
+           "Request payload: %zu, "
            "rpc hdr: %zu",
-           fraglen, payload, requesthdr.iov_len);
+           payload, recbuf->iov_len);
 
-    txrecord.iov_base = recordstart;
-
-    /* Remember, this is only the vec for the RPC header and does not
+    /* Remember, recbuf->iov_len is only the vec for the RPC header and does not
      * include the payload above. We needed the payload only to calculate
      * the size of the full fragment. This size is sent in the fragment
      * header.
      */
-    txrecord.iov_len = requesthdr.iov_len;
-
 out:
-    return txrecord;
+    return ret;
 }
 
-struct iobuf *
+static struct iobuf *
 rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
                              int prognum, int progver, int procnum,
-                             size_t hdrsize, uint64_t xid, struct iovec *recbuf)
+                             size_t hdrsize, const uint32_t xid,
+                             struct iovec *recbuf)
 {
     struct rpc_msg request = {
         0,
     };
     struct iobuf *request_iob = NULL;
     char *record = NULL;
-    struct iovec recordhdr = {
-        0,
-    };
     size_t pagesize = 0;
-    int ret = -1;
+    int ret;
     size_t xdr_size = 0;
-    char auth_data[GF_MAX_AUTH_BYTES] = {
-        0,
-    };
-
-    if ((!clnt) || (!recbuf)) {
-        goto out;
-    }
+    char auth_data[GF_MAX_AUTH_BYTES];
 
     /* Fill the rpc structure and XDR it into the buffer got above. */
     ret = rpc_clnt_fill_request(clnt, prognum, progver, procnum, xid, fr,
@@ -1483,7 +1423,7 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
 
     if (ret == -1) {
         gf_log(clnt->conn.name, GF_LOG_WARNING,
-               "cannot build a rpc-request xid (%" PRIu64 ")", xid);
+               "cannot build a rpc-request xid (%" PRIu32 ")", xid);
         goto out;
     }
 
@@ -1501,19 +1441,15 @@ rpc_clnt_record_build_record(struct rpc_clnt *clnt, call_frame_t *fr,
 
     record = iobuf_ptr(request_iob); /* Now we have it. */
 
-    recordhdr = rpc_clnt_record_build_header(record, pagesize, &request,
-                                             hdrsize);
+    ret = rpc_clnt_record_build_header(record, pagesize, &request, hdrsize,
+                                       recbuf);
 
-    if (!recordhdr.iov_base) {
+    if (ret) {
         gf_log(clnt->conn.name, GF_LOG_ERROR, "Failed to build record header");
         iobuf_unref(request_iob);
         request_iob = NULL;
         recbuf->iov_base = NULL;
-        goto out;
     }
-
-    recbuf->iov_base = recordhdr.iov_base;
-    recbuf->iov_len = recordhdr.iov_len;
 
 out:
     return request_iob;
@@ -1522,12 +1458,8 @@ out:
 static inline struct iobuf *
 rpc_clnt_record(struct rpc_clnt *clnt, call_frame_t *call_frame,
                 rpc_clnt_prog_t *prog, int procnum, size_t hdrlen,
-                struct iovec *rpchdr, uint64_t callid)
+                struct iovec *rpchdr, const uint32_t callid)
 {
-    if (!prog || !rpchdr || !call_frame) {
-        return NULL;
-    }
-
     return rpc_clnt_record_build_record(clnt, call_frame, prog->prognum,
                                         prog->progver, procnum, hdrlen, callid,
                                         rpchdr);
@@ -1617,7 +1549,7 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     int ret = -1;
     int proglen = 0;
     char new_iobref = 0;
-    uint64_t callid = 0;
+    uint32_t callid = 0;
     gf_boolean_t need_unref = _gf_false;
     call_frame_t *cframe = frame;
 
@@ -1681,11 +1613,10 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
     req.rsp.rsp_payload = rsp_payload;
     req.rsp.rsp_payload_count = rsp_payload_count;
     req.rsp.rsp_iobref = rsp_iobref;
-    req.rpc_req = rpcreq;
 
     pthread_mutex_lock(&conn->lock);
     {
-        if (conn->connected == 0) {
+        if (conn->status != RPC_STATUS_CONNECTED) {
             if (rpc->disabled)
                 goto unlock;
             ret = rpc_transport_connect(conn->trans, conn->config.remote_port);
@@ -1901,7 +1832,7 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
                 reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
-        conn->connected = 0;
+        conn->status = RPC_STATUS_INITIALIZED;
 
         unref = rpc_clnt_remove_ping_timer_locked(rpc);
         trans = conn->trans;

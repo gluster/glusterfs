@@ -13,11 +13,8 @@
 #include "dht-mem-types.h"
 #include "dht-messages.h"
 #include <glusterfs/call-stub.h>
-#include "libxlator.h"
 #include <glusterfs/syncop.h>
 #include <glusterfs/refcount.h>
-#include <glusterfs/timer.h>
-#include "protocol-common.h"
 #include <glusterfs/glusterfs-acl.h>
 
 #ifndef _DHT_H
@@ -106,11 +103,11 @@ struct dht_layout {
 typedef struct dht_layout dht_layout_t;
 
 struct dht_stat_time {
-    uint32_t atime;
+    uint64_t atime;
     uint32_t atime_nsec;
-    uint32_t ctime;
+    uint64_t ctime;
     uint32_t ctime_nsec;
-    uint32_t mtime;
+    uint64_t mtime;
     uint32_t mtime_nsec;
 };
 
@@ -375,6 +372,7 @@ struct dht_local {
     gf_boolean_t locked;
     gf_boolean_t dont_create_linkto;
     gf_boolean_t gfid_missing;
+    bool simple_quota;
 };
 typedef struct dht_local dht_local_t;
 
@@ -429,9 +427,9 @@ typedef enum gf_defrag_status_t gf_defrag_status_t;
 typedef struct gf_defrag_pattern_list gf_defrag_pattern_list_t;
 
 struct gf_defrag_pattern_list {
-    char path_pattern[256];
+    struct list_head list;
+    char *path_pattern;
     uint64_t size;
-    gf_defrag_pattern_list_t *next;
 };
 
 struct dht_container {
@@ -467,6 +465,7 @@ struct gf_defrag_info_ {
     uint64_t skipped;
     uint64_t num_dirs_processed;
     uint64_t size_processed;
+    uint64_t total_size;
     gf_lock_t lock;
     pthread_t th;
     struct rpc_clnt *rpc;
@@ -479,7 +478,7 @@ struct gf_defrag_info_ {
     time_t start_time;
     uint32_t new_commit_hash;
     gf_defrag_status_t defrag_status;
-    gf_defrag_pattern_list_t *defrag_pattern;
+    struct list_head defrag_pattern;
 
     pthread_cond_t parallel_migration_cond;
     pthread_mutex_t dfq_mutex;
@@ -536,7 +535,6 @@ struct dht_conf {
     int32_t refresh_interval;
     gf_lock_t subvolume_lock;
     time_t last_stat_fetch;
-    gf_lock_t layout_lock;
     dict_t *leaf_to_subvol;
     void *private; /* Can be used by wrapper xlators over
                       dht */
@@ -588,9 +586,9 @@ struct dht_conf {
      */
     uint32_t vol_commit_hash;
 
-    char vol_uuid[UUID_SIZE + 1];
+    char vol_uuid[GF_UUID_BUF_SIZE];
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
 
     gf_boolean_t lock_migration_enabled;
 
@@ -630,16 +628,6 @@ struct dht_dfoffset_ctx {
     int32_t readdir_done;
 };
 typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
-
-struct dht_disk_layout {
-    uint32_t cnt;
-    uint32_t type;
-    struct {
-        uint32_t start;
-        uint32_t stop;
-    } list[1];
-};
-typedef struct dht_disk_layout dht_disk_layout_t;
 
 typedef enum {
     GF_DHT_MIGRATE_DATA,
@@ -869,7 +857,7 @@ dht_layout_set(xlator_t *this, inode_t *inode, dht_layout_t *layout);
 void
 dht_layout_unref(dht_layout_t *layout);
 dht_layout_t *
-dht_layout_ref(xlator_t *this, dht_layout_t *layout);
+dht_layout_ref(dht_layout_t *layout);
 int
 dht_layout_index_for_subvol(dht_layout_t *layout, xlator_t *subvol);
 xlator_t *
@@ -1156,8 +1144,8 @@ int
 dht_inode_ctx_layout_set(inode_t *inode, xlator_t *this,
                          dht_layout_t *layout_int);
 int
-dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *stat,
-                          int32_t update_ctx);
+dht_inode_ctx_time_update(inode_t *inode, xlator_t *this, struct iatt *prestat,
+                          struct iatt *poststat);
 void
 dht_inode_ctx_time_set(inode_t *inode, xlator_t *this, struct iatt *stat);
 

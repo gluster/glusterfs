@@ -12,14 +12,12 @@
 #define _COMMON_UTILS_H
 
 #include <stdint.h>
-#include <sys/uio.h>
-#include <netdb.h>
 #include <stdlib.h>
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <dirent.h>
 #include <unistd.h>
-#include <openssl/md5.h>
 #ifndef GF_BSD_HOST_OS
 #include <alloca.h>
 #endif
@@ -27,6 +25,8 @@
 #include <fnmatch.h>
 #include <uuid/uuid.h>
 #include <urcu/compiler.h>
+#include <sys/socket.h>
+#include <sys/uio.h>
 
 /* FreeBSD, etc. */
 #ifndef __BITS_PER_LONG
@@ -97,10 +97,6 @@ trap(void);
             *statp = z;                                                        \
     } while (0)
 
-#define IS_EXT_FS(fs_name)                                                     \
-    (!strcmp(fs_name, "ext2") || !strcmp(fs_name, "ext3") ||                   \
-     !strcmp(fs_name, "ext4"))
-
 /* process mode definitions */
 #define GF_SERVER_PROCESS 0
 #define GF_CLIENT_PROCESS 1
@@ -132,8 +128,6 @@ trap(void);
 #define SIGNING_TIMEOUT 120
 
 /* Threading parameters for bitrot. */
-#define BR_MIN_THREADS 1
-#define BR_MAX_THREADS 16
 #define BR_DEFAULT_THREADS 4
 
 /* Threading parameters for parallel heal, both for AFR and EC xlators. */
@@ -155,8 +149,6 @@ trap(void);
  * Eg:6c69-6431-2d63-6c6e-7431-0000-0000-0000
  */
 #define GF_LEASE_ID_BUF_SIZE ((LEASE_ID_SIZE * 2) + (LEASE_ID_SIZE / 2))
-
-#define GF_PERCENTAGE(val, total) (((val)*100) / (total))
 
 /* pthread related */
 /* as per the man page, thread-name should be at max 16 bytes */
@@ -188,6 +180,7 @@ enum _gf_special_pid {
     GF_SERVER_PID_TRASH = -11,
     GF_CLIENT_PID_ADD_REPLICA_MOUNT = -12,
     GF_CLIENT_PID_SET_UTIME = -13,
+    GF_CLIENT_PID_QUOTA_HELPER = -14,
 };
 
 enum _gf_xlator_ipc_targets {
@@ -258,43 +251,12 @@ struct list_node {
 
 extern char *vol_type_str[];
 
-struct list_node *
-list_node_add(void *ptr, struct list_head *list);
-struct list_node *
-list_node_add_order(void *ptr, struct list_head *list,
-                    int (*compare)(struct list_head *, struct list_head *));
-void
-list_node_del(struct list_node *node);
-
-struct dnscache *
-gf_dnscache_init(time_t ttl);
-void
-gf_dnscache_deinit(struct dnscache *cache);
-struct dnscache_entry *
-gf_dnscache_entry_init(void);
-void
-gf_dnscache_entry_deinit(struct dnscache_entry *entry);
-char *
-gf_rev_dns_lookup_cached(const char *ip, struct dnscache *dnscache);
-
-char *
-gf_resolve_path_parent(const char *path);
-
-void
-gf_global_variable_init(void);
-
-int32_t
-gf_resolve_ip6(const char *hostname, uint16_t port, int family, void **dnscache,
-               struct addrinfo **addr_info);
-
 void
 gf_log_dump_graph(FILE *specfp, glusterfs_graph_t *graph);
 void
 gf_print_trace(int32_t signal, glusterfs_ctx_t *ctx);
 int
 gf_set_log_file_path(cmd_args_t *cmd_args, glusterfs_ctx_t *ctx);
-int
-gf_set_log_ident(cmd_args_t *cmd_args);
 
 int
 gf_process_getspec_servers_list(cmd_args_t *cmd_args, const char *servers_list);
@@ -354,10 +316,10 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, errno, error)         \
+#define GF_VALIDATE_OR_GOTO_WITH_ERROR(name, arg, label, op_errno, error)      \
     do {                                                                       \
         if (caa_unlikely(!arg)) {                                              \
-            errno = error;                                                     \
+            op_errno = error;                                                  \
             gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
                              "invalid argument: " #arg);                       \
             goto label;                                                        \
@@ -381,22 +343,11 @@ BIT_VALUE(unsigned char *array, unsigned int index)
         }                                                                      \
     } while (0)
 
-#define GF_ASSERT_AND_GOTO_WITH_ERROR(name, arg, label, errno, error)          \
+#define GF_ASSERT_AND_GOTO_WITH_ERROR(arg, label, op_errno, error)             \
     do {                                                                       \
         if (caa_unlikely(!arg)) {                                              \
+            op_errno = error;                                                  \
             GF_ASSERT(0);                                                      \
-            errno = error;                                                     \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
-
-#define GF_VALIDATE_ABSOLUTE_PATH_OR_GOTO(name, arg, label)                    \
-    do {                                                                       \
-        GF_VALIDATE_OR_GOTO(name, arg, label);                                 \
-        if ((arg[0]) != '/') {                                                 \
-            errno = EINVAL;                                                    \
-            gf_msg_callingfn(name, GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,   \
-                             "invalid argument: " #arg);                       \
             goto label;                                                        \
         }                                                                      \
     } while (0)
@@ -831,10 +782,25 @@ typedef enum {
     gf_timefmt_last
 } gf_timefmts;
 
+static const char *__gf_timefmts[] = {
+    "%F %T", "%Y/%m/%d-%T", "%b %d %T", "%F %H%M%S", "%Y-%m-%d-%T", "%s",
+};
+
+static const char *__gf_zerotimes[] = {
+    "0000-00-00 00:00:00", "0000/00/00-00:00:00", "xxx 00 00:00:00",
+    "0000-00-00 000000",   "0000-00-00-00:00:00", "0",
+};
+
+static void
+_gf_timestuff(const char ***fmts, const char ***zeros)
+{
+    *fmts = __gf_timefmts;
+    *zeros = __gf_zerotimes;
+}
+
 static inline char *
 gf_time_fmt_tv(char *dst, size_t sz_dst, struct timeval *tv, unsigned int fmt)
 {
-    extern void _gf_timestuff(const char ***, const char ***);
     static gf_timefmts timefmt_last = (gf_timefmts)-1;
     static const char **fmts;
     static const char **zeros;
@@ -880,6 +846,48 @@ gf_time_fmt(char *dst, size_t sz_dst, time_t utime, unsigned int fmt)
     return gf_time_fmt_tv(dst, sz_dst, &tv, fmt);
 }
 
+static inline size_t
+gf_time_fmt_tv_FT(char *dst, size_t sz_dst, struct timeval *tv,
+                  glusterfs_ctx_t *ctx)
+{
+    struct tm tm, *res;
+    int localtime = 0;
+    int len = 0;
+    int pos = 0;
+
+    if (ctx != NULL)
+        localtime = ctx->log.localtime;
+    else
+        localtime = gf_log_get_localtime();
+    res = localtime ? localtime_r(&tv->tv_sec, &tm)
+                    : gmtime_r(&tv->tv_sec, &tm);
+    if (tv->tv_sec && (res != NULL)) {
+        len = strftime(dst, sz_dst, "%F %T", &tm);
+        if (len == 0)
+            return len;
+        pos += len;
+        if (tv->tv_usec >= 0) {
+            len = snprintf(dst + pos, sz_dst - pos, ".%" GF_PRI_SUSECONDS,
+                           tv->tv_usec);
+            if (len >= sz_dst - pos)
+                return len;
+            pos += len;
+        }
+        return strftime(dst + pos, sz_dst - pos, " %z", &tm);
+    } else {
+        strncpy(dst, "N/A", sz_dst);
+        return SLEN("N/A");
+    }
+}
+
+static inline int
+gf_time_fmt_FT(char *dst, size_t sz_dst, time_t utime)
+{
+    struct timeval tv = {utime, -1};
+
+    return gf_time_fmt_tv_FT(dst, sz_dst, &tv, NULL);
+}
+
 /* This function helps us use gfid (unique identity) to generate inode's unique
  * number in glusterfs.
  */
@@ -909,8 +917,6 @@ gf_roundup_next_power_of_two(int32_t nr);
 
 char *
 gf_trim(char *string);
-int
-gf_volume_name_validate(const char *volume_name);
 
 int
 gf_string2long(const char *str, long *n);
@@ -977,21 +983,7 @@ int
 gf_string2time(const char *str, time_t *n);
 
 int
-gf_lockfd(int fd);
-int
-gf_unlockfd(int fd);
-
-int
-get_checksum_for_file(int fd, uint32_t *checksum, int op_version);
-int
 log_base2(unsigned long x);
-
-int
-get_checksum_for_path(char *path, uint32_t *checksum, int op_version);
-int
-get_file_mtime(const char *path, time_t *stamp);
-char *
-gf_resolve_path_parent(const char *path);
 
 char *
 strtail(char *str, const char *pattern);
@@ -1025,12 +1017,6 @@ valid_ipv6_address(char *address, int length, gf_boolean_t wildcard_acc);
 char
 valid_internet_address(char *address, gf_boolean_t wildcard_acc,
                        gf_boolean_t cidr);
-gf_boolean_t
-valid_mount_auth_address(char *address);
-gf_boolean_t
-valid_ipv4_subnetwork(const char *address);
-gf_boolean_t
-gf_sock_union_equal_addr(union gf_sock_union *a, union gf_sock_union *b);
 char *
 gf_rev_dns_lookup(const char *ip);
 
@@ -1040,8 +1026,6 @@ char *
 uuid_utoa_r(uuid_t uuid, char *dst);
 char *
 lkowner_utoa(gf_lkowner_t *lkowner);
-char *
-lkowner_utoa_r(gf_lkowner_t *lkowner, char *dst, int len);
 char *
 leaseid_utoa(const char *lease_id);
 gf_boolean_t
@@ -1053,32 +1037,20 @@ gf_existing_leaseid(void);
 
 void
 gf_array_insertionsort(void *a, int l, int r, size_t elem_size, gf_cmp cmp);
-int
-gf_is_str_int(const char *value);
 
 char *gf_uint64_2human_readable(uint64_t);
-int
-validate_brick_name(char *brick);
 char *
 get_host_name(char *word, char **host);
-char *
-get_path_name(char *word, char **path);
 void
 gf_path_strip_trailing_slashes(char *path);
 uint64_t
 get_mem_size(void);
 int
-gf_strip_whitespace(char *str, int len);
-int
 gf_canonicalize_path(char *path);
 char *
 generate_glusterfs_ctx_id(void);
-char *
-gf_get_reserved_ports(void);
 int
 gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling);
-gf_boolean_t
-gf_ports_reserved(char *blocked_port, unsigned char *ports, uint32_t ceiling);
 int
 gf_get_hostname_from_ip(char *client_ip, char **hostname);
 gf_boolean_t
@@ -1115,10 +1087,6 @@ gf_thread_create(pthread_t *thread, const pthread_attr_t *attr,
                  ...) __attribute__((__format__(__printf__, 5, 6)));
 
 int
-gf_thread_vcreate(pthread_t *thread, const pthread_attr_t *attr,
-                  void *(*start_routine)(void *), void *arg, const char *name,
-                  va_list args);
-int
 gf_thread_create_detached(pthread_t *thread, void *(*start_routine)(void *),
                           void *arg, const char *name, ...)
     __attribute__((__format__(__printf__, 4, 5)));
@@ -1127,43 +1095,17 @@ void
 gf_thread_set_name(pthread_t thread, const char *name, ...)
     __attribute__((__format__(__printf__, 2, 3)));
 
-void
-gf_thread_set_vname(pthread_t thread, const char *name, va_list args);
-gf_boolean_t
-gf_is_pid_running(int pid);
 gf_boolean_t
 gf_is_service_running(char *pidfile, int *pid);
-gf_boolean_t
-gf_valid_pid(const char *pid, int length);
-int
-gf_skip_header_section(int fd, int header_len);
 
 struct iatt;
 struct _dict;
 
-gf_boolean_t
-dht_is_linkfile(struct iatt *buf, struct _dict *dict);
-
-int
-gf_check_log_format(const char *value);
-
-int
-gf_check_logger(const char *value);
-
-gf_boolean_t
-gf_compare_sockaddr(const struct sockaddr *addr1, const struct sockaddr *addr2);
-
 char *
 gf_backtrace_save(char *buf);
 
-void
-gf_backtrace_done(char *buf);
-
 gf_loglevel_t
 fop_log_level(glusterfs_fop_t fop, int op_errno);
-
-int32_t
-gf_build_absolute_path(char *current_path, char *relative_path, char **path);
 
 int
 recursive_rmdir(const char *delete_path);
@@ -1191,9 +1133,6 @@ _unmask_cancellation(void);
 gf_boolean_t
 gf_is_zero_filled_stat(struct iatt *buf);
 
-void
-gf_zero_fill_stat(struct iatt *buf);
-
 gf_boolean_t
 gf_is_valid_xattr_namespace(char *k);
 
@@ -1212,9 +1151,6 @@ gf_fop_string(glusterfs_fop_t fop);
 int
 gf_fop_int(char *fop);
 
-char *
-get_ip_from_addrinfo(struct addrinfo *addr, char **ip);
-
 int
 close_fds_except_custom(int *fdv, size_t count, void *prm,
                         void closer(int fd, void *prm));
@@ -1232,23 +1168,11 @@ glusterfs_compute_sha256(const unsigned char *content, size_t size,
 char *
 gf_strncpy(char *dest, const char *src, const size_t dest_size);
 
-void
-gf_strTrim(char **s);
-
-int
-gf_replace_old_iatt_in_dict(struct _dict *);
-
-int
-gf_replace_new_iatt_in_dict(struct _dict *);
-
 xlator_cmdline_option_t *
 find_xlator_option_in_cmd_args_t(const char *option_name, cmd_args_t *args);
 
 int
 gf_d_type_from_ia_type(ia_type_t type);
-
-int
-gf_syncfs(int fd);
 
 int
 gf_pipe(int fd[2], int flags);
@@ -1287,6 +1211,4 @@ gf_tsdiff(struct timespec *start, struct timespec *end)
            (int64_t)(end->tv_nsec - start->tv_nsec);
 }
 
-int
-gf_d_type_from_st_mode(mode_t st_mode);
 #endif /* _COMMON_UTILS_H */

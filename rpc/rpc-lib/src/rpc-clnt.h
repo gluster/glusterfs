@@ -11,7 +11,6 @@
 #ifndef __RPC_CLNT_H
 #define __RPC_CLNT_H
 
-#include <glusterfs/stack.h>
 #include "rpc-transport.h"
 #include <glusterfs/timer.h>
 #include "xdr-common.h"
@@ -25,9 +24,15 @@ typedef enum {
     RPC_CLNT_DESTROY
 } rpc_clnt_event_t;
 
-#define SFRAME_GET_PROGNUM(sframe) (sframe->rpcreq->prog->prognum)
-#define SFRAME_GET_PROGVER(sframe) (sframe->rpcreq->prog->progver)
-#define SFRAME_GET_PROCNUM(sframe) (sframe->rpcreq->procnum)
+typedef enum {
+    RPC_STATUS_INITIALIZED,
+    RPC_STATUS_CONNECTED,
+    RPC_STATUS_DISCONNECTED
+} rpc_clnt_status_t;
+
+#define RPCREQ_GET_PROGNUM(_rpcreq) (_rpcreq->prog->prognum)
+#define RPCREQ_GET_PROGVER(_rpcreq) (_rpcreq->prog->progver)
+#define RPCREQ_GET_PROCNUM(_rpcreq) (_rpcreq->procnum)
 
 struct rpc_req;
 struct rpc_clnt;
@@ -53,7 +58,7 @@ struct saved_frame {
     void *capital_this;
     void *frame;
     struct rpc_req *rpcreq;
-    struct timeval saved_at;
+    time_t saved_at;
     rpc_transport_rsp_t rsp;
 };
 
@@ -135,8 +140,8 @@ struct rpc_clnt_connection {
     gf_timer_t *ping_timer;
     struct rpc_clnt *rpc_clnt;
     struct saved_frames *saved_frames;
-    struct timespec last_sent;
-    struct timespec last_received;
+    time_t last_sent;
+    time_t last_received;
     uint64_t pingcnt;
     uint64_t msgcnt;
     uint64_t cleanup_gen;
@@ -144,23 +149,18 @@ struct rpc_clnt_connection {
     int32_t ping_started;
     time_t frame_timeout;
     time_t ping_timeout;
-    gf_boolean_t disconnected;
-    char connected;
+    rpc_clnt_status_t status;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
 struct rpc_req {
     rpc_clnt_connection_t *conn;
-    struct iovec req[2];
-    struct iobref *req_iobref;
     struct iovec rsp[2];
     int rspcnt;
-    int reqcnt;
     struct iobref *rsp_iobref;
     rpc_clnt_prog_t *prog;
     rpc_auth_data_t verf;
     fop_cbk_fn_t cbkfn;
-    void *conn_private;
     int procnum;
     int rpc_status;
     uint32_t xid;
@@ -171,7 +171,8 @@ typedef struct rpc_clnt {
     rpc_clnt_notify_t notifyfn;
     rpc_clnt_connection_t conn;
     void *mydata;
-    gf_atomic_t xid;
+    gf_atomic_uint32_t xid;
+    int auth_value;
 
     /* list of cb programs registered with rpc-clnt */
     struct list_head programs;
@@ -184,7 +185,6 @@ typedef struct rpc_clnt {
     glusterfs_ctx_t *ctx;
     gf_atomic_t refcount;
     xlator_t *owner;
-    int auth_value;
     char disabled;
 } rpc_clnt_t;
 
@@ -235,11 +235,8 @@ int
 rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn);
 int
 rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn);
-gf_boolean_t
-is_rpc_clnt_disconnected(rpc_clnt_connection_t *conn);
-
-void
-rpc_clnt_reconnect(void *trans_ptr);
+rpc_clnt_status_t
+rpc_clnt_connection_status(rpc_clnt_connection_t *conn);
 
 void
 rpc_clnt_reconfig(struct rpc_clnt *rpc, struct rpc_clnt_config *config);

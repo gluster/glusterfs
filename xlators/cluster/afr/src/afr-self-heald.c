@@ -35,7 +35,7 @@
 #define NTH_FULL_HEALER(this, n)                                               \
     &((((afr_private_t *)this->private))->shd.full_healers[n])
 
-char *
+static char *
 afr_subvol_name(xlator_t *this, int subvol)
 {
     afr_private_t *priv = NULL;
@@ -47,13 +47,13 @@ afr_subvol_name(xlator_t *this, int subvol)
     return priv->children[subvol]->name;
 }
 
-void
+static void
 afr_destroy_crawl_event_data(void *data)
 {
     return;
 }
 
-void
+static void
 afr_destroy_shd_event_data(void *data)
 {
     shd_event_t *shd_event = data;
@@ -65,7 +65,7 @@ afr_destroy_shd_event_data(void *data)
     return;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_shd_is_subvol_local(xlator_t *this, int subvol)
 {
     afr_private_t *priv = NULL;
@@ -81,7 +81,7 @@ afr_shd_is_subvol_local(xlator_t *this, int subvol)
     return is_local;
 }
 
-int
+static int
 __afr_shd_healer_wait(struct subvol_healer *healer)
 {
     afr_private_t *priv = NULL;
@@ -110,7 +110,7 @@ disabled_loop:
     return ret;
 }
 
-int
+static int
 afr_shd_healer_wait(struct subvol_healer *healer)
 {
     int ret = 0;
@@ -124,7 +124,7 @@ afr_shd_healer_wait(struct subvol_healer *healer)
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 safe_break(struct subvol_healer *healer)
 {
     gf_boolean_t ret = _gf_false;
@@ -143,7 +143,7 @@ unlock:
     return ret;
 }
 
-inode_t *
+static inode_t *
 afr_shd_inode_find(xlator_t *this, xlator_t *subvol, uuid_t gfid)
 {
     int ret = 0;
@@ -182,7 +182,7 @@ out:
     return inode;
 }
 
-inode_t *
+static inode_t *
 afr_shd_index_inode(xlator_t *this, xlator_t *subvol, char *vgfid)
 {
     loc_t rootloc = {
@@ -241,7 +241,7 @@ afr_shd_entry_purge(xlator_t *subvol, inode_t *inode, char *name,
     return ret;
 }
 
-void
+static void
 afr_shd_zero_xattrop(xlator_t *this, uuid_t gfid)
 {
     call_frame_t *frame = NULL;
@@ -288,7 +288,7 @@ out:
     return;
 }
 
-int
+static int
 afr_shd_selfheal_name(struct subvol_healer *healer, int child, uuid_t parent,
                       const char *bname)
 {
@@ -299,7 +299,7 @@ afr_shd_selfheal_name(struct subvol_healer *healer, int child, uuid_t parent,
     return ret;
 }
 
-int
+static int
 afr_shd_selfheal(struct subvol_healer *healer, int child, uuid_t gfid)
 {
     int ret = 0;
@@ -359,7 +359,7 @@ out:
     return ret;
 }
 
-void
+static void
 afr_shd_sweep_prepare(struct subvol_healer *healer)
 {
     crawl_event_t *event = NULL;
@@ -375,7 +375,7 @@ afr_shd_sweep_prepare(struct subvol_healer *healer)
     _mask_cancellation();
 }
 
-void
+static void
 afr_shd_sweep_done(struct subvol_healer *healer)
 {
     crawl_event_t *event = NULL;
@@ -436,7 +436,7 @@ afr_shd_index_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     return 0;
 }
 
-int
+static int
 afr_shd_index_sweep(struct subvol_healer *healer, char *vgfid)
 {
     loc_t loc = {0};
@@ -487,7 +487,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_shd_index_sweep_all(struct subvol_healer *healer)
 {
     int ret = 0;
@@ -514,7 +514,7 @@ out:
         return count;
 }
 
-int
+static int
 afr_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                   void *data)
 {
@@ -539,7 +539,7 @@ afr_shd_full_heal(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     return 0;
 }
 
-int
+static int
 afr_shd_full_sweep(struct subvol_healer *healer, inode_t *inode)
 {
     afr_private_t *priv = NULL;
@@ -551,7 +551,7 @@ afr_shd_full_sweep(struct subvol_healer *healer, inode_t *inode)
                       GF_CLIENT_PID_SELF_HEALD, healer, afr_shd_full_heal);
 }
 
-int
+static int
 afr_shd_fill_ta_loc(xlator_t *this, loc_t *loc)
 {
     afr_private_t *priv = NULL;
@@ -591,7 +591,7 @@ out:
     return ret;
 }
 
-int
+static int
 _afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata)
 {
     afr_private_t *priv = NULL;
@@ -631,7 +631,7 @@ out:
     return ret;
 }
 
-void
+static void
 afr_shd_ta_get_xattrs(xlator_t *this, loc_t *loc, struct subvol_healer *healer,
                       dict_t **xdata)
 {
@@ -664,7 +664,7 @@ out:
         healer->rerun = 1;
 }
 
-int
+static int
 afr_shd_ta_unset_xattrs(xlator_t *this, loc_t *loc, dict_t **xdata, int healer)
 {
     afr_private_t *priv = NULL;
@@ -747,7 +747,7 @@ out:
     return ret;
 }
 
-void
+static void
 afr_shd_ta_check_and_unset_xattrs(xlator_t *this, loc_t *loc,
                                   struct subvol_healer *healer,
                                   dict_t *pre_crawl_xdata)
@@ -764,7 +764,7 @@ afr_shd_ta_check_and_unset_xattrs(xlator_t *this, loc_t *loc,
     if (ret)
         goto unref;
 
-    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL)) {
+    if (!are_dicts_equal(pre_crawl_xdata, post_crawl_xdata, NULL, NULL, NULL)) {
         ret = -1;
         goto unref;
     }
@@ -784,7 +784,7 @@ unref:
         afr_ta_post_op_unlock(this, loc);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_bricks_available_for_heal(afr_private_t *priv)
 {
     int up_children = 0;
@@ -1090,7 +1090,7 @@ afr_shd_index_healer(void *data)
     return NULL;
 }
 
-void *
+static void *
 afr_shd_full_healer(void *data)
 {
     struct subvol_healer *healer = NULL;
@@ -1132,7 +1132,7 @@ afr_shd_full_healer(void *data)
     return NULL;
 }
 
-int
+static int
 afr_shd_healer_init(xlator_t *this, struct subvol_healer *healer)
 {
     int ret = 0;
@@ -1153,7 +1153,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_shd_healer_spawn(xlator_t *this, struct subvol_healer *healer,
                      void *(threadfn)(void *))
 {
@@ -1179,21 +1179,21 @@ unlock:
     return ret;
 }
 
-int
+static int
 afr_shd_full_healer_spawn(xlator_t *this, int subvol)
 {
     return afr_shd_healer_spawn(this, NTH_FULL_HEALER(this, subvol),
                                 afr_shd_full_healer);
 }
 
-int
+static int
 afr_shd_index_healer_spawn(xlator_t *this, int subvol)
 {
     return afr_shd_healer_spawn(this, NTH_INDEX_HEALER(this, subvol),
                                 afr_shd_index_healer);
 }
 
-int
+static int
 afr_shd_dict_add_crawl_event(xlator_t *this, dict_t *output,
                              crawl_event_t *crawl_event)
 {
@@ -1411,7 +1411,7 @@ afr_selfheal_childup(xlator_t *this, afr_private_t *priv)
     return;
 }
 
-int
+static int
 afr_shd_get_index_count(xlator_t *this, int i, uint64_t *count)
 {
     afr_private_t *priv = NULL;

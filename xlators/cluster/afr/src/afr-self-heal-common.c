@@ -13,6 +13,7 @@
 #include "protocol-common.h"
 #include "afr-messages.h"
 #include <glusterfs/events.h>
+#include <openssl/md5.h>
 
 void
 afr_heal_synctask(xlator_t *this, afr_local_t *local);
@@ -151,7 +152,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
                                       char *src_brick)
 {
@@ -168,7 +169,7 @@ afr_gfid_sbrain_source_from_src_brick(xlator_t *this, struct afr_reply *replies,
     return -1;
 }
 
-int
+static int
 afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
                                        int child_count)
 {
@@ -193,7 +194,7 @@ afr_selfheal_gfid_mismatch_by_majority(struct afr_reply *replies,
     return -1;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
                                         int child_count)
 {
@@ -214,13 +215,13 @@ afr_gfid_sbrain_source_from_bigger_file(struct afr_reply *replies,
     return src;
 }
 
-int
+static int
 afr_gfid_sbrain_source_from_latest_mtime(struct afr_reply *replies,
                                          int child_count)
 {
     int i = 0;
     int src = -1;
-    uint32_t mtime = 0;
+    uint64_t mtime = 0;
     uint32_t mtime_nsec = 0;
 
     for (i = 0; i < child_count; i++) {
@@ -379,6 +380,19 @@ fav_child:
         default:
             break;
     }
+    /* At this point we have a source selected by favourite child policy,
+     * If this is for a directory it might not be a good idea to automatically
+     * resolve the GFID. Because the ultimate view of a dir is owned by DHT.
+     * But if it is not a distributed volume, then it might be fine to do
+     * the automatic gfid fix.
+     * So here we skip the automatic split brain resolution
+     */
+    if (*src != -1 && IA_ISDIR(replies[*src].poststat.ia_type)) {
+        gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_SPLIT_BRAIN,
+               "Automatic Gfid mismatch resolution for directories will be "
+               "skipped. Please manually resolve the splitbrain using cli");
+        *src = -1;
+    }
 
 out:
     if (*src == -1) {
@@ -405,7 +419,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_selfheal_post_op_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int op_ret, int op_errno, dict_t *xattr, dict_t *xdata)
 {
@@ -453,7 +467,7 @@ afr_selfheal_post_op(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return ret;
 }
 
-int
+static int
 afr_check_stale_error(struct afr_reply *replies, afr_private_t *priv)
 {
     int i = 0;
@@ -521,7 +535,7 @@ afr_selfheal_restore_time(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return 0;
 }
 
-dict_t *
+static dict_t *
 afr_selfheal_output_xattr(xlator_t *this, gf_boolean_t is_full_crawl,
                           afr_transaction_type type, int *output_dirty,
                           int **output_matrix, int subvol,
@@ -727,7 +741,7 @@ afr_replies_copy(struct afr_reply *dst, struct afr_reply *src, int count)
     }
 }
 
-int
+static int
 afr_selfheal_fill_dirty(xlator_t *this, int *dirty, int subvol, int idx,
                         dict_t *xdata)
 {
@@ -856,7 +870,7 @@ afr_mark_latest_mtime_file_as_source(xlator_t *this, unsigned char *sources,
 {
     int i = 0;
     afr_private_t *priv = NULL;
-    uint32_t mtime = 0;
+    uint64_t mtime = 0;
     uint32_t mtime_nsec = 0;
 
     priv = this->private;
@@ -1060,7 +1074,7 @@ out:
     return ret;
 }
 
-int
+static int
 afr_sh_fav_by_majority(xlator_t *this, struct afr_reply *replies,
                        inode_t *inode)
 {
@@ -1106,7 +1120,7 @@ afr_sh_fav_by_mtime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     afr_private_t *priv;
     int fav_child = -1;
     int i = 0;
-    uint32_t cmp_mtime = 0;
+    uint64_t cmp_mtime = 0;
     uint32_t cmp_mtime_nsec = 0;
 
     priv = this->private;
@@ -1144,7 +1158,7 @@ afr_sh_fav_by_ctime(xlator_t *this, struct afr_reply *replies, inode_t *inode)
     afr_private_t *priv;
     int fav_child = -1;
     int i = 0;
-    uint32_t cmp_ctime = 0;
+    uint64_t cmp_ctime = 0;
     uint32_t cmp_ctime_nsec = 0;
 
     priv = this->private;
@@ -1260,7 +1274,7 @@ afr_sh_get_fav_by_policy(xlator_t *this, struct afr_reply *replies,
     return fav_child;
 }
 
-int
+static int
 afr_mark_split_brain_source_sinks_by_policy(
     call_frame_t *frame, xlator_t *this, inode_t *inode, unsigned char *sources,
     unsigned char *sinks, unsigned char *healed_sinks, unsigned char *locked_on,
@@ -1359,7 +1373,9 @@ afr_mark_source_sinks_if_file_empty(xlator_t *this, unsigned char *sources,
             return -1;
     }
     for (i = 1; i < priv->child_count; i++) {
-        if (!afr_xattrs_are_equal(replies[0].xdata, replies[i].xdata))
+        if (!afr_xattrs_are_equal(
+                replies[0].xdata, replies[i].xdata,
+                AFR_IS_ARBITER_BRICK(priv, i) ? _gf_true : _gf_false))
             return -1;
     }
 
@@ -1522,7 +1538,7 @@ afr_get_quorum_count(afr_private_t *priv)
     }
 }
 
-void
+static void
 afr_selfheal_post_op_failure_accounting(afr_private_t *priv, char *accused,
                                         unsigned char *sources,
                                         unsigned char *locked_on)
@@ -1973,33 +1989,6 @@ afr_locked_fill(call_frame_t *frame, xlator_t *this, unsigned char *locked_on)
 }
 
 int
-afr_selfheal_tryinodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
-                        char *dom, off_t off, size_t size,
-                        unsigned char *locked_on)
-{
-    loc_t loc = {
-        0,
-    };
-    struct gf_flock flock = {
-        0,
-    };
-
-    loc.inode = inode_ref(inode);
-    gf_uuid_copy(loc.gfid, inode->gfid);
-
-    flock.l_type = F_WRLCK;
-    flock.l_start = off;
-    flock.l_len = size;
-
-    AFR_ONALL(frame, afr_selfheal_lock_cbk, inodelk, dom, &loc, F_SETLK, &flock,
-              NULL);
-
-    loc_wipe(&loc);
-
-    return afr_locked_fill(frame, this, locked_on);
-}
-
-int
 afr_selfheal_inodelk(call_frame_t *frame, xlator_t *this, inode_t *inode,
                      char *dom, off_t off, size_t size,
                      unsigned char *locked_on)
@@ -2251,19 +2240,19 @@ afr_selfheal_unentrylk(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_data_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_DATA_TRANSACTION);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_metadata_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_METADATA_TRANSACTION);
 }
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_entry_set(xlator_t *this, dict_t *xdata)
 {
     return afr_is_pending_set(this, xdata, AFR_ENTRY_TRANSACTION);
@@ -2646,7 +2635,7 @@ none:
     return NULL;
 }
 
-int
+static int
 afr_refresh_selfheal_wrap(void *opaque)
 {
     call_frame_t *heal_frame = opaque;
@@ -2657,7 +2646,7 @@ afr_refresh_selfheal_wrap(void *opaque)
     return ret;
 }
 
-int
+static int
 afr_refresh_heal_done(int ret, call_frame_t *frame, void *opaque)
 {
     call_frame_t *heal_frame = opaque;

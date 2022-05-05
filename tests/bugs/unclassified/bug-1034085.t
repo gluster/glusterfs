@@ -2,6 +2,7 @@
 #Test case: Check the creation of indices/xattrop dir as soon as brick comes up.
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
 cleanup;
 

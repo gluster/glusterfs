@@ -10,9 +10,7 @@
 #include "snapview-server.h"
 #include "snapview-server-mem-types.h"
 
-#include <glusterfs/xlator.h>
 #include "rpc-clnt.h"
-#include "xdr-generic.h"
 #include "protocol-common.h"
 #include <pthread.h>
 
@@ -428,16 +426,12 @@ out:
 
 /* priv->snaplist_lock should be held before calling this function */
 snap_dirent_t *
-__svs_get_snap_dirent(xlator_t *this, const char *name)
+__svs_get_snap_dirent(svs_private_t *private, const char *name)
 {
-    svs_private_t *private = NULL;
     int i = 0;
     snap_dirent_t *dirents = NULL;
     snap_dirent_t *tmp_dirent = NULL;
     snap_dirent_t *dirent = NULL;
-
-   private
-    = this->private;
 
     dirents = private->dirents;
     if (!dirents) {
@@ -481,7 +475,7 @@ __svs_initialise_snapshot_volume(xlator_t *this, const char *name,
 
     priv = this->private;
 
-    dirent = __svs_get_snap_dirent(this, name);
+    dirent = __svs_get_snap_dirent(priv, name);
     if (!dirent) {
         gf_msg_debug(this->name, 0,
                      "snap entry for "

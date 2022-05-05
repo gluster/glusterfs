@@ -10,7 +10,6 @@
 
 #include <glusterfs/globals.h>
 #include <glusterfs/run.h>
-#include "glusterd.h"
 #include "glusterd-utils.h"
 #include "glusterd-volgen.h"
 #include "glusterd-bitd-svc.h"

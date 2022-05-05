@@ -8,9 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 #include <glusterfs/common-utils.h>
-#include "cli1-xdr.h"
-#include "xdr-generic.h"
-#include "glusterd.h"
 #include "glusterd-op-sm.h"
 #include "glusterd-store.h"
 #include "glusterd-utils.h"
@@ -446,6 +443,81 @@ out:
     return ret;
 }
 
+static int32_t
+glusterd_service_stop_nolock(const char *service, char *pidfile, int sig,
+                             gf_boolean_t force_kill)
+{
+    int32_t ret = -1;
+    pid_t pid = -1;
+    xlator_t *this = THIS;
+    FILE *file = NULL;
+
+    file = fopen(pidfile, "r+");
+    if (file) {
+        ret = fscanf(file, "%d", &pid);
+        if (ret <= 0) {
+            gf_msg_debug(this->name, 0, "Unable to read pidfile: %s", pidfile);
+            goto out;
+        }
+    }
+
+    if (kill(pid, 0) < 0) {
+        ret = 0;
+        gf_msg_debug(this->name, errno, "%s process not running: (%d)", service,
+                     pid);
+        goto out;
+    }
+    gf_msg_debug(this->name, 0,
+                 "Stopping gluster %s service running with "
+                 "pid: %d",
+                 service, pid);
+
+    ret = kill(pid, sig);
+    if (ret) {
+        switch (errno) {
+            case ESRCH:
+                gf_msg_debug(this->name, 0, "%s is already stopped", service);
+                ret = 0;
+                goto out;
+            default:
+                gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_SVC_KILL_FAIL,
+                       "Unable to kill %s "
+                       "service, reason:%s",
+                       service, strerror(errno));
+        }
+    }
+    if (!force_kill)
+        goto out;
+
+    sleep(1);
+    if (kill(pid, 0) == 0) {
+        ret = kill(pid, SIGKILL);
+        if (ret) {
+            /* Process is already dead, don't fail */
+            if (errno == ESRCH) {
+                gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_PID_KILL_FAIL,
+                       "Unable to find pid:%d, "
+                       "must be dead already. Ignoring.",
+                       pid);
+            } else {
+                gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_PID_KILL_FAIL,
+                       "Unable to kill pid:%d, "
+                       "reason:%s",
+                       pid, strerror(errno));
+                goto out;
+            }
+        }
+    }
+
+    ret = 0;
+
+out:
+    if (file)
+        fclose(file);
+
+    return ret;
+}
+
 void
 glusterd_stop_all_quota_crawl_service(glusterd_conf_t *priv,
                                       glusterd_volinfo_t *volinfo, int type)
@@ -576,6 +648,12 @@ glusterd_quota_get_default_soft_limit(glusterd_volinfo_t *volinfo,
 
 out:
     return ret;
+}
+
+static int
+glusterd_is_volume_inode_quota_enabled(glusterd_volinfo_t *volinfo)
+{
+    return (glusterd_volinfo_get_boolean(volinfo, VKEY_FEATURES_INODE_QUOTA));
 }
 
 int32_t
@@ -1589,6 +1667,29 @@ glusterd_quotad_op(int opcode)
             ret = 0;
             break;
     }
+    return ret;
+}
+
+static int
+glusterd_remove_auxiliary_mount(char *volname)
+{
+    int ret = -1;
+    char mountdir[PATH_MAX] = "";
+    xlator_t *this = THIS;
+
+    GLUSTERD_GET_QUOTA_LIMIT_MOUNT_PATH(mountdir, volname, "/");
+    ret = gf_umount_lazy(this->name, mountdir, 1);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_LAZY_UMOUNT_FAIL,
+               "umount on %s failed, "
+               "reason : %s",
+               mountdir, strerror(errno));
+
+        /* Hide EBADF as it means the mount is already gone */
+        if (errno == EBADF)
+            ret = 0;
+    }
+
     return ret;
 }
 

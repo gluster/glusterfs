@@ -13,10 +13,8 @@
 #include <stdint.h>
 #include <pthread.h>
 
-#include "cli.h"
 #include "cli-cmd.h"
 #include "cli-mem-types.h"
-#include "protocol-common.h"
 
 #include <fnmatch.h>
 
@@ -350,8 +348,8 @@ cli_cmd_connected(void)
 
 int
 cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
-               rpc_clnt_prog_t *prog, int procnum, struct iobref *iobref,
-               xlator_t *this, fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
+               rpc_clnt_prog_t *prog, int procnum, xlator_t *this,
+               fop_cbk_fn_t cbkfn, xdrproc_t xdrproc)
 {
     int ret = -1;
     time_t timeout = 0;
@@ -366,7 +364,7 @@ cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     cli_cmd_lock();
     cmd_sent = 0;
-    ret = cli_submit_request(rpc, req, frame, prog, procnum, NULL, this, cbkfn,
+    ret = cli_submit_request(rpc, req, frame, prog, procnum, this, cbkfn,
                              xdrproc);
 
     if (!ret) {

@@ -17,7 +17,6 @@
 
 /* ugly #includes below */
 #include "protocol-common.h"
-#include "glusterfs3-xdr.h"
 #include "glusterfs4-xdr.h"
 #include "rpcsvc.h"
 
@@ -57,7 +56,7 @@
 #if !defined(DEFAULT_VERIFY_DEPTH)
 #define DEFAULT_VERIFY_DEPTH 1
 #endif
-#define DEFAULT_CIPHER_LIST "EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
+#define DEFAULT_CIPHER_LIST "AES128:EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
 #define DEFAULT_DH_PARAM SSL_CERT_PATH "/dhparam.pem"
 #define DEFAULT_EC_CURVE "prime256v1"
 
@@ -159,7 +158,6 @@ ssl_setup_connection_params(rpc_transport_t *this);
 struct socket_connect_error_state_ {
     xlator_t *this;
     rpc_transport_t *trans;
-    gf_boolean_t refd;
 };
 typedef struct socket_connect_error_state_ socket_connect_error_state_t;
 
@@ -343,6 +341,7 @@ static int
 ssl_setup_connection_prefix(rpc_transport_t *this, gf_boolean_t server)
 {
     int ret = -1;
+    BIO *ssl_sbio = NULL;
     socket_private_t *priv = NULL;
 
     priv = this->private;
@@ -371,14 +370,14 @@ ssl_setup_connection_prefix(rpc_transport_t *this, gf_boolean_t server)
         goto done;
     }
 
-    priv->ssl_sbio = BIO_new_socket(priv->sock, BIO_NOCLOSE);
-    if (!priv->ssl_sbio) {
+    ssl_sbio = BIO_new_socket(priv->sock, BIO_NOCLOSE);
+    if (!ssl_sbio) {
         gf_log(this->name, GF_LOG_ERROR, "BIO_new_socket failed");
         ssl_dump_error_stack(this->name);
         goto free_ssl;
     }
 
-    SSL_set_bio(priv->ssl_ssl, priv->ssl_sbio, priv->ssl_sbio);
+    SSL_set_bio(priv->ssl_ssl, ssl_sbio, ssl_sbio);
     ret = 0;
     goto done;
 
@@ -1208,16 +1207,11 @@ socket_set_last_frag_header_size(uint32_t size, char *haddr)
 }
 
 static struct ioq *
-__socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
+__socket_ioq_new(rpc_transport_msg_t *msg)
 {
     struct ioq *entry = NULL;
     int count = 0;
     uint32_t size = 0;
-
-    /* TODO: use mem-pool */
-    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
-    if (!entry)
-        return NULL;
 
     count = msg->rpchdrcount + msg->proghdrcount + msg->progpayloadcount;
 
@@ -1228,13 +1222,18 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
            iov_length(msg->progpayload, msg->progpayloadcount);
 
     if (size > RPC_MAX_FRAGMENT_SIZE) {
-        gf_log(this->name, GF_LOG_ERROR,
+        gf_log(THIS->name, GF_LOG_ERROR,
                "msg size (%u) bigger than the maximum allowed size on "
                "sockets (%u)",
                size, RPC_MAX_FRAGMENT_SIZE);
-        GF_FREE(entry);
         return NULL;
     }
+
+    entry = GF_CALLOC(1, sizeof(*entry), gf_common_mt_ioq);
+    if (!entry)
+        return NULL;
+
+    INIT_LIST_HEAD(&entry->list);
 
     socket_set_last_frag_header_size(size, (char *)&entry->fraghdr);
 
@@ -1266,25 +1265,17 @@ __socket_ioq_new(rpc_transport_t *this, rpc_transport_msg_t *msg)
     if (msg->iobref != NULL)
         entry->iobref = iobref_ref(msg->iobref);
 
-    INIT_LIST_HEAD(&entry->list);
-
     return entry;
 }
 
 static void
 __socket_ioq_entry_free(struct ioq *entry)
 {
-    GF_VALIDATE_OR_GOTO("socket", entry, out);
-
     list_del_init(&entry->list);
     if (entry->iobref)
         iobref_unref(entry->iobref);
 
-    /* TODO: use mem-pool */
     GF_FREE(entry);
-
-out:
-    return;
 }
 
 static void
@@ -1294,14 +1285,16 @@ __socket_ioq_flush(socket_private_t *priv)
 
     while (!list_empty(&priv->ioq)) {
         entry = priv->ioq_next;
-        __socket_ioq_entry_free(entry);
+        if (entry)
+            __socket_ioq_entry_free(entry);
     }
 }
 
 static int
-__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
+__socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry,
+                         gf_boolean_t free_entry)
 {
-    int ret = -1;
+    int ret;
 
     ret = __socket_writev(this, entry->pending_vector, entry->pending_count,
                           &entry->pending_vector, &entry->pending_count);
@@ -1309,7 +1302,8 @@ __socket_ioq_churn_entry(rpc_transport_t *this, struct ioq *entry)
     if (ret == 0) {
         /* current entry was completely written */
         GF_ASSERT(entry->pending_count == 0);
-        __socket_ioq_entry_free(entry);
+        if (free_entry)
+            __socket_ioq_entry_free(entry);
     }
 
     return ret;
@@ -1328,7 +1322,7 @@ __socket_ioq_churn(rpc_transport_t *this)
         /* pick next entry */
         entry = priv->ioq_next;
 
-        ret = __socket_ioq_churn_entry(this, entry);
+        ret = __socket_ioq_churn_entry(this, entry, _gf_true);
 
         if (ret != 0)
             break;
@@ -1720,135 +1714,6 @@ __socket_read_request(rpc_transport_t *this)
 }
 
 static int
-__socket_read_accepted_successful_reply(rpc_transport_t *this)
-{
-    socket_private_t *priv = NULL;
-    int ret = 0;
-    struct iobuf *iobuf = NULL;
-    gfs3_read_rsp read_rsp = {
-        0,
-    };
-    ssize_t size = 0;
-    ssize_t default_read_size = 0;
-    XDR xdr;
-    struct gf_sock_incoming *in = NULL;
-    struct gf_sock_incoming_frag *frag = NULL;
-    uint32_t remaining_size = 0;
-
-    priv = this->private;
-
-    /* used to reduce the indirection */
-    in = &priv->incoming;
-    frag = &in->frag;
-
-    switch (frag->call_body.reply.accepted_success_state) {
-        case SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT:
-            default_read_size = xdr_sizeof((xdrproc_t)xdr_gfs3_read_rsp,
-                                           &read_rsp);
-
-            /* We need to store the current base address because we will
-             * need it after a partial read. */
-            in->proghdr_base_addr = frag->fragcurrent;
-
-            __socket_proto_init_pending(priv, default_read_size);
-
-            frag->call_body.reply
-                .accepted_success_state = SP_STATE_READING_PROC_HEADER;
-
-            /* fall through */
-
-        case SP_STATE_READING_PROC_HEADER:
-            __socket_proto_read(priv, ret);
-
-            /* there can be 'xdata' in read response, figure it out */
-            default_read_size = frag->fragcurrent - in->proghdr_base_addr;
-            xdrmem_create(&xdr, in->proghdr_base_addr, default_read_size,
-                          XDR_DECODE);
-
-            /* This will fail if there is xdata sent from server, if not,
-               well and good, we don't need to worry about  */
-            xdr_gfs3_read_rsp(&xdr, &read_rsp);
-
-            free(read_rsp.xdata.xdata_val);
-
-            /* need to round off to proper gf_roof (%4), as XDR packing pads
-               the end of opaque object with '0' */
-            size = gf_roof(read_rsp.xdata.xdata_len, 4);
-
-            if (!size) {
-                frag->call_body.reply
-                    .accepted_success_state = SP_STATE_READ_PROC_OPAQUE;
-                goto read_proc_opaque;
-            }
-
-            __socket_proto_init_pending(priv, size);
-
-            frag->call_body.reply
-                .accepted_success_state = SP_STATE_READING_PROC_OPAQUE;
-            /* fall through */
-
-        case SP_STATE_READING_PROC_OPAQUE:
-            __socket_proto_read(priv, ret);
-
-            frag->call_body.reply
-                .accepted_success_state = SP_STATE_READ_PROC_OPAQUE;
-            /* fall through */
-
-        case SP_STATE_READ_PROC_OPAQUE:
-        read_proc_opaque:
-            if (in->payload_vector.iov_base == NULL) {
-                size = (RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read);
-
-                iobuf = iobuf_get2(this->ctx->iobuf_pool, size);
-                if (iobuf == NULL) {
-                    ret = -1;
-                    goto out;
-                }
-
-                if (in->iobref == NULL) {
-                    in->iobref = iobref_new();
-                    if (in->iobref == NULL) {
-                        ret = -1;
-                        iobuf_unref(iobuf);
-                        goto out;
-                    }
-                }
-
-                ret = iobref_add(in->iobref, iobuf);
-                iobuf_unref(iobuf);
-                if (ret < 0) {
-                    goto out;
-                }
-
-                in->payload_vector.iov_base = iobuf_ptr(iobuf);
-                in->payload_vector.iov_len = size;
-            }
-
-            frag->fragcurrent = in->payload_vector.iov_base;
-
-            frag->call_body.reply
-                .accepted_success_state = SP_STATE_READ_PROC_HEADER;
-
-            /* fall through */
-
-        case SP_STATE_READ_PROC_HEADER:
-            /* now read the entire remaining msg into new iobuf */
-            ret = __socket_read_simple_msg(this);
-            remaining_size = RPC_FRAGSIZE(in->fraghdr) - frag->bytes_read;
-            if ((ret < 0) || ((ret == 0) && (remaining_size == 0) &&
-                              RPC_LASTFRAG(in->fraghdr))) {
-                frag->call_body.reply.accepted_success_state =
-                    SP_STATE_ACCEPTED_SUCCESS_REPLY_INIT;
-            }
-
-            break;
-    }
-
-out:
-    return ret;
-}
-
-static int
 __socket_read_accepted_successful_reply_v2(rpc_transport_t *this)
 {
     socket_private_t *priv = NULL;
@@ -2050,8 +1915,6 @@ __socket_read_accepted_reply(rpc_transport_t *this)
                     (in->request_info->prognum == GLUSTER_FOP_PROGRAM) &&
                     (in->request_info->progver == GLUSTER_FOP_VERSION_v2)) {
                     ret = __socket_read_accepted_successful_reply_v2(this);
-                } else {
-                    ret = __socket_read_accepted_successful_reply(this);
                 }
             } else {
                 /* read entire remaining msg into buffer pointed to by
@@ -2283,13 +2146,8 @@ __socket_read_frag(rpc_transport_t *this)
 }
 
 static void
-__socket_reset_priv(socket_private_t *priv)
+__socket_reset_incoming(struct gf_sock_incoming *in)
 {
-    struct gf_sock_incoming *in = NULL;
-
-    /* used to reduce the indirection */
-    in = &priv->incoming;
-
     if (in->iobref) {
         iobref_unref(in->iobref);
         in->iobref = NULL;
@@ -2309,8 +2167,8 @@ __socket_reset_priv(socket_private_t *priv)
 }
 
 static int
-__socket_proto_state_machine(rpc_transport_t *this,
-                             rpc_transport_pollin_t **pollin)
+socket_proto_state_machine(rpc_transport_t *this,
+                           rpc_transport_pollin_t **pollin)
 {
     int ret = -1;
     socket_private_t *priv = NULL;
@@ -2397,7 +2255,6 @@ __socket_proto_state_machine(rpc_transport_t *this,
                 }
 
                 in->iobuf = iobuf;
-                in->iobuf_size = 0;
                 in->record_state = SP_STATE_READING_FRAG;
                 /* fall through */
 
@@ -2424,8 +2281,6 @@ __socket_proto_state_machine(rpc_transport_t *this,
                  */
                 if (pollin != NULL) {
                     int count = 0;
-                    in->iobuf_size = (in->total_bytes_read -
-                                      in->payload_vector.iov_len);
 
                     memset(vector, 0, sizeof(vector));
 
@@ -2438,7 +2293,8 @@ __socket_proto_state_machine(rpc_transport_t *this,
                     }
 
                     vector[count].iov_base = iobuf_ptr(in->iobuf);
-                    vector[count].iov_len = in->iobuf_size;
+                    vector[count].iov_len = (in->total_bytes_read -
+                                             in->payload_vector.iov_len);
 
                     iobref = in->iobref;
 
@@ -2481,18 +2337,11 @@ __socket_proto_state_machine(rpc_transport_t *this,
 
     if (in->record_state == SP_STATE_COMPLETE) {
         in->record_state = SP_STATE_NADA;
-        __socket_reset_priv(priv);
+        __socket_reset_incoming(in);
     }
 
 out:
     return ret;
-}
-
-static int
-socket_proto_state_machine(rpc_transport_t *this,
-                           rpc_transport_pollin_t **pollin)
-{
-    return __socket_proto_state_machine(this, pollin);
 }
 
 static void
@@ -2859,7 +2708,7 @@ socket_complete_connection(rpc_transport_t *this)
 /* reads rpc_requests during pollin */
 static void
 socket_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                     int poll_out, int poll_err, char event_thread_died)
+                     int poll_out, int poll_err, int event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
@@ -2984,7 +2833,7 @@ out:
 
 static void
 socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
-                            int poll_out, int poll_err, char event_thread_died)
+                            int poll_out, int poll_err, int event_thread_died)
 {
     rpc_transport_t *this = NULL;
     socket_private_t *priv = NULL;
@@ -3282,8 +3131,7 @@ socket_connect_error_cbk(void *opaque)
 
     rpc_transport_notify(arg->trans, RPC_TRANSPORT_DISCONNECT, arg->trans);
 
-    if (arg->refd)
-        rpc_transport_unref(arg->trans);
+    rpc_transport_unref(arg->trans);
 
     GF_FREE(opaque);
     return NULL;
@@ -3608,7 +3456,11 @@ err:
         arg = GF_CALLOC(1, sizeof(*arg), gf_sock_connect_error_state_t);
         arg->this = THIS;
         arg->trans = this;
-        arg->refd = refd;
+        if (!refd) {
+            /* A reference is required by the thread that will handle the
+             * error. */
+            rpc_transport_ref(this);
+        }
         th_ret = gf_thread_create_detached(&th_id, socket_connect_error_cbk,
                                            arg, "scleanup");
         if (th_ret) {
@@ -3781,17 +3633,18 @@ static int32_t
 socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
 {
     int ret = -1;
-    char need_poll_out = 0;
-    char need_append = 1;
+    gf_boolean_t need_poll_out = _gf_false;
+    gf_boolean_t free_entry = _gf_false;
     struct ioq *entry = NULL;
-    glusterfs_ctx_t *ctx = NULL;
     socket_private_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("socket", this, out);
-    GF_VALIDATE_OR_GOTO("socket", this->private, out);
-
     priv = this->private;
-    ctx = this->ctx;
+    GF_VALIDATE_OR_GOTO("socket", priv, out);
+
+    entry = __socket_ioq_new(msg);
+    if (!entry)
+        goto out;
 
     pthread_mutex_lock(&priv->out_lock);
     {
@@ -3801,32 +3654,29 @@ socket_submit_outgoing_msg(rpc_transport_t *this, rpc_transport_msg_t *msg)
                        "not connected (priv->connected = %d)", priv->connected);
                 priv->submit_log = 1;
             }
+            free_entry = _gf_true;
             goto unlock;
         }
 
         priv->submit_log = 0;
-        entry = __socket_ioq_new(this, msg);
-        if (!entry)
-            goto unlock;
 
         if (list_empty(&priv->ioq)) {
-            ret = __socket_ioq_churn_entry(this, entry);
+            ret = __socket_ioq_churn_entry(this, entry, _gf_false);
 
-            if (ret == 0) {
-                need_append = 0;
-            }
-            if (ret > 0) {
-                need_poll_out = 1;
+            if (ret == 0) { /* current entry was completely written */
+                free_entry = _gf_true;
+            } else if (ret > 0) {
+                need_poll_out = _gf_true;
             }
         }
 
-        if (need_append) {
+        if (!free_entry) {
             list_add_tail(&entry->list, &priv->ioq);
             ret = 0;
         }
         if (need_poll_out) {
             /* first entry to wait. continue writing on POLLOUT */
-            priv->idx = gf_event_select_on(ctx->event_pool, priv->sock,
+            priv->idx = gf_event_select_on(this->ctx->event_pool, priv->sock,
                                            priv->idx, -1, 1);
         }
     }
@@ -3834,6 +3684,8 @@ unlock:
     pthread_mutex_unlock(&priv->out_lock);
 
 out:
+    if (free_entry)
+        __socket_ioq_entry_free(entry);
     return ret;
 }
 
@@ -4073,7 +3925,7 @@ out:
     return ret;
 }
 
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
 static pthread_mutex_t *lock_array = NULL;
 
 static void
@@ -4086,7 +3938,7 @@ locking_func(int mode, int type, const char *file, int line)
     }
 }
 
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
 static void
 threadid_func(CRYPTO_THREADID *id)
 {
@@ -4128,7 +3980,7 @@ init_openssl_mt(void)
 
     initialized = _gf_true;
 
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
     int num_locks = CRYPTO_num_locks();
     int i;
 
@@ -4138,7 +3990,7 @@ init_openssl_mt(void)
         for (i = 0; i < num_locks; ++i) {
             pthread_mutex_init(&lock_array[i], NULL);
         }
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
         CRYPTO_THREADID_set_callback(threadid_func);
 #else /* older openssl */
         CRYPTO_set_id_callback(legacy_threadid_func);
@@ -4150,7 +4002,7 @@ init_openssl_mt(void)
 
 static void __attribute__((destructor)) fini_openssl_mt(void)
 {
-#if OPENSSL_VERSION_NUMBER < 0x1010000f
+#if OPENSSL_VERSION_NUMBER < 0x1010000f  // 1.1.0
     int i;
 
     if (!lock_array) {
@@ -4158,7 +4010,7 @@ static void __attribute__((destructor)) fini_openssl_mt(void)
     }
 
     CRYPTO_set_locking_callback(NULL);
-#if OPENSSL_VERSION_NUMBER >= 0x1000000f
+#if OPENSSL_VERSION_NUMBER >= 0x1000000f  // 1.0.0
     CRYPTO_THREADID_set_callback(NULL);
 #else /* older openssl */
     CRYPTO_set_id_callback(NULL);
@@ -4173,34 +4025,6 @@ static void __attribute__((destructor)) fini_openssl_mt(void)
 #endif
 
     ERR_free_strings();
-}
-
-/* The function returns 0 if AES bit is enabled on the CPU */
-static int
-ssl_check_aes_bit(void)
-{
-    FILE *fp = fopen("/proc/cpuinfo", "r");
-    int ret = 1;
-    size_t len = 0;
-    char *line = NULL;
-    char *match = NULL;
-
-    GF_ASSERT(fp != NULL);
-
-    while (getline(&line, &len, fp) > 0) {
-        if (!strncmp(line, "flags", 5)) {
-            match = strstr(line, " aes");
-            if ((match != NULL) && ((match[4] == ' ') || (match[4] == 0))) {
-                ret = 0;
-                break;
-            }
-        }
-    }
-
-    free(line);
-    fclose(fp);
-
-    return ret;
 }
 
 static int
@@ -4224,10 +4048,6 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
     if (!priv->ssl_enabled && !priv->mgmt_ssl) {
         return 0;
-    }
-
-    if (!ssl_check_aes_bit()) {
-        cipher_list = "AES128:" DEFAULT_CIPHER_LIST;
     }
 
     priv->ssl_own_cert = DEFAULT_CERT_PATH;
@@ -4303,11 +4123,12 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
     if (priv->ssl_enabled || priv->mgmt_ssl) {
         BIO *bio = NULL;
+        SSL_METHOD *ssl_meth = NULL;
 
 #if HAVE_TLS_METHOD
-        priv->ssl_meth = (SSL_METHOD *)TLS_method();
+        ssl_meth = (SSL_METHOD *)TLS_method();
 #elif HAVE_TLSV1_2_METHOD
-        priv->ssl_meth = (SSL_METHOD *)TLSv1_2_method();
+        ssl_meth = (SSL_METHOD *)TLSv1_2_method();
 #else
 /*
  * Nobody should use an OpenSSL so old it does not support TLS 1.2.
@@ -4317,9 +4138,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
 #error Old and insecure OpenSSL, use -DUSE_INSECURE_OPENSSL to use it anyway
 #endif
         /* SSLv23_method uses highest available protocol */
-        priv->ssl_meth = SSLv23_method();
+        ssl_meth = SSLv23_method();
 #endif
-        priv->ssl_ctx = SSL_CTX_new(priv->ssl_meth);
+        priv->ssl_ctx = SSL_CTX_new(ssl_meth);
 
         SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv2);
         SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_NO_SSLv3);
@@ -4348,7 +4169,10 @@ ssl_setup_connection_params(rpc_transport_t *this)
             dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
             BIO_free(bio);
             if (dh != NULL) {
+#if SSL_OP_SINGLE_DH_USE != 0
+                /* Has no effect in never versions of OpenSSL. */
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_DH_USE);
+#endif /* SSL_OP_SINGLE_DH_USE */
                 SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
                 DH_free(dh);
             } else {
@@ -4375,7 +4199,10 @@ ssl_setup_connection_params(rpc_transport_t *this)
                 ecdh = EC_KEY_new_by_curve_name(nid);
 
             if (ecdh != NULL) {
+#if SSL_OP_SINGLE_ECDH_USE != 0
+                /* Has no effect in never versions of OpenSSL. */
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+#endif /* SSL_OP_SINGLE_ECDH_USE */
                 SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
                 EC_KEY_free(ecdh);
             } else {

@@ -8,9 +8,9 @@
    cases as published by the Free Software Foundation.
 */
 
-#include "barrier.h"
-#include <glusterfs/defaults.h>
+#include <glusterfs/timer.h>
 #include <glusterfs/call-stub.h>
+#include "barrier.h"
 
 #include <glusterfs/statedump.h>
 

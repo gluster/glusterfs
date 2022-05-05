@@ -8,67 +8,25 @@
    cases as published by the Free Software Foundation.
 */
 #include <stdio.h>
-#include <sys/types.h>
-#include <sys/wait.h>
 #include <stdlib.h>
-#include <signal.h>
 
-#include <glusterfs/glusterfs.h>
-#include <glusterfs/dict.h>
-#include <glusterfs/gf-event.h>
-#include <glusterfs/defaults.h>
-
+#include <glusterfs/statedump.h>
+#include <glusterfs/syscall.h>
+#include <glusterfs/monitoring.h>
+#include "glusterd1-xdr.h"
 #include "rpc-clnt.h"
-#include "protocol-common.h"
 #include "glusterfsd-messages.h"
 #include "glusterfs3.h"
 #include "portmap-xdr.h"
-#include "xdr-generic.h"
-
 #include "glusterfsd.h"
-#include "rpcsvc.h"
 #include "cli1-xdr.h"
-#include <glusterfs/statedump.h>
-#include <glusterfs/syncop.h>
-#include <glusterfs/xlator.h>
-#include <glusterfs/syscall.h>
-#include <glusterfs/monitoring.h>
 #include "server.h"
 
 static gf_boolean_t is_mgmt_rpc_reconnect = _gf_false;
-int need_emancipate = 0;
 
-int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx);
-int
-glusterfs_volfile_fetch(glusterfs_ctx_t *ctx);
-int
-glusterfs_process_volfp(glusterfs_ctx_t *ctx, FILE *fp);
-int
-emancipate(glusterfs_ctx_t *ctx, int ret);
-int
-glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum,
-                                   dict_t *dict);
-int
-glusterfs_mux_volfile_reconfigure(FILE *newvolfile_fp, glusterfs_ctx_t *ctx,
-                                  gf_volfile_t *volfile_obj, char *checksum,
-                                  dict_t *dict);
-int
-glusterfs_process_svc_attach_volfp(glusterfs_ctx_t *ctx, FILE *fp,
-                                   char *volfile_id, char *checksum,
-                                   dict_t *dict);
-int
-glusterfs_process_svc_detach(glusterfs_ctx_t *ctx, gf_volfile_t *volfile_obj);
-
-gf_boolean_t
-mgmt_is_multiplexed_daemon(char *name);
+static gf_boolean_t need_emancipate = _gf_false;
 
 static int
-glusterfs_volume_top_perf(const char *brick_path, dict_t *dict,
-                          gf_boolean_t write_test);
-
-int
 mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     glusterfs_ctx_t *ctx = NULL;
@@ -80,7 +38,7 @@ mgmt_cbk_spec(struct rpc_clnt *rpc, void *mydata, void *data)
     return 0;
 }
 
-int
+static int
 mgmt_process_volfile(const char *volfile, ssize_t size, char *volfile_id,
                      dict_t *dict)
 {
@@ -171,13 +129,13 @@ out:
     return ret;
 }
 
-int
+static int
 mgmt_cbk_event(struct rpc_clnt *rpc, void *mydata, void *data)
 {
     return 0;
 }
 
-struct iobuf *
+static struct iobuf *
 glusterfs_serialize_reply(rpcsvc_request_t *req, void *arg,
                           struct iovec *outmsg, xdrproc_t xdrproc)
 {
@@ -218,7 +176,7 @@ ret:
     return iob;
 }
 
-int
+static int
 glusterfs_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
                        int payloadcount, struct iobref *iobref,
                        xdrproc_t xdrproc)
@@ -270,7 +228,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_terminate_response_send(rpcsvc_request_t *req, int op_ret)
 {
     gd1_mgmt_brick_op_rsp rsp = {
@@ -298,7 +256,7 @@ glusterfs_terminate_response_send(rpcsvc_request_t *req, int op_ret)
     return ret;
 }
 
-int
+static int
 glusterfs_handle_terminate(rpcsvc_request_t *req)
 {
     gd1_mgmt_brick_op_req xlator_req = {
@@ -431,7 +389,7 @@ err:
     return 0;
 }
 
-int
+static int
 glusterfs_translator_info_response_send(rpcsvc_request_t *req, int ret,
                                         char *msg, dict_t *output)
 {
@@ -464,7 +422,7 @@ glusterfs_translator_info_response_send(rpcsvc_request_t *req, int ret,
     return ret;
 }
 
-int
+static int
 glusterfs_xlator_op_response_send(rpcsvc_request_t *req, int op_ret, char *msg,
                                   dict_t *output)
 {
@@ -495,101 +453,6 @@ glusterfs_xlator_op_response_send(rpcsvc_request_t *req, int op_ret, char *msg,
     if (free_ptr)
         GF_FREE(rsp.output.output_val);
 
-    return ret;
-}
-
-int
-glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
-{
-    int32_t ret = -1;
-    gd1_mgmt_brick_op_req xlator_req = {
-        0,
-    };
-    dict_t *dict = NULL;
-    xlator_t *this = NULL;
-    gf1_cli_top_op top_op = 0;
-    xlator_t *any = NULL;
-    xlator_t *xlator = NULL;
-    glusterfs_graph_t *active = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-    char msg[2048] = {
-        0,
-    };
-    dict_t *output = NULL;
-
-    GF_ASSERT(req);
-    this = THIS;
-    GF_ASSERT(this);
-
-    ret = xdr_to_generic(req->msg[0], &xlator_req,
-                         (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
-    if (ret < 0) {
-        // failed to decode msg;
-        req->rpc_err = GARBAGE_ARGS;
-        goto out;
-    }
-
-    dict = dict_new();
-    ret = dict_unserialize(xlator_req.input.input_val,
-                           xlator_req.input.input_len, &dict);
-    if (ret < 0) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "failed to "
-               "unserialize req-buffer to dictionary");
-        goto out;
-    }
-
-    ret = dict_get_int32(dict, "top-op", (int32_t *)&top_op);
-    if (ret)
-        goto cont;
-    if (GF_CLI_TOP_READ_PERF == top_op) {
-        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_false);
-    } else if (GF_CLI_TOP_WRITE_PERF == top_op) {
-        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_true);
-    }
-
-cont:
-    ctx = glusterfsd_ctx;
-    GF_ASSERT(ctx);
-    active = ctx->active;
-    if (active == NULL) {
-        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
-        ret = -1;
-        goto out;
-    }
-    any = active->first;
-
-    xlator = get_xlator_by_name(any, xlator_req.name);
-    if (!xlator) {
-        ret = -1;
-        snprintf(msg, sizeof(msg), "xlator %s is not loaded", xlator_req.name);
-        goto out;
-    }
-
-    if (strcmp(xlator->type, "debug/io-stats")) {
-        xlator = get_xlator_by_type(xlator, "debug/io-stats");
-        if (!xlator) {
-            ret = -1;
-            snprintf(msg, sizeof(msg),
-                     "xlator-type debug/io-stats is not loaded");
-            goto out;
-        }
-    }
-
-    output = dict_new();
-    ret = xlator->notify(xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
-
-out:
-    ret = glusterfs_translator_info_response_send(req, ret, msg, output);
-
-    free(xlator_req.name);
-    free(xlator_req.input.input_val);
-    if (xlator_req.dict.dict_val)
-        free(xlator_req.dict.dict_val);
-    if (output)
-        dict_unref(output);
-    if (dict)
-        dict_unref(dict);
     return ret;
 }
 
@@ -740,7 +603,102 @@ end:
     return ret;
 }
 
-int
+static int
+glusterfs_handle_translator_info_get(rpcsvc_request_t *req)
+{
+    int32_t ret = -1;
+    gd1_mgmt_brick_op_req xlator_req = {
+        0,
+    };
+    dict_t *dict = NULL;
+    xlator_t *this = NULL;
+    gf1_cli_top_op top_op = 0;
+    xlator_t *any = NULL;
+    xlator_t *xlator = NULL;
+    glusterfs_graph_t *active = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+    char msg[2048] = {
+        0,
+    };
+    dict_t *output = NULL;
+
+    GF_ASSERT(req);
+    this = THIS;
+    GF_ASSERT(this);
+
+    ret = xdr_to_generic(req->msg[0], &xlator_req,
+                         (xdrproc_t)xdr_gd1_mgmt_brick_op_req);
+    if (ret < 0) {
+        // failed to decode msg;
+        req->rpc_err = GARBAGE_ARGS;
+        goto out;
+    }
+
+    dict = dict_new();
+    ret = dict_unserialize(xlator_req.input.input_val,
+                           xlator_req.input.input_len, &dict);
+    if (ret < 0) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "failed to "
+               "unserialize req-buffer to dictionary");
+        goto out;
+    }
+
+    ret = dict_get_int32(dict, "top-op", (int32_t *)&top_op);
+    if (ret)
+        goto cont;
+    if (GF_CLI_TOP_READ_PERF == top_op) {
+        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_false);
+    } else if (GF_CLI_TOP_WRITE_PERF == top_op) {
+        ret = glusterfs_volume_top_perf(xlator_req.name, dict, _gf_true);
+    }
+
+cont:
+    ctx = glusterfsd_ctx;
+    GF_ASSERT(ctx);
+    active = ctx->active;
+    if (active == NULL) {
+        gf_log(THIS->name, GF_LOG_ERROR, "ctx->active returned NULL");
+        ret = -1;
+        goto out;
+    }
+    any = active->first;
+
+    xlator = get_xlator_by_name(any, xlator_req.name);
+    if (!xlator) {
+        ret = -1;
+        snprintf(msg, sizeof(msg), "xlator %s is not loaded", xlator_req.name);
+        goto out;
+    }
+
+    if (strcmp(xlator->type, "debug/io-stats")) {
+        xlator = get_xlator_by_type(xlator, "debug/io-stats");
+        if (!xlator) {
+            ret = -1;
+            snprintf(msg, sizeof(msg),
+                     "xlator-type debug/io-stats is not loaded");
+            goto out;
+        }
+    }
+
+    output = dict_new();
+    ret = xlator->notify(xlator, GF_EVENT_TRANSLATOR_INFO, dict, output);
+
+out:
+    ret = glusterfs_translator_info_response_send(req, ret, msg, output);
+
+    free(xlator_req.name);
+    free(xlator_req.input.input_val);
+    if (xlator_req.dict.dict_val)
+        free(xlator_req.dict.dict_val);
+    if (output)
+        dict_unref(output);
+    if (dict)
+        dict_unref(dict);
+    return ret;
+}
+
+static int
 glusterfs_handle_translator_op(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -843,7 +801,7 @@ out:
     return 0;
 }
 
-int
+static int
 glusterfs_handle_bitrot(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -951,7 +909,7 @@ out:
     return 0;
 }
 
-int
+static int
 glusterfs_handle_attach(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1037,7 +995,7 @@ post_unlock:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_svc_attach(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1094,7 +1052,7 @@ out:
     return 0;
 }
 
-int
+static int
 glusterfs_handle_svc_detach(rpcsvc_request_t *req)
 {
     gd1_mgmt_brick_op_req xlator_req = {
@@ -1153,7 +1111,7 @@ out:
     return 0;
 }
 
-int
+static int
 glusterfs_handle_dump_metrics(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1226,7 +1184,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_defrag(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1302,7 +1260,8 @@ out:
 
     return ret;
 }
-int
+
+static int
 glusterfs_handle_brick_status(rpcsvc_request_t *req)
 {
     int ret = -1;
@@ -1452,7 +1411,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_node_status(rpcsvc_request_t *req)
 {
     int ret = -1;
@@ -1485,6 +1444,12 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     }
 
     dict = dict_new();
+    if (!dict) {
+        ret = -1;
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        goto out;
+    }
+
     ret = dict_unserialize(node_req.input.input_val, node_req.input.input_len,
                            &dict);
     if (ret < 0) {
@@ -1573,6 +1538,12 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
     }
 
     output = dict_new();
+    if (!output) {
+        ret = -1;
+        gf_log(THIS->name, GF_LOG_ERROR, "Failed to allocate the dictionary");
+        goto out;
+    }
+
     switch (cmd & GF_CLI_STATUS_MASK) {
         case GF_CLI_STATUS_MEM:
             ret = 0;
@@ -1638,6 +1609,8 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
 out:
     if (dict)
         dict_unref(dict);
+    if (output)
+        dict_unref(output);
     free(node_req.input.input_val);
     if (node_req.dict.dict_val)
         free(node_req.dict.dict_val);
@@ -1650,7 +1623,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_nfs_profile(rpcsvc_request_t *req)
 {
     int ret = -1;
@@ -1756,7 +1729,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_volume_barrier_op(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
@@ -1833,7 +1806,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_barrier(rpcsvc_request_t *req)
 {
     int ret = -1;
@@ -1965,7 +1938,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_handle_rpc_msg(rpcsvc_request_t *req)
 {
     int ret = -1;
@@ -2124,7 +2097,171 @@ out:
     return ret;
 }
 
-int
+static int
+mgmt_pmap_signin2_cbk(struct rpc_req *req, struct iovec *iov, int count,
+                      void *myframe)
+{
+    pmap_signin_rsp rsp = {
+        0,
+    };
+    glusterfs_ctx_t *ctx = NULL;
+    call_frame_t *frame = NULL;
+    int ret = 0;
+
+    ctx = glusterfsd_ctx;
+    frame = myframe;
+
+    if (-1 == req->rpc_status) {
+        ret = -1;
+        rsp.op_ret = -1;
+        rsp.op_errno = EINVAL;
+        goto out;
+    }
+
+    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
+    if (ret < 0) {
+        gf_log(frame->this->name, GF_LOG_ERROR, "XDR decode error");
+        rsp.op_ret = -1;
+        rsp.op_errno = EINVAL;
+        goto out;
+    }
+
+    if (-1 == rsp.op_ret) {
+        gf_log(frame->this->name, GF_LOG_ERROR,
+               "failed to register the port with glusterd");
+        ret = -1;
+        goto out;
+    }
+
+    ret = 0;
+out:
+    if (need_emancipate)
+        emancipate(ctx, ret);
+
+    STACK_DESTROY(frame->root);
+    return 0;
+}
+
+static int
+mgmt_pmap_signin_cbk(struct rpc_req *req, struct iovec *iov, int count,
+                     void *myframe)
+{
+    pmap_signin_rsp rsp = {
+        0,
+    };
+    call_frame_t *frame = NULL;
+    int ret = 0;
+    int emancipate_ret = -1;
+    pmap_signin_req pmap_req = {
+        0,
+    };
+    cmd_args_t *cmd_args = NULL;
+    glusterfs_ctx_t *ctx = NULL;
+    char brick_name[PATH_MAX] = {
+        0,
+    };
+
+    frame = myframe;
+    ctx = glusterfsd_ctx;
+    cmd_args = &ctx->cmd_args;
+
+    if (-1 == req->rpc_status) {
+        ret = -1;
+        rsp.op_ret = -1;
+        rsp.op_errno = EINVAL;
+        goto out;
+    }
+
+    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
+    if (ret < 0) {
+        gf_log(frame->this->name, GF_LOG_ERROR, "XDR decode error");
+        rsp.op_ret = -1;
+        rsp.op_errno = EINVAL;
+        goto out;
+    }
+
+    if (-1 == rsp.op_ret) {
+        gf_log(frame->this->name, GF_LOG_ERROR,
+               "failed to register the port with glusterd");
+        ret = -1;
+        goto out;
+    }
+
+    if (!cmd_args->brick_port2) {
+        /* We are done with signin process */
+        emancipate_ret = 0;
+        goto out;
+    }
+
+    snprintf(brick_name, PATH_MAX, "%s.rdma", cmd_args->brick_name);
+    pmap_req.port = cmd_args->brick_port2;
+    pmap_req.brick = brick_name;
+
+    ret = mgmt_submit_request(&pmap_req, frame, ctx, &clnt_pmap_prog,
+                              GF_PMAP_SIGNIN, mgmt_pmap_signin2_cbk,
+                              (xdrproc_t)xdr_pmap_signin_req);
+    if (ret)
+        goto out;
+
+    return 0;
+
+out:
+    if (need_emancipate && (ret < 0 || !cmd_args->brick_port2))
+        emancipate(ctx, emancipate_ret);
+
+    STACK_DESTROY(frame->root);
+    return 0;
+}
+
+static int
+glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
+{
+    call_frame_t *frame = NULL;
+    xlator_list_t **trav_p;
+    xlator_t *top;
+    pmap_signin_req req = {
+        0,
+    };
+    int ret = -1;
+    int emancipate_ret = -1;
+    cmd_args_t *cmd_args = NULL;
+
+    cmd_args = &ctx->cmd_args;
+
+    if (!cmd_args->brick_port || !cmd_args->brick_name) {
+        gf_log("fsd-mgmt", GF_LOG_DEBUG,
+               "portmapper signin arguments not given");
+        emancipate_ret = 0;
+        goto out;
+    }
+
+    req.port = cmd_args->brick_port;
+    req.pid = (int)getpid(); /* only glusterd2 consumes this */
+
+    if (ctx->active) {
+        top = ctx->active->first;
+        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
+            frame = create_frame(THIS, ctx->pool);
+            req.brick = (*trav_p)->xlator->name;
+            ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
+                                      GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
+                                      (xdrproc_t)xdr_pmap_signin_req);
+            if (ret < 0) {
+                gf_log(THIS->name, GF_LOG_WARNING,
+                       "failed to send sign in request; brick = %s", req.brick);
+            }
+        }
+    }
+
+    /* unfortunately, the caller doesn't care about the returned value */
+
+out:
+    if (need_emancipate && ret < 0)
+        emancipate(ctx, emancipate_ret);
+    return ret;
+}
+
+static int
 mgmt_getspec_cbk(struct rpc_req *req, struct iovec *iov, int count,
                  void *myframe)
 {
@@ -2334,7 +2471,7 @@ volfile:
 
 post_graph_mgmt:
     if (!is_mgmt_rpc_reconnect) {
-        need_emancipate = 1;
+        need_emancipate = _gf_true;
         glusterfs_mgmt_pmap_signin(ctx);
         is_mgmt_rpc_reconnect = _gf_true;
     }
@@ -2523,42 +2660,7 @@ glusterfs_volfile_fetch(glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int32_t
-mgmt_event_notify_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                      void *myframe)
-{
-    gf_event_notify_rsp rsp = {
-        0,
-    };
-    call_frame_t *frame = NULL;
-    int ret = 0;
-
-    frame = myframe;
-
-    if (-1 == req->rpc_status) {
-        ret = -1;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gf_event_notify_rsp);
-    if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR, "XDR decoding error");
-        ret = -1;
-        goto out;
-    }
-
-    if (-1 == rsp.op_ret) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "failed to get the rsp from server");
-        ret = -1;
-        goto out;
-    }
-out:
-    free(rsp.dict.dict_val);  // malloced by xdr
-    return ret;
-}
-
-int32_t
+static int32_t
 glusterfs_rebalance_event_notify_cbk(struct rpc_req *req, struct iovec *iov,
                                      int count, void *myframe)
 {
@@ -2600,7 +2702,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterfs_rebalance_event_notify(dict_t *dict)
 {
     glusterfs_ctx_t *ctx = NULL;
@@ -2757,27 +2859,10 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     return 0;
 }
 
-int
+static int
 glusterfs_rpcsvc_notify(rpcsvc_t *rpc, void *xl, rpcsvc_event_t event,
                         void *data)
 {
-    if (!xl || !data) {
-        goto out;
-    }
-
-    switch (event) {
-        case RPCSVC_EVENT_ACCEPT: {
-            break;
-        }
-        case RPCSVC_EVENT_DISCONNECT: {
-            break;
-        }
-
-        default:
-            break;
-    }
-
-out:
     return 0;
 }
 
@@ -2932,169 +3017,5 @@ glusterfs_mgmt_init(glusterfs_ctx_t *ctx)
 out:
     if (options)
         dict_unref(options);
-    return ret;
-}
-
-static int
-mgmt_pmap_signin2_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                      void *myframe)
-{
-    pmap_signin_rsp rsp = {
-        0,
-    };
-    glusterfs_ctx_t *ctx = NULL;
-    call_frame_t *frame = NULL;
-    int ret = 0;
-
-    ctx = glusterfsd_ctx;
-    frame = myframe;
-
-    if (-1 == req->rpc_status) {
-        ret = -1;
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
-    if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR, "XDR decode error");
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    if (-1 == rsp.op_ret) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "failed to register the port with glusterd");
-        ret = -1;
-        goto out;
-    }
-
-    ret = 0;
-out:
-    if (need_emancipate)
-        emancipate(ctx, ret);
-
-    STACK_DESTROY(frame->root);
-    return 0;
-}
-
-static int
-mgmt_pmap_signin_cbk(struct rpc_req *req, struct iovec *iov, int count,
-                     void *myframe)
-{
-    pmap_signin_rsp rsp = {
-        0,
-    };
-    call_frame_t *frame = NULL;
-    int ret = 0;
-    int emancipate_ret = -1;
-    pmap_signin_req pmap_req = {
-        0,
-    };
-    cmd_args_t *cmd_args = NULL;
-    glusterfs_ctx_t *ctx = NULL;
-    char brick_name[PATH_MAX] = {
-        0,
-    };
-
-    frame = myframe;
-    ctx = glusterfsd_ctx;
-    cmd_args = &ctx->cmd_args;
-
-    if (-1 == req->rpc_status) {
-        ret = -1;
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_pmap_signin_rsp);
-    if (ret < 0) {
-        gf_log(frame->this->name, GF_LOG_ERROR, "XDR decode error");
-        rsp.op_ret = -1;
-        rsp.op_errno = EINVAL;
-        goto out;
-    }
-
-    if (-1 == rsp.op_ret) {
-        gf_log(frame->this->name, GF_LOG_ERROR,
-               "failed to register the port with glusterd");
-        ret = -1;
-        goto out;
-    }
-
-    if (!cmd_args->brick_port2) {
-        /* We are done with signin process */
-        emancipate_ret = 0;
-        goto out;
-    }
-
-    snprintf(brick_name, PATH_MAX, "%s.rdma", cmd_args->brick_name);
-    pmap_req.port = cmd_args->brick_port2;
-    pmap_req.brick = brick_name;
-
-    ret = mgmt_submit_request(&pmap_req, frame, ctx, &clnt_pmap_prog,
-                              GF_PMAP_SIGNIN, mgmt_pmap_signin2_cbk,
-                              (xdrproc_t)xdr_pmap_signin_req);
-    if (ret)
-        goto out;
-
-    return 0;
-
-out:
-    if (need_emancipate && (ret < 0 || !cmd_args->brick_port2))
-        emancipate(ctx, emancipate_ret);
-
-    STACK_DESTROY(frame->root);
-    return 0;
-}
-
-int
-glusterfs_mgmt_pmap_signin(glusterfs_ctx_t *ctx)
-{
-    call_frame_t *frame = NULL;
-    xlator_list_t **trav_p;
-    xlator_t *top;
-    pmap_signin_req req = {
-        0,
-    };
-    int ret = -1;
-    int emancipate_ret = -1;
-    cmd_args_t *cmd_args = NULL;
-
-    cmd_args = &ctx->cmd_args;
-
-    if (!cmd_args->brick_port || !cmd_args->brick_name) {
-        gf_log("fsd-mgmt", GF_LOG_DEBUG,
-               "portmapper signin arguments not given");
-        emancipate_ret = 0;
-        goto out;
-    }
-
-    req.port = cmd_args->brick_port;
-    req.pid = (int)getpid(); /* only glusterd2 consumes this */
-
-    if (ctx->active) {
-        top = ctx->active->first;
-        for (trav_p = &top->children; *trav_p; trav_p = &(*trav_p)->next) {
-            frame = create_frame(THIS, ctx->pool);
-            req.brick = (*trav_p)->xlator->name;
-            ret = mgmt_submit_request(&req, frame, ctx, &clnt_pmap_prog,
-                                      GF_PMAP_SIGNIN, mgmt_pmap_signin_cbk,
-                                      (xdrproc_t)xdr_pmap_signin_req);
-            if (ret < 0) {
-                gf_log(THIS->name, GF_LOG_WARNING,
-                       "failed to send sign in request; brick = %s", req.brick);
-            }
-        }
-    }
-
-    /* unfortunately, the caller doesn't care about the returned value */
-
-out:
-    if (need_emancipate && ret < 0)
-        emancipate(ctx, emancipate_ret);
     return ret;
 }

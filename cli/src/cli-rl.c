@@ -104,7 +104,7 @@ cli_rl_process_line(char *line)
 
 void
 cli_rl_stdin(int fd, int idx, int gen, void *data, int poll_out, int poll_in,
-             int poll_err, char event_thread_died)
+             int poll_err, int event_thread_died)
 {
     struct cli_state *state = data;
 

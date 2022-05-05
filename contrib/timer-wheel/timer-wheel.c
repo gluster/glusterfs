@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <sys/select.h>
+#include <pthread.h>
 
 #include "timer-wheel.h"
 

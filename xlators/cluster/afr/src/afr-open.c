@@ -13,12 +13,8 @@
 #include <stdlib.h>
 #include <signal.h>
 
-#include <glusterfs/glusterfs.h>
-#include "afr.h"
 #include <glusterfs/dict.h>
 #include <glusterfs/logging.h>
-#include <glusterfs/defaults.h>
-#include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/statedump.h>
@@ -27,7 +23,7 @@
 #include "afr-self-heal.h"
 #include "protocol-common.h"
 
-gf_boolean_t
+static gf_boolean_t
 afr_is_fd_fixable(fd_t *fd)
 {
     if (!fd || !fd->inode)
@@ -40,7 +36,7 @@ afr_is_fd_fixable(fd_t *fd)
     return _gf_true;
 }
 
-int
+static int
 afr_open_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
@@ -52,7 +48,7 @@ afr_open_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -100,7 +96,7 @@ afr_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-int
+static int
 afr_open_continue(call_frame_t *frame, xlator_t *this, int err)
 {
     afr_local_t *local = NULL;
@@ -196,7 +192,7 @@ out:
     return 0;
 }
 
-int
+static int
 afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, fd_t *fd,
                         dict_t *xdata)
@@ -440,7 +436,7 @@ afr_is_reopen_allowed_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-void
+static void
 afr_is_reopen_allowed(xlator_t *this, call_frame_t *frame)
 {
     afr_private_t *priv = NULL;

@@ -14,6 +14,11 @@
 #define GSYNC_CONF_TEMPLATE GEOREP "/gsyncd_template.conf"
 #endif
 
+#define GLUSTERD_COMMON_PEM_PUB_FILE "/geo-replication/common_secret.pem.pub"
+#define GLUSTERD_CREATE_HOOK_SCRIPT                                            \
+    "/hooks/1/gsync-create/post/"                                              \
+    "S56glusterd-geo-rep-create-post.sh"
+
 /* <secondary host>::<secondary volume> */
 #define SECONDARY_URL_INFO_MAX (_POSIX_HOST_NAME_MAX + GD_VOLUME_NAME_MAX + 3)
 
@@ -23,6 +28,13 @@
  * :<secondary volume uuid> */
 #define VOLINFO_SECONDARY_URL_MAX                                              \
     (LOGIN_NAME_MAX + (2 * GF_UUID_BUF_SIZE) + SECONDARY_URL_INFO_MAX + 10)
+
+struct gsync_config_opt_vals_ {
+    char *op_name;
+    char *values[GEO_CONF_MAX_OPT_VALS];
+    int no_of_pos_vals;
+    gf_boolean_t case_sensitive;
+};
 
 typedef struct glusterd_gsync_status_temp {
     dict_t *rsp_dict;

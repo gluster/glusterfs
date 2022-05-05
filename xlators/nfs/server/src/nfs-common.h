@@ -14,7 +14,6 @@
 #include <unistd.h>
 
 #include <glusterfs/xlator.h>
-#include "rpcsvc.h"
 #include <glusterfs/iatt.h>
 #include <glusterfs/compat-uuid.h>
 

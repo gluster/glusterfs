@@ -16,7 +16,8 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <pthread.h>
-#include "glusterfs/list.h"
+
+#include <glusterfs/list.h>
 
 #ifdef GF_DARWIN_HOST_OS
 #define GF_PRI_FSBLK "u"
@@ -166,9 +167,6 @@ int
 _gf_msg_plain_nomem(gf_loglevel_t level, const char *msg);
 
 int
-_gf_msg_vplain(gf_loglevel_t level, const char *fmt, va_list ap);
-
-int
 _gf_msg_nomem(const char *domain, const char *file, const char *function,
               int line, gf_loglevel_t level, size_t size);
 
@@ -188,36 +186,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 
 /* treat GF_LOG_TRACE and GF_LOG_NONE as LOG_DEBUG and
  * other level as is */
-#define SET_LOG_PRIO(level, priority)                                          \
-    do {                                                                       \
-        if (GF_LOG_TRACE == (level) || GF_LOG_NONE == (level)) {               \
-            priority = LOG_DEBUG;                                              \
-        } else {                                                               \
-            priority = (level)-1;                                              \
-        }                                                                      \
-    } while (0)
-
-/* extract just the file name from the path */
-#define GET_FILE_NAME_TO_LOG(file, basename)                                   \
-    do {                                                                       \
-        basename = strrchr((file), '/');                                       \
-        if (basename)                                                          \
-            basename++;                                                        \
-        else                                                                   \
-            basename = (file);                                                 \
-    } while (0)
-
-#define PRINT_SIZE_CHECK(ret, label, strsize)                                  \
-    do {                                                                       \
-        if (ret < 0)                                                           \
-            goto label;                                                        \
-        if ((strsize - ret) > 0) {                                             \
-            strsize -= ret;                                                    \
-        } else {                                                               \
-            ret = 0;                                                           \
-            goto label;                                                        \
-        }                                                                      \
-    } while (0)
 
 #define FMT_WARN(fmt...)                                                       \
     do {                                                                       \
@@ -241,11 +209,6 @@ _gf_log_eh(const char *function, const char *fmt, ...)
 #define gf_msg_plain_nomem(level, msg)                                         \
     do {                                                                       \
         _gf_msg_plain_nomem(level, msg);                                       \
-    } while (0)
-
-#define gf_msg_vplain(level, fmt, va)                                          \
-    do {                                                                       \
-        _gf_msg_vplain(level, fmt, va);                                        \
     } while (0)
 
 #define gf_msg_backtrace_nomem(level, stacksize)                               \
@@ -350,9 +313,6 @@ gf_log_set_log_buf_size(uint32_t buf_size);
 void
 gf_log_set_log_flush_timeout(uint32_t timeout);
 
-void
-gf_log_flush_msgs(struct _glusterfs_ctx *ctx);
-
 int
 gf_log_inject_timer_event(struct _glusterfs_ctx *ctx);
 
@@ -378,6 +338,37 @@ _gf_smsg(const char *domain, const char *file, const char *function,
     do {                                                                       \
         _gf_smsg(dom, __FILE__, __FUNCTION__, __LINE__, level, errnum, 0,      \
                  msgid, msgid##_STR, ##event);                                 \
+    } while (0)
+
+/* Logging macro for messages created by GLFS_NEW(). It uses the same logic as
+ * gf_log_get_loglevel() but inline and without requiring THIS. */
+#define GF_LOG(_name, _lvl, _data)                                             \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= (_lvl)) {                              \
+            typeof(_data) __log_data = _data;                                  \
+            __log_data._process(_name, __FILE__, __FUNCTION__, __LINE__, _lvl, \
+                                &__log_data);                                  \
+        }                                                                      \
+    } while (0)
+
+/* Shortcut macros for different log levels. */
+#define GF_LOC_C(_name, _data) GF_LOG(_name, GF_LOG_CRITICAL, _data)
+#define GF_LOG_E(_name, _data) GF_LOG(_name, GF_LOG_ERROR, _data)
+#define GF_LOG_W(_name, _data) GF_LOG(_name, GF_LOG_WARNING, _data)
+#define GF_LOG_I(_name, _data) GF_LOG(_name, GF_LOG_INFO, _data)
+
+#define GF_LOG_D(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_DEBUG) {                        \
+            GLFS_DEBUG(_name, _msg, _num, ##_fields);                          \
+        }                                                                      \
+    } while (0)
+
+#define GF_LOG_T(_name, _msg, _num, _fields...)                                \
+    do {                                                                       \
+        if (global_ctx->log.loglevel >= GF_LOG_TRACE) {                        \
+            GLFS_TRACE(_name, _msg, _num, ##_fields);                          \
+        }                                                                      \
     } while (0)
 
 #endif /* __LOGGING_H__ */

@@ -9,7 +9,6 @@
 */
 
 #include "glusterfs/inode.h"
-#include "glusterfs/common-utils.h"
 #include "glusterfs/statedump.h"
 #include <pthread.h>
 #include <sys/types.h>
@@ -138,6 +137,25 @@ inode_table_prune(inode_table_t *table);
 void
 fd_dump(struct list_head *head, char *prefix);
 
+/* Calculate index based on the inode_table root_level
+   and xlator_id
+*/
+static int
+inode_get_ctx_index(inode_table_t *table, xlator_t *xlator)
+{
+    int ctx_idx = xlator->level;
+
+    if (ctx_idx > table->root_level) {
+#ifdef DEBUG
+        int32_t idx = xlator->xl_id - table->root_id;
+        GF_ASSERT((idx > 0) && (idx < (table->ctxcount - table->root_level)));
+#endif
+        ctx_idx = (table->root_level + xlator->xl_id - table->root_id);
+    }
+
+    return ctx_idx;
+}
+
 static int
 hash_dentry(inode_t *parent, const char *name, int mod)
 {
@@ -208,6 +226,7 @@ __dentry_unset(dentry_t *dentry)
     list_del_init(&dentry->inode_list);
 
     if (dentry->parent) {
+        GF_ATOMIC_DEC(dentry->parent->kids);
         __inode_unref(dentry->parent, false);
         dentry->parent = NULL;
     }
@@ -362,6 +381,7 @@ noctx:
 static void
 __inode_destroy(inode_t *inode)
 {
+    inode_unref(inode->ns_inode);
     __inode_ctx_free(inode);
 
     LOCK_DESTROY(&inode->lock);
@@ -448,13 +468,14 @@ __inode_retire(inode_t *inode)
 static int
 __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
-    int set_idx = -1;
+    int set_idx = inode_get_ctx_index(inode->table, xlator);
 
-    if ((inode->_ctx[xlator->xl_id].xl_key != NULL) &&
-        (inode->_ctx[xlator->xl_id].xl_key != xlator))
+    if ((inode->_ctx[set_idx].xl_key != NULL) &&
+        (inode->_ctx[set_idx].xl_key != xlator)) {
+        set_idx = -1;
         goto out;
+    }
 
-    set_idx = xlator->xl_id;
     inode->_ctx[set_idx].xl_key = xlator;
 
 out:
@@ -523,7 +544,6 @@ __inode_unref(inode_t *inode, bool clear)
 
     index = __inode_get_xl_index(inode, this);
     if (index >= 0) {
-        inode->_ctx[index].xl_key = this;
         inode->_ctx[index].ref--;
     }
 
@@ -584,10 +604,8 @@ __inode_ref(inode_t *inode, bool is_invalidate)
     inode->ref++;
 
     index = __inode_get_xl_index(inode, this);
-    if (index >= 0) {
-        inode->_ctx[index].xl_key = this;
+    if (index >= 0)
         inode->_ctx[index].ref++;
-    }
 
     return inode;
 }
@@ -677,6 +695,9 @@ inode_create(inode_table_t *table)
     INIT_LIST_HEAD(&newi->hash);
     INIT_LIST_HEAD(&newi->dentry_list);
 
+    GF_ATOMIC_INIT(newi->kids, 0);
+    GF_ATOMIC_INIT(newi->nlookup, 0);
+
     newi->_ctx = GF_CALLOC(1, (sizeof(struct _inode_ctx) * table->ctxcount),
                            gf_common_mt_inode_ctx);
     if (newi->_ctx == NULL) {
@@ -714,6 +735,9 @@ inode_new(inode_table_t *table)
             __inode_ref(inode, false);
         }
         pthread_mutex_unlock(&table->lock);
+
+        /* let the dummy, 'unlinked' inodes have root as namespace */
+        inode->ns_inode = inode_ref(table->root);
     }
 
     return inode;
@@ -1051,7 +1075,9 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
 
             /* dentry linking needs to happen inside lock */
             dentry->parent = __inode_ref(parent, false);
+            GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
+            link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
 
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
@@ -1290,6 +1316,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 {
     int hash = 0;
     dentry_t *dentry = NULL;
+    inode_t *linked_inode = NULL;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1310,9 +1337,14 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
 
     pthread_mutex_lock(&table->lock);
     {
-        __inode_link(inode, dstdir, dstname, iatt, hash);
+        linked_inode = __inode_link(inode, dstdir, dstname, iatt, hash);
         /* pick the old dentry */
-        dentry = __inode_unlink(inode, srcdir, srcname);
+        /* TODO: analyse properly about what should be the behavior if
+         * 'linked_inode' is NULL. Adding this check makes the inode tree
+         * robust, but is that good enough? (Ref: GH PR #1763) */
+        if (linked_inode) {
+            dentry = __inode_unlink(inode, srcdir, srcname);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1669,6 +1701,7 @@ __inode_table_init_root(inode_table_t *table)
 
     __inode_link(root, NULL, NULL, &iatt, 0);
     table->root = root;
+    root->ns_inode = inode_ref(root);
 }
 
 inode_table_t *
@@ -1687,7 +1720,18 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         return NULL;
 
     new->xl = xl;
-    new->ctxcount = xl->graph->xl_count + 1;
+
+    /* root_id and root_level will be useful to access index of specific
+       xlator
+    */
+    new->root_id = xl->xl_id;
+    new->root_level = xl->level;
+
+    /* The ctxcount value should be equal to the total xlators are associated
+       with specific volume. The sum of xl->level and xl->child_count represents
+       total xlators are associated with specific volume in a graph
+    */
+    new->ctxcount = (xl->level + xl->child_count + 1);
 
     new->lru_limit = lru_limit;
     new->invalidator_fn = invalidator_fn;
@@ -2086,13 +2130,11 @@ __inode_ctx_set2(inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
         return -1;
 
     set_idx = __inode_get_xl_index(inode, xlator);
-    if (set_idx == -1) {
+    if (set_idx < 0) {
         ret = -1;
         goto out;
-        ;
     }
 
-    inode->_ctx[set_idx].xl_key = xlator;
     if (value1_p)
         inode->_ctx[set_idx].value1 = *value1_p;
     if (value2_p)
@@ -2174,7 +2216,8 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     if (!inode || !xlator || !inode->_ctx)
         goto out;
 
-    index = xlator->xl_id;
+    index = inode_get_ctx_index(inode->table, xlator);
+
     if (inode->_ctx[index].xl_key != xlator)
         goto out;
 
@@ -2287,7 +2330,8 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
         if (!inode->_ctx)
             goto unlock;
 
-        index = xlator->xl_id;
+        index = inode_get_ctx_index(inode->table, xlator);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
@@ -2328,7 +2372,8 @@ __inode_ctx_reset2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        index = xlator->xl_id;
+        index = inode_get_ctx_index(inode->table, xlator);
+
         if (inode->_ctx[index].xl_key != xlator) {
             ret = -1;
             goto unlock;
@@ -2449,6 +2494,11 @@ inode_dump(inode_t *inode, char *prefix)
         gf_proc_dump_write("ref", "%u", inode->ref);
         gf_proc_dump_write("invalidate-sent", "%d", inode->invalidate_sent);
         gf_proc_dump_write("ia_type", "%d", inode->ia_type);
+        gf_proc_dump_write("kids", "%" PRId64, GF_ATOMIC_GET(inode->kids));
+        if (inode->ns_inode) {
+            gf_proc_dump_write("namespace", "%s",
+                               uuid_utoa(inode->ns_inode->gfid));
+        }
         if (inode->_ctx) {
             inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
                                   gf_common_mt_inode_ctx);
@@ -2707,6 +2757,38 @@ inode_find_directory_name(inode_t *inode, const char **name)
         }
     }
     pthread_mutex_unlock(&inode->table->lock);
+out:
+    return;
+}
+
+/* *
+ * This function sets a new namespace inode to a given inode.
+ * */
+void
+inode_set_namespace_inode(inode_t *inode, inode_t *ns_inode)
+{
+    GF_VALIDATE_OR_GOTO("inode", inode, out);
+    GF_VALIDATE_OR_GOTO("inode", ns_inode, out);
+
+    /* namespace inode should always be a directory */
+    if (!IA_ISDIR(ns_inode->ia_type)) {
+        gf_log(THIS->name, GF_LOG_WARNING,
+               "Trying to link namespace which is not a directory");
+        return;
+    }
+
+    /* Ideally, if we do this, we should do this to complete tree */
+    /* FIXME: fix above once we support setting quota after having data in
+     * directories */
+    /*
+    if (GF_ATOMIC_GET(inode->kids)) {
+        gf_log(THIS->name, GF_LOG_WARNING, "Trying to link inode with kids");
+    }
+    */
+
+    inode_t *old_ns = inode->ns_inode;
+    inode->ns_inode = inode_ref(ns_inode);
+    inode_unref(old_ns);
 out:
     return;
 }

@@ -104,7 +104,8 @@ posix_io_uring_ctx_init(call_frame_t *frame, xlator_t *this, fd_t *fd, int op,
 
     /* TODO: Explore filling up pre and post bufs using IOSQE_IO_LINK*/
     if ((op == GF_FOP_WRITE) || (op == GF_FOP_FSYNC)) {
-        if (posix_fdstat(this, fd->inode, pfd->fd, &ctx->prebuf) != 0) {
+        if (posix_fdstat(this, fd->inode, pfd->fd, &ctx->prebuf, _gf_true) !=
+            0) {
             *op_errno = errno;
             gf_msg(this->name, GF_LOG_ERROR, *op_errno, P_MSG_FSTAT_FAILED,
                    "fstat failed on fd=%p", fd);
@@ -156,7 +157,7 @@ posix_io_uring_readv_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -202,7 +203,7 @@ posix_prep_readv(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
                         ctx->fop.read.offset);
 }
 
-int
+static int
 posix_io_uring_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                      off_t offset, uint32_t flags, dict_t *xdata)
 {
@@ -289,7 +290,7 @@ posix_io_uring_writev_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -317,7 +318,7 @@ posix_prep_writev(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
                          ctx->fop.write.count, ctx->fop.write.offset);
 }
 
-int
+static int
 posix_io_uring_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
                       struct iovec *iov, int count, off_t offset,
                       uint32_t flags, struct iobref *iobref, dict_t *xdata)
@@ -384,7 +385,7 @@ posix_io_uring_fsync_complete(struct posix_uring_ctx *ctx, int32_t res)
         goto out;
     }
 
-    ret = posix_fdstat(this, fd->inode, _fd, &postbuf);
+    ret = posix_fdstat(this, fd->inode, _fd, &postbuf, _gf_true);
     if (ret != 0) {
         op_ret = -1;
         op_errno = errno;
@@ -408,7 +409,7 @@ posix_prep_fsync(struct io_uring_sqe *sqe, struct posix_uring_ctx *ctx)
     io_uring_prep_fsync(sqe, ctx->_fd, ctx->fop.fsync.datasync);
 }
 
-int
+static int
 posix_io_uring_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd,
                      int32_t datasync, dict_t *xdata)
 {
@@ -559,11 +560,9 @@ posix_io_uring_drain(struct posix_private *priv)
     return ret;
 }
 
-void
-posix_io_uring_fini(xlator_t *this)
+static void
+posix_io_uring_fini(struct posix_private *priv)
 {
-    struct posix_private *priv = this->private;
-
     posix_io_uring_drain(priv);
     (void)pthread_join(priv->uring_thread, NULL);
     io_uring_queue_exit(&priv->ring);
@@ -612,7 +611,7 @@ posix_io_uring_off(xlator_t *this)
     this->fops->writev = posix_writev;
     this->fops->fsync = posix_fsync;
     if (priv->io_uring_capable)
-        posix_io_uring_fini(this);
+        posix_io_uring_fini(priv);
 
     return 0;
 }

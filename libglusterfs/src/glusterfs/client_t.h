@@ -11,7 +11,6 @@
 #ifndef _CLIENT_T_H
 #define _CLIENT_T_H
 
-#include "glusterfs/glusterfs.h"
 #include "glusterfs/locking.h" /* for gf_lock_t, not included by glusterfs.h */
 #include "glusterfs/atomic.h"  /* for gf_atomic_t */
 

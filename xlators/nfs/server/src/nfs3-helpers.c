@@ -9,8 +9,8 @@
 */
 
 #include <inttypes.h>
+#include <netdb.h>
 
-#include <glusterfs/xlator.h>
 #include "nfs3.h"
 #include "nfs3-fh.h"
 #include "msg-nfs3.h"
@@ -21,7 +21,6 @@
 #include "nfs3-helpers.h"
 #include "nfs-mem-types.h"
 #include <glusterfs/iatt.h>
-#include <glusterfs/common-utils.h>
 #include "nfs-messages.h"
 #include "mount3.h"
 #include <string.h>

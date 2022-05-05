@@ -10,10 +10,8 @@
 
 #include "server.h"
 #include "server-helpers.h"
-#include <glusterfs/gidcache.h>
 #include "server-messages.h"
 #include <glusterfs/syscall.h>
-#include <glusterfs/defaults.h>
 #include <glusterfs/default-args.h>
 #include "server-common.h"
 
@@ -21,7 +19,7 @@
 #include <pwd.h>
 
 /* based on nfs_fix_aux_groups() */
-int
+static int
 gid_resolve(server_conf_t *conf, call_stack_t *root)
 {
     int ret = 0;
@@ -98,30 +96,10 @@ gid_resolve(server_conf_t *conf, call_stack_t *root)
     return ret;
 }
 
-int
-server_resolve_groups(call_frame_t *frame, rpcsvc_request_t *req)
-{
-    xlator_t *this = NULL;
-    server_conf_t *conf = NULL;
-
-    GF_VALIDATE_OR_GOTO("server", frame, out);
-    GF_VALIDATE_OR_GOTO("server", req, out);
-
-    this = req->trans->xl;
-    conf = this->private;
-
-    return gid_resolve(conf, frame->root);
-out:
-    return -1;
-}
-
-int
+static int
 server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
 {
     int i = 0;
-
-    GF_VALIDATE_OR_GOTO("server", frame, out);
-    GF_VALIDATE_OR_GOTO("server", req, out);
 
     if (call_stack_alloc_groups(frame->root, req->auxgidcount) != 0)
         return -1;
@@ -136,24 +114,8 @@ server_decode_groups(call_frame_t *frame, rpcsvc_request_t *req)
 
     for (; i < frame->root->ngrps; ++i)
         frame->root->groups[i] = req->auxgids[i];
-out:
+
     return 0;
-}
-
-void
-server_loc_wipe(loc_t *loc)
-{
-    if (loc->parent) {
-        inode_unref(loc->parent);
-        loc->parent = NULL;
-    }
-
-    if (loc->inode) {
-        inode_unref(loc->inode);
-        loc->inode = NULL;
-    }
-
-    GF_FREE((void *)loc->path);
 }
 
 void
@@ -198,8 +160,8 @@ free_state(server_state_t *state)
 
     GF_FREE((void *)state->name);
 
-    server_loc_wipe(&state->loc);
-    server_loc_wipe(&state->loc2);
+    loc_wipe(&state->loc);
+    loc_wipe(&state->loc2);
 
     server_resolve_wipe(&state->resolve);
     server_resolve_wipe(&state->resolve2);
@@ -415,28 +377,21 @@ out:
 }
 
 static call_frame_t *
-server_alloc_frame(rpcsvc_request_t *req)
+server_alloc_frame(rpcsvc_request_t *req, client_t *client)
 {
     call_frame_t *frame = NULL;
     server_state_t *state = NULL;
-    client_t *client = NULL;
-
-    GF_VALIDATE_OR_GOTO("server", req, out);
-    GF_VALIDATE_OR_GOTO("server", req->trans, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc, out);
-    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
-
-    client = req->trans->xl_private;
-    GF_VALIDATE_OR_GOTO("server", client, out);
 
     frame = create_frame(client->this, req->svc->ctx->pool);
     if (!frame)
         goto out;
 
-    frame->root->type = GF_OP_TYPE_FOP;
     state = GF_CALLOC(1, sizeof(*state), gf_server_mt_state_t);
-    if (!state)
+    if (caa_unlikely(!state)) {
+        STACK_DESTROY(frame->root);
+        frame = NULL;
         goto out;
+    }
 
     if (client->bound_xl)
         state->itable = client->bound_xl->itable;
@@ -445,8 +400,8 @@ server_alloc_frame(rpcsvc_request_t *req)
     state->resolve.fd_no = -1;
     state->resolve2.fd_no = -1;
 
-    frame->root->client = client;
     frame->root->state = state; /* which socket */
+    frame->root->type = GF_OP_TYPE_FOP;
 
     frame->this = client->this;
 out:
@@ -467,15 +422,21 @@ get_frame_from_request(rpcsvc_request_t *req)
     server_state_t *state = NULL;
 
     GF_VALIDATE_OR_GOTO("server", req, out);
+    trans = req->trans;
+    GF_VALIDATE_OR_GOTO("server", trans, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc, out);
+    GF_VALIDATE_OR_GOTO("server", req->svc->ctx, out);
 
-    frame = server_alloc_frame(req);
+    client = trans->xl_private;
+    GF_VALIDATE_OR_GOTO("server", client, out);
+
+    frame = server_alloc_frame(req, client);
     if (!frame)
         goto out;
 
     frame->root->op = req->procnum;
 
-    client = req->trans->xl_private;
-    this = req->trans->xl;
+    this = trans->xl;
     priv = this->private;
     clienttable = this->ctx->clienttable;
 
@@ -537,8 +498,7 @@ get_frame_from_request(rpcsvc_request_t *req)
 
 after_squash:
     /* Add a ref for this fop */
-    if (client)
-        gf_client_ref(client);
+    gf_client_ref(client);
 
     frame->root->uid = req->uid;
     frame->root->gid = req->gid;
@@ -547,14 +507,11 @@ after_squash:
     lk_owner_copy(&frame->root->lk_owner, &req->lk_owner);
 
     if (priv->server_manage_gids)
-        server_resolve_groups(frame, req);
+        gid_resolve(priv, frame->root);
     else
         server_decode_groups(frame, req);
-    trans = req->trans;
-    if (trans) {
-        memcpy(&frame->root->identifier, trans->peerinfo.identifier,
-               sizeof(trans->peerinfo.identifier));
-    }
+
+    memcpy(&frame->root->identifier, trans->peerinfo.identifier, UNIX_PATH_MAX);
 
     /* more fields, for the clients which are 3.x series this will be 0 */
     frame->root->flags = req->flags;
@@ -860,61 +817,6 @@ out:
 }
 
 int
-serialize_rsp_direntp(gf_dirent_t *entries, gfs3_readdirp_rsp *rsp)
-{
-    gf_dirent_t *entry = NULL;
-    gfs3_dirplist *trav = NULL;
-    gfs3_dirplist *prev = NULL;
-    int ret = -1;
-
-    GF_VALIDATE_OR_GOTO("server", entries, out);
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
-        if (!trav)
-            goto out;
-
-        trav->d_ino = entry->d_ino;
-        trav->d_off = entry->d_off;
-        trav->d_len = entry->d_len;
-        trav->d_type = entry->d_type;
-        trav->name = entry->d_name;
-
-        gf_stat_from_iatt(&trav->stat, &entry->d_stat);
-
-        /* if 'dict' is present, pack it */
-        if (entry->dict) {
-            ret = dict_allocate_and_serialize(entry->dict,
-                                              (char **)&trav->dict.dict_val,
-                                              &trav->dict.dict_len);
-            if (ret != 0) {
-                gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_DICT_SERIALIZE_FAIL,
-                        NULL);
-                errno = -ret;
-                trav->dict.dict_len = 0;
-                goto out;
-            }
-        }
-
-        if (prev)
-            prev->nextentry = trav;
-        else
-            rsp->reply = trav;
-
-        prev = trav;
-        trav = NULL;
-    }
-
-    ret = 0;
-out:
-    GF_FREE(trav);
-
-    return ret;
-}
-
-int
 serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
 {
     gf_dirent_t *entry = NULL;
@@ -957,40 +859,6 @@ out:
 }
 
 int
-serialize_rsp_dirent(gf_dirent_t *entries, gfs3_readdir_rsp *rsp)
-{
-    gf_dirent_t *entry = NULL;
-    gfs3_dirlist *trav = NULL;
-    gfs3_dirlist *prev = NULL;
-    int ret = -1;
-
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-    GF_VALIDATE_OR_GOTO("server", entries, out);
-
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
-        if (!trav)
-            goto out;
-        trav->d_ino = entry->d_ino;
-        trav->d_off = entry->d_off;
-        trav->d_len = entry->d_len;
-        trav->d_type = entry->d_type;
-        trav->name = entry->d_name;
-        if (prev)
-            prev->nextentry = trav;
-        else
-            rsp->reply = trav;
-
-        prev = trav;
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
-
-int
 serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
 {
     gf_dirent_t *entry = NULL;
@@ -1022,41 +890,6 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
     ret = 0;
 out:
     return ret;
-}
-
-int
-readdir_rsp_cleanup(gfs3_readdir_rsp *rsp)
-{
-    gfs3_dirlist *prev = NULL;
-    gfs3_dirlist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
-}
-
-int
-readdirp_rsp_cleanup(gfs3_readdirp_rsp *rsp)
-{
-    gfs3_dirplist *prev = NULL;
-    gfs3_dirplist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev->dict.dict_val);
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
 }
 
 int
@@ -1150,17 +983,6 @@ out:
 }
 
 int
-serialize_rsp_locklist(lock_migration_info_t *locklist,
-                       gfs3_getactivelk_rsp *rsp)
-{
-    int ret = 0;
-
-    GF_VALIDATE_OR_GOTO("server", rsp, out);
-    ret = common_rsp_locklist(locklist, &rsp->reply);
-out:
-    return ret;
-}
-int
 serialize_rsp_locklist_v2(lock_migration_info_t *locklist,
                           gfx_getactivelk_rsp *rsp)
 {
@@ -1172,23 +994,6 @@ out:
     return ret;
 }
 
-int
-getactivelkinfo_rsp_cleanup(gfs3_getactivelk_rsp *rsp)
-{
-    gfs3_locklist *prev = NULL;
-    gfs3_locklist *trav = NULL;
-
-    trav = rsp->reply;
-    prev = trav;
-
-    while (trav) {
-        trav = trav->nextentry;
-        GF_FREE(prev);
-        prev = trav;
-    }
-
-    return 0;
-}
 int
 getactivelkinfo_rsp_cleanup_v2(gfx_getactivelk_rsp *rsp)
 {
@@ -1405,43 +1210,6 @@ server_inode_new(inode_table_t *itable, uuid_t gfid)
         return itable->root;
     else
         return inode_new(itable);
-}
-
-int
-unserialize_req_locklist(gfs3_setactivelk_req *req, lock_migration_info_t *lmi)
-{
-    struct gfs3_locklist *trav = NULL;
-    lock_migration_info_t *temp = NULL;
-    int ret = -1;
-
-    trav = req->request;
-
-    INIT_LIST_HEAD(&lmi->list);
-
-    while (trav) {
-        /* TODO: move to GF_MALLOC() */
-        temp = GF_CALLOC(1, sizeof(*lmi), gf_common_mt_lock_mig);
-        if (temp == NULL) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, 0, PS_MSG_NO_MEM, NULL);
-            goto out;
-        }
-
-        INIT_LIST_HEAD(&temp->list);
-
-        gf_proto_flock_to_flock(&trav->flock, &temp->flock);
-
-        temp->lk_flags = trav->lk_flags;
-
-        temp->client_uid = gf_strdup(trav->client_uid);
-
-        list_add_tail(&temp->list, &lmi->list);
-
-        trav = trav->nextentry;
-    }
-
-    ret = 0;
-out:
-    return ret;
 }
 
 int

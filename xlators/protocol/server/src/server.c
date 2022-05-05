@@ -11,12 +11,11 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "socket.h"
 #include "server.h"
 #include "server-helpers.h"
-#include "glusterfs3-xdr.h"
 #include <glusterfs/call-stub.h>
 #include <glusterfs/statedump.h>
-#include <glusterfs/defaults.h>
 #include "authenticate.h"
 #include <glusterfs/gf-event.h>
 #include <glusterfs/syncop.h>
@@ -578,8 +577,6 @@ glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
         return 0;
 
     /* Free the memory pool */
-    if (ctx->stub_mem_pool)
-        mem_pool_destroy(ctx->stub_mem_pool);
     if (ctx->dict_pool)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)
@@ -1267,19 +1264,6 @@ server_init(xlator_t *this)
         goto err;
     }
 
-    glusterfs3_3_fop_prog.options = this->options;
-    /* make sure we register the fop program at the head to optimize
-     * lookup
-     */
-    ret = rpcsvc_program_register(conf->rpc, &glusterfs3_3_fop_prog, _gf_true);
-    if (ret) {
-        gf_smsg(this->name, GF_LOG_WARNING, 0, PS_MSG_PGM_REG_FAILED, "name=%s",
-                glusterfs3_3_fop_prog.progname, "prognum=%d",
-                glusterfs3_3_fop_prog.prognum, "progver=%d",
-                glusterfs3_3_fop_prog.progver, NULL);
-        goto err;
-    }
-
     glusterfs4_0_fop_prog.options = this->options;
     ret = rpcsvc_program_register(conf->rpc, &glusterfs4_0_fop_prog, _gf_true);
     if (ret) {
@@ -1288,7 +1272,6 @@ server_init(xlator_t *this)
                "progver:%d) failed",
                glusterfs4_0_fop_prog.progname, glusterfs4_0_fop_prog.prognum,
                glusterfs4_0_fop_prog.progver);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         goto err;
     }
 
@@ -1300,7 +1283,6 @@ server_init(xlator_t *this)
                 gluster_handshake_prog.progname, "prognum=%d",
                 gluster_handshake_prog.prognum, "progver=%d",
                 gluster_handshake_prog.progver, NULL);
-        rpcsvc_program_unregister(conf->rpc, &glusterfs3_3_fop_prog);
         rpcsvc_program_unregister(conf->rpc, &glusterfs4_0_fop_prog);
         goto err;
     }
@@ -1406,6 +1388,7 @@ server_process_event_upcall(xlator_t *this, void *data)
         {0},
     };
     xdrproc_t xdrproc;
+    gf_boolean_t xprt_found = _gf_false;
 
     GF_VALIDATE_OR_GOTO(this->name, data, out);
 
@@ -1483,21 +1466,26 @@ server_process_event_upcall(xlator_t *this, void *data)
             if (!client || strcmp(client->client_uid, client_uid))
                 continue;
 
-            ret = rpcsvc_request_submit(conf->rpc, xprt, &server_cbk_prog,
-                                        cbk_procnum, up_req, this->ctx,
-                                        xdrproc);
-            if (ret < 0) {
-                gf_msg_debug(this->name, 0,
-                             "Failed to send "
-                             "upcall to client:%s upcall "
-                             "event:%d",
-                             client_uid, upcall_data->event_type);
-            }
+            xprt_found = _gf_true;
+            rpc_transport_ref(xprt);
             break;
         }
     }
     pthread_mutex_unlock(&conf->mutex);
-    ret = 0;
+
+    if (xprt_found) {
+        ret = rpcsvc_request_submit(conf->rpc, xprt, &server_cbk_prog,
+                                    cbk_procnum, up_req, this->ctx, xdrproc);
+        rpc_transport_unref(xprt);
+        if (ret < 0) {
+            gf_msg_debug(this->name, 0,
+                         "Failed to send "
+                         "upcall to client:%s upcall "
+                         "event:%d",
+                         client_uid, upcall_data->event_type);
+        }
+    }
+
 out:
     GF_FREE((gf_c_req.xdata).xdata_val);
     GF_FREE((gf_recall_lease.xdata).xdata_val);

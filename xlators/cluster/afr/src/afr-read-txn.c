@@ -8,7 +8,6 @@
   cases as published by the Free Software Foundation.
 */
 
-#include "afr.h"
 #include "afr-transaction.h"
 #include "afr-messages.h"
 
@@ -45,7 +44,7 @@ afr_read_txn_wind(call_frame_t *frame, xlator_t *this, int subvol)
     local->readfn(frame, this, subvol);
 }
 
-int
+static int
 afr_read_txn_next_subvol(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;
@@ -231,7 +230,7 @@ out:
     return ret;
 }
 
-void
+static void
 afr_ta_read_txn_synctask(call_frame_t *frame, xlator_t *this)
 {
     call_frame_t *ta_frame = NULL;
@@ -264,7 +263,7 @@ out:
     afr_read_txn_wind(frame, this, -1);
 }
 
-int
+static int
 afr_read_txn_refresh_done(call_frame_t *frame, xlator_t *this, int err)
 {
     afr_private_t *priv = NULL;
@@ -341,7 +340,7 @@ afr_read_txn_continue(call_frame_t *frame, xlator_t *this, int subvol)
    the same frame
 */
 
-void
+static void
 afr_read_txn_wipe(call_frame_t *frame, xlator_t *this)
 {
     afr_local_t *local = NULL;

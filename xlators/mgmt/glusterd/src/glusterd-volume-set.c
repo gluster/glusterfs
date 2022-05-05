@@ -9,6 +9,7 @@ cases as published by the Free Software Foundation.
 */
 
 #include <glusterfs/syscall.h>
+#include "glusterd.h"
 #include "glusterd-volgen.h"
 #include "glusterd-utils.h"
 
@@ -1050,14 +1051,10 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .type = NO_DOC,
      .op_version = 2,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "cluster.readdir-failover",
-     .voltype = "cluster/replicate",
-     .op_version = 2,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "cluster.ensure-durability",
      .voltype = "cluster/replicate",
      .op_version = 3,
-    .type = NO_DOC,
+     .type = NO_DOC,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "cluster.consistent-metadata",
      .voltype = "cluster/replicate",
@@ -1361,7 +1358,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .voltype = "performance/write-behind",
      .option = "aggregate-size",
      .op_version = GD_OP_VERSION_4_1_0,
-     .flags = OPT_FLAG_CLIENT_OPT},
+     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = "performance.nfs.write-behind-trickling-writes",
      .voltype = "performance/write-behind",
      .option = "trickling-writes",
@@ -1905,7 +1902,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_4_1_0,
      .option = "tag-namespaces",
      .value = "off",
-     .flags = OPT_FLAG_CLIENT_OPT,
+     .flags = VOLOPT_FLAG_CLIENT_OPT,
      .description = "This option enables this translator's functionality "
                     "that tags every fop with a namespace hash for later "
                     "throttling, stats collection, logging, etc."},
@@ -3096,7 +3093,24 @@ struct volopt_map_entry glusterd_volopt_map[] = {
                        "access-control xlator in volume",
         .type = NO_DOC,
     },
-
+    {
+        .key = "feature.simple-quota-pass-through",
+        .voltype = "features/simple-quota",
+        .option = "pass-through",
+        .value = "true",
+        .description = "enable/disable simple-quota (EXPERIMENTAL) xlator in "
+                       "volume. Disabled by default",
+        .op_version = GD_OP_VERSION_11_0,
+    },
+    {
+        .key = "feature.simple-quota.use-backend",
+        .voltype = "features/simple-quota",
+        .option = "use-backend",
+        .value = "false",
+        .description = "enable/disable backend filesystem's accounting for "
+                       "quota. Disabled by default",
+        .op_version = GD_OP_VERSION_11_0,
+    },
     {.key = "cluster.use-anonymous-inode",
      .voltype = "cluster/replicate",
      .op_version = GD_OP_VERSION_9_0,
@@ -3105,7 +3119,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
 
     {.key = "rebalance.ensure-durability",
      .voltype = "cluster/distribute",
-    .type = NO_DOC,
+     .type = NO_DOC,
      .op_version = GD_OP_VERSION_10_0,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
     {.key = NULL}};

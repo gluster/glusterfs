@@ -61,14 +61,14 @@ struct rda_fd_ctx {
     size_t cur_size;   /* current size of the preload */
     off_t next_offset; /* tail of the ctx */
     uint32_t state;
+    int op_errno;
     gf_lock_t lock;
-    gf_dirent_t entries;
     call_frame_t *fill_frame;
     call_stub_t *stub;
-    int op_errno;
     dict_t *xattrs; /* md-cache keys to be sent in readdirp() */
     dict_t *writes_during_prefetch;
     gf_atomic_t prefetching;
+    gf_dirent_t entries;
 };
 
 struct rda_local {

@@ -11,7 +11,6 @@
 #ifndef __BIT_ROT_SCRUB_H__
 #define __BIT_ROT_SCRUB_H__
 
-#include <glusterfs/xlator.h>
 #include "bit-rot.h"
 
 void *

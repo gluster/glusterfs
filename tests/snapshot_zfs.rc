@@ -1,0 +1,171 @@
+#!/bin/bash
+
+ZFS_DEFINED=0
+# Replace any '-' by '_' to avoid that device manager modifies the name of
+# the device (it replaces '-' by '--' in /dev/mapper)
+ZFS_PREFIX="patchy_snap_${GFREG_ID//-/_}"
+ZFS_COUNT=0
+VHD_SIZE="300M"
+
+function init_zfs() {
+    if [ "$1" == "" ]; then
+        echo "Error: Invalid argument supplied"
+        return 1
+    fi
+    ZFS_COUNT=$1
+
+    if [ "$2" != "" ]; then
+        VHD_SIZE=$2
+    fi
+
+    local b
+    local i
+
+    if [ "$B1" = "" ]; then
+        B1=$B0
+    fi
+
+    for i in `seq 1 $ZFS_COUNT`; do
+        b="B$i"
+        if [ "${!b}" = "" ]; then
+            echo "Error: $b not defined."
+            echo "Please run launch_cluster with atleast $ZFS_COUNT nodes"
+            return 1
+        fi
+        eval "L$i=/${ZFS_PREFIX}_pool_${i}/bricks/brick"
+        eval "LM$i=/${ZFS_PREFIX}_pool_${i}/bricks"
+    done
+
+    ZFS_DEFINED=1
+    return 0
+}
+
+function verify_zfs_version() {
+    if command -v zfs &> /dev/null; then
+        return 0;
+    fi
+    return 1;
+}
+
+function setup_zfs() {
+    _cleanup_zfs
+    init_zfs $@ || return 1
+    _setup_zfs
+    return 0
+}
+
+function cleanup_zfs() {
+    pkill gluster
+    sleep 2
+
+    if [ "$ZFS_DEFINED" = "1" ]; then
+        _cleanup_zfs >/dev/null 2>&1
+    fi
+
+    _cleanup_zfs_again >/dev/null 2>&1
+    \rm -rf /var/run/gluster/snaps/*
+    zfs list | grep "${ZFS_PREFIX}" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
+    return 0
+}
+
+# Find out how this file was sourced, source traps.rc the same way, and use
+# push_trapfunc to make sure cleanup_lvm gets called before we exit.
+. $(dirname ${BASH_SOURCE[0]})/traps.rc
+push_trapfunc cleanup_zfs
+
+########################################################
+# Private Functions
+########################################################
+function _setup_zfs() {
+    local count=$ZFS_COUNT
+    local b
+    local i
+
+    for i in `seq 1 $count`; do
+        b="B$i"
+
+        _create_zfs_vhd ${!b} $i
+        _create_zpool ${!b} $i
+        _create_zfs_dataset ${!b} $i
+    done
+}
+
+function _cleanup_zfs() {
+    local count=$ZFS_COUNT
+    local b
+    local i
+
+    for i in `seq 1 $count`; do
+        b="B$i"
+        _remove_zfs_dataset $i
+        _remove_zpool $i
+        _remove_zfs_vhd ${!b}
+    done
+}
+
+function _cleanup_zfs_again() {
+    local file
+
+    /sbin/zfs list | grep $ZFS_PREFIX | awk '{print $1}' | xargs -r -L 1 zpool destroy -f
+
+    find $B0 -name "${ZFS_PREFIX}_loop" | xargs -r losetup -d
+
+    find $B0 -name "*${ZFS_PREFIX}*" | xargs -r rm -rf
+
+    find /run/gluster/snaps -name "*${ZFS_PREFIX}*" | xargs -r rm -rf
+
+    for file in `ls /run/gluster/snaps`; do
+        find /run/gluster/snaps/$file -mmin -2 | xargs -r rm -rf
+    done
+}
+
+########################################################
+########################################################
+function _create_zfs_vhd() {
+    local dir=$1
+    local num=$2
+    local loop_num=`expr $2 + 8`
+
+    mkdir -p $dir
+    fallocate -l${VHD_SIZE} $dir/${ZFS_PREFIX}_vhd
+    mknod -m660 $dir/${ZFS_PREFIX}_loop b 7 $loop_num
+    /sbin/losetup $dir/${ZFS_PREFIX}_loop $dir/${ZFS_PREFIX}_vhd
+}
+
+function _create_zpool() {
+    local dir=$1
+    local num=$2
+    local zpool="${ZFS_PREFIX}_pool_${num}"
+
+    /sbin/zpool create ${zpool} $dir/${ZFS_PREFIX}_loop
+}
+
+function _create_zfs_dataset() {
+    local dir=$1
+    local num=$2
+    local dataset="${ZFS_PREFIX}_pool_${num}/bricks"
+
+    /sbin/zfs create ${dataset}
+}
+
+function _remove_zpool() {
+    local num=$1
+    local zpool="${ZFS_PREFIX}_pool_${num}"
+
+    /sbin/zpool destroy -f ${!zpool}
+}
+
+function _remove_zfs_dataset() {
+    local num=$1
+    local dataset="${ZFS_PREFIX}_pool_${num}/bricks"
+
+    /sbin/zfs destroy -f ${!dataset}
+}
+
+function _remove_zfs_vhd() {
+    local dir=$1
+
+    losetup -d $dir/${ZFS_PREFIX}_loop
+    rm -f $dir/${ZFS_PREFIX}_loop
+    rm -f $dir/${ZFS_PREFIX}_vhd
+}

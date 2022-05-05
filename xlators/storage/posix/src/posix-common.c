@@ -35,14 +35,13 @@
 #include <fcntl.h>
 #endif /* HAVE_LINKAT */
 
+#include "posix.h"
 #include "posix-inode-handle.h"
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/syscall.h>
 #include <glusterfs/statedump.h>
 #include <glusterfs/locking.h>
-#include <glusterfs/timer.h>
-#include "glusterfs3-xdr.h"
 #include "posix-aio.h"
 #include "posix-io-uring.h"
 #include <glusterfs/glusterfs-acl.h>
@@ -52,7 +51,7 @@
 #include <glusterfs/compat-uuid.h>
 #include "timer-wheel.h"
 
-extern char *marker_xattrs[];
+// extern char *marker_xattrs[];
 #define ALIGN_SIZE 4096
 
 #undef HAVE_SET_FSID
@@ -129,11 +128,9 @@ posix_inode(xlator_t *this)
 }
 
 static void
-delete_posix_diskxl(xlator_t *this)
+delete_posix_diskxl(struct posix_private *priv, glusterfs_ctx_t *ctx)
 {
-    struct posix_private *priv = this->private;
     struct posix_diskxl *pxl = priv->pxl;
-    glusterfs_ctx_t *ctx = this->ctx;
     uint32_t count = 1;
 
     if (pxl) {
@@ -214,7 +211,7 @@ posix_notify(xlator_t *this, int32_t event, void *data, ...)
             }
             pthread_mutex_unlock(&ctx->fd_lock);
 
-            delete_posix_diskxl(this);
+            delete_posix_diskxl(priv, ctx);
 
             gf_log(this->name, GF_LOG_INFO, "Sending CHILD_DOWN for brick %s",
                    victim->name);
@@ -343,6 +340,7 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     double old_disk_reserve = 0.0;
 
     priv = this->private;
+    glusterfs_ctx_t *ctx = this->ctx;
 
     GF_OPTION_RECONF("brick-uid", uid, options, int32, out);
     GF_OPTION_RECONF("brick-gid", gid, options, int32, out);
@@ -418,15 +416,15 @@ posix_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("reserve", priv->disk_reserve, options, percent_or_size,
                      out);
     /* option can be any one of percent or bytes */
-    priv->disk_unit = 0;
+    priv->disk_unit_percent = _gf_false;
     if (priv->disk_reserve < 100.0)
-        priv->disk_unit = 'p';
+        priv->disk_unit_percent = _gf_true;
 
     /* Delete a pxl object from a list of disk_reserve while something
        is changed for reserve option during graph reconfigure
     */
     if (old_disk_reserve != priv->disk_reserve) {
-        delete_posix_diskxl(this);
+        delete_posix_diskxl(priv, ctx);
         old_disk_reserve = 0;
     }
 
@@ -493,7 +491,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 posix_delete_unlink_entry(const char *fpath, const struct stat *sb,
                           int typeflag, struct FTW *ftwbuf)
 {
@@ -530,7 +528,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 posix_delete_unlink(const char *unlink_path)
 {
     int ret = -1;
@@ -546,7 +544,7 @@ posix_delete_unlink(const char *unlink_path)
     return ret;
 }
 
-int32_t
+static int32_t
 posix_create_unlink_dir(xlator_t *this)
 {
     struct posix_private *priv = NULL;
@@ -602,7 +600,7 @@ posix_create_unlink_dir(xlator_t *this)
     return 0;
 }
 
-int
+static int
 posix_create_open_directory_based_fd(xlator_t *this, int pdirfd, char *dir_name)
 {
     int ret = -1;
@@ -1122,10 +1120,10 @@ posix_init(xlator_t *this)
     GF_OPTION_INIT("reserve", _private->disk_reserve, percent_or_size, out);
 
     /* option can be any one of percent or bytes */
-    _private->disk_unit = 0;
+    _private->disk_unit_percent = _gf_false;
     pthread_cond_init(&_private->fd_cond, NULL);
     if (_private->disk_reserve < 100.0)
-        _private->disk_unit = 'p';
+        _private->disk_unit_percent = _gf_true;
 
     if (_private->disk_reserve) {
         ret = posix_spawn_disk_space_check_thread(this);

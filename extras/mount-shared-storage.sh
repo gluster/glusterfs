@@ -13,20 +13,23 @@ do
 	if [ "${arr[2]}" == "glusterfs" ]
 	then
 
-		#check whether shared storage is mounted
-		#if it is mounted then mountpoint -q will return a 0 success code
-		if mountpoint -q "${arr[1]}"
+		#Check whether shared storage is already mounted, systemd.automount will be ignored
+		if grep -q -P '^(?!systemd).*'"${arr[1]}" /proc/mounts
 		then
 			echo "${arr[1]} is already mounted"
 			continue
 		fi
 
+		#Wait for few seconds prior to mount command
+		#This solves possible issues with systemd boot process
+		#Allowing usage of glusterfssharedstorage.service from GlusterFS Debian package
+		sleep 5
 		mount -t glusterfs -o "${arr[3]}" "${arr[0]}" "${arr[1]}"
-		#wait for few seconds
-		sleep 10
+		#Also wait a few seconds after the mount command
+		sleep 5
 
-		#recheck mount got succeed
-		if mountpoint -q "${arr[1]}"
+		#Re-check whether shared storage has been successfully mounted
+		if grep -q -P '^(?!systemd).*'"${arr[1]}" /proc/mounts
 		then
 			echo "${arr[1]} has been mounted"
 			continue
@@ -35,5 +38,5 @@ do
 			exitStatus=1
 		fi
 	fi
-done <<< "$(sed '/^#/ d' </etc/fstab | grep 'glusterfs')"
+done <<< "$(sed '/^#/ d' </etc/fstab | grep ' glusterfs ')"
 exit $exitStatus
