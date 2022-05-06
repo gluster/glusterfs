@@ -2881,7 +2881,7 @@ gf_is_local_addr(char *hostname)
 
     for (res = result; res != NULL; res = res->ai_next) {
         get_ip_from_addrinfo(res, &ip);
-        gf_msg_debug(this->name, 0, "%s ", ip);
+        gf_msg_debug(this->name, 0, "%s ", (ip ? ip : "<unknown>"));
 
         if (ip) {
             found = (gf_is_loopback_localhost(res->ai_addr, hostname) ||
