@@ -542,7 +542,6 @@ get_host_name
 get_mem_size
 get_xlator_by_name
 get_xlator_by_type
-gf_array_insertionsort
 gf_asprintf
 gf_async
 gf_async_adjust_threads

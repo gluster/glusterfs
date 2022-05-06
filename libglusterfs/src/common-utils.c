@@ -2304,43 +2304,6 @@ gf_existing_leaseid()
     return glusterfs_leaseid_exist();
 }
 
-void *
-gf_array_elem(void *a, int index, size_t elem_size)
-{
-    uint8_t *ptr = a;
-    return (void *)(ptr + index * elem_size);
-}
-
-void
-gf_elem_swap(void *x, void *y, size_t l)
-{
-    uint8_t *a = x, *b = y, c;
-    while (l--) {
-        c = *a;
-        *a++ = *b;
-        *b++ = c;
-    }
-}
-
-void
-gf_array_insertionsort(void *A, int l, int r, size_t elem_size, gf_cmp cmp)
-{
-    int i = l;
-    int N = r + 1;
-    void *Temp = NULL;
-    int j = 0;
-
-    for (i = l; i < N; i++) {
-        Temp = gf_array_elem(A, i, elem_size);
-        j = i - 1;
-        while (j >= 0 && (cmp(Temp, gf_array_elem(A, j, elem_size)) < 0)) {
-            gf_elem_swap(Temp, gf_array_elem(A, j, elem_size), elem_size);
-            Temp = gf_array_elem(A, j, elem_size);
-            j = j - 1;
-        }
-    }
-}
-
 /*
  * rounds up nr to power of two. If nr is already a power of two, just returns
  * nr

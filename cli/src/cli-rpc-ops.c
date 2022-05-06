@@ -5453,14 +5453,12 @@ gf_cli_gsync_set(call_frame_t *frame, xlator_t *this, void *data)
     return ret;
 }
 
-int
-cli_profile_info_percentage_cmp(void *a, void *b)
+static int
+cli_profile_info_percentage_cmp(const void *a, const void *b)
 {
-    cli_profile_info_t *ia = NULL;
-    cli_profile_info_t *ib = NULL;
+    cli_profile_info_t *ia = (cli_profile_info_t *)a;
+    cli_profile_info_t *ib = (cli_profile_info_t *)b;
 
-    ia = a;
-    ib = b;
     if (ia->percentage_avg_latency < ib->percentage_avg_latency)
         return -1;
     else if (ia->percentage_avg_latency > ib->percentage_avg_latency)
@@ -5555,9 +5553,8 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
                                                   profile_info[i].fop_hits) /
                                                  total_percentage_latency);
         }
-        gf_array_insertionsort(profile_info, 1, GF_FOP_MAXVALUE - 1,
-                               sizeof(cli_profile_info_t),
-                               cli_profile_info_percentage_cmp);
+        qsort(profile_info, GF_FOP_MAXVALUE, sizeof(cli_profile_info_t),
+              cli_profile_info_percentage_cmp);
     }
     snprintf(key, sizeof(key), "%d-%d-duration", count, interval);
     ret = dict_get_uint64(dict, key, &sec);
