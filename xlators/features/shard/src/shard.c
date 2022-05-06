@@ -598,19 +598,14 @@ shard_call_count_return(call_frame_t *frame)
 static char *
 shard_internal_dir_string(shard_internal_dir_type_t type)
 {
-    char *str = NULL;
-
     switch (type) {
         case SHARD_INTERNAL_DIR_DOT_SHARD:
-            str = GF_SHARD_DIR;
-            break;
+            return GF_SHARD_DIR;
         case SHARD_INTERNAL_DIR_DOT_SHARD_REMOVE_ME:
-            str = GF_SHARD_REMOVE_ME_DIR;
-            break;
+            return GF_SHARD_REMOVE_ME_DIR;
         default:
-            break;
+            return "<unknown>";
     }
-    return str;
 }
 
 static int
