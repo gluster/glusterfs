@@ -1544,6 +1544,27 @@ init(xlator_t *this)
     int32_t len = 0;
     int op_version = 0;
 
+    /* Extra directories needed for the regular operation. */
+    struct {
+        char *base;
+        const char *name;
+    } *p, dirs[] = {
+        { workdir, "vols" },
+        { rundir, "vols" },
+        { workdir, "snaps" },
+        { workdir, "peers" },
+        { logdir, "bricks" },
+#ifdef BUILD_GNFS
+        { workdir, "nfs" },
+#endif /* BUILD_GNFS */
+        { workdir, "bitd" },
+        { workdir, "scrub" },
+        { workdir, "glustershd" },
+        { workdir, "quotad" },
+        { workdir, "groups" },
+        { NULL, NULL }
+    };
+
 #if defined(RUN_WITH_MEMCHECK)
     vgtool = _gf_memcheck;
 #elif defined(RUN_WITH_DRD)
@@ -1738,154 +1759,23 @@ init(xlator_t *this)
         exit(1);
     }
 
-    len = snprintf(storedir, sizeof(storedir), "%s/vols", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
+    /* Ensure we have all of the extra directories. */
+    for (p = dirs; p->base != NULL; p++) {
+        len = snprintf(storedir, sizeof(storedir), "%s/%s", p->base, p->name);
 
-    ret = sys_mkdir(storedir, 0755);
+        if (len < 0 || len >= sizeof(storedir)) {
+            gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_DIR_OP_FAILED,
+                   "'%s' directory name is too long", p->name);
+            exit(1);
+        }
 
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create volume directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
+        ret = sys_mkdir(storedir, 0755);
 
-    /*keeping individual volume pid file information in /var/run/gluster* */
-    len = snprintf(storedir, sizeof(storedir), "%s/vols", rundir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-
-    ret = sys_mkdir(storedir, 0755);
-
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create volume directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/snaps", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-
-    ret = sys_mkdir(storedir, 0755);
-
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create snaps directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/peers", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-
-    ret = sys_mkdir(storedir, 0755);
-
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create peers directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/bricks", logdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create logs directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-#ifdef BUILD_GNFS
-    len = snprintf(storedir, sizeof(storedir), "%s/nfs", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create nfs directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-#endif
-    len = snprintf(storedir, sizeof(storedir), "%s/bitd", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create bitrot directory %s", storedir);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/scrub", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create scrub directory %s", storedir);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/glustershd", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create glustershd directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/quotad", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create quotad directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
-    }
-
-    len = snprintf(storedir, sizeof(storedir), "%s/groups", workdir);
-    if ((len < 0) || (len >= sizeof(storedir))) {
-        exit(1);
-    }
-    ret = sys_mkdir(storedir, 0755);
-    if ((-1 == ret) && (errno != EEXIST)) {
-        gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
-               "Unable to create glustershd directory %s"
-               " ,errno = %d",
-               storedir, errno);
-        exit(1);
+        if ((-1 == ret) && (errno != EEXIST)) {
+            gf_msg(this->name, GF_LOG_CRITICAL, errno, GD_MSG_CREATE_DIR_FAILED,
+                   "unable to create directory %s", storedir);
+            exit(1);
+        }
     }
 
     ret = glusterd_rpcsvc_options_build(this->options);
