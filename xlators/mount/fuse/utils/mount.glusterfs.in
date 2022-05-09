@@ -302,8 +302,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --fuse-mountopts=$fuse_mountopts");
     fi
 
-    if [ -n "$xlator_option" ]; then
-        cmd_line=$(echo "$cmd_line --xlator-option=$xlator_option");
+    if [ -n "${xlator_options}" ]; then
+        for xlator_option in "${xlator_options[@]}"; do
+            cmd_line=$(echo "$cmd_line --xlator-option=$xlator_option");
+        done
     fi
 
     if [ -n "$kernel_writeback_cache" ]; then
@@ -576,7 +578,7 @@ with_options()
             oom_score_adj=$value
             ;;
         "xlator-option")
-            xlator_option=$value
+            xlator_options+=($value)
             ;;
         "fuse-mountopts")
             fuse_mountopts=$value
