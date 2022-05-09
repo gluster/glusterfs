@@ -5683,6 +5683,10 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
 
     up_lease_arg = GF_MALLOC(sizeof(struct glfs_upcall_lease),
                              glfs_mt_upcall_inode_t);
+    if (!up_lease_arg) {
+        errno = ENOMEM;
+        goto out;
+    }
     up_lease_arg->object = object;
     up_lease_arg->lease_type = recall_lease->lease_type;
 
