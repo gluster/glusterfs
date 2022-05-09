@@ -153,16 +153,13 @@ cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
 
     brick->name = words[wordcount - 1];
     brick->len = strlen(words[wordcount - 1]);
-    *ta_brick = GF_MALLOC(brick->len + 3, gf_common_mt_char);
+    gf_asprintf(ta_brick, " %s ", brick->name);
     if (*ta_brick == NULL) {
         ret = -1;
         gf_log("cli", GF_LOG_ERROR, "Out of memory");
         goto out;
     }
 
-    strcat(*ta_brick, " ");
-    strcat(*ta_brick, brick->name);
-    strcat(*ta_brick, " ");
 out:
     if (tmp_host) {
         GF_FREE(tmp_host);
