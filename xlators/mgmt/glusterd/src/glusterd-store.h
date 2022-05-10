@@ -41,7 +41,6 @@ typedef enum glusterd_store_ver_ac_ {
 #define GLUSTERD_STORE_KEY_VOL_STATUS "status"
 #define GLUSTERD_STORE_KEY_VOL_PORT "port"
 #define GLUSTERD_STORE_KEY_VOL_SUB_COUNT "sub_count"
-#define GLUSTERD_STORE_KEY_VOL_STRIPE_CNT "stripe_count"
 #define GLUSTERD_STORE_KEY_VOL_REPLICA_CNT "replica_count"
 #define GLUSTERD_STORE_KEY_VOL_DISPERSE_CNT "disperse_count"
 #define GLUSTERD_STORE_KEY_VOL_REDUNDANCY_CNT "redundancy_count"
