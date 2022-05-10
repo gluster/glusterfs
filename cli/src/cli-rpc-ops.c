@@ -731,8 +731,9 @@ out:
 
 static void
 gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
-                              int replica_count, int disperse_count,
-                              int redundancy_count, int arbiter_count)
+                              int stripe_count, int replica_count,
+                              int disperse_count, int redundancy_count,
+                              int arbiter_count)
 {
     if (type == GF_CLUSTER_TYPE_NONE) {
         cli_out("Number of Bricks: %d", brick_count);
@@ -741,7 +742,8 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
                 (brick_count / dist_count), disperse_count - redundancy_count,
                 redundancy_count, brick_count);
     } else {
-        /* For replicate, dist_count is good enough */
+        /* For both replicate and stripe, dist_count is
+           good enough */
         if (arbiter_count == 0) {
             cli_out("Number of Bricks: %d x %d = %d",
                     (brick_count / dist_count), dist_count, brick_count);
@@ -765,6 +767,7 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t type = 0;
     int32_t brick_count = 0;
     int32_t dist_count = 0;
+    int32_t stripe_count = 0;
     int32_t replica_count = 0;
     int32_t disperse_count = 0;
     int32_t redundancy_count = 0;
@@ -915,6 +918,16 @@ xml_output:
         if (ret)
             goto out;
 
+        keylen = snprintf(key, sizeof(key), "volume%d.stripe_count", i);
+        ret = dict_get_int32n(dict, key, keylen, &stripe_count);
+        if (ret)
+            goto out;
+
+        keylen = snprintf(key, sizeof(key), "volume%d.replica_count", i);
+        ret = dict_get_int32n(dict, key, keylen, &replica_count);
+        if (ret)
+            goto out;
+
         keylen = snprintf(key, sizeof(key), "volume%d.disperse_count", i);
         ret = dict_get_int32n(dict, key, keylen, &disperse_count);
         if (ret)
@@ -950,7 +963,7 @@ xml_output:
         if (ret)
             goto out;
 
-        // Distributed (replicate) setups
+        // Distributed (stripe/replicate/stripe-replica) setups
         vol_type = get_vol_type(type, dist_count, brick_count);
 
         cli_out("Volume Name: %s", volname);
@@ -959,9 +972,9 @@ xml_output:
         cli_out("Status: %s", cli_vol_status_str[status]);
         cli_out("Snapshot Count: %d", snap_count);
 
-        gf_cli_print_number_of_bricks(type, brick_count, dist_count,
-                                      replica_count, disperse_count,
-                                      redundancy_count, arbiter_count);
+        gf_cli_print_number_of_bricks(
+            type, brick_count, dist_count, stripe_count, replica_count,
+            disperse_count, redundancy_count, arbiter_count);
 
         cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
                                        : (transport == 1) ? "rdma"

@@ -2964,6 +2964,7 @@ glusterd_volume_quorum_check(glusterd_volinfo_t *volinfo, int64_t index,
         distribute_subvols = volinfo->brick_count / volinfo->dist_leaf_count;
         for (j = 0; j < distribute_subvols; j++) {
             /* by default assume quorum is not met
+               TODO: Handle distributed striped replicate volumes
                Currently only distributed replicate volumes are
                handled. quorum is not met even if one of the bricks are down.
             */

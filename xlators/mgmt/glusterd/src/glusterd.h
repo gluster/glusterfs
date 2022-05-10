@@ -374,6 +374,7 @@ struct glusterd_volinfo_ {
      */
     glusterd_volume_status status;
     int sub_count; /* backward compatibility */
+    int stripe_count;
     int replica_count;
     int arbiter_count;
     int thin_arbiter_count;

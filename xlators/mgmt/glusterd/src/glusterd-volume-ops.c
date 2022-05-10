@@ -1988,6 +1988,8 @@ glusterd_op_create_volume(dict_t *dict, char **op_errstr)
 
     /* replica-count 1 means, no replication, file is in one brick only */
     volinfo->replica_count = 1;
+    /* stripe-count 1 means, no striping, file is present as a whole */
+    volinfo->stripe_count = 1;
 
     if (GF_CLUSTER_TYPE_REPLICATE == volinfo->type) {
         /* performance.client-io-threads is turned on to default,

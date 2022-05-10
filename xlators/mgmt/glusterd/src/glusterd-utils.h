@@ -386,6 +386,9 @@ int
 glusterd_restart_rebalance_for_volume(glusterd_volinfo_t *volinfo);
 
 int
+glusterd_calc_dist_leaf_count(int rcount, int scount);
+
+int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t

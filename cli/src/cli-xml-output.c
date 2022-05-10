@@ -2429,6 +2429,7 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
     int status = 0;
     int brick_count = 0;
     int dist_count = 0;
+    int stripe_count = 0;
     int replica_count = 0;
     int arbiter_count = 0;
     int snap_count = 0;
@@ -2508,6 +2509,14 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
                                               (brick_count / dist_count));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
+        snprintf(key, sizeof(key), "volume%d.stripe_count", i);
+        ret = dict_get_int32(dict, key, &stripe_count);
+        if (ret)
+            goto out;
+        ret = xmlTextWriterWriteFormatElement(
+            local->writer, (xmlChar *)"stripeCount", "%d", stripe_count);
+        XML_RET_CHECK_AND_GOTO(ret, out);
+
         snprintf(key, sizeof(key), "volume%d.replica_count", i);
         ret = dict_get_int32(dict, key, &replica_count);
         if (ret)
@@ -2545,7 +2554,7 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
         ret = dict_get_int32(dict, key, &type);
         if (ret)
             goto out;
-        /* For Distributed-(replicate,disperse)
+        /* For Distributed-(stripe,replicate,stipe-replicate,disperse)
            types
          */
         type = get_vol_type(type, dist_count, brick_count);

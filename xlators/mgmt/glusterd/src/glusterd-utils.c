@@ -764,7 +764,7 @@ out:
     return ret;
 }
 
-static void
+static void 
 glusterd_auth_cleanup(glusterd_volinfo_t *volinfo)
 {
     GF_ASSERT(volinfo);
@@ -2841,6 +2841,11 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
+    keylen = snprintf(key, sizeof(key), "%s.stripe_count", pfx);
+    ret = dict_set_int32n(dict, key, keylen, volinfo->stripe_count);
+    if (ret)
+        goto out;
+
     keylen = snprintf(key, sizeof(key), "%s.replica_count", pfx);
     ret = dict_set_int32n(dict, key, keylen, volinfo->replica_count);
     if (ret)
@@ -4323,6 +4328,14 @@ glusterd_import_volinfo(dict_t *peer_data, int count,
                  volname);
         goto out;
     }
+
+    /* not having a 'stripe_count' key is not a error
+       (as peer may be of old version) */
+    keylen = snprintf(key, sizeof(key), "%s.stripe_count", key_prefix);
+    ret = dict_get_int32n(peer_data, key, keylen, &new_volinfo->stripe_count);
+    if (ret)
+        gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
+               "peer is possibly old version");
 
     /* not having a 'replica_count' key is not a error
        (as peer may be of old version) */
@@ -6854,14 +6867,21 @@ glusterd_restart_gsyncds(glusterd_conf_t *conf)
 }
 
 int
+glusterd_calc_dist_leaf_count(int rcount, int scount)
+{
+    return (rcount ? rcount : 1) * (scount ? scount : 1);
+}
+
+int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo)
 {
+    int rcount = volinfo->replica_count;
+    int scount = volinfo->stripe_count;
+
     if (volinfo->type == GF_CLUSTER_TYPE_DISPERSE)
         return volinfo->disperse_count;
-    else if (volinfo->type == GF_CLUSTER_TYPE_REPLICATE)
-        return volinfo->replica_count;
 
-    return 1;
+    return glusterd_calc_dist_leaf_count(rcount, scount);
 }
 
 static glusterd_brickinfo_t *

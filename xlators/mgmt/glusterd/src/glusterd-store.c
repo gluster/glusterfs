@@ -836,11 +836,12 @@ glusterd_volume_exclude_options_write(int fd, glusterd_volinfo_t *volinfo)
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
     ret = snprintf(buf + total_len, sizeof(buf) - total_len,
-                   "%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n",
+                   "%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n%s=%d\n",
                    GLUSTERD_STORE_KEY_VOL_TYPE, volinfo->type,
                    GLUSTERD_STORE_KEY_VOL_COUNT, volinfo->brick_count,
                    GLUSTERD_STORE_KEY_VOL_STATUS, volinfo->status,
                    GLUSTERD_STORE_KEY_VOL_SUB_COUNT, volinfo->sub_count,
+                   GLUSTERD_STORE_KEY_VOL_STRIPE_CNT, volinfo->stripe_count,
                    GLUSTERD_STORE_KEY_VOL_REPLICA_CNT, volinfo->replica_count);
     if (ret < 0 || ret >= sizeof(buf) - total_len) {
         ret = -1;
@@ -3159,6 +3160,9 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_SUB_COUNT,
                             SLEN(GLUSTERD_STORE_KEY_VOL_SUB_COUNT))) {
             volinfo->sub_count = atoi(value);
+        } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_STRIPE_CNT,
+                            SLEN(GLUSTERD_STORE_KEY_VOL_STRIPE_CNT))) {
+            volinfo->stripe_count = atoi(value);
         } else if (!strncmp(key, GLUSTERD_STORE_KEY_VOL_REPLICA_CNT,
                             SLEN(GLUSTERD_STORE_KEY_VOL_REPLICA_CNT))) {
             volinfo->replica_count = atoi(value);
@@ -3321,16 +3325,27 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
     {
         switch (volinfo->type) {
             case GF_CLUSTER_TYPE_NONE:
+                volinfo->stripe_count = 1;
                 volinfo->replica_count = 1;
                 break;
 
             case GF_CLUSTER_TYPE_REPLICATE:
+                volinfo->stripe_count = 1;
                 volinfo->replica_count = volinfo->sub_count;
                 break;
 
             case GF_CLUSTER_TYPE_DISPERSE:
                 GF_ASSERT(volinfo->disperse_count > 0);
                 GF_ASSERT(volinfo->redundancy_count > 0);
+                break;
+
+            case GF_CLUSTER_TYPE_STRIPE:
+            case GF_CLUSTER_TYPE_STRIPE_REPLICATE:
+                gf_msg(this->name, GF_LOG_CRITICAL, ENOTSUP,
+                       GD_MSG_VOLINFO_STORE_FAIL,
+                       "The volume type is no more supported. Please refer to "
+                       "glusterfs-6.0 release-notes for how to migrate from "
+                       "this volume type");
                 break;
 
             default:
