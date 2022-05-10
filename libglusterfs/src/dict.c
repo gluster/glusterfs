@@ -2858,45 +2858,6 @@ out:
     return ret;
 }
 
-/**
- * dict_serialized_length - return the length of serialized dict
- *
- * @this:   dict to be serialized
- * @return: success: len
- *        : failure: -errno
- */
-
-int
-dict_serialized_length(dict_t *this)
-{
-    int ret = -EINVAL;
-
-    if (!this) {
-        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "dict is null!");
-        goto out;
-    }
-
-    LOCK(&this->lock);
-    {
-        ret = dict_serialized_length_lk(this);
-    }
-    UNLOCK(&this->lock);
-
-out:
-    return ret;
-}
-
-/**
- * dict_serialize - serialize a dictionary into a buffer
- *
- * @this: dict to serialize
- * @buf:  buffer to serialize into. This must be
- *        at least dict_serialized_length (this) large
- *
- * @return: success: 0
- *          failure: -errno
- */
 
 
 /**

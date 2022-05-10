@@ -3327,8 +3327,12 @@ glusterd_dict_arr_serialize(dict_t *dict_arr[], int count, char **buf,
 
     for (i = 0; i < count; i++) {
         if (dict_arr[i]) {
-            len += dict_serialized_length_lk(dict_arr[i]);
-            totcount += dict_arr[i]->count;
+            LOCK(&dict_arr[i]->lock);
+            {
+                len += dict_serialized_length_lk(dict_arr[i]);
+                totcount += dict_arr[i]->count;
+            }
+            UNLOCK(&dict_arr[i]->lock);
         }
     }
 
