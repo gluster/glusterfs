@@ -2424,7 +2424,9 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
     int count = 0;
     char *volname = NULL;
     char *volume_id = NULL;
-    char *uuid = NULL;
+    uuid_t uuid = {
+        0,
+    };
     int type = 0;
     int status = 0;
     int brick_count = 0;
@@ -2576,12 +2578,12 @@ cli_xml_output_vol_info(cli_local_t *local, dict_t *dict)
             ret = xmlTextWriterStartElement(local->writer, (xmlChar *)"brick");
             XML_RET_CHECK_AND_GOTO(ret, out);
 
-            snprintf(key, sizeof(key), "volume%d.brick%d.uuid", i, j);
-            ret = dict_get_str(dict, key, &uuid);
+            snprintf(key, sizeof(key), GF_VOLUME_BRICK_UUID_KEY, i, j);
+            ret = dict_get_gfuuid(dict, key, &uuid);
             if (ret)
                 goto out;
             ret = xmlTextWriterWriteFormatAttribute(
-                local->writer, (xmlChar *)"uuid", "%s", uuid);
+                local->writer, (xmlChar *)"uuid", "%s", uuid_utoa(uuid));
             XML_RET_CHECK_AND_GOTO(ret, out);
 
             snprintf(key, sizeof(key), "volume%d.brick%d", i, j);
@@ -2798,7 +2800,9 @@ cli_xml_output_peer_status(dict_t *dict, int op_ret, int op_errno,
     xmlTextWriterPtr writer = NULL;
     xmlDocPtr doc = NULL;
     int count = 0;
-    char *uuid = NULL;
+    uuid_t uuid = {
+        0,
+    };
     char *hostname = NULL;
     int connected = 0;
     int state_id = 0;
@@ -2833,13 +2837,13 @@ cli_xml_output_peer_status(dict_t *dict, int op_ret, int op_errno,
         ret = xmlTextWriterStartElement(writer, (xmlChar *)"peer");
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        snprintf(key, sizeof(key), "friend%d.uuid", i);
-        ret = dict_get_str(dict, key, &uuid);
+        snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, i);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret)
             goto out;
 
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uuid", "%s",
-                                              uuid);
+                                              uuid_utoa(uuid));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
         snprintf(key, sizeof(key), "friend%d.hostname", i);
@@ -2920,7 +2924,9 @@ cli_xml_output_vol_rebalance_status(xmlTextWriterPtr writer, dict_t *dict,
     int ret = -1;
     int count = 0;
     char *node_name = NULL;
-    char *node_uuid = NULL;
+    uuid_t uuid = {
+        0,
+    };
     uint64_t files = 0;
     uint64_t size = 0;
     uint64_t lookups = 0;
@@ -2979,12 +2985,12 @@ cli_xml_output_vol_rebalance_status(xmlTextWriterPtr writer, dict_t *dict,
                                               "%s", node_name);
         XML_RET_CHECK_AND_GOTO(ret, out);
 
-        snprintf(key, sizeof(key), "node-uuid-%d", i);
-        ret = dict_get_str(dict, key, &node_uuid);
+        snprintf(key, sizeof(key), GF_NODE_UUID_KEY, i);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret)
             goto out;
         ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"id", "%s",
-                                              node_uuid);
+                                              uuid_utoa(uuid));
         XML_RET_CHECK_AND_GOTO(ret, out);
 
         snprintf(key, sizeof(key), "files-%d", i);
@@ -4624,6 +4630,9 @@ cli_xml_snapshot_status_per_snap(xmlTextWriterPtr writer, xmlDocPtr doc,
     int volcount = 0;
     int i = 0;
     char *buffer = NULL;
+    uuid_t uuid = {
+        0,
+    };
     char key[PATH_MAX] = "";
 
     GF_ASSERT(writer);
@@ -4646,16 +4655,16 @@ cli_xml_snapshot_status_per_snap(xmlTextWriterPtr writer, xmlDocPtr doc,
                                           buffer);
     XML_RET_CHECK_AND_GOTO(ret, out);
 
-    snprintf(key, sizeof(key), "%s.uuid", keyprefix);
+    snprintf(key, sizeof(key), GF_UUID_KEY, keyprefix);
 
-    ret = dict_get_str(dict, key, &buffer);
+    ret = dict_get_gfuuid(dict, key, &uuid);
     if (ret) {
         gf_log("cli", GF_LOG_ERROR, "Unable to get snap UUID");
         goto out;
     }
 
     ret = xmlTextWriterWriteFormatElement(writer, (xmlChar *)"uuid", "%s",
-                                          buffer);
+                                          uuid_utoa(uuid));
     XML_RET_CHECK_AND_GOTO(ret, out);
 
     snprintf(key, sizeof(key), "%s.volcount", keyprefix);

@@ -63,7 +63,6 @@
 #define O_PATH 010000000 /* from asm-generic/fcntl.h */
 #endif
 
-
 #ifndef EBADFD
 /* Mac OS X does not have EBADFD */
 #define EBADFD EBADF
@@ -455,6 +454,12 @@ fop_enum_to_pri_string(glusterfs_fop_t fop);
 
 /* key value which quick read uses to get small files in lookup cbk */
 #define GF_CONTENT_KEY "glusterfs.content"
+
+/* Used both in glusterd and cli. */
+#define GF_VOLUME_BRICK_UUID_KEY "volume%d.brick%d.uuid"
+#define GF_FRIEND_UUID_KEY "friend%d.uuid"
+#define GF_NODE_UUID_KEY "node%d.uuid"
+#define GF_UUID_KEY "%s.uuid"
 
 struct _xlator_cmdline_option {
     struct list_head cmd_args;

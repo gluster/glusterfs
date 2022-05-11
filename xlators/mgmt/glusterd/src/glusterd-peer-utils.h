@@ -38,9 +38,6 @@ glusterd_chk_peers_connected_befriended(uuid_t skip_uuid);
 char *
 glusterd_uuid_to_hostname(uuid_t uuid);
 
-char *
-gd_peer_uuid_str(glusterd_peerinfo_t *peerinfo);
-
 gf_boolean_t
 glusterd_are_all_peers_up();
 

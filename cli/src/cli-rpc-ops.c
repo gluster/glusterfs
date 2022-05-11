@@ -320,7 +320,7 @@ static int
 gf_cli_output_peer_status(dict_t *dict, int count)
 {
     int ret = -1;
-    char *uuid_buf = NULL;
+    uuid_t uuid;
     char *hostname_buf = NULL;
     int32_t i = 1;
     char key[256] = {
@@ -335,8 +335,8 @@ gf_cli_output_peer_status(dict_t *dict, int count)
     cli_out("Number of Peers: %d", count);
     i = 1;
     while (i <= count) {
-        keylen = snprintf(key, sizeof(key), "friend%d.uuid", i);
-        ret = dict_get_strn(dict, key, keylen, &uuid_buf);
+        keylen = snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, i);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret)
             goto out;
 
@@ -360,7 +360,7 @@ gf_cli_output_peer_status(dict_t *dict, int count)
             goto out;
 
         cli_out("\nHostname: %s\nUuid: %s\nState: %s (%s)", hostname_buf,
-                uuid_buf, state, connected_str);
+                uuid_utoa(uuid), state, connected_str);
 
         keylen = snprintf(key, sizeof(key), "friend%d.hostname_count", i);
         ret = dict_get_int32n(dict, key, keylen, &hostname_count);
@@ -387,7 +387,9 @@ static int
 gf_cli_output_pool_list(dict_t *dict, int count)
 {
     int ret = -1;
-    char *uuid_buf = NULL;
+    uuid_t uuid = {
+        0,
+    };
     char *hostname_buf = NULL;
     int32_t hostname_len = 8; /*min len 8 chars*/
     int32_t i = 1;
@@ -418,8 +420,8 @@ gf_cli_output_pool_list(dict_t *dict, int count)
 
     i = 1;
     while (i <= count) {
-        keylen = snprintf(key, sizeof(key), "friend%d.uuid", i);
-        ret = dict_get_strn(dict, key, keylen, &uuid_buf);
+        keylen = snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, i);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret)
             goto out;
 
@@ -437,7 +439,7 @@ gf_cli_output_pool_list(dict_t *dict, int count)
         else
             connected_str = "Disconnected";
 
-        cli_out("%s\t%-*s\t%s ", uuid_buf, hostname_len, hostname_buf,
+        cli_out("%s\t%-*s\t%s ", uuid_utoa(uuid), hostname_len, hostname_buf,
                 connected_str);
         i++;
     }
@@ -9210,6 +9212,9 @@ cli_get_single_snap_status(dict_t *dict, char *keyprefix)
     char key[64] = ""; /* keyprefix is ""status.snap0" */
     int i = 0;
     int volcount = 0;
+    uuid_t uuid = {
+        0,
+    };
     char *get_buffer = NULL;
 
     GF_ASSERT(dict);
@@ -9227,17 +9232,17 @@ cli_get_single_snap_status(dict_t *dict, char *keyprefix)
     }
     cli_out("\nSnap Name : %s", get_buffer);
 
-    ret = snprintf(key, sizeof(key), "%s.uuid", keyprefix);
+    ret = snprintf(key, sizeof(key), GF_UUID_KEY, keyprefix);
     if (ret < 0) {
         goto out;
     }
 
-    ret = dict_get_str(dict, key, &get_buffer);
+    ret = dict_get_gfuuid(dict, key, &uuid);
     if (ret) {
         gf_log("cli", GF_LOG_ERROR, "Unable to get snap UUID");
         goto out;
     }
-    cli_out("Snap UUID : %s", get_buffer);
+    cli_out("Snap UUID : %s", uuid_utoa(uuid));
 
     ret = snprintf(key, sizeof(key), "%s.volcount", keyprefix);
     if (ret < 0) {

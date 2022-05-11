@@ -3803,7 +3803,6 @@ glusterd_import_new_ta_brick(dict_t *peer_data, int32_t vol_count,
     int decommissioned = 0;
     glusterd_brickinfo_t *new_ta_brickinfo = NULL;
     char msg[256] = "";
-    char *brick_uuid_str = NULL;
 
     GF_ASSERT(peer_data);
     GF_ASSERT(vol_count >= 0);
@@ -3863,11 +3862,10 @@ glusterd_import_new_ta_brick(dict_t *peer_data, int32_t vol_count,
     if (brick_id)
         (void)snprintf(new_ta_brickinfo->brick_id,
                        sizeof(new_ta_brickinfo->brick_id), "%s", brick_id);
-    keylen = snprintf(key, sizeof(key), "%s.uuid", key_prefix);
-    ret = dict_get_strn(peer_data, key, keylen, &brick_uuid_str);
+    snprintf(key, sizeof(key), GF_UUID_KEY, key_prefix);
+    ret = dict_get_gfuuid(peer_data, key, &new_ta_brickinfo->uuid);
     if (ret)
         goto out;
-    gf_uuid_parse(brick_uuid_str, new_ta_brickinfo->uuid);
 
     *ta_brickinfo = new_ta_brickinfo;
 
@@ -3901,7 +3899,6 @@ glusterd_import_new_brick(dict_t *peer_data, int32_t vol_count,
     int decommissioned = 0;
     glusterd_brickinfo_t *new_brickinfo = NULL;
     char msg[256] = "";
-    char *brick_uuid_str = NULL;
 
     GF_ASSERT(peer_data);
     GF_ASSERT(vol_count >= 0);
@@ -3965,11 +3962,10 @@ glusterd_import_new_brick(dict_t *peer_data, int32_t vol_count,
     if (ret)
         goto out;
 
-    keylen = snprintf(key, sizeof(key), "%s.uuid", key_prefix);
-    ret = dict_get_strn(peer_data, key, keylen, &brick_uuid_str);
+    snprintf(key, sizeof(key), GF_UUID_KEY, key_prefix);
+    ret = dict_get_gfuuid(peer_data, key, &new_brickinfo->uuid);
     if (ret)
         goto out;
-    gf_uuid_parse(brick_uuid_str, new_brickinfo->uuid);
 
     *brickinfo = new_brickinfo;
 out:
@@ -9757,7 +9753,6 @@ glusterd_bitrot_volume_node_rsp(dict_t *aggr, dict_t *rsp_dict)
     uint64_t value = 0;
     char key[64] = "";
     int keylen;
-    char buf[1024] = "";
     int32_t i = 0;
     int32_t j = 0;
     char *last_scrub_time = NULL;
@@ -9813,10 +9808,8 @@ glusterd_bitrot_volume_node_rsp(dict_t *aggr, dict_t *rsp_dict)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set count");
 
-    snprintf(buf, sizeof(buf), "%s", uuid_utoa(MY_UUID));
-
-    snprintf(key, sizeof(key), "node-uuid-%d", i);
-    ret = dict_set_dynstr_with_alloc(aggr, key, buf);
+    snprintf(key, sizeof(key), GF_NODE_UUID_KEY, i);
+    ret = dict_set_gfuuid(aggr, key, MY_UUID, true);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "failed to set node-uuid");
@@ -9979,8 +9972,7 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
 {
     char key[64] = "";
     int keylen;
-    char *node_uuid = NULL;
-    char *node_uuid_str = NULL;
+    uuid_t node_uuid;
     char *volname = NULL;
     dict_t *ctx_dict = NULL;
     double elapsed_time = 0;
@@ -9993,7 +9985,6 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     int32_t current_index = 1;
     int32_t value32 = 0;
     uint64_t value = 0;
-    char *peer_uuid_str = NULL;
     xlator_t *this = THIS;
 
     GF_ASSERT(rsp_dict);
@@ -10027,17 +10018,14 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "failed to get index from rsp dict");
 
-    keylen = snprintf(key, sizeof(key), "node-uuid-%d", index);
-    ret = dict_get_strn(rsp_dict, key, keylen, &node_uuid);
+    snprintf(key, sizeof(key), GF_NODE_UUID_KEY, index);
+    ret = dict_get_gfuuid(rsp_dict, key, &node_uuid);
     if (!ret) {
-        node_uuid_str = gf_strdup(node_uuid);
-
-        /* Finding the index of the node-uuid in the peer-list */
+        /* Finding the index of the node-uuid in the peer list. */
         RCU_READ_LOCK;
         cds_list_for_each_entry_rcu(peerinfo, &conf->peers, uuid_list)
         {
-            peer_uuid_str = gd_peer_uuid_str(peerinfo);
-            if (strcmp(peer_uuid_str, node_uuid_str) == 0)
+            if (gf_uuid_compare(node_uuid, peerinfo->uuid) == 0)
                 break;
 
             current_index++;
@@ -10054,9 +10042,9 @@ glusterd_volume_rebalance_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
                        "Failed to set count");
         }
 
-        /* Setting the same index for the node, as is in the peerlist.*/
-        keylen = snprintf(key, sizeof(key), "node-uuid-%d", current_index);
-        ret = dict_set_dynstrn(ctx_dict, key, keylen, node_uuid_str);
+        /* Setting the same index for the node, as is in the peerlist. */
+        snprintf(key, sizeof(key), GF_NODE_UUID_KEY, current_index);
+        ret = dict_set_gfuuid(ctx_dict, key, node_uuid, true);
         if (ret) {
             gf_msg_debug(this->name, 0, "failed to set node-uuid");
         }
@@ -10645,10 +10633,7 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char key[64] = "";
-    int keylen;
     int32_t i = 0;
-    char buf[64] = "";
-    char *node_str = NULL;
     int32_t cmd = 0;
 
     GF_ASSERT(req_dict);
@@ -10687,11 +10672,8 @@ glusterd_defrag_volume_node_rsp(dict_t *req_dict, dict_t *rsp_dict,
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set count");
 
-    snprintf(buf, sizeof(buf), "%s", uuid_utoa(MY_UUID));
-    node_str = gf_strdup(buf);
-
-    keylen = snprintf(key, sizeof(key), "node-uuid-%d", i);
-    ret = dict_set_dynstrn(op_ctx, key, keylen, node_str);
+    snprintf(key, sizeof(key), GF_NODE_UUID_KEY, i);
+    ret = dict_set_gfuuid(op_ctx, key, MY_UUID, true);
     if (ret)
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "failed to set node-uuid");

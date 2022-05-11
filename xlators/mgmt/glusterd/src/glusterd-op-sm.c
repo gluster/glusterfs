@@ -4882,7 +4882,6 @@ glusterd_op_volume_dict_uuid_to_hostname(dict_t *dict, const char *key_fmt,
     int i = 0;
     char key[128];
     int keylen;
-    char *uuid_str = NULL;
     uuid_t uuid = {
         0,
     };
@@ -4894,26 +4893,17 @@ glusterd_op_volume_dict_uuid_to_hostname(dict_t *dict, const char *key_fmt,
 
     for (i = idx_min; i < idx_max; i++) {
         keylen = snprintf(key, sizeof(key), key_fmt, i);
-        ret = dict_get_strn(dict, key, keylen, &uuid_str);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret) {
             ret = 0;
             continue;
         }
 
-        gf_msg_debug(this->name, 0, "Got uuid %s", uuid_str);
-
-        ret = gf_uuid_parse(uuid_str, uuid);
-        /* if parsing fails don't error out
-         * let the original value be retained
-         */
-        if (ret) {
-            ret = 0;
-            continue;
-        }
+        gf_msg_debug(this->name, 0, "Got uuid %s", uuid_utoa(uuid));
 
         hostname = glusterd_uuid_to_hostname(uuid);
         if (hostname) {
-            gf_msg_debug(this->name, 0, "%s -> %s", uuid_str, hostname);
+            gf_msg_debug(this->name, 0, "%s -> %s", uuid_utoa(uuid), hostname);
             ret = dict_set_dynstrn(dict, key, keylen, hostname);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
@@ -5251,28 +5241,21 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
                 goto out;
             }
 
-            /* add 'node-name-%d' into op_ctx with value uuid_str.
-               this will be used to convert to hostname later */
+            /* Note 'uuid' will be used to convert to hostname later. */
             {
-                char *uuid_str = NULL;
-                char *uuid = NULL;
+                uuid_t uuid = {0};
                 int i;
 
                 for (i = 1; i <= count; i++) {
-                    keylen = snprintf(key, sizeof(key), "node-uuid-%d", i);
-                    ret = dict_get_strn(op_ctx, key, keylen, &uuid_str);
+                    snprintf(key, sizeof(key), GF_NODE_UUID_KEY, i);
+                    ret = dict_get_gfuuid(op_ctx, key, &uuid);
                     if (!ret) {
-                        keylen = snprintf(key, sizeof(key), "node-name-%d", i);
-                        uuid = gf_strdup(uuid_str);
-                        if (!uuid) {
-                            gf_msg_debug(this->name, 0,
-                                         "unable to create dup of"
-                                         " uuid_str");
-                            continue;
-                        }
-                        ret = dict_set_dynstrn(op_ctx, key, keylen, uuid);
+                        snprintf(key, sizeof(key), "node-name-%d", i);
+                        ret = dict_set_gfuuid(op_ctx, key, uuid, true);
                         if (ret != 0) {
-                            GF_FREE(uuid);
+                            gf_msg_debug(this->name, 0,
+                                         "failed to set node name");
+                            continue;
                         }
                     }
                 }

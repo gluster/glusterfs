@@ -537,9 +537,6 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
         char brick[1024] = {
             0,
         };
-        char brick_uuid[64] = {
-            0,
-        };
         len = snprintf(brick, sizeof(brick), "%s:%s", brickinfo->hostname,
                        brickinfo->path);
         if ((len < 0) || (len >= sizeof(brick))) {
@@ -555,16 +552,8 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
                     "Key=%s", key, NULL);
             goto out;
         }
-        keylen = snprintf(key, sizeof(key), "volume%d.brick%d.uuid", count, i);
-        snprintf(brick_uuid, sizeof(brick_uuid), "%s",
-                 uuid_utoa(brickinfo->uuid));
-        buf = gf_strdup(brick_uuid);
-        if (!buf) {
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_STRDUP_FAILED,
-                    "brick_uuid=%s", brick_uuid, NULL);
-            goto out;
-        }
-        ret = dict_set_dynstrn(volumes, key, keylen, buf);
+        snprintf(key, sizeof(key), GF_VOLUME_BRICK_UUID_KEY, count, i);
+        ret = dict_set_gfuuid(volumes, key, brickinfo->uuid, true);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
@@ -2855,8 +2844,6 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     char key[32] = {
         0,
     };
-    int keylen;
-    char *uuid_buf = NULL;
     int i = 1;
     int count = 0;
     uuid_t uuid = {
@@ -2933,11 +2920,10 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
 
     args.mode = GD_MODE_ON;
     while (i <= count) {
-        keylen = snprintf(key, sizeof(key), "friend%d.uuid", i);
-        ret = dict_get_strn(dict, key, keylen, &uuid_buf);
+        snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, i);
+        ret = dict_get_gfuuid(dict, key, &uuid);
         if (ret)
             goto out;
-        gf_uuid_parse(uuid_buf, uuid);
 
         if (!gf_uuid_compare(uuid, MY_UUID)) {
             gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_UUID_RECEIVED,
@@ -4274,9 +4260,6 @@ glusterd_list_friends(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
     gf1_cli_peer_list_rsp rsp = {
         0,
     };
-    char my_uuid_str[64] = {
-        0,
-    };
     char key[64] = {
         0,
     };
@@ -4312,9 +4295,8 @@ unlock:
 
     if (flags == GF_CLI_LIST_POOL_NODES) {
         count++;
-        keylen = snprintf(key, sizeof(key), "friend%d.uuid", count);
-        uuid_utoa_r(MY_UUID, my_uuid_str);
-        ret = dict_set_strn(friends, key, keylen, my_uuid_str);
+        snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, count);
+        ret = dict_set_gfuuid(friends, key, MY_UUID, true);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=%s", key, NULL);
@@ -5948,7 +5930,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     {
         fprintf(fp, "Peer%d.primary_hostname: %s\n", ++count,
                 peerinfo->hostname);
-        fprintf(fp, "Peer%d.uuid: %s\n", count, gd_peer_uuid_str(peerinfo));
+        fprintf(fp, "Peer%d.uuid: %s\n", count, uuid_utoa(peerinfo->uuid));
         fprintf(fp, "Peer%d.state: %s\n", count,
                 glusterd_friend_sm_state_name_get(peerinfo->state));
         fprintf(fp, "Peer%d.connected: %s\n", count,

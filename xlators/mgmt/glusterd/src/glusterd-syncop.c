@@ -424,8 +424,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     char *last_scrub_time = NULL;
     char *scrub_time = NULL;
     char *volname = NULL;
-    char *node_uuid = NULL;
-    char *node_uuid_str = NULL;
+    uuid_t node_uuid;
     char *bitd_log = NULL;
     char *scrub_log = NULL;
     char *scrub_freq = NULL;
@@ -471,13 +470,11 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set count in dictonary");
 
-    keylen = snprintf(key, sizeof(key), "node-uuid-%d", src_count);
-    ret = dict_get_strn(rsp_dict, key, keylen, &node_uuid);
+    snprintf(key, sizeof(key), GF_NODE_UUID_KEY, src_count);
+    ret = dict_get_gfuuid(rsp_dict, key, &node_uuid);
     if (!ret) {
-        node_uuid_str = gf_strdup(node_uuid);
-        keylen = snprintf(key, sizeof(key), "node-uuid-%d",
-                          src_count + dst_count);
-        ret = dict_set_dynstrn(aggr, key, keylen, node_uuid_str);
+        snprintf(key, sizeof(key), GF_NODE_UUID_KEY, src_count + dst_count);
+        ret = dict_set_gfuuid(aggr, key, node_uuid, true);
         if (ret) {
             gf_msg_debug(this->name, 0, "failed to set node-uuid");
         }

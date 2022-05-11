@@ -7159,20 +7159,14 @@ glusterd_get_each_snap_object_status(char **op_errstr, dict_t *rsp_dict,
 
     temp = NULL;
 
-    keylen = snprintf(key, sizeof(key), "%s.uuid", keyprefix);
+    keylen = snprintf(key, sizeof(key), GF_UUID_KEY, keyprefix);
     if (keylen < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_COPY_FAIL, NULL);
         ret = -1;
         goto out;
     }
 
-    temp = gf_strdup(uuid_utoa(snap->snap_id));
-    if (temp == NULL) {
-        ret = -1;
-        goto out;
-    }
-
-    ret = dict_set_dynstrn(rsp_dict, key, keylen, temp);
+    ret = dict_set_gfuuid(rsp_dict, key, snap->snap_id, true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Could not save "

@@ -494,18 +494,6 @@ glusterd_uuid_to_hostname(uuid_t uuid)
     return hostname;
 }
 
-char *
-gd_peer_uuid_str(glusterd_peerinfo_t *peerinfo)
-{
-    if ((peerinfo == NULL) || gf_uuid_is_null(peerinfo->uuid))
-        return NULL;
-
-    if (peerinfo->uuid_str[0] == '\0')
-        uuid_utoa_r(peerinfo->uuid, peerinfo->uuid_str);
-
-    return peerinfo->uuid_str;
-}
-
 gf_boolean_t
 glusterd_are_all_peers_up()
 {
@@ -691,8 +679,8 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
 
-    snprintf(key, sizeof(key), "%s.uuid", prefix);
-    ret = dict_set_dynstr_with_alloc(dict, key, uuid_utoa(friend->uuid));
+    snprintf(key, sizeof(key), GF_UUID_KEY, prefix);
+    ret = dict_set_gfuuid(dict, key, friend->uuid, true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set key %s in dict", key);
@@ -840,7 +828,6 @@ gd_peerinfo_from_dict(dict_t *dict, const char *prefix)
     char key[64] = {
         0,
     };
-    char *uuid_str = NULL;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -857,16 +844,13 @@ gd_peerinfo_from_dict(dict_t *dict, const char *prefix)
         goto out;
     }
 
-    ret = snprintf(key, sizeof(key), "%s.uuid", prefix);
-    ret = dict_get_strn(dict, key, ret, &uuid_str);
+    ret = snprintf(key, sizeof(key), GF_UUID_KEY, prefix);
+    ret = dict_get_gfuuid(dict, key, &new_peer->uuid);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
-               "Key %s not present in "
-               "dictionary",
-               key);
+               "Key %s not present in dictionary", key);
         goto out;
     }
-    gf_uuid_parse(uuid_str, new_peer->uuid);
 
     ret = gd_update_peerinfo_from_dict(new_peer, dict, prefix);
 
@@ -932,15 +916,13 @@ gd_add_peer_detail_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *friends,
         0,
     };
     int keylen;
-    char *peer_uuid_str = NULL;
 
     xlator_t *this = THIS;
     GF_ASSERT(peerinfo);
     GF_ASSERT(friends);
 
-    peer_uuid_str = gd_peer_uuid_str(peerinfo);
-    keylen = snprintf(key, sizeof(key), "friend%d.uuid", count);
-    ret = dict_set_strn(friends, key, keylen, peer_uuid_str);
+    snprintf(key, sizeof(key), GF_FRIEND_UUID_KEY, count);
+    ret = dict_set_gfuuid(friends, key, peerinfo->uuid, true);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED, "Key=%s",
                 key, NULL);
