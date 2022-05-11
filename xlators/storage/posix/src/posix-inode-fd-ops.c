@@ -3466,9 +3466,6 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     char dirpath[PATH_MAX] = {
         0,
     };
-    char pgfidstr[UUID_CANONICAL_FORM_LEN + 1] = {
-        0,
-    };
     int len;
 
     priv = this->private;
@@ -3557,9 +3554,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
 
         nlink_samepgfid = be32toh(nlink_samepgfid);
 
-        snprintf(pgfidstr, sizeof(pgfidstr), "%s",
-                 key + SLEN(PGFID_XATTR_KEY_PREFIX));
-        gf_uuid_parse(pgfidstr, pgfid);
+        gf_uuid_parse(key + SLEN(PGFID_XATTR_KEY_PREFIX), pgfid);
 
         handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 

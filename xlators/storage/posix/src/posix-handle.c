@@ -380,9 +380,9 @@ posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
     memmove(buf + base_len + blen, buf + base_len,
             (strlen(buf) - base_len) + 1);
 
-    strncpy(base_str + pfx_len, linkname + 6, 42);
+    memcpy(base_str + pfx_len, linkname + 6, 42);
 
-    strncpy(buf + pfx_len, linkname + 6, link_len - 6);
+    memcpy(buf + pfx_len, linkname + 6, link_len - 6);
 out:
     return len + blen;
 err:
@@ -399,8 +399,8 @@ err:
 */
 
 int
-posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
-                  size_t size)
+posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *buf,
+                  size_t maxlen)
 {
     struct posix_private *priv = NULL;
     char *uuid_str = NULL;
@@ -410,8 +410,6 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     char *base_str = NULL;
     int base_len = 0;
     int pfx_len;
-    int maxlen;
-    char *buf;
     int index = 0;
     int dfd = 0;
     char newstr[POSIX_GFID_HASH2_LEN] = {
@@ -421,14 +419,6 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     priv = this->private;
 
     uuid_str = uuid_utoa(gfid);
-
-    if (ubuf) {
-        buf = ubuf;
-        maxlen = size;
-    } else {
-        maxlen = PATH_MAX;
-        buf = alloca(maxlen);
-    }
 
     index = gfid[0];
     dfd = priv->arrdfd[index];
