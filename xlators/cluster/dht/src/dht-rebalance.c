@@ -2874,7 +2874,10 @@ gf_defrag_migrate_single_file(void *opaque)
 
             LOCK(&defrag->lock);
             {
-                defrag->total_failures += 1;
+                if (fop_errno == EBUSY)
+                    defrag->skipped += 1;
+                else
+                    defrag->total_failures += 1;
             }
             UNLOCK(&defrag->lock);
         }
