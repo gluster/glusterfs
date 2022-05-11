@@ -904,6 +904,7 @@ typedef struct _afr_local {
     gf_boolean_t need_full_crawl;
     gf_boolean_t is_read_txn;
     gf_boolean_t is_new_entry;
+    unsigned char *need_migrate_lock;
 
     /* For fix_open */
     unsigned char *need_open;
@@ -1269,6 +1270,8 @@ afr_handle_replies_quorum(call_frame_t *frame, xlator_t *this);
 gf_boolean_t
 afr_ta_dict_contains_pending_xattr(dict_t *dict, afr_private_t *priv,
                                    int child);
+int
+afr_migrate_locks(afr_private_t *priv, afr_local_t *local);
 
 void
 afr_selfheal_childup(xlator_t *this, afr_private_t *priv);

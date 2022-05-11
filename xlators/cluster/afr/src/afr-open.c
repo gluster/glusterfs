@@ -229,6 +229,8 @@ afr_openfd_fix_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
     UNLOCK(&local->fd->lock);
 
+    afr_migrate_locks(priv, local);
+
     call_count = afr_frame_return(frame);
     if (call_count == 0)
         AFR_STACK_DESTROY(frame);
@@ -310,6 +312,9 @@ afr_do_fix_open(call_frame_t *frame, xlator_t *this)
     for (i = 0; i < priv->child_count; i++) {
         if (!local->need_open[i])
             continue;
+        LOCK(&priv->lock);
+        local->need_migrate_lock[i] = 1;
+        UNLOCK(&priv->lock);
 
         if (IA_IFDIR == local->fd->inode->ia_type) {
             gf_msg_debug(this->name, 0, "opening fd for dir %s on subvolume %s",

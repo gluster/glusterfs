@@ -2702,6 +2702,7 @@ afr_local_cleanup(afr_local_t *local, xlator_t *this)
     }
 
     GF_FREE(local->need_open);
+    GF_FREE(local->need_migrate_lock);
 
     if (local->xdata_req)
         dict_unref(local->xdata_req);
@@ -5097,6 +5098,156 @@ afr_lk_unlock(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
+static gf_boolean_t
+afr_is_need_migrate_lock(afr_local_t *local, unsigned int child_count)
+{
+    unsigned int index = 0;
+    gf_boolean_t is_need_migrate = _gf_false;
+
+    for (index = 0; index < child_count; index++) {
+        if (local->need_migrate_lock[index]) {
+            is_need_migrate = _gf_true;
+            break;
+        }
+    }
+    return is_need_migrate;
+}
+
+static dict_t *
+afr_get_lock_info_from_healthy_brick(afr_fd_ctx_t *fd_ctx, fd_t *fd,
+                                     afr_private_t *priv, afr_local_t *local)
+{
+    dict_t *lockinfo = NULL;
+    int ret = -1;
+    int index = 0;
+
+    for (index = 0; index < priv->child_count; index++) {
+        if (fd_ctx->opened_on[index] == AFR_FD_OPENED &&
+            priv->child_up[index] && !local->need_migrate_lock[index]) {
+            ret = syncop_fgetxattr(priv->children[index], fd, &lockinfo,
+                                   GF_XATTR_LOCKINFO_KEY, NULL, NULL);
+            if (ret == 0) {
+                break;
+            }
+        }
+    }
+
+    if (ret) {
+        lockinfo = NULL;
+        goto out;
+    }
+
+    if (!dict_get(lockinfo, GF_XATTR_LOCKINFO_KEY)) {
+        dict_unref(lockinfo);
+        lockinfo = NULL;
+        goto out;
+    }
+
+out:
+    return lockinfo;
+}
+
+int
+afr_migrate_locks(afr_private_t *priv, afr_local_t *local)
+{
+    int ret = 0;
+    int index = -1;
+    fd_t *fd = NULL;
+    dict_t *lockinfo = NULL;
+    afr_fd_ctx_t *fd_ctx = NULL;
+    xlator_t *this = THIS;
+    unsigned int migration_success = 0;
+
+    if (local == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    if (local->fd == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    fd = fd_ref(local->fd);
+    if (!fd->lk_ctx || !afr_is_need_migrate_lock(local, priv->child_count)) {
+        ret = 0;
+        goto out;
+    }
+
+    fd_ctx = afr_fd_ctx_get(fd, this);
+    if (!fd_ctx) {
+        ret = 0;
+        goto out;
+    }
+
+    lockinfo = afr_get_lock_info_from_healthy_brick(fd_ctx, fd, priv, local);
+    if (lockinfo == NULL) {
+        ret = -1;
+        goto out;
+    }
+
+    local->loc.inode = inode_ref(fd->inode);
+    for (index = 0; index < priv->child_count; index++) {
+        if (!local->need_migrate_lock[index]) {
+            migration_success++;
+            continue;
+        }
+        if (!priv->child_up[index]) {
+            continue;
+        }
+
+        if (fd_ctx->opened_on[index] == AFR_FD_NOT_OPENED) {
+            if (IA_IFDIR == fd->inode->ia_type) {
+                ret = syncop_opendir(priv->children[index], &local->loc, fd,
+                                     NULL, NULL);
+            } else {
+                ret = syncop_open(priv->children[index], &local->loc,
+                                  fd_ctx->flags & ~(O_CREAT | O_EXCL | O_TRUNC),
+                                  fd, NULL, NULL);
+            }
+
+            if (ret) {
+                continue;
+            }
+            LOCK(&fd->lock);
+            {
+                fd_ctx->opened_on[index] = AFR_FD_OPENED;
+            }
+            UNLOCK(&fd->lock);
+        }
+
+        ret = syncop_fsetxattr(priv->children[index], fd, lockinfo, 0, NULL,
+                               NULL);
+        if (ret) {
+            LOCK(&fd->lock);
+            {
+                fd_ctx->opened_on[index] = AFR_FD_NOT_OPENED;
+            }
+            UNLOCK(&fd->lock);
+            continue;
+        }
+
+        LOCK(&priv->lock);
+        {
+            local->need_migrate_lock[index] = 0;
+        }
+        UNLOCK(&priv->lock);
+    }
+    if (migration_success >= priv->quorum_count) {
+        ret = 0;
+    } else {
+        fd_close(fd);
+    }
+
+out:
+    if (fd != NULL) {
+        fd_unref(fd);
+    }
+    if (lockinfo != NULL)
+        dict_unref(lockinfo);
+    return ret;
+}
+
 int32_t
 afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
            int32_t op_errno, struct gf_flock *lock, dict_t *xdata)
@@ -5104,11 +5255,15 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     int child_index = -1;
+    int ret = -1;
 
     local = frame->local;
     priv = this->private;
 
     child_index = (long)cookie;
+    LOCK(&priv->lock);
+    local->need_migrate_lock[child_index] = 1;
+    UNLOCK(&priv->lock);
 
     afr_common_lock_cbk(frame, cookie, this, op_ret, op_errno, xdata);
     if (op_ret < 0 && op_errno == EAGAIN) {
@@ -5122,6 +5277,9 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     if (op_ret == 0) {
         local->op_ret = 0;
         local->op_errno = 0;
+        LOCK(&priv->lock);
+        local->need_migrate_lock[child_index] = 0;
+        UNLOCK(&priv->lock);
         local->cont.lk.locked_nodes[child_index] = 1;
         gf_flock_copy(&local->cont.lk.ret_flock, lock);
     }
@@ -5143,6 +5301,12 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     } else {
         if (local->op_ret < 0)
             local->op_errno = afr_final_errno(local, priv);
+
+        ret = afr_migrate_locks(priv, local);
+        if (ret == 0) {
+            local->op_ret = 0;
+            local->op_errno = 0;
+        }
 
         AFR_STACK_UNWIND(lk, frame, local->op_ret, local->op_errno,
                          &local->cont.lk.ret_flock, local->xdata_rsp);
@@ -6514,6 +6678,14 @@ afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
     local->need_open = GF_CALLOC(priv->child_count, sizeof(*local->need_open),
                                  gf_afr_mt_char);
     if (!local->need_open) {
+        if (op_errno)
+            *op_errno = ENOMEM;
+        goto out;
+    }
+
+    local->need_migrate_lock = GF_CALLOC(
+        priv->child_count, sizeof(*local->need_migrate_lock), gf_afr_mt_char);
+    if (!local->need_migrate_lock) {
         if (op_errno)
             *op_errno = ENOMEM;
         goto out;
