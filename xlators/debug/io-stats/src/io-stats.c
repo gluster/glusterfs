@@ -4082,7 +4082,7 @@ init(xlator_t *this)
     ret = dict_get_strn(this->options, "volume-id", SLEN("volume-id"),
                         &volume_id);
     if (!ret) {
-        strncpy(this->graph->volume_id, volume_id, GF_UUID_BUF_SIZE);
+        memcpy(this->graph->volume_id, volume_id, GF_UUID_BUF_SIZE);
     }
     /*
      * Init it just after calloc, so that we are sure the lock is inited
