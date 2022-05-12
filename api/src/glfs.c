@@ -1216,7 +1216,6 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     }
 
     GF_FREE(ctx->statedump_path);
-    FREE(ctx->hostname);
     FREE(ctx);
 
     return ret;

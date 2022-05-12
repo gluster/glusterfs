@@ -16,6 +16,15 @@
 
 #include <netdb.h>
 
+static inline void
+glusterd_peer_hostname_free(glusterd_peer_hostname_t *name)
+{
+    if (name) {
+        cds_list_del_init(&name->hostname_list);
+        GF_FREE(name);
+    }
+}
+
 void
 glusterd_peerinfo_destroy(struct rcu_head *head)
 {
@@ -39,9 +48,6 @@ glusterd_peerinfo_destroy(struct rcu_head *head)
                "Deleting peer info failed");
     }
 
-    GF_FREE(peerinfo->hostname);
-    peerinfo->hostname = NULL;
-
     cds_list_for_each_entry_safe(hostname, tmp, &peerinfo->hostnames,
                                  hostname_list)
     {
@@ -52,10 +58,6 @@ glusterd_peerinfo_destroy(struct rcu_head *head)
     pthread_mutex_unlock(&peerinfo->delete_lock);
     pthread_mutex_destroy(&peerinfo->delete_lock);
     GF_FREE(peerinfo);
-
-    peerinfo = NULL;
-
-    return;
 }
 
 int32_t
@@ -402,7 +404,7 @@ glusterd_peerinfo_new(glusterd_friend_sm_state_t state, uuid_t *uuid,
          * peerinfo->hostname in a lot of places and is really hard to
          * get everything right
          */
-        new_peer->hostname = gf_strdup(hostname);
+        gf_strncpy(new_peer->hostname, hostname, sizeof(new_peer->hostname));
     }
 
     if (uuid) {
@@ -571,7 +573,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 glusterd_peer_hostname_new(const char *hostname,
                            glusterd_peer_hostname_t **name)
 {
@@ -589,7 +591,8 @@ glusterd_peer_hostname_new(const char *hostname,
         goto out;
     }
 
-    peer_hostname->hostname = gf_strdup(hostname);
+    gf_strncpy(peer_hostname->hostname, hostname,
+               sizeof(peer_hostname->hostname));
     CDS_INIT_LIST_HEAD(&peer_hostname->hostname_list);
 
     *name = peer_hostname;
@@ -598,22 +601,6 @@ glusterd_peer_hostname_new(const char *hostname,
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
-}
-
-void
-glusterd_peer_hostname_free(glusterd_peer_hostname_t *name)
-{
-    if (!name)
-        return;
-
-    cds_list_del_init(&name->hostname_list);
-
-    GF_FREE(name->hostname);
-    name->hostname = NULL;
-
-    GF_FREE(name);
-
-    return;
 }
 
 gf_boolean_t

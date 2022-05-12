@@ -221,15 +221,12 @@ gd_has_address(struct list_head *hostnames_list_head, const char *hostname)
     return _gf_false;
 }
 
-static int
-glusterd_hostname_new(xlator_t *this, const char *hostname,
-                      glusterd_hostname_t **name)
+static glusterd_hostname_t *
+glusterd_hostname_new(xlator_t *this, const char *hostname)
 {
     glusterd_hostname_t *hostname_obj = NULL;
-    int32_t ret = -1;
 
     GF_ASSERT(hostname);
-    GF_ASSERT(name);
 
     hostname_obj = GF_MALLOC(sizeof(*hostname_obj), gf_gld_mt_hostname_t);
 
@@ -238,27 +235,22 @@ glusterd_hostname_new(xlator_t *this, const char *hostname,
         goto out;
     }
 
-    hostname_obj->hostname = gf_strdup(hostname);
+    gf_strncpy(hostname_obj->hostname, hostname,
+               sizeof(hostname_obj->hostname));
     CDS_INIT_LIST_HEAD(&hostname_obj->hostname_list);
-
-    *name = hostname_obj;
-    ret = 0;
-
 out:
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
-    return ret;
+    return hostname_obj;
 }
 
 gf_boolean_t
 glusterd_gf_is_local_addr(char *hostname)
 {
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
+    glusterd_conf_t *priv = this->private;
     glusterd_hostname_t *hostname_obj = NULL;
     gf_boolean_t found = _gf_false;
-    int ret = 1;
 
-    priv = this->private;
+    GF_ASSERT(priv);
 
     if (gd_has_address(&priv->hostnames, hostname)) {
         found = _gf_true;
@@ -270,8 +262,8 @@ glusterd_gf_is_local_addr(char *hostname)
         goto out;
     }
 
-    ret = glusterd_hostname_new(this, hostname, &hostname_obj);
-    if (ret) {
+    hostname_obj = glusterd_hostname_new(this, hostname);
+    if (!hostname_obj) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY, NULL);
         goto out;
     }

@@ -1459,7 +1459,6 @@ glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
                              hostname_list)
     {
         list_del_init(&hostname_obj->hostname_list);
-        GF_FREE(hostname_obj->hostname);
         GF_FREE(hostname_obj);
     }
 }

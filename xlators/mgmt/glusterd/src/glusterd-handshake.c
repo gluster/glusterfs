@@ -1905,12 +1905,13 @@ glusterd_event_connected_inject(glusterd_peerctx_t *peerctx)
         GF_FREE(ctx);
         goto out;
     }
-    ctx->hostname = gf_strdup(peerinfo->hostname);
+
+    gf_strncpy(ctx->hostname, peerinfo->hostname, sizeof(ctx->hostname));
     ctx->port = peerinfo->port;
     ctx->req = peerctx->args.req;
     ctx->dict = peerctx->args.dict;
 
-    event->peername = gf_strdup(peerinfo->hostname);
+    gf_strncpy(event->peername, peerinfo->hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, peerinfo->uuid);
     event->ctx = ctx;
 

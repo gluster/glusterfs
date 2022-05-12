@@ -43,7 +43,7 @@ typedef enum glusterd_friend_sm_state_ {
 } glusterd_friend_sm_state_t;
 
 typedef struct glusterd_peer_hostname_ {
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     struct cds_list_head hostname_list;
 } glusterd_peer_hostname_t;
 
@@ -65,11 +65,10 @@ typedef struct glusterd_sm_tr_log_ {
 
 struct glusterd_peerinfo_ {
     uuid_t uuid;
-    char uuid_str[50]; /* Retrieve this using
-                        * gd_peer_uuid_str ()
-                        */
+    /* Retrieve this using gd_peer_uuid_str(). */
+    char uuid_str[GF_UUID_BUF_SIZE];
     glusterd_friend_sm_state_t state;
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     struct cds_list_head hostnames;
     int port;
     struct cds_list_head uuid_list;
@@ -113,7 +112,7 @@ typedef struct glusterd_peer_ctx_args_ {
 typedef struct glusterd_peer_ctx_ {
     glusterd_peerctx_args_t args;
     uuid_t peerid;
-    char *peername;
+    char peername[GF_HOST_NAME_MAX + 1];
     uint32_t peerinfo_gen;
     char *errstr;
 } glusterd_peerctx_t;
@@ -144,7 +143,7 @@ typedef enum glusterd_friend_update_op_ {
 struct glusterd_friend_sm_event_ {
     struct cds_list_head list;
     uuid_t peerid;
-    char *peername;
+    char peername[GF_HOST_NAME_MAX + 1];
     void *ctx;
     glusterd_friend_sm_event_type_t event;
 };
@@ -160,7 +159,7 @@ typedef struct glusterd_sm_ {
 
 typedef struct glusterd_friend_req_ctx_ {
     uuid_t uuid;
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     rpcsvc_request_t *req;
     int port;
     dict_t *vols;
@@ -169,12 +168,12 @@ typedef struct glusterd_friend_req_ctx_ {
 
 typedef struct glusterd_friend_update_ctx_ {
     uuid_t uuid;
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     int op;
 } glusterd_friend_update_ctx_t;
 
 typedef struct glusterd_probe_ctx_ {
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     rpcsvc_request_t *req;
     int port;
     dict_t *dict;

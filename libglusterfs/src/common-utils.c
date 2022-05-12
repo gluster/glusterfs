@@ -4176,11 +4176,8 @@ glusterfs_compute_sha256(const unsigned char *content, size_t size,
     return 0;
 }
 
-/* * Safe wrapper function for strncpy.
- * This wrapper makes sure that when there is no null byte among the first n in
- * source srting for strncpy function call, the string placed in dest will be
- * null-terminated.
- */
+/* This wrapper is intended to make sure that 'dest' is null-terminated
+   even if there is no null byte among the bytes copied from 'src'. */
 
 char *
 gf_strncpy(char *dest, const char *src, const size_t dest_size)

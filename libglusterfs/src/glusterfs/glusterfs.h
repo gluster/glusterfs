@@ -63,7 +63,6 @@
 #define O_PATH 010000000 /* from asm-generic/fcntl.h */
 #endif
 
-
 #ifndef EBADFD
 /* Mac OS X does not have EBADFD */
 #define EBADFD EBADF
@@ -762,7 +761,7 @@ struct _glusterfs_ctx {
 
     gf_boolean_t cleanup_starting;
     gf_boolean_t destroy_ctx;
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;

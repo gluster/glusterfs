@@ -48,12 +48,6 @@ gf_boolean_t
 glusterd_are_vol_all_peers_up(glusterd_volinfo_t *volinfo,
                               struct cds_list_head *peers, char **down_peerstr);
 
-int32_t
-glusterd_peer_hostname_new(const char *hostname,
-                           glusterd_peer_hostname_t **name);
-void
-glusterd_peer_hostname_free(glusterd_peer_hostname_t *name);
-
 gf_boolean_t
 gd_peer_has_address(glusterd_peerinfo_t *peerinfo, const char *address);
 

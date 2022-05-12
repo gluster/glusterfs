@@ -262,7 +262,7 @@ struct glusterd_brickinfo {
     glusterd_brick_proc_t *brick_proc; /* Information regarding mux bricks */
     struct cds_list_head mux_bricks; /* List to store the bricks in brick_proc*/
     uint32_t fs_share_count;
-    char hostname[NAME_MAX];
+    char hostname[GF_HOST_NAME_MAX + 1];
     char path[VALID_GLUSTERD_PATHMAX];
     char real_path[VALID_GLUSTERD_PATHMAX];
     char device_path[VALID_GLUSTERD_PATHMAX];

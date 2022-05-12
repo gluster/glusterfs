@@ -86,11 +86,8 @@ glusterd_friend_sm_event_name_get(int event)
 void
 glusterd_destroy_probe_ctx(glusterd_probe_ctx_t *ctx)
 {
-    if (!ctx)
-        return;
-
-    GF_FREE(ctx->hostname);
-    GF_FREE(ctx);
+    if (ctx)
+        GF_FREE(ctx);
 }
 
 void
@@ -103,17 +100,15 @@ glusterd_destroy_friend_req_ctx(glusterd_friend_req_ctx_t *ctx)
         dict_unref(ctx->vols);
     if (ctx->peer_ver)
         dict_unref(ctx->peer_ver);
-    GF_FREE(ctx->hostname);
+
     GF_FREE(ctx);
 }
 
 void
 glusterd_destroy_friend_update_ctx(glusterd_friend_update_ctx_t *ctx)
 {
-    if (!ctx)
-        return;
-    GF_FREE(ctx->hostname);
-    GF_FREE(ctx);
+    if (ctx)
+        GF_FREE(ctx);
 }
 
 int
@@ -138,7 +133,7 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
 
     GF_ASSERT(priv);
 
-    ctx.hostname = hostname;
+    gf_strncpy(ctx.hostname, hostname, sizeof(ctx.hostname));
     ctx.op = GD_FRIEND_UPDATE_DEL;
 
     friends = dict_new();
@@ -265,11 +260,13 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
         goto out;
     }
 
-    new_ev_ctx->hostname = gf_strdup(peerinfo->hostname);
+    gf_strncpy(new_ev_ctx->hostname, peerinfo->hostname,
+               sizeof(new_ev_ctx->hostname));
     new_ev_ctx->port = peerinfo->port;
     new_ev_ctx->req = NULL;
 
-    new_event->peername = gf_strdup(peerinfo->hostname);
+    gf_strncpy(new_event->peername, peerinfo->hostname,
+               sizeof(new_event->peername));
     gf_uuid_copy(new_event->peerid, peerinfo->uuid);
     new_event->ctx = new_ev_ctx;
 
@@ -286,11 +283,7 @@ glusterd_ac_reverse_probe_begin(glusterd_friend_sm_event_t *event, void *ctx)
 
 out:
     if (ret) {
-        if (new_event)
-            GF_FREE(new_event->peername);
         GF_FREE(new_event);
-        if (new_ev_ctx)
-            GF_FREE(new_ev_ctx->hostname);
         GF_FREE(new_ev_ctx);
     }
     gf_msg_debug("glusterd", 0, "returning with %d", ret);
@@ -481,7 +474,8 @@ glusterd_ac_send_friend_remove_req(glusterd_friend_sm_event_t *event,
         ret = glusterd_friend_sm_new_event(event_type, &new_event);
 
         if (!ret) {
-            new_event->peername = peerinfo->hostname;
+            gf_strncpy(new_event->peername, peerinfo->hostname,
+                       sizeof(new_event->peername));
             gf_uuid_copy(new_event->peerid, peerinfo->uuid);
             ret = glusterd_friend_sm_inject_event(new_event);
         } else {
@@ -858,7 +852,8 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
             goto out;
         }
 
-        new_event->peername = gf_strdup(peerinfo->hostname);
+        gf_strncpy(new_event->peername, peerinfo->hostname,
+                   sizeof(new_event->peername));
         gf_uuid_copy(new_event->peerid, peerinfo->uuid);
 
         ret = glusterd_friend_sm_inject_event(new_event);
@@ -873,8 +868,6 @@ glusterd_ac_handle_friend_remove_req(glusterd_friend_sm_event_t *event,
 
     glusterd_peer_detach_cleanup(priv);
 out:
-    if (new_event)
-        GF_FREE(new_event->peername);
     GF_FREE(new_event);
 
     gf_msg_debug(THIS->name, 0, "Returning with %d", ret);
@@ -1037,7 +1030,8 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
         goto out;
     }
 
-    new_event->peername = gf_strdup(event->peername);
+    gf_strncpy(new_event->peername, peerinfo->hostname,
+               sizeof(new_event->peername));
     gf_uuid_copy(new_event->peerid, event->peerid);
 
     new_ev_ctx = GF_CALLOC(1, sizeof(*new_ev_ctx),
@@ -1047,8 +1041,9 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
         goto out;
     }
 
+    gf_strncpy(new_ev_ctx->hostname, ev_ctx->hostname,
+               sizeof(new_ev_ctx->hostname));
     gf_uuid_copy(new_ev_ctx->uuid, ev_ctx->uuid);
-    new_ev_ctx->hostname = gf_strdup(ev_ctx->hostname);
     new_ev_ctx->op = GD_FRIEND_UPDATE_ADD;
 
     new_event->ctx = new_ev_ctx;
@@ -1072,8 +1067,6 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
                                         op_errno);
 
 out:
-    if (new_event)
-        GF_FREE(new_event->peername);
     GF_FREE(new_event);
 
     gf_msg_debug("glusterd", 0, "Returning with %d", ret);

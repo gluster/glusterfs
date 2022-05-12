@@ -112,7 +112,7 @@ typedef struct glusterd_dict_ctx_ {
 } glusterd_dict_ctx_t;
 
 typedef struct glusterd_hostname_ {
-    char *hostname;
+    char hostname[GF_HOST_NAME_MAX + 1];
     struct list_head hostname_list;
 } glusterd_hostname_t;
 

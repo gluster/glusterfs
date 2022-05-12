@@ -164,12 +164,12 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         goto out;
     }
 
-    event->peername = gf_strdup(peerinfo->hostname);
+    gf_strncpy(event->peername, peerinfo->hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
     gf_uuid_copy(ctx->uuid, uuid);
     if (hostname)
-        ctx->hostname = gf_strdup(hostname);
+        gf_strncpy(ctx->hostname, hostname, sizeof(ctx->hostname));
     ctx->req = req;
 
     ret = dict_unserialize_specific_keys(
@@ -204,8 +204,6 @@ out:
     RCU_READ_UNLOCK;
 
     if (ret && (ret != GLUSTERD_CONNECTION_AWAITED)) {
-        if (ctx && ctx->hostname)
-            GF_FREE(ctx->hostname);
         GF_FREE(ctx);
         if (dict) {
             if ((!dict->extra_stdfree) && friend_req->vols.vols_val)
@@ -216,8 +214,6 @@ out:
         }
         if (peer_ver)
             dict_unref(peer_ver);
-        if (event)
-            GF_FREE(event->peername);
         GF_FREE(event);
     }
 
@@ -261,8 +257,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     }
 
     if (hostname)
-        event->peername = gf_strdup(hostname);
-
+        gf_strncpy(event->peername, hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, uuid);
 
     if (!ctx) {
@@ -275,7 +270,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     gf_uuid_copy(ctx->uuid, uuid);
     if (hostname)
-        ctx->hostname = gf_strdup(hostname);
+        gf_strncpy(ctx->hostname, hostname, sizeof(ctx->hostname));
     ctx->req = req;
 
     event->ctx = ctx;
@@ -298,11 +293,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 out:
 
     if (0 != ret) {
-        if (ctx && ctx->hostname)
-            GF_FREE(ctx->hostname);
         GF_FREE(ctx);
-        if (event)
-            GF_FREE(event->peername);
         GF_FREE(event);
     }
 
@@ -2809,14 +2800,7 @@ glusterd_peer_hostname_update(glusterd_peerinfo_t *peerinfo,
     if (store_update)
         ret = glusterd_store_peerinfo(peerinfo);
 
-    if (peerinfo->hostname != NULL) {
-        GF_FREE(peerinfo->hostname);
-    }
-    peerinfo->hostname = gf_strdup(hostname);
-    if (peerinfo->hostname == NULL) {
-        ret = -1;
-        goto out;
-    }
+    gf_strncpy(peerinfo->hostname, hostname, sizeof(peerinfo->hostname));
 
     if (peerinfo->rpc == NULL)
         goto out;
@@ -3626,11 +3610,11 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
         peerctx->args = *args;
 
     gf_uuid_copy(peerctx->peerid, peerinfo->uuid);
-    peerctx->peername = gf_strdup(peerinfo->hostname);
-    peerctx->peerinfo_gen = peerinfo->generation; /* A peerinfos generation
-                                                     number can be used to
-                                                     uniquely identify a
-                                                     peerinfo */
+    gf_strncpy(peerctx->peername, peerinfo->hostname,
+               sizeof(peerctx->peername));
+    /* Peerinfo generation number can be used
+       to identify the peerinfo uniquely. */
+    peerctx->peerinfo_gen = peerinfo->generation;
 
     ret = dict_get_str(this->options, "transport.address-family", &af);
     if (ret)
@@ -3842,7 +3826,8 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
         // Injecting a NEW_NAME event to update cluster
         ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_NEW_NAME, &event);
         if (!ret) {
-            event->peername = gf_strdup(peerinfo->hostname);
+            gf_strncpy(event->peername, peerinfo->hostname,
+                       sizeof(event->peername));
             gf_uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
@@ -3912,14 +3897,14 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
         goto out;
     }
 
-    ctx->hostname = gf_strdup(hoststr);
+    gf_strncpy(ctx->hostname, hoststr, sizeof(ctx->hostname));
     ctx->port = port;
     ctx->req = req;
     ctx->dict = dict;
 
     event->ctx = ctx;
 
-    event->peername = gf_strdup(hoststr);
+    gf_strncpy(event->peername, hoststr, sizeof(event->peername));
     gf_uuid_copy(event->peerid, uuid);
 
     ret = glusterd_friend_sm_inject_event(event);
@@ -6552,7 +6537,8 @@ glusterd_friend_remove_notify(glusterd_peerctx_t *peerctx, int32_t op_errno)
         glusterd_xfer_cli_probe_resp(req, -1, op_errno, errstr,
                                      peerinfo->hostname, peerinfo->port, dict);
 
-        new_event->peername = gf_strdup(peerinfo->hostname);
+        gf_strncpy(new_event->peername, peerinfo->hostname,
+                   sizeof(new_event->peername));
         gf_uuid_copy(new_event->peerid, peerinfo->uuid);
         ret = glusterd_friend_sm_inject_event(new_event);
 
@@ -6592,7 +6578,6 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     switch (event) {
         case RPC_CLNT_DESTROY:
             GF_FREE(peerctx->errstr);
-            GF_FREE(peerctx->peername);
             GF_FREE(peerctx);
             return 0;
         case RPC_CLNT_PING:

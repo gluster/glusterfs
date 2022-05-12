@@ -322,7 +322,8 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
         /* Injecting EVENT_NEW_NAME to send update */
         ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_NEW_NAME, &event);
         if (!ret) {
-            event->peername = gf_strdup(peerinfo->hostname);
+            gf_strncpy(event->peername, peerinfo->hostname,
+                       sizeof(event->peername));
             gf_uuid_copy(event->peerid, peerinfo->uuid);
 
             ret = glusterd_friend_sm_inject_event(event);
@@ -388,7 +389,7 @@ cont:
         goto out;
     }
 
-    event->peername = gf_strdup(peerinfo->hostname);
+    gf_strncpy(event->peername, peerinfo->hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
     event->ctx = ((call_frame_t *)myframe)->local;
@@ -496,10 +497,11 @@ __glusterd_friend_add_cbk(struct rpc_req *req, struct iovec *iov, int count,
     }
 
     gf_uuid_copy(ev_ctx->uuid, rsp.uuid);
-    ev_ctx->hostname = gf_strdup(rsp.hostname);
+    gf_strncpy(ev_ctx->hostname, rsp.hostname, sizeof(ev_ctx->hostname));
 
-    event->peername = gf_strdup(peerinfo->hostname);
+    gf_strncpy(event->peername, peerinfo->hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, peerinfo->uuid);
+
     event->ctx = ev_ctx;
     ret = glusterd_friend_sm_inject_event(event);
 
@@ -604,7 +606,8 @@ inject:
                "Unable to get event");
         goto unlock;
     }
-    event->peername = gf_strdup(peerinfo->hostname);
+
+    gf_strncpy(event->peername, peerinfo->hostname, sizeof(event->peername));
     gf_uuid_copy(event->peerid, peerinfo->uuid);
 
     ret = glusterd_friend_sm_inject_event(event);

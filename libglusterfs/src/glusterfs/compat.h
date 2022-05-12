@@ -505,6 +505,25 @@ dirname_r(char *path);
 #pragma GCC poison system mkostemp popen
 #endif
 
+/* New code should use GF_HOST_NAME_MAX. An existing
+   code is likely to migrate to use it as well. */
+
+#if defined(_POSIX_HOST_NAME_MAX)
+/* Mandated by SUSv2. */
+#define GF_HOST_NAME_MAX _POSIX_HOST_NAME_MAX
+#elif defined(HOST_NAME_MAX)
+/* Mandated by POSIX.1 */
+#define GF_HOST_NAME_MAX HOST_NAME_MAX
+#elif defined(MAXNAMLEN)
+/* BSD-specific name for what POSIX calls NAME_MAX. */
+#define GF_HOST_NAME_MAX MAXNAMLEN
+#elif defined(NAME_MAX)
+/* Try something generic. */
+#define GF_HOST_NAME_MAX NAME_MAX
+#else /* none of the above */
+#error "Unable to determine maximum host name length"
+#endif /* maximum host name length */
+
 int
 gf_umount_lazy(char *xlname, char *path, int rmdir);
 
