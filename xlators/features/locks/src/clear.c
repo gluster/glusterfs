@@ -111,7 +111,8 @@ clrlk_parse_args(const char *cmd, clrlk_args *args)
     if (!opts)
         goto out;
 
-    if (sscanf(cmd, GF_XATTR_CLRLK_CMD ".%s", opts) < 1) {
+    if (sscanf(cmd, GF_XATTR_CLRLK_CMD ".%s", opts) < 1 &&
+        sscanf(cmd, GF_XATTR_INTRLK_CMD ".%s", opts) < 1) {
         ret = -1;
         goto out;
     }
@@ -147,7 +148,8 @@ out:
 
 int
 clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
-                    int *blkd, int *granted, int *op_errno)
+                    int *blkd, int *granted, int *op_errno, char *client_uid,
+                    pid_t client_pid, bool setlk_interrupt)
 {
     posix_lock_t *plock = NULL;
     posix_lock_t *tmp = NULL;
@@ -177,6 +179,13 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
                               plock->user_flock.l_start != ulock.l_start ||
                               plock->user_flock.l_len != ulock.l_len))
                 continue;
+
+            if (setlk_interrupt) {
+                if ((plock->client_pid != client_pid) ||
+                    (strcmp(plock->client_uid, client_uid) != 0)) {
+                    continue;
+                }
+            }
 
             list_del_init(&plock->list);
             if (plock->blocked) {

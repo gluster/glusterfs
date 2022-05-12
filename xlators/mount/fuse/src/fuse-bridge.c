@@ -4828,7 +4828,7 @@ fuse_setlk_interrupt_handler(xlator_t *this, fuse_interrupt_record_t *fir)
     state = fir->data;
 
     ret = gf_asprintf(
-        &xattr_name, GF_XATTR_CLRLK_CMD ".tposix.kblocked.%hd,%jd-%jd",
+        &xattr_name, GF_XATTR_INTRLK_CMD ".tposix.kblocked.%hd,%jd-%jd",
         state->lk_lock.l_whence, state->lk_lock.l_start, state->lk_lock.l_len);
     if (ret == -1) {
         xattr_name = NULL;
