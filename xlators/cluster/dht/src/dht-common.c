@@ -11007,7 +11007,7 @@ dht_notify(xlator_t *this, int event, void *data, ...)
     int have_heard_from_all = 0;
     gf_defrag_info_t *defrag = NULL;
     dict_t *dict = NULL;
-    gf_defrag_type cmd = 0;
+    gf_defrag_type_t cmd = 0;
     dict_t *output = NULL;
     va_list ap;
     struct gf_upcall *up_data = NULL;

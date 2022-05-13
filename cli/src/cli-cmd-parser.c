@@ -4003,7 +4003,7 @@ cli_cmd_volume_defrag_parse(const char **words, int wordcount, dict_t **options)
     char *option = NULL;
     char *volname = NULL;
     char *command = NULL;
-    gf_cli_defrag_type cmd = 0;
+    gf_defrag_type_t cmd = 0;
 
     GF_ASSERT(words);
     GF_ASSERT(options);

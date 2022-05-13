@@ -484,7 +484,7 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     int32_t op = GD_OP_NONE;
     dict_t *dict = NULL;
     char *volname = NULL;
-    gf_cli_defrag_type cmd = 0;
+    gf_defrag_type_t cmd = 0;
     char msg[2048] = {
         0,
     };
