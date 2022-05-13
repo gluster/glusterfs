@@ -148,7 +148,7 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             selection = &priv->ev_selection;
             GF_ATOMIC_INC(priv->clntcnt);
 
-            LOCK(&c_clnt->wait_lock);
+            LOCK(&crpc->lock);
             {
                 LOCK(&c_clnt->active_lock);
                 {
@@ -157,7 +157,7 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
                 UNLOCK(&c_clnt->active_lock);
             }
-            UNLOCK(&c_clnt->wait_lock);
+            UNLOCK(&crpc->lock);
 
             break;
         case RPC_CLNT_DISCONNECT:
@@ -177,13 +177,9 @@ changelog_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 if (selection)
                     changelog_deselect_event(this, selection, crpc->filter);
                 changelog_set_disconnect_flag(crpc, _gf_true);
-            }
-            UNLOCK(&crpc->lock);
-            LOCK(&c_clnt->active_lock);
-            {
                 list_del_init(&crpc->list);
             }
-            UNLOCK(&c_clnt->active_lock);
+            UNLOCK(&crpc->lock);
 
             break;
         case RPC_CLNT_MSG:
@@ -210,6 +206,7 @@ changelog_ev_connector(void *data)
     xlator_t *this = NULL;
     changelog_clnt_t *c_clnt = NULL;
     changelog_rpc_clnt_t *crpc = NULL;
+    gf_boolean_t lock_flag = _gf_false;
 
     c_clnt = data;
     this = c_clnt->this;
@@ -228,17 +225,27 @@ changelog_ev_connector(void *data)
                         CHANGELOG_MSG_RPC_CONNECT_ERROR, "path=%s", crpc->sock,
                         NULL);
                 crpc->cleanup(crpc);
+                lock_flag = _gf_true;
                 goto mutex_unlock;
             }
-
-            LOCK(&c_clnt->wait_lock);
-            {
-                list_move_tail(&crpc->list, &c_clnt->waitq);
-            }
-            UNLOCK(&c_clnt->wait_lock);
         }
-    mutex_unlock:
         pthread_mutex_unlock(&c_clnt->pending_lock);
+        LOCK(&crpc->lock);
+        {
+            if (crpc->disconnected != _gf_true) {
+                LOCK(&c_clnt->wait_lock);
+                {
+                    list_move_tail(&crpc->list, &c_clnt->waitq);
+                }
+                UNLOCK(&c_clnt->wait_lock);
+            }
+        }
+        UNLOCK(&crpc->lock);
+    mutex_unlock:
+        if (lock_flag) {
+            pthread_mutex_unlock(&c_clnt->pending_lock);
+            lock_flag = _gf_false;
+        }
     }
 
     return NULL;
@@ -389,12 +396,16 @@ void
 changelog_ev_queue_connection(changelog_clnt_t *c_clnt,
                               changelog_rpc_clnt_t *crpc)
 {
-    pthread_mutex_lock(&c_clnt->pending_lock);
+    LOCK(&crpc->lock);
     {
-        list_add_tail(&crpc->list, &c_clnt->pending);
-        pthread_cond_signal(&c_clnt->pending_cond);
+        pthread_mutex_lock(&c_clnt->pending_lock);
+        {
+            list_add_tail(&crpc->list, &c_clnt->pending);
+            pthread_cond_signal(&c_clnt->pending_cond);
+        }
+        pthread_mutex_unlock(&c_clnt->pending_lock);
     }
-    pthread_mutex_unlock(&c_clnt->pending_lock);
+    UNLOCK(&crpc->lock);
 }
 
 struct rpc_clnt_procedure changelog_ev_procs[CHANGELOG_REV_PROC_MAX] = {
