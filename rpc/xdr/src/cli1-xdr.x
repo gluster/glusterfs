@@ -13,7 +13,7 @@
 #endif
 %#include <glusterfs/compat.h>
 
- enum gf_cli_defrag_type {
+enum gf_defrag_type_t {
 	GF_DEFRAG_CMD_NONE = 0,
         GF_DEFRAG_CMD_START,
         GF_DEFRAG_CMD_STOP,
@@ -35,7 +35,7 @@
         GF_DEFRAG_CMD_TYPE_MAX
 };
 
- enum gf_defrag_status_t {
+enum gf_defrag_status_t {
         GF_DEFRAG_STATUS_NOT_STARTED,
         GF_DEFRAG_STATUS_STARTED,
         GF_DEFRAG_STATUS_STOPPED,

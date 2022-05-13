@@ -457,7 +457,7 @@ gd_is_remove_brick_committed(glusterd_volinfo_t *volinfo);
 int
 glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                                       dict_t *dict, glusterd_volinfo_t *volinfo,
-                                      char **errstr, gf_cli_defrag_type);
+                                      char **errstr, gf_defrag_type_t type);
 int
 glusterd_get_secondary_details_confpath(glusterd_volinfo_t *volinfo,
                                         dict_t *dict, char **secondary_url,
