@@ -345,14 +345,18 @@ gf_async_worker_create(void)
 static void
 gf_async_worker_enable(void)
 {
+    /* We have consumed a spare worker. We create another one for future
+     * needs. It is important to create the spare worker inside the leader
+     * threads since we use thread unsafe functions inside like
+     * __cds_wfs_pop_blocking. So we perform the spare worker creation
+     * before sending the leader transfer signal.
+     */
+    gf_async_worker_create();
+
     /* This will wake one of the spare workers. If all workers are busy now,
      * the signal will be queued so that the first one that completes its
      * work will become the leader. */
     gf_async_sigbroadcast(GF_ASYNC_SIGCTRL);
-
-    /* We have consumed a spare worker. We create another one for future
-     * needs. */
-    gf_async_worker_create();
 }
 
 static void
