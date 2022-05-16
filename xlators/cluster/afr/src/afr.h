@@ -1070,6 +1070,8 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
                 mem_put(frame->local);                                         \
                 frame->local = NULL;                                           \
             }                                                                  \
+        } else {                                                               \
+            op_errno = ENOMEM;                                                 \
         }                                                                      \
         frame->local;                                                          \
     })

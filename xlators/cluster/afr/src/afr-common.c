@@ -6435,7 +6435,7 @@ out:
 int
 afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 {
-    int __ret = -1;
+    int __ret;
     local->op_ret = -1;
     local->op_errno = EUCLEAN;
 
