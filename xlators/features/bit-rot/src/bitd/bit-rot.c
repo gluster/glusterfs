@@ -1716,9 +1716,6 @@ br_fini_signer(br_private_t *priv)
 {
     int i = 0;
 
-    if (priv == NULL)
-        return;
-
     for (; i < priv->signer_th_count; i++) {
         (void)gf_thread_cleanup_xint(priv->obj_queue->workers[i]);
     }
