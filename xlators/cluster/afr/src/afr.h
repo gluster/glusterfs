@@ -1062,12 +1062,17 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
 
 #define AFR_FRAME_INIT(frame, op_errno)                                        \
     ({                                                                         \
-        frame->local = mem_get0(THIS->local_pool);                             \
-        if (afr_local_init(frame->local, frame->this->private, &op_errno)) {   \
-            afr_local_cleanup(frame->local, frame->this);                      \
-            mem_put(frame->local);                                             \
-            frame->local = NULL;                                               \
-        };                                                                     \
+        xlator_t *__this = frame->this;                                        \
+        frame->local = mem_get0(__this->local_pool);                           \
+        if (caa_likely(frame->local)) {                                        \
+            if (afr_local_init(frame->local, __this->private, &op_errno)) {    \
+                afr_local_cleanup(frame->local, __this);                       \
+                mem_put(frame->local);                                         \
+                frame->local = NULL;                                           \
+            }                                                                  \
+        } else {                                                               \
+            op_errno = ENOMEM;                                                 \
+        }                                                                      \
         frame->local;                                                          \
     })
 
