@@ -2397,7 +2397,7 @@ out:
          * we release the cluster or mgmt_v3 lock
          * and clear the op */
 
-        glusterd_op_clear_op(op);
+        glusterd_op_clear_op();
         if (cluster_lock)
             glusterd_unlock(MY_UUID);
         else {
