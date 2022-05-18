@@ -26,8 +26,4 @@ int32_t
 afr_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *dict);
 
-int32_t
-afr_checksum(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-             dict_t *xdata);
-
 #endif /* __DIR_READ_H__ */

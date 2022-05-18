@@ -363,7 +363,7 @@ afr_mark_entry_pending_changelog(call_frame_t *frame, xlator_t *this)
     /* FOP did not suceed on quorum no. of bricks. */
     success_replies = alloca0(priv->child_count);
     afr_fill_success_replies(local, priv, success_replies);
-    if (!afr_has_quorum(success_replies, this, NULL))
+    if (!afr_has_quorum(success_replies, priv, NULL))
         return;
 
     if (priv->thin_arbiter_count) {

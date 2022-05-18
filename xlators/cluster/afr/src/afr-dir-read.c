@@ -81,7 +81,7 @@ afr_opendir(call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
 
     local->op = GF_FOP_OPENDIR;
 
-    if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
+    if (priv->quorum_count && !afr_has_quorum(local->child_up, priv, NULL)) {
         op_errno = afr_quorum_errno(priv);
         goto out;
     }

@@ -73,7 +73,7 @@ afr_selfheal_entry_anon_inode(xlator_t *this, inode_t *dir, const char *name,
     }
 
     if (priv->quorum_count) {
-        if (afr_has_quorum(lookup_success, this, NULL)) {
+        if (afr_has_quorum(lookup_success, priv, NULL)) {
             *anon_inode = _gf_true;
         }
     } else if (AFR_COUNT(lookup_success, priv->child_count) > 1) {
