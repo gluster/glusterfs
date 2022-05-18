@@ -389,13 +389,10 @@ out:
 }
 
 int
-glusterd_gfproxydsvc_reconfigure(void *data)
+glusterd_gfproxydsvc_reconfigure(glusterd_volinfo_t *volinfo)
 {
     int ret = -1;
     gf_boolean_t identical = _gf_false;
-    glusterd_volinfo_t *volinfo = NULL;
-
-    volinfo = data;
 
     if (!volinfo->gfproxyd.svc.inited)
         goto manager;

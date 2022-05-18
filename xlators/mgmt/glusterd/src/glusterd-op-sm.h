@@ -200,10 +200,10 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                       char *err_str, size_t err_len);
 
 int32_t
-glusterd_op_txn_complete();
+glusterd_op_txn_complete(uuid_t *txn_id);
 
 void *
-glusterd_op_get_ctx();
+glusterd_op_get_ctx(void);
 
 int32_t
 glusterd_op_set_req(rpcsvc_request_t *req);
@@ -216,7 +216,7 @@ int32_t
 glusterd_op_get_op();
 
 int32_t
-glusterd_op_clear_op();
+glusterd_op_clear_op(void);
 
 int32_t
 glusterd_op_free_ctx(glusterd_op_t op, void *ctx);

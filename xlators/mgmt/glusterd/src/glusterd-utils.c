@@ -9593,7 +9593,7 @@ glusterd_volume_status_copy_to_op_ctx_dict(dict_t *aggr, dict_t *rsp_dict)
         ctx_dict = aggr;
 
     } else {
-        ctx_dict = glusterd_op_get_ctx(GD_OP_STATUS_VOLUME);
+        ctx_dict = glusterd_op_get_ctx();
     }
 
     ret = dict_get_int32n(ctx_dict, "cmd", SLEN("cmd"), &cmd);
