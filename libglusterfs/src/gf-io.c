@@ -13,17 +13,11 @@
 #include <sys/mman.h>
 
 #include <glusterfs/gf-io-legacy.h>
+#include <glusterfs/globals.h>
 
 #ifdef HAVE_IO_URING
 #include <glusterfs/gf-io-uring.h>
 #endif
-
-#define LG_MSG_IO_CBK_SLOW_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_CBK_SLOW_FMT                                                 \
-    "Execution of '%s()' (%p) in '%s:%u' took too much time (%" PRIu64 " us)"
-
-#define LG_MSG_IO_NO_ENGINE_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_NO_ENGINE_FMT "No suitable I/O engine found."
 
 /* Stack size for worker threads. */
 #define GF_IO_STACK_SIZE (512 * 1024)
@@ -57,19 +51,18 @@ gf_io_alloc(void **pptr, uint32_t size)
     void *ptr;
     int32_t res;
 
-    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS,
-               -1, 0);
-    if (caa_unlikely(ptr == MAP_FAILED)) {
-        res = -errno;
-        gf_io_log(res, LG_MSG_IO_CALL_FAILED, "mmap");
-
-        return res;
+    res = gf_res_ptr(&ptr, mmap(NULL, size, PROT_READ | PROT_WRITE,
+                                MAP_PRIVATE | MAP_ANONYMOUS, -1, 0),
+                     MAP_FAILED);
+    if (caa_unlikely(res < 0)) {
+        return gf_check("io", GF_LOG_ERROR, "mmap", res);
     }
 
-    gf_io_call_errno0(mlock, ptr, size);
+    gf_check("io", GF_LOG_WARNING, "mlock", gf_res_errno0(mlock(ptr, size)));
 
 #ifdef GF_LINUX_HOST_OS
-    gf_io_call_errno0(madvise, ptr, size, MADV_DONTFORK);
+    gf_check("io", GF_LOG_WARNING, "madvise",
+             gf_res_errno0(madvise(ptr, size, MADV_DONTFORK)));
 #endif
 
     *pptr = ptr;
@@ -81,7 +74,7 @@ gf_io_alloc(void **pptr, uint32_t size)
 static void
 gf_io_free(void *ptr, uint32_t size)
 {
-    gf_io_call_errno0(munmap, ptr, size);
+    gf_check("io", GF_LOG_WARNING, "munmap", gf_res_errno0(munmap(ptr, size)));
 }
 
 #ifdef DEBUG
@@ -89,7 +82,8 @@ gf_io_free(void *ptr, uint32_t size)
 static void
 gf_io_time_now(struct timespec *now)
 {
-    gf_io_success(gf_io_call_ret(clock_gettime, CLOCK_MONOTONIC, now));
+    gf_succeed("io", "clock_gettime",
+               gf_res_err(clock_gettime(CLOCK_MONOTONIC, now)));
 }
 
 static void
@@ -118,7 +112,7 @@ gf_io_latency_check(const struct timespec *start, struct timespec *now,
         elapsed = tv_sec * 1000000ULL + tv_nsec / 1000ULL;
     }
 
-    gf_io_log(-ETIME, LG_MSG_IO_CBK_SLOW, name, ptr, file, line, elapsed);
+    GF_LOG_W("io", LG_MSG_IO_CBK_SLOW(name, ptr, file, line, elapsed));
 }
 
 /* Run a callback for a request id and release the associated gf_io_data_t
@@ -510,11 +504,12 @@ gf_io_run(const char *name, gf_io_handlers_t *handlers, void *data)
             continue;
         }
 
-        gf_io_debug(0, "Trying I/O engine '%s'", engine->name);
+        GF_LOG_D("io", "Trying I/O engine", 1, GLFS_STR(engine, engine->name));
 
         res = engine->setup();
         if (res >= 0) {
-            gf_io_debug(0, "I/O engine '%s' is ready", engine->name);
+            GF_LOG_D("io", "I/O engine is ready", 1,
+                     GLFS_STR(engine, engine->name));
 
             gf_io_init(engine, res);
 
@@ -529,10 +524,11 @@ gf_io_run(const char *name, gf_io_handlers_t *handlers, void *data)
             }
         }
 
-        gf_io_debug(res, "Unable to use I/O engine '%s'", engine->name);
+        GF_LOG_D("io", "Unable to use I/O engine", 1,
+                 GLFS_STR(engine, engine->name));
     }
 
-    gf_io_log(-ENXIO, LG_MSG_IO_NO_ENGINE);
+    GF_LOG_E("io", LG_MSG_IO_NO_ENGINE());
 
     gf_io_cleanup();
 

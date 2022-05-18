@@ -352,10 +352,14 @@ _gf_smsg(const char *domain, const char *file, const char *function,
     } while (0)
 
 /* Shortcut macros for different log levels. */
-#define GF_LOC_C(_name, _data) GF_LOG(_name, GF_LOG_CRITICAL, _data)
+#define GF_LOG_C(_name, _data) GF_LOG(_name, GF_LOG_CRITICAL, _data)
 #define GF_LOG_E(_name, _data) GF_LOG(_name, GF_LOG_ERROR, _data)
 #define GF_LOG_W(_name, _data) GF_LOG(_name, GF_LOG_WARNING, _data)
 #define GF_LOG_I(_name, _data) GF_LOG(_name, GF_LOG_INFO, _data)
+
+/* 'global_ctx' is defined in glusterfs/globals.h. However if we include it
+ * here it will create a include loop. For now, anyone that uses these macros
+ * needs to include glusterfs/globals.h before using them. */
 
 #define GF_LOG_D(_name, _msg, _num, _fields...)                                \
     do {                                                                       \
