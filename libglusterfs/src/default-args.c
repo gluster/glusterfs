@@ -1094,7 +1094,7 @@ args_readdir_cbk_store(default_args_cbk_t *args, int32_t op_ret,
         {
             stub_entry = gf_dirent_for_name2(entry->d_name, entry->d_len,
                                              entry->d_ino, entry->d_off,
-                                             entry->d_type);
+                                             entry->d_type, NULL);
             if (!stub_entry)
                 goto out;
             list_add_tail(&stub_entry->list, &args->entries.list);
