@@ -114,7 +114,6 @@ typedef struct glusterd_op_lock_ctx_ glusterd_op_lock_ctx_t;
 
 struct glusterd_req_ctx_ {
     rpcsvc_request_t *req;
-    u_char uuid[16];
     int op;
     dict_t *dict;
 };

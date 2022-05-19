@@ -156,7 +156,6 @@ typedef struct {
     struct list_head xprt_list;
     pthread_mutex_t import_volumes;
     gf_store_handle_t *handle;
-    gf_timer_t *timer;
     glusterd_sm_tr_log_t op_sm_log;
     struct rpc_clnt_program *gfs_mgmt;
     dict_t *mgmt_v3_lock;        /* Dict for saving
@@ -170,14 +169,12 @@ typedef struct {
 
     dict_t *mgmt_v3_lock_timer;
     struct cds_list_head mount_specs;
-    pthread_t brick_thread;
     void *hooks_priv;
 
     xlator_t *xl; /* Should be set to 'THIS' before creating thread */
     /* need for proper handshake_t */
     int op_version; /* Starts with 1 for 3.3.0 */
     gf_boolean_t pending_quorum_action;
-    gf_boolean_t trace;
     gf_boolean_t restart_done;
     dict_t *opts;
     synclock_t big_lock;
@@ -187,7 +184,6 @@ typedef struct {
     rpcsvc_t *uds_rpc; /* RPCSVC for the unix domain socket */
     uint32_t base_port;
     uint32_t max_port;
-    char *snap_bricks_directory;
     gf_store_handle_t *missed_snaps_list_shandle;
     struct cds_list_head missed_snaps_list;
     time_t ping_timeout;
@@ -301,19 +297,6 @@ struct _auth {
 
 typedef struct _auth auth_t;
 
-struct glusterd_bitrot_scrub_ {
-    char *scrub_state;
-    char *scrub_impact;
-    char *scrub_freq;
-    uint64_t scrubbed_files;
-    uint64_t unsigned_files;
-    time_t last_scrub_time;
-    uint64_t scrub_duration;
-    uint64_t error_count;
-};
-
-typedef struct glusterd_bitrot_scrub_ glusterd_bitrot_scrub_t;
-
 struct glusterd_rebalance_ {
     uint64_t rebalance_files;
     uint64_t rebalance_data;
@@ -394,9 +377,6 @@ struct glusterd_volinfo_ {
     /* Replace brick status */
     glusterd_replace_brick_t rep_brick;
 
-    /* Bitrot scrub status*/
-    glusterd_bitrot_scrub_t bitrot_scrub;
-
     int version;
     uint32_t quota_conf_version;
     uint32_t cksum;
@@ -417,8 +397,7 @@ struct glusterd_volinfo_ {
     int op_version;
     int client_op_version;
     int32_t quota_xattr_version;
-    pthread_mutex_t reflock;
-    int refcnt;
+    gf_atomic_t refcnt;
     gd_quorum_status_t quorum_status;
 
     glusterd_snapdsvc_t snapd;
@@ -498,8 +477,7 @@ typedef enum gd_node_type_ {
     GD_NODE_QUOTAD,
     GD_NODE_SNAPD,
     GD_NODE_BITD,
-    GD_NODE_SCRUB,
-    GD_NODE_TIERD
+    GD_NODE_SCRUB
 } gd_node_type;
 
 typedef enum missed_snap_stat {

@@ -7645,7 +7645,6 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
         free_req_ctx = _gf_true;
         op = glusterd_op_get_op();
         req_ctx->op = op;
-        gf_uuid_copy(req_ctx->uuid, MY_UUID);
         ret = glusterd_op_build_payload(&req_ctx->dict, &op_errstr, NULL);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0,

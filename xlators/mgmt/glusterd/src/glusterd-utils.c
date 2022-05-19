@@ -669,11 +669,7 @@ glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
 
     pthread_mutex_lock(&conf->volume_lock);
     {
-        pthread_mutex_lock(&volinfo->reflock);
-        {
-            refcnt = --volinfo->refcnt;
-        }
-        pthread_mutex_unlock(&volinfo->reflock);
+        refcnt = GF_ATOMIC_DEC(volinfo->refcnt);
     }
     pthread_mutex_unlock(&conf->volume_lock);
     if (!refcnt) {
@@ -687,12 +683,7 @@ glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
 glusterd_volinfo_t *
 glusterd_volinfo_ref(glusterd_volinfo_t *volinfo)
 {
-    pthread_mutex_lock(&volinfo->reflock);
-    {
-        ++volinfo->refcnt;
-    }
-    pthread_mutex_unlock(&volinfo->reflock);
-
+    GF_ATOMIC_INC(volinfo->refcnt);
     return volinfo;
 }
 
@@ -753,7 +744,7 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
     glusterd_shdsvc_build(&new_volinfo->shd.svc);
 
     pthread_mutex_init(&new_volinfo->store_volinfo_lock, NULL);
-    pthread_mutex_init(&new_volinfo->reflock, NULL);
+    GF_ATOMIC_INIT(new_volinfo->refcnt, 0);
 
     *volinfo = glusterd_volinfo_ref(new_volinfo);
 
@@ -894,7 +885,6 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
     glusterd_shd_svcproc_cleanup(&volinfo->shd);
 
     pthread_mutex_destroy(&volinfo->store_volinfo_lock);
-    pthread_mutex_destroy(&volinfo->reflock);
     LOCK_DESTROY(&volinfo->lock);
 
     GF_FREE(volinfo);
