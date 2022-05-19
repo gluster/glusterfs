@@ -5690,8 +5690,6 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
     up_lease_arg->object = object;
     up_lease_arg->lease_type = recall_lease->lease_type;
 
-    GF_VALIDATE_OR_GOTO("glfs_recall_lease", up_lease_arg, out);
-
     up_arg->reason = GLFS_UPCALL_RECALL_LEASE;
     up_arg->event = up_lease_arg;
     up_arg->free_event = glfs_free_upcall_lease;
