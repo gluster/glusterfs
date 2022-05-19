@@ -812,6 +812,10 @@ glfs_stat(glfs_t *fs, const char *path, struct stat *buf) __THROW
     GFAPI_PUBLIC(glfs_stat, 3.4.0);
 
 int
+glfs_fstatat(struct glfs_fd *glfd, const char *path, struct stat *buf,
+             int flags) __THROW GFAPI_PUBLIC(glfs_fstatat, 11.0);
+
+int
 glfs_fstat(glfs_fd_t *fd, struct stat *buf) __THROW
     GFAPI_PUBLIC(glfs_fstat, 3.4.0);
 
