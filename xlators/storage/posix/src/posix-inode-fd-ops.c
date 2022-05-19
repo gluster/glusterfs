@@ -5749,7 +5749,8 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         last_off = (u_long)telldir(pfd->dir);
 
         this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
-                                         entry->d_ino, last_off, entry->d_type);
+                                         entry->d_ino, last_off, entry->d_type,
+                                         NULL);
 
         if (!this_entry) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno,
@@ -5977,7 +5978,10 @@ posix_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (op_ret >= 0) {
             op_ret = 0;
 
-            list_for_each_entry(entry, &entries.list, list) { op_ret++; }
+            list_for_each_entry(entry, &entries.list, list)
+            {
+                op_ret++;
+            }
         }
 
         STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, &entries, NULL);
