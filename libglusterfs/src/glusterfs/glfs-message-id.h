@@ -275,42 +275,57 @@
 #define GLFS_MIG(_mod, _name, _msg, _num, _fields...)                          \
     enum { _name = GLFS_##_mod##_COMP_BASE + __COUNTER__ };
 
-/* Map a field name to its source. If source is not present, use the name */
-#define GLFS_MAP1(_dummy, _src, _data...) _src
-#define GLFS_MAP(_name, _src...) GLFS_MAP1(, ##_src, _name)
+/* Returns '_name' if no '_val' is passed, otherwise it returns '_val' */
+#define GLFS_DEF1(_dummy, _val, _data...) _val
+#define GLFS_DEF(_name, _val...) GLFS_DEF1(, ##_val, _name)
 
 /* Helper to create an unsigned integer field. */
-#define GLFS_UINT(_name, _src...)                                              \
-    (uint32_t, _name, GLFS_MAP(_name, ##_src), "%" PRIu32, (GLFS_GET(_name)))
+#define GLFS_U32(_name, _src...)                                               \
+    (uint32_t, _name, GLFS_DEF(_name, ##_src), "%" PRIu32, (GLFS_GET(_name)))
 
 /* Helper to create a signed integer field. */
-#define GLFS_INT(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32, (GLFS_GET(_name)))
+#define GLFS_I32(_name, _src...)                                               \
+    (int32_t, _name, GLFS_DEF(_name, ##_src), "%" PRId32, (GLFS_GET(_name)))
+
+/* Helper to create an unsigned integer field. */
+#define GLFS_U64(_name, _src...)                                               \
+    (uint64_t, _name, GLFS_DEF(_name, ##_src), "%" PRIu64, (GLFS_GET(_name)))
+
+/* Helper to create a signed integer field. */
+#define GLFS_I64(_name, _src...)                                               \
+    (int64_t, _name, GLFS_DEF(_name, ##_src), "%" PRId64, (GLFS_GET(_name)))
 
 /* Helper to create an error field. */
 #define GLFS_ERR(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32 " (%s)",              \
+    (int32_t, _name, GLFS_DEF(_name, ##_src), "%" PRId32 " (%s)",              \
      (GLFS_GET(_name), strerror(GLFS_GET(_name))))
 
 /* Helper to create an error field where the error code is encoded in a
  * negative number. */
 #define GLFS_RES(_name, _src...)                                               \
-    (int32_t, _name, GLFS_MAP(_name, ##_src), "%" PRId32 " (%s)",              \
+    (int32_t, _name, GLFS_DEF(_name, ##_src), "%" PRId32 " (%s)",              \
      (-GLFS_GET(_name), strerror(-GLFS_GET(_name))))
+
+#define GLFS_RAW(_name, _src...)                                               \
+    (const char *, _name, GLFS_DEF(_name, ##_src), "%s", (GLFS_GET(_name)))
 
 /* Helper to create a string field. */
 #define GLFS_STR(_name, _src...)                                               \
-    (const char *, _name, GLFS_MAP(_name, ##_src), "'%s'", (GLFS_GET(_name)))
+    (const char *, _name, GLFS_DEF(_name, ##_src), "'%s'", (GLFS_GET(_name)))
+
+/* Helpter to create a function field. */
+#define GLFS_FUNC(_name, _src...)                                              \
+    (const char *, _name, GLFS_DEF(_name, ##_src), "%s()", (GLFS_GET(_name)))
 
 /* Helper to create a gfid field. */
 #define GLFS_UUID(_name, _src...)                                              \
-    (const uuid_t *, _name, GLFS_MAP(_name, ##_src), "%s",                     \
+    (const uuid_t *, _name, GLFS_DEF(_name, ##_src), "%s",                     \
      (*GLFS_GET(_name##_buff)), char GLFS_GET(_name##_buff)[48];               \
      uuid_unparse(*GLFS_GET(_name), GLFS_GET(_name##_buff)))
 
 /* Helper to create a pointer field. */
 #define GLFS_PTR(_name, _src...)                                               \
-    (void *, _name, GLFS_MAP(_name, ##_src), "%p", (GLFS_GET(_name)))
+    (const void *, _name, GLFS_DEF(_name, ##_src), "%p", (GLFS_GET(_name)))
 
 /* Per module message segments allocated */
 /* NOTE: For any new module add to the end the modules */

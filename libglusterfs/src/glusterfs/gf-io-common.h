@@ -28,140 +28,133 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/compat-errno.h>
 
-/* A helper macro to create log messages. It requires two additional macros
- * for each message id that define the level of the message and its format
- * string. These macros must have the same name as the message id, but adding
- * the suffixes _LVL and _FMT. */
-#define gf_io_log(_res, _msg, _args...)                                        \
-    gf_msg("io", _msg##_LVL(_res), -(_res), _msg, _msg##_FMT, ##_args)
-
-/* A helper macro for debug log messages. */
-#define gf_io_debug(_res, _fmt, _args...)                                      \
-    gf_msg_debug("io", -(_res), _fmt, ##_args)
-
 /* The I/O framework represents errors as a negative errno values. 0 or a
  * positive number are considered successes (and possibly the return value
  * of a function). These values are referred as 'res', from 'result'.
  *
- * The following macros convert standard return values from system calls or
- * any other function call into 'res' values. The conversion is strict in
- * the sense that if an error is expected but none is found, -EUCLEAN will
- * be returned, indicating that something weird happened. */
+ * The following macros convert and validate standard return values from
+ * system calls or any other function call into 'res' values. The conversion
+ * is strict in the sense that if an error is expected but none is found,
+ * -EUCLEAN will be returned, indicating that something weird happened.
+ *
+ * They are implemented as macros instead of functions so that the log message
+ * references the real position that triggered the error (file, function and
+ * line). */
 
-/* From 'res' to 'res'. */
-#define gf_io_convert_from_res(_res) (_res)
-
-/* From a return code to 'res' (for example pthread_mutex_lock()). */
-#define gf_io_convert_from_ret(_ret)                                           \
+/* Validate and convert an errno value into a res. */
+#define gf_errno_check(_err)                                                   \
     ({                                                                         \
-        int32_t __gf_io_convert_res = -(_ret);                                 \
-        if (caa_unlikely(__gf_io_convert_res > 0)) {                           \
-            __gf_io_convert_res = -EUCLEAN;                                    \
+        int32_t __gf_errno_check = -(_err);                                    \
+        if (caa_unlikely(__gf_errno_check >= 0)) {                             \
+            GF_LOG_C("io", LG_MSG_IO_BAD_ERRNO(-__gf_errno_check));            \
+            __gf_errno_check = -EUCLEAN;                                       \
         }                                                                      \
-        __gf_io_convert_res;                                                   \
+        __gf_errno_check;                                                      \
     })
 
-/* From an errno code to 'res' (for example open()). */
-#define gf_io_convert_from_errno(_ret)                                         \
+/* Validate the return value of an errno function and return the corresponding
+ * res. */
+#define gf_ret_check(_ret)                                                     \
     ({                                                                         \
-        int32_t __gf_io_convert_res = (_ret);                                  \
-        if (caa_unlikely(__gf_io_convert_res < 0)) {                           \
-            if (caa_unlikely((__gf_io_convert_res != -1) || (errno <= 0))) {   \
-                __gf_io_convert_res = -EUCLEAN;                                \
-            } else {                                                           \
-                __gf_io_convert_res = -errno;                                  \
-            }                                                                  \
+        int32_t __gf_ret_check = (_ret);                                       \
+        if (caa_likely(__gf_ret_check == -1)) {                                \
+            __gf_ret_check = gf_errno_check(errno);                            \
+        } else {                                                               \
+            GF_LOG_C("io", LG_MSG_IO_BAD_RETURN(__gf_ret_check));              \
+            __gf_ret_check = -EUCLEAN;                                         \
         }                                                                      \
-        __gf_io_convert_res;                                                   \
+        __gf_ret_check;                                                        \
     })
 
-/* From an errno code to 'res' when the function can only return 0 or -1
- * (for example close()). */
-#define gf_io_convert_from_errno0(_ret)                                        \
+/* Convert the return value from an errno function into a res. In case of
+ * success the function may return a positive value. */
+#define gf_res_errno(_ret)                                                     \
     ({                                                                         \
-        int32_t __gf_io_convert_res = (_ret);                                  \
-        if (caa_unlikely(__gf_io_convert_res != 0)) {                          \
-            if (caa_unlikely((__gf_io_convert_res != -1) || (errno <= 0))) {   \
-                __gf_io_convert_res = -EUCLEAN;                                \
-            } else {                                                           \
-                __gf_io_convert_res = -errno;                                  \
-            }                                                                  \
+        int32_t __gf_res_errno = (_ret);                                       \
+        if (__gf_res_errno < 0) {                                              \
+            __gf_res_errno = gf_ret_check(__gf_res_errno);                     \
         }                                                                      \
-        __gf_io_convert_res;                                                   \
+        __gf_res_errno;                                                        \
     })
 
-/* These macros make it possible to filter some errors to prevent them to
- * be logged. For example a read() call could fail with error EINTR. We
- * are probably interested in not writting this message to the log and
- * retry the read. */
-
-/* All errors are logged. */
-#define gf_io_filter_no_error(_res) false
-
-/* All errors but EINTR are logged. */
-#define gf_io_filter_may_intr(_res) ((_res) == -EINTR)
-
-/* All errors but ETIMEDOUT are logged. */
-#define gf_io_filter_may_timeout(_res) ((_res) == -ETIMEDOUT)
-
-/* This macro helps combining nested errors. We only consider the first
- * error. Any other following error will be ignored and the first error
- * will be preserved. */
-#define gf_io_error_combine(_current, _new)                                    \
+/* Convert the return value from an errno function into a res. In case of
+ * success the function always returns 0. */
+#define gf_res_errno0(_ret)                                                    \
     ({                                                                         \
-        int32_t __gf_io_error_current = (_current);                            \
-        int32_t __gf_io_error_new = (_new);                                    \
-        if (__gf_io_error_current >= 0) {                                      \
-            __gf_io_error_current = __gf_io_error_new;                         \
+        int32_t __gf_res_errno0 = (_ret);                                      \
+        if (__gf_res_errno0 != 0) {                                            \
+            __gf_res_errno0 = gf_ret_check(__gf_res_errno0);                   \
         }                                                                      \
-        __gf_io_error_current;                                                 \
+        __gf_res_errno0;                                                       \
     })
 
-/* Macro to call a function with arguments, check for errors and log a
- * message if necessary. '_filter' and '_convert' need to be the suffixes
- * of the previous macros. For example, '_filter' can be 'no_error', and
- * '_convert' can be 'from_ret'. */
-#define gf_io_call(_filter, _convert, _func, _args...)                         \
+/* Convert an error code into a res. */
+#define gf_res_err(_err)                                                       \
     ({                                                                         \
-        int32_t __gf_io_call_res = gf_io_convert_##_convert(_func(_args));     \
-        if (caa_unlikely(__gf_io_call_res < 0)) {                              \
-            if (caa_unlikely(!gf_io_filter_##_filter(__gf_io_call_res))) {     \
-                gf_io_log(__gf_io_call_res, LG_MSG_IO_CALL_FAILED, #_func);    \
-            }                                                                  \
+        int32_t __gf_res_err = -(_err);                                        \
+        if (__gf_res_err < 0) {                                                \
+            GF_LOG_E("io", LG_MSG_IO_BAD_RETURN(-__gf_res_err));               \
+            __gf_res_err = -EUCLEAN;                                           \
         }                                                                      \
-        __gf_io_call_res;                                                      \
+        __gf_res_err;                                                          \
     })
 
-/* Specialized gf_io_call() macro for functions that return 'res'. */
-#define gf_io_call_res(_func, _args...)                                        \
-    gf_io_call(no_error, from_res, _func, ##_args)
+/* Convert a pointer into a res. */
+#define gf_res_ptr(_pptr, _ptr, _errval...)                                    \
+    ({                                                                         \
+        void *__gf_res_ptr = (_ptr);                                           \
+        int32_t __gf_res_ptr_res = 0;                                          \
+        if (__gf_res_ptr != GLFS_DEF(NULL, ##_errval)) {                       \
+            *(_pptr) = __gf_res_ptr;                                           \
+        } else {                                                               \
+            __gf_res_ptr_res = gf_errno_check(errno);                          \
+        }                                                                      \
+        __gf_res_ptr_res;                                                      \
+    })
 
-/* Specialized gf_io_call() macro for functions that return an error code. */
-#define gf_io_call_ret(_func, _args...)                                        \
-    gf_io_call(no_error, from_ret, _func, ##_args)
-
-/* Specialized gf_io_call() macro for functions that return -1 or a positive
- * number and errno */
-#define gf_io_call_errno(_func, _args...)                                      \
-    gf_io_call(no_error, from_errno, _func, ##_args)
-
-/* Specialized gf_io_call() macro for functions that return -1 or 0. */
-#define gf_io_call_errno0(_func, _args...)                                     \
-    gf_io_call(no_error, from_errno0, _func, ##_args)
+/* Helper to log a message in case of an error result. */
+#define gf_check(_name, _lvl, _func, _res)                                     \
+    ({                                                                         \
+        int32_t __gf_check = (_res);                                           \
+        if (caa_unlikely(__gf_check < 0)) {                                    \
+            GF_LOG(_name, _lvl, LG_MSG_IO_CALL_FAILED(_func, __gf_check));     \
+        }                                                                      \
+        __gf_check;                                                            \
+    })
 
 /* Macro to make sure 'res' is a success. Otherwise it aborts the program.
  * This can be used when an error should never happen but if it happens, it
  * makes it very hard or impossible to return to a stable state. */
-#define gf_io_success(_res)                                                    \
+#define gf_succeed(_name, _func, _res)                                         \
     do {                                                                       \
-        if (caa_unlikely((_res) < 0)) {                                        \
+        int32_t __gf_succeed = (_res);                                         \
+        if (caa_unlikely((__gf_succeed) < 0)) {                                \
+            gf_check(_name, GF_LOG_CRITICAL, _func, __gf_succeed);             \
             GF_ABORT();                                                        \
         }                                                                      \
     } while (0)
 
-/* Definitions of log levels and formats for each message. */
-#define LG_MSG_IO_CALL_FAILED_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_CALL_FAILED_FMT "%s() failed."
+/* Combine two res values. If we already have a negative res, we keep its
+ * value. Otherwise the new error, if any, is propagated. */
+static inline int32_t
+gf_res_combine(int32_t current, int32_t res)
+{
+    if (caa_unlikely(res < 0)) {
+        if (current >= 0) {
+            current = res;
+        }
+    }
+
+    return current;
+}
+
+#define gf_io_lock(_mutex)                                                     \
+    gf_succeed("io", "pthread_mutex_lock",                                     \
+               gf_res_err(pthread_mutex_lock(_mutex)))
+
+#define gf_io_unlock(_mutex)                                                   \
+    gf_succeed("io", "pthread_mutex_unlock",                                   \
+               gf_res_err(pthread_mutex_unlock(_mutex)))
 
 /* Structure used for synchronization between multiple workers. */
 typedef struct _gf_io_sync {
