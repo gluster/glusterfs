@@ -127,8 +127,9 @@
  * makes it very hard or impossible to return to a stable state. */
 #define gf_succeed(_name, _func, _res)                                         \
     do {                                                                       \
-        if (caa_unlikely((_res) < 0)) {                                        \
-            gf_check(_name, GF_LOG_CRITICAL, _func, _res);                     \
+        int32_t __gf_succeed = (_res);                                         \
+        if (caa_unlikely((__gf_succeed) < 0)) {                                \
+            gf_check(_name, GF_LOG_CRITICAL, _func, __gf_succeed);             \
             GF_ABORT();                                                        \
         }                                                                      \
     } while (0)
