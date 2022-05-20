@@ -99,29 +99,7 @@ __glusterd_handle_bitrot(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (conf->op_version < GD_OP_VERSION_3_7_0) {
-        snprintf(msg, sizeof(msg),
-                 "Cannot execute command. The "
-                 "cluster is operating at version %d. Bitrot command "
-                 "%s is unavailable in this version",
-                 conf->op_version, gd_bitrot_op_list[type]);
-        ret = -1;
-        goto out;
-    }
-
     if (type == GF_BITROT_CMD_SCRUB_STATUS) {
-        /* Backward compatibility handling for scrub status command*/
-        if (conf->op_version < GD_OP_VERSION_3_7_7) {
-            snprintf(msg, sizeof(msg),
-                     "Cannot execute command. "
-                     "The cluster is operating at version %d. "
-                     "Bitrot scrub status command unavailable in "
-                     "this version",
-                     conf->op_version);
-            ret = -1;
-            goto out;
-        }
-
         ret = dict_get_str(dict, "scrub-value", &scrub);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,

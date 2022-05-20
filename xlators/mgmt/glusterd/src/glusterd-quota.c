@@ -111,19 +111,6 @@ glusterd_is_quota_supported(int32_t type, char **op_errstr)
         (type > GF_QUOTA_OPTION_TYPE_VERSION))
         goto out;
 
-    if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
-        (type > GF_QUOTA_OPTION_TYPE_VERSION_OBJECTS))
-        goto out;
-
-    /* Quota Operations that change quota.conf shouldn't
-     * be allowed as the quota.conf format changes in 3.7
-     */
-    if ((conf->op_version < GD_OP_VERSION_3_7_0) &&
-        (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
-         type == GF_QUOTA_OPTION_TYPE_LIMIT_USAGE ||
-         type == GF_QUOTA_OPTION_TYPE_REMOVE))
-        goto out;
-
     /* Quota xattr version implemented in 3.7.6
      * quota-version is incremented when quota is enabled
      * Quota enable and disable performance enhancement has been done
@@ -954,40 +941,6 @@ glusterd_update_quota_conf_version(glusterd_volinfo_t *volinfo)
  * and continue the search.
  */
 static gf_boolean_t
-glusterd_find_gfid_match_3_6(uuid_t gfid, unsigned char *buf, size_t bytes_read,
-                             int opcode, size_t *write_byte_count)
-{
-    int gfid_index = 0;
-    int shift_count = 0;
-    unsigned char tmp_buf[17] = {
-        0,
-    };
-
-    /* This function if for backward compatibility */
-
-    while (gfid_index != bytes_read) {
-        memcpy((void *)tmp_buf, (void *)&buf[gfid_index], 16);
-        if (!gf_uuid_compare(gfid, tmp_buf)) {
-            if (opcode == GF_QUOTA_OPTION_TYPE_REMOVE) {
-                shift_count = bytes_read - (gfid_index + 16);
-                memmove((void *)&buf[gfid_index], (void *)&buf[gfid_index + 16],
-                        shift_count);
-                *write_byte_count = bytes_read - 16;
-            } else {
-                *write_byte_count = bytes_read;
-            }
-            return _gf_true;
-        } else {
-            gfid_index += 16;
-        }
-    }
-    if (gfid_index == bytes_read)
-        *write_byte_count = bytes_read;
-
-    return _gf_false;
-}
-
-static gf_boolean_t
 glusterd_find_gfid_match(uuid_t gfid, char gfid_type, unsigned char *buf,
                          size_t bytes_read, int opcode,
                          size_t *write_byte_count)
@@ -998,15 +951,6 @@ glusterd_find_gfid_match(uuid_t gfid, char gfid_type, unsigned char *buf,
         0,
     };
     char type = 0;
-    xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
-
-    if (conf->op_version < GD_OP_VERSION_3_7_0)
-        return glusterd_find_gfid_match_3_6(gfid, buf, bytes_read, opcode,
-                                            write_byte_count);
 
     while (gfid_index != bytes_read) {
         memcpy((void *)tmp_buf, (void *)&buf[gfid_index], 16);
@@ -1029,8 +973,6 @@ glusterd_find_gfid_match(uuid_t gfid, char gfid_type, unsigned char *buf,
     }
     if (gfid_index == bytes_read)
         *write_byte_count = bytes_read;
-
-out:
 
     return _gf_false;
 }
@@ -1177,15 +1119,11 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
     gf_boolean_t modified = _gf_false;
     gf_boolean_t is_file_empty = _gf_false;
     gf_boolean_t is_first_read = _gf_true;
-    glusterd_conf_t *conf = NULL;
     float version = 0.0f;
     char type = 0;
     int quota_conf_line_sz = 16;
     unsigned char *buf = 0;
     int buf_sz = 0;
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     glusterd_store_create_quota_conf_sh_on_absence(volinfo);
 
@@ -1199,7 +1137,7 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
     if (ret)
         goto out;
 
-    if (version < 1.2f && conf->op_version >= GD_OP_VERSION_3_7_0) {
+    if (version < 1.2f) {
         /* Upgrade quota.conf file to newer format */
         sys_close(conf_fd);
         conf_fd = -1;
@@ -1227,12 +1165,7 @@ glusterd_store_quota_config(glusterd_volinfo_t *volinfo, char *path,
         goto out;
     }
 
-    /* If op-ver is gt 3.7, then quota.conf will be upgraded, and 17 bytes
-     * storted in the new format. 16 bytes uuid and
-     * 1 byte type (usage/object)
-     */
-    if (conf->op_version >= GD_OP_VERSION_3_7_0)
-        quota_conf_line_sz++;
+    quota_conf_line_sz++;
 
     buf_sz = quota_conf_line_sz * 1000;
 

@@ -996,7 +996,7 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
 
         /* Compare missed_snapshot list with the peer *
          * if volume comparison is successful */
-        if ((op_ret == 0) && (conf->op_version >= GD_OP_VERSION_3_6_0)) {
+        if (op_ret == 0) {
             ret = glusterd_import_friend_missed_snap_list(ev_ctx->vols);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0,

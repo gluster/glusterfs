@@ -222,14 +222,10 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_probe_ctx_t *ctx = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
 
     if (-1 == req->rpc_status) {
         goto out;
     }
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
     ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
     if (ret < 0) {
@@ -282,13 +278,10 @@ __glusterd_probe_cbk(struct rpc_req *req, struct iovec *iov, int count,
      * earlier in the probe process and wouldn't even reach till here. So,
      * we need to add the new hostname to the peer.
      *
-     * This addition should only be done for cluster op-version >=
-     * GD_OP_VERSION_3_6_0 as address lists are only supported from then on.
-     * Also, this update should only be done when an explicit CLI probe
+     * This update should only be done when an explicit CLI probe
      * command was used to begin the probe process.
      */
-    if ((conf->op_version >= GD_OP_VERSION_3_6_0) &&
-        (gf_uuid_compare(rsp.uuid, peerinfo->uuid) == 0)) {
+    if (gf_uuid_compare(rsp.uuid, peerinfo->uuid) == 0) {
         ctx = ((call_frame_t *)myframe)->local;
         /* Presence of ctx->req implies this probe was started by a cli
          * probe command
@@ -1481,7 +1474,6 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     };
     int ret = 0;
     glusterd_peerinfo_t *peerinfo = NULL;
-    glusterd_conf_t *priv = NULL;
     glusterd_friend_sm_event_t *event = NULL;
     dict_t *peer_data = NULL;
 
@@ -1492,9 +1484,6 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     event = data;
-    priv = this->private;
-
-    GF_ASSERT(priv);
 
     RCU_READ_LOCK;
 
@@ -1531,23 +1520,20 @@ glusterd_rpc_friend_add(call_frame_t *frame, xlator_t *this, void *data)
         goto out;
     }
 
-    if (priv->op_version >= GD_OP_VERSION_3_6_0) {
-        ret = glusterd_add_missed_snaps_to_export_dict(peer_data);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0,
-                   GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
-                   "Unable to add list of missed snapshots "
-                   "in the peer_data dict for handshake");
-            goto out;
-        }
+    ret = glusterd_add_missed_snaps_to_export_dict(peer_data);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MISSED_SNAP_LIST_STORE_FAIL,
+               "Unable to add list of missed snapshots "
+               "in the peer_data dict for handshake");
+        goto out;
+    }
 
-        ret = glusterd_add_snapshots_to_export_dict(peer_data);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_LIST_SET_FAIL,
-                   "Unable to add list of snapshots "
-                   "in the peer_data dict for handshake");
-            goto out;
-        }
+    ret = glusterd_add_snapshots_to_export_dict(peer_data);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_LIST_SET_FAIL,
+               "Unable to add list of snapshots "
+               "in the peer_data dict for handshake");
+        goto out;
     }
 
     /* Don't add any key-value in peer_data dictionary after call this function

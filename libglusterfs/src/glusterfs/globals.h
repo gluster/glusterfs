@@ -128,8 +128,6 @@
 
 #define GD_OP_VERSION_11_0 110000 /* Op-version for GlusterFS 11.0 */
 
-#define GD_OP_VER_PERSISTENT_AFR_XATTRS GD_OP_VERSION_3_6_0
-
 #include "glusterfs/xlator.h"
 #include "glusterfs/options.h"
 
