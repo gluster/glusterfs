@@ -312,7 +312,10 @@ __get_posixlk_count(pl_inode_t *pl_inode)
     posix_lock_t *lock = NULL;
     int32_t count = 0;
 
-    list_for_each_entry(lock, &pl_inode->ext_list, list) { count++; }
+    list_for_each_entry(lock, &pl_inode->ext_list, list)
+    {
+        count++;
+    }
 
     return count;
 }

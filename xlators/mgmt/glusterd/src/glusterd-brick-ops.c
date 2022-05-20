@@ -247,12 +247,8 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
     int type = 0;
-    glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -399,16 +395,7 @@ brick_val:
         }
     }
 
-    if (conf->op_version <= GD_OP_VERSION_3_7_5) {
-        gf_msg_debug(this->name, 0,
-                     "The cluster is operating at "
-                     "version less than or equal to %d. Falling back "
-                     "to syncop framework.",
-                     GD_OP_VERSION_3_7_5);
-        ret = glusterd_op_begin_synctask(req, GD_OP_ADD_BRICK, dict);
-    } else {
-        ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_ADD_BRICK, dict);
-    }
+    ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_ADD_BRICK, dict);
 
 out:
     if (ret) {
@@ -974,7 +961,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     char key[64] = "";
     char *brick_mount_dir = NULL;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     gf_boolean_t is_valid_add_brick = _gf_false;
     gf_boolean_t restart_shd = _gf_false;
     struct statvfs brickstat = {
@@ -982,9 +968,6 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     };
 
     GF_ASSERT(volinfo);
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     if (bricks) {
         brick_list = gf_strdup(bricks);
@@ -1020,22 +1003,17 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
 
         GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid++);
 
-        /* A bricks mount dir is required only by snapshots which were
-         * introduced in gluster-3.6.0
-         */
-        if (conf->op_version >= GD_OP_VERSION_3_6_0) {
-            brick_mount_dir = NULL;
+        brick_mount_dir = NULL;
 
-            snprintf(key, sizeof(key), "brick%d.mount_dir", i);
-            ret = dict_get_str(dict, key, &brick_mount_dir);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
-                       "%s not present", key);
-                goto out;
-            }
-            strncpy(brickinfo->mount_dir, brick_mount_dir,
-                    sizeof(brickinfo->mount_dir) - 1);
+        snprintf(key, sizeof(key), "brick%d.mount_dir", i);
+        ret = dict_get_str(dict, key, &brick_mount_dir);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+                   "%s not present", key);
+            goto out;
         }
+        strncpy(brickinfo->mount_dir, brick_mount_dir,
+                sizeof(brickinfo->mount_dir) - 1);
 
         ret = glusterd_resolve_brick(brickinfo);
         if (ret)
@@ -1074,8 +1052,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
      * performance.client-io-threads option is turned off for all
      * replicate volumes if not already explicitly enabled.
      */
-    if (type && glusterd_is_volume_replicate(volinfo) &&
-        conf->op_version >= GD_OP_VERSION_3_12_2) {
+    if (type && glusterd_is_volume_replicate(volinfo)) {
         ret = dict_set_sizen_str_sizen(volinfo->dict,
                                        "performance.client-io-threads", "off");
         if (ret) {
@@ -1117,7 +1094,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
         brick = strtok_r(brick_list + 1, " \n", &saveptr);
 
     if (glusterd_is_volume_replicate(volinfo)) {
-        if (replica_count && conf->op_version >= GD_OP_VERSION_3_7_10) {
+        if (replica_count) {
             is_valid_add_brick = _gf_true;
             if (volinfo->status == GLUSTERD_STATUS_STARTED) {
                 ret = volinfo->shd.svc.stop(&(volinfo->shd.svc), SIGTERM);
@@ -1188,16 +1165,12 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
 
 generate_volfiles:
-    if (conf->op_version <= GD_OP_VERSION_3_7_5) {
-        ret = glusterd_create_volfiles_and_notify_services(volinfo);
-    } else {
-        /*
-         * The cluster is operating at version greater than
-         * gluster-3.7.5. So no need to sent volfile fetch
-         * request in commit phase, the same will be done
-         * in post validate phase with v3 framework.
-         */
-    }
+    /*
+     * The cluster is operating at version greater than
+     * gluster-3.7.5. So no need to sent volfile fetch
+     * request in commit phase, the same will be done
+     * in post validate phase with v3 framework.
+     */
 
 out:
     GF_FREE(free_ptr1);
@@ -1260,28 +1233,6 @@ out:
     return ret;
 }
 
-static int
-op_version_check(xlator_t *this, int min_op_version, char *msg, int msglen)
-{
-    int ret = 0;
-    glusterd_conf_t *priv = NULL;
-
-    GF_ASSERT(msg);
-
-    priv = this->private;
-    if (priv->op_version < min_op_version) {
-        snprintf(msg, msglen,
-                 "One or more nodes do not support "
-                 "the required op-version. Cluster op-version must "
-                 "at least be %d.",
-                 min_op_version);
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNSUPPORTED_VERSION, "%s",
-               msg);
-        ret = -1;
-    }
-    return ret;
-}
-
 int
 glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
@@ -1289,7 +1240,6 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char *volname = NULL;
     int count = 0;
     int replica_count = 0;
-    int arbiter_count = 0;
     int i = 0;
     int32_t local_brick_count = 0;
     char *bricks = NULL;
@@ -1306,11 +1256,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     char *all_bricks = NULL;
     char *str_ret = NULL;
     gf_boolean_t is_force = _gf_false;
-    glusterd_conf_t *conf = NULL;
     int32_t len = 0;
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
@@ -1335,25 +1281,13 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         gf_msg_debug(this->name, 0, "Unable to get replica count");
     }
 
-    if (replica_count > 0) {
-        ret = op_version_check(this, GD_OP_VER_PERSISTENT_AFR_XATTRS, msg,
-                               sizeof(msg));
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERSION_MISMATCH,
-                   "%s", msg);
-            *op_errstr = gf_strdup(msg);
-            goto out;
-        }
-    }
-
     glusterd_add_peers_to_auth_list(volname);
 
     if (replica_count && glusterd_is_volume_replicate(volinfo)) {
         /* Do not allow add-brick for stopped volumes when replica-count
          * is being increased.
          */
-        if (GLUSTERD_STATUS_STOPPED == volinfo->status &&
-            conf->op_version >= GD_OP_VERSION_3_7_10) {
+        if (GLUSTERD_STATUS_STOPPED == volinfo->status) {
             ret = -1;
             snprintf(msg, sizeof(msg),
                      " Volume must not be in"
@@ -1364,26 +1298,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             *op_errstr = gf_strdup(msg);
             goto out;
         }
-        /* op-version check for replica 2 to arbiter conversion. If we
-         * don't have this check, an older peer added as arbiter brick
-         * will not have the  arbiter xlator in its volfile. */
-        if ((replica_count == 3) && (conf->op_version < GD_OP_VERSION_3_8_0)) {
-            ret = dict_get_int32(dict, "arbiter-count", &arbiter_count);
-            if (ret) {
-                gf_msg_debug(this->name, 0,
-                             "No arbiter count present in the dict");
-            } else if (arbiter_count == 1) {
-                ret = -1;
-                snprintf(msg, sizeof(msg),
-                         "Cluster op-version must "
-                         "be >= 30800 to add arbiter brick to a "
-                         "replica 2 volume.");
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_ADD_FAIL, "%s",
-                       msg);
-                *op_errstr = gf_strdup(msg);
-                goto out;
-            }
-        }
+
         /* Do not allow increasing replica count for arbiter volumes. */
         if (volinfo->arbiter_count) {
             ret = -1;
@@ -1460,7 +1375,7 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
     }
 
-    if (conf->op_version > GD_OP_VERSION_3_7_5 && is_origin_glusterd(dict)) {
+    if (is_origin_glusterd(dict)) {
         ret = glusterd_validate_quorum(this, GD_OP_ADD_BRICK, dict, op_errstr);
         if (ret) {
             gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_SERVER_QUORUM_NOT_MET,
@@ -1569,27 +1484,22 @@ glusterd_op_stage_add_brick(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             if (ret)
                 goto out;
 
-            /* A bricks mount dir is required only by snapshots which were
-             * introduced in gluster-3.6.0
-             */
-            if (conf->op_version >= GD_OP_VERSION_3_6_0) {
-                ret = glusterd_get_brick_mount_dir(
-                    brickinfo->path, brickinfo->hostname, brickinfo->mount_dir);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
-                           "Failed to get brick mount_dir");
-                    goto out;
-                }
+            ret = glusterd_get_brick_mount_dir(
+                brickinfo->path, brickinfo->hostname, brickinfo->mount_dir);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
+                       "Failed to get brick mount_dir");
+                goto out;
+            }
 
-                snprintf(key, sizeof(key), "brick%d.mount_dir", i + 1);
-                ret = dict_set_dynstr_with_alloc(rsp_dict, key,
-                                                 brickinfo->mount_dir);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, -ret,
-                           GD_MSG_DICT_SET_FAILED, "Failed to set %s", key);
-                    goto out;
-                }
+            snprintf(key, sizeof(key), "brick%d.mount_dir", i + 1);
+            ret = dict_set_dynstr_with_alloc(rsp_dict, key,
+                                             brickinfo->mount_dir);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                       "Failed to set %s", key);
+                goto out;
             }
 
             local_brick_count = i + 1;
@@ -1779,15 +1689,6 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
         0,
     };
 
-    ret = op_version_check(this, GD_OP_VER_PERSISTENT_AFR_XATTRS, msg,
-                           sizeof(msg));
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OP_VERSION_MISMATCH, "%s",
-               msg);
-        *op_errstr = gf_strdup(msg);
-        goto out;
-    }
-
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
@@ -1888,26 +1789,6 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
                     "retry after completion");
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_OIP_RETRY_LATER,
                        "%s", errstr);
-                goto out;
-            }
-
-            /* Check if the connected clients are all of version
-             * glusterfs-3.6 and higher. This is needed to prevent some data
-             * loss issues that could occur when older clients are connected
-             * when rebalance is run.
-             */
-            ret = glusterd_check_client_op_version_support(
-                volname, GD_OP_VERSION_3_6_0, NULL);
-            if (ret) {
-                ret = gf_asprintf(op_errstr,
-                                  "Volume %s has one or "
-                                  "more connected clients of a version"
-                                  " lower than GlusterFS-v3.6.0. "
-                                  "Starting remove-brick in this state "
-                                  "could lead to data loss.\nPlease "
-                                  "disconnect those clients before "
-                                  "attempting this command again.",
-                                  volname);
                 goto out;
             }
 
@@ -2113,7 +1994,6 @@ glusterd_op_add_brick(dict_t *dict, char **op_errstr)
     glusterd_volinfo_t *volinfo = NULL;
     char *bricks = NULL;
     int32_t count = 0;
-    glusterd_conf_t *priv = THIS->private;
 
     ret = dict_get_str(dict, "volname", &volname);
 
@@ -2150,19 +2030,6 @@ glusterd_op_add_brick(dict_t *dict, char **op_errstr)
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_BRICK_ADD_FAIL,
                "Unable to add bricks");
         goto out;
-    }
-    if (priv->op_version <= GD_OP_VERSION_3_7_5) {
-        ret = glusterd_store_volinfo(volinfo,
-                                     GLUSTERD_VOLINFO_VER_AC_INCREMENT);
-        if (ret)
-            goto out;
-    } else {
-        /*
-         * The cluster is operating at version greater than
-         * gluster-3.7.5. So no need to store volfiles
-         * in commit phase, the same will be done
-         * in post validate phase with v3 framework.
-         */
     }
 
     if (GLUSTERD_STATUS_STARTED == volinfo->status)

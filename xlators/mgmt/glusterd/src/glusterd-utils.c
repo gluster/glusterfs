@@ -11138,35 +11138,32 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     }
 #endif
 
-    if (conf->op_version >= GD_OP_VERSION_3_7_0) {
-        /* Set needed volume options in volinfo->dict
-         * For ex.,
-         *
-         * if (!option || !strcmp("someoption", option) {
-         *      ret = dict_set_str(volinfo->dict, "someoption", "on");
-         *      ...
-         * }
-         * */
+    /* Set needed volume options in volinfo->dict
+     * For ex.,
+     *
+     * if (!option || !strcmp("someoption", option) {
+     *      ret = dict_set_str(volinfo->dict, "someoption", "on");
+     *      ...
+     * }
+     * */
 
-        /* Option 'features.quota-deem-statfs' should not be turned off
-         * with 'gluster volume reset <VOLNAME>', since quota features
-         * can be reset only with 'gluster volume quota <VOLNAME>
-         * disable'.
-         */
+    /* Option 'features.quota-deem-statfs' should not be turned off
+     * with 'gluster volume reset <VOLNAME>', since quota features
+     * can be reset only with 'gluster volume quota <VOLNAME>
+     * disable'.
+     */
 
-        if (!option || !strcmp("features.quota-deem-statfs", option)) {
-            if (glusterd_is_volume_quota_enabled(volinfo)) {
-                ret = dict_set_dynstr_with_alloc(
-                    volinfo->dict, "features.quota-deem-statfs", "on");
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, -ret,
-                           GD_MSG_DICT_SET_FAILED,
-                           "Failed to set option "
-                           "'features.quota-deem-statfs' "
-                           "on volume %s",
-                           volinfo->volname);
-                    goto out;
-                }
+    if (!option || !strcmp("features.quota-deem-statfs", option)) {
+        if (glusterd_is_volume_quota_enabled(volinfo)) {
+            ret = dict_set_dynstr_with_alloc(
+                volinfo->dict, "features.quota-deem-statfs", "on");
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                       "Failed to set option "
+                       "'features.quota-deem-statfs' "
+                       "on volume %s",
+                       volinfo->volname);
+                goto out;
             }
         }
     }
