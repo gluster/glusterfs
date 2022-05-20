@@ -1782,6 +1782,10 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> 8320d7c665 (mgmt: Remove old code related to version 3.x)
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
