@@ -2519,7 +2519,7 @@ compute_checksum(char *buf, const ssize_t size, uint32_t *checksum)
 #define GF_CHECKSUM_BUF_SIZE 1024
 
 static int
-get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
+get_checksum_for_file(int fd, uint32_t *checksum)
 {
     int ret = -1;
     char buf[GF_CHECKSUM_BUF_SIZE] = {
@@ -2531,10 +2531,7 @@ get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
     do {
         ret = sys_read(fd, &buf, GF_CHECKSUM_BUF_SIZE);
         if (ret > 0) {
-            if (op_version < GD_OP_VERSION_5_4)
-                compute_checksum(buf, GF_CHECKSUM_BUF_SIZE, checksum);
-            else
-                compute_checksum(buf, ret, checksum);
+            compute_checksum(buf, ret, checksum);
         }
     } while (ret > 0);
 
@@ -2545,7 +2542,7 @@ get_checksum_for_file(int fd, uint32_t *checksum, int op_version)
 }
 
 static int
-get_checksum_for_path(char *path, uint32_t *checksum, int op_version)
+get_checksum_for_path(char *path, uint32_t *checksum)
 {
     int ret = -1;
     int fd = -1;
@@ -2561,7 +2558,7 @@ get_checksum_for_path(char *path, uint32_t *checksum, int op_version)
         goto out;
     }
 
-    ret = get_checksum_for_file(fd, checksum, op_version);
+    ret = get_checksum_for_file(fd, checksum);
 
 out:
     if (fd != -1)
@@ -2629,7 +2626,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
         if (ret)
             goto out;
 
-        ret = get_checksum_for_path(sort_filepath, &cksum, priv->op_version);
+        ret = get_checksum_for_path(sort_filepath, &cksum);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
                    "unable to get "
@@ -2645,7 +2642,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
             goto out;
         }
     } else if (priv->op_version < GD_OP_VERSION_7_0) {
-        ret = get_checksum_for_path(filepath, &cksum, priv->op_version);
+        ret = get_checksum_for_path(filepath, &cksum);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
                    "unable to get "
@@ -2655,7 +2652,7 @@ glusterd_volume_compute_cksum(glusterd_volinfo_t *volinfo, char *cksum_path,
         }
     }
 
-    ret = get_checksum_for_file(fd, &cksum, priv->op_version);
+    ret = get_checksum_for_file(fd, &cksum);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CKSUM_GET_FAIL,
                "unable to get checksum for path: %s", filepath);
@@ -8959,14 +8956,10 @@ glusterd_check_files_identical(char *filename1, char *filename2,
     uint32_t cksum1 = 0;
     uint32_t cksum2 = 0;
     xlator_t *this = THIS;
-    glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(filename1);
     GF_ASSERT(filename2);
     GF_ASSERT(identical);
-
-    priv = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
     ret = sys_stat(filename1, &buf1);
 
@@ -8993,11 +8986,11 @@ glusterd_check_files_identical(char *filename1, char *filename2,
         goto out;
     }
 
-    ret = get_checksum_for_path(filename1, &cksum1, priv->op_version);
+    ret = get_checksum_for_path(filename1, &cksum1);
     if (ret)
         goto out;
 
-    ret = get_checksum_for_path(filename2, &cksum2, priv->op_version);
+    ret = get_checksum_for_path(filename2, &cksum2);
     if (ret)
         goto out;
 
@@ -11118,25 +11111,21 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     conf = this->private;
     GF_ASSERT(conf);
 
-#ifdef GD_OP_VERSION_3_8_0
-    if (conf->op_version >= GD_OP_VERSION_3_8_0) {
-        /* nfs.disable needs to be enabled for new volumes with
-         * >= gluster version 3.7 (for now) 3.8 later
-         */
-        if (!option || !strcmp(NFS_DISABLE_MAP_KEY, option)) {
-            ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
-                                             "on");
-            if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
-                       "Failed to set option '" NFS_DISABLE_MAP_KEY
-                       "' on volume "
-                       "%s",
-                       volinfo->volname);
-                goto out;
-            }
+    /* nfs.disable needs to be enabled for new volumes with
+     * >= gluster version 3.7 (for now) 3.8 later
+     */
+    if (!option || !strcmp(NFS_DISABLE_MAP_KEY, option)) {
+        ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
+                                         "on");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set option '" NFS_DISABLE_MAP_KEY
+                   "' on volume "
+                   "%s",
+                   volinfo->volname);
+            goto out;
         }
     }
-#endif
 
     /* Set needed volume options in volinfo->dict
      * For ex.,
@@ -11168,19 +11157,16 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
         }
     }
 
-    if (conf->op_version >= GD_OP_VERSION_3_9_0) {
-        if (!option || !strcmp("transport.address-family", option)) {
-            if (volinfo->transport_type == GF_TRANSPORT_TCP) {
-                ret = dict_set_dynstr_with_alloc(
-                    volinfo->dict, "transport.address-family", addr_family);
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, -ret,
-                           GD_MSG_DICT_SET_FAILED,
-                           "failed to set transport."
-                           "address-family on %s",
-                           volinfo->volname);
-                    goto out;
-                }
+    if (!option || !strcmp("transport.address-family", option)) {
+        if (volinfo->transport_type == GF_TRANSPORT_TCP) {
+            ret = dict_set_dynstr_with_alloc(
+                volinfo->dict, "transport.address-family", addr_family);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                       "failed to set transport."
+                       "address-family on %s",
+                       volinfo->volname);
+                goto out;
             }
         }
     }

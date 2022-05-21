@@ -2417,33 +2417,30 @@ glusterd_update_volumes_dict(glusterd_volinfo_t *volinfo)
      * transport.address-family where if the transport type is set to tcp
      * then transport.address-family is defaulted to 'inet'.
      */
-    if (conf->op_version >= GD_OP_VERSION_3_9_0) {
-        if (dict_get_str_boolean(volinfo->dict, NFS_DISABLE_MAP_KEY, 1)) {
-            ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
-                                             "on");
+    if (dict_get_str_boolean(volinfo->dict, NFS_DISABLE_MAP_KEY, 1)) {
+        ret = dict_set_dynstr_with_alloc(volinfo->dict, NFS_DISABLE_MAP_KEY,
+                                         "on");
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+                   "Failed to set "
+                   "option ' NFS_DISABLE_MAP_KEY ' on "
+                   "volume %s",
+                   volinfo->volname);
+            goto out;
+        }
+    }
+    ret = dict_get_str(volinfo->dict, "transport.address-family",
+                        &address_family_str);
+    if (ret) {
+        if (volinfo->transport_type == GF_TRANSPORT_TCP) {
+            ret = dict_set_dynstr_with_alloc(
+                volinfo->dict, "transport.address-family", "inet");
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
-                       "Failed to set "
-                       "option ' NFS_DISABLE_MAP_KEY ' on "
-                       "volume %s",
+                       "failed to set transport."
+                       "address-family on %s",
                        volinfo->volname);
                 goto out;
-            }
-        }
-        ret = dict_get_str(volinfo->dict, "transport.address-family",
-                           &address_family_str);
-        if (ret) {
-            if (volinfo->transport_type == GF_TRANSPORT_TCP) {
-                ret = dict_set_dynstr_with_alloc(
-                    volinfo->dict, "transport.address-family", "inet");
-                if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, -ret,
-                           GD_MSG_DICT_SET_FAILED,
-                           "failed to set transport."
-                           "address-family on %s",
-                           volinfo->volname);
-                    goto out;
-                }
             }
         }
     }

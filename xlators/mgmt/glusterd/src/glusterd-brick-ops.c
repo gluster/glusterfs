@@ -2153,10 +2153,6 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     int start_remove = 0;
     uint32_t commit_hash = 0;
     int defrag_cmd = 0;
-    glusterd_conf_t *conf = NULL;
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
     ret = dict_get_str(dict, "volname", &volname);
 
@@ -2361,8 +2357,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     }
     volinfo->subvol_count = (volinfo->brick_count / volinfo->dist_leaf_count);
 
-    if (!glusterd_is_volume_replicate(volinfo) &&
-        conf->op_version >= GD_OP_VERSION_3_12_2) {
+    if (!glusterd_is_volume_replicate(volinfo){
         ret = dict_set_sizen_str_sizen(volinfo->dict,
                                        "performance.client-io-threads", "on");
         if (ret) {

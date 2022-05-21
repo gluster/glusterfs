@@ -175,20 +175,15 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
             goto out;
         }
     } else if (!strcmp(trans_type, "tcp")) {
-        /* Setting default as inet for trans_type tcp if the op-version
-         * is >= 3.8.0
-         */
-        if (conf->op_version >= GD_OP_VERSION_3_8_0) {
-            ret = dict_set_dynstr_with_alloc(dict, "transport.address-family",
-                                             addr_family);
-            if (ret) {
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to set "
-                       "transport.address-family "
-                       "to %s",
-                       addr_family);
-                goto out;
-            }
+        ret = dict_set_dynstr_with_alloc(dict, "transport.address-family",
+                                         addr_family);
+        if (ret) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "failed to set "
+                   "transport.address-family "
+                   "to %s",
+                   addr_family);
+            goto out;
         }
     }
     ret = dict_get_str(dict, "bricks", &bricks);
@@ -377,11 +372,8 @@ __glusterd_handle_cli_stop_volume(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -426,17 +418,7 @@ __glusterd_handle_cli_stop_volume(rpcsvc_request_t *req)
                  "for volume %s",
                  dup_volname);
 
-    if (conf->op_version < GD_OP_VERSION_4_1_0) {
-        gf_msg_debug(this->name, 0,
-                     "The cluster is operating at "
-                     "version less than %d. Volume start "
-                     "falling back to syncop framework.",
-                     GD_OP_VERSION_4_1_0);
-        ret = glusterd_op_begin_synctask(req, GD_OP_STOP_VOLUME, dict);
-    } else {
-        ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_STOP_VOLUME,
-                                                   dict);
-    }
+    ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_STOP_VOLUME, dict);
 
 out:
     free(cli_req.dict.dict_val);  // its malloced by xdr

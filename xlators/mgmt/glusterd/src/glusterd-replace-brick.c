@@ -96,8 +96,7 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
 
     op = gd_cli_to_gd_op(cli_op);
 
-    if (conf->op_version < GD_OP_VERSION_3_9_0 &&
-        strcmp(cli_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
+    if (strcmp(cli_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
         snprintf(msg, sizeof(msg),
                  "Cannot execute command. The "
                  "cluster is operating at version %d. reset-brick "

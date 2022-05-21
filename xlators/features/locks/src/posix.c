@@ -52,14 +52,7 @@ set_bit(uint32_t *byte, uint32_t bit_number);
  */
 #define PL_STACK_UNWIND_FOR_CLIENT(fop, xdata, frame, op_ret, params...)       \
     do {                                                                       \
-        pl_local_t *__local = NULL;                                            \
-        if (frame->root->client &&                                             \
-            (frame->root->client->opversion < GD_OP_VERSION_3_10_0)) {         \
-            __local = frame->local;                                            \
-            PL_STACK_UNWIND_AND_FREE(__local, fop, frame, op_ret, params);     \
-        } else {                                                               \
-            PL_STACK_UNWIND(fop, xdata, frame, op_ret, params);                \
-        }                                                                      \
+        PL_STACK_UNWIND(fop, xdata, frame, op_ret, params);                    \
     } while (0)
 
 #define PL_STACK_UNWIND(fop, xdata, frame, op_ret, params...)                  \

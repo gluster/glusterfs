@@ -2859,12 +2859,9 @@ perfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
 {
     gf_boolean_t enabled = _gf_false;
     glusterd_volinfo_t *volinfo = NULL;
-    glusterd_conf_t *priv = NULL;
 
     GF_VALIDATE_OR_GOTO("glusterd", param, out);
     volinfo = param;
-    priv = THIS->private;
-    GF_VALIDATE_OR_GOTO("glusterd", priv, out);
 
     if (strcmp(vme->option, "!perf") != 0)
         return 0;
@@ -2879,15 +2876,6 @@ perfxl_option_handler(volgen_graph_t *graph, struct volopt_map_entry *vme,
     if (!strcmp(vme->key, "performance.open-behind") &&
         (vme->op_version > volinfo->client_op_version))
         return 0;
-
-    if (priv->op_version < GD_OP_VERSION_3_12_2) {
-        /* For replicate volumes do not load io-threads as it affects
-         * performance
-         */
-        if (!strcmp(vme->key, "performance.client-io-threads") &&
-            (GF_CLUSTER_TYPE_REPLICATE == volinfo->type))
-            return 0;
-    }
 
     /* if VKEY_READDIR_AHEAD is enabled and parallel readdir is
      * not enabled then load readdir-ahead here else it will be
@@ -3757,9 +3745,6 @@ set_afr_pending_xattrs_option(volgen_graph_t *graph,
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
-    if (conf->op_version < GD_OP_VERSION_3_9_0)
-        return ret;
-
     /* (brick_id x rep.count) + (rep.count-1 commas) + NULL*/
     list_size = (1024 * volinfo->replica_count) + (volinfo->replica_count - 1) +
                 1;
@@ -4302,12 +4287,11 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
      * case ctime shouldn't be loaded into the graph.
      */
     ret = dict_get_str_boolean(set_dict, "features.ctime", -1);
-    if (conf->op_version >= GD_OP_VERSION_5_0 && ret) {
-        xl = volgen_graph_add(graph, "features/utime", volname);
-        if (!xl) {
-            ret = -1;
-            goto out;
-        }
+
+    xl = volgen_graph_add(graph, "features/utime", volname);
+    if (!xl) {
+        ret = -1;
+        goto out;
     }
 
     /* As of now snapshot volume is read-only. Read-only xlator is loaded
