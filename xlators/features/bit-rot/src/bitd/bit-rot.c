@@ -56,7 +56,7 @@ out:
     return index;
 }
 
-br_child_t *
+static br_child_t *
 br_get_child_from_brick_path(xlator_t *this, char *brick_path)
 {
     br_private_t *priv = NULL;
@@ -90,7 +90,7 @@ out:
  * probably we'll encapsulate brick inside our own structure when
  * needed -- later.
  */
-void *
+static void *
 br_brick_init(void *xl, struct gf_brick_spec *brick)
 {
     return brick;
@@ -99,7 +99,7 @@ br_brick_init(void *xl, struct gf_brick_spec *brick)
 /**
  * and cleanup things here when allocated br_brick_init().
  */
-void
+static void
 br_brick_fini(void *xl, char *brick, void *data)
 {
     return;
@@ -681,7 +681,7 @@ br_process_object(void *arg)
  *
  * NOTE: use call_time to instrument signing time in br_sign_object().
  */
-void
+static void
 br_add_object_to_queue(struct gf_tw_timer_list *timer, void *data,
                        unsigned long call_time)
 {
@@ -784,7 +784,7 @@ br_object_quicksign(xlator_t *this, br_object_t *object)
  * TODO: use mem-pool for allocations and maybe allocate timer and
  * object as a single alloc and bifurcate their respective pointers.
  */
-void
+static void
 br_brick_callback(void *xl, char *brick, void *data, changelog_event_t *ev)
 {
     int32_t ret = 0;
@@ -845,7 +845,7 @@ out:
     return;
 }
 
-void
+static void
 br_fill_brick_spec(struct gf_brick_spec *brick, char *path)
 {
     brick->brick_path = gf_strdup(path);
@@ -937,7 +937,7 @@ out:
  * an open() followed by a close() thereby resulting in call boomerang.
  * (though not back to itself :))
  */
-int
+static int
 bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                    void *data)
 {
@@ -1276,7 +1276,7 @@ br_child_enaction(xlator_t *this, br_child_t *child, br_stub_init_t *stub)
  * by getxattr() on a virtual key. Depending on the configuration, the
  * process either acts as a signer or a scrubber.
  */
-int32_t
+static int32_t
 br_brick_connect(xlator_t *this, br_child_t *child)
 {
     int32_t ret = -1;
@@ -1406,7 +1406,7 @@ br_cleanup_scrubber(xlator_t *this, br_child_t *child)
  * let's clean up what it touched. (NOTE: there's no need to clean
  * the inode table, it's just reused taking care of stale inodes)
  */
-int32_t
+static int32_t
 br_brick_disconnect(xlator_t *this, br_child_t *child)
 {
     int32_t ret = 0;
@@ -1530,7 +1530,7 @@ _br_qchild_event(xlator_t *this, br_child_t *child, br_child_handler *call)
     list_add_tail(&childev->list, &priv->bricks);
 }
 
-int
+static int
 br_scrubber_status_get(xlator_t *this, dict_t **dict)
 {
     int ret = -1;
@@ -1712,12 +1712,9 @@ out:
 }
 
 static void
-br_fini_signer(xlator_t *this, br_private_t *priv)
+br_fini_signer(br_private_t *priv)
 {
     int i = 0;
-
-    if (priv == NULL)
-        return;
 
     for (; i < priv->signer_th_count; i++) {
         (void)gf_thread_cleanup_xint(priv->obj_queue->workers[i]);
@@ -1891,7 +1888,7 @@ error_return:
 }
 
 static void
-br_free_scrubber_monitor(xlator_t *this, br_private_t *priv)
+br_free_scrubber_monitor(br_private_t *priv)
 {
     struct br_monitor *scrub_monitor = &priv->scrub_monitor;
 
@@ -2066,9 +2063,9 @@ fini(xlator_t *this)
         return;
 
     if (!priv->iamscrubber)
-        br_fini_signer(this, priv);
+        br_fini_signer(priv);
     else
-        (void)br_free_scrubber_monitor(this, priv);
+        (void)br_free_scrubber_monitor(priv);
 
     br_free_children(this, priv, priv->child_count);
 

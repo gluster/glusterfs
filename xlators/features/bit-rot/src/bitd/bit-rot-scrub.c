@@ -81,7 +81,7 @@ out:
  *  - mismatches versions caches in pre-compute check
  */
 
-int32_t
+static int32_t
 bitd_scrub_post_compute_check(xlator_t *this, br_child_t *child, fd_t *fd,
                               unsigned long version,
                               br_isignature_out_t **signature,
@@ -173,7 +173,7 @@ out:
  *  - it's already marked corrupted
  *  - has stale signature
  */
-int32_t
+static int32_t
 bitd_scrub_pre_compute_check(xlator_t *this, br_child_t *child, fd_t *fd,
                              unsigned long *version,
                              br_scrub_stats_t *scrub_stat,
@@ -206,7 +206,7 @@ out:
 }
 
 /* static int */
-int
+static int
 bitd_compare_ckum(xlator_t *this, br_isignature_out_t *sign, unsigned char *md,
                   inode_t *linked_inode, gf_dirent_t *entry, fd_t *fd,
                   br_child_t *child, loc_t *loc)
@@ -279,7 +279,7 @@ out:
  * that the signature is SHA256 (because signer as of now _always_
  * signs with SHA256).
  */
-int
+static int
 br_scrubber_scrub_begin(xlator_t *this, struct br_fsscan_entry *fsentry)
 {
     int32_t ret = -1;
@@ -500,7 +500,7 @@ _br_fsscan_collect_entry(struct br_scanfs *fsscan,
 
 #define NR_ENTRIES (1 << 7) /* ..bulk scrubbing */
 
-int
+static int
 br_fsscanner_handle_entry(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
                           void *data)
 {
@@ -833,7 +833,7 @@ br_fsscanner(void *arg)
  * changes the scrub state to the _correct_ state by identifying a
  * non-pending timer.
  */
-void
+static void
 br_kickstart_scanner(struct gf_tw_timer_list *timer, void *data,
                      unsigned long calltime)
 {
@@ -1101,7 +1101,7 @@ br_fsscan_ondemand(xlator_t *this)
  * the scale based on the number of processor cores too.
  */
 static unsigned int
-br_scrubber_calc_scale(xlator_t *this, br_private_t *priv,
+br_scrubber_calc_scale(xlator_t *this, unsigned int child_count,
                        scrub_throttle_t throttle)
 {
     unsigned int scale = 0;
@@ -1112,14 +1112,13 @@ br_scrubber_calc_scale(xlator_t *this, br_private_t *priv,
             scale = 0;
             break;
         case BR_SCRUB_THROTTLE_LAZY:
-            scale = priv->child_count * pow(M_E, BR_SCRUB_THREAD_SCALE_LAZY);
+            scale = child_count * pow(M_E, BR_SCRUB_THREAD_SCALE_LAZY);
             break;
         case BR_SCRUB_THROTTLE_NORMAL:
-            scale = priv->child_count * pow(M_E, BR_SCRUB_THREAD_SCALE_NORMAL);
+            scale = child_count * pow(M_E, BR_SCRUB_THREAD_SCALE_NORMAL);
             break;
         case BR_SCRUB_THROTTLE_AGGRESSIVE:
-            scale = priv->child_count *
-                    pow(M_E, BR_SCRUB_THREAD_SCALE_AGGRESSIVE);
+            scale = child_count * pow(M_E, BR_SCRUB_THREAD_SCALE_AGGRESSIVE);
             break;
         default:
             gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_UNKNOWN_THROTTLE,
@@ -1363,7 +1362,7 @@ br_scrubber_scale_down(xlator_t *this, struct br_scrubber *fsscrub,
 }
 
 static int32_t
-br_scrubber_configure(xlator_t *this, br_private_t *priv,
+br_scrubber_configure(xlator_t *this, unsigned int child_count,
                       struct br_scrubber *fsscrub, scrub_throttle_t nthrottle)
 {
     int32_t ret = 0;
@@ -1371,7 +1370,7 @@ br_scrubber_configure(xlator_t *this, br_private_t *priv,
     unsigned int v2 = 0;
 
     v1 = fsscrub->nr_scrubbers;
-    v2 = br_scrubber_calc_scale(this, priv, nthrottle);
+    v2 = br_scrubber_calc_scale(this, child_count, nthrottle);
 
     if (v1 == v2)
         return 0;
@@ -1434,7 +1433,7 @@ br_scrubber_handle_throttle(xlator_t *this, br_private_t *priv, dict_t *options,
         goto error_return;
 
     /* on failure old throttling value is preserved */
-    ret = br_scrubber_configure(this, priv, fsscrub, nthrottle);
+    ret = br_scrubber_configure(this, priv->child_count, fsscrub, nthrottle);
     if (ret)
         goto error_return;
 
@@ -1576,7 +1575,7 @@ error_return:
     return -1;
 }
 
-inode_t *
+static inode_t *
 br_lookup_bad_obj_dir(xlator_t *this, br_child_t *child, uuid_t gfid)
 {
     struct iatt statbuf = {
@@ -1625,7 +1624,7 @@ out:
     return linked_inode;
 }
 
-int32_t
+static int32_t
 br_read_bad_object_dir(xlator_t *this, br_child_t *child, fd_t *fd,
                        dict_t *dict)
 {
@@ -1678,7 +1677,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 br_get_bad_objects_from_child(xlator_t *this, dict_t *dict, br_child_t *child)
 {
     inode_t *inode = NULL;
@@ -1748,7 +1747,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 br_collect_bad_objects_of_child(xlator_t *this, br_child_t *child, dict_t *dict,
                                 dict_t *child_dict, int32_t total_count)
 {
