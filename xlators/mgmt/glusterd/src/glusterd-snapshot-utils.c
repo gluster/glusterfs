@@ -113,13 +113,12 @@ glusterd_cleanup_snaps_for_volume(glusterd_volinfo_t *volinfo)
             continue;
         }
 
-        ret = glusterd_volinfo_delete(snap_vol);
-        if (ret) {
+        if (glusterd_volinfo_unref(snap_vol)) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_VOL_DELETE_FAIL,
                    "Failed to remove "
                    "volinfo %s ",
                    snap_vol->volname);
-            op_ret = ret;
+            op_ret = -1;
             continue;
         }
     }

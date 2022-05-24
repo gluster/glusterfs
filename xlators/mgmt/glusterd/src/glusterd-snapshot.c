@@ -4783,7 +4783,7 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     ret = 0;
 out:
     if (ret && (NULL != new_volinfo)) {
-        (void)glusterd_volinfo_delete(new_volinfo);
+        (void)glusterd_volinfo_unref(new_volinfo);
     }
     return ret;
 }
@@ -9406,7 +9406,7 @@ out:
          * if it was added there.
          */
         if (new_volinfo)
-            (void)glusterd_volinfo_delete(new_volinfo);
+            (void)glusterd_volinfo_unref(new_volinfo);
     } else {
         cds_list_for_each_entry_safe(voliter, temp_volinfo,
                                      &orig_vol->snap_volumes, snapvol_list)
