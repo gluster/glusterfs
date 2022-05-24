@@ -246,9 +246,6 @@ glusterd_volinfo_t *
 glusterd_volinfo_unref(glusterd_volinfo_t *volinfo);
 
 int32_t
-glusterd_volinfo_delete(glusterd_volinfo_t *volinfo);
-
-int32_t
 glusterd_brickinfo_delete(glusterd_brickinfo_t *brickinfo);
 
 int32_t

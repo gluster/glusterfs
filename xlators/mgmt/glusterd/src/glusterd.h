@@ -417,8 +417,7 @@ struct glusterd_volinfo_ {
     int op_version;
     int client_op_version;
     int32_t quota_xattr_version;
-    pthread_mutex_t reflock;
-    int refcnt;
+    gf_atomic_t refcnt;
     gd_quorum_status_t quorum_status;
 
     glusterd_snapdsvc_t snapd;

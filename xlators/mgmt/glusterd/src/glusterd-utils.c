@@ -661,41 +661,6 @@ out:
     return ret;
 }
 
-glusterd_volinfo_t *
-glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
-{
-    int refcnt = -1;
-    glusterd_conf_t *conf = THIS->private;
-
-    pthread_mutex_lock(&conf->volume_lock);
-    {
-        pthread_mutex_lock(&volinfo->reflock);
-        {
-            refcnt = --volinfo->refcnt;
-        }
-        pthread_mutex_unlock(&volinfo->reflock);
-    }
-    pthread_mutex_unlock(&conf->volume_lock);
-    if (!refcnt) {
-        glusterd_volinfo_delete(volinfo);
-        return NULL;
-    }
-
-    return volinfo;
-}
-
-glusterd_volinfo_t *
-glusterd_volinfo_ref(glusterd_volinfo_t *volinfo)
-{
-    pthread_mutex_lock(&volinfo->reflock);
-    {
-        ++volinfo->refcnt;
-    }
-    pthread_mutex_unlock(&volinfo->reflock);
-
-    return volinfo;
-}
-
 int32_t
 glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
 {
@@ -753,7 +718,7 @@ glusterd_volinfo_new(glusterd_volinfo_t **volinfo)
     glusterd_shdsvc_build(&new_volinfo->shd.svc);
 
     pthread_mutex_init(&new_volinfo->store_volinfo_lock, NULL);
-    pthread_mutex_init(&new_volinfo->reflock, NULL);
+    GF_ATOMIC_INIT(new_volinfo->refcnt, 0);
 
     *volinfo = glusterd_volinfo_ref(new_volinfo);
 
@@ -850,20 +815,14 @@ out:
     return ret;
 }
 
-static int
-glusterd_volinfo_remove(glusterd_volinfo_t *volinfo)
-{
-    cds_list_del_init(&volinfo->vol_list);
-    glusterd_volinfo_unref(volinfo);
-    return 0;
-}
-
-int32_t
+static int32_t
 glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
 {
     int32_t ret = -1;
 
     GF_ASSERT(volinfo);
+    /* This is expected to be called from glusterd_volinfo_unref() only. */
+    GF_ASSERT(GF_ATOMIC_GET(volinfo->refcnt) == 0);
 
     cds_list_del_init(&volinfo->vol_list);
     cds_list_del_init(&volinfo->snapvol_list);
@@ -894,7 +853,6 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
     glusterd_shd_svcproc_cleanup(&volinfo->shd);
 
     pthread_mutex_destroy(&volinfo->store_volinfo_lock);
-    pthread_mutex_destroy(&volinfo->reflock);
     LOCK_DESTROY(&volinfo->lock);
 
     GF_FREE(volinfo);
@@ -902,6 +860,40 @@ glusterd_volinfo_delete(glusterd_volinfo_t *volinfo)
 out:
     gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
+}
+
+glusterd_volinfo_t *
+glusterd_volinfo_unref(glusterd_volinfo_t *volinfo)
+{
+    long refcnt = -1;
+    glusterd_conf_t *conf = THIS->private;
+
+    pthread_mutex_lock(&conf->volume_lock);
+    {
+        refcnt = GF_ATOMIC_DEC(volinfo->refcnt);
+    }
+    pthread_mutex_unlock(&conf->volume_lock);
+    if (!refcnt) {
+        glusterd_volinfo_delete(volinfo);
+        return NULL;
+    }
+
+    return volinfo;
+}
+
+glusterd_volinfo_t *
+glusterd_volinfo_ref(glusterd_volinfo_t *volinfo)
+{
+    GF_ATOMIC_INC(volinfo->refcnt);
+    return volinfo;
+}
+
+static int
+glusterd_volinfo_remove(glusterd_volinfo_t *volinfo)
+{
+    cds_list_del_init(&volinfo->vol_list);
+    glusterd_volinfo_unref(volinfo);
+    return 0;
 }
 
 static int32_t
