@@ -25,6 +25,7 @@
 #include <fnmatch.h>
 #include <uuid/uuid.h>
 #include <urcu/compiler.h>
+#include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
@@ -200,6 +201,17 @@ get_xattrs_to_heal();
 
 char *
 gf_gethostname(void);
+
+#ifndef GF_DARWIN_HOST_OS
+
+void
+gf_set_nofile(rlim_t high, rlim_t low);
+
+#else /* Darwin */
+
+#define gf_set_nofile(low, high) do { } while (0)
+
+#endif /* not GF_DARWIN_HOST_OS */
 
 /* The DHT file rename operation is not a straightforward rename.
  * It involves creating linkto and linkfiles, and can unlink or rename the

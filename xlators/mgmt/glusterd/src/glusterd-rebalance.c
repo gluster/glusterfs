@@ -10,7 +10,6 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/resource.h>
 #include <sys/statvfs.h>
 
 #include <glusterfs/compat.h>

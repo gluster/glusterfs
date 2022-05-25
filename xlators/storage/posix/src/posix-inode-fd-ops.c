@@ -17,7 +17,6 @@
 #include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <errno.h>
 #include <libgen.h>
 #include <pthread.h>

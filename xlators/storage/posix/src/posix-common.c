@@ -17,7 +17,6 @@
 #include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <errno.h>
 #include <libgen.h>
 #include <pthread.h>
@@ -993,32 +992,9 @@ posix_init(xlator_t *this)
                "Could not lock brick directory (%s)", strerror(op_errno));
         goto out;
     }
-#ifndef GF_DARWIN_HOST_OS
-    {
-        struct rlimit lim;
-        lim.rlim_cur = 1048576;
-        lim.rlim_max = 1048576;
 
-        if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_SET_ULIMIT_FAILED,
-                   "Failed to set 'ulimit -n "
-                   " 1048576'");
-            lim.rlim_cur = 65536;
-            lim.rlim_max = 65536;
+    gf_set_nofile(1048576, 65536);
 
-            if (setrlimit(RLIMIT_NOFILE, &lim) == -1) {
-                gf_msg(this->name, GF_LOG_WARNING, errno,
-                       P_MSG_SET_FILE_MAX_FAILED,
-                       "Failed to set maximum allowed open "
-                       "file descriptors to 64k");
-            } else {
-                gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_MAX_FILE_OPEN,
-                       "Maximum allowed "
-                       "open file descriptors set to 65536");
-            }
-        }
-    }
-#endif
     _private->shared_brick_count = 1;
     ret = dict_get_int32(this->options, "shared-brick-count",
                          &_private->shared_brick_count);

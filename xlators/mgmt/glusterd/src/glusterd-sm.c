@@ -10,7 +10,6 @@
 
 #include <time.h>
 #include <sys/uio.h>
-#include <sys/resource.h>
 
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
