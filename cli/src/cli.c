@@ -13,7 +13,6 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <sys/resource.h>
 #include <sys/file.h>
 #include <netdb.h>
 #include <signal.h>

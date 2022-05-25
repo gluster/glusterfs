@@ -35,9 +35,6 @@
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
-#ifndef GF_LINUX_HOST_OS
-#include <sys/resource.h>
-#endif
 #ifdef HAVE_SYNCFS_SYS
 #include <sys/syscall.h>
 #endif
@@ -4283,3 +4280,27 @@ gf_gethostname(void)
 {
     return global_ctx->hostname;
 }
+
+#ifndef GF_DARWIN_HOST_OS
+
+void
+gf_set_nofile(rlim_t high, rlim_t low)
+{
+    int n, ret = -1;
+    struct rlimit lim;
+    rlim_t r[2] = { high, low };
+
+    for (n = 0; n < 2; n++)
+        if (r[n] != 0) {
+            lim.rlim_cur = r[n];
+            lim.rlim_max = r[n];
+            ret = setrlimit(RLIMIT_NOFILE, &lim);
+            if (ret == 0)
+                break;
+        }
+
+    if (ret)
+        GF_LOG_W(THIS->name, LG_MSG_NOFILE_FAILED(high, low));
+}
+
+#endif /* not GF_DARWIN_HOST_OS */

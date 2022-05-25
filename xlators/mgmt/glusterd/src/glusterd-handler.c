@@ -32,7 +32,6 @@
 #include "glusterd-messages.h"
 #include "glusterd-errno.h"
 
-#include <sys/resource.h>
 #include <inttypes.h>
 
 #include "glusterd-syncop.h"

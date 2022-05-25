@@ -43,7 +43,6 @@
 #include "glusterd-shd-svc-helper.h"
 #include "protocol-utils.h"
 
-#include <sys/resource.h>
 #include <inttypes.h>
 #include <signal.h>
 #include <sys/types.h>

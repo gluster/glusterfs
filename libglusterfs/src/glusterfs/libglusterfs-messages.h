@@ -339,6 +339,11 @@ GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_BAD_RETURN, "Unexpected return value", 1,
     GLFS_I32(ret)
 )
 
+GLFS_NEW(LIBGLUSTERFS, LG_MSG_NOFILE_FAILED,
+    "Failed to set maximum number of open file descriptors", 2,
+    GLFS_I64(low), GLFS_I64(high)
+)
+
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
 #define LG_MSG_INVALID_POLL_OUT_STR "invalid poll_out value"

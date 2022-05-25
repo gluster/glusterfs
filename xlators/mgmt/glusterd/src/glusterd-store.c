@@ -33,7 +33,6 @@
 #include <glusterfs/common-utils.h>
 #include <glusterfs/quota-common-utils.h>
 
-#include <sys/resource.h>
 #include <inttypes.h>
 #include <dirent.h>
 
