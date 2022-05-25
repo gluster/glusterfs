@@ -1314,12 +1314,15 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
 
-    gio = GF_CALLOC(1, sizeof(*gio), glfs_mt_glfs_io_t);
+    gio = GF_MALLOC(sizeof(*gio), glfs_mt_glfs_io_t);
     if (!gio) {
         ret = -1;
         errno = ENOMEM;
         goto out;
     }
+    gio->glfd = glfd;
+    gio->op = GF_FOP_READ;
+    gio->offset = offset;
 
     gio->iov = iov_dup(iovec, count);
     if (!gio->iov) {
@@ -1328,10 +1331,7 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
 
-    gio->op = GF_FOP_READ;
-    gio->glfd = glfd;
     gio->count = count;
-    gio->offset = offset;
     gio->flags = flags;
     gio->oldcb = oldcb;
     gio->fn = fn;
@@ -5681,12 +5681,13 @@ glfs_recall_lease_upcall(struct glfs *fs, struct glfs_upcall *up_arg,
         goto out;
     }
 
-    up_lease_arg = GF_CALLOC(1, sizeof(struct glfs_upcall_lease),
+    up_lease_arg = GF_MALLOC(sizeof(struct glfs_upcall_lease),
                              glfs_mt_upcall_inode_t);
+    if (!up_lease_arg) {
+        errno = ENOMEM;
+        goto out;
+    }
     up_lease_arg->object = object;
-
-    GF_VALIDATE_OR_GOTO("glfs_recall_lease", up_lease_arg, out);
-
     up_lease_arg->lease_type = recall_lease->lease_type;
 
     up_arg->reason = GLFS_UPCALL_RECALL_LEASE;
@@ -5817,7 +5818,7 @@ gf_copy_cache_invalidation(struct gf_upcall_cache_invalidation *src)
     if (!src)
         goto out;
 
-    dst = GF_CALLOC(1, sizeof(struct gf_upcall_cache_invalidation),
+    dst = GF_MALLOC(sizeof(struct gf_upcall_cache_invalidation),
                     glfs_mt_upcall_entry_t);
 
     if (!dst) {
@@ -5831,7 +5832,7 @@ gf_copy_cache_invalidation(struct gf_upcall_cache_invalidation *src)
     dst->stat = src->stat;
     dst->p_stat = src->p_stat;
     dst->oldp_stat = src->oldp_stat;
-
+    dst->dict = NULL;
     if (src->dict)
         dst->dict = dict_copy_with_ref(src->dict, NULL);
 
@@ -5848,7 +5849,7 @@ gf_copy_recall_lease(struct gf_upcall_recall_lease *src)
     if (!src)
         goto out;
 
-    dst = GF_CALLOC(1, sizeof(struct gf_upcall_recall_lease),
+    dst = GF_MALLOC(sizeof(struct gf_upcall_recall_lease),
                     glfs_mt_upcall_entry_t);
 
     if (!dst) {
@@ -5859,7 +5860,7 @@ gf_copy_recall_lease(struct gf_upcall_recall_lease *src)
 
     dst->lease_type = src->lease_type;
     memcpy(dst->tid, src->tid, 16);
-
+    dst->dict = NULL;
     if (src->dict)
         dst->dict = dict_copy_with_ref(src->dict, NULL);
 
