@@ -574,7 +574,11 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
 
     /* Timer object is allocated dynamically but freed with
        gf_timer_call_cancel(). So it should not be managed by
-       dict to avoid double free and treated as static here. */
+       dict to avoid double free and treated as static here.
+       Also note that just the pointer to timer is stored in
+       the dict, not the timer object as a whole (the latter
+       causes copying and most likely a crash in timer code). */
+    /* coverity[SUSPICIOUS_SIZEOF] */
     ret = dict_set_static_bin(priv->mgmt_v3_lock_timer, key, mgmt_lock_timer,
                               sizeof(mgmt_lock_timer));
     if (ret) {
