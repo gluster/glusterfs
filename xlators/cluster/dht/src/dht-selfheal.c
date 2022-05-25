@@ -63,7 +63,7 @@ dht_overlap_calc(dht_layout_t *old, int o, dht_layout_t *new, int n)
            max(old->list[o].start, new->list[n].start) + 1;
 }
 
-int
+static int
 dht_selfheal_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -71,7 +71,7 @@ dht_selfheal_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 dht_selfheal_dir_finish(call_frame_t *frame, xlator_t *this, int ret,
                         int invoke_cbk)
 {
@@ -297,7 +297,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 dht_selfheal_layout_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                              int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -325,7 +325,7 @@ err:
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 dht_should_heal_layout(call_frame_t *frame, dht_layout_t **heal,
                        dht_layout_t **ondisk)
 {
@@ -400,7 +400,7 @@ dht_layout_span(dht_layout_t *layout)
     return count;
 }
 
-int
+static int
 dht_decommissioned_bricks_in_layout(xlator_t *this, dht_layout_t *layout)
 {
     dht_conf_t *conf = NULL;
