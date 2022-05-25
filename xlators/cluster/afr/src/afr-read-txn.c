@@ -341,21 +341,19 @@ afr_read_txn_continue(call_frame_t *frame, xlator_t *this, int subvol)
 */
 
 static void
-afr_read_txn_wipe(call_frame_t *frame, xlator_t *this)
+afr_read_txn_wipe(call_frame_t *frame, unsigned int child_count)
 {
     afr_local_t *local = NULL;
-    afr_private_t *priv = NULL;
     int i = 0;
 
     local = frame->local;
-    priv = this->private;
 
     local->readfn = NULL;
 
     if (local->inode)
         inode_unref(local->inode);
 
-    for (i = 0; i < priv->child_count; i++) {
+    for (i = 0; i < child_count; i++) {
         local->read_attempted[i] = 0;
         local->readable[i] = 0;
     }
@@ -405,14 +403,14 @@ afr_read_txn(call_frame_t *frame, xlator_t *this, inode_t *inode,
     data = alloca0(priv->child_count);
     metadata = alloca0(priv->child_count);
 
-    afr_read_txn_wipe(frame, this);
+    afr_read_txn_wipe(frame, priv->child_count);
 
     local->readfn = readfn;
     local->inode = inode_ref(inode);
     local->is_read_txn = _gf_true;
     local->transaction.type = type;
 
-    if (priv->quorum_count && !afr_has_quorum(local->child_up, this, NULL)) {
+    if (priv->quorum_count && !afr_has_quorum(local->child_up, priv, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_quorum_errno(priv);
         goto read;
