@@ -939,6 +939,10 @@ glfs_fchown(glfs_fd_t *fd, uid_t uid, gid_t gid) __THROW
     GFAPI_PUBLIC(glfs_fchown, 3.4.0);
 
 int
+glfs_fchownat(struct glfs_fd *glfd, const char *path, uid_t uid, gid_t gid,
+              int flags) __THROW GFAPI_PUBLIC(glfs_fchownat, 11.0);
+
+int
 glfs_utimens(glfs_t *fs, const char *path,
              const struct timespec times[2]) __THROW
     GFAPI_PUBLIC(glfs_utimens, 3.4.0);

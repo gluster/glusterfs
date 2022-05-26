@@ -41,6 +41,10 @@ main(int argc, char *argv[])
         "An opinion should be the result of thought, "
         "not a substitute for it.";
 
+    struct stat stbuf = {
+        0,
+    };
+
     if (argc != 4) {
         fprintf(stderr, "Invalid argument\n");
         return 1;
@@ -101,6 +105,18 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_fchownat(fd1, filename, 1001, 1001, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat", ret, out);
+
+    ret = glfs_stat(fs, filepath, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    if (stbuf.st_uid != 1001 || stbuf.st_gid != 1001) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:
