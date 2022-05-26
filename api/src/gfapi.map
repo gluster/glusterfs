@@ -288,4 +288,5 @@ GFAPI_11.0 {
 		glfs_fstatat;
 		glfs_faccessat;
 		glfs_fchmodat;
+		glfs_fchownat;
 } GFAPI_7.0;

@@ -4426,6 +4426,64 @@ pub_glfs_chown(struct glfs *fs, const char *path, uid_t uid, gid_t gid)
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fchownat, 11.0)
+int
+pub_glfs_fchownat(struct glfs_fd *pglfd, const char *path, uid_t uid, gid_t gid,
+                  int flags)
+{
+    int ret = 0;
+    struct glfs_stat stat = {
+        0,
+    };
+
+    if (uid != (uid_t)-1) {
+        stat.glfs_st_uid = uid;
+        stat.glfs_st_mask = GLFS_STAT_UID;
+    }
+
+    if (gid != (uid_t)-1) {
+        stat.glfs_st_gid = gid;
+        stat.glfs_st_mask = stat.glfs_st_mask | GLFS_STAT_GID;
+    }
+
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int glvalid;
+    int no_follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
+    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, 0);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    glfs_iatt_from_statx(&iatt, &stat);
+    glfsflags_from_gfapiflags(&stat, &glvalid);
+
+    if (stat.glfs_st_mask) {
+        ret = syncop_setattr(subvol, &loc, &iatt, glvalid, 0, 0, NULL, NULL);
+        DECODE_SYNCOP_ERR(ret);
+    }
+
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_lchown, 3.4.0)
 int
 pub_glfs_lchown(struct glfs *fs, const char *path, uid_t uid, gid_t gid)
