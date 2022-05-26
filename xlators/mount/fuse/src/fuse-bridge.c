@@ -7238,7 +7238,7 @@ struct volume_options options[] = {
     {
         .key = {"invalidate-limit"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = "0",
+        .default_value = "65536",
         .min = 0,
         .description = "suspend invalidations as of 'lru-limit' if the number "
                        "of outstanding invalidations reaches this limit "
