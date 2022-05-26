@@ -55,10 +55,10 @@ typedef struct wb_inode {
                                which arrive later (which overlap, etc.)
                                are issued only after their dependencies
                                in this list are "fulfilled".
- 
+
                                Server acks for entries in this list
                                shrinks the window.
- 
+
                                The sum total of all req->write_size
                                of entries in this list must be kept less
                                than the permitted window size.
@@ -92,14 +92,14 @@ typedef struct wb_inode {
                                     the current 'state' of liability. Every
                                     new addition to the liability list bumps
                                     the generation number.
-               
+
                                     a newly arrived request is only required
                                     to perform causal checks against the entries
                                     in the liability list which were present
                                     at the time of its addition. the generation
                                     number at the time of its addition is stored
                                     in the request and used during checks.
-               
+
                                     the liability list can grow while the request
                                     waits in the todo list waiting for its
                                     dependent operations to complete. however
@@ -486,23 +486,6 @@ out:
     return req;
 }
 
-wb_request_t *
-wb_request_ref(wb_request_t *req)
-{
-    wb_inode_t *wb_inode = NULL;
-
-    GF_VALIDATE_OR_GOTO("write-behind", req, out);
-
-    wb_inode = req->wb_inode;
-    LOCK(&wb_inode->lock);
-    {
-        req = __wb_request_ref(req);
-    }
-    UNLOCK(&wb_inode->lock);
-
-out:
-    return req;
-}
 
 gf_boolean_t
 wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
@@ -2374,51 +2357,6 @@ unwind:
 noqueue:
     STACK_WIND(frame, default_fsetattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->fsetattr, fd, stbuf, valid, xdata);
-    return 0;
-}
-
-int32_t
-wb_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-          mode_t mode, mode_t umask, fd_t *fd, dict_t *xdata)
-{
-    wb_inode_t *wb_inode = NULL;
-
-    wb_inode = wb_inode_create(this, fd->inode);
-    if (!wb_inode)
-        goto unwind;
-
-    if (((flags & O_RDWR) || (flags & O_WRONLY)) && (flags & O_TRUNC))
-        wb_inode->size = 0;
-
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->create,
-                    loc, flags, mode, umask, fd, xdata);
-    return 0;
-
-unwind:
-    STACK_UNWIND_STRICT(create, frame, -1, ENOMEM, NULL, NULL, NULL, NULL, NULL,
-                        NULL);
-    return 0;
-}
-
-int32_t
-wb_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
-        fd_t *fd, dict_t *xdata)
-{
-    wb_inode_t *wb_inode = NULL;
-
-    wb_inode = wb_inode_create(this, fd->inode);
-    if (!wb_inode)
-        goto unwind;
-
-    if (((flags & O_RDWR) || (flags & O_WRONLY)) && (flags & O_TRUNC))
-        wb_inode->size = 0;
-
-    STACK_WIND_TAIL(frame, FIRST_CHILD(this), FIRST_CHILD(this)->fops->open,
-                    loc, flags, fd, xdata);
-    return 0;
-
-unwind:
-    STACK_UNWIND_STRICT(open, frame, -1, ENOMEM, NULL, NULL);
     return 0;
 }
 
