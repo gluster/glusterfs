@@ -295,6 +295,7 @@ struct posix_private {
     pthread_mutex_t sq_mutex;
     pthread_mutex_t cq_mutex;
 #endif
+    uint64_t bg_unlink_threshold;
     void *pxl;
 };
 

@@ -485,6 +485,9 @@ posix_reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("ctime", priv->ctime, options, bool, out);
 
+    GF_OPTION_RECONF("bg-unlink-threshold",  priv->bg_unlink_threshold,
+                      options, size_uint64, out);
+
     ret = 0;
 out:
     return ret;
@@ -1206,6 +1209,9 @@ posix_init(xlator_t *this)
 
     GF_OPTION_INIT("ctime", _private->ctime, bool, out);
 
+    GF_OPTION_INIT("bg-unlink-threshold",  _private->bg_unlink_threshold,
+                   size_uint64, out);
+
 out:
     if (ret) {
         if (_private) {
@@ -1368,6 +1374,13 @@ struct volume_options posix_options[] = {
      .default_value = "off",
      .description = "Support for Linux io_uring",
      .op_version = {GD_OP_VERSION_9_0},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"bg-unlink-threshold"},
+     .type = GF_OPTION_TYPE_SIZET,
+     .default_value = "1024MB",
+     .description = "Minimum file size for being a candidate for "
+                    "background unlink.",
+     .op_version = {GD_OP_VERSION_10_0},
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"brick-uid"},
      .type = GF_OPTION_TYPE_INT,

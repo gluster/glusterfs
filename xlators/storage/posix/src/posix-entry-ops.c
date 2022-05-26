@@ -1131,6 +1131,28 @@ out:
 }
 
 static int32_t
+posix_move_entry_to_landfill(xlator_t *this, const char *real_path,
+                             uuid_t gfid)
+{
+    char tmp_path[PATH_MAX] = {
+        0,
+    };
+    int32_t op_ret = -1;
+    char *gfid_str = uuid_utoa(gfid);
+    struct posix_private *priv = this->private;
+
+    (void)snprintf(tmp_path, sizeof(tmp_path), "%s/%s",
+                   priv->trash_path, gfid_str);
+    gf_msg_debug(this->name, 0, "Moving %s to %s", real_path, tmp_path);
+    op_ret = sys_rename(real_path, tmp_path);
+    if (op_ret == -1) {
+        gf_msg_debug(this->name, 0, "rename on %s failed", real_path);
+   }
+
+    return op_ret;
+}
+
+static int32_t
 posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
                                    const char *real_path, struct iatt *stbuf,
                                    int32_t *op_errno, loc_t *loc,
@@ -1143,6 +1165,12 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
     };
     gf_boolean_t locked = _gf_false;
     gf_boolean_t update_ctime = _gf_false;
+    gf_boolean_t move_to_landfill = _gf_false;
+    struct posix_private *priv = this->private;
+
+    if (stbuf && stbuf->ia_size > priv->bg_unlink_threshold) {
+        move_to_landfill = _gf_true;
+    }
 
     /*  Unlink the gfid_handle_first */
     if (stbuf && stbuf->ia_nlink == 1) {
@@ -1150,7 +1178,8 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
 
         if (loc->inode->fd_count == 0) {
             UNLOCK(&loc->inode->lock);
-            ret = posix_handle_unset_gfid(this, stbuf->ia_gfid);
+            if (!move_to_landfill)
+                ret = posix_handle_unset_gfid(this, stbuf->ia_gfid);
         } else {
             UNLOCK(&loc->inode->lock);
             ret = posix_move_gfid_to_unlink(this, stbuf->ia_gfid, loc);
@@ -1182,8 +1211,17 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
         }
     }
 
-    /* Unlink the actual file */
-    ret = sys_unlink(real_path);
+    if (move_to_landfill) {
+        /* We are only moving the actual file. janitor_walker() will
+         * automatically remove the gfid hardlink via posix_handle_unset()
+         * based on the link count. If the gfid hardlink is not present because
+         * it was moved to .glusterfs/unlink on account of an open-fd,
+         * posix_handle_unset() becomes a no-op.*/
+         ret = posix_move_entry_to_landfill(this, real_path, stbuf->ia_gfid);
+    } else {
+        /* Unlink the actual file */
+        ret = sys_unlink(real_path);
+    }
 
     if (locked) {
         UNLOCK(&loc->inode->lock);
@@ -1557,7 +1595,6 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     int32_t op_errno = 0;
     char *real_path = NULL;
     char *par_path = NULL;
-    char *gfid_str = NULL;
     struct iatt preparent = {
         0,
     };
@@ -1568,9 +1605,6 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         0,
     };
     struct posix_private *priv = NULL;
-    char tmp_path[PATH_MAX] = {
-        0,
-    };
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1630,11 +1664,7 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
             gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_MKDIR_FAILED,
                    "mkdir of %s failed", priv->trash_path);
         } else {
-            gfid_str = uuid_utoa(stbuf.ia_gfid);
-            (void)snprintf(tmp_path, sizeof(tmp_path), "%s/%s",
-                           priv->trash_path, gfid_str);
-            gf_msg_debug(this->name, 0, "Moving %s to %s", real_path, tmp_path);
-            op_ret = sys_rename(real_path, tmp_path);
+            op_ret = posix_move_entry_to_landfill(this, real_path, stbuf.ia_gfid);
         }
     } else {
         op_ret = sys_rmdir(real_path);
