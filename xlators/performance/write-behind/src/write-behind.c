@@ -470,7 +470,6 @@ out:
 static wb_request_t *
 __wb_request_ref(wb_request_t *req)
 {
-
     if (req->refcount < 0) {
         gf_msg("wb-request", GF_LOG_WARNING, 0,
                WRITE_BEHIND_MSG_RES_UNAVAILABLE, "refcount(%d) is < 0",
