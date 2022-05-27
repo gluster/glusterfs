@@ -470,7 +470,6 @@ out:
 static wb_request_t *
 __wb_request_ref(wb_request_t *req)
 {
-    GF_VALIDATE_OR_GOTO("write-behind", req, out);
 
     if (req->refcount < 0) {
         gf_msg("wb-request", GF_LOG_WARNING, 0,
@@ -485,7 +484,6 @@ __wb_request_ref(wb_request_t *req)
 out:
     return req;
 }
-
 
 gf_boolean_t
 wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
