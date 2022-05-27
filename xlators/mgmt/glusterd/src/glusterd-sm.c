@@ -1589,7 +1589,7 @@ out:
          *
          * */
         synclock_unlock(&priv->big_lock);
-        glusterd_launch_synctask(glusterd_spawn_daemons, NULL);
+        glusterd_launch_synctask(glusterd_spawn_daemons, this);
         synclock_lock(&priv->big_lock);
         glusterd_do_quorum_action();
     }

@@ -43,5 +43,6 @@ glusterd_gfproxydsvc_build_volfile_path(char *server, char *workdir,
                                         char *volfile, size_t len);
 
 int
-glusterd_gfproxydsvc_restart();
-#endif
+glusterd_gfproxydsvc_restart(xlator_t *this);
+
+#endif /* _GLUSTERD_GFPROXYD_SVC_H_ */

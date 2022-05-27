@@ -3705,16 +3705,22 @@ glusterd_restart_rebalance(glusterd_conf_t *conf)
 int
 glusterd_spawn_daemons(void *opaque)
 {
-    glusterd_conf_t *conf = THIS->private;
+    xlator_t *this = NULL;
+    glusterd_conf_t *conf = NULL;
     int ret = -1;
 
+    this = opaque;
+    GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
+
     /* glusterd_restart_brick() will take the sync_lock. */
-    glusterd_restart_bricks(NULL);
+    glusterd_restart_bricks(this);
     glusterd_restart_gsyncds(conf);
     glusterd_restart_rebalance(conf);
-    ret = glusterd_snapdsvc_restart();
-    ret = glusterd_gfproxydsvc_restart();
-    ret = glusterd_shdsvc_restart();
+    ret = glusterd_snapdsvc_restart(this);
+    ret = glusterd_gfproxydsvc_restart(this);
+    ret = glusterd_shdsvc_restart(this);
     return ret;
 }
 
@@ -8796,8 +8802,7 @@ glusterd_volinfo_reset_defrag_stats(glusterd_volinfo_t *volinfo)
 }
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *brickinfo)
+glusterd_is_local_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo)
 {
     gf_boolean_t local = _gf_false;
     int ret = 0;
@@ -10230,7 +10235,7 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
         brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
         if (!brickinfo)
             goto out;
-        if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(rsp_ctx->this, brickinfo))
             goto out;
     }
     new_value = data_copy(value);
@@ -10304,7 +10309,7 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
     if (!brickinfo)
         goto out;
-    if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+    if (!glusterd_is_local_brick(rsp_ctx->this, brickinfo))
         goto out;
 
     new_value = data_copy(value);

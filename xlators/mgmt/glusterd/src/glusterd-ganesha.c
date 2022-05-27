@@ -156,7 +156,7 @@ manage_service(char *action)
  * Check if the cluster is a ganesha cluster or not *
  */
 gf_boolean_t
-glusterd_is_ganesha_cluster()
+glusterd_is_ganesha_cluster(void)
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;

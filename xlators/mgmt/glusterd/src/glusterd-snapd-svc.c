@@ -31,7 +31,6 @@ glusterd_svc_build_snapd_logdir(char *logdir, char *volname, size_t len)
     snprintf(logdir, len, "%s/snaps/%s", priv->logdir, volname);
 }
 
-
 void
 glusterd_snapdsvc_build(glusterd_svc_t *svc)
 {
@@ -367,15 +366,15 @@ out:
 }
 
 int
-glusterd_snapdsvc_restart()
+glusterd_snapdsvc_restart(xlator_t *this)
 {
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp = NULL;
     int ret = 0;
-    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
 
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

@@ -156,7 +156,6 @@ typedef struct {
     struct list_head xprt_list;
     pthread_mutex_t import_volumes;
     gf_store_handle_t *handle;
-    gf_timer_t *timer;
     glusterd_sm_tr_log_t op_sm_log;
     struct rpc_clnt_program *gfs_mgmt;
     dict_t *mgmt_v3_lock;        /* Dict for saving
@@ -170,14 +169,12 @@ typedef struct {
 
     dict_t *mgmt_v3_lock_timer;
     struct cds_list_head mount_specs;
-    pthread_t brick_thread;
     void *hooks_priv;
 
     xlator_t *xl; /* Should be set to 'THIS' before creating thread */
     /* need for proper handshake_t */
     int op_version; /* Starts with 1 for 3.3.0 */
     gf_boolean_t pending_quorum_action;
-    gf_boolean_t trace;
     gf_boolean_t restart_done;
     dict_t *opts;
     synclock_t big_lock;
@@ -187,7 +184,6 @@ typedef struct {
     rpcsvc_t *uds_rpc; /* RPCSVC for the unix domain socket */
     uint32_t base_port;
     uint32_t max_port;
-    char *snap_bricks_directory;
     gf_store_handle_t *missed_snaps_list_shandle;
     struct cds_list_head missed_snaps_list;
     time_t ping_timeout;
@@ -294,25 +290,10 @@ typedef enum gf_transport_type_ {
     GF_TRANSPORT_BOTH_TCP_RDMA,
 } gf_transport_type;
 
-struct _auth {
+typedef struct _auth {
     char *username;
     char *password;
-};
-
-typedef struct _auth auth_t;
-
-struct glusterd_bitrot_scrub_ {
-    char *scrub_state;
-    char *scrub_impact;
-    char *scrub_freq;
-    uint64_t scrubbed_files;
-    uint64_t unsigned_files;
-    time_t last_scrub_time;
-    uint64_t scrub_duration;
-    uint64_t error_count;
-};
-
-typedef struct glusterd_bitrot_scrub_ glusterd_bitrot_scrub_t;
+} auth_t;
 
 struct glusterd_rebalance_ {
     uint64_t rebalance_files;
@@ -393,9 +374,6 @@ struct glusterd_volinfo_ {
 
     /* Replace brick status */
     glusterd_replace_brick_t rep_brick;
-
-    /* Bitrot scrub status*/
-    glusterd_bitrot_scrub_t bitrot_scrub;
 
     int version;
     uint32_t quota_conf_version;
@@ -497,8 +475,7 @@ typedef enum gd_node_type_ {
     GD_NODE_QUOTAD,
     GD_NODE_SNAPD,
     GD_NODE_BITD,
-    GD_NODE_SCRUB,
-    GD_NODE_TIERD
+    GD_NODE_SCRUB
 } gd_node_type;
 
 typedef enum missed_snap_stat {
@@ -657,20 +634,21 @@ enum glusterd_op_ret {
     pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
 
 int
-glusterd_uuid_init();
+glusterd_uuid_init(xlator_t *this);
 
 int
-glusterd_uuid_generate_save();
+glusterd_uuid_generate_save(xlator_t *this);
 
 #define MY_UUID (__glusterd_uuid())
 
 static inline unsigned char *
 __glusterd_uuid()
 {
-    glusterd_conf_t *priv = THIS->private;
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = this->private;
 
     if (gf_uuid_is_null(priv->uuid))
-        glusterd_uuid_init();
+        glusterd_uuid_init(this);
     return &priv->uuid[0];
 }
 
@@ -916,7 +894,7 @@ ganesha_manage_export(dict_t *dict, char *value,
 int
 gd_ganesha_send_dbus(char *volname, char *value);
 gf_boolean_t
-glusterd_is_ganesha_cluster();
+glusterd_is_ganesha_cluster(void);
 gf_boolean_t
 glusterd_check_ganesha_export(glusterd_volinfo_t *volinfo);
 int
@@ -995,7 +973,7 @@ glusterd_defrag_event_notify_handle(dict_t *dict);
 
 /* snapshot */
 glusterd_snap_t *
-glusterd_new_snap_object();
+glusterd_new_snap_object(void);
 
 int32_t
 glusterd_list_add_snapvol(glusterd_volinfo_t *origin_vol,
@@ -1040,7 +1018,7 @@ int
 glusterd_snapshot_revert_restore_from_snap(glusterd_snap_t *snap);
 
 gf_boolean_t
-glusterd_should_i_stop_bitd();
+glusterd_should_i_stop_bitd(xlator_t *this);
 
 int
 glusterd_remove_brick_migrate_cbk(glusterd_volinfo_t *volinfo,

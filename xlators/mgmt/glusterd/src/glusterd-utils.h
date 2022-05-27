@@ -98,10 +98,10 @@ typedef enum {
         }                                                                      \
     } while (0)
 
-struct glusterd_lock_ {
+typedef struct glusterd_lock_ {
     uuid_t owner;
     time_t timestamp;
-};
+} glusterd_lock_t;
 
 typedef struct glusterd_dict_ctx_ {
     dict_t *dict;
@@ -160,11 +160,6 @@ is_brick_mx_enabled(void);
 
 int
 glusterd_compare_lines(const void *a, const void *b);
-
-typedef int (*glusterd_condition_func)(glusterd_volinfo_t *volinfo,
-                                       glusterd_brickinfo_t *brickinfo,
-                                       void *ctx);
-typedef struct glusterd_lock_ glusterd_lock_t;
 
 int32_t
 glusterd_get_lock_owner(uuid_t *cur_owner);
@@ -386,8 +381,7 @@ int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *brickinfo);
+glusterd_is_local_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo);
 int
 glusterd_validate_volume_id(dict_t *op_dict, glusterd_volinfo_t *volinfo);
 
@@ -502,7 +496,7 @@ int
 glusterd_is_bitrot_enabled(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_all_volumes_with_quota_stopped();
+glusterd_all_volumes_with_quota_stopped(void);
 
 void
 glusterd_clean_up_quota_store(glusterd_volinfo_t *volinfo);

@@ -81,10 +81,8 @@ struct glusterd_op_info_ {
     glusterd_op_sm_state_t state;
     int32_t pending_count;
     int32_t brick_pending_count;
-    int32_t op_count;
     /* op is an enum, glusterd_op_t or glusterd_op_sm_state_info_t */
     int op;
-    struct cds_list_head op_peers;
     void *op_ctx;
     rpcsvc_request_t *req;
     int32_t op_ret;
@@ -114,7 +112,6 @@ typedef struct glusterd_op_lock_ctx_ glusterd_op_lock_ctx_t;
 
 struct glusterd_req_ctx_ {
     rpcsvc_request_t *req;
-    u_char uuid[16];
     int op;
     dict_t *dict;
 };
@@ -172,17 +169,14 @@ int
 glusterd_op_sm_inject_event(glusterd_op_sm_event_type_t event_type,
                             uuid_t *txn_id, void *ctx);
 
-int
-glusterd_op_sm_init();
+void
+glusterd_op_sm_init(void);
 
 int
-glusterd_op_sm();
+glusterd_op_sm(void);
 
 int32_t
 glusterd_op_set_ctx(void *ctx);
-
-int32_t
-glusterd_op_set_op(glusterd_op_t op);
 
 int
 glusterd_op_build_payload(dict_t **req, char **op_errstr, dict_t *op_ctx);
@@ -199,27 +193,18 @@ int32_t
 glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
                       char *err_str, size_t err_len);
 
-int32_t
-glusterd_op_txn_complete(uuid_t *txn_id);
-
 void *
 glusterd_op_get_ctx(void);
-
-int32_t
-glusterd_op_set_req(rpcsvc_request_t *req);
 
 int32_t
 glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
                               int32_t op_errno, rpcsvc_request_t *req,
                               void *ctx, char *op_errstr);
 int32_t
-glusterd_op_get_op();
+glusterd_op_get_op(void);
 
-int32_t
+void
 glusterd_op_clear_op(void);
-
-int32_t
-glusterd_op_free_ctx(glusterd_op_t op, void *ctx);
 
 int
 glusterd_check_option_exists(char *optstring, char **completion);
@@ -270,8 +255,6 @@ glusterd_is_volume_started(glusterd_volinfo_t *volinfo);
 int
 glusterd_start_bricks(glusterd_volinfo_t *volinfo);
 
-gf_boolean_t
-glusterd_are_all_volumes_stopped();
 int
 glusterd_stop_bricks(glusterd_volinfo_t *volinfo);
 int

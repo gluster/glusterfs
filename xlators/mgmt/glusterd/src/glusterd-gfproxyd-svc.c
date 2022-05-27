@@ -355,12 +355,11 @@ out:
 }
 
 int
-glusterd_gfproxydsvc_restart()
+glusterd_gfproxydsvc_restart(xlator_t *this)
 {
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp = NULL;
     int ret = -1;
-    xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     glusterd_svc_t *svc = NULL;
 

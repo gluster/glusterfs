@@ -349,7 +349,7 @@ is_bitd_configure_noop(xlator_t *this, glusterd_volinfo_t *volinfo)
     else {
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+            if (!glusterd_is_local_brick(this, brickinfo))
                 continue;
             noop = _gf_false;
             return noop;
@@ -496,9 +496,8 @@ out:
 }
 
 gf_boolean_t
-glusterd_should_i_stop_bitd()
+glusterd_should_i_stop_bitd(xlator_t *this)
 {
-    xlator_t *this = THIS;
     glusterd_conf_t *conf = this->private;
     glusterd_volinfo_t *volinfo = NULL;
     gf_boolean_t stopped = _gf_true;
@@ -513,7 +512,7 @@ glusterd_should_i_stop_bitd()
         else {
             cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
             {
-                if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+                if (!glusterd_is_local_brick(this, brickinfo))
                     continue;
                 stopped = _gf_false;
                 return stopped;
@@ -530,10 +529,9 @@ glusterd_should_i_stop_bitd()
 }
 
 static int
-glusterd_manage_bitrot(int opcode)
+glusterd_manage_bitrot(xlator_t *this, int opcode)
 {
     int ret = -1;
-    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
     priv = this->private;
@@ -655,7 +653,7 @@ glusterd_op_bitrot(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
             goto out;
     }
 
-    ret = glusterd_manage_bitrot(type);
+    ret = glusterd_manage_bitrot(this, type);
     if (ret)
         goto out;
 

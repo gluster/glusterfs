@@ -81,7 +81,8 @@ const glusterd_all_vol_opts valid_all_vol_opts[] = {
 };
 
 static struct cds_list_head gd_op_sm_queue;
-synclock_t gd_op_sm_lock;
+static synclock_t gd_op_sm_lock;
+
 glusterd_op_info_t opinfo = {
     GD_OP_STATE_DEFAULT,
 };
@@ -5744,15 +5745,13 @@ glusterd_op_set_ctx(void *ctx)
     return 0;
 }
 
-int32_t
-glusterd_op_reset_ctx()
+static void
+glusterd_op_reset_ctx(void)
 {
     glusterd_op_set_ctx(NULL);
-
-    return 0;
 }
 
-int32_t
+static int32_t
 glusterd_op_txn_complete(uuid_t *txn_id)
 {
     int32_t ret = -1;
@@ -7644,7 +7643,6 @@ glusterd_op_ac_send_brick_op(glusterd_op_sm_event_t *event, void *ctx)
         free_req_ctx = _gf_true;
         op = glusterd_op_get_op();
         req_ctx->op = op;
-        gf_uuid_copy(req_ctx->uuid, MY_UUID);
         ret = glusterd_op_build_payload(&req_ctx->dict, &op_errstr, NULL);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0,
@@ -8162,7 +8160,7 @@ out:
     return ret;
 }
 
-void
+static void
 glusterd_destroy_req_ctx(glusterd_req_ctx_t *ctx)
 {
     if (!ctx)
@@ -8172,7 +8170,7 @@ glusterd_destroy_req_ctx(glusterd_req_ctx_t *ctx)
     GF_FREE(ctx);
 }
 
-void
+static void
 glusterd_destroy_local_unlock_ctx(uuid_t *ctx)
 {
     if (!ctx)
@@ -8180,7 +8178,7 @@ glusterd_destroy_local_unlock_ctx(uuid_t *ctx)
     GF_FREE(ctx);
 }
 
-void
+static void
 glusterd_destroy_op_event_ctx(glusterd_op_sm_event_t *event)
 {
     if (!event)
@@ -8204,7 +8202,7 @@ glusterd_destroy_op_event_ctx(glusterd_op_sm_event_t *event)
 }
 
 int
-glusterd_op_sm()
+glusterd_op_sm(void)
 {
     glusterd_op_sm_event_t *event = NULL;
     glusterd_op_sm_event_t *tmp = NULL;
@@ -8323,74 +8321,15 @@ lock_failed:
 }
 
 int32_t
-glusterd_op_set_op(glusterd_op_t op)
-{
-    GF_ASSERT(op < GD_OP_MAX);
-    GF_ASSERT(op > GD_OP_NONE);
-
-    opinfo.op = op;
-
-    return 0;
-}
-
-int32_t
 glusterd_op_get_op()
 {
     return opinfo.op;
 }
 
-int32_t
-glusterd_op_set_req(rpcsvc_request_t *req)
-{
-    GF_ASSERT(req);
-    opinfo.req = req;
-    return 0;
-}
-
-int32_t
+void
 glusterd_op_clear_op(void)
 {
     opinfo.op = GD_OP_NONE;
-
-    return 0;
-}
-
-int32_t
-glusterd_op_free_ctx(glusterd_op_t op, void *ctx)
-{
-    if (ctx) {
-        switch (op) {
-            case GD_OP_CREATE_VOLUME:
-            case GD_OP_DELETE_VOLUME:
-            case GD_OP_STOP_VOLUME:
-            case GD_OP_ADD_BRICK:
-            case GD_OP_REMOVE_BRICK:
-            case GD_OP_REPLACE_BRICK:
-            case GD_OP_LOG_ROTATE:
-            case GD_OP_SYNC_VOLUME:
-            case GD_OP_SET_VOLUME:
-            case GD_OP_START_VOLUME:
-            case GD_OP_RESET_VOLUME:
-            case GD_OP_GSYNC_SET:
-            case GD_OP_QUOTA:
-            case GD_OP_PROFILE_VOLUME:
-            case GD_OP_STATUS_VOLUME:
-            case GD_OP_REBALANCE:
-            case GD_OP_HEAL_VOLUME:
-            case GD_OP_STATEDUMP_VOLUME:
-            case GD_OP_CLEARLOCKS_VOLUME:
-            case GD_OP_DEFRAG_BRICK_VOLUME:
-            case GD_OP_MAX_OPVERSION:
-                dict_unref(ctx);
-                break;
-            default:
-                GF_ASSERT(0);
-                break;
-        }
-    }
-
-    glusterd_op_reset_ctx();
-    return 0;
 }
 
 void *
@@ -8399,10 +8338,9 @@ glusterd_op_get_ctx(void)
     return opinfo.op_ctx;
 }
 
-int
-glusterd_op_sm_init()
+void
+glusterd_op_sm_init(void)
 {
     CDS_INIT_LIST_HEAD(&gd_op_sm_queue);
     synclock_init(&gd_op_sm_lock, SYNC_LOCK_DEFAULT);
-    return 0;
 }

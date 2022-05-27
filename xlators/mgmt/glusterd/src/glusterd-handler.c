@@ -902,7 +902,6 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
         goto out;
     }
 
-    gf_uuid_copy(req_ctx->uuid, uuid);
     req_ctx->op = op;
     ret = dict_unserialize(buf_val, buf_len, &dict);
     if (ret) {
@@ -1632,7 +1631,7 @@ __glusterd_handle_cli_uuid_reset(rpcsvc_request_t *req)
     }
 
     gf_uuid_copy(uuid, priv->uuid);
-    ret = glusterd_uuid_generate_save();
+    ret = glusterd_uuid_generate_save(this);
 
     if (!gf_uuid_compare(uuid, MY_UUID)) {
         snprintf(msg_str, sizeof(msg_str),

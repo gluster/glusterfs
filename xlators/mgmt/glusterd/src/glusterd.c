@@ -133,21 +133,16 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
 #define GLUSTERD_VAR_RUN_DIR "/var/run"
 #define GLUSTERD_RUN_DIR "/run"
 
-static int
-glusterd_opinfo_init()
+static void
+glusterd_opinfo_init(void)
 {
-    int32_t ret = -1;
-
     opinfo.op = GD_OP_NONE;
-
-    return ret;
 }
 
 int
-glusterd_uuid_init()
+glusterd_uuid_init(xlator_t *this)
 {
     int ret = -1;
-    xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
 
     priv = this->private;
@@ -160,7 +155,7 @@ glusterd_uuid_init()
         return 0;
     }
 
-    ret = glusterd_uuid_generate_save();
+    ret = glusterd_uuid_generate_save(this);
 
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_UUID_GEN_STORE_FAIL,
@@ -172,11 +167,10 @@ glusterd_uuid_init()
 }
 
 int
-glusterd_uuid_generate_save()
+glusterd_uuid_generate_save(xlator_t *this)
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = THIS;
 
     priv = this->private;
     GF_ASSERT(priv);
@@ -2073,7 +2067,7 @@ init(xlator_t *this)
      * spawn process/bricks that may need (re)starting since last time
      * (this) glusterd was up. */
     if (glusterd_get_peers_count() < 2)
-        glusterd_launch_synctask(glusterd_spawn_daemons, NULL);
+        glusterd_launch_synctask(glusterd_spawn_daemons, this);
 
     ret = glusterd_hooks_spawn_worker(this);
     if (ret)

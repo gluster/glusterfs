@@ -73,7 +73,6 @@ struct glusterd_peerinfo_ {
     struct cds_list_head hostnames;
     int port;
     struct cds_list_head uuid_list;
-    struct cds_list_head op_peers_list;
     struct rpc_clnt *rpc;
     rpc_clnt_prog_t *mgmt;
     rpc_clnt_prog_t *peer;
@@ -92,11 +91,6 @@ struct glusterd_peerinfo_ {
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;
-
-typedef struct glusterd_local_peers_ {
-    glusterd_peerinfo_t *peerinfo;
-    struct cds_list_head op_peers_list;
-} glusterd_local_peers_t;
 
 typedef enum glusterd_ev_gen_mode_ {
     GD_MODE_OFF,

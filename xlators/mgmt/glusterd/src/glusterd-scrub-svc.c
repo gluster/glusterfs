@@ -32,14 +32,13 @@ glusterd_scrubsvc_init(glusterd_svc_t *svc)
 }
 
 static int
-glusterd_scrubsvc_create_volfile()
+glusterd_scrubsvc_create_volfile(xlator_t *this)
 {
     char filepath[PATH_MAX] = {
         0,
     };
     int ret = -1;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = THIS;
 
     conf = this->private;
     GF_ASSERT(conf);
@@ -81,10 +80,10 @@ glusterd_scrubsvc_manager(glusterd_svc_t *svc, void *data, int flags)
         }
     }
 
-    if (glusterd_should_i_stop_bitd()) {
+    if (glusterd_should_i_stop_bitd(this)) {
         ret = svc->stop(svc, SIGTERM);
     } else {
-        ret = glusterd_scrubsvc_create_volfile();
+        ret = glusterd_scrubsvc_create_volfile(this);
         if (ret)
             goto out;
 
@@ -126,7 +125,7 @@ glusterd_scrubsvc_reconfigure()
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
-    if (glusterd_should_i_stop_bitd())
+    if (glusterd_should_i_stop_bitd(this))
         goto manager;
 
     /*
@@ -159,7 +158,7 @@ glusterd_scrubsvc_reconfigure()
      * options to scrub volfile, so that scrub will be reconfigured.
      */
     if (identical) {
-        ret = glusterd_scrubsvc_create_volfile();
+        ret = glusterd_scrubsvc_create_volfile(this);
         if (ret == 0) { /* Only if above PASSES */
             ret = glusterd_fetchspec_notify(THIS);
         }

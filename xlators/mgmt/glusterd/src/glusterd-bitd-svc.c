@@ -76,7 +76,7 @@ glusterd_bitdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
         }
     }
 
-    if (glusterd_should_i_stop_bitd()) {
+    if (glusterd_should_i_stop_bitd(this)) {
         ret = svc->stop(svc, SIGTERM);
     } else {
         ret = glusterd_bitdsvc_create_volfile();
@@ -122,7 +122,7 @@ glusterd_bitdsvc_reconfigure()
     priv = this->private;
     GF_VALIDATE_OR_GOTO(this->name, priv, out);
 
-    if (glusterd_should_i_stop_bitd())
+    if (glusterd_should_i_stop_bitd(this))
         goto manager;
     /*
      * Check both OLD and NEW volfiles, if they are SAME by size
