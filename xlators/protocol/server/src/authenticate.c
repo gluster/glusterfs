@@ -108,11 +108,6 @@ fini(dict_t *this, char *key, data_t *value, void *data)
 
     if (handle) {
         dlclose(handle->handle);
-
-        if (handle->vol_opt) {
-            list_del_init(&handle->vol_opt->list);
-            GF_FREE(handle->vol_opt);
-        }
     }
     return 0;
 }

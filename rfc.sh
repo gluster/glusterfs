@@ -16,6 +16,7 @@ if [ "x$UPSTREAM" = "x" ]; then
     done
 fi
 
+
 USER_REPO=${GLUSTER_USER_REPO:-origin}
 if [ "x${USER_REPO}" = "x${UPSTREAM}" ] ; then
     echo "When you submit patches, it should get submitted to your fork, not to upstream directly"

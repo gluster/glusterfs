@@ -863,9 +863,7 @@ server_reconfigure(xlator_t *this, dict_t *options)
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
 do_auth:
-    if (conf->auth_modules)
-        gf_auth_fini(conf->auth_modules);
-    else
+    if (!conf->auth_modules)
         conf->auth_modules = dict_new();
 
     dict_foreach(options, get_auth_types, conf->auth_modules);
