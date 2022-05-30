@@ -63,9 +63,8 @@ out:
 }
 
 static void
-__afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
+__afr_dir_write_finalize(afr_local_t *local, xlator_t *this)
 {
-    afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     int inode_read_subvol = -1;
     int parent_read_subvol = -1;
@@ -75,7 +74,6 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
         0,
     };
 
-    local = frame->local;
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
@@ -90,7 +88,7 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
 
     if (local->inode) {
         if (local->op != GF_FOP_RENAME && local->op != GF_FOP_LINK)
-            afr_replies_interpret(frame, this, local->inode, NULL);
+            afr_replies_interpret(local, this, local->inode, NULL);
 
         inode_read_subvol = afr_data_subvol_get(local->inode, this, NULL, NULL,
                                                 NULL, &args);
@@ -106,8 +104,8 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
 
     local->op_ret = -1;
     local->op_errno = afr_final_errno(local, priv);
-    afr_pick_error_xdata(local, priv, local->parent, local->readable,
-                         local->parent2, local->readable2);
+    afr_pick_error_xdata(local, priv->child_count, local->parent,
+                         local->readable, local->parent2, local->readable2);
 
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid)
@@ -163,16 +161,14 @@ __afr_dir_write_finalize(call_frame_t *frame, xlator_t *this)
 }
 
 static void
-__afr_dir_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
+__afr_dir_write_fill(afr_local_t *local, xlator_t *this, int child_index,
                      int op_ret, int op_errno, struct iatt *poststat,
                      struct iatt *preparent, struct iatt *postparent,
                      struct iatt *preparent2, struct iatt *postparent2,
                      dict_t *xdata)
 {
-    afr_local_t *local = NULL;
     afr_fd_ctx_t *fd_ctx = NULL;
 
-    local = frame->local;
     fd_ctx = local->fd_ctx;
 
     local->replies[child_index].valid = 1;
@@ -196,7 +192,7 @@ __afr_dir_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
             fd_ctx->opened_on[child_index] = AFR_FD_OPENED;
     } else {
         if (op_errno != ENOTEMPTY)
-            afr_transaction_fop_failed(frame, this, child_index);
+            afr_transaction_fop_failed(local, child_index);
         if (fd_ctx)
             fd_ctx->opened_on[child_index] = AFR_FD_NOT_OPENED;
     }
@@ -221,7 +217,7 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&frame->lock);
     {
-        __afr_dir_write_fill(frame, this, child_index, op_ret, op_errno, buf,
+        __afr_dir_write_fill(local, this, child_index, op_ret, op_errno, buf,
                              preparent, postparent, preparent2, postparent2,
                              xdata);
         call_count = --local->call_count;
@@ -229,7 +225,7 @@ __afr_dir_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     UNLOCK(&frame->lock);
 
     if (call_count == 0) {
-        __afr_dir_write_finalize(frame, this);
+        __afr_dir_write_finalize(local, this);
 
         if (afr_txn_nothing_failed(frame, this)) {
             /*if it did pre-op, it will do post-op changing ctime*/

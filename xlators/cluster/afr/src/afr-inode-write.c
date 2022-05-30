@@ -80,8 +80,8 @@ __afr_inode_write_finalize(call_frame_t *frame, xlator_t *this)
 
     local->op_ret = -1;
     local->op_errno = afr_final_errno(local, priv);
-    afr_pick_error_xdata(local, priv, local->inode, local->readable, NULL,
-                         NULL);
+    afr_pick_error_xdata(local, priv->child_count, local->inode,
+                         local->readable, NULL, NULL);
 
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid)
@@ -124,16 +124,11 @@ out:
 }
 
 static void
-__afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
+__afr_inode_write_fill(afr_local_t *local, afr_private_t *priv, int child_index,
                        int op_ret, int op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xattr, dict_t *xdata)
 {
-    afr_local_t *local = NULL;
-    afr_private_t *priv = NULL;
     int num_inodelks = 0;
-
-    local = frame->local;
-    priv = this->private;
 
     local->replies[child_index].valid = 1;
 
@@ -162,7 +157,7 @@ __afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
         if (xattr)
             local->replies[child_index].xattr = dict_ref(xattr);
     } else {
-        afr_transaction_fop_failed(frame, this, child_index);
+        afr_transaction_fop_failed(local, child_index);
     }
 
     return;
@@ -183,7 +178,7 @@ __afr_inode_write_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     LOCK(&frame->lock);
     {
-        __afr_inode_write_fill(frame, this, child_index, op_ret, op_errno,
+        __afr_inode_write_fill(local, priv, child_index, op_ret, op_errno,
                                prebuf, postbuf, xattr, xdata);
         call_count = --local->call_count;
     }
@@ -275,7 +270,7 @@ afr_writev_handle_short_writes(call_frame_t *frame, xlator_t *this)
             continue;
 
         if (local->replies[i].op_ret < local->op_ret)
-            afr_transaction_fop_failed(frame, this, i);
+            afr_transaction_fop_failed(local, i);
     }
 }
 
@@ -292,8 +287,8 @@ afr_inode_write_fill(call_frame_t *frame, xlator_t *this, int child_index,
 
     LOCK(&frame->lock);
     {
-        __afr_inode_write_fill(frame, this, child_index, op_ret, op_errno,
-                               prebuf, postbuf, NULL, xdata);
+        __afr_inode_write_fill(local, this->private, child_index, op_ret,
+                               op_errno, prebuf, postbuf, NULL, xdata);
         if (op_ret == -1 || !xdata)
             goto unlock;
 

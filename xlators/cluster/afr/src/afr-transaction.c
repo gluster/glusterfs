@@ -183,8 +183,8 @@ afr_zero_fill_stat(afr_local_t *local)
  * any good subvols which failed. Give preference to errnos other than
  * ENOTCONN even if the child is source */
 void
-afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
-                     unsigned char *readable1, inode_t *inode2,
+afr_pick_error_xdata(afr_local_t *local, unsigned int child_count,
+                     inode_t *inode1, unsigned char *readable1, inode_t *inode2,
                      unsigned char *readable2)
 {
     int s = -1; /*selection*/
@@ -196,14 +196,14 @@ afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
         local->xdata_rsp = NULL;
     }
 
-    readable = alloca0(priv->child_count * sizeof(*readable));
+    readable = alloca0(child_count * sizeof(*readable));
     if (inode2 && readable2) { /*rename fop*/
-        AFR_INTERSECT(readable, readable1, readable2, priv->child_count);
+        AFR_INTERSECT(readable, readable1, readable2, child_count);
     } else {
-        memcpy(readable, readable1, sizeof(*readable) * priv->child_count);
+        memcpy(readable, readable1, sizeof(*readable) * child_count);
     }
 
-    for (i = 0; i < priv->child_count; i++) {
+    for (i = 0; i < child_count; i++) {
         if (!local->replies[i].valid)
             continue;
 
@@ -221,7 +221,7 @@ afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
     if (s != -1 && local->replies[s].xdata) {
         local->xdata_rsp = dict_ref(local->replies[s].xdata);
     } else if (s == -1) {
-        for (i = 0; i < priv->child_count; i++) {
+        for (i = 0; i < child_count; i++) {
             if (!local->replies[i].valid)
                 continue;
 
@@ -1000,7 +1000,7 @@ afr_handle_quorum(call_frame_t *frame, xlator_t *this)
 
     for (i = 0; i < priv->child_count; i++) {
         if (local->transaction.pre_op[i])
-            afr_transaction_fop_failed(frame, frame->this, i);
+            afr_transaction_fop_failed(local, i);
     }
 
 set_response:
@@ -1024,12 +1024,13 @@ set_response:
     switch (local->transaction.type) {
         case AFR_ENTRY_TRANSACTION:
         case AFR_ENTRY_RENAME_TRANSACTION:
-            afr_pick_error_xdata(local, priv, local->parent, local->readable,
-                                 local->parent2, local->readable2);
+            afr_pick_error_xdata(local, priv->child_count, local->parent,
+                                 local->readable, local->parent2,
+                                 local->readable2);
             break;
         default:
-            afr_pick_error_xdata(local, priv, local->inode, local->readable,
-                                 NULL, NULL);
+            afr_pick_error_xdata(local, priv->child_count, local->inode,
+                                 local->readable, NULL, NULL);
             break;
     }
 }
@@ -1663,7 +1664,7 @@ afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     if (op_ret == -1) {
         local->op_errno = op_errno;
-        afr_transaction_fop_failed(frame, this, child_index);
+        afr_transaction_fop_failed(local, child_index);
     }
 
     if (xattr)
@@ -2417,7 +2418,7 @@ afr_changelog_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                uuid_utoa(local->fd->inode->gfid),
                priv->children[child_index]->name, gf_fop_list[local->op]);
 
-        afr_transaction_fop_failed(frame, this, child_index);
+        afr_transaction_fop_failed(local, child_index);
     }
 
     call_count = afr_frame_return(frame);
@@ -2633,12 +2634,8 @@ afr_transaction_resume(call_frame_t *frame, xlator_t *this)
  */
 
 void
-afr_transaction_fop_failed(call_frame_t *frame, xlator_t *this, int child_index)
+afr_transaction_fop_failed(afr_local_t *local, int child_index)
 {
-    afr_local_t *local = NULL;
-
-    local = frame->local;
-
     local->transaction.failed_subvols[child_index] = 1;
 }
 

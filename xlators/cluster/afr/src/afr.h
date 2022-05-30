@@ -998,7 +998,7 @@ int
 afr_locked_nodes_count(unsigned char *locked_nodes, int child_count);
 
 int
-afr_replies_interpret(call_frame_t *frame, xlator_t *this, inode_t *inode,
+afr_replies_interpret(afr_local_t *local, xlator_t *this, inode_t *inode,
                       gf_boolean_t *start_heal);
 
 void

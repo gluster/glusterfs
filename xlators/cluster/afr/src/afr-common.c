@@ -1596,19 +1596,17 @@ afr_accuse_smallfiles(afr_private_t *priv, struct afr_reply *replies,
 }
 
 static int
-afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
+afr_readables_fill(afr_local_t *local, xlator_t *this, inode_t *inode,
                    unsigned char *data_accused, unsigned char *metadata_accused,
                    unsigned char *data_readable,
                    unsigned char *metadata_readable, struct afr_reply *replies)
 {
-    afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     dict_t *xdata = NULL;
     int i = 0;
     int ret = 0;
     ia_type_t ia_type = IA_INVAL;
 
-    local = frame->local;
     priv = this->private;
 
     for (i = 0; i < priv->child_count; i++) {
@@ -1672,10 +1670,9 @@ afr_readables_fill(call_frame_t *frame, xlator_t *this, inode_t *inode,
 }
 
 int
-afr_replies_interpret(call_frame_t *frame, xlator_t *this, inode_t *inode,
+afr_replies_interpret(afr_local_t *local, xlator_t *this, inode_t *inode,
                       gf_boolean_t *start_heal)
 {
-    afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     struct afr_reply *replies = NULL;
     int event_generation = 0;
@@ -1686,7 +1683,6 @@ afr_replies_interpret(call_frame_t *frame, xlator_t *this, inode_t *inode,
     unsigned char *metadata_readable = NULL;
     int ret = 0;
 
-    local = frame->local;
     priv = this->private;
     replies = local->replies;
     event_generation = local->event_generation;
@@ -1696,7 +1692,7 @@ afr_replies_interpret(call_frame_t *frame, xlator_t *this, inode_t *inode,
     metadata_accused = alloca0(priv->child_count);
     metadata_readable = alloca0(priv->child_count);
 
-    ret = afr_readables_fill(frame, this, inode, data_accused, metadata_accused,
+    ret = afr_readables_fill(local, this, inode, data_accused, metadata_accused,
                              data_readable, metadata_readable, replies);
 
     for (i = 0; i < priv->child_count; i++) {
@@ -1854,7 +1850,7 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
         goto refresh_done;
     }
 
-    ret = afr_replies_interpret(frame, this, local->refreshinode, &start_heal);
+    ret = afr_replies_interpret(local, this, local->refreshinode, &start_heal);
 
     if (ret && afr_selfheal_enabled(this) && start_heal) {
         heal_frame = afr_frame_create(this, NULL);
@@ -3033,7 +3029,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         */
         gf_uuid_copy(args.gfid, read_gfid);
         args.ia_type = ia_type;
-        ret = afr_replies_interpret(frame, this, local->inode, NULL);
+        ret = afr_replies_interpret(local, this, local->inode, NULL);
         read_subvol = afr_read_subvol_decide(local->inode, this, &args,
                                              readable);
         if (read_subvol == -1)
@@ -3620,7 +3616,7 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
     if (!afr_has_quorum(success_replies, priv, frame))
         goto unwind;
 
-    ret = afr_replies_interpret(frame, this, local->inode, NULL);
+    ret = afr_replies_interpret(local, this, local->inode, NULL);
     if (ret) {
         afr_inode_need_refresh_set(local->inode, this);
     }
@@ -7517,7 +7513,7 @@ afr_write_subvol_set(call_frame_t *frame, xlator_t *this)
     metadata_readable = alloca0(priv->child_count);
     event = local->event_generation;
 
-    afr_readables_fill(frame, this, local->inode, data_accused,
+    afr_readables_fill(local, this, local->inode, data_accused,
                        metadata_accused, data_readable, metadata_readable,
                        NULL);
 
