@@ -165,6 +165,18 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
             /* Convert pargfid to path */
             ret = posix_resolve_dirgfid_to_path(pargfid, priv->base_path,
                                                 &xattr_value[37], &paths[i]);
+            if (ret == -1) {
+                *op_errno = errno;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_PGFID_OP,
+                       "Parent GFID to path conversion failed"
+                       " %s: key = %s parebt GFID: %s base name: %s",
+                       real_path, keybuffer, pargfid_str, &xattr_value[37]);
+                /* if ret == -1, then paths[i] will not be allocated, hence
+                 * no need to free the memory here
+                 */
+                break;
+            }
+
             i++;
 
         ignore:
