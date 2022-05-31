@@ -450,7 +450,7 @@ cli_xml_output_peer_status(dict_t *dict, int op_ret, int op_errno,
                            char *op_errstr);
 
 int
-cli_xml_output_vol_rebalance(gf_cli_defrag_type op, dict_t *dict, int op_ret,
+cli_xml_output_vol_rebalance(gf_defrag_type_t op, dict_t *dict, int op_ret,
                              int op_errno, char *op_errstr);
 
 int

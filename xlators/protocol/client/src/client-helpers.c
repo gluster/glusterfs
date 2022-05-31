@@ -149,7 +149,7 @@ unserialize_rsp_dirent_v2(xlator_t *this, struct gfx_readdir_rsp *rsp,
     trav = rsp->reply;
     while (trav) {
         entry = gf_dirent_for_name2(trav->name, trav->d_len, trav->d_ino, 0,
-                                    trav->d_type);
+                                    trav->d_type, NULL);
         if (!entry)
             goto out;
 
@@ -186,7 +186,7 @@ unserialize_rsp_direntp_v2(xlator_t *this, fd_t *fd,
 
     while (trav) {
         entry = gf_dirent_for_name2(trav->name, trav->d_len, trav->d_ino, 0,
-                                    trav->d_type);
+                                    trav->d_type, NULL);
         if (!entry)
             goto out;
 

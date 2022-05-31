@@ -1637,7 +1637,7 @@ int
 glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
                                       dict_t *dict, glusterd_volinfo_t *volinfo,
                                       char **errstr,
-                                      gf_cli_defrag_type cmd_defrag)
+                                      gf_defrag_type_t cmd_defrag)
 {
     char *brick = NULL;
     char msg[2048] = "";

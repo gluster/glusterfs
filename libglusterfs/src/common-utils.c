@@ -35,9 +35,6 @@
 #if defined(GF_BSD_HOST_OS) || defined(GF_DARWIN_HOST_OS)
 #include <sys/sysctl.h>
 #endif
-#ifndef GF_LINUX_HOST_OS
-#include <sys/resource.h>
-#endif
 #ifdef HAVE_SYNCFS_SYS
 #include <sys/syscall.h>
 #endif
@@ -2304,43 +2301,6 @@ gf_existing_leaseid()
     return glusterfs_leaseid_exist();
 }
 
-void *
-gf_array_elem(void *a, int index, size_t elem_size)
-{
-    uint8_t *ptr = a;
-    return (void *)(ptr + index * elem_size);
-}
-
-void
-gf_elem_swap(void *x, void *y, size_t l)
-{
-    uint8_t *a = x, *b = y, c;
-    while (l--) {
-        c = *a;
-        *a++ = *b;
-        *b++ = c;
-    }
-}
-
-void
-gf_array_insertionsort(void *A, int l, int r, size_t elem_size, gf_cmp cmp)
-{
-    int i = l;
-    int N = r + 1;
-    void *Temp = NULL;
-    int j = 0;
-
-    for (i = l; i < N; i++) {
-        Temp = gf_array_elem(A, i, elem_size);
-        j = i - 1;
-        while (j >= 0 && (cmp(Temp, gf_array_elem(A, j, elem_size)) < 0)) {
-            gf_elem_swap(Temp, gf_array_elem(A, j, elem_size), elem_size);
-            Temp = gf_array_elem(A, j, elem_size);
-            j = j - 1;
-        }
-    }
-}
-
 /*
  * rounds up nr to power of two. If nr is already a power of two, just returns
  * nr
@@ -2918,7 +2878,7 @@ gf_is_local_addr(char *hostname)
 
     for (res = result; res != NULL; res = res->ai_next) {
         get_ip_from_addrinfo(res, &ip);
-        gf_msg_debug(this->name, 0, "%s ", ip);
+        gf_msg_debug(this->name, 0, "%s ", (ip ? ip : "<unknown>"));
 
         if (ip) {
             found = (gf_is_loopback_localhost(res->ai_addr, hostname) ||
@@ -4320,3 +4280,27 @@ gf_gethostname(void)
 {
     return global_ctx->hostname;
 }
+
+#ifndef GF_DARWIN_HOST_OS
+
+void
+gf_set_nofile(rlim_t high, rlim_t low)
+{
+    int n, ret = -1;
+    struct rlimit lim;
+    rlim_t r[2] = { high, low };
+
+    for (n = 0; n < 2; n++)
+        if (r[n] != 0) {
+            lim.rlim_cur = r[n];
+            lim.rlim_max = r[n];
+            ret = setrlimit(RLIMIT_NOFILE, &lim);
+            if (ret == 0)
+                break;
+        }
+
+    if (ret)
+        GF_LOG_W(THIS->name, LG_MSG_NOFILE_FAILED(high, low));
+}
+
+#endif /* not GF_DARWIN_HOST_OS */

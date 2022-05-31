@@ -262,7 +262,7 @@ dht_mig_info_is_invalid(xlator_t *current, xlator_t *src_subvol,
  *
  */
 
-int
+static int
 dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
                                          void *data)
 {
@@ -473,7 +473,7 @@ out:
  * If not, open and update the fd_ctx.
  */
 
-int
+static int
 dht_check_and_open_fd_on_subvol_task(void *data)
 {
     loc_t loc = {
@@ -1263,7 +1263,7 @@ out:
     return 0;
 }
 
-int
+static int
 dht_migration_complete_check_task(void *data)
 {
     int ret = -1;

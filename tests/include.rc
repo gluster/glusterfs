@@ -13,7 +13,8 @@ GMV0=${GMV0:=primary};	      # primary volume name to use in geo-rep tests
 GSV0=${GSV0:=secondary};      # secondary volume name to use in geo-rep tests
 GSV1=${GSV1:=secondary1}      # secondary volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
-WORKDIRS="$B0 $M0 $M1 $M2 $M3 $N0 $N1"
+DEVDIR=${DEVDIR:=/d/dev} # directory for loop device management
+WORKDIRS="$B0 $M0 $M1 $M2 $M3 $N0 $N1 $DEVDIR"
 
 ROOT_GFID="00000000-0000-0000-0000-000000000001"
 DOT_SHARD_GFID="be318638-e8a0-4c6d-977d-7a937aa84806"
@@ -659,11 +660,9 @@ function cleanup()
         # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
-                LOOPDEVICES=`losetup -a | grep "$B0/" | \
-                             awk '{print $1}' | tr -d :`
-                for l in $LOOPDEVICES;
-                do
-                        losetup -d $l
+                for l in ${DEVDIR}/loop*; do
+                        losetup -d "${l}"
+                        rm -f "${l}"
                 done
                 ;;
         NetBSD)
@@ -1010,7 +1009,9 @@ function SETUP_LOOP ()
 
   case ${OSTYPE} in
   Linux)
-    losetup --find --show ${backend}
+    dev="$(losetup --find --show ${backend})"
+    ln -sf "${dev}" "${DEVDIR}/$(basename "${dev}")"
+    echo "${dev}"
     ;;
   NetBSD)
     vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`

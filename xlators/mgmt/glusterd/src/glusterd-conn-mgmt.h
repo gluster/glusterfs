@@ -23,7 +23,6 @@ struct glusterd_conn_ {
     /* Existing daemons tend to specialize their respective
      * notify implementations, so ... */
     glusterd_conn_notify_t notify;
-    time_t frame_timeout;
     char sockpath[PATH_MAX];
 };
 

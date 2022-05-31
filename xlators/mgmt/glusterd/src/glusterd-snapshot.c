@@ -10,7 +10,6 @@
 #include <inttypes.h>
 #include <sys/types.h>
 #include <unistd.h>
-#include <sys/resource.h>
 #include <sys/statvfs.h>
 #include <sys/mount.h>
 #include <signal.h>
@@ -115,7 +114,7 @@ glusterd_find_missed_snap(dict_t *rsp_dict, glusterd_volinfo_t *vol,
              * if peer is not connected or not   *
              * friend add it to missed snap list */
             if (!(peerinfo->connected) ||
-                (peerinfo->state.state != GD_FRIEND_STATE_BEFRIENDED)) {
+                (peerinfo->state != GD_FRIEND_STATE_BEFRIENDED)) {
                 ret = glusterd_add_missed_snaps_to_dict(
                     rsp_dict, vol, brickinfo, brick_count + 1, op);
                 if (ret) {
@@ -4783,7 +4782,7 @@ glusterd_volinfo_dup(glusterd_volinfo_t *volinfo,
     ret = 0;
 out:
     if (ret && (NULL != new_volinfo)) {
-        (void)glusterd_volinfo_delete(new_volinfo);
+        (void)glusterd_volinfo_unref(new_volinfo);
     }
     return ret;
 }
@@ -9406,7 +9405,7 @@ out:
          * if it was added there.
          */
         if (new_volinfo)
-            (void)glusterd_volinfo_delete(new_volinfo);
+            (void)glusterd_volinfo_unref(new_volinfo);
     } else {
         cds_list_for_each_entry_safe(voliter, temp_volinfo,
                                      &orig_vol->snap_volumes, snapvol_list)

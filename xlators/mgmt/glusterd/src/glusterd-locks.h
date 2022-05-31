@@ -14,11 +14,6 @@ typedef struct glusterd_mgmt_v3_lock_object_ {
     uuid_t lock_owner;
 } glusterd_mgmt_v3_lock_obj;
 
-typedef struct glusterd_mgmt_v3_lock_timer_ {
-    gf_timer_t *timer;
-    xlator_t *xl;
-} glusterd_mgmt_v3_lock_timer;
-
 typedef struct glusterd_mgmt_v3_lock_valid_entities {
     char *type;                 /* Entity type like vol, snap */
     gf_boolean_t default_value; /* The default value that  *

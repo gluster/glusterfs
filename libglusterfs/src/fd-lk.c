@@ -130,15 +130,14 @@ _fd_lk_get_lock_len(off_t start, off_t end)
         return (end - start + 1);
 }
 
-fd_lk_ctx_node_t *
+static fd_lk_ctx_node_t *
 fd_lk_ctx_node_new(int32_t cmd, struct gf_flock *flock)
 {
     fd_lk_ctx_node_t *new_lock = NULL;
 
-    /* TODO: get from mem-pool */
     new_lock = GF_CALLOC(1, sizeof(fd_lk_ctx_node_t),
                          gf_common_mt_fd_lk_ctx_node_t);
-    if (!new_lock)
+    if (caa_unlikely(!new_lock))
         goto out;
 
     new_lock->cmd = cmd;
@@ -189,13 +188,13 @@ fd_lk_overlap(fd_lk_ctx_node_t *l1, fd_lk_ctx_node_t *l2)
     return 0;
 }
 
-fd_lk_ctx_node_t *
+static fd_lk_ctx_node_t *
 _fd_lk_add_locks(fd_lk_ctx_node_t *l1, fd_lk_ctx_node_t *l2)
 {
     fd_lk_ctx_node_t *sum = NULL;
 
     sum = fd_lk_ctx_node_new(0, NULL);
-    if (!sum)
+    if (caa_unlikely(!sum))
         goto out;
 
     sum->fl_start = min(l1->fl_start, l2->fl_start);
@@ -212,7 +211,7 @@ struct _values {
     fd_lk_ctx_node_t *locks[3];
 };
 
-int32_t
+static int32_t
 _fd_lk_sub_locks(struct _values *v, fd_lk_ctx_node_t *big,
                  fd_lk_ctx_node_t *small)
 {
@@ -220,7 +219,8 @@ _fd_lk_sub_locks(struct _values *v, fd_lk_ctx_node_t *big,
 
     if ((big->fl_start == small->fl_start) && (big->fl_end == small->fl_end)) {
         /* both edges coincide with big */
-        v->locks[0] = fd_lk_ctx_node_new(small->cmd, NULL);
+        v->locks[0] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[0])
             goto out;
 
@@ -232,15 +232,18 @@ _fd_lk_sub_locks(struct _values *v, fd_lk_ctx_node_t *big,
                (small->fl_end < big->fl_end)) {
         /* small lock is completely inside big lock,
            break it down into 3 different locks. */
-        v->locks[0] = fd_lk_ctx_node_new(big->cmd, NULL);
+        v->locks[0] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[0])
             goto out;
 
-        v->locks[1] = fd_lk_ctx_node_new(small->cmd, NULL);
+        v->locks[1] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[1])
             goto out;
 
-        v->locks[2] = fd_lk_ctx_node_new(big->cmd, NULL);
+        v->locks[2] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[2])
             goto out;
 
@@ -258,11 +261,13 @@ _fd_lk_sub_locks(struct _values *v, fd_lk_ctx_node_t *big,
     } else if (small->fl_start == big->fl_start) {
         /* One of the ends co-incide, break the
            locks into two separate parts */
-        v->locks[0] = fd_lk_ctx_node_new(small->cmd, NULL);
+        v->locks[0] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[0])
             goto out;
 
-        v->locks[1] = fd_lk_ctx_node_new(big->cmd, NULL);
+        v->locks[1] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[1])
             goto out;
 
@@ -274,11 +279,13 @@ _fd_lk_sub_locks(struct _values *v, fd_lk_ctx_node_t *big,
     } else if (small->fl_end == big->fl_end) {
         /* One of the ends co-incide, break the
            locks into two separate parts */
-        v->locks[0] = fd_lk_ctx_node_new(small->cmd, NULL);
+        v->locks[0] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[0])
             goto out;
 
-        v->locks[1] = fd_lk_ctx_node_new(big->cmd, NULL);
+        v->locks[1] = GF_MALLOC(sizeof(fd_lk_ctx_node_t),
+                                gf_common_mt_fd_lk_ctx_node_t);
         if (!v->locks[1])
             goto out;
 
@@ -391,6 +398,9 @@ fd_lk_insert_and_merge(fd_t *fd, int32_t cmd, struct gf_flock *flock)
 
     lk_ctx = fd_lk_ctx_ref(fd->lk_ctx);
     lk = fd_lk_ctx_node_new(cmd, flock);
+
+    if (caa_unlikely(lk == NULL))
+        goto out;
 
     gf_msg_debug("fd-lk", 0,
                  "new lock request: owner = %s, fl_type = %s"

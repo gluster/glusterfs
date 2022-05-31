@@ -25,30 +25,6 @@
 /* Only needed for gf_event_dispatch(). */
 #include <glusterfs/gf-event.h>
 
-/* Log message definitions. */
-
-#define LG_MSG_IO_URING_NOT_SUPPORTED_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_URING_NOT_SUPPORTED_FMT                                      \
-    "Current kernel doesn't support I/O URing interface."
-
-#define LG_MSG_IO_URING_INVALID_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_URING_INVALID_FMT                                            \
-    "Kernel's I/O URing implementation doesn't support given data."
-
-#define LG_MSG_IO_URING_MISSING_FEAT_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_URING_MISSING_FEAT_FMT                                       \
-    "Kernel's I/O URing implementation doesn't support required features."
-
-#define LG_MSG_IO_URING_TOO_SMALL_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_URING_TOO_SMALL_FMT                                          \
-    "Maximum allowed SQ size is too small (%u)"
-
-#define LG_MSG_IO_URING_ENTER_FAILED_LVL(_res) GF_LOG_CRITICAL
-#define LG_MSG_IO_URING_ENTER_FAILED_FMT                                       \
-    "io_uring_enter() failed with an unrecoverable error. This could mean "    \
-    "a critical bug or a memory corruption. The process cannot continue in "   \
-    "this state."
-
 /* Required features from kernel io_uring. */
 #define GF_IO_URING_REQUIRED_FEATS                                             \
     (IORING_FEAT_NODROP | IORING_FEAT_SUBMIT_STABLE)
@@ -188,15 +164,17 @@ gf_io_uring_dump_params(struct io_uring_params *params)
 
     char names[256];
 
-    gf_io_debug(0, "I/O URing: SQEs=%u, CQEs=%u, CPU=%u, Idle=%u",
-                params->sq_entries, params->cq_entries, params->sq_thread_cpu,
-                params->sq_thread_idle);
+    GF_LOG_D("io", "io_uring settings", 4,
+             GLFS_U32(sqes, params->sq_entries),
+             GLFS_U32(cqes, params->cq_entries),
+             GLFS_U32(cpu, params->sq_thread_cpu),
+             GLFS_U32(idle, params->sq_thread_idle));
 
     gf_io_uring_name_list(names, flag_names, params->flags);
-    gf_io_debug(0, "I/O URing: Flags: %s", names);
+    GF_LOG_D("io", "io_urings flags", 1, GLFS_RAW(flags, names));
 
     gf_io_uring_name_list(names, feature_names, params->features);
-    gf_io_debug(0, "I/O URing: Features: %s", names);
+    GF_LOG_D("io", "io_uring features", 1, GLFS_RAW(features, names));
 }
 
 /* Logs the list of supported operations. */
@@ -248,7 +226,7 @@ gf_io_uring_dump_ops(struct io_uring_probe *probe)
     const char *name;
     uint32_t i, op;
 
-    gf_io_debug(0, "I/O URing: Max opcode = %u", probe->last_op);
+    GF_LOG_D("io", "io_uring opcode limit", 1, GLFS_U32(max, probe->last_op));
 
     ptr = names;
     for (i = 0; i < probe->ops_len; i++) {
@@ -267,7 +245,7 @@ gf_io_uring_dump_ops(struct io_uring_probe *probe)
         ptr[-1] = 0;
     }
 
-    gf_io_debug(0, "I/O URing: Ops: %s", names);
+    GF_LOG_D("io", "io_uring opcodes", 1, GLFS_RAW(list, names));
 }
 
 /* mmap a region of the io_uring shared memory. */
@@ -277,18 +255,18 @@ gf_io_uring_mmap(void **ring, uint32_t fd, size_t size, off_t offset)
     void *ptr;
     int32_t res;
 
-    ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_POPULATE,
-               fd, offset);
-    if (caa_unlikely(ptr == MAP_FAILED)) {
-        res = -errno;
-        gf_io_log(res, LG_MSG_IO_CALL_FAILED, "mmap");
-
-        return res;
+    res = gf_res_ptr(&ptr, mmap(NULL, size, PROT_READ | PROT_WRITE,
+                                MAP_SHARED | MAP_POPULATE, fd, offset),
+                     MAP_FAILED);
+    if (caa_unlikely(res < 0)) {
+        return gf_check("io", GF_LOG_ERROR, "mmap", res);
     }
 
-    res = gf_io_call_errno0(madvise, ptr, size, MADV_DONTFORK);
+    res = gf_res_errno0(madvise(ptr, size, MADV_DONTFORK));
     if (caa_unlikely(res < 0)) {
-        gf_io_call_errno0(munmap, ptr, size);
+        gf_check("io", GF_LOG_ERROR, "madvise", res);
+        gf_check("io", GF_LOG_WARNING, "munmap",
+                 gf_res_errno0(munmap(ptr, size)));
 
         return res;
     }
@@ -302,7 +280,8 @@ gf_io_uring_mmap(void **ring, uint32_t fd, size_t size, off_t offset)
 static void
 gf_io_uring_cq_fini(void)
 {
-    gf_io_call_errno0(munmap, gf_io_uring.cq.ring, gf_io_uring.cq.size);
+    gf_check("io", GF_LOG_WARNING, "munmap",
+             gf_res_errno0(munmap(gf_io_uring.cq.ring, gf_io_uring.cq.size)));
 }
 
 /* Initialize the CQ management structures. */
@@ -338,8 +317,11 @@ gf_io_uring_cq_init(uint32_t fd, struct io_uring_params *params)
 static void
 gf_io_uring_sq_fini(void)
 {
-    gf_io_call_errno0(munmap, gf_io_uring.sq.sqes, gf_io_uring.sq.sqes_size);
-    gf_io_call_errno0(munmap, gf_io_uring.sq.ring, gf_io_uring.sq.size);
+    gf_check("io", GF_LOG_WARNING, "munmap",
+             gf_res_errno0(munmap(gf_io_uring.sq.sqes,
+                                  gf_io_uring.sq.sqes_size)));
+    gf_check("io", GF_LOG_WARNING, "munmap",
+             gf_res_errno0(munmap(gf_io_uring.sq.ring, gf_io_uring.sq.size)));
 }
 
 /* Initialize the SQ management structures. */
@@ -360,7 +342,8 @@ gf_io_uring_sq_init(uint32_t fd, struct io_uring_params *params)
 
     res = gf_io_uring_mmap(&sqes, fd, sqes_size, IORING_OFF_SQES);
     if (caa_unlikely(res < 0)) {
-        gf_io_call_errno0(munmap, ring, ring_size);
+        gf_check("io", GF_LOG_WARNING, "munmap",
+                 gf_res_err(munmap(ring, ring_size)));
 
         return res;
     }
@@ -399,31 +382,31 @@ gf_io_uring_setup(void)
      *       is based on the I/O framework. Then it could be easier to
      *       control which fds are used and prepare them for SQPOLL. */
 
-    fd = io_uring_setup(GF_IO_URING_QUEUE_SIZE, &gf_io_uring.params);
+    fd = gf_res_errno(io_uring_setup(GF_IO_URING_QUEUE_SIZE,
+                                     &gf_io_uring.params));
     if (caa_unlikely(fd < 0)) {
-        res = -errno;
-        if ((res == -ENOSYS) || (res == -ENOTSUP)) {
-            gf_io_log(res, LG_MSG_IO_URING_NOT_SUPPORTED);
-        } else if (res == -EINVAL) {
-            gf_io_log(res, LG_MSG_IO_URING_INVALID);
+        if ((fd == -ENOSYS) || (fd == -ENOTSUP)) {
+            GF_LOG_E("io", LG_MSG_IO_URING_NOT_SUPPORTED());
+        } else if (fd == -EINVAL) {
+            GF_LOG_E("io", LG_MSG_IO_URING_INVALID());
         } else {
-            gf_io_log(res, LG_MSG_IO_CALL_FAILED, "io_uring_setup");
+            gf_check("io", GF_LOG_ERROR, "io_uring_setup", fd);
         }
-        return res;
+        return fd;
     }
     gf_io_uring_dump_params(&gf_io_uring.params);
 
     feats = gf_io_uring.params.features & GF_IO_URING_REQUIRED_FEATS;
     if (feats != GF_IO_URING_REQUIRED_FEATS) {
         res = -ENOTSUP;
-        gf_io_log(res, LG_MSG_IO_URING_MISSING_FEAT);
+        GF_LOG_W("io", LG_MSG_IO_URING_MISSING_FEAT());
         goto failed_close;
     }
 
     if (gf_io_uring.params.sq_entries < GF_IO_URING_QUEUE_MIN) {
         res = -ENOBUFS;
-        gf_io_log(res, LG_MSG_IO_URING_TOO_SMALL,
-                  gf_io_uring.params.sq_entries);
+        GF_LOG_W("io",
+                 LG_MSG_IO_URING_TOO_SMALL(gf_io_uring.params.sq_entries));
         goto failed_close;
     }
 
@@ -445,9 +428,10 @@ gf_io_uring_setup(void)
      * unnecessary memory allocation. */
     count = 256;
 
-    res = gf_io_call_errno0(io_uring_register, fd, IORING_REGISTER_PROBE, probe,
-                            count);
+    res = gf_res_errno0(io_uring_register(fd, IORING_REGISTER_PROBE, probe,
+                                          count));
     if (caa_unlikely(res < 0)) {
+        gf_check("io", GF_LOG_ERROR, "io_uring_register", res);
         goto failed_cq;
     }
     gf_io_uring_dump_ops(probe);
@@ -472,7 +456,7 @@ failed_cq:
 failed_sq:
     gf_io_uring_sq_fini();
 failed_close:
-    gf_io_call_errno0(sys_close, fd);
+    gf_check("io", GF_LOG_WARNING, "close", gf_res_errno0(sys_close(fd)));
 
     return res;
 }
@@ -484,7 +468,8 @@ gf_io_uring_cleanup(void)
     gf_io_uring_sq_fini();
     gf_io_uring_cq_fini();
 
-    gf_io_call_errno0(sys_close, gf_io_uring.fd);
+    gf_check("io", GF_LOG_WARNING, "close",
+             gf_res_errno0(sys_close(gf_io_uring.fd)));
 }
 
 static int32_t
@@ -537,12 +522,11 @@ gf_io_uring_enter(uint32_t submit, bool wait)
     }
 
     do {
-        res = io_uring_enter(gf_io_uring.fd, submit, recv, flags, NULL, 0);
+        res = gf_res_errno(io_uring_enter(gf_io_uring.fd, submit, recv, flags,
+                                          NULL, 0));
         if (caa_likely(res >= 0)) {
             return submit - res;
         }
-
-        res = -errno;
     } while (res == -EINTR);
 
     if (caa_unlikely((res != -EAGAIN) && (res != -EBUSY) && (res != -ENOMEM))) {
@@ -554,7 +538,7 @@ gf_io_uring_enter(uint32_t submit, bool wait)
          * sent. At this point it's better to crash and generate a coredump
          * so that it can be analyzed instead of trying to continue, which
          * will surely cause hangs and many other problems. */
-        gf_io_log(res, LG_MSG_IO_URING_ENTER_FAILED);
+        GF_LOG_C("io", LG_MSG_IO_URING_ENTER_FAILED(res));
         GF_ABORT();
     }
 
@@ -603,12 +587,14 @@ gf_io_uring_cq_process_some(gf_io_worker_t *worker, uint32_t nr)
 
     retries = 0;
     while (!gf_io_uring_cq_process(worker)) {
-        res = gf_io_call_errno(poll, &fds, 1, 1);
+        res = gf_res_errno(poll(&fds, 1, 1));
         if (caa_likely(res > 0)) {
             if (gf_io_uring_cq_process(worker) ||
                 (current != CMM_LOAD_SHARED(*gf_io_uring.cq.head))) {
                 break;
             }
+        } else {
+            gf_check("io", GF_LOG_ERROR, "poll", res);
         }
 
         if (caa_unlikely(++retries >= GF_IO_URING_MAX_RETRIES)) {
@@ -738,7 +724,7 @@ gf_io_uring_dispatch_no_process(void)
             submit = res;
         }
 
-        gf_io_call_errno(poll, &fds, 1, 1);
+        gf_check("io", GF_LOG_WARNING, "poll", gf_res_errno(poll(&fds, 1, 1)));
     }
 }
 

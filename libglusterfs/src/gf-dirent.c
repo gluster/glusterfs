@@ -143,7 +143,7 @@ out:
 gf_dirent_t *
 gf_dirent_for_name2(const char *name, const size_t name_len,
                     const uint64_t d_ino, const uint64_t d_off,
-                    const uint32_t d_type)
+                    const uint32_t d_type, const struct iatt *d_stat)
 {
     gf_dirent_t *gf_dirent = NULL;
 
@@ -158,7 +158,10 @@ gf_dirent_for_name2(const char *name, const size_t name_len,
     gf_dirent->d_len = name_len;
     gf_dirent->d_type = d_type;
 
-    memset(&gf_dirent->d_stat, 0, sizeof(struct iatt));
+    if (d_stat)
+        memcpy(&gf_dirent->d_stat, d_stat, sizeof(struct iatt));
+    else
+        memset(&gf_dirent->d_stat, 0, sizeof(struct iatt));
     gf_dirent->dict = NULL;
     gf_dirent->inode = NULL;
 
@@ -170,7 +173,7 @@ gf_dirent_for_name2(const char *name, const size_t name_len,
 gf_dirent_t *
 gf_dirent_for_name(const char *name)
 {
-    return gf_dirent_for_name2(name, strlen(name), -1, 0, 0);
+    return gf_dirent_for_name2(name, strlen(name), -1, 0, 0, NULL);
 }
 
 void
@@ -212,11 +215,9 @@ entry_copy(gf_dirent_t *source)
     gf_dirent_t *sink = NULL;
 
     sink = gf_dirent_for_name2(source->d_name, source->d_len, source->d_ino,
-                               source->d_off, source->d_type);
+                               source->d_off, source->d_type, &source->d_stat);
     if (!sink)
         return NULL;
-
-    sink->d_stat = source->d_stat;
 
     if (source->inode)
         sink->inode = inode_ref(source->inode);
@@ -262,7 +263,6 @@ gf_link_inodes_from_dirent(inode_t *parent, gf_dirent_t *entries)
 
     return 0;
 }
-
 
 int
 gf_fill_iatt_for_dirent(gf_dirent_t *entry, inode_t *parent, xlator_t *subvol)

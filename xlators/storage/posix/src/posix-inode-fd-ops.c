@@ -17,7 +17,6 @@
 #include <openssl/md5.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <errno.h>
 #include <libgen.h>
 #include <pthread.h>
@@ -3466,9 +3465,6 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     char dirpath[PATH_MAX] = {
         0,
     };
-    char pgfidstr[UUID_CANONICAL_FORM_LEN + 1] = {
-        0,
-    };
     int len;
 
     priv = this->private;
@@ -3557,9 +3553,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
 
         nlink_samepgfid = be32toh(nlink_samepgfid);
 
-        snprintf(pgfidstr, sizeof(pgfidstr), "%s",
-                 key + SLEN(PGFID_XATTR_KEY_PREFIX));
-        gf_uuid_parse(pgfidstr, pgfid);
+        gf_uuid_parse(key + SLEN(PGFID_XATTR_KEY_PREFIX), pgfid);
 
         handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
 
@@ -5749,7 +5743,8 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         last_off = (u_long)telldir(pfd->dir);
 
         this_entry = gf_dirent_for_name2(entry->d_name, entry_dname_len,
-                                         entry->d_ino, last_off, entry->d_type);
+                                         entry->d_ino, last_off, entry->d_type,
+                                         NULL);
 
         if (!this_entry) {
             gf_msg(THIS->name, GF_LOG_ERROR, errno,
@@ -5977,7 +5972,10 @@ posix_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (op_ret >= 0) {
             op_ret = 0;
 
-            list_for_each_entry(entry, &entries.list, list) { op_ret++; }
+            list_for_each_entry(entry, &entries.list, list)
+            {
+                op_ret++;
+            }
         }
 
         STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, &entries, NULL);

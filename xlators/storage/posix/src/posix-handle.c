@@ -109,11 +109,10 @@ posix_make_ancestral_node(const char *priv_base_path, char *path, int pathsize,
         strcat(path, "/");
 
     if (type & POSIX_ANCESTRY_DENTRY) {
-        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0);
+        entry = gf_dirent_for_name2(dir_name, dir_name_len, -1, 0, 0, iabuf);
         if (!entry)
             goto out;
 
-        entry->d_stat = *iabuf;
         entry->inode = inode_ref(inode);
 
         list_add_tail(&entry->list, &head->list);
@@ -381,9 +380,9 @@ posix_handle_pump(xlator_t *this, char *buf, int len, int maxlen,
     memmove(buf + base_len + blen, buf + base_len,
             (strlen(buf) - base_len) + 1);
 
-    strncpy(base_str + pfx_len, linkname + 6, 42);
+    memcpy(base_str + pfx_len, linkname + 6, 42);
 
-    strncpy(buf + pfx_len, linkname + 6, link_len - 6);
+    memcpy(buf + pfx_len, linkname + 6, link_len - 6);
 out:
     return len + blen;
 err:
@@ -400,8 +399,8 @@ err:
 */
 
 int
-posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
-                  size_t size)
+posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *buf,
+                  size_t maxlen)
 {
     struct posix_private *priv = NULL;
     char *uuid_str = NULL;
@@ -411,8 +410,6 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     char *base_str = NULL;
     int base_len = 0;
     int pfx_len;
-    int maxlen;
-    char *buf;
     int index = 0;
     int dfd = 0;
     char newstr[POSIX_GFID_HASH2_LEN] = {
@@ -422,14 +419,6 @@ posix_handle_path(xlator_t *this, uuid_t gfid, const char *basename, char *ubuf,
     priv = this->private;
 
     uuid_str = uuid_utoa(gfid);
-
-    if (ubuf) {
-        buf = ubuf;
-        maxlen = size;
-    } else {
-        maxlen = PATH_MAX;
-        buf = alloca(maxlen);
-    }
 
     index = gfid[0];
     dfd = priv->arrdfd[index];
@@ -854,7 +843,7 @@ posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
     return ret;
 }
 
-static int
+int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
 {
     int ret = 0;
@@ -874,41 +863,6 @@ posix_handle_unset_gfid(xlator_t *this, uuid_t gfid)
         gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE,
                "unlink %s failed", newstr);
     }
-
-    return ret;
-}
-
-int
-posix_handle_unset(xlator_t *this, uuid_t gfid, const char *basename)
-{
-    int ret;
-    struct iatt stat;
-    char *path = NULL;
-
-    if (!basename) {
-        ret = posix_handle_unset_gfid(this, gfid);
-        return ret;
-    }
-
-    MAKE_HANDLE_PATH(path, this, gfid, basename);
-    if (!path) {
-        gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_HANDLE_DELETE,
-               "Failed to create handle path for %s (%s)", basename,
-               uuid_utoa(gfid));
-        return -1;
-    }
-
-    /* stat is being used only for gfid, so passing a NULL inode
-     * doesn't fetch time attributes which is fine
-     */
-    ret = posix_istat(this, NULL, gfid, basename, &stat, _gf_false);
-    if (ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_HANDLE_DELETE, "%s",
-               path);
-        return -1;
-    }
-
-    ret = posix_handle_unset_gfid(this, stat.ia_gfid);
 
     return ret;
 }

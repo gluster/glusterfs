@@ -10,7 +10,6 @@
 
 #include <time.h>
 #include <sys/uio.h>
-#include <sys/resource.h>
 
 #include <libgen.h>
 #include <glusterfs/compat-uuid.h>
@@ -532,7 +531,7 @@ glusterd_should_update_peer(glusterd_peerinfo_t *peerinfo,
                             glusterd_peerinfo_t *cur_peerinfo)
 {
     if ((peerinfo == cur_peerinfo) ||
-        (peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED))
+        (peerinfo->state == GD_FRIEND_STATE_BEFRIENDED))
         return _gf_true;
 
     return _gf_false;
@@ -1098,11 +1097,11 @@ glusterd_friend_sm_transition_state(uuid_t peerid, char *peername,
         goto out;
     }
 
-    (void)glusterd_sm_tr_log_transition_add(
-        &peerinfo->sm_log, peerinfo->state.state, state[event_type].next_state,
-        event_type);
+    (void)glusterd_sm_tr_log_transition_add(&peerinfo->sm_log, peerinfo->state,
+                                            state[event_type].next_state,
+                                            event_type);
 
-    uatomic_set(&peerinfo->state.state, state[event_type].next_state);
+    uatomic_set(&peerinfo->state, state[event_type].next_state);
 
     ret = 0;
 out:
@@ -1423,7 +1422,7 @@ gd_does_peer_affect_quorum(glusterd_friend_sm_state_t old_state,
         (event_type != GD_FRIEND_EVENT_RCVD_ACC) &&
         (event_type != GD_FRIEND_EVENT_LOCAL_ACC))
         goto out;
-    if ((peerinfo->state.state == GD_FRIEND_STATE_BEFRIENDED) &&
+    if ((peerinfo->state == GD_FRIEND_STATE_BEFRIENDED) &&
         peerinfo->connected) {
         affects = _gf_true;
     }
@@ -1469,7 +1468,7 @@ glusterd_friend_sm()
                 GF_FREE(event);
                 continue;
             }
-            old_state = peerinfo->state.state;
+            old_state = peerinfo->state;
             RCU_READ_UNLOCK;
             gf_msg_debug("glusterd", 0, "Dequeued event of type: '%s'",
                          glusterd_friend_sm_event_name_get(event_type));

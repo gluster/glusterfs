@@ -16,30 +16,7 @@
 
 #include <glusterfs/list.h>
 #include <glusterfs/gf-io-common.h>
-
-#define LG_MSG_IO_THREAD_BAD_PRIORITY_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_THREAD_BAD_PRIORITY_FMT                                      \
-    "Specified priority is out of bounds (%d)."
-
-#define LG_MSG_IO_THREAD_NO_CPU_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_THREAD_NO_CPU_FMT                                            \
-    "Cannot find a suitable CPU for a thread (%u)."
-
-#define LG_MSG_IO_THREAD_NAME_INVALID_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_THREAD_NAME_INVALID_FMT                                      \
-    "Tried to construct and invalid name for a thread."
-
-#define LG_MSG_IO_SYNC_TIMEOUT_LVL(_res) GF_LOG_WARNING
-#define LG_MSG_IO_SYNC_TIMEOUT_FMT                                             \
-    "Time out while waiting for synchronization (%u retries)."
-
-#define LG_MSG_IO_SYNC_ABORTED_LVL(_res) GF_LOG_ERROR
-#define LG_MSG_IO_SYNC_ABORTED_FMT                                             \
-    "Synchronization took too much time. Aborting after %u retries."
-
-#define LG_MSG_IO_SYNC_COMPLETED_LVL(_res) GF_LOG_INFO
-#define LG_MSG_IO_SYNC_COMPLETED_FMT                                           \
-    "Synchronization completed after %u retries."
+#include <glusterfs/globals.h>
 
 static __thread gf_io_thread_t gf_io_thread = {};
 
@@ -50,17 +27,21 @@ gf_io_cond_init(pthread_cond_t *cond)
     pthread_condattr_t attr;
     int32_t res;
 
-    res = gf_io_call_ret(pthread_condattr_init, &attr);
+    res = gf_res_err(pthread_condattr_init(&attr));
     if (caa_unlikely(res < 0)) {
-        return res;
+        return gf_check("io", GF_LOG_ERROR, "pthread_condattr_init", res);
     }
 
-    res = gf_io_call_ret(pthread_condattr_setclock, &attr, CLOCK_MONOTONIC);
+    res = gf_res_err(pthread_condattr_setclock(&attr, CLOCK_MONOTONIC));
     if (caa_likely(res >= 0)) {
-        res = gf_io_call_ret(pthread_cond_init, cond, &attr);
+        res = gf_res_err(pthread_cond_init(cond, &attr));
+        gf_check("io", GF_LOG_ERROR, "pthread_cond_init", res);
+    } else {
+        gf_check("io", GF_LOG_ERROR, "pthread_condaddr_setclock", res);
     }
 
-    gf_io_call_ret(pthread_condattr_destroy, &attr);
+    gf_check("io", GF_LOG_WARNING, "pthread_condattr_destroy",
+             gf_res_err(pthread_condattr_destroy(&attr)));
 
     return res;
 }
@@ -73,9 +54,9 @@ gf_io_sync_start(gf_io_sync_t *sync, uint32_t count, uint32_t timeout,
 {
     int32_t res;
 
-    res = gf_io_call_errno0(clock_gettime, CLOCK_MONOTONIC, &sync->abs_to);
+    res = gf_res_errno0(clock_gettime(CLOCK_MONOTONIC, &sync->abs_to));
     if (caa_unlikely(res < 0)) {
-        return res;
+        return gf_check("io", GF_LOG_ERROR, "clock_gettime", res);
     }
 
     sync->abs_to.tv_sec += timeout;
@@ -87,14 +68,17 @@ gf_io_sync_start(gf_io_sync_t *sync, uint32_t count, uint32_t timeout,
     sync->pending = count;
     sync->res = 0;
 
-    res = gf_io_call_ret(pthread_mutex_init, &sync->mutex, NULL);
+    res = gf_res_err(pthread_mutex_init(&sync->mutex, NULL));
     if (caa_likely(res >= 0)) {
         res = gf_io_cond_init(&sync->cond);
         if (caa_likely(res >= 0)) {
             return 0;
         }
 
-        gf_io_call_ret(pthread_mutex_destroy, &sync->mutex);
+        gf_check("io", GF_LOG_WARNING, "pthread_mutex_destroy",
+                 gf_res_err(pthread_mutex_destroy(&sync->mutex)));
+    } else {
+        gf_check("io", GF_LOG_ERROR, "pthread_mutex_init", res);
     }
 
     return res;
@@ -104,8 +88,10 @@ gf_io_sync_start(gf_io_sync_t *sync, uint32_t count, uint32_t timeout,
 static void
 gf_io_sync_destroy(gf_io_sync_t *sync)
 {
-    gf_io_call_ret(pthread_cond_destroy, &sync->cond);
-    gf_io_call_ret(pthread_mutex_destroy, &sync->mutex);
+    gf_check("io", GF_LOG_WARNING, "pthread_cond_destroy",
+             gf_res_err(pthread_cond_destroy(&sync->cond)));
+    gf_check("io", GF_LOG_WARNING, "pthread_mutex_destroy",
+             gf_res_err(pthread_mutex_destroy(&sync->mutex)));
 }
 
 static int32_t
@@ -115,24 +101,25 @@ gf_io_sync_wait_timeout(gf_io_sync_t *sync, int32_t retry, bool check)
 
     if (check) {
         if (retry > 0) {
-            gf_io_log(0, LG_MSG_IO_SYNC_COMPLETED, retry);
+            GF_LOG_I("io", LG_MSG_IO_SYNC_COMPLETED(retry));
         }
         return -1;
     }
 
-    res = gf_io_call_ret(pthread_cond_timedwait, &sync->cond, &sync->mutex,
-                         &sync->abs_to);
+    res = gf_res_err(pthread_cond_timedwait(&sync->cond, &sync->mutex,
+                                            &sync->abs_to));
     if (caa_unlikely(res != 0)) {
         if (res != -ETIMEDOUT) {
+            gf_check("io", GF_LOG_ERROR, "pthread_cond_timedwait", res);
             GF_ABORT();
         }
 
         retry++;
 
-        gf_io_log(res, LG_MSG_IO_SYNC_TIMEOUT, retry);
+        GF_LOG_W("io", LG_MSG_IO_SYNC_TIMEOUT(retry));
 
         if (sync->retries == 0) {
-            gf_io_log(res, LG_MSG_IO_SYNC_ABORTED, retry);
+            GF_LOG_E("io", LG_MSG_IO_SYNC_ABORTED(retry));
             GF_ABORT();
         }
         sync->retries--;
@@ -150,7 +137,7 @@ gf_io_sync_done(gf_io_sync_t *sync, uint32_t count, int32_t res, bool wait)
 {
     int32_t retry;
 
-    gf_io_success(gf_io_call_ret(pthread_mutex_lock, &sync->mutex));
+    gf_io_lock(&sync->mutex);
 
     sync->pending -= count;
     if (!wait) {
@@ -159,10 +146,11 @@ gf_io_sync_done(gf_io_sync_t *sync, uint32_t count, int32_t res, bool wait)
         }
 
         if (sync->pending == 0) {
-            gf_io_success(gf_io_call_ret(pthread_cond_signal, &sync->cond));
+            gf_succeed("io", "pthread_cond_signal",
+                       gf_res_err(pthread_cond_signal(&sync->cond)));
         }
 
-        gf_io_success(gf_io_call_ret(pthread_mutex_unlock, &sync->mutex));
+        gf_io_unlock(&sync->mutex);
 
         return 0;
     }
@@ -174,7 +162,7 @@ gf_io_sync_done(gf_io_sync_t *sync, uint32_t count, int32_t res, bool wait)
 
     res = sync->res;
 
-    gf_io_success(gf_io_call_ret(pthread_mutex_unlock, &sync->mutex));
+    gf_io_unlock(&sync->mutex);
 
     gf_io_sync_destroy(sync);
 
@@ -192,7 +180,7 @@ gf_io_sync_wait(gf_io_sync_t *sync, uint32_t count, int32_t res)
     uint32_t phase;
     int32_t retry;
 
-    gf_io_success(gf_io_call_ret(pthread_mutex_lock, &sync->mutex));
+    gf_io_lock(&sync->mutex);
 
     if (caa_unlikely(res < 0) && (sync->res >= 0)) {
         sync->res = res;
@@ -203,7 +191,8 @@ gf_io_sync_wait(gf_io_sync_t *sync, uint32_t count, int32_t res)
         sync->pending = sync->count;
         sync->phase++;
 
-        gf_io_success(gf_io_call_ret(pthread_cond_broadcast, &sync->cond));
+        gf_succeed("io", "pthread_cond_broadcast",
+                   gf_res_err(pthread_cond_broadcast(&sync->cond)));
     } else {
         phase = sync->phase;
 
@@ -215,7 +204,7 @@ gf_io_sync_wait(gf_io_sync_t *sync, uint32_t count, int32_t res)
 
     res = sync->res;
 
-    gf_io_success(gf_io_call_ret(pthread_mutex_unlock, &sync->mutex));
+    gf_io_unlock(&sync->mutex);
 
     return res;
 }
@@ -230,7 +219,7 @@ gf_io_thread_name(pthread_t id, const char *code, uint32_t index)
     len = snprintf(name, sizeof(name), GF_THREAD_NAME_PREFIX "%s/%u", code,
                    index);
     if (caa_unlikely((len < 0) || (len >= sizeof(name)))) {
-        gf_io_log(-EINVAL, LG_MSG_IO_THREAD_NAME_INVALID);
+        GF_LOG_E("io", LG_MSG_IO_THREAD_NAME_INVALID());
 
         return -EINVAL;
     }
@@ -245,13 +234,16 @@ gf_io_thread_mask(int32_t *signals)
     sigset_t set;
     int32_t i, res;
 
-    res = gf_io_call_errno0(sigfillset, &set);
+    res = gf_res_errno0(sigfillset(&set));
+    gf_check("io", GF_LOG_ERROR, "sigfillset", res);
     for (i = 0; caa_likely(res >= 0) && (signals[i] != 0); i++) {
-        res = gf_io_call_errno0(sigdelset, &set, signals[i]);
+        res = gf_res_errno0(sigdelset(&set, signals[i]));
+        gf_check("io", GF_LOG_ERROR, "sigdelset", res);
     }
 
     if (caa_likely(res >= 0)) {
-        res = gf_io_call_ret(pthread_sigmask, SIG_BLOCK, &set, NULL);
+        res = gf_res_err(pthread_sigmask(SIG_BLOCK, &set, NULL));
+        gf_check("io", GF_LOG_ERROR, "pthread_sigmask", res);
     }
 
     return res;
@@ -280,35 +272,31 @@ gf_io_thread_affinity(pthread_t id, cpu_set_t *cpus, uint32_t index)
         }
     }
     if (caa_unlikely(i >= CPU_SETSIZE)) {
-        gf_io_log(-ENODEV, LG_MSG_IO_THREAD_NO_CPU, index);
+        GF_LOG_E("io", LG_MSG_IO_THREAD_NO_CPU(index));
         return -ENODEV;
     }
 
     CPU_ZERO(&affinity);
     CPU_SET(i, &affinity);
 
-    return gf_io_call_ret(pthread_setaffinity_np, id, sizeof(affinity),
-                          &affinity);
+    return gf_check("io", GF_LOG_ERROR, "pthread_setaffinity_np",
+                    gf_res_err(pthread_setaffinity_np(id, sizeof(affinity),
+                                                      &affinity)));
 }
 
 #endif
 
 /* Adds a thread to the thread pool. */
-static int32_t
+static void
 gf_io_thread_add(gf_io_thread_pool_t *pool, gf_io_thread_t *thread)
 {
-    int32_t res;
-
     thread->pool = pool;
 
-    res = gf_io_call_ret(pthread_mutex_lock, &pool->mutex);
-    if (caa_likely(res >= 0)) {
-        list_add_tail(&thread->list, &pool->threads);
+    gf_io_lock(&pool->mutex);
 
-        gf_io_success(gf_io_call_ret(pthread_mutex_unlock, &pool->mutex));
-    }
+    list_add_tail(&thread->list, &pool->threads);
 
-    return res;
+    gf_io_unlock(&pool->mutex);
 }
 
 /* Initialize a thread. */
@@ -326,8 +314,8 @@ gf_io_thread_init(gf_io_sync_t *sync, gf_io_thread_t *thread)
 
     /* Sync phase 0: Creation of all threads. */
 
-    res = gf_io_thread_add(pool, thread);
-    if (caa_unlikely(gf_io_sync_wait(sync, 1, res) < 0)) {
+    gf_io_thread_add(pool, thread);
+    if (caa_unlikely(gf_io_sync_wait(sync, 1, 0) < 0)) {
         goto done;
     }
 
@@ -410,30 +398,34 @@ gf_io_thread_attr_priority(gf_io_thread_pool_config_t *cfg,
         priority = -priority;
     }
     if (priority > 100) {
-        gf_io_log(-EINVAL, LG_MSG_IO_THREAD_BAD_PRIORITY, cfg->priority);
-
+        GF_LOG_E("io", LG_MSG_IO_THREAD_BAD_PRIORITY(cfg->priority));
         return -EINVAL;
     }
 
-    min = gf_io_call_errno(sched_get_priority_min, policy);
+    min = gf_res_errno(sched_get_priority_min(policy));
     if (caa_unlikely(min < 0)) {
+        gf_check("io", GF_LOG_ERROR, "sched_get_priority_min", min);
         return min;
     }
-    max = gf_io_call_errno(sched_get_priority_max, policy);
+    max = gf_res_errno(sched_get_priority_max(policy));
     if (caa_unlikely(max < 0)) {
+        gf_check("io", GF_LOG_ERROR, "sched_get_priority_max", max);
         return max;
     }
 
     memset(&param, 0, sizeof(param));
     param.sched_priority = min + priority * (max - min) / 100;
 
-    res = gf_io_call_ret(pthread_attr_setschedpolicy, attr, policy);
+    res = gf_res_err(pthread_attr_setschedpolicy(attr, policy));
+    gf_check("io", GF_LOG_ERROR, "pthread_attr_setschedpolicy", res);
     if (caa_likely(res >= 0)) {
-        res = gf_io_call_ret(pthread_attr_setschedparam, attr, &param);
+        res = gf_res_err(pthread_attr_setschedparam(attr, &param));
+        gf_check("io", GF_LOG_ERROR, "pthread_attr_setschedparam", res);
     }
     if (caa_likely(res >= 0)) {
-        res = gf_io_call_ret(pthread_attr_setinheritsched, attr,
-                             PTHREAD_EXPLICIT_SCHED);
+        res = gf_res_err(pthread_attr_setinheritsched(attr,
+                                                      PTHREAD_EXPLICIT_SCHED));
+        gf_check("io", GF_LOG_ERROR, "pthread_attr_setinheritsched", res);
     }
 
     return res;
@@ -445,18 +437,21 @@ gf_io_thread_attr(gf_io_thread_pool_config_t *cfg, pthread_attr_t *attr)
 {
     int32_t res;
 
-    res = gf_io_call_ret(pthread_attr_init, attr);
+    res = gf_res_err(pthread_attr_init(attr));
     if (caa_unlikely(res < 0)) {
+        gf_check("io", GF_LOG_ERROR, "pthread_attr_init", res);
         return res;
     }
 
-    res = gf_io_call_ret(pthread_attr_setstacksize, attr, cfg->stack_size);
+    res = gf_res_err(pthread_attr_setstacksize(attr, cfg->stack_size));
+    gf_check("io", GF_LOG_ERROR, "pthread_attr_setstacksize", res);
     if (caa_likely(res >= 0)) {
         res = gf_io_thread_attr_priority(cfg, attr);
     }
 
     if (caa_unlikely(res < 0)) {
-        gf_io_call_ret(pthread_attr_destroy, attr);
+        gf_check("io", GF_LOG_WARNING, "pthread_attr_destroy",
+                 gf_res_err(pthread_attr_destroy(attr)));
     }
 
     return res;
@@ -476,15 +471,17 @@ gf_io_thread_create(gf_io_thread_pool_config_t *cfg, pthread_t *ids,
     res = gf_io_thread_attr(cfg, &attr);
     if (caa_likely(res >= 0)) {
         while (i < cfg->num_threads) {
-            res = gf_io_call_ret(pthread_create, &ids[i], &attr, main, data);
+            res = gf_res_err(pthread_create(&ids[i], &attr, main, data));
             if (caa_unlikely(res < 0)) {
+                gf_check("io", GF_LOG_ERROR, "pthread_create", res);
                 break;
             }
 
             i++;
         }
 
-        gf_io_call_ret(pthread_attr_destroy, &attr);
+        gf_check("io", GF_LOG_WARNING, "pthread_attr_destroy",
+                 gf_res_err(pthread_attr_destroy(&attr)));
     }
 
     *created = i;
@@ -498,14 +495,14 @@ gf_io_thread_join(pthread_t thread, struct timespec *timeout)
 {
 #ifdef GF_LINUX_HOST_OS
     if (timeout != NULL) {
-        gf_io_success(
-            gf_io_call_ret(pthread_timedjoin_np, thread, NULL, timeout));
+        gf_succeed("io", "pthread_timedjoin_np",
+                   gf_res_err(pthread_timedjoin_np(thread, NULL, timeout)));
 
         return;
     }
 #endif /* GF_LINUX_HOST_OS */
 
-    gf_io_success(gf_io_call_ret(pthread_join, thread, NULL));
+    gf_succeed("io", "pthread_join", gf_res_err(pthread_join(thread, NULL)));
 }
 
 /* Initializes as thread pool object. */
@@ -517,14 +514,16 @@ gf_io_thread_pool_init(gf_io_thread_pool_t *pool,
     cfg->pool = pool;
     cfg->index = 0;
 
-    return gf_io_call_ret(pthread_mutex_init, &pool->mutex, NULL);
+    return gf_check("io", GF_LOG_ERROR, "pthread_mutex_init",
+                    gf_res_err(pthread_mutex_init(&pool->mutex, NULL)));
 }
 
 /* Destroys a thread pool object. */
 static void
 gf_io_thread_pool_destroy(gf_io_thread_pool_t *pool)
 {
-    gf_io_call_ret(pthread_mutex_destroy, &pool->mutex);
+    gf_check("io", GF_LOG_WARNING, "pthread_mutex_destroy",
+             gf_res_err(pthread_mutex_destroy(&pool->mutex)));
 }
 
 /* Start a thread pool. */
@@ -580,7 +579,8 @@ done_sync:
 
 done:
     if (caa_unlikely(res < 0)) {
-        gf_io_success(gf_io_call_ret(clock_gettime, CLOCK_REALTIME, &to));
+        gf_succeed("io", "clock_gettime",
+                   gf_res_err(clock_gettime(CLOCK_REALTIME, &to)));
         to.tv_sec += sync.timeout;
 
         while (created > 0) {
@@ -600,7 +600,8 @@ gf_io_thread_pool_wait(gf_io_thread_pool_t *pool, uint32_t timeout)
     struct timespec to;
     gf_io_thread_t *thread;
 
-    gf_io_success(gf_io_call_ret(clock_gettime, CLOCK_REALTIME, &to));
+    gf_succeed("io", "clock_gettime",
+               gf_res_err(clock_gettime(CLOCK_REALTIME, &to)));
     to.tv_sec += timeout;
 
     /* The list of threads is accessed concurrently only during creation of

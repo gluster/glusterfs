@@ -47,13 +47,7 @@ void
 gf_frame_latency_update(call_frame_t *frame);
 
 struct call_pool {
-    union {
-        struct list_head all_frames;
-        struct {
-            call_stack_t *next_call;
-            call_stack_t *prev_call;
-        } all_stacks;
-    };
+    struct list_head all_frames;
     int64_t cnt;
     gf_atomic_t total_count;
     gf_lock_t lock;
@@ -91,13 +85,7 @@ typedef struct _ns_info ns_info_t;
 #define SMALL_GROUP_COUNT 128
 
 struct _call_stack {
-    union {
-        struct list_head all_frames;
-        struct {
-            call_stack_t *next_call;
-            call_stack_t *prev_call;
-        };
-    };
+    struct list_head all_frames;
     call_pool_t *pool;
     gf_lock_t stack_lock;
     client_t *client;
@@ -108,17 +96,16 @@ struct _call_stack {
     pid_t pid;
     char identifier[UNIX_PATH_MAX];
     uint16_t ngrps;
+    int8_t type;
     uint32_t groups_small[SMALL_GROUP_COUNT];
     uint32_t *groups_large;
     uint32_t *groups;
-    gf_lkowner_t lk_owner;
     glusterfs_ctx_t *ctx;
 
     struct list_head myframes; /* List of call_frame_t that go
                                   to make the call stack */
 
     int32_t op;
-    int8_t type;
     struct timespec tv;
     xlator_t *err_xl;
     int32_t error;
@@ -129,6 +116,7 @@ struct _call_stack {
                               creation of stack. */
 
     ns_info_t ns_info;
+    gf_lkowner_t lk_owner;
 };
 
 /* call_stack flags field users */
@@ -138,17 +126,6 @@ struct _call_stack {
 #define MDATA_PAR_CTIME (1 << 3)
 #define MDATA_PAR_MTIME (1 << 4)
 #define MDATA_PAR_ATIME (1 << 5)
-
-#define frame_set_uid_gid(frm, u, g)                                           \
-    do {                                                                       \
-        if (frm) {                                                             \
-            (frm)->root->uid = u;                                              \
-            (frm)->root->gid = g;                                              \
-            (frm)->root->ngrps = 0;                                            \
-        }                                                                      \
-    } while (0);
-
-struct xlator_fops;
 
 static inline void
 FRAME_DESTROY(call_frame_t *frame, const gf_boolean_t measure_latency)
@@ -204,7 +181,7 @@ STACK_RESET(call_stack_t *stack)
     call_frame_t *frame = NULL;
     call_frame_t *tmp = NULL;
     call_frame_t *last = NULL;
-    struct list_head toreset = {0};
+    struct list_head toreset;
     gf_boolean_t measure_latency;
 
     INIT_LIST_HEAD(&toreset);
@@ -287,7 +264,7 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         gf_msg_trace("stack-trace", 0,                                         \
                      "stack-address: %p, "                                     \
                      "winding from %s to %s",                                  \
-                     frame->root, old_THIS->name, THIS->name);                 \
+                     frame->root, old_THIS->name, next_xl->name);              \
         /* Need to capture counts at leaf node */                              \
         if (!next_xl->pass_through && !next_xl->children) {                    \
             GF_ATOMIC_INC(next_xl->stats[opn].total_fop);                      \
@@ -322,20 +299,20 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         typeof(fn) next_xl_fn = fn;                                            \
                                                                                \
         _new = mem_get0(frame->root->pool->frame_mem_pool);                    \
-        if (!_new) {                                                           \
+        if (caa_unlikely(!_new)) {                                             \
             break;                                                             \
         }                                                                      \
         typeof(fn##_cbk) tmp_cbk = rfn;                                        \
         _new->root = frame->root;                                              \
-        _new->this = obj;                                                      \
-        _new->ret = (ret_fn_t)tmp_cbk;                                         \
         _new->parent = frame;                                                  \
+        LOCK_INIT(&_new->lock);                                                \
         /* (void *) is required for avoiding gcc warning */                    \
         _new->cookie = ((has_cookie == 1) ? (void *)(cky) : (void *)_new);     \
+        _new->this = obj;                                                      \
+        _new->ret = (ret_fn_t)tmp_cbk;                                         \
         _new->wind_from = __FUNCTION__;                                        \
         _new->wind_to = #fn;                                                   \
         _new->unwind_to = #rfn;                                                \
-        LOCK_INIT(&_new->lock);                                                \
         LOCK(&frame->root->stack_lock);                                        \
         {                                                                      \
             list_add(&_new->frames, &frame->root->myframes);                   \
@@ -347,7 +324,7 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         gf_msg_trace("stack-trace", 0,                                         \
                      "stack-address: %p, "                                     \
                      "winding from %s to %s",                                  \
-                     frame->root, old_THIS->name, THIS->name);                 \
+                     frame->root, old_THIS->name, obj->name);                  \
         if (obj->ctx->measure_latency)                                         \
             timespec_now(&_new->begin);                                        \
         _new->op = get_fop_index_from_fn((_new->this), (fn));                  \
@@ -372,21 +349,21 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         call_frame_t *_parent = NULL;                                          \
         xlator_t *old_THIS = NULL;                                             \
                                                                                \
-        if (!frame) {                                                          \
+        if (caa_unlikely(!frame)) {                                            \
             gf_msg("stack", GF_LOG_CRITICAL, 0, LG_MSG_FRAME_ERROR, "!frame"); \
             break;                                                             \
         }                                                                      \
+        old_THIS = THIS;                                                       \
         if ((op_ret) < 0) {                                                    \
             gf_msg_debug("stack-trace", op_errno,                              \
                          "stack-address: %p, "                                 \
-                         "%s returned %d error: %s",                           \
-                         frame->root, THIS->name, (int32_t)(op_ret),           \
-                         strerror(op_errno));                                  \
+                         "%s returned %d",                                     \
+                         frame->root, old_THIS->name, (int32_t)(op_ret));      \
         } else {                                                               \
             gf_msg_trace("stack-trace", 0,                                     \
                          "stack-address: %p, "                                 \
                          "%s returned %d",                                     \
-                         frame->root, THIS->name, (int32_t)(op_ret));          \
+                         frame->root, old_THIS->name, (int32_t)(op_ret));      \
         }                                                                      \
         fn = (fop_##fop##_cbk_t)frame->ret;                                    \
         _parent = frame->parent;                                               \
@@ -401,7 +378,6 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             }                                                                  \
         }                                                                      \
         UNLOCK(&frame->root->stack_lock);                                      \
-        old_THIS = THIS;                                                       \
         THIS = _parent->this;                                                  \
         frame->complete = _gf_true;                                            \
         frame->unwind_from = __FUNCTION__;                                     \
@@ -409,11 +385,11 @@ get_the_pt_fop(void *base_fop, int fop_idx)
             timespec_now(&frame->end);                                         \
             /* required for top most xlator */                                 \
             if (_parent->ret == NULL)                                          \
-                timespec_now(&_parent->end);                                   \
+                memcpy(&_parent->end, &frame->end, sizeof(struct timespec));   \
         }                                                                      \
         if (op_ret < 0) {                                                      \
-            GF_ATOMIC_INC(THIS->stats[frame->op].total_fop_cbk);               \
-            GF_ATOMIC_INC(THIS->stats[frame->op].interval_fop_cbk);            \
+            GF_ATOMIC_INC(_parent->this->stats[frame->op].total_fop_cbk);      \
+            GF_ATOMIC_INC(_parent->this->stats[frame->op].interval_fop_cbk);   \
         }                                                                      \
         fn(_parent, frame->cookie, _parent->this, op_ret, op_errno, params);   \
         THIS = old_THIS;                                                       \
@@ -450,10 +426,9 @@ call_frames_count(call_stack_t *call_stack)
     call_frame_t *pos;
     int32_t count = 0;
 
-    if (!call_stack)
-        return count;
-
-    list_for_each_entry(pos, &call_stack->myframes, frames) count++;
+    if (call_stack) {
+        list_for_each_entry(pos, &call_stack->myframes, frames) count++;
+    }
 
     return count;
 }
@@ -465,19 +440,19 @@ copy_frame(call_frame_t *frame)
     call_stack_t *oldstack = NULL;
     call_frame_t *newframe = NULL;
 
-    if (!frame) {
+    if (caa_unlikely(!frame)) {
         return NULL;
     }
 
     newstack = mem_get0(frame->root->pool->stack_mem_pool);
-    if (newstack == NULL) {
+    if (caa_unlikely(newstack == NULL)) {
         return NULL;
     }
 
     INIT_LIST_HEAD(&newstack->myframes);
 
     newframe = mem_get0(frame->root->pool->frame_mem_pool);
-    if (!newframe) {
+    if (caa_unlikely(!newframe)) {
         mem_put(newstack);
         return NULL;
     }

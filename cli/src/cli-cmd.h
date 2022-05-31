@@ -111,7 +111,7 @@ cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
                fop_cbk_fn_t cbkfn, xdrproc_t xdrproc);
 
 int
-cli_cmd_pattern_cmp(void *a, void *b);
+cli_cmd_pattern_cmp(const void *a, const void *b);
 
 void
 cli_cmd_sort(struct cli_cmd *cmd, int count);

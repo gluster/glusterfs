@@ -10,6 +10,7 @@
 
 #include <regex.h>
 
+#include "cli1-xdr.h"
 #include "dht-mem-types.h"
 #include "dht-messages.h"
 #include <glusterfs/call-stub.h>
@@ -389,41 +390,6 @@ struct dht_du {
     uint32_t frsize; /*fragment size*/
 };
 typedef struct dht_du dht_du_t;
-
-enum gf_defrag_type {
-    GF_DEFRAG_CMD_NONE = 0,
-    GF_DEFRAG_CMD_START = 1,
-    GF_DEFRAG_CMD_STOP = 1 + 1,
-    GF_DEFRAG_CMD_STATUS = 1 + 2,
-    GF_DEFRAG_CMD_START_LAYOUT_FIX = 1 + 3,
-    GF_DEFRAG_CMD_START_FORCE = 1 + 4,
-    GF_DEFRAG_CMD_DETACH_STATUS = 1 + 11,
-    GF_DEFRAG_CMD_DETACH_START = 1 + 13,
-    GF_DEFRAG_CMD_DETACH_COMMIT = 1 + 14,
-    GF_DEFRAG_CMD_DETACH_COMMIT_FORCE = 1 + 15,
-    GF_DEFRAG_CMD_DETACH_STOP = 1 + 16,
-    /* new labels are used so it will help
-     * while removing old labels by easily differentiating.
-     * A few labels are added so that the count remains same
-     * between this enum and the ones on the xdr file.
-     * different values for the same enum cause errors and
-     * confusion.
-     */
-};
-typedef enum gf_defrag_type gf_defrag_type;
-
-enum gf_defrag_status_t {
-    GF_DEFRAG_STATUS_NOT_STARTED,
-    GF_DEFRAG_STATUS_STARTED,
-    GF_DEFRAG_STATUS_STOPPED,
-    GF_DEFRAG_STATUS_COMPLETE,
-    GF_DEFRAG_STATUS_FAILED,
-    GF_DEFRAG_STATUS_LAYOUT_FIX_STARTED,
-    GF_DEFRAG_STATUS_LAYOUT_FIX_STOPPED,
-    GF_DEFRAG_STATUS_LAYOUT_FIX_COMPLETE,
-    GF_DEFRAG_STATUS_LAYOUT_FIX_FAILED,
-};
-typedef enum gf_defrag_status_t gf_defrag_status_t;
 
 typedef struct gf_defrag_pattern_list gf_defrag_pattern_list_t;
 

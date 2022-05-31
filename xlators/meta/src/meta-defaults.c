@@ -423,9 +423,9 @@ meta_default_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
             if (this_size + filled_size > size)
                 goto unwind;
 
-            list = gf_dirent_for_name2(dirents->name, dirents_name_len, i + 42,
-                                       i + 1,
-                                       gf_d_type_from_ia_type(dirents->type));
+            list = gf_dirent_for_name2(
+                dirents->name, dirents_name_len, i + 42, i + 1,
+                gf_d_type_from_ia_type(dirents->type), NULL);
             if (!list)
                 break;
 

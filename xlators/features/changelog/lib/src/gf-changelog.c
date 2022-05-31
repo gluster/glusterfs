@@ -15,7 +15,6 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE

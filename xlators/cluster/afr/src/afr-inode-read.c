@@ -38,10 +38,9 @@
  * */
 
 int
-afr_handle_quota_size(call_frame_t *frame, xlator_t *this)
+afr_handle_quota_size(afr_local_t *local, xlator_t *this)
 {
     unsigned char *readable = NULL;
-    afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     struct afr_reply *replies = NULL;
     int i = 0;
@@ -55,7 +54,6 @@ afr_handle_quota_size(call_frame_t *frame, xlator_t *this)
     int readable_cnt = 0;
     int read_subvol = -1;
 
-    local = frame->local;
     priv = this->private;
     replies = local->replies;
 
@@ -853,7 +851,7 @@ afr_getxattr_quota_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     call_count = afr_frame_return(frame);
     if (call_count == 0) {
         local->inode = inode_ref(local->loc.inode);
-        read_subvol = afr_handle_quota_size(frame, this);
+        read_subvol = afr_handle_quota_size(local, this);
         if (read_subvol != -1) {
             op_ret = local->replies[read_subvol].op_ret;
             op_errno = local->replies[read_subvol].op_errno;
@@ -1393,15 +1391,12 @@ out:
 }
 
 static void
-afr_getxattr_all_subvols(xlator_t *this, call_frame_t *frame, const char *name,
-                         loc_t *loc, fop_getxattr_cbk_t cbk)
+afr_getxattr_all_subvols(afr_private_t *priv, call_frame_t *frame,
+                         const char *name, loc_t *loc, fop_getxattr_cbk_t cbk)
 {
-    afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     int i = 0;
     int call_count = 0;
-
-    priv = this->private;
 
     local = frame->local;
     // local->call_count set in afr_local_init
@@ -1555,7 +1550,7 @@ afr_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *name,
      * Special xattrs which need responses from all subvols
      */
     if (afr_is_special_xattr(name, &cbk, 0)) {
-        afr_getxattr_all_subvols(this, frame, name, loc, cbk);
+        afr_getxattr_all_subvols(priv, frame, name, loc, cbk);
         return 0;
     }
 
@@ -1629,15 +1624,12 @@ afr_fgetxattr_wind(call_frame_t *frame, xlator_t *this, int subvol)
 }
 
 static void
-afr_fgetxattr_all_subvols(xlator_t *this, call_frame_t *frame,
+afr_fgetxattr_all_subvols(afr_private_t *priv, call_frame_t *frame,
                           fop_fgetxattr_cbk_t cbk)
 {
-    afr_private_t *priv = NULL;
     afr_local_t *local = NULL;
     int i = 0;
     int call_count = 0;
-
-    priv = this->private;
 
     local = frame->local;
     // local->call_count set in afr_local_init
@@ -1690,7 +1682,7 @@ afr_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
      * collect information from all children.
      */
     if (afr_is_special_xattr(name, &cbk, 1)) {
-        afr_fgetxattr_all_subvols(this, frame, cbk);
+        afr_fgetxattr_all_subvols(this->private, frame, cbk);
         return 0;
     }
 

@@ -2179,9 +2179,8 @@ server4_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     if (op_ret < 0) {
         gf_smsg(this->name, GF_LOG_INFO, op_errno, PS_MSG_CREATE_INFO,
-                "frame=%" PRId64, uuid_utoa(state->resolve.gfid),
-                "ICREATE_gfid=%s", uuid_utoa(state->resolve.gfid),
-                "op_errno=%s", strerror(op_errno), NULL);
+                "frame=%" PRId64, frame->root->unique, "ICREATE_gfid=%s",
+                uuid_utoa(state->resolve.gfid), NULL);
         goto out;
     }
 

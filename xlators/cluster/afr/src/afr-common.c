@@ -162,7 +162,7 @@ afr_dom_lock_acquire(call_frame_t *frame)
     AFR_ONALL(frame, afr_dom_lock_acquire_cbk, finodelk, AFR_LK_HEAL_DOM,
               local->fd, F_SETLK, &flock, NULL);
 
-    if (!afr_has_quorum(local->cont.lk.dom_locked_nodes, frame->this, NULL))
+    if (!afr_has_quorum(local->cont.lk.dom_locked_nodes, priv, NULL))
         goto blocking_lock;
 
     /*If any of the bricks returned EAGAIN, we still need blocking locks.*/
@@ -181,7 +181,7 @@ blocking_lock:
     afr_dom_lock_release(frame);
     AFR_ONALL(frame, afr_dom_lock_acquire_cbk, finodelk, AFR_LK_HEAL_DOM,
               local->fd, F_SETLKW, &flock, NULL);
-    if (!afr_has_quorum(local->cont.lk.dom_locked_nodes, frame->this, NULL)) {
+    if (!afr_has_quorum(local->cont.lk.dom_locked_nodes, priv, NULL)) {
         afr_dom_lock_release(frame);
         return -afr_quorum_errno(priv);
     }
@@ -660,7 +660,7 @@ __afr_mark_pending_lk_heal(xlator_t *this, afr_private_t *priv, int child)
         info->child_down_event_gen[child] = priv->event_generation;
         if (info->locked_nodes[child] == 1)
             info->locked_nodes[child] = 0;
-        if (!afr_has_quorum(info->locked_nodes, this, NULL)) {
+        if (!afr_has_quorum(info->locked_nodes, priv, NULL)) {
             /* Since the lock was lost on quorum no. of nodes, we should
              * not attempt to heal it anymore. Some other client could have
              * acquired the lock, modified data and released it and this
@@ -1847,7 +1847,7 @@ afr_inode_refresh_done(call_frame_t *frame, xlator_t *this, int error)
         goto refresh_done;
     }
 
-    if (!afr_has_quorum(success_replies, this, frame)) {
+    if (!afr_has_quorum(success_replies, priv, frame)) {
         error = afr_final_errno(frame->local, this->private);
         if (!error)
             error = afr_quorum_errno(priv);
@@ -2880,7 +2880,7 @@ afr_attempt_readsubvol_set(call_frame_t *frame, xlator_t *this,
                frame->root->pid == GF_CLIENT_PID_GLFS_HEAL) {
         *read_subvol = afr_first_up_child(frame, this);
     } else if (priv->quorum_count &&
-               afr_has_quorum(data_readable, this, NULL)) {
+               afr_has_quorum(data_readable, priv, NULL)) {
         /* read_subvol is guaranteed to be valid if we hit this path. */
         *read_subvol = afr_first_up_child(frame, this);
     } else {
@@ -2975,7 +2975,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         }
     }
 
-    if (in_flight_create && !afr_has_quorum(success_replies, this, NULL)) {
+    if (in_flight_create && !afr_has_quorum(success_replies, priv, NULL)) {
         local->op_ret = -1;
         local->op_errno = ENOENT;
         goto error;
@@ -3025,7 +3025,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
     read_subvol = -1;
     memset(readable, 0, sizeof(*readable) * priv->child_count);
     if (can_interpret) {
-        if (!afr_has_quorum(success_replies, this, NULL))
+        if (!afr_has_quorum(success_replies, priv, NULL))
             goto cant_interpret;
         /* It is safe to call afr_replies_interpret() because we have
            a response from all the UP subvolumes and all of them resolved
@@ -3051,7 +3051,7 @@ afr_lookup_done(call_frame_t *frame, xlator_t *this)
         }
     }
 
-    afr_handle_quota_size(frame, this);
+    afr_handle_quota_size(local, this);
 
     afr_set_need_heal(this, local);
     if (AFR_IS_ARBITER_BRICK(priv, read_subvol) && local->op_ret == 0) {
@@ -3509,7 +3509,7 @@ afr_lookup_entry_heal(call_frame_t *frame, xlator_t *this)
     if (name_state_mismatch) {
         if (!priv->quorum_count)
             goto name_heal;
-        if (!afr_has_quorum(success, this, NULL))
+        if (!afr_has_quorum(success, priv, NULL))
             goto name_heal;
         if (op_errno)
             goto name_heal;
@@ -3617,7 +3617,7 @@ afr_discover_unwind(call_frame_t *frame, xlator_t *this)
         goto error;
     }
 
-    if (!afr_has_quorum(success_replies, this, frame))
+    if (!afr_has_quorum(success_replies, priv, frame))
         goto unwind;
 
     ret = afr_replies_interpret(frame, this, local->inode, NULL);
@@ -4639,7 +4639,7 @@ afr_fop_lock_done(call_frame_t *frame, xlator_t *this)
 
     if (afr_is_conflicting_lock_present(local->op_ret, local->op_errno)) {
         afr_unlock_locks_and_proceed(frame, this, lock_count);
-    } else if (priv->quorum_count && !afr_has_quorum(success, this, NULL)) {
+    } else if (priv->quorum_count && !afr_has_quorum(success, priv, NULL)) {
         local->fop_lock_state = AFR_FOP_LOCK_QUORUM_FAILED;
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
@@ -5135,7 +5135,7 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                           local->cont.lk.cmd, &local->cont.lk.user_flock,
                           local->xdata_req);
     } else if (priv->quorum_count &&
-               !afr_has_quorum(local->cont.lk.locked_nodes, this, NULL)) {
+               !afr_has_quorum(local->cont.lk.locked_nodes, priv, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
 
@@ -5229,7 +5229,7 @@ afr_lk_transaction(void *opaque)
         goto err;
     }
     if (priv->quorum_count &&
-        !afr_has_quorum(local->cont.lk.dom_locked_nodes, this, NULL)) {
+        !afr_has_quorum(local->cont.lk.dom_locked_nodes, priv, NULL)) {
         op_errno = afr_final_errno(local, priv);
         goto err;
     }
@@ -5243,7 +5243,7 @@ afr_lk_transaction(void *opaque)
                local->xdata_req);
 
     if (priv->quorum_count &&
-        !afr_has_quorum(local->cont.lk.locked_nodes, this, NULL)) {
+        !afr_has_quorum(local->cont.lk.locked_nodes, priv, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
         goto unlock;
@@ -5424,7 +5424,7 @@ afr_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
                           priv->children[child_index]->fops->lease, &local->loc,
                           &local->cont.lease.user_lease, xdata);
     } else if (priv->quorum_count &&
-               !afr_has_quorum(local->cont.lease.locked_nodes, this, NULL)) {
+               !afr_has_quorum(local->cont.lease.locked_nodes, priv, NULL)) {
         local->op_ret = -1;
         local->op_errno = afr_final_errno(local, priv);
 
@@ -5665,7 +5665,7 @@ afr_priv_dump(xlator_t *this)
         gf_proc_dump_write("quorum-type", "fixed");
         gf_proc_dump_write("quorum-count", "%d", priv->quorum_count);
     }
-    gf_proc_dump_write("up", "%u", afr_has_quorum(priv->child_up, this, NULL));
+    gf_proc_dump_write("up", "%u", afr_has_quorum(priv->child_up, priv, NULL));
     if (priv->thin_arbiter_count) {
         gf_proc_dump_write("ta_child_up", "%d", priv->ta_child_up);
         gf_proc_dump_write("ta_bad_child_index", "%d",
@@ -6268,7 +6268,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     }
 
     had_quorum = priv->quorum_count &&
-                 afr_has_quorum(priv->child_up, this, NULL);
+                 afr_has_quorum(priv->child_up, priv, NULL);
     if (event == GF_EVENT_CHILD_PING) {
         child_latency_msec = (int64_t)(uintptr_t)data2;
         if (priv->halo_enabled) {
@@ -6394,7 +6394,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
     UNLOCK(&priv->lock);
 
     if (priv->quorum_count) {
-        has_quorum = afr_has_quorum(priv->child_up, this, NULL);
+        has_quorum = afr_has_quorum(priv->child_up, priv, NULL);
         if (!had_quorum && has_quorum) {
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_QUORUM_MET,
                    "Client-quorum is met");
@@ -6435,7 +6435,7 @@ out:
 int
 afr_local_init(afr_local_t *local, afr_private_t *priv, int32_t *op_errno)
 {
-    int __ret = -1;
+    int __ret;
     local->op_ret = -1;
     local->op_errno = EUCLEAN;
 
@@ -7792,7 +7792,7 @@ afr_handle_replies_quorum(call_frame_t *frame, xlator_t *this)
     success_replies = alloca0(priv->child_count);
     afr_fill_success_replies(local, priv, success_replies);
 
-    if (priv->quorum_count && !afr_has_quorum(success_replies, this, NULL)) {
+    if (priv->quorum_count && !afr_has_quorum(success_replies, priv, NULL)) {
         local->op_errno = afr_final_errno(local, priv);
         if (!local->op_errno)
             local->op_errno = afr_quorum_errno(priv);

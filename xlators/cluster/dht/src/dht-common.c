@@ -6906,7 +6906,7 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     list:
         entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
                                     orig_entry->d_ino, orig_entry->d_off,
-                                    orig_entry->d_type);
+                                    orig_entry->d_type, &orig_entry->d_stat);
         if (!entry) {
             goto unwind;
         }
@@ -6920,8 +6920,6 @@ dht_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 layout->search_unhashed++;
             }
         }
-
-        entry->d_stat = orig_entry->d_stat;
 
         if (orig_entry->dict)
             entry->dict = dict_ref(orig_entry->dict);
@@ -7152,7 +7150,7 @@ dht_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             add = _gf_false;
             entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
                                         orig_entry->d_ino, orig_entry->d_off,
-                                        orig_entry->d_type);
+                                        orig_entry->d_type, NULL);
             if (!entry) {
                 gf_msg(this->name, GF_LOG_ERROR, ENOMEM, DHT_MSG_NO_MEMORY,
                        "Memory allocation failed ");
@@ -11007,7 +11005,7 @@ dht_notify(xlator_t *this, int event, void *data, ...)
     int have_heard_from_all = 0;
     gf_defrag_info_t *defrag = NULL;
     dict_t *dict = NULL;
-    gf_defrag_type cmd = 0;
+    gf_defrag_type_t cmd = 0;
     dict_t *output = NULL;
     va_list ap;
     struct gf_upcall *up_data = NULL;

@@ -195,7 +195,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 dht_rename_hashed_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                           int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
                           struct iatt *preoldparent, struct iatt *postoldparent,
@@ -261,7 +261,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 dht_rename_dir_do(call_frame_t *frame, xlator_t *this)
 {
     dht_local_t *local = NULL;
@@ -283,7 +283,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_rename_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, gf_dirent_t *entries,
                        dict_t *xdata)
@@ -311,7 +311,7 @@ dht_rename_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 dht_rename_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -347,7 +347,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_rename_dir_lock2_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -406,7 +406,7 @@ err:
     return 0;
 }
 
-int
+static int
 dht_rename_dir_lock1_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -759,7 +759,7 @@ dht_rename_done(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 dht_rename_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                       struct iatt *postparent, dict_t *xdata)
@@ -1004,7 +1004,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 dht_rename_links_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, inode_t *inode,
                             struct iatt *stbuf, struct iatt *preparent,
@@ -1232,7 +1232,7 @@ cleanup:
     return 0;
 }
 
-int
+static int
 dht_rename_linkto_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, inode_t *inode,
                       struct iatt *stbuf, struct iatt *preparent,
@@ -1458,7 +1458,7 @@ cleanup:
     return ret;
 }
 
-int
+static int
 dht_rename_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int op_ret, int op_errno, inode_t *inode,
                       struct iatt *stbuf, dict_t *xattr,
@@ -1658,7 +1658,7 @@ err:
     return 0;
 }
 
-int32_t
+static int32_t
 dht_rename_file_protect_namespace(call_frame_t *frame, void *cookie,
                                   xlator_t *this, int32_t op_ret,
                                   int32_t op_errno, dict_t *xdata)

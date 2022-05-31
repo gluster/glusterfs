@@ -39,7 +39,7 @@ static int
 dht_migrate_file(xlator_t *this, loc_t *loc, xlator_t *cached_subvol,
                  xlator_t *hashed_subvol, int flag, int *fop_errno);
 
-void
+static void
 gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 {
     int i = 0;
@@ -62,7 +62,7 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
     }
 }
 
-void
+static void
 gf_defrag_free_container(struct dht_container *container)
 {
     if (container) {
@@ -78,7 +78,7 @@ gf_defrag_free_container(struct dht_container *container)
     }
 }
 
-void
+static void
 dht_set_global_defrag_error(gf_defrag_info_t *defrag, int ret)
 {
     LOCK(&defrag->lock);
@@ -1261,7 +1261,7 @@ out:
     return ret;
 }
 
-int
+static int
 migrate_special_files(xlator_t *this, xlator_t *from, xlator_t *to, loc_t *loc,
                       struct iatt *buf, int *fop_errno)
 {
@@ -2428,7 +2428,7 @@ gf_listener_stop(xlator_t *this)
     return ret;
 }
 
-void
+static void
 dht_build_root_inode(xlator_t *this, inode_t **inode)
 {
     inode_table_t *itable = NULL;
@@ -2454,7 +2454,7 @@ dht_build_root_loc(inode_t *inode, loc_t *loc)
 /* return values: 1 -> error, bug ignore and continue
                   0 -> proceed
                  -1 -> error, handle it */
-int32_t
+static int32_t
 gf_defrag_handle_migrate_error(int32_t op_errno, gf_defrag_info_t *defrag)
 {
     int ret = 0;
@@ -2502,7 +2502,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_dfreaddirp_done(dht_dfoffset_ctx_t *offset_var, int cnt)
 {
     int i;
@@ -2566,7 +2566,7 @@ out:
  * all hardlinks.
  */
 
-gf_boolean_t
+static gf_boolean_t
 gf_defrag_should_i_migrate(xlator_t *this, int local_subvol_index, uuid_t gfid)
 {
     gf_boolean_t ret = _gf_false;
@@ -2622,7 +2622,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_migrate_single_file(void *opaque)
 {
     xlator_t *this = NULL;
@@ -3202,7 +3202,7 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
         }
         tmp_container->df_entry = gf_dirent_for_name2(
             df_entry->d_name, df_entry->d_len, df_entry->d_ino, 0,
-            df_entry->d_type);
+            df_entry->d_type, &df_entry->d_stat);
         if (!tmp_container->df_entry) {
             gf_log(this->name, GF_LOG_ERROR,
                    "Failed to allocate "
@@ -3212,8 +3212,6 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
         }
 
         tmp_container->local_subvol_index = i;
-
-        tmp_container->df_entry->d_stat = df_entry->d_stat;
 
         tmp_container->parent_loc = GF_CALLOC(1, sizeof(*loc), gf_dht_mt_loc_t);
         if (!tmp_container->parent_loc) {
@@ -3528,7 +3526,7 @@ out:
     return ret;
 }
 
-int
+static int
 gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                       dict_t *fix_layout)
 {
@@ -3547,11 +3545,6 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     }
 
     conf = this->private;
-    if (!conf) {
-        /*Uh oh
-         */
-        return -1;
-    }
 
     if (conf->local_subvols_cnt == 0 || !conf->lookup_optimize) {
         /* Commit hash updates are only done on local subvolumes and
@@ -3587,7 +3580,7 @@ gf_defrag_settle_hash(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     return 0;
 }
 
-int
+static int
 gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
                      dict_t *fix_layout, dict_t *migrate_data)
 {
@@ -3612,11 +3605,6 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     int perrno = 0;
 
     conf = this->private;
-    if (!conf) {
-        ret = -1;
-        goto out;
-    }
-
     ret = syncop_lookup(this, loc, &iatt, NULL, NULL, NULL);
     if (ret) {
         if (-ret == ENOENT || -ret == ESTALE) {
@@ -3885,7 +3873,7 @@ out:
     return ret;
 }
 
-int
+static int
 dht_init_local_subvols_and_nodeuuids(xlator_t *this, dht_conf_t *conf,
                                      loc_t *loc)
 {
@@ -3945,7 +3933,7 @@ out:
 
 /* Functions for the rebalance estimates feature */
 
-uint64_t
+static uint64_t
 gf_defrag_subvol_file_size(xlator_t *this, loc_t *root_loc)
 {
     int ret = -1;
@@ -3961,7 +3949,7 @@ gf_defrag_subvol_file_size(xlator_t *this, loc_t *root_loc)
     return ((buf.f_blocks - buf.f_bfree) * buf.f_frsize);
 }
 
-uint64_t
+static uint64_t
 gf_defrag_total_file_size(xlator_t *this, loc_t *root_loc)
 {
     dht_conf_t *conf = NULL;
@@ -4040,7 +4028,7 @@ dht_file_counter_thread(void *args)
     return NULL;
 }
 
-int
+static int
 gf_defrag_estimates_cleanup(xlator_t *this, gf_defrag_info_t *defrag,
                             pthread_t filecnt_thread)
 {
@@ -4100,7 +4088,7 @@ out:
 }
 
 /* Init and cleanup functions for parallel file migration*/
-int
+static int
 gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
                                   pthread_t **tid_array, int *thread_index)
 {
@@ -4108,9 +4096,6 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
     int thread_spawn_count = 0;
     int index = 0;
     pthread_t *tid = NULL;
-
-    if (!defrag)
-        goto out;
 
     /* Initialize global entry queue */
     defrag->queue = GF_CALLOC(1, sizeof(struct dht_container),
@@ -4165,16 +4150,11 @@ out:
     return ret;
 }
 
-int
+static void
 gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
                                      pthread_t *tid_array, int thread_index)
 {
-    int ret = -1;
     int i = 0;
-
-    if (!defrag)
-        goto out;
-
     /* Wake up all migration threads */
     pthread_mutex_lock(&defrag->dfq_mutex);
     {
@@ -4199,13 +4179,9 @@ gf_defrag_parallel_migration_cleanup(gf_defrag_info_t *defrag,
     }
 
     GF_FREE(defrag->queue);
-
-    ret = 0;
-out:
-    return ret;
 }
 
-int
+static int
 gf_defrag_start_crawl(void *data)
 {
     xlator_t *this = NULL;
@@ -4499,7 +4475,7 @@ out:
     return NULL;
 }
 
-uint64_t
+static uint64_t
 gf_defrag_get_estimates_based_on_size(dht_conf_t *conf)
 {
     gf_defrag_info_t *defrag = NULL;
