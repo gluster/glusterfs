@@ -2130,7 +2130,7 @@ glusterd_options_reset(glusterd_volinfo_t *volinfo, char *key,
     }
 
     gd_update_volume_op_versions(volinfo);
-    if (!volinfo->is_snap_volume) {
+    if (!volinfo_has_snap_volume(volinfo)) {
         svc = &(volinfo->snapd.svc);
         ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
         if (ret)
@@ -2630,7 +2630,7 @@ glusterd_op_set_all_volume_options(xlator_t *this, dict_t *dict,
                 if (glusterd_dict_set_skip_cliot_key(volinfo))
                     goto out;
 
-                if (!volinfo->is_snap_volume) {
+                if (!volinfo_has_snap_volume(volinfo)) {
                     svc = &(volinfo->snapd.svc);
                     ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
                     if (ret)
@@ -2947,12 +2947,17 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
         }
 
         if (strcmp(key, "config.memory-accounting") == 0) {
-            ret = gf_string2boolean(value, &volinfo->memory_accounting);
+            gf_boolean_t val = _gf_false;
+            ret = gf_string2boolean(value, &val);
             if (ret == -1) {
                 gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                        "Invalid value in key-value pair.");
                 goto out;
             }
+            if (val)
+                volinfo_set_memory_accounting(volinfo);
+            else
+                volinfo_clear_memory_accounting(volinfo);
         }
 
         if (strcmp(key, "config.transport") == 0) {
@@ -3050,7 +3055,7 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
     if (!global_opts_set) {
         gd_update_volume_op_versions(volinfo);
 
-        if (!volinfo->is_snap_volume) {
+        if (!volinfo_has_snap_volume(volinfo)) {
             svc = &(volinfo->snapd.svc);
             ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
             if (ret)
@@ -3095,7 +3100,7 @@ glusterd_op_set_volume(dict_t *dict, char **errstr)
             volinfo = voliter;
             gd_update_volume_op_versions(volinfo);
 
-            if (!volinfo->is_snap_volume) {
+            if (!volinfo_has_snap_volume(volinfo)) {
                 svc = &(volinfo->snapd.svc);
                 ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
                 if (ret)

@@ -2496,8 +2496,8 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (ret)
         return -1;
 
-    volname = volinfo->is_snap_volume ? volinfo->parent_volname
-                                      : volinfo->volname;
+    volname = (volinfo_has_snap_volume(volinfo) ? volinfo->parent_volname
+                                                : volinfo->volname);
 
     if (volname && !strcmp(volname, GLUSTER_SHARED_STORAGE)) {
         ret = xlator_set_fixed_option(xl, "strict-auth-accept", "true");
@@ -4313,7 +4313,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     /* As of now snapshot volume is read-only. Read-only xlator is loaded
      * in client graph so that AFR & DHT healing can be done in server.
      */
-    if (volinfo->is_snap_volume) {
+    if (volinfo_has_snap_volume(volinfo)) {
         xl = volgen_graph_add(graph, "features/read-only", volname);
         if (!xl) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GRAPH_FEATURE_ADD_FAIL,
@@ -4467,7 +4467,7 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     uss_enabled = dict_get_str_boolean(set_dict, "features.uss", _gf_false);
     if (uss_enabled == -1)
         goto out;
-    if (uss_enabled && !volinfo->is_snap_volume) {
+    if (uss_enabled && !volinfo_has_snap_volume(volinfo)) {
         ret = volgen_graph_build_snapview_client(graph, volinfo, volname,
                                                  set_dict);
         if (ret == -1)
@@ -5526,7 +5526,7 @@ generate_brick_volfiles(glusterd_volinfo_t *volinfo)
              * 'marker.tstamp' to decide the volume-mark, i.e.,
              * geo-rep start time just after session is created.
              */
-            if (volinfo->is_snap_volume) {
+            if (volinfo_has_snap_volume(volinfo)) {
                 get_parent_vol_tstamp_file(parent_tstamp_file, volinfo);
                 ret = gf_set_timestamp(parent_tstamp_file, tstamp_file);
                 if (ret) {
@@ -5775,8 +5775,8 @@ generate_client_volfiles(glusterd_volinfo_t *volinfo,
     dict_t *dict = NULL;
     gf_transport_type type = GF_TRANSPORT_TCP;
 
-    volname = volinfo->is_snap_volume ? volinfo->parent_volname
-                                      : volinfo->volname;
+    volname = (volinfo_has_snap_volume(volinfo) ? volinfo->parent_volname
+                                                : volinfo->volname);
 
     if (volname && !strcmp(volname, GLUSTER_SHARED_STORAGE) &&
         client_type != GF_CLIENT_TRUSTED) {

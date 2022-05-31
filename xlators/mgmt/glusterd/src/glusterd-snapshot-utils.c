@@ -681,7 +681,7 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
     }
 
     snprintf(key, sizeof(key), "%s.is_snap_volume", prefix);
-    ret = dict_set_uint32(dict, key, volinfo->is_snap_volume);
+    ret = dict_set_uint32(dict, key, !!volinfo_has_snap_volume(volinfo));
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set %s for volume"
@@ -1050,6 +1050,7 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
     char *restored_snapname_id = NULL;
     char *restored_snapname = NULL;
     char *snap_plugin = NULL;
+    uint32_t is_snap_int = -1;
 
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
@@ -1065,7 +1066,6 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
     }
 
     snprintf(key, sizeof(key), "%s.is_snap_volume", prefix);
-    uint32_t is_snap_int;
     ret = dict_get_uint32(dict, key, &is_snap_int);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -1074,7 +1074,10 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
                key, volname);
         goto out;
     }
-    volinfo->is_snap_volume = (is_snap_int != 0);
+    if (is_snap_int)
+        volinfo_set_snap_volume(volinfo);
+    else
+        volinfo_clear_snap_volume(volinfo);
 
     snprintf(key, sizeof(key), "%s.restored_from_snap", prefix);
     ret = dict_get_str(dict, key, &restored_snap);
@@ -3785,7 +3788,7 @@ glusterd_copy_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
         goto out;
     }
 
-    if (src_vol->is_snap_volume) {
+    if (volinfo_has_snap_volume(src_vol)) {
         GLUSTERD_GET_SNAP_DIR(snap_dir, src_vol->snapshot, priv);
         ret = snprintf(src_path, PATH_MAX, "%s/export.%s.conf", snap_dir,
                        src_vol->snapshot->snapname);
@@ -3808,7 +3811,7 @@ glusterd_copy_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
         goto out;
     }
 
-    if (dest_vol->is_snap_volume) {
+    if (volinfo_has_snap_volume(dest_vol)) {
         memset(snap_dir, 0, PATH_MAX);
         GLUSTERD_GET_SNAP_DIR(snap_dir, dest_vol->snapshot, priv);
         ret = snprintf(dest_path, sizeof(dest_path), "%s/export.%s.conf",
@@ -3843,7 +3846,7 @@ glusterd_copy_nfs_ganesha_file(glusterd_volinfo_t *src_vol,
          * if the source volume is snapshot, the export conf file
          * consists of orginal volname
          */
-        if (src_vol->is_snap_volume)
+        if (volinfo_has_snap_volume(src_vol))
             find_ptr = gf_strdup(src_vol->parent_volname);
         else
             find_ptr = gf_strdup(src_vol->volname);

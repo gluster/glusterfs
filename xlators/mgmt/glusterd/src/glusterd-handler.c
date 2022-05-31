@@ -5030,7 +5030,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
                 }
                 keylen = sprintf(dict_key, "value%d", count);
 
-                if (volinfo->memory_accounting)
+                if (volinfo_has_memory_accounting(volinfo))
                     ret = dict_set_nstrn(dict, dict_key, keylen, "Enabled",
                                          SLEN("Enabled"));
                 else

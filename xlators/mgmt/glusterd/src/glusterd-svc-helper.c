@@ -115,7 +115,7 @@ glusterd_svcs_manager(glusterd_volinfo_t *volinfo)
     conf = THIS->private;
     GF_ASSERT(conf);
 
-    if (volinfo && volinfo->is_snap_volume)
+    if (volinfo && volinfo_has_snap_volume(volinfo))
         return 0;
 
 #if BUILD_GNFS

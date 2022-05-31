@@ -318,8 +318,9 @@ glusterd_gfproxydsvc_start(glusterd_svc_t *svc, int flags)
                     svc->proc.logfile, "--brick-name", gfproxyd_id, "-S",
                     svc->conn.sockpath, NULL);
 
-    if (volinfo->memory_accounting)
+    if (volinfo_has_memory_accounting(volinfo))
         runner_add_arg(&runner, "--mem-accounting");
+
     if (dict_get_strn(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
                       SLEN(GLUSTERD_LOCALTIME_LOGGING_KEY),
                       &localtime_logging) == 0) {

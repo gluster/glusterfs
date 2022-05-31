@@ -1860,7 +1860,7 @@ retry:
         runner_argprintf(&runner, "--log-file=%s", valgrind_logfile);
     }
 
-    if (volinfo->is_snap_volume) {
+    if (volinfo_has_snap_volume(volinfo)) {
         len = snprintf(volfile, PATH_MAX, "/%s/%s/%s/%s.%s.%s",
                        GLUSTERD_VOL_SNAP_DIR_PREFIX,
                        volinfo->snapshot->snapname, volinfo->volname,
@@ -1904,7 +1904,7 @@ retry:
             runner_add_arg(&runner, "--localtime-logging");
     }
 
-    if (volinfo->is_snap_volume) {
+    if (volinfo_has_snap_volume(volinfo)) {
         /* If the Brick process belongs to a Snapshot brick then set
            the parent Volume ID itself as Volume ID. This is to avoid
            setting xattr when a Snapshot is created. Setting Xattr fails
@@ -2006,7 +2006,7 @@ retry:
         runner_argprintf(&runner, "transport.address-family=%s", inet_family);
     }
 
-    if (volinfo->memory_accounting)
+    if (volinfo_has_memory_accounting(volinfo))
         runner_add_arg(&runner, "--mem-accounting");
 
     if (is_brick_mx_enabled())
@@ -2873,7 +2873,7 @@ glusterd_add_volume_to_dict(glusterd_volinfo_t *volinfo, dict_t *dict,
         goto out;
 
     snprintf(key, sizeof(key), "%s.stage_deleted", pfx);
-    ret = dict_set_uint32(dict, key, (uint32_t)volinfo->stage_deleted);
+    ret = dict_set_uint32(dict, key, !!volinfo_has_stage_deleted(volinfo));
     if (ret)
         goto out;
 
@@ -4765,7 +4765,7 @@ glusterd_delete_stale_volume(glusterd_volinfo_t *stale_volinfo,
      */
     stale_volinfo->status = GLUSTERD_STATUS_STOPPED;
 
-    if (!stale_volinfo->is_snap_volume) {
+    if (!volinfo_has_snap_volume(stale_volinfo)) {
         svc = &(stale_volinfo->snapd.svc);
         (void)svc->manager(svc, stale_volinfo, PROC_START_NO_WAIT);
     }
@@ -5770,7 +5770,7 @@ attach_brick(xlator_t *this, glusterd_brickinfo_t *brickinfo,
 
     GLUSTERD_REMOVE_SLASH_FROM_PATH(brickinfo->path, unslashed);
 
-    if (volinfo->is_snap_volume) {
+    if (volinfo_has_snap_volume(volinfo)) {
         len = snprintf(full_id, sizeof(full_id), "/%s/%s/%s/%s.%s.%s",
                        GLUSTERD_VOL_SNAP_DIR_PREFIX,
                        volinfo->snapshot->snapname, volinfo->volname,
@@ -6025,7 +6025,7 @@ find_compatible_brick(glusterd_conf_t *conf, glusterd_volinfo_t *volinfo,
      *
      * TBD: address the option-change issue for non-snapshot bricks
      */
-    if (!volinfo->is_snap_volume) {
+    if (!volinfo_has_snap_volume(volinfo)) {
         cds_list_for_each_entry(other_vol, &conf->volumes, vol_list)
         {
             if (other_vol == volinfo) {
@@ -6336,7 +6336,7 @@ glusterd_brick_start(glusterd_volinfo_t *volinfo,
     /* If it is Snapshot brick, allow starting the brick process even if
        on disk Volume id is different than the one in Snap Volume info */
     if (gf_uuid_compare(volinfo->volume_id, volid) &&
-        !volinfo->is_snap_volume) {
+        !volinfo_has_snap_volume(volinfo)) {
         gf_log(this->name, GF_LOG_ERROR,
                "Mismatching %s extended attribute on brick root (%s),"
                " brick is deemed not to be a part of the volume (%s)",
@@ -8546,8 +8546,8 @@ glusterd_friend_remove_cleanup_vols(uuid_t uuid)
     cds_list_for_each_entry_safe(volinfo, tmp_volinfo, &priv->volumes, vol_list)
     {
         if (!glusterd_friend_contains_vol_bricks(volinfo, MY_UUID)) {
-            /*Stop snapd daemon service if snapd daemon is running*/
-            if (!volinfo->is_snap_volume) {
+            /* Stop snapd daemon service if snapd daemon is running. */
+            if (!volinfo_has_snap_volume(volinfo)) {
                 svc = &(volinfo->snapd.svc);
                 ret = svc->stop(svc, SIGTERM);
                 if (ret) {
@@ -12235,9 +12235,6 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
 {
     int ret = 0;
     char msg[2048] = "";
-    gsync_status_param_t param = {
-        0,
-    };
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *v = NULL;
@@ -12279,9 +12276,8 @@ glusterd_brick_op_prerequisites(dict_t *dict, char **op, glusterd_op_t *gd_op,
     }
 
     /* If geo-rep is configured, for this volume, it should be stopped. */
-    param.volinfo = *volinfo;
-    ret = glusterd_check_geo_rep_running(&param, op_errstr);
-    if (ret || param.is_active) {
+    ret = glusterd_check_geo_rep_running(*volinfo, op_errstr);
+    if (ret || volinfo_has_georep_active(*volinfo)) {
         ret = -1;
         goto out;
     }

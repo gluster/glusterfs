@@ -177,7 +177,7 @@ snap_max_limits_display_commit(dict_t *rsp_dict, char *volname, char *op_errstr,
         /* For system limit */
         cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
         {
-            if (volinfo->is_snap_volume == _gf_true)
+            if (volinfo_has_snap_volume(volinfo))
                 continue;
 
             snap_max_limit = volinfo->snap_max_hard_limit;
@@ -1075,7 +1075,7 @@ snap_max_hard_limits_validate(dict_t *dict, char *volname, uint64_t value,
     if (volname) {
         ret = glusterd_volinfo_find(volname, &volinfo);
         if (!ret) {
-            if (volinfo->is_snap_volume) {
+            if (volinfo_has_snap_volume(volinfo)) {
                 ret = -1;
                 snprintf(err_str, PATH_MAX,
                          "%s is a snap volume. Configuring "
@@ -2243,7 +2243,7 @@ glusterd_snapshot_create_prevalidate(dict_t *dict, char **op_errstr,
             goto out;
         }
 
-        if (volinfo->is_snap_volume == _gf_true) {
+        if (volinfo_has_snap_volume(volinfo)) {
             snprintf(err_str, sizeof(err_str), "Volume %s is a snap volume",
                      volname);
             loglevel = GF_LOG_WARNING;
@@ -2545,7 +2545,7 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
     GF_ASSERT(snap_vol);
     GF_ASSERT(brickinfo);
 
-    if ((snap_vol->is_snap_volume == _gf_false) &&
+    if (!volinfo_has_snap_volume(snap_vol) &&
         (gf_uuid_is_null(snap_vol->restored_from_snap))) {
         gf_msg_debug(this->name, 0,
                      "Not a snap volume, or a restored snap volume.");
@@ -2574,7 +2574,7 @@ glusterd_snapshot_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
                brickinfo->hostname, brickinfo->path,
                snap_vol->snapshot->snapname);
 
-        if (rsp_dict && (snap_vol->is_snap_volume == _gf_true)) {
+        if (rsp_dict && volinfo_has_snap_volume(snap_vol)) {
             /* Adding missed delete to the dict */
             ret = glusterd_add_missed_snaps_to_dict(rsp_dict, snap_vol,
                                                     brickinfo, brick_count + 1,
@@ -4866,11 +4866,11 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
     /* uuid is used as snapshot name.
        This will avoid restrictions on snapshot names provided by user */
     gf_uuid_copy(snap_vol->volume_id, *snap_volid);
-    snap_vol->is_snap_volume = _gf_true;
+    volinfo_set_snap_volume(snap_vol);
     snap_vol->snapshot = snap;
 
     if (clone) {
-        snap_vol->is_snap_volume = _gf_false;
+        volinfo_clear_snap_volume(snap_vol);
         ret = dict_get_strn(dict, "clonename", SLEN("clonename"), &clonename);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -5020,7 +5020,7 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
         goto out;
     }
 
-    if (snap_vol->is_snap_volume) {
+    if (volinfo_has_snap_volume(snap_vol)) {
         ret = glusterd_snap_clear_unsupported_opt(snap_vol, unsupported_opt);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_OP_FAILED,
@@ -5059,7 +5059,7 @@ glusterd_do_snap_vol(glusterd_volinfo_t *origin_vol, glusterd_snap_t *snap,
     }
 
 reset_option:
-    if (snap_vol->is_snap_volume) {
+    if (volinfo_has_snap_volume(snap_vol)) {
         if (glusterd_snap_set_unsupported_opt(snap_vol, unsupported_opt)) {
             ret = -1;
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOL_OP_FAILED,

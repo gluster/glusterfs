@@ -1960,8 +1960,8 @@ glusterd_check_geo_rep_configured(glusterd_volinfo_t *volinfo,
 
 /*
  * is_geo_rep_active:
- *      This function reads the state_file and sets is_active to 1 if the
- *      monitor status is neither "Stopped" or "Created"
+ *      This function reads the state_file and sets GD_VOLINFO_GEOREP_ACTIVE
+ *      status bit if the monitor status is neither "Stopped" or "Created".
  *
  * RETURN VALUE:
  *       0: On successful read of state_file.
@@ -1969,8 +1969,7 @@ glusterd_check_geo_rep_configured(glusterd_volinfo_t *volinfo,
  */
 
 static int
-is_geo_rep_active(glusterd_volinfo_t *volinfo, char *secondary, char *conf_path,
-                  int *is_active)
+is_geo_rep_active(glusterd_volinfo_t *volinfo, char *secondary, char *conf_path)
 {
     dict_t *confd = NULL;
     char *statefile = NULL;
@@ -2021,9 +2020,9 @@ is_geo_rep_active(glusterd_volinfo_t *volinfo, char *secondary, char *conf_path,
 
     if ((!strcmp(monitor_status, "Stopped")) ||
         (!strcmp(monitor_status, "Created"))) {
-        *is_active = 0;
+        volinfo_clear_georep_active(volinfo);
     } else {
-        *is_active = 1;
+        volinfo_set_georep_active(volinfo);
     }
     ret = 0;
 out:
@@ -2047,7 +2046,6 @@ out:
 int
 _get_secondary_status(dict_t *dict, char *key, data_t *value, void *data)
 {
-    gsync_status_param_t *param = NULL;
     char *secondary = NULL;
     char *secondary_url = NULL;
     char *secondary_vol = NULL;
@@ -2057,12 +2055,11 @@ _get_secondary_status(dict_t *dict, char *key, data_t *value, void *data)
     int ret = -1;
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
+    glusterd_volinfo_t *volinfo = NULL;
 
-    param = (gsync_status_param_t *)data;
-
-    GF_ASSERT(param);
-    GF_ASSERT(param->volinfo);
-    if (param->is_active) {
+    volinfo = (glusterd_volinfo_t *)data;
+    GF_ASSERT(volinfo);
+    if (volinfo_has_georep_active(volinfo)) {
         ret = 0;
         goto out;
     }
@@ -2100,7 +2097,7 @@ _get_secondary_status(dict_t *dict, char *key, data_t *value, void *data)
 
     ret = snprintf(conf_path, sizeof(conf_path) - 1,
                    "%s/" GEOREP "/%s_%s_%s/gsyncd.conf", priv->workdir,
-                   param->volinfo->volname, secondary_host, secondary_vol);
+                   volinfo->volname, secondary_host, secondary_vol);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CONF_PATH_ASSIGN_FAILED,
                "Unable to assign conf_path.");
@@ -2109,8 +2106,7 @@ _get_secondary_status(dict_t *dict, char *key, data_t *value, void *data)
     }
     conf_path[ret] = '\0';
 
-    ret = is_geo_rep_active(param->volinfo, secondary, conf_path,
-                            &param->is_active);
+    ret = is_geo_rep_active(volinfo, secondary, conf_path);
 out:
     if (errmsg)
         GF_FREE(errmsg);
@@ -2137,7 +2133,7 @@ out:
  */
 
 int
-glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
+glusterd_check_geo_rep_running(glusterd_volinfo_t *volinfo, char **op_errstr)
 {
     char msg[2048] = {
         0,
@@ -2145,15 +2141,14 @@ glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
     gf_boolean_t enabled = _gf_false;
     int ret = 0;
 
-    GF_ASSERT(param);
-    GF_ASSERT(param->volinfo);
+    GF_ASSERT(volinfo);
     GF_ASSERT(op_errstr);
 
-    glusterd_check_geo_rep_configured(param->volinfo, &enabled);
+    glusterd_check_geo_rep_configured(volinfo, &enabled);
 
     if (enabled) {
-        ret = dict_foreach(param->volinfo->gsync_secondaries,
-                           _get_secondary_status, param);
+        ret = dict_foreach(volinfo->gsync_secondaries, _get_secondary_status,
+                           volinfo);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_ERROR, 0,
                    GD_MSG_SECONDARYINFO_FETCH_ERROR,
@@ -2166,13 +2161,13 @@ glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
                      " session for the volume '%s'.\n"
                      " Please check the log file for"
                      " more info.",
-                     param->volinfo->volname);
+                     volinfo->volname);
             *op_errstr = gf_strdup(msg);
             ret = -1;
             goto out;
         }
 
-        if (param->is_active) {
+        if (volinfo_has_georep_active(volinfo)) {
             snprintf(msg, sizeof(msg),
                      GEOREP
                      " sessions"
@@ -2181,7 +2176,7 @@ glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr)
                      " sessions involved in this"
                      " volume. Use 'volume " GEOREP
                      " status' command for more info.",
-                     param->volinfo->volname);
+                     volinfo->volname);
             *op_errstr = gf_strdup(msg);
             goto out;
         }

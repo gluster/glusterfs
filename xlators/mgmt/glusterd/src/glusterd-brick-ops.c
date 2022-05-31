@@ -1787,9 +1787,6 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
     gf1_op_commands cmd = GF_OP_CMD_NONE;
     char *task_id_str = NULL;
     xlator_t *this = THIS;
-    gsync_status_param_t param = {
-        0,
-    };
 
     ret = op_version_check(this, GD_OP_VER_PERSISTENT_AFR_XATTRS, msg,
                            sizeof(msg));
@@ -2012,9 +2009,8 @@ glusterd_op_stage_remove_brick(dict_t *dict, char **op_errstr)
             /* If geo-rep is configured, for this volume, it should be
              * stopped.
              */
-            param.volinfo = volinfo;
-            ret = glusterd_check_geo_rep_running(&param, op_errstr);
-            if (ret || param.is_active) {
+            ret = glusterd_check_geo_rep_running(volinfo, op_errstr);
+            if (ret || volinfo_has_georep_active(volinfo)) {
                 ret = -1;
                 goto out;
             }

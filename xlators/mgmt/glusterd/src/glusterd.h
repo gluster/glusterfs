@@ -405,11 +405,8 @@ struct glusterd_volinfo_ {
                                          * updating the volinfo
                                          */
     gf_transport_type transport_type;
-    gf_boolean_t is_snap_volume;
-    gf_boolean_t memory_accounting;
-    gf_boolean_t stage_deleted; /* volume has passed staging
-                                 * for delete operation
-                                 */
+    uint32_t flags;
+
     char parent_volname[GD_VOLUME_NAME_MAX];
     /* In case of a snap volume
        i.e (is_snap_volume == TRUE) this
@@ -427,6 +424,27 @@ struct glusterd_volinfo_ {
 
     char snap_plugin[NAME_MAX]; /* Snapshot Plugin name */
 };
+
+/* Possible bits in 'flags' field of the above. */
+
+#define GD_VOLINFO_SNAP_VOLUME (1 << 0)
+#define GD_VOLINFO_MEMORY_ACCOUNTING (1 << 1)
+#define GD_VOLINFO_STAGE_DELETED (1 << 2)
+#define GD_VOLINFO_GEOREP_ACTIVE (1 << 3)
+
+/* And related functions. */
+
+GF_DECLARE_BITOP(glusterd_volinfo_t, volinfo, flags, GD_VOLINFO_SNAP_VOLUME,
+                 snap_volume)
+
+GF_DECLARE_BITOP(glusterd_volinfo_t, volinfo, flags,
+                 GD_VOLINFO_MEMORY_ACCOUNTING, memory_accounting)
+
+GF_DECLARE_BITOP(glusterd_volinfo_t, volinfo, flags, GD_VOLINFO_STAGE_DELETED,
+                 stage_deleted)
+
+GF_DECLARE_BITOP(glusterd_volinfo_t, volinfo, flags, GD_VOLINFO_GEOREP_ACTIVE,
+                 georep_active)
 
 typedef enum gd_snap_status_ {
     GD_SNAP_STATUS_NONE,
@@ -511,7 +529,7 @@ enum glusterd_op_ret {
 #define GLUSTERD_GET_VOLUME_DIR(path, volinfo, priv)                           \
     do {                                                                       \
         int32_t _vol_dir_len;                                                  \
-        if (volinfo->is_snap_volume) {                                         \
+        if (volinfo_has_snap_volume(volinfo)) {                                \
             _vol_dir_len = snprintf(                                           \
                 path, PATH_MAX, "%s/snaps/%s/%s", priv->workdir,               \
                 volinfo->snapshot->snapname, volinfo->volname);                \
@@ -561,7 +579,7 @@ enum glusterd_op_ret {
 #define GLUSTERD_GET_VOLUME_PID_DIR(path, volinfo, priv)                       \
     do {                                                                       \
         int32_t _vol_pid_len;                                                  \
-        if (volinfo->is_snap_volume) {                                         \
+        if (volinfo_has_snap_volume(volinfo)) {                                \
             _vol_pid_len = snprintf(path, PATH_MAX, "%s/snaps/%s/%s",          \
                                     priv->rundir, volinfo->snapshot->snapname, \
                                     volinfo->volname);                         \

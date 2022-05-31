@@ -773,8 +773,8 @@ glusterd_peer_detach_cleanup(glusterd_conf_t *priv)
             gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_STALE_VOL_DELETE_INFO,
                    "Deleting stale volume %s", volinfo->volname);
 
-            /*Stop snapd daemon service if snapd daemon is running*/
-            if (!volinfo->is_snap_volume) {
+            /* Stop snapd daemon service if snapd daemon is running. */
+            if (!volinfo_has_snap_volume(volinfo)) {
                 svc = &(volinfo->snapd.svc);
                 ret = svc->stop(svc, SIGTERM);
                 if (ret) {

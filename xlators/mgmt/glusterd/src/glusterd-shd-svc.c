@@ -272,8 +272,8 @@ glusterd_shdsvc_manager(glusterd_svc_t *svc, void *data, int flags)
     volinfo = data;
     GF_VALIDATE_OR_GOTO("glusterd", volinfo, out);
 
-    if (volinfo->is_snap_volume) {
-        /* healing of a snap volume is not supported yet*/
+    if (volinfo_has_snap_volume(volinfo)) {
+        /* Healing of a snap volume is not supported yet. */
         ret = 0;
         goto out;
     }

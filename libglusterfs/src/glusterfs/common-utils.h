@@ -476,6 +476,22 @@ union gf_sock_union {
 
 #define MAX_IOVEC 16
 
+/* Macro to declare basic operations on a bitfield. */
+
+#define GF_DECLARE_BITOP(type, ptr, member, flag, suffix)                     \
+                                                                              \
+static inline gf_boolean_t ptr##_has_##suffix(type *ptr) {                    \
+    return ptr->member & flag;                                                \
+}                                                                             \
+                                                                              \
+static inline void ptr##_set_##suffix(type *ptr) {                            \
+    ptr->member |= flag;                                                      \
+}                                                                             \
+                                                                              \
+static inline void ptr##_clear_##suffix(type *ptr) {                          \
+    ptr->member &= ~flag;                                                     \
+}                                                                             \
+
 static inline gf_boolean_t
 gf_irrelevant_entry(struct dirent *entry)
 {

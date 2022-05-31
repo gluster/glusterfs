@@ -299,8 +299,10 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     runner_argprintf(&runner, "%s", pidfile);
     runner_add_arg(&runner, "-l");
     runner_argprintf(&runner, "%s", logfile);
-    if (volinfo->memory_accounting)
+
+    if (volinfo_has_memory_accounting(volinfo))
         runner_add_arg(&runner, "--mem-accounting");
+
     if (dict_get_strn(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
                       SLEN(GLUSTERD_LOCALTIME_LOGGING_KEY),
                       &localtime_logging) == 0) {

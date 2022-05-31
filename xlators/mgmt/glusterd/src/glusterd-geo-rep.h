@@ -42,11 +42,6 @@ typedef struct glusterd_gsync_status_temp {
     char *node;
 } glusterd_gsync_status_temp_t;
 
-typedef struct gsync_status_param {
-    glusterd_volinfo_t *volinfo;
-    int is_active;
-} gsync_status_param_t;
-
 int
 gsync_status(char *primary, char *secondary, char *conf_path, int *status,
              gf_boolean_t *is_template_in_use);
@@ -57,7 +52,7 @@ glusterd_check_geo_rep_configured(glusterd_volinfo_t *volinfo,
 int
 _get_secondary_status(dict_t *dict, char *key, data_t *value, void *data);
 int
-glusterd_check_geo_rep_running(gsync_status_param_t *param, char **op_errstr);
+glusterd_check_geo_rep_running(glusterd_volinfo_t *volinfo, char **op_errstr);
 
 int
 glusterd_get_gsync_status_mst(glusterd_volinfo_t *volinfo, dict_t *rsp_dict,

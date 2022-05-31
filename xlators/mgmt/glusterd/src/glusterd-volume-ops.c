@@ -1425,9 +1425,6 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     glusterd_volinfo_t *volinfo = NULL;
     char msg[2048] = {0};
     xlator_t *this = THIS;
-    gsync_status_param_t param = {
-        0,
-    };
 
     ret = glusterd_op_stop_volume_args_get(dict, &volname, &flags);
     if (ret) {
@@ -1464,9 +1461,8 @@ glusterd_op_stage_stop_volume(dict_t *dict, char **op_errstr)
     }
 
     /* If geo-rep is configured, for this volume, it should be stopped. */
-    param.volinfo = volinfo;
-    ret = glusterd_check_geo_rep_running(&param, op_errstr);
-    if (ret || param.is_active) {
+    ret = glusterd_check_geo_rep_running(volinfo, op_errstr);
+    if (ret || volinfo_has_georep_active(volinfo)) {
         ret = -1;
         goto out;
     }
@@ -1553,7 +1549,8 @@ glusterd_op_stage_delete_volume(dict_t *dict, char **op_errstr)
         snprintf(msg, sizeof(msg), "Some of the peers are down");
         goto out;
     }
-    volinfo->stage_deleted = _gf_true;
+
+    volinfo_set_stage_deleted(volinfo);
     gf_log(this->name, GF_LOG_INFO,
            "Setting stage deleted flag to true for "
            "volume %s",
@@ -2431,7 +2428,7 @@ glusterd_op_start_volume(dict_t *dict, char **op_errstr)
     if (ret)
         goto out;
 
-    if (!volinfo->is_snap_volume) {
+    if (!volinfo_has_snap_volume(volinfo)) {
         svc = &(volinfo->snapd.svc);
         ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
         if (ret)
@@ -2483,7 +2480,7 @@ glusterd_stop_volume(glusterd_volinfo_t *volinfo)
         goto out;
     }
 
-    if (!volinfo->is_snap_volume) {
+    if (!volinfo_has_snap_volume(volinfo)) {
         svc = &(volinfo->snapd.svc);
         ret = svc->manager(svc, volinfo, PROC_START_NO_WAIT);
         if (ret)
@@ -2814,7 +2811,8 @@ glusterd_clearlocks_mount(glusterd_volinfo_t *volinfo, char **xl_opts,
     runner_add_arg(&runner, "-l");
     runner_argprintf(&runner, "%s/%s-clearlocks-mnt.log", priv->logdir,
                      volinfo->volname);
-    if (volinfo->memory_accounting)
+
+    if (volinfo_has_memory_accounting(volinfo))
         runner_add_arg(&runner, "--mem-accounting");
 
     for (i = 0; i < volinfo->brick_count && xl_opts[i]; i++) {

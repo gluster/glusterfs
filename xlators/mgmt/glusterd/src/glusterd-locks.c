@@ -779,12 +779,11 @@ glusterd_mgmt_v3_unlock(const char *name, uuid_t uuid, char *type)
         dict_deln(priv->mgmt_v3_lock_timer, key_dup, keylen);
     }
     ret = glusterd_volinfo_find(name, &volinfo);
-    if (volinfo && volinfo->stage_deleted) {
-        /* this indicates a volume still exists and the volume delete
-         * operation has failed in some of the phases, need to ensure
-         * stage_deleted flag is set back to false
-         */
-        volinfo->stage_deleted = _gf_false;
+    if (volinfo && volinfo_has_stage_deleted(volinfo)) {
+        /* This indicates a volume still exists and the volume delete
+           operation has failed in some of the phases, need to ensure
+           stage_deleted flag is set back to false. */
+        volinfo_clear_stage_deleted(volinfo);
         gf_log(this->name, GF_LOG_INFO,
                "Volume %s still exist, setting "
                "stage deleted flag to false for the volume",

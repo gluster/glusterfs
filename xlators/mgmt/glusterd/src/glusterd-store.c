@@ -45,7 +45,7 @@
 #define GLUSTERD_GET_BRICK_DIR(path, volinfo, priv)                            \
     do {                                                                       \
         int32_t _brick_len;                                                    \
-        if (volinfo->is_snap_volume) {                                         \
+        if (volinfo_has_snap_volume(volinfo)) {                                \
             _brick_len = snprintf(path, PATH_MAX, "%s/snaps/%s/%s/%s",         \
                                   priv->workdir, volinfo->snapshot->snapname,  \
                                   volinfo->volname, GLUSTERD_BRICK_INFO_DIR);  \
@@ -2659,7 +2659,8 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
          */
         if (gf_uuid_is_null(brickinfo->uuid))
             (void)glusterd_resolve_brick(brickinfo);
-        if (brickinfo->real_path[0] == '\0' && !volinfo->is_snap_volume &&
+        if (brickinfo->real_path[0] == '\0' &&
+            !volinfo_has_snap_volume(volinfo) &&
             gf_uuid_is_null(volinfo->restored_from_snap)) {
             /* By now if the brick is a local brick then it will be
              * able to resolve which is the only thing we want now
@@ -3387,7 +3388,7 @@ glusterd_store_retrieve_volume(char *volname, glusterd_snap_t *snap)
         goto out;
     volinfo->snapshot = snap;
     if (snap)
-        volinfo->is_snap_volume = _gf_true;
+        volinfo_set_snap_volume(volinfo);
 
     ret = glusterd_store_update_volinfo(volinfo);
     if (ret) {
