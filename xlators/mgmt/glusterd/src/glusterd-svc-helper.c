@@ -562,7 +562,7 @@ unlock:
 out:
     if (stop_daemon) {
         glusterd_proc_stop(&svc->proc, SIGTERM, PROC_STOP_FORCE);
-        glusterd_unlink_file(pidfile);
+        gf_unlink(pidfile);
     }
     return ret;
 }

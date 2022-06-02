@@ -260,7 +260,7 @@ glusterd_svc_stop(glusterd_svc_t *svc, int sig)
 
     if (ret == 0) {
         svc->online = _gf_false;
-        (void)glusterd_unlink_file((char *)svc->conn.sockpath);
+        gf_unlink(svc->conn.sockpath);
     }
     gf_msg(THIS->name, GF_LOG_INFO, 0, GD_MSG_SVC_STOP_SUCCESS,
            "%s service is stopped", svc->name);

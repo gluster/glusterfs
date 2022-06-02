@@ -104,7 +104,7 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
                        proc->name, strerror(errno));
         }
     } else {
-        (void)glusterd_unlink_file(proc->pidfile);
+        gf_unlink(proc->pidfile);
     }
     if (flags != PROC_STOP_FORCE)
         goto out;
@@ -129,9 +129,7 @@ glusterd_proc_stop(glusterd_proc_t *proc, int sig, int flags)
                    pid, strerror(errno));
             goto out;
         }
-        ret = glusterd_unlink_file(proc->pidfile);
-        if (ret)
-            goto out;
+        gf_unlink(proc->pidfile);
     }
 
     ret = 0;

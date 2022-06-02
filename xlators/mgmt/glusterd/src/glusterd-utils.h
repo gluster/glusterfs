@@ -538,9 +538,6 @@ glusterd_launch_synctask(synctask_fn_t fn, void *opaque);
 int
 glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option);
 
-int
-glusterd_unlink_file(char *sock_file_path);
-
 int32_t
 glusterd_find_brick_mount_path(char *brick_path, char **brick_mount_path);
 

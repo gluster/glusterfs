@@ -156,7 +156,7 @@ glusterd_shdsvc_create_volfile(glusterd_volinfo_t *volinfo)
         /* If volfile exist, delete it. This case happens when we
          * change from replica/ec to distribute.
          */
-        (void)glusterd_unlink_file(filepath);
+        gf_unlink(filepath);
         ret = 0;
         goto out;
     }
@@ -774,7 +774,7 @@ glusterd_shdsvc_stop(glusterd_svc_t *svc, int sig)
                    volinfo->volname, glusterd_proc_get_pid(&svc->proc));
     }
     svc->online = _gf_false;
-    (void)glusterd_unlink_file((char *)svc->proc.pidfile);
+    gf_unlink(svc->proc.pidfile);
     glusterd_shd_svcproc_cleanup(shd);
     ret = 0;
     glusterd_volinfo_unref(volinfo);

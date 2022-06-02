@@ -103,7 +103,7 @@ glusterd_shd_svcproc_cleanup(glusterd_shdsvc_t *shd)
         svc->svc_proc = NULL;
         svc->inited = _gf_false;
         cds_list_del_init(&svc->mux_svc);
-        glusterd_unlink_file(svc->proc.pidfile);
+        gf_unlink(svc->proc.pidfile);
 
         if (svc_proc && cds_list_empty(&svc_proc->svcs)) {
             cds_list_del_init(&svc_proc->svc_proc_list);

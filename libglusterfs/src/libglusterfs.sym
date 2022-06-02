@@ -708,6 +708,7 @@ gf_tw_mod_timer
 gf_tw_mod_timer_pending
 gf_uint64_2human_readable
 gf_umount_lazy
+gf_unlink
 gf_update_latency
 gf_uuid_clear
 gf_uuid_compare
