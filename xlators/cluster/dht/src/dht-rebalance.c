@@ -63,7 +63,7 @@ gf_defrag_free_dir_dfmeta(struct dir_dfmeta *meta, int local_subvols_cnt)
 }
 
 static void
-gf_defrag_free_container(struct dht_container *container)
+gf_defrag_free_container(dht_container_t *container)
 {
     if (container) {
         gf_dirent_entry_free(container->df_entry);
@@ -1101,8 +1101,8 @@ __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
             if (!xdata) {
                 xdata = dict_new();
                 if (!xdata) {
-                    gf_msg("dht", GF_LOG_ERROR, 0, DHT_MSG_MIGRATE_FILE_FAILED,
-                           "insufficient memory");
+                    gf_msg(this->name, GF_LOG_ERROR, 0,
+                           DHT_MSG_MIGRATE_FILE_FAILED, "insufficient memory");
                     ret = -1;
                     *fop_errno = ENOMEM;
                     break;
@@ -1120,7 +1120,7 @@ __dht_rebalance_migrate_data(xlator_t *this, xlator_t *from, xlator_t *to,
                  */
                 ret = dict_set_int32_sizen(xdata, GF_AVOID_OVERWRITE, 1);
                 if (ret) {
-                    gf_msg("dht", GF_LOG_ERROR, 0, ENOMEM,
+                    gf_msg(this->name, GF_LOG_ERROR, 0, ENOMEM,
                            "failed to set dict");
                     ret = -1;
                     *fop_errno = ENOMEM;
@@ -2317,6 +2317,7 @@ static int
 rebalance_task(void *data)
 {
     int ret = -1;
+    xlator_t *this = NULL;
     dht_local_t *local = NULL;
     call_frame_t *frame = NULL;
     int fop_errno = 0;
@@ -2324,7 +2325,7 @@ rebalance_task(void *data)
     xlator_t *cached_subvol;
 
     frame = data;
-
+    this = frame->this;
     local = frame->local;
 
     /* This function is 'synchrounous', hence if it returns,
@@ -2334,7 +2335,7 @@ rebalance_task(void *data)
     cached_subvol = local->rebalance.from_subvol;
 
     if (cached_subvol == hashed_subvol) {
-        gf_msg_debug("DHT", 0,
+        gf_msg_debug(this->name, 0,
                      "destination and source are same. file %s"
                      " might have migrated already",
                      local->loc.path);
@@ -2342,7 +2343,7 @@ rebalance_task(void *data)
         goto out;
     }
 
-    ret = dht_migrate_file(THIS, &local->loc, cached_subvol, hashed_subvol,
+    ret = dht_migrate_file(this, &local->loc, cached_subvol, hashed_subvol,
                            local->flags, &fop_errno);
 
 out:
@@ -2518,26 +2519,6 @@ dht_dfreaddirp_done(dht_dfoffset_ctx_t *offset_var, int cnt)
 }
 
 static int
-gf_defrag_ctx_subvols_init(dht_dfoffset_ctx_t *offset_var, xlator_t *this)
-{
-    int i;
-    dht_conf_t *conf = NULL;
-
-    conf = this->private;
-
-    if (!conf)
-        return -1;
-
-    for (i = 0; i < conf->local_subvols_cnt; i++) {
-        offset_var[i].this = conf->local_subvols[i];
-        offset_var[i].offset = (off_t)0;
-        offset_var[i].readdir_done = 0;
-    }
-
-    return 0;
-}
-
-static int
 dht_get_first_non_null_index(subvol_nodeuuids_info_t *entry)
 {
     int i = 0;
@@ -2623,9 +2604,8 @@ out:
 }
 
 static int
-gf_defrag_migrate_single_file(void *opaque)
+gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
 {
-    xlator_t *this = NULL;
     dht_conf_t *conf = NULL;
     gf_defrag_info_t *defrag = NULL;
     int ret = 0;
@@ -2647,7 +2627,6 @@ gf_defrag_migrate_single_file(void *opaque)
     double elapsed = {
         0,
     };
-    struct dht_container *rebal_entry = NULL;
     inode_t *inode = NULL;
     xlator_t *hashed_subvol = NULL;
     xlator_t *cached_subvol = NULL;
@@ -2664,14 +2643,13 @@ gf_defrag_migrate_single_file(void *opaque)
     int i = 0;
     gf_boolean_t should_i_migrate = 0;
 
-    rebal_entry = (struct dht_container *)opaque;
+    GF_ASSERT(this);
+
     if (!rebal_entry) {
-        gf_log("DHT", GF_LOG_ERROR, "rebal_entry is NULL");
+        gf_log(this->name, GF_LOG_ERROR, "rebal_entry is NULL");
         ret = -1;
         goto out;
     }
-
-    this = rebal_entry->this;
 
     conf = this->private;
 
@@ -2930,18 +2908,17 @@ out:
 void *
 gf_defrag_task(void *opaque)
 {
+    xlator_t *this = NULL;
     struct list_head *q_head = NULL;
-    struct dht_container *iterator = NULL;
+    dht_container_t *iterator = NULL;
     gf_defrag_info_t *defrag = NULL;
     int ret = 0;
     pid_t pid = GF_CLIENT_PID_DEFRAG;
     gf_lkowner_t lkowner;
 
     defrag = (gf_defrag_info_t *)opaque;
-    if (!defrag) {
-        gf_msg("dht", GF_LOG_ERROR, 0, 0, "defrag is NULL");
-        goto out;
-    }
+    GF_ASSERT(defrag);
+    this = defrag->this;
 
     syncopctx_setfspid(&pid);
     /* setting lkowner stack memory address as lkowner
@@ -2983,27 +2960,23 @@ gf_defrag_task(void *opaque)
             while (!defrag->crawl_done && (defrag->recon_thread_count <
                                            defrag->current_thread_count)) {
                 defrag->current_thread_count--;
-                gf_msg_debug("DHT", 0,
-                             "Thread sleeping. "
-                             "current thread count: %d",
+                gf_msg_debug(this->name, 0,
+                             "Thread sleeping, current thread count: %d",
                              defrag->current_thread_count);
 
                 pthread_cond_wait(&defrag->df_wakeup_thread,
                                   &defrag->dfq_mutex);
 
                 defrag->current_thread_count++;
-                gf_msg_debug("DHT", 0,
-                             "Thread wokeup. "
-                             "current thread count: %d",
+                gf_msg_debug(this->name, 0,
+                             "Thread wakeup, current thread count: %d",
                              defrag->current_thread_count);
             }
 
             if (defrag->q_entry_count) {
                 iterator = list_entry(q_head->next, typeof(*iterator), list);
 
-                gf_msg_debug("DHT", 0,
-                             "picking entry "
-                             "%s",
+                gf_msg_debug(this->name, 0, "picking entry %s",
                              iterator->df_entry->d_name);
 
                 list_del_init(&(iterator->list));
@@ -3015,9 +2988,9 @@ gf_defrag_task(void *opaque)
                     pthread_cond_broadcast(&defrag->rebalance_crawler_alarm);
                 }
                 pthread_mutex_unlock(&defrag->dfq_mutex);
-                ret = gf_defrag_migrate_single_file((void *)iterator);
+                ret = gf_defrag_migrate_single_file(this, iterator);
 
-                /*Critical errors: ENOTCONN and ENOSPACE*/
+                /* Critical errors: ENOTCONN and ENOSPACE. */
                 if (ret) {
                     dht_set_global_defrag_error(defrag, ret);
 
@@ -3042,11 +3015,9 @@ gf_defrag_task(void *opaque)
 
                 if (!defrag->crawl_done) {
                     defrag->current_thread_count--;
-                    gf_msg_debug("DHT", 0,
-                                 "Thread "
-                                 "sleeping while  waiting "
-                                 "for migration entries. "
-                                 "current thread  count:%d",
+                    gf_msg_debug(this->name, 0,
+                                 "Thread sleeping while waiting for "
+                                 "migration entries, current thread count:%d",
                                  defrag->current_thread_count);
 
                     pthread_cond_wait(&defrag->parallel_migration_cond,
@@ -3055,16 +3026,15 @@ gf_defrag_task(void *opaque)
 
                 if (defrag->crawl_done && !defrag->q_entry_count) {
                     defrag->current_thread_count++;
-                    gf_msg_debug("DHT", 0, "Exiting thread");
+                    gf_msg_debug(this->name, 0, "Exiting thread");
 
                     pthread_cond_broadcast(&defrag->parallel_migration_cond);
                     goto unlock;
                 } else {
                     defrag->current_thread_count++;
-                    gf_msg_debug("DHT", 0,
-                                 "Thread woke up"
-                                 " as found migrating entries. "
-                                 "current thread count:%d",
+                    gf_msg_debug(this->name, 0,
+                                 "Thread woken up due to found migrating "
+                                 "entries, current thread count:%d",
                                  defrag->current_thread_count);
 
                     pthread_mutex_unlock(&defrag->dfq_mutex);
@@ -3081,7 +3051,7 @@ out:
 }
 
 static int
-gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
+gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
                     loc_t *loc, dht_conf_t *conf, gf_defrag_info_t *defrag,
                     fd_t *fd, dict_t *migrate_data,
                     struct dir_dfmeta *dir_dfmeta, dict_t *xattr_req,
@@ -3090,7 +3060,7 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
     int ret = 0;
     char is_linkfile = 0;
     gf_dirent_t *df_entry = NULL;
-    struct dht_container *tmp_container = NULL;
+    dht_container_t *tmp_container = NULL;
 
     if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
         goto out;
@@ -3231,8 +3201,6 @@ gf_defrag_get_entry(xlator_t *this, int i, struct dht_container **container,
 
         tmp_container->migrate_data = migrate_data;
 
-        tmp_container->this = this;
-
         if (df_entry->dict)
             tmp_container->df_entry->dict = dict_ref(df_entry->dict);
 
@@ -3276,7 +3244,7 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
     int local_subvols_cnt = 0;
     int i = 0;
     int j = 0;
-    struct dht_container *container = NULL;
+    dht_container_t *container = NULL;
     int ldfq_count = 0;
     int dfc_index = 0;
     int throttle_up = 0;
@@ -3372,15 +3340,6 @@ gf_defrag_process_dir(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
         local_subvols_cnt, sizeof(dht_dfoffset_ctx_t), gf_dht_mt_octx_t);
     if (!dir_dfmeta->offset_var) {
         gf_log(this->name, GF_LOG_ERROR, "dir_dfmeta->offset_var is NULL");
-        ret = -1;
-        goto out;
-    }
-
-    ret = gf_defrag_ctx_subvols_init(dir_dfmeta->offset_var, this);
-    if (ret) {
-        gf_log(this->name, GF_LOG_ERROR,
-               "dht_dfoffset_ctx_t"
-               "initialization failed");
         ret = -1;
         goto out;
     }
@@ -3982,6 +3941,7 @@ static void *
 dht_file_counter_thread(void *args)
 {
     gf_defrag_info_t *defrag = NULL;
+    xlator_t *this = NULL;
     loc_t root_loc = {
         0,
     };
@@ -3994,6 +3954,8 @@ dht_file_counter_thread(void *args)
         return NULL;
 
     defrag = (gf_defrag_info_t *)args;
+    this = defrag->this;
+
     dht_build_root_loc(defrag->root_inode, &root_loc);
 
     while (defrag->defrag_status == GF_DEFRAG_STATUS_STARTED) {
@@ -4011,16 +3973,16 @@ dht_file_counter_thread(void *args)
 
         tmp_size = gf_defrag_total_file_size(defrag->this, &root_loc);
 
-        gf_log("dht", GF_LOG_INFO, "tmp data size =%" PRIu64, tmp_size);
+        gf_log(this->name, GF_LOG_INFO, "tmp data size =%" PRIu64, tmp_size);
 
         if (!tmp_size) {
-            gf_msg("dht", GF_LOG_ERROR, 0, 0,
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "Failed to get "
                    "the total data size. Unable to estimate "
                    "time to complete rebalance.");
         } else {
             defrag->total_size = tmp_size;
-            gf_msg_debug("dht", 0, "total data size =%" PRIu64,
+            gf_msg_debug(this->name, 0, "total data size =%" PRIu64,
                          defrag->total_size);
         }
     }
@@ -4046,7 +4008,7 @@ gf_defrag_estimates_cleanup(xlator_t *this, gf_defrag_info_t *defrag,
 
     ret = pthread_join(filecnt_thread, NULL);
     if (ret) {
-        gf_msg("dht", GF_LOG_ERROR, ret, 0,
+        gf_msg(this->name, GF_LOG_ERROR, ret, 0,
                "file_counter_thread: pthread_join failed.");
         ret = -1;
     }
@@ -4124,20 +4086,21 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
     }
     defrag->current_thread_count = thread_spawn_count;
 
-    /*Spawn Threads Here*/
+    /* Spawn threads here. */
     while (index < thread_spawn_count) {
         ret = gf_thread_create(&(tid[index]), NULL, gf_defrag_task,
                                (void *)defrag, "dhtmig%d", (index + 1) & 0x3ff);
         if (ret != 0) {
-            gf_msg("DHT", GF_LOG_ERROR, ret, 0, "Thread[%d] creation failed. ",
-                   index);
+            gf_msg(this->name, GF_LOG_ERROR, ret, 0,
+                   "Failed to create migration thread %d of %d", index,
+                   thread_spawn_count);
             ret = -1;
             goto out;
         } else {
-            gf_log("DHT", GF_LOG_INFO,
-                   "Thread[%d] "
-                   "creation successful",
-                   index);
+            gf_log(this->name, GF_LOG_INFO,
+                   "Successfully creating migration"
+                   " thread %d of %d",
+                   index, thread_spawn_count);
         }
         index++;
     }
@@ -4371,7 +4334,7 @@ gf_defrag_start_crawl(void *data)
         goto out;
     }
 
-    gf_log("DHT", GF_LOG_INFO, "crawling file-system completed");
+    gf_log(this->name, GF_LOG_INFO, "crawling file-system completed");
 out:
 
     /* We are here means crawling the entire file system is done
@@ -4396,7 +4359,7 @@ out:
     status = dict_new();
     LOCK(&defrag->lock);
     {
-        gf_defrag_status_get(conf, status, _gf_true);
+        gf_defrag_status_get(this, conf, status, _gf_true);
         if (ctx && ctx->notify)
             ctx->notify(GF_EN_DEFRAG_STATUS, status);
         if (status)
@@ -4532,7 +4495,8 @@ out:
 }
 
 int
-gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
+gf_defrag_status_get(xlator_t *this, dht_conf_t *conf, dict_t *dict,
+                     gf_boolean_t log_status)
 {
     int ret = 0;
     uint64_t files = 0;
@@ -4569,7 +4533,7 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
         if (time_to_complete && (time_to_complete > elapsed))
             time_left = time_to_complete - elapsed;
 
-        gf_log(THIS->name, GF_LOG_INFO,
+        gf_log(this->name, GF_LOG_INFO,
                "TIME: Estimated total time to complete (size)= %ld"
                " seconds, seconds left = %ld",
                time_to_complete, time_left);
@@ -4580,35 +4544,35 @@ gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status)
 
     ret = dict_set_uint64(dict, "files", files);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set file count");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set file count");
 
     ret = dict_set_uint64(dict, "size", size);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set size of xfer");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set size of xfer");
 
     ret = dict_set_uint64(dict, "lookups", lookup);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set lookedup file count");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set lookedup file count");
 
     ret = dict_set_int32(dict, "status", defrag->defrag_status);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set status");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set status");
 
     ret = dict_set_time(dict, "run-time", elapsed);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set run-time");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set run-time");
 
     ret = dict_set_uint64(dict, "failures", failures);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set failure count");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set failure count");
 
     ret = dict_set_uint64(dict, "skipped", skipped);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set skipped file count");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set skipped file count");
 
     ret = dict_set_time(dict, "time-left", time_left);
     if (ret)
-        gf_log(THIS->name, GF_LOG_WARNING, "failed to set time-left");
+        gf_log(this->name, GF_LOG_WARNING, "failed to set time-left");
 
 log:
     if (log_status) {
@@ -4632,7 +4596,7 @@ log:
                 break;
         }
 
-        gf_msg("DHT", GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
+        gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STATUS,
                "Rebalance is %s. Time taken is %ld secs "
                "Files migrated: %" PRIu64 ", size: %" PRIu64
                ", lookups: %" PRIu64 ", failures: %" PRIu64
@@ -4651,21 +4615,23 @@ gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output)
        in defrag loop */
     int ret = -1;
     gf_defrag_info_t *defrag = conf->defrag;
+    xlator_t *this = NULL;
 
     GF_ASSERT(defrag);
+    this = defrag->this;
 
     if (defrag->defrag_status == GF_DEFRAG_STATUS_NOT_STARTED) {
         goto out;
     }
 
-    gf_msg("", GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STOPPED,
+    gf_msg(this->name, GF_LOG_INFO, 0, DHT_MSG_REBALANCE_STOPPED,
            "Received stop command on rebalance");
     defrag->defrag_status = status;
 
     if (output)
-        gf_defrag_status_get(conf, output, _gf_false);
+        gf_defrag_status_get(this, conf, output, _gf_false);
     ret = 0;
 out:
-    gf_msg_debug("", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }

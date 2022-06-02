@@ -398,7 +398,7 @@ struct gf_defrag_pattern_list {
     uint64_t size;
 };
 
-struct dht_container {
+typedef struct dht_container {
     union {
         struct list_head list;
         struct {
@@ -407,11 +407,10 @@ struct dht_container {
         };
     };
     gf_dirent_t *df_entry;
-    xlator_t *this;
     loc_t *parent_loc;
     dict_t *migrate_data;
     int local_subvol_index;
-};
+} dht_container_t;
 
 typedef struct nodeuuid_info {
     char info;   /* Set to 1 is this is my node's uuid*/
@@ -451,7 +450,7 @@ struct gf_defrag_info_ {
     pthread_cond_t rebalance_crawler_alarm;
     int32_t q_entry_count;
     int32_t global_error;
-    struct dht_container *queue;
+    dht_container_t *queue;
     int32_t crawl_done;
     int32_t abort;
     int32_t wakeup_crawler;
@@ -588,12 +587,10 @@ struct dht_conf {
 };
 typedef struct dht_conf dht_conf_t;
 
-struct dht_dfoffset_ctx {
-    xlator_t *this;
+typedef struct dht_dfoffset_ctx {
     off_t offset;
     int32_t readdir_done;
-};
-typedef struct dht_dfoffset_ctx dht_dfoffset_ctx_t;
+} dht_dfoffset_ctx_t;
 
 typedef enum {
     GF_DHT_MIGRATE_DATA,
@@ -1092,7 +1089,8 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, dict_t *dict,
                        dict_t *xdata);
 int
-gf_defrag_status_get(dht_conf_t *conf, dict_t *dict, gf_boolean_t log_status);
+gf_defrag_status_get(xlator_t *this, dht_conf_t *conf, dict_t *dict,
+                     gf_boolean_t log_status);
 
 int
 gf_defrag_stop(dht_conf_t *conf, gf_defrag_status_t status, dict_t *output);
