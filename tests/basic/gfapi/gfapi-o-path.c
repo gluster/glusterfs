@@ -12,6 +12,10 @@
 #define O_PATH 010000000
 #endif
 
+#ifndef AT_SYMLINK_NOFOLLOW
+#define AT_SYMLINK_NOFOLLOW 0x100
+#endif
+
 #define VALIDATE_AND_GOTO_LABEL_ON_ERROR(func, ret, label)                     \
     do {                                                                       \
         if (ret < 0) {                                                         \
@@ -40,6 +44,10 @@ main(int argc, char *argv[])
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
+
+    struct stat stbuf = {
+        0,
+    };
 
     if (argc != 4) {
         fprintf(stderr, "Invalid argument\n");
@@ -101,6 +109,18 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_fchmodat(fd1, filename, 0777, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchmodat", ret, out);
+
+    ret = glfs_stat(fs, filepath, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fstat", ret, out);
+
+    if (stbuf.st_mode & 0777 != 0777) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchmodat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:
