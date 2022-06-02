@@ -935,6 +935,10 @@ glfs_fchmod(glfs_fd_t *fd, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_fchmod, 3.4.0);
 
 int
+glfs_fchmodat(struct glfs_fd *glfd, const char *path, mode_t mode,
+              int flags) __THROW GFAPI_PUBLIC(glfs_fchmodat, 11.0);
+
+int
 glfs_chown(glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW
     GFAPI_PUBLIC(glfs_chown, 3.4.0);
 
