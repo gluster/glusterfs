@@ -868,6 +868,10 @@ int
 glfs_link(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_link, 3.4.0);
 
+int
+glfs_linkat(struct glfs_fd *glfd, const char *oldpath, const char *newpath,
+            int flags) __THROW GFAPI_PUBLIC(glfs_linkat, 11.0);
+
 glfs_fd_t *
 glfs_opendir(glfs_t *fs, const char *path) __THROW
     GFAPI_PUBLIC(glfs_opendir, 3.4.0);

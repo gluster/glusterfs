@@ -12,6 +12,10 @@
 #define O_PATH 010000000
 #endif
 
+#ifndef AT_SYMLINK_FOLLOW
+#define AT_SYMLINK_FOLLOW 0x400
+#endif
+
 #define VALIDATE_AND_GOTO_LABEL_ON_ERROR(func, ret, label)                     \
     do {                                                                       \
         if (ret < 0) {                                                         \
@@ -36,10 +40,18 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_linkat = "file_tmp_linkat";
+    const char *filename_symlinkat = "file_tmp_symlinkat";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
+    const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
+
+    struct stat buf = {
+        0,
+    };
 
     if (argc != 4) {
         fprintf(stderr, "Invalid argument\n");
@@ -101,6 +113,34 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    // TEST for 'AT_SYMLINK_FOLLOW' flag.
+    // ret = glfs_symlink(fs, filepath, filepath_symlinkat);
+    // VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlink", ret, out);
+
+    // ret = glfs_lstat(fs, filepath_symlinkat, &buf);
+    // if (S_ISLNK(buf.st_mode)) {
+    //     fprintf(stderr, "It is a symlink");
+    // }
+    // ret = glfs_linkat(fd1, filename_symlinkat, filename_linkat,
+    //                   AT_SYMLINK_FOLLOW);
+
+    ret = glfs_linkat(fd1, filename, filename_linkat, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
+
+    ret = glfs_stat(fs, filepath_linkat, &buf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    /* Number of links will be >2 when oldpath is a REG_FILE, or a symlink
+       with 'AT_SYMLINK_FOLLOW' is set.
+       If oldpath is symlink and 'AT_SYMLINK_FOLLOW' is not set then
+       number of links will be minimum 3.
+    */
+    if (buf.st_nlink < 2) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:

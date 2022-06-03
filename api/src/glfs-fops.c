@@ -3452,6 +3452,90 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_linkat, 11.0)
+int
+pub_glfs_linkat(struct glfs_fd *pglfd, const char *oldpath, const char *newpath,
+                int flags)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t oldloc = {
+        0,
+    };
+    loc_t newloc = {
+        0,
+    };
+    struct iatt oldiatt = {
+        0,
+    };
+    struct iatt newiatt = {
+        0,
+    };
+    int follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    /* Old path will not be de-referenced by default if it is a sym-link.
+       If 'AT_SYMLINK_FOLLOW' flag is set, then oldpath is deferenced to
+       its original path.
+
+       If oldpath is a symbolic link and 'AT_SYMLINK_FOLLOW' is set then
+       a new link created will be a symbolic link to defreferenced oldpath.
+    */
+    follow = (flags & AT_SYMLINK_FOLLOW) == AT_SYMLINK_FOLLOW;
+    subvol = setup_fopat_args(pglfd, oldpath, follow, &oldloc, &oldiatt);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    /* The 'AT_SYMLINK_FOLLOW' flag applies only to oldpath.
+     */
+    subvol = setup_fopat_args(pglfd, newpath, 0, &newloc, &newiatt);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    if (ret == 0) {
+        ret = -1;
+        errno = EEXIST;
+        goto out;
+    }
+
+    if (oldiatt.ia_type == IA_IFDIR) {
+        ret = -1;
+        errno = EISDIR;
+        goto out;
+    }
+
+    /* Filling the inode of the hard link to be same as that of the
+       original file
+    */
+    if (newloc.inode) {
+        inode_unref(newloc.inode);
+        newloc.inode = NULL;
+    }
+    newloc.inode = inode_ref(oldloc.inode);
+
+    ret = syncop_link(subvol, &oldloc, &newloc, &newiatt, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&newloc, &newiatt);
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &oldloc);
+    cleanup_fopat_args(pglfd, subvol, ret, &newloc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_opendir, 3.4.0)
 struct glfs_fd *
 pub_glfs_opendir(struct glfs *fs, const char *path)
