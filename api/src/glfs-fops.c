@@ -3078,6 +3078,87 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_mknodat, 11.0)
+int
+pub_glfs_mknodat(struct glfs_fd *pglfd, const char *path, mode_t mode,
+                 dev_t dev)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    xattr_req = dict_new();
+    if (!xattr_req) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(gfid);
+    ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
+    if (ret) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    if (loc.inode) {
+        errno = EEXIST;
+        ret = -1;
+        goto out;
+    }
+
+    if (errno != ENOENT)
+        /* Any other type of error is fatal */
+        goto out;
+
+    if (errno == ENOENT && !loc.parent)
+        /* The parent directory or an ancestor even
+           higher does not exist
+        */
+        goto out;
+
+    /* ret == -1 && errno == ENOENT */
+    loc.inode = inode_new(loc.parent->table);
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    ret = syncop_mknod(subvol, &loc, mode, dev, &iatt, xattr_req, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_mkdir, 3.4.0)
 int
 pub_glfs_mkdir(struct glfs *fs, const char *path, mode_t mode)

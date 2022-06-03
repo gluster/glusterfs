@@ -36,10 +36,16 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_BLK = "file_tmp_BLK";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_BLK = "/dir_tmp/file_tmp_BLK";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
+
+    struct stat buf = {
+        0,
+    };
 
     if (argc != 4) {
         fprintf(stderr, "Invalid argument\n");
@@ -101,6 +107,19 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_mknodat(fd1, filename_BLK, __S_IFBLK | 0777, 0);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mknodat", ret, out);
+
+    ret = glfs_stat(fs, filepath_BLK, &buf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    if (!S_ISBLK(buf.st_mode) ||
+        (buf.st_mode & 0777) != 0777) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mknodat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:

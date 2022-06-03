@@ -849,6 +849,10 @@ glfs_mknod(glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW
     GFAPI_PUBLIC(glfs_mknod, 3.4.0);
 
 int
+glfs_mknodat(struct glfs_fd *glfd, const char *path, mode_t mode, dev_t dev)
+    __THROW GFAPI_PUBLIC(glfs_mknodat, 11.0);
+
+int
 glfs_mkdir(glfs_t *fs, const char *path, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_mkdir, 3.4.0);
 
