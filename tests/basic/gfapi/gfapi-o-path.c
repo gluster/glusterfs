@@ -46,9 +46,11 @@ main(int argc, char *argv[])
     const char *filename2 = "file_tmp_2";
     const char *filename_linkat = "file_tmp_linkat";
     const char *filename_symlinkat = "file_tmp_symlinkat";
+    const char *filename_BLK = "file_tmp_BLK";
     const char *filepath = "/dir_tmp/file_tmp";
     const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
     const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
+    const char *filepath_BLK = "/dir_tmp/file_tmp_BLK";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -225,6 +227,19 @@ main(int argc, char *argv[])
     if (filename_inode != filename_linkat_inode) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat operation failed", ret,
+                                         out);
+    }
+
+    ret = glfs_mknodat(fd1, filename_BLK, __S_IFBLK | 0777, 0);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mknodat", ret, out);
+
+    ret = glfs_stat(fs, filepath_BLK, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    if (!S_ISBLK(stbuf.st_mode) ||
+        (stbuf.st_mode & 0777) != 0777) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mknodat operation failed", ret,
                                          out);
     }
 
