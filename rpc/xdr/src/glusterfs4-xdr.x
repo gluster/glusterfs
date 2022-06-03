@@ -102,7 +102,6 @@ union gfx_value switch (int type) {
         case GF_DATA_TYPE_GFUUID:
                 opaque uuid[16];
         case GF_DATA_TYPE_PTR:
-        case GF_DATA_TYPE_STR_OLD:
                 opaque other<>;
         case GF_DATA_TYPE_MDATA:
                 gfx_mdata_iatt mdata_iatt;

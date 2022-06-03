@@ -34,9 +34,8 @@ struct dict_cmp {
                              "data is NULL");                                  \
             return ret_val;                                                    \
         }                                                                      \
-        /* Not of the asked type, or old version */                            \
-        if ((data->data_type != type) &&                                       \
-            (data->data_type != GF_DATA_TYPE_STR_OLD)) {                       \
+        /* Not of the asked type. */                                           \
+        if (data->data_type != type) {                                         \
             gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG, \
                              "key %s, %s type asked, has %s type", key,        \
                              data_type_name[type],                             \
@@ -964,7 +963,6 @@ bin_to_data(void *value, int32_t len)
 
 static char *data_type_name[GF_DATA_TYPE_MAX] = {
     [GF_DATA_TYPE_UNKNOWN] = "unknown",
-    [GF_DATA_TYPE_STR_OLD] = "string-old-version",
     [GF_DATA_TYPE_INT] = "integer",
     [GF_DATA_TYPE_UINT] = "unsigned integer",
     [GF_DATA_TYPE_DOUBLE] = "float",
@@ -2402,27 +2400,6 @@ err:
     return ret;
 }
 
-/* This function is called only by the volgen for now.
-   Check how else you can handle it */
-int
-dict_set_option(dict_t *this, char *key, char *str)
-{
-    data_t *data = data_from_dynstr(str);
-    int ret = 0;
-
-    if (!data) {
-        ret = -EINVAL;
-        goto err;
-    }
-
-    data->data_type = GF_DATA_TYPE_STR_OLD;
-    ret = dict_set(this, key, data);
-    if (ret < 0)
-        data_destroy(data);
-err:
-    return ret;
-}
-
 int
 dict_add_dynstr_with_alloc(dict_t *this, char *key, char *str)
 {
@@ -2989,7 +2966,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
         }
         value->len = vallen;
         value->data = gf_memdup(buf, vallen);
-        value->data_type = GF_DATA_TYPE_STR_OLD;
+        value->data_type = GF_DATA_TYPE_STR;
         value->is_static = _gf_false;
         buf += vallen;
 
@@ -3420,7 +3397,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
         }
         value->len = vallen;
         value->data = gf_memdup(buf, vallen);
-        value->data_type = GF_DATA_TYPE_STR_OLD;
+        value->data_type = GF_DATA_TYPE_STR;
         value->is_static = _gf_false;
         buf += vallen;
 

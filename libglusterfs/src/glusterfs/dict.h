@@ -387,8 +387,6 @@ dict_set_static_bin(dict_t *this, char *key, void *ptr, size_t size)
 }
 
 GF_MUST_CHECK int
-dict_set_option(dict_t *this, char *key, char *str);
-GF_MUST_CHECK int
 dict_set_str(dict_t *this, char *key, char *str);
 GF_MUST_CHECK int
 dict_set_strn(dict_t *this, char *key, const int keylen, char *str);

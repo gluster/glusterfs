@@ -225,7 +225,8 @@ typedef enum gf_upcall_flags_t gf_upcall_flags_t;
 
 enum gf_dict_data_type_t {
     GF_DATA_TYPE_UNKNOWN = 0,
-    GF_DATA_TYPE_STR_OLD = 1,
+    /* Backward compatibility placeholder, do not use. */
+    GF_DATA_TYPE_STR_OLD = -1,
     GF_DATA_TYPE_INT = 2,
     GF_DATA_TYPE_UINT = 3,
     GF_DATA_TYPE_DOUBLE = 4,

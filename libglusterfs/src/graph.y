@@ -240,7 +240,7 @@ volume_option (char *key, char *value)
         }
 
         set_value = gf_strdup (value);
-	ret = dict_set_option (curr->options, key, set_value);
+	ret = dict_set_str (curr->options, key, set_value);
 
         if (ret == 1) {
                 gf_msg ("parser", GF_LOG_ERROR, 0,

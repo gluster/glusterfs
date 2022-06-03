@@ -52,7 +52,6 @@
 /* refer 2717 */
 #define GF_O_PATH 010000000
 
-
 #define XLATE_BIT(from, to, bit)                                               \
     do {                                                                       \
         if (from & bit)                                                        \
@@ -768,7 +767,6 @@ dict_to_xdr(dict_t *this, gfx_dict *dict)
                 break;
 
             case GF_DATA_TYPE_PTR:
-            case GF_DATA_TYPE_STR_OLD:
                 index++;
                 /* Ideally, each type of data stored in dictionary
                    should have type. A pointer type shouldn't be
@@ -920,7 +918,6 @@ xdr_to_dict(gfx_dict *dict, dict_t **to)
                 }
                 break;
             case GF_DATA_TYPE_PTR:
-            case GF_DATA_TYPE_STR_OLD:
                 value = GF_MALLOC(xpair->value.gfx_value_u.other.other_len + 1,
                                   gf_common_mt_char);
                 if (!value) {
