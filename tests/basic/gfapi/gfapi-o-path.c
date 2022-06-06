@@ -49,12 +49,14 @@ main(int argc, char *argv[])
     const char *filename_BLK = "file_tmp_BLK";
     const char *filename_renameat = "file_tmp_renameat";
     const char *filename_renameat2 = "file_tmp_renameat2";
+    const char *filename_unlinkat = "file_tmp_unlinkat";
     const char *filepath = "/dir_tmp/file_tmp";
     const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
     const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
     const char *filepath_BLK = "/dir_tmp/file_tmp_BLK";
     const char *filepath_renameat = "/dir_tmp/file_tmp_renameat";
     const char *filepath_renameat2 = "/dir_tmp/file_tmp_renameat2";
+    const char *filepath_unlinkat = "/dir_tmp/file_tmp_unlinkat";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -92,6 +94,13 @@ main(int argc, char *argv[])
     }
 
     fd1 = glfs_creat(fs, filepath, O_CREAT | O_RDWR, 0644);
+    if (fd1 == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_creat", ret, out);
+    }
+    glfs_close(fd1);
+
+    fd1 = glfs_creat(fs, filepath_unlinkat, O_CREAT | O_RDWR, 0644);
     if (fd1 == NULL) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_creat", ret, out);
@@ -295,6 +304,14 @@ main(int argc, char *argv[])
     if (!S_ISLNK(stbuf.st_mode)) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat operation failed", ret,
+                                         out);
+    }
+
+    ret = glfs_unlinkat(fd1, filename_unlinkat, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat", ret, out);
+
+    if (glfs_access(fs, filepath_unlinkat, F_OK) == 0) {
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat operation failed", ret,
                                          out);
     }
 

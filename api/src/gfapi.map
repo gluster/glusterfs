@@ -295,4 +295,5 @@ GFAPI_11.0 {
 		glfs_renameat;
 		glfs_renameat2;
 		glfs_symlinkat;
+		glfs_unlinkat;
 } GFAPI_7.0;
