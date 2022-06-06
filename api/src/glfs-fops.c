@@ -3222,6 +3222,50 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_unlinkat, 11.0)
+int
+pub_glfs_unlinkat(struct glfs_fd *pglfd, const char *path, int flags)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    if (iatt.ia_type == IA_IFDIR) {
+        ret = -1;
+        errno = EISDIR;
+        goto out;
+    }
+
+    /* TODO: Add leaseid */
+    ret = syncop_unlink(subvol, &loc, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0)
+        ret = glfs_loc_unlink(&loc);
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_rmdir, 3.4.0)
 int
 pub_glfs_rmdir(struct glfs *fs, const char *path)

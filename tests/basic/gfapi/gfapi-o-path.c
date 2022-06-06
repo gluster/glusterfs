@@ -36,7 +36,10 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_unlinkat = "file_tmp_unlinkat";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_unlinkat = "/dir_tmp/file_tmp_unlinkat";
+
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -77,6 +80,13 @@ main(int argc, char *argv[])
     }
     glfs_close(fd1);
 
+    fd1 = glfs_creat(fs, filepath_unlinkat, O_CREAT | O_RDWR, 0644);
+    if (fd1 == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_creat", ret, out);
+    }
+    glfs_close(fd1);
+
     fd1 = glfs_open(fs, topdir, O_PATH);
     if (fd1 == NULL) {
         ret = -1;
@@ -101,6 +111,14 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_unlinkat(fd1, filename_unlinkat, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat", ret, out);
+
+    if (glfs_access(fs, filepath_unlinkat, F_OK) == 0) {
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:

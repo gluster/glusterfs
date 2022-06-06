@@ -857,6 +857,10 @@ glfs_unlink(glfs_t *fs, const char *path) __THROW
     GFAPI_PUBLIC(glfs_unlink, 3.4.0);
 
 int
+glfs_unlinkat(struct glfs_fd *glfd, const char *path, int flags) __THROW
+    GFAPI_PUBLIC(glfs_unlinkat, 11.0);
+
+int
 glfs_rmdir(glfs_t *fs, const char *path) __THROW
     GFAPI_PUBLIC(glfs_rmdir, 3.4.0);
 
