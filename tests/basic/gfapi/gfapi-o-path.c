@@ -114,6 +114,9 @@ main(int argc, char *argv[])
                                          out);
     }
 
+    ret = glfs_faccessat(fd1, filename, F_OK, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_faccessat", ret, out);
+
     ret = 0;
 out:
     if (fd2 != NULL)

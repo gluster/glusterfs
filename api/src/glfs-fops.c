@@ -2888,6 +2888,56 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_faccessat, 11.0)
+int
+pub_glfs_faccessat(struct glfs_fd *pglfd, const char *path, int mode, int flags)
+{
+    volatile int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int no_follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol && ret) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = syncop_access(subvol, &loc, mode, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_symlink, 3.4.0)
 int
 pub_glfs_symlink(struct glfs *fs, const char *data, const char *path)

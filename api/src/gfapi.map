@@ -286,4 +286,5 @@ GFAPI_11.0 {
 	global:
 		glfs_openat;
 		glfs_fstatat;
+		glfs_faccessat;
 } GFAPI_7.0;
