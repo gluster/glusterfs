@@ -39,7 +39,7 @@ __is_gsyncd_on_shard_dir(call_frame_t *frame, loc_t *loc)
     return _gf_false;
 }
 
-void
+static void
 shard_make_block_bname(int block_num, uuid_t gfid, char *buf, size_t len)
 {
     char gfid_str[GF_UUID_BUF_SIZE] = {
@@ -65,7 +65,7 @@ shard_append_index(char *path, int path_size, int prefix_len,
     snprintf(path + prefix_len, path_size - prefix_len, ".%d", shard_idx_iter);
 }
 
-int
+static int
 __shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
 {
     int ret = -1;
@@ -97,7 +97,7 @@ __shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
     return ret;
 }
 
-int
+static int
 shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
 {
     int ret = 0;
@@ -111,7 +111,7 @@ shard_inode_ctx_get(inode_t *inode, xlator_t *this, shard_inode_ctx_t **ctx)
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
                       uint64_t block_size, int32_t valid)
 {
@@ -167,7 +167,7 @@ __shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
                     uint64_t block_size, int32_t valid)
 {
@@ -182,7 +182,7 @@ shard_inode_ctx_set(inode_t *inode, xlator_t *this, struct iatt *stbuf,
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_set_refresh_flag(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -196,7 +196,7 @@ __shard_inode_ctx_set_refresh_flag(inode_t *inode, xlator_t *this)
 
     return 0;
 }
-int
+static int
 shard_inode_ctx_set_refresh_flag(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -210,7 +210,7 @@ shard_inode_ctx_set_refresh_flag(inode_t *inode, xlator_t *this)
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -224,7 +224,7 @@ __shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -238,7 +238,7 @@ shard_inode_ctx_mark_dir_refreshed(inode_t *inode, xlator_t *this)
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
                                     inode_t *shard_inode)
 {
@@ -268,7 +268,7 @@ __shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
                                   inode_t *shard_inode)
 {
@@ -300,7 +300,7 @@ shard_inode_ctx_add_to_fsync_list(inode_t *base_inode, xlator_t *this,
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 __shard_inode_ctx_needs_lookup(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
@@ -316,7 +316,7 @@ __shard_inode_ctx_needs_lookup(inode_t *inode, xlator_t *this)
     return !ctx->refreshed;
 }
 
-gf_boolean_t
+static gf_boolean_t
 shard_inode_ctx_needs_lookup(inode_t *inode, xlator_t *this)
 {
     gf_boolean_t flag = _gf_false;
@@ -329,7 +329,7 @@ shard_inode_ctx_needs_lookup(inode_t *inode, xlator_t *this)
 
     return flag;
 }
-int
+static int
 __shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
 {
     int ret = -1;
@@ -346,7 +346,7 @@ __shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
 {
     int ret = -1;
@@ -360,7 +360,7 @@ shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_get_block_size(inode_t *inode, xlator_t *this,
                                  uint64_t *block_size)
 {
@@ -379,7 +379,7 @@ __shard_inode_ctx_get_block_size(inode_t *inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_get_block_size(inode_t *inode, xlator_t *this,
                                uint64_t *block_size)
 {
@@ -394,7 +394,7 @@ shard_inode_ctx_get_block_size(inode_t *inode, xlator_t *this,
     return ret;
 }
 
-int
+static int
 __shard_inode_ctx_get_fsync_count(inode_t *inode, xlator_t *this,
                                   int *fsync_count)
 {
@@ -413,7 +413,7 @@ __shard_inode_ctx_get_fsync_count(inode_t *inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_get_fsync_count(inode_t *inode, xlator_t *this,
                                 int *fsync_count)
 {
@@ -427,7 +427,7 @@ shard_inode_ctx_get_fsync_count(inode_t *inode, xlator_t *this,
 
     return ret;
 }
-int
+static int
 __shard_inode_ctx_get_all(inode_t *inode, xlator_t *this,
                           shard_inode_ctx_t *ctx_out)
 {
@@ -445,7 +445,7 @@ __shard_inode_ctx_get_all(inode_t *inode, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_inode_ctx_get_all(inode_t *inode, xlator_t *this,
                         shard_inode_ctx_t *ctx_out)
 {
@@ -578,7 +578,7 @@ shard_modify_size_and_block_count(struct iatt *stbuf, dict_t *dict,
     return 0;
 }
 
-int
+static int
 shard_call_count_return(call_frame_t *frame)
 {
     int call_count = 0;
@@ -656,7 +656,7 @@ out:
     return ret;
 }
 
-inode_t *
+static inode_t *
 __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
                                  inode_t *base_inode, int block_num,
                                  uuid_t gfid)
@@ -781,7 +781,7 @@ __shard_update_shards_inode_list(inode_t *linked_inode, xlator_t *this,
     return fsync_inode;
 }
 
-int
+static int
 shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
                             int32_t op_ret, int32_t op_errno)
 {
@@ -888,7 +888,7 @@ shard_common_failure_unwind(glusterfs_fop_t fop, call_frame_t *frame,
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_success_unwind(glusterfs_fop_t fop,
                                         call_frame_t *frame, int32_t op_ret)
 {
@@ -929,7 +929,7 @@ shard_common_inode_write_success_unwind(glusterfs_fop_t fop,
     return 0;
 }
 
-int
+static int
 shard_evicted_inode_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                               int32_t op_ret, int32_t op_errno,
                               struct iatt *prebuf, struct iatt *postbuf,
@@ -978,7 +978,7 @@ out:
     return 0;
 }
 
-int
+static int
 shard_initiate_evicted_inode_fsync(xlator_t *this, inode_t *inode)
 {
     fd_t *anon_fd = NULL;
@@ -1110,7 +1110,7 @@ out:
     return 0;
 }
 
-int
+static int
 shard_update_file_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *dict,
                            dict_t *xdata)
@@ -1281,7 +1281,7 @@ shard_link_internal_dir_inode(shard_local_t *local, inode_t *inode,
     return linked_inode;
 }
 
-int
+static int
 shard_refresh_internal_dir_cbk(call_frame_t *frame, void *cookie,
                                xlator_t *this, int32_t op_ret, int32_t op_errno,
                                inode_t *inode, struct iatt *buf, dict_t *xdata,
@@ -1506,7 +1506,7 @@ shard_inode_ctx_update(inode_t *inode, xlator_t *this, dict_t *xdata,
 int
 shard_delete_shards(void *opaque);
 
-int
+static int
 shard_delete_shards_cbk(int ret, call_frame_t *frame, void *data);
 
 int
@@ -1573,7 +1573,7 @@ err:
     return ret;
 }
 
-int
+static int
 shard_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, dict_t *xdata, struct iatt *postparent)
@@ -1835,7 +1835,7 @@ out:
     return 0;
 }
 
-int
+static int
 shard_post_fstat_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -1851,7 +1851,7 @@ shard_post_fstat_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_post_stat_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -2023,7 +2023,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_post_update_size_truncate_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -2085,7 +2085,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_truncate_last_shard(call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
     size_t last_shard_size_after = 0;
@@ -2128,7 +2128,7 @@ shard_truncate_last_shard(call_frame_t *frame, xlator_t *this, inode_t *inode)
 void
 shard_unlink_block_inode(shard_local_t *local, int shard_block_num);
 
-int
+static int
 shard_truncate_htol_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno,
                         struct iatt *preparent, struct iatt *postparent,
@@ -2308,7 +2308,7 @@ shard_truncate_do(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_post_lookup_shards_truncate_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -2325,7 +2325,7 @@ shard_post_lookup_shards_truncate_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-void
+static void
 shard_link_block_inode(shard_local_t *local, int block_num, inode_t *inode,
                        struct iatt *buf)
 {
@@ -2478,7 +2478,7 @@ out:
     return new;
 }
 
-int
+static int
 shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
                            shard_post_lookup_shards_fop_handler_t handler)
 {
@@ -2585,7 +2585,7 @@ shard_common_lookup_shards(call_frame_t *frame, xlator_t *this, inode_t *inode,
     return 0;
 }
 
-int
+static int
 shard_post_resolve_truncate_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -2625,7 +2625,7 @@ shard_post_resolve_truncate_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_truncate_begin(call_frame_t *frame, xlator_t *this)
 {
     int ret = 0;
@@ -2701,7 +2701,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_post_lookup_truncate_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -2963,7 +2963,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_post_lookup_link_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -3028,10 +3028,10 @@ err:
     return 0;
 }
 
-int
+static int
 shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode);
 
-int
+static int
 shard_post_lookup_shards_unlink_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -3058,7 +3058,7 @@ shard_post_lookup_shards_unlink_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_post_resolve_unlink_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -3141,7 +3141,7 @@ shard_unlink_block_inode(shard_local_t *local, int shard_block_num)
     UNLOCK(&priv->lock);
 }
 
-int
+static int
 shard_rename_cbk(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -3155,7 +3155,7 @@ shard_rename_cbk(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int32_t
+static int32_t
 shard_unlink_cbk(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = frame->local;
@@ -3166,7 +3166,7 @@ shard_unlink_cbk(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_unlink_shards_do_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno,
                            struct iatt *preparent, struct iatt *postparent,
@@ -3189,7 +3189,7 @@ done:
     return 0;
 }
 
-int
+static int
 shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
 {
     int i = 0;
@@ -3286,7 +3286,7 @@ shard_unlink_shards_do(call_frame_t *frame, xlator_t *this, inode_t *inode)
     return 0;
 }
 
-int
+static int
 shard_regulated_shards_deletion(call_frame_t *cleanup_frame, xlator_t *this,
                                 int now, int first_block, gf_dirent_t *entry)
 {
@@ -3337,7 +3337,7 @@ shard_regulated_shards_deletion(call_frame_t *cleanup_frame, xlator_t *this,
     return ret;
 }
 
-int
+static int
 __shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
                                gf_dirent_t *entry, inode_t *inode)
 {
@@ -3521,7 +3521,7 @@ err:
     return ret;
 }
 
-int
+static int
 shard_delete_shards_of_entry(call_frame_t *cleanup_frame, xlator_t *this,
                              gf_dirent_t *entry, inode_t *inode)
 {
@@ -3552,14 +3552,14 @@ out:
     return ret;
 }
 
-int
+static int
 shard_delete_shards_cbk(int ret, call_frame_t *frame, void *data)
 {
     SHARD_STACK_DESTROY(frame);
     return 0;
 }
 
-int
+static int
 shard_resolve_internal_dir(xlator_t *this, shard_local_t *local,
                            shard_internal_dir_type_t type)
 {
@@ -3623,7 +3623,7 @@ err:
     return ret;
 }
 
-int
+static int
 shard_lookup_marker_entry(xlator_t *this, shard_local_t *local,
                           gf_dirent_t *entry)
 {
@@ -4440,7 +4440,7 @@ shard_acquire_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 shard_acquire_inodelk(call_frame_t *frame, xlator_t *this, loc_t *loc)
 {
     call_frame_t *lk_frame = NULL;
@@ -4503,11 +4503,11 @@ shard_post_mkdir_rm_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_mkdir_internal_dir(call_frame_t *frame, xlator_t *this,
                          shard_post_resolve_fop_handler_t handler,
                          shard_internal_dir_type_t type);
-int
+static int
 shard_pre_mkdir_rm_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -4523,7 +4523,7 @@ shard_pre_mkdir_rm_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-void
+static void
 shard_begin_rm_resolution(call_frame_t *frame, xlator_t *this)
 {
     shard_priv_t *priv = NULL;
@@ -5457,7 +5457,7 @@ err:
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_post_update_size_handler(call_frame_t *frame,
                                                   xlator_t *this)
 {
@@ -5742,7 +5742,7 @@ shard_common_inode_write_do(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_post_mknod_handler(call_frame_t *frame,
                                             xlator_t *this);
 
@@ -5770,7 +5770,7 @@ shard_common_inode_write_post_lookup_shards_handler(call_frame_t *frame,
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_post_mknod_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -5795,7 +5795,7 @@ shard_common_inode_write_post_mknod_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_post_resolve_handler(call_frame_t *frame,
                                               xlator_t *this)
 {
@@ -5822,7 +5822,7 @@ shard_common_inode_write_post_resolve_handler(call_frame_t *frame,
     return 0;
 }
 
-int
+static int
 shard_common_inode_write_post_lookup_handler(call_frame_t *frame,
                                              xlator_t *this)
 {
@@ -5921,7 +5921,7 @@ unwind:
     return 0;
 }
 
-int
+static int
 shard_mkdir_internal_dir(call_frame_t *frame, xlator_t *this,
                          shard_post_resolve_fop_handler_t handler,
                          shard_internal_dir_type_t type)
@@ -6044,7 +6044,7 @@ __shard_get_timestamps_from_inode_ctx(shard_local_t *local, inode_t *inode,
     return 0;
 }
 
-int
+static int
 shard_get_timestamps_from_inode_ctx(shard_local_t *local, inode_t *inode,
                                     xlator_t *this)
 {
@@ -6059,7 +6059,7 @@ shard_get_timestamps_from_inode_ctx(shard_local_t *local, inode_t *inode,
     return ret;
 }
 
-int
+static int
 shard_fsync_shards_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                        struct iatt *postbuf, dict_t *xdata)
@@ -6133,7 +6133,7 @@ out:
     return 0;
 }
 
-int
+static int
 shard_post_lookup_fsync_handler(call_frame_t *frame, xlator_t *this)
 {
     int ret = 0;
@@ -6219,7 +6219,7 @@ shard_post_lookup_fsync_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int
+static int
 shard_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t datasync,
             dict_t *xdata)
 {
@@ -6464,7 +6464,7 @@ shard_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 }
 
-int32_t
+static int32_t
 shard_modify_and_set_iatt_in_dict(dict_t *xdata, shard_local_t *local,
                                   char *key)
 {
@@ -6540,7 +6540,7 @@ err:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_post_lookup_remove_xattr_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -6564,7 +6564,7 @@ shard_post_lookup_remove_xattr_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int32_t
+static int32_t
 shard_common_remove_xattr(call_frame_t *frame, xlator_t *this,
                           glusterfs_fop_t fop, loc_t *loc, fd_t *fd,
                           const char *name, dict_t *xdata)
@@ -6665,7 +6665,7 @@ err:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                   const char *name, dict_t *xdata)
 {
@@ -6674,7 +6674,7 @@ shard_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     return 0;
 }
 
-int32_t
+static int32_t
 shard_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
                    const char *name, dict_t *xdata)
 {
@@ -6683,7 +6683,7 @@ shard_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
     return 0;
 }
 
-int32_t
+static int32_t
 shard_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *dict,
                     dict_t *xdata)
@@ -6759,7 +6759,7 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 shard_common_set_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -6820,7 +6820,7 @@ shard_post_lookup_set_xattr_handler(call_frame_t *frame, xlator_t *this)
     return 0;
 }
 
-int32_t
+static int32_t
 shard_common_set_xattr(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
                        loc_t *loc, fd_t *fd, dict_t *dict, int32_t flags,
                        dict_t *xdata)
@@ -6932,7 +6932,7 @@ shard_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
     return 0;
 }
 
-int
+static int
 shard_post_setattr_handler(call_frame_t *frame, xlator_t *this)
 {
     shard_local_t *local = NULL;
@@ -7142,7 +7142,7 @@ shard_common_unwind_based_on_fop(call_frame_t *frame, xlator_t *this,
     }
 }
 
-int
+static int
 shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
                                glusterfs_fop_t fop, fd_t *fd,
                                struct iovec *vector, int32_t count,
