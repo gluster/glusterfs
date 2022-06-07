@@ -102,6 +102,9 @@ main(int argc, char *argv[])
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
 
+    ret = glfs_faccessat(fd1, filename, F_OK, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_faccessat", ret, out);
+
     ret = 0;
 out:
     if (fd2 != NULL)

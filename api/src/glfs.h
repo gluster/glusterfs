@@ -837,6 +837,10 @@ glfs_access(glfs_t *fs, const char *path, int mode) __THROW
     GFAPI_PUBLIC(glfs_access, 3.4.0);
 
 int
+glfs_faccessat(struct glfs_fd *glfd, const char *path, int mode,
+               int flags) __THROW GFAPI_PUBLIC(glfs_faccessat, 11.0);
+
+int
 glfs_symlink(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_symlink, 3.4.0);
 
