@@ -87,7 +87,6 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
     };
     glusterd_op_t cli_op = GD_OP_SYS_EXEC;
     glusterd_conf_t *priv = NULL;
-    char *host_uuid = NULL;
     char err_str[64] = {
         0,
     };
@@ -128,18 +127,7 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
             dict->extra_stdfree = cli_req.dict.dict_val;
         }
 
-        host_uuid = gf_strdup(uuid_utoa(MY_UUID));
-        if (host_uuid == NULL) {
-            snprintf(err_str, sizeof(err_str),
-                     "Failed to get "
-                     "the uuid of local glusterd");
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
-                    NULL);
-            ret = -1;
-            goto out;
-        }
-
-        ret = dict_set_dynstr(dict, "host-uuid", host_uuid);
+        ret = dict_set_gfuuid(dict, "host-uuid", MY_UUID, _gf_true);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=host-uuid", NULL);
@@ -168,7 +156,6 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
     };
     glusterd_op_t cli_op = GD_OP_COPY_FILE;
     glusterd_conf_t *priv = NULL;
-    char *host_uuid = NULL;
     char err_str[64] = {
         0,
     };
@@ -209,18 +196,7 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
             dict->extra_stdfree = cli_req.dict.dict_val;
         }
 
-        host_uuid = gf_strdup(uuid_utoa(MY_UUID));
-        if (host_uuid == NULL) {
-            snprintf(err_str, sizeof(err_str),
-                     "Failed to get "
-                     "the uuid of local glusterd");
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
-                    NULL);
-            ret = -1;
-            goto out;
-        }
-
-        ret = dict_set_dynstr(dict, "host-uuid", host_uuid);
+        ret = dict_set_gfuuid(dict, "host-uuid", MY_UUID, _gf_true);
         if (ret)
             goto out;
     }
@@ -252,7 +228,6 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
     };
     int type = 0;
     glusterd_conf_t *priv = NULL;
-    char *host_uuid = NULL;
     char err_str[64] = {
         0,
     };
@@ -293,17 +268,7 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
             dict->extra_stdfree = cli_req.dict.dict_val;
         }
 
-        host_uuid = gf_strdup(uuid_utoa(MY_UUID));
-        if (host_uuid == NULL) {
-            snprintf(err_str, sizeof(err_str),
-                     "Failed to get "
-                     "the uuid of local glusterd");
-            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_UUID_GET_FAIL,
-                    NULL);
-            ret = -1;
-            goto out;
-        }
-        ret = dict_set_dynstr(dict, "host-uuid", host_uuid);
+        ret = dict_set_gfuuid(dict, "host-uuid", MY_UUID, _gf_true);
         if (ret)
             goto out;
     }
@@ -1693,7 +1658,7 @@ out:
 
 static int
 glusterd_store_secondary_in_info(glusterd_volinfo_t *volinfo, char *secondary,
-                                 char *host_uuid, char *secondary_voluuid,
+                                 uuid_t host_uuid, char *secondary_voluuid,
                                  char **op_errstr, gf_boolean_t is_force)
 {
     int ret = 0;
@@ -1708,14 +1673,17 @@ glusterd_store_secondary_in_info(glusterd_volinfo_t *volinfo, char *secondary,
     int keylen;
     char *t = NULL;
     xlator_t *this = THIS;
+    char uuid_str[GF_UUID_BUF_SIZE] = {0};
     struct secondary_vol_config secondary1 = {
         {0},
     };
 
     GF_ASSERT(volinfo);
     GF_ASSERT(secondary);
-    GF_ASSERT(host_uuid);
+    GF_ASSERT(!gf_uuid_is_null(host_uuid));
     GF_VALIDATE_OR_GOTO(this->name, secondary_voluuid, out);
+
+    uuid_utoa_r(host_uuid, uuid_str);
 
     ret = glusterd_get_secondary(volinfo, secondary, &secondarykey);
     switch (ret) {
@@ -1735,7 +1703,7 @@ glusterd_store_secondary_in_info(glusterd_volinfo_t *volinfo, char *secondary,
              * out in glusterd_op_verify_gsync_start_options(), so we can
              * assert an uuid mismatch
              */
-            t = strtail(secondaryentry, host_uuid);
+            t = strtail(secondaryentry, uuid_str);
             if (!is_force)
                 GF_ASSERT(!t || *t != ':');
 
@@ -1768,7 +1736,7 @@ glusterd_store_secondary_in_info(glusterd_volinfo_t *volinfo, char *secondary,
     if (ret == -1)
         goto out;
 
-    ret = gf_asprintf(&value, "%s:%s:%s", host_uuid, linearr[0],
+    ret = gf_asprintf(&value, "%s:%s:%s", uuid_str, linearr[0],
                       secondary_voluuid);
 
     glusterd_urltransform_free(linearr, 1);
@@ -2330,7 +2298,7 @@ out:
 
 int
 glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **primary,
-                           char **secondary, char **host_uuid)
+                           char **secondary, uuid_t *host_uuid)
 {
     int ret = -1;
     xlator_t *this = THIS;
@@ -2359,7 +2327,7 @@ glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **primary,
     }
 
     if (host_uuid) {
-        ret = dict_get_str(dict, "host-uuid", host_uuid);
+        ret = dict_get_gfuuid(dict, "host-uuid", host_uuid);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                    "host_uuid not found");
@@ -2451,8 +2419,7 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
     char abs_filename[PATH_MAX] = "";
     char errmsg[PATH_MAX] = "";
     char *filename = NULL;
-    char *host_uuid = NULL;
-    char uuid_str[64] = {0};
+    uuid_t host_uuid = {0};
     int ret = -1;
     glusterd_conf_t *priv = NULL;
     struct stat stbuf = {
@@ -2489,15 +2456,14 @@ glusterd_op_stage_copy_file(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = dict_get_str(dict, "host-uuid", &host_uuid);
+    ret = dict_get_gfuuid(dict, "host-uuid", &host_uuid);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to fetch host-uuid from dict.");
         goto out;
     }
 
-    uuid_utoa_r(MY_UUID, uuid_str);
-    if (!strcmp(uuid_str, host_uuid)) {
+    if (!gf_uuid_compare(MY_UUID, host_uuid)) {
         ret = dict_get_str(dict, "source", &filename);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -3081,7 +3047,7 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
     char *down_peerstr = NULL;
     char *secondary = NULL;
     char *volname = NULL;
-    char *host_uuid = NULL;
+    uuid_t host_uuid = {0};
     char *statefile = NULL;
     char *secondary_url = NULL;
     char *secondary_host = NULL;
@@ -3090,7 +3056,6 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
     char errmsg[PATH_MAX] = "";
     char common_pem_file[PATH_MAX] = "";
     char hook_script[PATH_MAX] = "";
-    char uuid_str[64] = "";
     int ret = -1;
     int is_pem_push = -1;
     int ssh_port = 22;
@@ -3167,8 +3132,7 @@ glusterd_op_stage_gsync_create(dict_t *dict, char **op_errstr)
 
     is_force = dict_get_str_boolean(dict, "force", _gf_false);
 
-    uuid_utoa_r(MY_UUID, uuid_str);
-    if (!strcmp(uuid_str, host_uuid)) {
+    if (!gf_uuid_compare(MY_UUID, host_uuid)) {
         ret = glusterd_are_vol_all_peers_up(volinfo, &conf->peers,
                                             &down_peerstr);
         if ((ret == _gf_false) && !is_force) {
@@ -3586,8 +3550,7 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
     gf_boolean_t is_running = _gf_false;
     gf_boolean_t is_template_in_use = _gf_false;
     uuid_t uuid = {0};
-    char uuid_str[64] = {0};
-    char *host_uuid = NULL;
+    uuid_t host_uuid = {0};
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;
     struct stat stbuf = {
@@ -3614,8 +3577,6 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
                                      &host_uuid);
     if (ret)
         goto out;
-
-    uuid_utoa_r(MY_UUID, uuid_str);
 
     if (conf->op_version < 2) {
         snprintf(errmsg, sizeof(errmsg),
@@ -3710,7 +3671,7 @@ glusterd_op_stage_gsync_set(dict_t *dict, char **op_errstr)
         ((type == GF_GSYNC_OPTION_TYPE_STOP) && !is_force) ||
         (type == GF_GSYNC_OPTION_TYPE_PAUSE) ||
         (type == GF_GSYNC_OPTION_TYPE_RESUME)) {
-        if (!strcmp(uuid_str, host_uuid)) {
+        if (!gf_uuid_compare(MY_UUID, host_uuid)) {
             ret = glusterd_are_vol_all_peers_up(volinfo, &conf->peers,
                                                 &down_peerstr);
             if (ret == _gf_false) {
@@ -5338,8 +5299,7 @@ glusterd_op_copy_file(dict_t *dict, char **op_errstr)
     char abs_filename[PATH_MAX] = "";
     char errmsg[PATH_MAX] = "";
     char *filename = NULL;
-    char *host_uuid = NULL;
-    char uuid_str[64] = {0};
+    uuid_t host_uuid = {0};
     char *contents = NULL;
     char buf[4096] = "";
     int ret = -1;
@@ -5364,7 +5324,7 @@ glusterd_op_copy_file(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = dict_get_str(dict, "host-uuid", &host_uuid);
+    ret = dict_get_gfuuid(dict, "host-uuid", &host_uuid);
     if (ret < 0)
         goto out;
 
@@ -5382,8 +5342,7 @@ glusterd_op_copy_file(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    uuid_utoa_r(MY_UUID, uuid_str);
-    if (!strcmp(uuid_str, host_uuid)) {
+    if (!gf_uuid_compare(MY_UUID, host_uuid)) {
         ret = sys_lstat(abs_filename, &stbuf);
         if (ret) {
             len = snprintf(errmsg, sizeof(errmsg),
@@ -5562,7 +5521,6 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
     int32_t ret = -1;
     int32_t type = -1;
-    char *host_uuid = NULL;
     char *secondary = NULL;
     char *secondary_url = NULL;
     char *secondary_vol = NULL;
@@ -5585,10 +5543,6 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     GF_ASSERT(rsp_dict);
 
     ret = dict_get_int32(dict, "type", &type);
-    if (ret < 0)
-        goto out;
-
-    ret = dict_get_str(dict, "host-uuid", &host_uuid);
     if (ret < 0)
         goto out;
 
@@ -5701,7 +5655,7 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         ret = glusterd_start_gsync(volinfo, secondary, path_list, conf_path,
-                                   host_uuid, op_errstr, _gf_false);
+                                   NULL, op_errstr, _gf_false);
 
         /* Delete added secondary in the dict if start fails*/
         if (ret)
@@ -6376,8 +6330,7 @@ glusterd_op_gsync_create(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         0,
     };
     char hooks_args[PATH_MAX] = "";
-    char uuid_str[64] = "";
-    char *host_uuid = NULL;
+    uuid_t host_uuid = {0};
     char *secondary_url = NULL;
     char *secondary_url_buf = NULL;
     char *secondary_user = NULL;
@@ -6487,8 +6440,7 @@ glusterd_op_gsync_create(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     is_force = dict_get_str_boolean(dict, "force", _gf_false);
 
-    uuid_utoa_r(MY_UUID, uuid_str);
-    if (!strcmp(uuid_str, host_uuid)) {
+    if (!gf_uuid_compare(MY_UUID, host_uuid)) {
         ret = dict_get_int32(dict, "push_pem", &is_pem_push);
         if (!ret && is_pem_push) {
             gf_msg_debug(this->name, 0,

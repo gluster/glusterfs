@@ -8692,7 +8692,6 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     glusterd_op_t cli_op = GD_OP_SNAP;
     int type = 0;
     glusterd_conf_t *conf = NULL;
-    char *host_uuid = NULL;
     char err_str[2048] = "";
     xlator_t *this = THIS;
     uint32_t op_errno = 0;
@@ -8728,20 +8727,9 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
 
         dict->extra_stdfree = cli_req.dict.dict_val;
 
-        host_uuid = gf_strdup(uuid_utoa(MY_UUID));
-        if (host_uuid == NULL) {
-            snprintf(err_str, sizeof(err_str),
-                     "Failed to get "
-                     "the uuid of local glusterd");
-            ret = -1;
+        ret = dict_set_gfuuid(dict, "host-uuid", MY_UUID, _gf_true);
+        if (ret)
             goto out;
-        }
-        ret = dict_set_dynstrn(dict, "host-uuid", SLEN("host-uuid"), host_uuid);
-        if (ret) {
-            GF_FREE(host_uuid);
-            goto out;
-        }
-
     } else {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_INVALID_ENTRY,
                "request dict length is %d", cli_req.dict.dict_len);
