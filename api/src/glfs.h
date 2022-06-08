@@ -861,6 +861,10 @@ glfs_mknod(glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW
     GFAPI_PUBLIC(glfs_mknod, 3.4.0);
 
 int
+glfs_mknodat(struct glfs_fd *glfd, const char *path, mode_t mode, dev_t dev) __THROW
+    GFAPI_PUBLIC(glfs_mknod, 3.4.0);
+
+int
 glfs_mkdir(glfs_t *fs, const char *path, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_mkdir, 3.4.0);
 
@@ -879,6 +883,10 @@ glfs_rename(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
 int
 glfs_renameat(struct glfs_fd *glfd, const char *oldpath,
               const char *newpath) __THROW GFAPI_PUBLIC(glfs_renameat, 11.0);
+
+int
+glfs_renameat2(struct glfs_fd *glfd, const char *oldpath, const char *newpath,
+               int flags) __THROW GFAPI_PUBLIC(glfs_renameat2, 11.0);
 
 int
 glfs_link(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
