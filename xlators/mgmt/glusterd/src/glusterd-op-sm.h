@@ -134,12 +134,6 @@ typedef struct glusterd_pr_brick_rsp_conv_t {
     dict_t *dict;
 } glusterd_pr_brick_rsp_conv_t;
 
-typedef struct glusterd_heal_rsp_conv_ {
-    dict_t *dict;
-    glusterd_volinfo_t *volinfo;
-    xlator_t *this;
-} glusterd_heal_rsp_conv_t;
-
 typedef struct glusterd_status_rsp_conv_ {
     int count;
     int brick_index_max;

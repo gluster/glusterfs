@@ -10180,7 +10180,7 @@ _profile_volume_add_brick_rsp(dict_t *this, char *key, data_t *value,
 // input-key: <replica-id>:<child-id>-*
 // output-key: <brick-id>-*
 int
-_heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
+_heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, va_list ap)
 {
     char new_key[256] = "";
     char int_str[16] = "";
@@ -10194,10 +10194,14 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
     int brick_id = 0;
     int int_len = 0;
     int ret = 0;
-    glusterd_heal_rsp_conv_t *rsp_ctx = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
+    dict_t *opctx = NULL;
+    xlator_t *xl = NULL;
 
-    rsp_ctx = data;
+    opctx = va_arg(ap, dict_t *);
+    volinfo = va_arg(ap, glusterd_volinfo_t *);
+    xl = va_arg(ap, xlator_t *);
+
     rxl_end = strchr(key, '-');
     if (!rxl_end)
         goto out;
@@ -10223,20 +10227,19 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
     if (ret)
         goto out;
 
-    volinfo = rsp_ctx->volinfo;
     brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
 
     if (!strcmp(rxl_child_end, "-status")) {
         brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
         if (!brickinfo)
             goto out;
-        if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(xl, volinfo, brickinfo))
             goto out;
     }
     new_value = data_copy(value);
     int_len = snprintf(new_key, sizeof(new_key), "%d%s", brick_id,
                        rxl_child_end);
-    dict_setn(rsp_ctx->dict, new_key, int_len, new_value);
+    dict_setn(opctx, new_key, int_len, new_value);
 
 out:
     return 0;
@@ -10244,7 +10247,7 @@ out:
 
 int
 _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
-                                       void *data)
+                                       va_list ap)
 {
     char new_key[256] = "";
     char int_str[16] = "";
@@ -10261,10 +10264,14 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     int brick_id = 0;
     int int_len = 0;
     int ret = 0;
-    glusterd_heal_rsp_conv_t *rsp_ctx = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
+    dict_t *opctx = NULL;
+    xlator_t *xl = NULL;
 
-    rsp_ctx = data;
+    opctx = va_arg(ap, dict_t *);
+    volinfo = va_arg(ap, glusterd_volinfo_t *);
+    xl = va_arg(ap, xlator_t *);
+
     key_begin_str = strchr(key, '-');
     if (!key_begin_str)
         goto out;
@@ -10298,19 +10305,18 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     if (ret)
         goto out;
 
-    volinfo = rsp_ctx->volinfo;
     brick_id = rxl_id * volinfo->replica_count + rxl_child_id;
 
     brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
     if (!brickinfo)
         goto out;
-    if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+    if (!glusterd_is_local_brick(xl, volinfo, brickinfo))
         goto out;
 
     new_value = data_copy(value);
     int_len = snprintf(new_key, sizeof(new_key), "%s-%d%s", key_begin_string,
                        brick_id, rxl_child_end);
-    dict_setn(rsp_ctx->dict, new_key, int_len, new_value);
+    dict_setn(opctx, new_key, int_len, new_value);
 
 out:
     return 0;
@@ -10321,7 +10327,7 @@ glusterd_heal_volume_brick_rsp(dict_t *req_dict, dict_t *rsp_dict,
                                dict_t *op_ctx, char **op_errstr)
 {
     int ret = 0;
-    glusterd_heal_rsp_conv_t rsp_ctx = {0};
+    xlator_t *this = THIS;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int heal_op = -1;
@@ -10332,14 +10338,14 @@ glusterd_heal_volume_brick_rsp(dict_t *req_dict, dict_t *rsp_dict,
 
     ret = dict_get_strn(req_dict, "volname", SLEN("volname"), &volname);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
         goto out;
     }
 
     ret = dict_get_int32n(req_dict, "heal-op", SLEN("heal-op"), &heal_op);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get heal_op");
         goto out;
     }
@@ -10349,15 +10355,12 @@ glusterd_heal_volume_brick_rsp(dict_t *req_dict, dict_t *rsp_dict,
     if (ret)
         goto out;
 
-    rsp_ctx.dict = op_ctx;
-    rsp_ctx.volinfo = volinfo;
-    rsp_ctx.this = THIS;
     if (heal_op == GF_SHD_OP_STATISTICS)
-        dict_foreach(rsp_dict, _heal_volume_add_shd_rsp_of_statistics,
-                     &rsp_ctx);
+        dict_foreachv(rsp_dict, _heal_volume_add_shd_rsp_of_statistics, op_ctx,
+                      volinfo, this);
     else
-        dict_foreach(rsp_dict, _heal_volume_add_shd_rsp, &rsp_ctx);
-
+        dict_foreachv(rsp_dict, _heal_volume_add_shd_rsp, op_ctx, volinfo,
+                      this);
 out:
     return ret;
 }

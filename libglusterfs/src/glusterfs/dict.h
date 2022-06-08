@@ -173,7 +173,6 @@ dict_reset(dict_t *dict);
 int
 dict_key_count(dict_t *this);
 
-
 int32_t
 dict_unserialize(char *buf, int32_t size, dict_t **fill);
 
@@ -256,6 +255,11 @@ int
 dict_foreach(dict_t *this,
              int (*fn)(dict_t *this, char *key, data_t *value, void *data),
              void *data);
+
+int
+dict_foreachv(dict_t *this,
+              int (*fn)(dict_t *this, char *key, data_t *value, va_list ap),
+              ...);
 
 int
 dict_foreach_fnmatch(dict_t *dict, char *pattern,

@@ -26,17 +26,9 @@
 struct _ec_dict_info;
 typedef struct _ec_dict_info ec_dict_info_t;
 
-struct _ec_dict_combine;
-typedef struct _ec_dict_combine ec_dict_combine_t;
-
 struct _ec_dict_info {
     dict_t *dict;
     int32_t count;
-};
-
-struct _ec_dict_combine {
-    ec_cbk_data_t *cbk;
-    int32_t which;
 };
 
 int32_t
@@ -722,40 +714,41 @@ ec_dict_data_stime(ec_cbk_data_t *cbk, int32_t which, char *key)
 }
 
 int32_t
-ec_dict_data_combine(dict_t *dict, char *key, data_t *value, void *arg)
+ec_dict_data_combine(dict_t *dict, char *key, data_t *value, va_list ap)
 {
-    ec_dict_combine_t *data = arg;
+    ec_cbk_data_t *cbk = va_arg(ap, void *);
+    int32_t which = va_arg(ap, int32_t);
 
     if ((strcmp(key, GF_XATTR_PATHINFO_KEY) == 0) ||
         (strcmp(key, GF_XATTR_USER_PATHINFO_KEY) == 0)) {
-        return ec_dict_data_concat(data->cbk, data->which, key, NULL, NULL,
-                                   _gf_false, _gf_false, "(<EC:%s> { })",
-                                   data->cbk->fop->xl->name);
+        return ec_dict_data_concat(cbk, which, key, NULL, NULL, _gf_false,
+                                   _gf_false, "(<EC:%s> { })",
+                                   cbk->fop->xl->name);
     }
 
     if (strncmp(key, GF_XATTR_CLRLK_CMD, SLEN(GF_XATTR_CLRLK_CMD)) == 0) {
-        return ec_dict_data_concat(data->cbk, data->which, key, NULL, NULL,
-                                   _gf_false, "{\n}");
+        return ec_dict_data_concat(cbk, which, key, NULL, NULL, _gf_false,
+                                   "{\n}");
     }
 
     if (strncmp(key, GF_XATTR_LOCKINFO_KEY, SLEN(GF_XATTR_LOCKINFO_KEY)) == 0) {
-        return ec_dict_data_merge(data->cbk, data->which, key);
+        return ec_dict_data_merge(cbk, which, key);
     }
 
     if (strcmp(key, GET_LINK_COUNT) == 0) {
-        return ec_dict_data_max32(data->cbk, data->which, key);
+        return ec_dict_data_max32(cbk, which, key);
     }
 
     if (strcmp(key, GLUSTERFS_OPEN_FD_COUNT) == 0) {
-        return ec_dict_data_max32(data->cbk, data->which, key);
+        return ec_dict_data_max32(cbk, which, key);
     }
     if ((strcmp(key, GLUSTERFS_INODELK_COUNT) == 0) ||
         (strcmp(key, GLUSTERFS_ENTRYLK_COUNT) == 0)) {
-        return ec_dict_data_max32(data->cbk, data->which, key);
+        return ec_dict_data_max32(cbk, which, key);
     }
 
     if (strcmp(key, QUOTA_SIZE_KEY) == 0) {
-        return ec_dict_data_quota(data->cbk, data->which, key);
+        return ec_dict_data_quota(cbk, which, key);
     }
     /* Ignore all other quota attributes */
     if (strncmp(key, EC_QUOTA_PREFIX, SLEN(EC_QUOTA_PREFIX)) == 0) {
@@ -763,26 +756,26 @@ ec_dict_data_combine(dict_t *dict, char *key, data_t *value, void *arg)
     }
 
     if (XATTR_IS_NODE_UUID(key)) {
-        if (data->cbk->fop->int32) {
+        if (cbk->fop->int32) {
             /* List of node uuid is requested */
-            return ec_dict_data_concat(data->cbk, data->which, key,
+            return ec_dict_data_concat(cbk, which, key,
                                        GF_XATTR_LIST_NODE_UUIDS_KEY, UUID0_STR,
                                        _gf_true, "{ }");
         } else {
-            return ec_dict_data_uuid(data->cbk, data->which, key);
+            return ec_dict_data_uuid(cbk, which, key);
         }
     }
 
     if (fnmatch(GF_XATTR_STIME_PATTERN, key, FNM_NOESCAPE) == 0) {
-        return ec_dict_data_stime(data->cbk, data->which, key);
+        return ec_dict_data_stime(cbk, which, key);
     }
 
     if (fnmatch(MARKER_XATTR_PREFIX ".*." XTIME, key, FNM_NOESCAPE) == 0) {
-        return ec_dict_data_max64(data->cbk, data->which, key);
+        return ec_dict_data_max64(cbk, which, key);
     }
 
     if (strcmp(key, GF_PRESTAT) == 0 || strcmp(key, GF_POSTSTAT) == 0) {
-        return ec_dict_data_iatt(data->cbk, data->which, key);
+        return ec_dict_data_iatt(cbk, which, key);
     }
 
     return 0;
@@ -792,15 +785,11 @@ int32_t
 ec_dict_combine(ec_cbk_data_t *cbk, int32_t which)
 {
     dict_t *dict = NULL;
-    ec_dict_combine_t data;
     int32_t err = 0;
-
-    data.cbk = cbk;
-    data.which = which;
 
     dict = (which == EC_COMBINE_XDATA) ? cbk->xdata : cbk->dict;
     if (dict != NULL) {
-        err = dict_foreach(dict, ec_dict_data_combine, &data);
+        err = dict_foreachv(dict, ec_dict_data_combine, cbk, which);
         if (err != 0) {
             gf_msg(cbk->fop->xl->name, GF_LOG_ERROR, -err,
                    EC_MSG_DICT_COMBINE_FAIL, "Dictionary combination failed");

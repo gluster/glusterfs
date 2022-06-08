@@ -363,6 +363,7 @@ dict_dump_to_statedump
 dict_dump_to_str
 dict_dump_to_log
 dict_foreach
+dict_foreachv
 dict_foreach_fnmatch
 dict_foreach_match
 dict_for_key_value

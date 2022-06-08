@@ -1193,6 +1193,35 @@ dict_foreach(dict_t *dict,
     return ret;
 }
 
+int
+dict_foreachv(dict_t *dict,
+              int (*fn)(dict_t *this, char *key, data_t *value, va_list ap),
+              ...)
+{
+    int ret;
+    int count = 0;
+    va_list ap, cp;
+    data_pair_t *next = NULL;
+    data_pair_t *pairs = dict->members_list;
+
+    va_start(ap, fn);
+    while (pairs) {
+        next = pairs->next;
+        va_copy(cp, ap);
+        ret = fn(dict, pairs->key, pairs->value, cp);
+        va_end(cp);
+        if (ret < 0) {
+            count = ret;
+            break;
+        }
+        count++;
+        pairs = next;
+    }
+
+    va_end(ap);
+    return count;
+}
+
 /* return values:
    -1 = failure,
     0 = no matches found,
@@ -2857,8 +2886,6 @@ dict_serialize_lk(dict_t *this, char *buf)
 out:
     return ret;
 }
-
-
 
 /**
  * dict_unserialize - unserialize a buffer into a dict
