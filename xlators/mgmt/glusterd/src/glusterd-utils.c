@@ -1475,7 +1475,7 @@ out:
 }
 
 static int32_t
-glusterd_volume_ta_brickinfo_get(uuid_t uuid, char *hostname, char *path,
+glusterd_volume_ta_brickinfo_get(char *hostname, char *path,
                                  glusterd_volinfo_t *volinfo,
                                  glusterd_brickinfo_t **ta_brickinfo)
 {
@@ -4607,8 +4607,8 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
                                 brick_list)
         {
             ret = glusterd_volume_ta_brickinfo_get(
-                new_ta_brickinfo->uuid, new_ta_brickinfo->hostname,
-                new_ta_brickinfo->path, old_volinfo, &old_ta_brickinfo);
+                new_ta_brickinfo->hostname, new_ta_brickinfo->path, old_volinfo,
+                &old_ta_brickinfo);
             if (ret == 0) {
                 new_ta_brickinfo->port = old_ta_brickinfo->port;
 
@@ -6665,7 +6665,6 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     int ret = 0;
     int op_ret = 0;
     int ret_status = 0;
-    char uuid_str[64] = "";
     glusterd_volinfo_t *volinfo = NULL;
     char confpath[PATH_MAX] = "";
     char *op_errstr = NULL;
@@ -6685,8 +6684,6 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
         secondary++;
     else
         return 0;
-
-    (void)snprintf(uuid_str, sizeof(uuid_str), "%s", (char *)value->data);
 
     /* Getting Local Brickpaths */
     ret = glusterd_get_local_brickpaths(volinfo, &path_list);
@@ -6780,8 +6777,8 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
     }
 
     if (is_paused) {
-        glusterd_start_gsync(volinfo, secondary, path_list, confpath, uuid_str,
-                             NULL, _gf_true);
+        glusterd_start_gsync(volinfo, secondary, path_list, confpath, NULL,
+                             _gf_true);
     } else {
         /* Add secondary to the dict indicating geo-rep session is running*/
         ret = dict_set_dynstr_with_alloc(volinfo->gsync_active_secondaries,
@@ -6794,7 +6791,7 @@ _local_gsyncd_start(dict_t *this, char *key, data_t *value, void *data)
             goto out;
         }
         ret = glusterd_start_gsync(volinfo, secondary, path_list, confpath,
-                                   uuid_str, NULL, _gf_false);
+                                   NULL, _gf_false);
         if (ret)
             dict_del(volinfo->gsync_active_secondaries, key1);
     }
@@ -8015,8 +8012,8 @@ out:
 
 int
 glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
-                     char *path_list, char *conf_path, char *glusterd_uuid_str,
-                     char **op_errstr, gf_boolean_t is_pause)
+                     char *path_list, char *conf_path, char **op_errstr,
+                     gf_boolean_t is_pause)
 {
     int32_t ret = 0;
     int32_t status = 0;
@@ -8796,8 +8793,7 @@ glusterd_volinfo_reset_defrag_stats(glusterd_volinfo_t *volinfo)
 }
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *brickinfo)
+glusterd_is_local_brick(glusterd_brickinfo_t *brickinfo)
 {
     gf_boolean_t local = _gf_false;
     int ret = 0;
@@ -10230,7 +10226,7 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
         brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
         if (!brickinfo)
             goto out;
-        if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(brickinfo))
             goto out;
     }
     new_value = data_copy(value);
@@ -10304,7 +10300,7 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
     if (!brickinfo)
         goto out;
-    if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+    if (!glusterd_is_local_brick(brickinfo))
         goto out;
 
     new_value = data_copy(value);

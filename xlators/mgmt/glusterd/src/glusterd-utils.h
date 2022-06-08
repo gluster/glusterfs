@@ -331,8 +331,9 @@ glusterd_spawn_daemons(void *opaque);
 
 int
 glusterd_start_gsync(glusterd_volinfo_t *primary_vol, char *secondary,
-                     char *path_list, char *conf_path, char *glusterd_uuid_str,
-                     char **op_errstr, gf_boolean_t is_pause);
+                     char *path_list, char *conf_path, char **op_errstr,
+                     gf_boolean_t is_pause);
+
 int
 glusterd_get_local_brickpaths(glusterd_volinfo_t *volinfo, char **pathlist);
 
@@ -386,8 +387,8 @@ int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
-                        glusterd_brickinfo_t *brickinfo);
+glusterd_is_local_brick(glusterd_brickinfo_t *brickinfo);
+
 int
 glusterd_validate_volume_id(dict_t *op_dict, glusterd_volinfo_t *volinfo);
 

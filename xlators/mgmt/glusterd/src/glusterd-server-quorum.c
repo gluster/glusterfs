@@ -363,7 +363,7 @@ glusterd_do_volume_quorum_action(xlator_t *this, glusterd_volinfo_t *volinfo,
 
     list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(brickinfo))
             continue;
         if (quorum_status == DOESNT_MEET_QUORUM) {
             ret = glusterd_brick_stop(volinfo, brickinfo, _gf_false);
@@ -406,7 +406,7 @@ out:
     if (quorum_status_unchanged) {
         list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+            if (!glusterd_is_local_brick(brickinfo))
                 continue;
             ret = glusterd_brick_start(volinfo, brickinfo, _gf_false, _gf_true);
             if (ret) {

@@ -1464,8 +1464,8 @@ glusterd_destroy_hostname_list(struct list_head *hostname_list_head)
 }
 
 static int32_t
-glusterd_handle_upgrade_downgrade(dict_t *options, glusterd_conf_t *conf,
-                                  gf_boolean_t upgrade, gf_boolean_t downgrade)
+glusterd_handle_upgrade_downgrade(glusterd_conf_t *conf, gf_boolean_t upgrade,
+                                  gf_boolean_t downgrade)
 {
     int ret = 0;
     gf_boolean_t regenerate_volfiles = _gf_false;
@@ -2046,8 +2046,7 @@ init(xlator_t *this)
     }
 
     GF_ATOMIC_INIT(conf->blockers, 0);
-    ret = glusterd_handle_upgrade_downgrade(this->options, conf, upgrade,
-                                            downgrade);
+    ret = glusterd_handle_upgrade_downgrade(conf, upgrade, downgrade);
     if (ret)
         goto out;
 

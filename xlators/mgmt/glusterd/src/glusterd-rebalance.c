@@ -426,9 +426,8 @@ out:
 }
 
 static int
-glusterd_rebalance_cmd_validate(int cmd, char *volname,
-                                glusterd_volinfo_t **volinfo, char *op_errstr,
-                                size_t len)
+glusterd_rebalance_cmd_validate(char *volname, glusterd_volinfo_t **volinfo,
+                                char *op_errstr, size_t len)
 {
     int ret = -1;
 
@@ -631,8 +630,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
-                                          sizeof(msg));
+    ret = glusterd_rebalance_cmd_validate(volname, &volinfo, msg, sizeof(msg));
     if (ret) {
         gf_msg_debug(this->name, 0, "failed to validate");
         goto out;
@@ -717,8 +715,7 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
-                                          sizeof(msg));
+    ret = glusterd_rebalance_cmd_validate(volname, &volinfo, msg, sizeof(msg));
     if (ret) {
         gf_msg_debug(this->name, 0, "failed to validate");
         goto out;
@@ -863,8 +860,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
-                                          sizeof(msg));
+    ret = glusterd_rebalance_cmd_validate(volname, &volinfo, msg, sizeof(msg));
     if (ret) {
         gf_msg_debug(this->name, 0, "cmd validate failed");
         goto out;
@@ -1021,8 +1017,7 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
-                                          sizeof(msg));
+    ret = glusterd_rebalance_cmd_validate(volname, &volinfo, msg, sizeof(msg));
     if (ret) {
         gf_msg_debug(this->name, 0, "failed to validate");
         goto out;
@@ -1176,8 +1171,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = glusterd_rebalance_cmd_validate(cmd, volname, &volinfo, msg,
-                                          sizeof(msg));
+    ret = glusterd_rebalance_cmd_validate(volname, &volinfo, msg, sizeof(msg));
     if (ret) {
         gf_msg_debug(this->name, 0, "cmd validate failed");
         goto out;

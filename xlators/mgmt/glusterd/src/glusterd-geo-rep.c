@@ -4828,7 +4828,7 @@ glusterd_check_restart_gsync_session(glusterd_volinfo_t *volinfo,
     if (ret == 0) {
         dict_del(volinfo->gsync_active_secondaries, key);
         ret = glusterd_start_gsync(volinfo, secondary, path_list, conf_path,
-                                   uuid_utoa(MY_UUID), NULL, _gf_false);
+                                   NULL, _gf_false);
         if (!ret) {
             /* Add secondary to the dict indicating geo-rep session is
              * running.*/
@@ -5562,7 +5562,6 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 {
     int32_t ret = -1;
     int32_t type = -1;
-    char *host_uuid = NULL;
     char *secondary = NULL;
     char *secondary_url = NULL;
     char *secondary_vol = NULL;
@@ -5585,10 +5584,6 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     GF_ASSERT(rsp_dict);
 
     ret = dict_get_int32(dict, "type", &type);
-    if (ret < 0)
-        goto out;
-
-    ret = dict_get_str(dict, "host-uuid", &host_uuid);
     if (ret < 0)
         goto out;
 
@@ -5701,7 +5696,7 @@ glusterd_op_gsync_set(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         }
 
         ret = glusterd_start_gsync(volinfo, secondary, path_list, conf_path,
-                                   host_uuid, op_errstr, _gf_false);
+                                   op_errstr, _gf_false);
 
         /* Delete added secondary in the dict if start fails*/
         if (ret)

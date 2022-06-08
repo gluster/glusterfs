@@ -349,7 +349,7 @@ is_bitd_configure_noop(xlator_t *this, glusterd_volinfo_t *volinfo)
     else {
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+            if (!glusterd_is_local_brick(brickinfo))
                 continue;
             noop = _gf_false;
             return noop;
@@ -513,7 +513,7 @@ glusterd_should_i_stop_bitd()
         else {
             cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
             {
-                if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+                if (!glusterd_is_local_brick(brickinfo))
                     continue;
                 stopped = _gf_false;
                 return stopped;
