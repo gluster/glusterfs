@@ -206,3 +206,4 @@ _pub_glfs_fchmodat _glfs_fchmodat@GFAPI_11.0
 _pub_glfs_fchownat _glfs_fchownat@GFAPI_11.0
 _pub_glfs_linkat _glfs_linkat@GFAPI_11.0
 _pub_glfs_mknodat _glfs_mknodat@GFAPI_11.0
+_pub_glfs_readlinkat _glfs_readlinkat@GFAPI_11.0

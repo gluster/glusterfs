@@ -243,6 +243,25 @@ main(int argc, char *argv[])
                                          out);
     }
 
+    ret = glfs_unlink(fs, filepath_symlinkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
+
+    ret = glfs_symlink(fs, filepath, filepath_symlinkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlink", ret, out);
+
+    ret = glfs_lstat(fs, filepath_symlinkat, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
+
+    char buffer[56];
+    ret = glfs_readlinkat(fd1, filename_symlinkat, buffer, sizeof(buffer));
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat", ret, out);
+
+    if (ret != stbuf.st_size) {
+        ret = -1;
+       VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat buf size mismatch",
+                                         ret, out);
+    }
+
     ret = 0;
 out:
     if (fd2 != NULL)
