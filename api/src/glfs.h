@@ -845,6 +845,10 @@ glfs_readlink(glfs_t *fs, const char *path, char *buf, size_t bufsiz) __THROW
     GFAPI_PUBLIC(glfs_readlink, 3.4.0);
 
 int
+glfs_readlinkat(struct glfs_fd *glfd, const char *path, char *buf,
+                size_t bufsiz) __THROW GFAPI_PUBLIC(glfs_readlinkat, 11.0);
+
+int
 glfs_mknod(glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW
     GFAPI_PUBLIC(glfs_mknod, 3.4.0);
 

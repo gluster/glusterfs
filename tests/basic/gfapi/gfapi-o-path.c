@@ -36,7 +36,9 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_symlink = "file_tmp_symlink";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_symlink = "/dir_tmp/file_tmp_symlink";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -101,6 +103,25 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_symlink(fs, filepath, filepath_symlink);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlink", ret, out);
+
+    struct stat buf = {
+        0,
+    };
+    ret = glfs_lstat(fs, filepath_symlink, &buf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
+
+    char buffer[56];
+    ret = glfs_readlinkat(fd1, filename_symlink, buffer, sizeof(buffer));
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat", ret, out);
+
+    if (ret != buf.st_size) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat buf size mismatch",
+                                         ret, out);
+    }
 
     ret = 0;
 out:

@@ -285,4 +285,5 @@ GFAPI_7.0 {
 GFAPI_11.0 {
 	global:
 		glfs_openat;
+		glfs_readlinkat;
 } GFAPI_7.0;
