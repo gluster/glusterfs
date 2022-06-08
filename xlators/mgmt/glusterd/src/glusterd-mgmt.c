@@ -409,7 +409,7 @@ gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
 
     switch (op) {
         case GD_OP_ADD_BRICK:
-            ret = glusterd_post_commit_add_brick(dict, op_errstr);
+            ret = glusterd_post_commit_brick_operation(dict, op_errstr);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
                        "Add-brick post commit failed.");
@@ -417,7 +417,7 @@ gd_mgmt_v3_post_commit_fn(glusterd_op_t op, dict_t *dict, char **op_errstr,
             }
             break;
         case GD_OP_REPLACE_BRICK:
-            ret = glusterd_post_commit_replace_brick(dict, op_errstr);
+            ret = glusterd_post_commit_brick_operation(dict, op_errstr);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_COMMIT_OP_FAIL,
                        "Replace-brick post commit failed.");

@@ -2187,25 +2187,7 @@ out:
 }
 
 int
-glusterd_post_commit_add_brick(dict_t *dict, char **op_errstr)
-{
-    int ret = 0;
-    char *volname = NULL;
-
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
-
-    if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
-               "Unable to get volume name");
-        goto out;
-    }
-    ret = glusterd_replace_old_auth_allow_list(volname);
-out:
-    return ret;
-}
-
-int
-glusterd_post_commit_replace_brick(dict_t *dict, char **op_errstr)
+glusterd_post_commit_brick_operation(dict_t *dict, char **op_errstr)
 {
     int ret = 0;
     char *volname = NULL;

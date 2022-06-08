@@ -90,8 +90,5 @@ int
 glusterd_op_reset_brick(dict_t *dict, dict_t *rsp_dict);
 
 int
-glusterd_post_commit_add_brick(dict_t *dict, char **op_errstr);
-
-int
-glusterd_post_commit_replace_brick(dict_t *dict, char **op_errstr);
+glusterd_post_commit_brick_operation(dict_t *dict, char **op_errstr);
 #endif /* _GLUSTERD_MGMT_H_ */
