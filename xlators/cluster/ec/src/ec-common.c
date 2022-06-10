@@ -1263,10 +1263,10 @@ ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    ec_msg_str(fop));
             goto unlock;
         }
+
         ctx->post_version[0] += ctx->pre_version[0];
         ctx->post_version[1] += ctx->pre_version[1];
-
-        ctx->have_version = _gf_true;
+        ctx->pre_version[0] = ctx->pre_version[1] = (uint64_t)-1;
 
         if (lock->loc.inode->ia_type == IA_IFREG ||
             lock->loc.inode->ia_type == IA_INVAL) {
@@ -1279,9 +1279,8 @@ ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     goto unlock;
                 }
             } else {
+                GF_ASSERT(ctx->pre_size != (uint64_t)-1);
                 ctx->post_size = ctx->pre_size;
-
-                ctx->have_size = _gf_true;
             }
 
             op_errno = -ec_dict_del_config(dict, EC_XATTR_CONFIG, &ctx->config);
@@ -1303,10 +1302,8 @@ ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
                     goto unlock;
                 }
-                ctx->have_config = _gf_true;
             }
         }
-        ctx->have_info = _gf_true;
     }
 
     ec_set_dirty_flag(fop->data, ctx, dirty);
@@ -1399,7 +1396,7 @@ ec_set_xattrop_flags_and_params(ec_lock_t *lock, ec_lock_link_t *link,
 
     oldflags = EC_NEEDED_FLAGS(lock->waiting_flags);
 
-    if (lock->query && !ctx->have_info) {
+    if (lock->query && ctx->config.version == EC_CONFIG_INVALID_VERSION) {
         ec_set_needed_flag(lock, link, EC_FLAG_XATTROP);
     }
 
@@ -1450,7 +1447,7 @@ ec_get_size_version(ec_lock_link_t *link)
     set_dirty = ec_set_dirty_flag(link, ctx, dirty);
 
     /* If ec metadata has already been retrieved, do not try again. */
-    if (ctx->have_info) {
+    if (ctx->config.version != EC_CONFIG_INVALID_VERSION) {
         if (ec_is_data_fop(fop->id)) {
             fop->healing |= lock->healing;
         }
@@ -1588,7 +1585,7 @@ __ec_get_inode_size(ec_fop_data_t *fop, inode_t *inode, uint64_t *size)
         goto out;
     }
 
-    if (ctx->have_size) {
+    if (ctx->post_size != (uint64_t)-1) {
         *size = ctx->post_size;
         found = _gf_true;
     }
@@ -1622,14 +1619,9 @@ __ec_set_inode_size(ec_fop_data_t *fop, inode_t *inode, uint64_t size)
         goto out;
     }
 
-    /* Normal fops always have ctx->have_size set. However self-heal calls this
-     * to prepare the inode, so ctx->have_size will be false. In this case we
-     * prepare both pre_size and post_size, and set have_size and have_info to
-     * true. */
-    if (!ctx->have_size) {
+    if (ctx->pre_size == (uint64_t)-1)
         ctx->pre_size = size;
-        ctx->have_size = ctx->have_info = _gf_true;
-    }
+
     ctx->post_size = size;
 
     found = _gf_true;
@@ -1681,15 +1673,16 @@ ec_clear_inode_info(ec_fop_data_t *fop, inode_t *inode)
     }
 
     ec_release_stripe_cache(ctx);
-    ctx->have_info = _gf_false;
-    ctx->have_config = _gf_false;
-    ctx->have_version = _gf_false;
-    ctx->have_size = _gf_false;
 
     memset(&ctx->config, 0, sizeof(ctx->config));
     memset(ctx->pre_version, 0, sizeof(ctx->pre_version));
     memset(ctx->post_version, 0, sizeof(ctx->post_version));
-    ctx->pre_size = ctx->post_size = 0;
+
+    ctx->config.version = EC_CONFIG_INVALID_VERSION;
+    ctx->pre_size = ctx->post_size = (uint64_t)-1;
+    ctx->pre_version[0] = ctx->pre_version[1] = (uint64_t)-1;
+    ctx->post_version[0] = ctx->post_version[1] = (uint64_t)-1;
+
     memset(ctx->dirty, 0, sizeof(ctx->dirty));
 
 unlock:
@@ -2347,21 +2340,17 @@ ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
                               EC_VERSION_SIZE) == 0) {
             ctx->pre_version[0] = ctx->post_version[0];
             ctx->pre_version[1] = ctx->post_version[1];
-
-            ctx->have_version = _gf_true;
         }
         if (ec_dict_del_number(xattr, EC_XATTR_SIZE, &ctx->post_size) == 0) {
+            GF_ASSERT(ctx->post_size != (uint64_t)-1);
             ctx->pre_size = ctx->post_size;
-
-            ctx->have_size = _gf_true;
         }
         if ((ec_dict_del_config(xdata, EC_XATTR_CONFIG, &ctx->config) == 0) &&
             ec_config_check(fop->xl, &ctx->config)) {
-            ctx->have_config = _gf_true;
+            GF_ASSERT(ctx->config.version != EC_CONFIG_INVALID_VERSION);
         }
-
-        ctx->have_info = _gf_true;
     }
+
     /* If we are here because of fop's and other than unlock request,
      * that means we are still holding a lock. That make sure
      * lock->unlock_now can not be modified.
@@ -2398,7 +2387,9 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version, uint64_t size,
 
     /* If we don't have version information or it has been modified, we
      * update it. */
-    if (!ctx->have_version || (version[0] != 0) || (version[1] != 0)) {
+    if (ctx->pre_version[0] == (uint64_t)-1 ||
+        ctx->post_version[0] == (uint64_t)-1 ||
+        (version[0] != 0) || (version[1] != 0)) {
         err = ec_dict_set_array(dict, EC_XATTR_VERSION, version,
                                 EC_VERSION_SIZE);
         if (err != 0) {
@@ -2409,7 +2400,7 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version, uint64_t size,
     if (size != 0) {
         /* If size has been changed, we should already
          * know the previous size of the file. */
-        GF_ASSERT(ctx->have_size);
+        GF_ASSERT(ctx->pre_size != (uint64_t)-1);
 
         err = ec_dict_set_number(dict, EC_XATTR_SIZE, size);
         if (err != 0) {
@@ -2425,7 +2416,8 @@ ec_update_size_version(ec_lock_link_t *link, uint64_t *version, uint64_t size,
     }
 
     /* If config information is not known, we request it now. */
-    if ((lock->loc.inode->ia_type == IA_IFREG) && !ctx->have_config) {
+    if ((lock->loc.inode->ia_type == IA_IFREG) &&
+        ctx->config.version == EC_CONFIG_INVALID_VERSION) {
         /* A failure requesting this xattr is ignored because it's not
          * absolutely required right now. */
         (void)ec_dict_set_number(dict, EC_XATTR_CONFIG, 0);

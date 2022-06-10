@@ -173,10 +173,6 @@ struct _ec_stripe_list {
 
 struct _ec_inode {
     ec_lock_t *inode_lock;
-    gf_boolean_t have_info;
-    gf_boolean_t have_config;
-    gf_boolean_t have_version;
-    gf_boolean_t have_size;
     int32_t heal_count;
     ec_config_t config;
     uint64_t pre_version[2];

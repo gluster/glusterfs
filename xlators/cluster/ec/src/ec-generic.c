@@ -686,11 +686,11 @@ ec_lookup_rebuild(ec_t *ec, ec_fop_data_t *fop, ec_cbk_data_t *cbk)
 
     ctx = __ec_inode_get(cbk->inode, fop->xl);
     if (ctx != NULL) {
-        if (ctx->have_version) {
+        if (ctx->post_version[0] != (uint64_t)-1) {
             cbk->version[0] = ctx->post_version[0];
             cbk->version[1] = ctx->post_version[1];
         }
-        if (ctx->have_size) {
+        if (ctx->post_size != (uint64_t)-1) {
             size = ctx->post_size;
             have_size = 1;
         }

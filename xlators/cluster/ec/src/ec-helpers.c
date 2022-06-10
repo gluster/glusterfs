@@ -715,6 +715,11 @@ __ec_inode_get(inode_t *inode, xlator_t *xl)
             memset(ctx, 0, sizeof(*ctx));
             INIT_LIST_HEAD(&ctx->heal);
             INIT_LIST_HEAD(&ctx->stripe_cache.lru);
+            ctx->pre_size = (uint64_t)-1;
+            ctx->post_size = (uint64_t)-1;
+            ctx->config.version = EC_CONFIG_INVALID_VERSION;
+            ctx->pre_version[0] = ctx->pre_version[1] = (uint64_t)-1;
+            ctx->post_version[0] = ctx->post_version[1] = (uint64_t)-1;
             ctx->heal_count = 0;
             value = (uint64_t)(uintptr_t)ctx;
             if (__inode_ctx_set(inode, xl, &value) != 0) {
