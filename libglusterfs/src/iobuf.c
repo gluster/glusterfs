@@ -22,8 +22,9 @@
 /* Make sure this array is sorted based on pagesize */
 static const struct iobuf_init_config gf_iobuf_init_config[] = {
     /* { pagesize, num_pages }, */
-    {128, 1024},     {512, 512},       {2 * 1024, 512}, {8 * 1024, 128},
-    {32 * 1024, 64}, {128 * 1024, 32}, {256 * 1024, 8}, {1 * 1024 * 1024, 2},
+    {136 * 1024, 32},
+    {256 * 1024, 8},
+    {1 * 1024 * 1024, 2},
 };
 
 static int
