@@ -123,8 +123,6 @@ iobuf_unref(struct iobuf *iobuf);
 struct iobuf *
 iobuf_ref(struct iobuf *iobuf);
 void
-iobuf_pool_destroy(struct iobuf_pool *iobuf_pool);
-void
 iobuf_to_iovec(struct iobuf *iob, struct iovec *iov);
 
 #define iobuf_ptr(iob) ((iob)->ptr)
