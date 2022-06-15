@@ -1536,7 +1536,7 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
         self.changelogs_batch_process(changes)
 
     def register(self, register_time, status):
-        self.sleep_interval = gconf.get("change-interval")
+        self.sleep_interval = gconf.get("change-interval", 60)
         self.changelog_done_func = libgfchangelog.done
         self.tempdir = self.setup_working_dir()
         self.processed_changelogs_dir = os.path.join(self.tempdir,
@@ -1656,7 +1656,7 @@ class GPrimaryXsyncMixin(GPrimaryChangelogMixin):
         self.counter = 0
         self.comlist = []
         self.stimes = []
-        self.sleep_interval = 60
+        self.sleep_interval = gconf.get("change-interval", 60)
         self.tempdir = self.setup_working_dir()
         logging.info(lf('Working dir',
                         path=self.tempdir))
