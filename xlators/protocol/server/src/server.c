@@ -863,10 +863,16 @@ server_reconfigure(xlator_t *this, dict_t *options)
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
 do_auth:
-    if (conf->auth_modules)
-        gf_auth_fini(conf->auth_modules);
-    else
+    if (conf->auth_modules) {
+        /* In case of brick_mux the vol_opt object is cleaned by
+           xlator_mem_free so no need to call gf_auth_fini to cleanup
+           the object
+        */
+        if (!this->ctx->cmd_args.brick_mux)
+            gf_auth_fini(conf->auth_modules);
+    } else {
         conf->auth_modules = dict_new();
+    }
 
     dict_foreach(options, get_auth_types, conf->auth_modules);
     ret = validate_auth_options(kid, options);
