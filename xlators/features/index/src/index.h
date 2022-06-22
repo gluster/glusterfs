@@ -27,11 +27,11 @@ typedef enum {
 } index_xattrop_type_t;
 
 typedef struct index_inode_ctx {
-    gf_boolean_t processing;
     struct list_head callstubs;
-    int state[XATTROP_TYPE_END];
     uuid_t virtual_pargfid; /* virtual gfid of dir under
                               .glusterfs/indices/entry-changes. */
+    int state[XATTROP_TYPE_END];
+    gf_boolean_t processing;
 } index_inode_ctx_t;
 
 typedef struct index_fd_ctx {

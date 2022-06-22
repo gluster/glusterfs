@@ -58,8 +58,8 @@ index_is_virtual_gfid(index_priv_t *priv, uuid_t vgfid)
     return _gf_true;
 }
 
-static int
-__index_inode_ctx_get(inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
+static index_inode_ctx_t *
+__index_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
     int ret = 0;
     index_inode_ctx_t *ictx = NULL;
@@ -71,8 +71,7 @@ __index_inode_ctx_get(inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
         goto out;
     }
     ictx = GF_CALLOC(1, sizeof(*ictx), gf_index_inode_ctx_t);
-    if (!ictx) {
-        ret = -1;
+    if (ictx == NULL) {
         goto out;
     }
 
@@ -81,39 +80,36 @@ __index_inode_ctx_get(inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
     if (ret) {
         GF_FREE(ictx);
         ictx = NULL;
-        goto out;
     }
+
 out:
-    if (ictx)
-        *ctx = ictx;
-    return ret;
+    return ictx;
 }
 
-static int
-index_inode_ctx_get(inode_t *inode, xlator_t *this, index_inode_ctx_t **ctx)
+static index_inode_ctx_t *
+index_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
-    int ret = 0;
+    index_inode_ctx_t *ctx = NULL;
 
     LOCK(&inode->lock);
     {
-        ret = __index_inode_ctx_get(inode, this, ctx);
+        ctx = __index_inode_ctx_get(inode, this);
     }
     UNLOCK(&inode->lock);
 
-    return ret;
+    return ctx;
 }
 
 static gf_boolean_t
 index_is_subdir_of_entry_changes(xlator_t *this, inode_t *inode)
 {
     index_inode_ctx_t *ctx = NULL;
-    int ret = 0;
 
     if (!inode)
         return _gf_false;
 
-    ret = index_inode_ctx_get(inode, this, &ctx);
-    if ((ret == 0) && !gf_uuid_is_null(ctx->virtual_pargfid))
+    ctx = index_inode_ctx_get(inode, this);
+    if (ctx && !gf_uuid_is_null(ctx->virtual_pargfid))
         return _gf_true;
     return _gf_false;
 }
@@ -850,8 +846,8 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
                                   EINVAL);
     GF_ASSERT_AND_GOTO_WITH_ERROR(filename, out, op_errno, EINVAL);
 
-    ret = index_inode_ctx_get(inode, this, &ctx);
-    if (ret) {
+    ctx = index_inode_ctx_get(inode, this);
+    if (ctx == NULL) {
         op_errno = EINVAL;
         gf_msg(this->name, GF_LOG_ERROR, op_errno,
                INDEX_MSG_INODE_CTX_GET_SET_FAILED,
@@ -963,14 +959,14 @@ _index_action(xlator_t *this, inode_t *inode, int *zfilled)
     index_inode_ctx_t *ctx = NULL;
     char *subdir = NULL;
 
-    ret = index_inode_ctx_get(inode, this, &ctx);
-    if (ret) {
+    ctx = index_inode_ctx_get(inode, this);
+    if (ctx == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL,
                INDEX_MSG_INODE_CTX_GET_SET_FAILED,
                "Not able to get"
                " inode context for %s.",
                uuid_utoa(inode->gfid));
-        goto out;
+        return;
     }
 
     for (i = 0; i < XATTROP_TYPE_END; i++) {
@@ -989,8 +985,6 @@ _index_action(xlator_t *this, inode_t *inode, int *zfilled)
                 ctx->state[i] = IN;
         }
     }
-out:
-    return;
 }
 
 static void
@@ -1054,7 +1048,10 @@ xattrop_index_action(xlator_t *this, index_local_t *local, dict_t *xattr,
         goto out;
 
     subdir = index_get_subdir_from_type(ENTRY_CHANGES);
-    ret = index_inode_ctx_get(inode, this, &ctx);
+    ctx = index_inode_ctx_get(inode, this);
+    if (ctx == NULL)
+        goto out;
+
     if (ctx->state[ENTRY_CHANGES] == UNKNOWN)
         index_init_state(this, inode, ctx, subdir);
     if (ctx->state[ENTRY_CHANGES] == IN) {
@@ -1109,10 +1106,11 @@ index_inode_path(xlator_t *this, inode_t *inode, char *dirpath, size_t len)
         }
         make_index_dir_path(priv->index_basepath, subdir, dirpath, len);
     } else {
-        ret = index_inode_ctx_get(inode, this, &ictx);
-        if (ret)
+        ictx = index_inode_ctx_get(inode, this);
+        if (ictx == NULL) {
+            ret = -1;
             goto out;
-        if (gf_uuid_is_null(ictx->virtual_pargfid)) {
+        } else if (gf_uuid_is_null(ictx->virtual_pargfid)) {
             ret = -EINVAL;
             goto out;
         }
@@ -1193,13 +1191,12 @@ index_queue_process(xlator_t *this, inode_t *inode, call_stub_t *new)
 {
     call_stub_t *stub = NULL;
     index_inode_ctx_t *ctx = NULL;
-    int ret = 0;
     call_frame_t *frame = NULL;
 
     LOCK(&inode->lock);
     {
-        ret = __index_inode_ctx_get(inode, this, &ctx);
-        if (ret)
+        ctx = __index_inode_ctx_get(inode, this);
+        if (!ctx)
             goto unlock;
 
         if (new) {
@@ -1220,7 +1217,7 @@ index_queue_process(xlator_t *this, inode_t *inode, call_stub_t *new)
 unlock:
     UNLOCK(&inode->lock);
 
-    if (ret && new) {
+    if (!ctx && new) {
         frame = new->frame;
         if (new->fop == GF_FOP_XATTROP) {
             INDEX_STACK_UNWIND(xattrop, frame, -1, ENOMEM, NULL, NULL);
@@ -1547,8 +1544,8 @@ index_save_pargfid_for_entry_changes(xlator_t *this, loc_t *loc, char *path)
     if (gf_uuid_compare(loc->pargfid, priv->internal_vgfid[ENTRY_CHANGES]))
         return 0;
 
-    ret = index_inode_ctx_get(loc->inode, this, &ctx);
-    if (ret) {
+    ctx = index_inode_ctx_get(loc->inode, this);
+    if (ctx == NULL) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL,
                INDEX_MSG_INODE_CTX_GET_SET_FAILED,
                "Unable to get inode context for %s", path);
@@ -1919,13 +1916,16 @@ index_unlink_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
         goto done;
 
     if (type <= XATTROP_TYPE_UNSET) {
-        ret = index_inode_ctx_get(loc->parent, this, &ictx);
-        if ((ret == 0) && gf_uuid_is_null(ictx->virtual_pargfid)) {
-            ret = -EINVAL;
-        }
-        if (ret == 0) {
-            ret = index_entry_delete(this, ictx->virtual_pargfid,
-                                     (char *)loc->name);
+        ictx = index_inode_ctx_get(loc->parent, this);
+        if (ictx) {
+            if (gf_uuid_is_null(ictx->virtual_pargfid)) {
+                ret = -EINVAL;
+            } else {
+                ret = index_entry_delete(this, ictx->virtual_pargfid,
+                                         (char *)loc->name);
+            }
+        } else {  // ictx is NUILL
+            ret = -1;
         }
     } else if (type == ENTRY_CHANGES) {
         make_file_path(priv->index_basepath, ENTRY_CHANGES_SUBDIR,
