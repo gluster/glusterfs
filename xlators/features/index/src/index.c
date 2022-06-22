@@ -237,10 +237,10 @@ index_worker(void *data)
     return NULL;
 }
 
-static void
+static int
 make_index_dir_path(char *base, const char *subdir, char *index_dir, size_t len)
 {
-    snprintf(index_dir, len, "%s/%s", base, subdir);
+    return snprintf(index_dir, len, "%s/%s", base, subdir);
 }
 
 int
@@ -256,8 +256,8 @@ index_dir_create(xlator_t *this, const char *subdir)
     size_t pathlen = 0;
 
     priv = this->private;
-    make_index_dir_path(priv->index_basepath, subdir, fullpath,
-                        sizeof(fullpath));
+    pathlen = make_index_dir_path(priv->index_basepath, subdir, fullpath,
+                                  sizeof(fullpath));
     ret = sys_stat(fullpath, &st);
     if (!ret) {
         if (!S_ISDIR(st.st_mode))
@@ -265,7 +265,6 @@ index_dir_create(xlator_t *this, const char *subdir)
         goto out;
     }
 
-    pathlen = strlen(fullpath);
     if ((pathlen > 1) && fullpath[pathlen - 1] == '/')
         fullpath[pathlen - 1] = '\0';
     dir = strchr(fullpath, '/');
@@ -328,17 +327,21 @@ static void
 make_index_path(char *base, const char *subdir, uuid_t index, char *index_path,
                 size_t len)
 {
-    make_index_dir_path(base, subdir, index_path, len);
-    snprintf(index_path + strlen(index_path), len - strlen(index_path),
-             "/%s-%s", subdir, uuid_utoa(index));
+    int index_path_len;
+
+    index_path_len = make_index_dir_path(base, subdir, index_path, len);
+    snprintf(index_path + index_path_len, len - index_path_len, "/%s-%s",
+             subdir, uuid_utoa(index));
 }
 
 static void
 make_gfid_path(char *base, const char *subdir, uuid_t gfid, char *gfid_path,
                size_t len)
 {
-    make_index_dir_path(base, subdir, gfid_path, len);
-    snprintf(gfid_path + strlen(gfid_path), len - strlen(gfid_path), "/%s",
+    int gfid_path_len;
+
+    gfid_path_len = make_index_dir_path(base, subdir, gfid_path, len);
+    snprintf(gfid_path + gfid_path_len, len - gfid_path_len, "/%s",
              uuid_utoa(gfid));
 }
 
@@ -346,17 +349,16 @@ static void
 make_file_path(char *base, const char *subdir, const char *filename,
                char *file_path, size_t len)
 {
-    make_index_dir_path(base, subdir, file_path, len);
-    snprintf(file_path + strlen(file_path), len - strlen(file_path), "/%s",
-             filename);
+    int file_path_len;
+
+    file_path_len = make_index_dir_path(base, subdir, file_path, len);
+    snprintf(file_path + file_path_len, len - file_path_len, "/%s", filename);
 }
 
 static int
 is_index_file_current(char *filename, uuid_t priv_index, char *subdir)
 {
-    char current_index[GF_UUID_BUF_SIZE + 16] = {
-        0,
-    };
+    char current_index[GF_UUID_BUF_SIZE + 16];
 
     snprintf(current_index, sizeof current_index, "%s-%s", subdir,
              uuid_utoa(priv_index));
@@ -1091,6 +1093,7 @@ index_inode_path(xlator_t *this, inode_t *inode, char *dirpath, size_t len)
     int ret = 0;
     index_priv_t *priv = NULL;
     index_inode_ctx_t *ictx = NULL;
+    int dir_path_len;
 
     priv = this->private;
     if (!index_is_fop_on_internal_inode(this, inode, NULL)) {
@@ -1104,7 +1107,7 @@ index_inode_path(xlator_t *this, inode_t *inode, char *dirpath, size_t len)
             ret = -EINVAL;
             goto out;
         }
-        make_index_dir_path(priv->index_basepath, subdir, dirpath, len);
+        (void)make_index_dir_path(priv->index_basepath, subdir, dirpath, len);
     } else {
         ictx = index_inode_ctx_get(inode, this);
         if (ictx == NULL) {
@@ -1114,9 +1117,9 @@ index_inode_path(xlator_t *this, inode_t *inode, char *dirpath, size_t len)
             ret = -EINVAL;
             goto out;
         }
-        make_index_dir_path(priv->index_basepath, ENTRY_CHANGES_SUBDIR, dirpath,
-                            len);
-        if (len <= strlen(dirpath) + 1 /*'/'*/ + SLEN(UUID0_STR)) {
+        dir_path_len = make_index_dir_path(priv->index_basepath,
+                                           ENTRY_CHANGES_SUBDIR, dirpath, len);
+        if (len <= dir_path_len + 1 /*'/'*/ + SLEN(UUID0_STR)) {
             ret = -EINVAL;
             goto out;
         }
@@ -1432,11 +1435,12 @@ index_entry_count(xlator_t *this, char *subdir)
     char index_dir[PATH_MAX] = {
         0,
     };
+    int subdir_len = 0;
 
     priv = this->private;
 
-    make_index_dir_path(priv->index_basepath, subdir, index_dir,
-                        sizeof(index_dir));
+    subdir_len = make_index_dir_path(priv->index_basepath, subdir, index_dir,
+                                     sizeof(index_dir));
 
     dirp = sys_opendir(index_dir);
     if (!dirp)
@@ -1451,7 +1455,7 @@ index_entry_count(xlator_t *this, char *subdir)
         if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
             continue;
 
-        if (!strncmp(entry->d_name, subdir, strlen(subdir)))
+        if (!strncmp(entry->d_name, subdir, subdir_len))
             continue;
 
         count++;
@@ -1607,7 +1611,8 @@ index_lookup_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     } else if (index_is_virtual_gfid(priv, loc->gfid)) {
         subdir = index_get_subdir_from_vgfid(priv, loc->gfid);
-        make_index_dir_path(priv->index_basepath, subdir, path, sizeof(path));
+        (void)make_index_dir_path(priv->index_basepath, subdir, path,
+                                  sizeof(path));
         is_dir = _gf_true;
 
         if ((xattr_req) && (dict_get(xattr_req, GF_INDEX_IA_TYPE_GET_REQ))) {
@@ -1851,8 +1856,8 @@ index_rmdir_wrapper(call_frame_t *frame, xlator_t *this, loc_t *loc, int flag,
 
     type = index_get_type_from_vgfid(priv, loc->pargfid);
     subdir = index_get_subdir_from_vgfid(priv, loc->pargfid);
-    make_index_dir_path(priv->index_basepath, subdir, index_dir,
-                        sizeof(index_dir));
+    (void)make_index_dir_path(priv->index_basepath, subdir, index_dir,
+                              sizeof(index_dir));
 
     index_get_parent_iatt(&preparent, index_dir, loc, &op_ret, &op_errno);
     if (op_ret < 0)
@@ -2000,8 +2005,8 @@ index_fetch_link_count(xlator_t *this, index_xattrop_type_t type)
     };
 
     subdir = index_get_subdir_from_type(type);
-    make_index_dir_path(priv->index_basepath, subdir, index_dir,
-                        sizeof(index_dir));
+    (void)make_index_dir_path(priv->index_basepath, subdir, index_dir,
+                              sizeof(index_dir));
 
     dirp = sys_opendir(index_dir);
     if (!dirp)
