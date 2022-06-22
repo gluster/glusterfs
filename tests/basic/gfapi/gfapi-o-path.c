@@ -36,7 +36,9 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_renameat = "file_tmp_renameat";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_renameat = "/dir_tmp/file_tmp_renameat";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -101,6 +103,16 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_renameat(fd1, filename, filename_renameat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat", ret, out);
+
+    if (glfs_access(fs, filepath, F_OK) == 0 ||
+        glfs_access(fs, filepath_renameat, F_OK) == -1) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat operation has failed",
+                                         ret, out);
+    }
 
     ret = 0;
 out:

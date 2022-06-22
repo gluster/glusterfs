@@ -865,6 +865,10 @@ glfs_rename(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_rename, 3.4.0);
 
 int
+glfs_renameat(struct glfs_fd *glfd, const char *oldpath,
+              const char *newpath) __THROW GFAPI_PUBLIC(glfs_renameat, 11.0);
+
+int
 glfs_link(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_link, 3.4.0);
 
