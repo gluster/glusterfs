@@ -3586,6 +3586,102 @@ invalid_fs:
     return ret;
 }
 
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_renameat, 11.0)
+int
+pub_glfs_renameat(struct glfs_fd *pglfd, const char *oldpath,
+                  const char *newpath)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *oldsubvol = NULL;
+    xlator_t *newsubvol = NULL;
+    loc_t oldloc = {
+        0,
+    };
+    loc_t newloc = {
+        0,
+    };
+    struct iatt oldiatt = {
+        0,
+    };
+    struct iatt newiatt = {
+        0,
+    };
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (oldsubvol) {
+        cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
+    }
+
+    oldsubvol = setup_fopat_args(pglfd, oldpath, 0, &oldloc, &oldiatt, reval);
+    if (!oldsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
+
+    if (!oldsubvol && ret) {
+        goto out;
+    }
+
+retrynew:
+    /* Retry case */
+    if (newsubvol) {
+        cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+    }
+
+    newsubvol = setup_fopat_args(pglfd, newpath, 0, &newloc, &newiatt, reval);
+    if (!newsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
+
+    if (!newsubvol && ret) {
+        goto out;
+    }
+
+    if (errno != ENOENT && newloc.parent)
+        goto out;
+
+    if (newiatt.ia_type != IA_INVAL) {
+        if ((oldiatt.ia_type == IA_IFDIR) != (newiatt.ia_type == IA_IFDIR)) {
+            /* Either both old and new must be dirs,
+             * or both must be non-dirs. Else, fail.
+             */
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    }
+
+    /* TODO: - check if new or old is a prefix of the other, and fail EINVAL
+     *       - Add leaseid */
+
+    ret = syncop_rename(newsubvol, &oldloc, &newloc, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0) {
+        inode_rename(oldloc.parent->table, oldloc.parent, oldloc.name,
+                     newloc.parent, newloc.name, oldloc.inode, &oldiatt);
+
+        if (newloc.inode && !inode_has_dentry(newloc.inode))
+            inode_forget(newloc.inode, 0);
+    }
+out:
+    cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_link, 3.4.0)
 int
 pub_glfs_link(struct glfs *fs, const char *oldpath, const char *newpath)

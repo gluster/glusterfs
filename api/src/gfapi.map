@@ -292,4 +292,5 @@ GFAPI_11.0 {
 		glfs_linkat;
 		glfs_mknodat;
 		glfs_readlinkat;
+		glfs_renameat;
 } GFAPI_7.0;

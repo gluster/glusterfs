@@ -47,10 +47,12 @@ main(int argc, char *argv[])
     const char *filename_linkat = "file_tmp_linkat";
     const char *filename_symlinkat = "file_tmp_symlinkat";
     const char *filename_BLK = "file_tmp_BLK";
+    const char *filename_renameat = "file_tmp_renameat";
     const char *filepath = "/dir_tmp/file_tmp";
     const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
     const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
     const char *filepath_BLK = "/dir_tmp/file_tmp_BLK";
+    const char *filepath_renameat = "/dir_tmp/file_tmp_renameat";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -259,6 +261,16 @@ main(int argc, char *argv[])
     if (ret != stbuf.st_size) {
         ret = -1;
        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat buf size mismatch",
+                                         ret, out);
+    }
+
+    ret = glfs_renameat(fd1, filename, filename_renameat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat", ret, out);
+
+    if (glfs_access(fs, filepath, F_OK) == 0 ||
+        glfs_access(fs, filepath_renameat, F_OK) == -1) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat operation has failed",
                                          ret, out);
     }
 
