@@ -1499,7 +1499,7 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
         glfs_iatt_to_stat(fs, &iatt, stat);
 
 found:
-    object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
+    object = GF_MALLOC(sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
         ret = -1;
@@ -2004,7 +2004,7 @@ glfs_h_find_handle(struct glfs *fs, unsigned char *handle, int len)
         goto out;
     }
 
-    object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
+    object = GF_MALLOC(sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
         goto out;
@@ -2335,7 +2335,7 @@ pub_glfs_h_poll_upcall370(struct glfs *fs, struct glfs_callback_arg *up_arg)
             struct glfs_callback_inode_arg *cb_inode = NULL;
             struct glfs_upcall_inode *up_inode = NULL;
 
-            cb_inode = GF_CALLOC(1, sizeof(struct glfs_callback_inode_arg),
+            cb_inode = GF_MALLOC(sizeof(struct glfs_callback_inode_arg),
                                  glfs_mt_upcall_inode_t);
             if (!cb_inode) {
                 errno = ENOMEM;
@@ -2557,7 +2557,7 @@ pub_glfs_object_copy(struct glfs_object *src)
 
     GF_VALIDATE_OR_GOTO("glfs_dup_object", src, out);
 
-    object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
+    object = GF_MALLOC(sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
         gf_smsg(THIS->name, GF_LOG_WARNING, errno, API_MSG_CREATE_HANDLE_FAILED,

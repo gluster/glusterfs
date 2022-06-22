@@ -661,15 +661,15 @@ gf_changelog_queue_journal(gf_changelog_processor_t *jnl_proc,
     size_t len = 0;
     gf_changelog_entry_t *entry = NULL;
 
-    entry = GF_CALLOC(1, sizeof(gf_changelog_entry_t),
+    entry = GF_MALLOC(sizeof(gf_changelog_entry_t),
                       gf_changelog_mt_libgfchangelog_entry_t);
     if (!entry)
         return;
-    INIT_LIST_HEAD(&entry->list);
 
     len = strlen(event->u.journal.path);
     (void)memcpy(entry->path, event->u.journal.path, len + 1);
     entry->path[len] = '\0';
+    INIT_LIST_HEAD(&entry->list);
 
     pthread_mutex_lock(&jnl_proc->lock);
     {

@@ -340,12 +340,12 @@ afr_shd_selfheal(struct subvol_healer *healer, int child, uuid_t gfid)
     UNLOCK(&priv->lock);
 
     if (eh) {
-        shd_event = GF_CALLOC(1, sizeof(*shd_event), gf_afr_mt_shd_event_t);
+        shd_event = GF_MALLOC(sizeof(*shd_event), gf_afr_mt_shd_event_t);
         if (!shd_event)
             goto out;
 
-        shd_event->child = child;
         shd_event->path = path;
+        shd_event->child = child;
 
         if (eh_save_history(eh, shd_event) < 0)
             goto out;

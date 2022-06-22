@@ -1165,7 +1165,7 @@ glfs_create_object(loc_t *loc, struct glfs_object **retobject)
 {
     struct glfs_object *object = NULL;
 
-    object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
+    object = GF_MALLOC(sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
         return -1;

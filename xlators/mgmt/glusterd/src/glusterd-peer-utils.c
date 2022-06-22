@@ -581,7 +581,7 @@ glusterd_peer_hostname_new(const char *hostname,
     GF_ASSERT(hostname);
     GF_ASSERT(name);
 
-    peer_hostname = GF_CALLOC(1, sizeof(*peer_hostname),
+    peer_hostname = GF_MALLOC(sizeof(*peer_hostname),
                               gf_gld_mt_peer_hostname_t);
 
     if (!peer_hostname) {
