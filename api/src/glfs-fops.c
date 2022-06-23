@@ -565,6 +565,62 @@ out:
     return subvol;
 }
 
+static int
+setup_entry_fopat_args(uuid_t gfid, dict_t **xattr_req, loc_t *loc)
+{
+    int ret = 0;
+
+    if (loc->inode) {
+        errno = EEXIST;
+        ret = -1;
+        goto out;
+    }
+
+    /* errno from setup_fopat_args */
+    if (errno != ENOENT)
+        /* Any other type of error is fatal */
+        goto out;
+
+    /* errno == ENOENT */
+    if (!loc->parent)
+        /* The parent directory or an ancestor even
+           higher does not exist
+        */
+        goto out;
+
+    loc->inode = inode_new(loc->parent->table);
+    if (!loc->inode) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    *xattr_req = dict_new();
+    if (!*xattr_req) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(gfid);
+    ret = dict_set_gfuuid(*xattr_req, "gfid-req", gfid, true);
+    if (ret) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    if (ret) {
+        if (*xattr_req)
+            dict_unref(*xattr_req);
+    }
+
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_openat, 11.0)
 struct glfs_fd *
 pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
@@ -3021,6 +3077,67 @@ out:
         dict_unref(xattr_req);
 
     glfs_subvol_done(fs, subvol);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_symlinkat, 11.0)
+int
+pub_glfs_symlinkat(struct glfs_fd *pglfd, const char *data, const char *path)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = setup_entry_fopat_args(gfid, &xattr_req, &loc);
+    if (ret) {
+        goto out;
+    }
+
+    ret = syncop_symlink(subvol, &loc, data, &iatt, xattr_req, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
 
     __GLFS_EXIT_FS;
 

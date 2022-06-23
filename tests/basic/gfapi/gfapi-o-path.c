@@ -283,6 +283,21 @@ main(int argc, char *argv[])
                                          out);
     }
 
+    ret = glfs_unlink(fs, filepath_symlinkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
+
+    ret = glfs_symlinkat(fd1, filename, filename_symlinkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat", ret, out);
+
+    ret = glfs_lstat(fs, filepath_symlinkat, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
+
+    if (!S_ISLNK(stbuf.st_mode)) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat operation failed", ret,
+                                         out);
+    }
+
     ret = 0;
 out:
     if (fd2 != NULL)
