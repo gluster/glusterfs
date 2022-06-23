@@ -841,6 +841,10 @@ glfs_symlink(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_symlink, 3.4.0);
 
 int
+glfs_symlinkat(struct glfs_fd *glfd, const char *oldpath,
+               const char *newpath) __THROW GFAPI_PUBLIC(glfs_symlinkat, 11.0);
+
+int
 glfs_readlink(glfs_t *fs, const char *path, char *buf, size_t bufsiz) __THROW
     GFAPI_PUBLIC(glfs_readlink, 3.4.0);
 

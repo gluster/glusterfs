@@ -12,6 +12,10 @@
 #define O_PATH 010000000
 #endif
 
+// #ifndef S_IFLNK
+// #define S_IFLNK	0120000
+// #endif
+
 #define VALIDATE_AND_GOTO_LABEL_ON_ERROR(func, ret, label)                     \
     do {                                                                       \
         if (ret < 0) {                                                         \
@@ -36,10 +40,16 @@ main(int argc, char *argv[])
     const char *topdir = "/dir_tmp";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
+    const char *filename_symlinkat = "file_tmp_symlinkat";
     const char *filepath = "/dir_tmp/file_tmp";
+    const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
+
+    struct stat buf = {
+        0,
+    };
 
     if (argc != 4) {
         fprintf(stderr, "Invalid argument\n");
@@ -101,6 +111,18 @@ main(int argc, char *argv[])
 
     ret = glfs_write(fd3, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename_2)", ret, out);
+
+    ret = glfs_symlinkat(fd1, filename, filename_symlinkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat", ret, out);
+
+    ret = glfs_lstat(fs, filepath_symlinkat, &buf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
+
+    if (!S_ISLNK(buf.st_mode)) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat operation failed", ret,
+                                         out);
+    }
 
     ret = 0;
 out:
