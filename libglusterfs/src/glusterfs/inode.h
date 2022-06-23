@@ -182,10 +182,6 @@ inode_rename(inode_table_t *table, inode_t *olddir, const char *oldname,
 inode_t *
 inode_grep(inode_table_t *table, inode_t *parent, const char *name);
 
-int
-inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
-                    uuid_t gfid, ia_type_t *type);
-
 inode_t *
 inode_find(inode_table_t *table, uuid_t gfid);
 

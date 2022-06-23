@@ -839,40 +839,6 @@ out:
     return inode;
 }
 
-int
-inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
-                    uuid_t gfid, ia_type_t *type)
-{
-    inode_t *inode = NULL;
-    dentry_t *dentry = NULL;
-    int ret = -1;
-
-    if (!table || !parent || !name) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "table || parent || name"
-                         " not found");
-        return ret;
-    }
-
-    struct list_head *hash_loc = hash_dentry(parent, name, table);
-
-    pthread_mutex_lock(&table->lock);
-    {
-        dentry = __dentry_grep(parent, name, hash_loc);
-        if (dentry) {
-            inode = dentry->inode;
-            if (inode) {
-                gf_uuid_copy(gfid, inode->gfid);
-                *type = inode->ia_type;
-                ret = 0;
-            }
-        }
-    }
-    pthread_mutex_unlock(&table->lock);
-
-    return ret;
-}
-
 /* return 1 if gfid is of root, 0 if not */
 gf_boolean_t
 __is_root_gfid(uuid_t gfid)
