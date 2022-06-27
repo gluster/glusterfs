@@ -3217,12 +3217,23 @@ socket_connect(rpc_transport_t *this, int port)
     pthread_mutex_lock(&priv->out_lock);
     {
         if (priv->sock >= 0) {
-            gf_log_callingfn(this->name, GF_LOG_TRACE,
-                             "connect () called on transport "
-                             "already connected");
-            errno = EINPROGRESS;
-            ret = -1;
-            goto unlock;
+            if (priv->connected == 0) {
+                /* shutdown(2) will result in EPOLLERR, so cleanup is done
+                 * in socket_event_handler
+                 */
+                shutdown(priv->sock, SHUT_RDWR);
+                gf_log(this->name, GF_LOG_INFO,
+                       "intentional client shutdown(%d, SHUT_RDWR)", priv->sock);
+                ret = 0;
+                goto unlock;
+            } else {
+                gf_log_callingfn(this->name, GF_LOG_TRACE,
+                                 "connect () called on transport "
+                                 "already connected");
+                errno = EINPROGRESS;
+                ret = -1;
+                goto unlock;
+            }
         }
 
         gf_log(this->name, GF_LOG_TRACE, "connecting %p, sock=%d", this,
