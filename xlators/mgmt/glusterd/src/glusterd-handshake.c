@@ -896,10 +896,7 @@ __server_getspec(rpcsvc_request_t *req)
     int peer_cnt = 0;
     char *peer_hosts = NULL;
     char *tmp_str = NULL;
-    char portstr[10] = {
-        0,
-    };
-    int len = 0;
+    int port = 0;
 
     conf = this->private;
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
@@ -995,29 +992,27 @@ __server_getspec(rpcsvc_request_t *req)
     {
         if (!peer->connected)
             continue;
+        port = peer->port ? peer->port : GLUSTERD_DEFAULT_PORT;
         if (!peer_hosts) {
-            if (peer->port) {
-                snprintf(portstr, sizeof(portstr), "%d", peer->port);
-            } else {
-                snprintf(portstr, sizeof(portstr), "%d", GLUSTERD_DEFAULT_PORT);
-            }
-            len = strlen(peer->hostname) + strlen(portstr) + 3;
-            tmp_str = GF_CALLOC(1, len, gf_gld_mt_char);
-            snprintf(tmp_str, len, "%s%s%s%s", peer->hostname, ":", portstr,
-                     " ");
-            peer_hosts = tmp_str;
+            ret = gf_asprintf(&peer_hosts, "%s:%d ", peer->hostname, port);
+            if (ret < 0)
+                break;
         } else {
-            len = strlen(peer_hosts) + strlen(peer->hostname) +
-                  strlen(portstr) + 3;
-            tmp_str = GF_CALLOC(1, len, gf_gld_mt_char);
-            snprintf(tmp_str, len, "%s%s%s%s%s", peer_hosts, peer->hostname,
-                     ":", portstr, " ");
+            ret = gf_asprintf(&tmp_str, "%s%s:%d ", peer_hosts, peer->hostname,
+                              port);
+            if (ret < 0)
+                break;
             GF_FREE(peer_hosts);
             peer_hosts = tmp_str;
         }
         peer_cnt++;
     }
     RCU_READ_UNLOCK;
+    if (ret < 0) {
+        op_errno = ENOMEM;
+        goto fail;
+    } else
+        ret = 0;
     if (peer_cnt) {
         op_ret = dict_set_str(dict, GLUSTERD_BRICK_SERVERS, peer_hosts);
         if (op_ret) {
