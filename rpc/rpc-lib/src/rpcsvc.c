@@ -340,7 +340,7 @@ rpcsvc_program_actor(rpcsvc_request_t *req)
         goto err;
     }
 
-    if (svc->xl->ctx->measure_latency) {
+    if (svc->xl->measure_latency) {
         timespec_now(&req->begin);
     }
 

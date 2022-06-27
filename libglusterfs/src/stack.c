@@ -42,9 +42,9 @@ create_frame(xlator_t *xl, call_pool_t *pool)
     list_add(&frame->frames, &stack->myframes);
 
     stack->pool = pool;
-    stack->ctx = xl->ctx;
+    stack->measure_latency = xl->measure_latency;
 
-    if (frame->root->ctx->measure_latency) {
+    if (frame->root->measure_latency) {
         timespec_now(&stack->tv);
         memcpy(&frame->begin, &stack->tv, sizeof(stack->tv));
     }
@@ -113,7 +113,7 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
     memcpy(&my_frame, call_frame, sizeof(my_frame));
     UNLOCK(&call_frame->lock);
 
-    if (my_frame.root->ctx->measure_latency) {
+    if (my_frame.root->measure_latency) {
         len = gf_time_fmt_FT(timestr, sizeof(timestr), my_frame.begin.tv_sec);
         snprintf(timestr + len, sizeof(timestr) - len, ".%" GF_PRI_SNSECONDS,
                  my_frame.begin.tv_nsec);
@@ -276,7 +276,7 @@ gf_proc_dump_call_frame_to_dict(call_frame_t *call_frame, char *prefix,
     if (ret)
         return;
 
-    if (tmp_frame.root->ctx->measure_latency) {
+    if (tmp_frame.root->measure_latency) {
         snprintf(key, sizeof(key), "%s.timings", prefix);
         snprintf(msg, sizeof(msg),
                  "%ld.%" GF_PRI_SNSECONDS " -> %ld.%" GF_PRI_SNSECONDS,

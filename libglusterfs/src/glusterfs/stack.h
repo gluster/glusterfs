@@ -97,10 +97,10 @@ struct _call_stack {
     char identifier[UNIX_PATH_MAX];
     uint16_t ngrps;
     int8_t type;
+    gf_boolean_t measure_latency;
     uint32_t groups_small[SMALL_GROUP_COUNT];
     uint32_t *groups_large;
     uint32_t *groups;
-    glusterfs_ctx_t *ctx;
 
     struct list_head myframes; /* List of call_frame_t that go
                                   to make the call stack */
@@ -164,7 +164,7 @@ STACK_DESTROY(call_stack_t *stack)
 
     LOCK_DESTROY(&stack->stack_lock);
 
-    measure_latency = stack->ctx->measure_latency;
+    measure_latency = stack->measure_latency;
     list_for_each_entry_safe(frame, tmp, &stack->myframes, frames)
     {
         FRAME_DESTROY(frame, measure_latency);
@@ -199,7 +199,7 @@ STACK_RESET(call_stack_t *stack)
     }
     UNLOCK(&stack->pool->lock);
 
-    measure_latency = stack->ctx->measure_latency;
+    measure_latency = stack->measure_latency;
     list_for_each_entry_safe(frame, tmp, &toreset, frames)
     {
         FRAME_DESTROY(frame, measure_latency);
@@ -325,7 +325,7 @@ get_the_pt_fop(void *base_fop, int fop_idx)
                      "stack-address: %p, "                                     \
                      "winding from %s to %s",                                  \
                      frame->root, old_THIS->name, obj->name);                  \
-        if (obj->ctx->measure_latency)                                         \
+        if (obj->measure_latency)                                              \
             timespec_now(&_new->begin);                                        \
         _new->op = get_fop_index_from_fn((_new->this), (fn));                  \
         if (!obj->pass_through) {                                              \
@@ -381,7 +381,7 @@ get_the_pt_fop(void *base_fop, int fop_idx)
         THIS = _parent->this;                                                  \
         frame->complete = _gf_true;                                            \
         frame->unwind_from = __FUNCTION__;                                     \
-        if (frame->this->ctx->measure_latency) {                               \
+        if (frame->this->measure_latency) {                                    \
             timespec_now(&frame->end);                                         \
             /* required for top most xlator */                                 \
             if (_parent->ret == NULL)                                          \
@@ -491,9 +491,9 @@ copy_frame(call_frame_t *frame)
     newstack->unique = oldstack->unique;
     newstack->pool = oldstack->pool;
     lk_owner_copy(&newstack->lk_owner, &oldstack->lk_owner);
-    newstack->ctx = oldstack->ctx;
+    newstack->measure_latency = oldstack->measure_latency;
 
-    if (newstack->ctx->measure_latency) {
+    if (newstack->measure_latency) {
         timespec_now(&newstack->tv);
         memcpy(&newframe->begin, &newstack->tv, sizeof(newstack->tv));
     }

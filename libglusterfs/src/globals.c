@@ -145,7 +145,7 @@ global_xl_reconfigure(xlator_t *this, dict_t *options)
     dict_dump_to_log(options);
 
     GF_OPTION_RECONF("measure-latency", bool_opt, options, bool, out);
-    this->ctx->measure_latency = bool_opt;
+    this->measure_latency = bool_opt;
 
     GF_OPTION_RECONF("metrics-dump-path", this->ctx->config.metrics_dumppath,
                      options, str, out);
@@ -163,7 +163,7 @@ global_xl_init(xlator_t *this)
     gf_boolean_t bool_opt = false;
 
     GF_OPTION_INIT("measure-latency", bool_opt, bool, out);
-    this->ctx->measure_latency = bool_opt;
+    this->measure_latency = bool_opt;
 
     GF_OPTION_INIT("metrics-dump-path", this->ctx->config.metrics_dumppath, str,
                    out);

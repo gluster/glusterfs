@@ -693,7 +693,7 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 err:
     if (nframe) {
         rda_local_wipe(nframe->local);
-        FRAME_DESTROY(nframe, frame->root->ctx->measure_latency);
+        FRAME_DESTROY(nframe, frame->root->measure_latency);
     }
 
     return -1;

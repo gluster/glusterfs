@@ -245,6 +245,7 @@ glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
         return -1;
 
     ixl->ctx = ctx;
+    ixl->measure_latency = _gf_true;
     ixl->graph = graph;
     ixl->options = dict_new();
     if (!ixl->options)
@@ -661,6 +662,7 @@ glusterfs_graph_prepare(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
     /* XXX: this->ctx setting */
     for (trav = graph->first; trav; trav = trav->next) {
         trav->ctx = ctx;
+        trav->measure_latency = _gf_true;
     }
 
     /* XXX: DOB setting */
@@ -1484,6 +1486,7 @@ glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
         goto out;
 
     ixl->ctx = ctx;
+    ixl->measure_latency = _gf_true;
     ixl->graph = parent_graph;
     ixl->options = dict_new();
     if (!ixl->options)

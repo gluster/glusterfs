@@ -588,6 +588,7 @@ create_fuse_mount(glusterfs_ctx_t *ctx)
     }
 
     root->ctx = ctx;
+    root->measure_latency = _gf_true;
     root->options = dict_new();
     if (!root->options)
         goto err;
@@ -1563,9 +1564,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
      * set it in all error paths before "goto err"
      */
     ret = -1;
-
-    /* monitoring should be enabled by default */
-    ctx->measure_latency = true;
 
     ctx->process_uuid = generate_glusterfs_ctx_id();
     if (!ctx->process_uuid) {

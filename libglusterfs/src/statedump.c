@@ -538,7 +538,7 @@ gf_proc_dump_single_xlator_info(xlator_t *trav)
     if (trav->cleanup_starting)
         return;
 
-    if (ctx->measure_latency)
+    if (trav->measure_latency)
         gf_proc_dump_xl_latency_info(trav);
 
     gf_proc_dump_xlator_mem_info(trav);

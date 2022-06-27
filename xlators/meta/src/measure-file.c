@@ -17,7 +17,7 @@
 static int
 measure_file_fill(xlator_t *this, inode_t *file, strfd_t *strfd)
 {
-    strprintf(strfd, "%d\n", this->ctx->measure_latency);
+    strprintf(strfd, "%d\n", this->measure_latency);
 
     return strfd->size;
 }
@@ -28,7 +28,7 @@ measure_file_write(xlator_t *this, fd_t *fd, struct iovec *iov, int count)
     long int num = -1;
 
     num = strtol(iov[0].iov_base, NULL, 0);
-    this->ctx->measure_latency = !!num;
+    this->measure_latency = !!num;
 
     return iov_length(iov, count);
 }

@@ -795,6 +795,7 @@ struct _xlator {
     /* Flag to avoid throw duplicate PARENT_DOWN event */
     uint32_t parent_down;
 
+    gf_boolean_t measure_latency;
     gf_boolean_t is_autoloaded;
 
     /* Is this pass_through? */
