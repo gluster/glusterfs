@@ -364,35 +364,6 @@ out:
     return;
 }
 
-void
-iobuf_pool_prune(struct iobuf_pool *iobuf_pool)
-{
-    struct iobuf_arena *iobuf_arena = NULL;
-    struct iobuf_arena *tmp = NULL;
-    int i = 0;
-
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
-
-    pthread_mutex_lock(&iobuf_pool->mutex);
-    {
-        for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
-            if (list_empty(&iobuf_pool->arenas[i])) {
-                continue;
-            }
-
-            list_for_each_entry_safe(iobuf_arena, tmp, &iobuf_pool->purge[i],
-                                     list)
-            {
-                __iobuf_arena_prune(iobuf_pool, iobuf_arena, i);
-            }
-        }
-    }
-    pthread_mutex_unlock(&iobuf_pool->mutex);
-
-out:
-    return;
-}
-
 /* Always called under the iobuf_pool mutex lock */
 static struct iobuf_arena *
 __iobuf_select_arena(struct iobuf_pool *iobuf_pool, const size_t page_size,
@@ -692,13 +663,13 @@ out:
     return;
 }
 
-void
+static void
 iobuf_put(struct iobuf *iobuf)
 {
     struct iobuf_arena *iobuf_arena = NULL;
     struct iobuf_pool *iobuf_pool = NULL;
 
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+    GF_ASSERT(iobuf);
 
     iobuf_arena = iobuf->iobuf_arena;
     if (!iobuf_arena) {
@@ -718,9 +689,6 @@ iobuf_put(struct iobuf *iobuf)
         __iobuf_put(iobuf, iobuf_arena);
     }
     pthread_mutex_unlock(&iobuf_pool->mutex);
-
-out:
-    return;
 }
 
 void
@@ -784,29 +752,25 @@ out:
     return iobref;
 }
 
-void
+static void
 iobref_destroy(struct iobref *iobref)
 {
     int i = 0;
     struct iobuf *iobuf = NULL;
 
-    GF_VALIDATE_OR_GOTO("iobuf", iobref, out);
+    GF_ASSERT(iobref);
 
-    for (i = 0; i < iobref->allocated; i++) {
+    for (i = 0; i < iobref->used; i++) {
         iobuf = iobref->iobrefs[i];
-
+        GF_ASSERT(iobuf);
         iobref->iobrefs[i] = NULL;
-        if (iobuf)
-            iobuf_unref(iobuf);
+        iobuf_unref(iobuf);
     }
 
     LOCK_DESTROY(&iobref->lock);
 
     GF_FREE(iobref->iobrefs);
     GF_FREE(iobref);
-
-out:
-    return;
 }
 
 void
@@ -831,13 +795,9 @@ iobref_clear(struct iobref *iobref)
 
     GF_VALIDATE_OR_GOTO("iobuf", iobref, out);
 
-    for (; i < iobref->allocated; i++) {
-        if (iobref->iobrefs[i] != NULL) {
-            iobuf_unref(iobref->iobrefs[i]);
-        } else {
-            /** iobuf's are attached serially */
-            break;
-        }
+    for (; i < iobref->used; i++) {
+        GF_ASSERT(iobref->iobrefs[i]);
+        iobuf_unref(iobref->iobrefs[i]);
     }
 
     iobref_unref(iobref);
@@ -863,35 +823,21 @@ __iobref_grow(struct iobref *iobref)
     }
 }
 
-int
+static int
 __iobref_add(struct iobref *iobref, struct iobuf *iobuf)
 {
-    int i = 0;
-    int ret = -ENOMEM;
-
-    GF_VALIDATE_OR_GOTO("iobuf", iobref, out);
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf, out);
+    GF_ASSERT(iobref);
+    GF_ASSERT(iobuf);
 
     if (iobref->used == iobref->allocated) {
         __iobref_grow(iobref);
 
-        if (iobref->used == iobref->allocated) {
-            ret = -ENOMEM;
-            goto out;
-        }
+        if (iobref->used == iobref->allocated)
+            return -ENOMEM;
     }
 
-    for (i = 0; i < iobref->allocated; i++) {
-        if (iobref->iobrefs[i] == NULL) {
-            iobref->iobrefs[i] = iobuf_ref(iobuf);
-            iobref->used++;
-            ret = 0;
-            break;
-        }
-    }
-
-out:
-    return ret;
+    iobref->iobrefs[iobref->used++] = iobuf_ref(iobuf);
+    return 0;
 }
 
 int
@@ -924,14 +870,11 @@ iobref_merge(struct iobref *to, struct iobref *from)
 
     LOCK(&from->lock);
     {
-        for (i = 0; i < from->allocated; i++) {
+        for (i = 0; i < from->used; i++) {
             iobuf = from->iobrefs[i];
-
-            if (!iobuf)
-                break;
+            GF_ASSERT(iobuf);
 
             ret = iobref_add(to, iobuf);
-
             if (ret < 0)
                 break;
         }
@@ -964,9 +907,9 @@ iobref_size(struct iobref *iobref)
 
     LOCK(&iobref->lock);
     {
-        for (i = 0; i < iobref->allocated; i++) {
-            if (iobref->iobrefs[i])
-                size += iobuf_size(iobref->iobrefs[i]);
+        for (i = 0; i < iobref->used; i++) {
+            GF_ASSERT(iobref->iobrefs[i]);
+            size += iobuf_size(iobref->iobrefs[i]);
         }
     }
     UNLOCK(&iobref->lock);
