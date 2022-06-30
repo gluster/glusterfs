@@ -530,7 +530,7 @@ cleanup_fopat_args(struct glfs_fd *pglfd, xlator_t *subvol, int ret, loc_t *loc)
 
 static xlator_t *
 setup_fopat_args(struct glfs_fd *pglfd, const char *path, gf_boolean_t follow,
-                 loc_t *loc, struct iatt *iatt)
+                 loc_t *loc, struct iatt *iatt, int reval)
 {
     int ret = 0;
     xlator_t *subvol = NULL;
@@ -547,7 +547,7 @@ setup_fopat_args(struct glfs_fd *pglfd, const char *path, gf_boolean_t follow,
     glfs_lock(pglfd->fs, _gf_true);
     {
         ret = glfs_resolve_at(pglfd->fs, subvol, pglfd->fd->inode, path, loc,
-                              iatt, follow, 0);
+                              iatt, follow, reval);
     }
     glfs_unlock(pglfd->fs);
 
@@ -584,7 +584,8 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
 
     is_create = !!(flags & O_CREAT);
-    subvol = setup_fopat_args(pglfd, path, !(flags & O_NOFOLLOW), &loc, &iatt);
+    subvol = setup_fopat_args(pglfd, path, !(flags & O_NOFOLLOW), &loc, &iatt,
+                              0);
     if (!subvol) {
         goto out;
     }
@@ -797,6 +798,54 @@ out:
 
     glfs_subvol_done(fs, subvol);
 
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fstatat, 11.0)
+int
+pub_glfs_fstatat(struct glfs_fd *pglfd, const char *path, struct stat *stat,
+                 int flags)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int reval = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, !(flags & AT_SYMLINK_NOFOLLOW), &loc,
+                              &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol || !stat) {
+        ret = -1;
+        goto out;
+    }
+
+    glfs_iatt_to_stat(pglfd->fs, &iatt, stat);
+    ret = 0;
+
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
     __GLFS_EXIT_FS;
 
 invalid_fs:
