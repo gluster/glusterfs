@@ -125,9 +125,8 @@ glusterd_shdsvc_init(void *data, glusterd_conn_t *mux_conn,
         goto out;
     }
 
-    if (dict_get_strn(this->options, "transport.socket.bind-address",
-                      SLEN("transport.socket.bind-address"),
-                      &volfileserver) != 0) {
+    if (dict_get_str(this->options, "transport.socket.bind-address",
+                     &volfileserver) != 0) {
         volfileserver = "localhost";
     }
     ret = glusterd_proc_init(&(svc->proc), shd_svc_name, pidfile, logdir,

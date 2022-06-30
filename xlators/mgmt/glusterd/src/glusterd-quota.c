@@ -198,7 +198,7 @@ __glusterd_handle_quota(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(msg, sizeof(msg), "Unable to get volume name");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -207,7 +207,7 @@ __glusterd_handle_quota(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+    ret = dict_get_int32(dict, "type", &type);
     if (ret) {
         snprintf(msg, sizeof(msg), "Unable to get type of command");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -326,9 +326,8 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
         goto out;
     }
 
-    if (dict_get_strn(this->options, "transport.socket.bind-address",
-                      SLEN("transport.socket.bind-address"),
-                      &volfileserver) != 0)
+    if (dict_get_str(this->options, "transport.socket.bind-address",
+                     &volfileserver) != 0)
         volfileserver = "localhost";
 
     len = snprintf(vol_id, sizeof(vol_id), "client_per_brick/%s.%s.%s.%s.vol",
@@ -1435,7 +1434,7 @@ glusterd_quota_limit_usage(glusterd_volinfo_t *volinfo, dict_t *dict,
         goto out;
     }
 
-    ret = dict_get_strn(dict, "path", SLEN("path"), &path);
+    ret = dict_get_str(dict, "path", &path);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to fetch path");
@@ -1445,16 +1444,15 @@ glusterd_quota_limit_usage(glusterd_volinfo_t *volinfo, dict_t *dict,
     if (ret)
         goto out;
 
-    ret = dict_get_strn(dict, "hard-limit", SLEN("hard-limit"), &hard_limit);
+    ret = dict_get_str(dict, "hard-limit", &hard_limit);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to fetch hard limit");
         goto out;
     }
 
-    if (dict_getn(dict, "soft-limit", SLEN("soft-limit"))) {
-        ret = dict_get_strn(dict, "soft-limit", SLEN("soft-limit"),
-                            &soft_limit);
+    if (dict_get_sizen(dict, "soft-limit")) {
+        ret = dict_get_str(dict, "soft-limit", &soft_limit);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "Unable to fetch "
@@ -1477,7 +1475,7 @@ glusterd_quota_limit_usage(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
     }
 
-    ret = dict_get_strn(dict, "gfid", SLEN("gfid"), &gfid_str);
+    ret = dict_get_str(dict, "gfid", &gfid_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get gfid of path "
@@ -1569,7 +1567,7 @@ glusterd_quota_remove_limits(glusterd_volinfo_t *volinfo, dict_t *dict,
         goto out;
     }
 
-    ret = dict_get_strn(dict, "path", SLEN("path"), &path);
+    ret = dict_get_str(dict, "path", &path);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to fetch path");
@@ -1587,7 +1585,7 @@ glusterd_quota_remove_limits(glusterd_volinfo_t *volinfo, dict_t *dict,
             goto out;
     }
 
-    ret = dict_get_strn(dict, "gfid", SLEN("gfid"), &gfid_str);
+    ret = dict_get_str(dict, "gfid", &gfid_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get gfid of path "
@@ -1625,7 +1623,7 @@ glusterd_set_quota_option(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
         return -1;
     }
 
-    ret = dict_get_strn(dict, "value", SLEN("value"), &value);
+    ret = dict_get_str(dict, "value", &value);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Option value absent.");
@@ -1710,7 +1708,7 @@ glusterd_op_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
@@ -1723,7 +1721,7 @@ glusterd_op_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+    ret = dict_get_int32(dict, "type", &type);
 
     if (!glusterd_is_quota_supported(type, op_errstr)) {
         ret = -1;
@@ -1899,7 +1897,7 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = dict_get_strn(dict, "path", SLEN("path"), &path);
+    ret = dict_get_str(dict, "path", &path);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get path");
@@ -1961,7 +1959,7 @@ glusterd_get_gfid_from_brick(dict_t *dict, glusterd_volinfo_t *volinfo,
         count++;
     }
 
-    ret = dict_set_int32n(rsp_dict, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(rsp_dict, "count", count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set count");
@@ -2011,7 +2009,7 @@ _glusterd_validate_quota_opts(dict_t *dict, int type, char **errstr)
                "Unknown option: %s", key);
         goto out;
     }
-    ret = dict_get_strn(dict, "value", SLEN("value"), &value);
+    ret = dict_get_str(dict, "value", &value);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Value not found for key %s", key);
@@ -2084,9 +2082,8 @@ glusterd_create_quota_auxiliary_mount(xlator_t *this, char *volname, int type)
              volname);
     snprintf(qpid, 15, "%d", GF_CLIENT_PID_QUOTA_MOUNT);
 
-    if (dict_get_strn(this->options, "transport.socket.bind-address",
-                      SLEN("transport.socket.bind-address"),
-                      &volfileserver) != 0)
+    if (dict_get_str(this->options, "transport.socket.bind-address",
+                     &volfileserver) != 0)
         volfileserver = "localhost";
 
     synclock_unlock(&priv->big_lock);
@@ -2142,7 +2139,7 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     GF_ASSERT(dict);
     GF_ASSERT(op_errstr);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
@@ -2163,7 +2160,7 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+    ret = dict_get_int32(dict, "type", &type);
     if (ret) {
         *op_errstr = gf_strdup(
             "Volume quota failed, internal error, "
@@ -2229,8 +2226,7 @@ glusterd_op_stage_quota(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
 
     switch (type) {
         case GF_QUOTA_OPTION_TYPE_LIMIT_USAGE:
-            ret = dict_get_strn(dict, "hard-limit", SLEN("hard-limit"),
-                                &hard_limit_str);
+            ret = dict_get_str(dict, "hard-limit", &hard_limit_str);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Failed to get hard-limit from dict");

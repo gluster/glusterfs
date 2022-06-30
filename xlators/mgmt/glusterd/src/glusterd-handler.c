@@ -682,7 +682,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
     } else {
         /* If no volname is given as a part of the command, locks will
          * not be held */
-        ret = dict_get_strn(dict, "volname", SLEN("volname"), &tmp);
+        ret = dict_get_str(dict, "volname", &tmp);
         if (ret) {
             gf_msg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
                    "No Volume name present. "
@@ -1132,14 +1132,14 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
+    ret = dict_get_str(dict, "hostname", &hostname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_NOTFOUND_IN_DICT,
                "Failed to get hostname");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
+    ret = dict_get_int32(dict, "port", &port);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORT_NOTFOUND_IN_DICT,
                "Failed to get port");
@@ -1159,8 +1159,8 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
            "Received CLI probe req %s %d", hostname, port);
 
-    if (dict_get_strn(this->options, "transport.socket.bind-address",
-                      SLEN("transport.socket.bind-address"), &bind_name) == 0) {
+    if (dict_get_str(this->options, "transport.socket.bind-address",
+                     &bind_name) == 0) {
         gf_msg_debug("glusterd", 0,
                      "only checking probe address vs. bind address");
         ret = gf_is_same_address(bind_name, hostname);
@@ -1319,20 +1319,20 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
            "Received CLI deprobe req");
 
-    ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
+    ret = dict_get_str(dict, "hostname", &hostname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_NOTFOUND_IN_DICT,
                "Failed to get hostname");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
+    ret = dict_get_int32(dict, "port", &port);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PORT_NOTFOUND_IN_DICT,
                "Failed to get port");
         goto out;
     }
-    ret = dict_get_int32n(dict, "flags", SLEN("flags"), &flags);
+    ret = dict_get_int32(dict, "flags", &flags);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FLAGS_NOTFOUND_IN_DICT,
                "Failed to get flags");
@@ -1527,7 +1527,7 @@ __glusterd_handle_cli_get_volume(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_int32n(dict, "flags", SLEN("flags"), &flags);
+    ret = dict_get_int32(dict, "flags", &flags);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FLAGS_NOTFOUND_IN_DICT,
                "failed to get flags");
@@ -1734,7 +1734,7 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     }
 
     uuid_utoa_r(MY_UUID, uuid_str);
-    ret = dict_set_strn(rsp_dict, "uuid", SLEN("uuid"), uuid_str);
+    ret = dict_set_str_sizen(rsp_dict, "uuid", uuid_str);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set uuid in "
@@ -1813,7 +1813,7 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
         count++;
     }
 
-    ret = dict_set_int32n(dict, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(dict, "count", count);
     if (ret) {
         gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
@@ -1990,7 +1990,7 @@ __glusterd_handle_reset_volume(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get volume "
@@ -2074,7 +2074,7 @@ __glusterd_handle_set_volume(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get volume "
@@ -2090,7 +2090,7 @@ __glusterd_handle_set_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "key1", SLEN("key1"), &key);
+    ret = dict_get_str(dict, "key1", &key);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get key while"
@@ -2101,7 +2101,7 @@ __glusterd_handle_set_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "value1", SLEN("value1"), &value);
+    ret = dict_get_str(dict, "value1", &value);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get value while"
@@ -2187,7 +2187,7 @@ __glusterd_handle_sync_volume(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
+    ret = dict_get_str(dict, "hostname", &hostname);
     if (ret) {
         snprintf(msg, sizeof(msg), "Failed to get hostname");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_NOTFOUND_IN_DICT,
@@ -2195,9 +2195,9 @@ __glusterd_handle_sync_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
-        ret = dict_get_int32n(dict, "flags", SLEN("flags"), (int32_t *)&flags);
+        ret = dict_get_int32(dict, "flags", (int32_t *)&flags);
         if (ret) {
             snprintf(msg, sizeof(msg), "Failed to get volume name or flags");
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_FLAGS_NOTFOUND_IN_DICT,
@@ -2777,7 +2777,7 @@ glusterd_handle_friend_update_delete(dict_t *dict)
 
     GF_ASSERT(dict);
 
-    ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
+    ret = dict_get_str(dict, "hostname", &hostname);
     if (ret)
         goto out;
 
@@ -2911,14 +2911,14 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_int32n(dict, "count", SLEN("count"), &count);
+    ret = dict_get_int32(dict, "count", &count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "op", SLEN("op"), &op);
+    ret = dict_get_int32(dict, "op", &op);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=op", NULL);
@@ -3185,7 +3185,7 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
         dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len, &dict);
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Unable to get volume "
@@ -3199,7 +3199,7 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
            "Received volume profile req "
            "for volume %s",
            volname);
-    ret = dict_get_int32n(dict, "op", SLEN("op"), &op);
+    ret = dict_get_int32(dict, "op", &op);
     if (ret) {
         snprintf(err_str, sizeof(err_str), "Unable to get operation");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s",
@@ -3398,8 +3398,8 @@ __glusterd_handle_umount(rpcsvc_request_t *req)
     gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_UMOUNT_REQ_RCVD,
            "Received umount req");
 
-    if (dict_get_strn(this->options, "mountbroker-root",
-                      SLEN("mountbroker-root"), &mountbroker_root) != 0) {
+    if (dict_get_str(this->options, "mountbroker-root", &mountbroker_root) !=
+        0) {
         rsp.op_errno = ENOENT;
         goto out;
     }
@@ -3563,7 +3563,7 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
      * wait too long after cli timesout before being able to resume normal
      * operations
      */
-    ret = dict_set_int32n(dict, "frame-timeout", SLEN("frame-timeout"), 600);
+    ret = dict_set_int32_sizen(dict, "frame-timeout", 600);
     if (ret) {
         gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set frame-timeout");
@@ -3571,21 +3571,19 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
     }
 
     /* Set keepalive options */
-    ret = dict_get_int32n(this->options, "transport.socket.keepalive-interval",
-                          SLEN("transport.socket.keepalive-interval"),
-                          &interval);
+    ret = dict_get_int32(this->options, "transport.socket.keepalive-interval",
+                         &interval);
     if (ret) {
         gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get socket keepalive-interval");
     }
-    ret = dict_get_int32n(this->options, "transport.socket.keepalive-time",
-                          SLEN("transport.socket.keepalive-time"), &time);
+    ret = dict_get_int32(this->options, "transport.socket.keepalive-time",
+                         &time);
     if (ret) {
         gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get socket keepalive-time");
     }
-    ret = dict_get_int32n(this->options, "transport.tcp-user-timeout",
-                          SLEN("transport.tcp-user-timeout"), &timeout);
+    ret = dict_get_int32(this->options, "transport.tcp-user-timeout", &timeout);
     if (ret) {
         gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get tcp-user-timeout");
@@ -3647,12 +3645,11 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
      */
 
     if (this->options) {
-        data = dict_getn(this->options, "transport.socket.bind-address",
-                         SLEN("transport.socket.bind-address"));
+        data = dict_get_sizen(this->options, "transport.socket.bind-address");
         if (data) {
             ret = dict_set_sizen(options, "transport.socket.source-addr", data);
         }
-        data = dict_getn(this->options, "ping-timeout", SLEN("ping-timeout"));
+        data = dict_get_sizen(this->options, "ping-timeout");
         if (data) {
             ret = dict_set_sizen(options, "ping-timeout", data);
         }
@@ -3662,9 +3659,8 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
      * is enabled
      */
     if (this->ctx->secure_mgmt) {
-        ret = dict_set_nstrn(options, "transport.socket.ssl-enabled",
-                             SLEN("transport.socket.ssl-enabled"), "on",
-                             SLEN("on"));
+        ret = dict_set_sizen_str_sizen(options, "transport.socket.ssl-enabled",
+                                       "on");
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "failed to set ssl-enabled in dict");
@@ -4123,7 +4119,7 @@ glusterd_xfer_cli_probe_resp(rpcsvc_request_t *req, int32_t op_ret,
                               sizeof(errstr), hostname, port);
 
     if (dict) {
-        ret = dict_get_strn(dict, "cmd-str", SLEN("cmd-str"), &cmd_str);
+        ret = dict_get_str(dict, "cmd-str", &cmd_str);
         if (ret)
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CMDSTR_NOTFOUND_IN_DICT,
                    "Failed to get "
@@ -4239,7 +4235,7 @@ glusterd_xfer_cli_deprobe_resp(rpcsvc_request_t *req, int32_t op_ret,
                                 sizeof(errstr), hostname);
 
     if (dict) {
-        ret = dict_get_strn(dict, "cmd-str", SLEN("cmd-str"), &cmd_str);
+        ret = dict_get_str(dict, "cmd-str", &cmd_str);
         if (ret)
             gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CMDSTR_NOTFOUND_IN_DICT,
                    "Failed to get "
@@ -4338,7 +4334,7 @@ unlock:
         }
     }
 
-    ret = dict_set_int32n(friends, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(friends, "count", count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
@@ -4397,7 +4393,7 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         goto respond;
     }
     if (flags == GF_CLI_GET_NEXT_VOLUME) {
-        ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+        ret = dict_get_str(dict, "volname", &volname);
 
         if (ret) {
             if (priv->volumes.next) {
@@ -4422,7 +4418,7 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
             count++;
         }
     } else if (flags == GF_CLI_GET_VOLUME) {
-        ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+        ret = dict_get_str(dict, "volname", &volname);
 
         if (ret)
             goto respond;
@@ -4441,7 +4437,7 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
     }
 
 respond:
-    ret = dict_set_int32n(volumes, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(volumes, "count", count);
     if (ret)
         goto out;
     ret = dict_allocate_and_serialize(volumes, &rsp.dict.dict_val,
@@ -4526,7 +4522,7 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
         goto out;
 
     if (!(cmd & GF_CLI_STATUS_ALL)) {
-        ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+        ret = dict_get_str(dict, "volname", &volname);
         if (ret) {
             snprintf(err_str, sizeof(err_str),
                      "Unable to get "
@@ -4661,7 +4657,7 @@ __glusterd_handle_cli_clearlocks_volume(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Unable to get volume "
@@ -4809,7 +4805,7 @@ __glusterd_handle_barrier(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLNAME_NOTFOUND_IN_DICT,
                "Volname not present in "
@@ -4890,7 +4886,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
     GF_ASSERT(req);
     GF_ASSERT(dict);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get volume "
@@ -4906,7 +4902,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "key", SLEN("key"), &key);
+    ret = dict_get_str(dict, "key", &key);
     if (ret) {
         snprintf(err_str, sizeof(err_str),
                  "Failed to get key "
@@ -4984,7 +4980,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
                                         next release. Consider using `volume \
                                         get all` instead for global options";
 
-                ret = dict_set_strn(dict, "warning", SLEN("warning"), warn_str);
+                ret = dict_set_str_sizen(dict, "warning", warn_str);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                            "Failed to set warning "
@@ -5116,7 +5112,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
         /* Request is for a single option, explicitly set count to 1
          * in the dictionary.
          */
-        ret = dict_set_int32n(dict, "count", SLEN("count"), 1);
+        ret = dict_set_int32_sizen(dict, "count", 1);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                    "Failed to set count "
@@ -5261,9 +5257,7 @@ glusterd_print_gsync_status(FILE *fp, dict_t *gsync_dict)
     GF_VALIDATE_OR_GOTO(THIS->name, fp, out);
     GF_VALIDATE_OR_GOTO(THIS->name, gsync_dict, out);
 
-    ret = dict_get_int32n(gsync_dict, "gsync-count", SLEN("gsync-count"),
-                          &gsync_count);
-
+    ret = dict_get_int32(gsync_dict, "gsync-count", &gsync_count);
     fprintf(fp, "Volume%d.gsync_count: %d\n", volcount, gsync_count);
 
     if (gsync_count == 0) {
@@ -5466,22 +5460,21 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
     brick_req->dict.dict_val = NULL;
     brick_req->dict.dict_len = 0;
 
-    ret = dict_set_strn(dict, "brick-name", SLEN("brick-name"),
-                        brickinfo->path);
+    ret = dict_set_str_sizen(dict, "brick-name", brickinfo->path);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=brick-name", NULL);
         goto out;
     }
 
-    ret = dict_set_int32n(dict, "cmd", SLEN("cmd"), GF_CLI_STATUS_CLIENTS);
+    ret = dict_set_int32_sizen(dict, "cmd", GF_CLI_STATUS_CLIENTS);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=cmd", NULL);
         goto out;
     }
 
-    ret = dict_set_strn(dict, "volname", SLEN("volname"), volinfo->volname);
+    ret = dict_set_str_sizen(dict, "volname", volinfo->volname);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=volname", NULL);
@@ -5499,8 +5492,7 @@ glusterd_print_client_details(FILE *fp, dict_t *dict,
     if (args.op_ret)
         goto out;
 
-    ret = dict_get_int32n(args.dict, "clientcount", SLEN("clientcount"),
-                          &client_count);
+    ret = dict_get_int32(args.dict, "clientcount", &client_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Couldn't get client count");
@@ -5815,7 +5807,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
-    ret = dict_get_strn(dict, "odir", SLEN("odir"), &tmp_str);
+    ret = dict_get_str(dict, "odir", &tmp_str);
     if (ret) {
         odirlen = gf_asprintf(&odir, "%s", "/var/run/gluster/");
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
@@ -5847,7 +5839,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "filename", SLEN("filename"), &tmp_str);
+    ret = dict_get_str(dict, "filename", &tmp_str);
     if (ret) {
         now = gf_time();
         strftime(timestamp, sizeof(timestamp), "%Y%m%d_%H%M%S",
@@ -5874,7 +5866,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     GF_FREE(odir);
     GF_FREE(filename);
 
-    ret = dict_set_dynstrn(dict, "ofilepath", SLEN("ofilepath"), ofilepath);
+    ret = dict_set_dynstr_sizen(dict, "ofilepath", ofilepath);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set output path");

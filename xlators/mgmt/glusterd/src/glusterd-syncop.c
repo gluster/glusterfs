@@ -238,7 +238,7 @@ glusterd_append_gsync_status(dict_t *dst, dict_t *src)
     int ret = 0;
     char *stop_msg = NULL;
 
-    ret = dict_get_strn(src, "gsync-status", SLEN("gsync-status"), &stop_msg);
+    ret = dict_get_str(src, "gsync-status", &stop_msg);
     if (ret) {
         gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=gsync-status", NULL);
@@ -276,11 +276,11 @@ glusterd_append_status_dicts(dict_t *dst, dict_t *src)
     if (src == NULL)
         goto out;
 
-    ret = dict_get_int32n(dst, "gsync-count", SLEN("gsync-count"), &dst_count);
+    ret = dict_get_int32(dst, "gsync-count", &dst_count);
     if (ret)
         dst_count = 0;
 
-    ret = dict_get_int32n(src, "gsync-count", SLEN("gsync-count"), &src_count);
+    ret = dict_get_int32(src, "gsync-count", &src_count);
     if (ret || !src_count) {
         gf_msg_debug("glusterd", 0, "Source brick empty");
         ret = 0;
@@ -315,8 +315,7 @@ glusterd_append_status_dicts(dict_t *dst, dict_t *src)
         }
     }
 
-    ret = dict_set_int32n(dst, "gsync-count", SLEN("gsync-count"),
-                          dst_count + src_count);
+    ret = dict_set_int32_sizen(dst, "gsync-count", dst_count + src_count);
 
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
@@ -351,8 +350,7 @@ glusterd_gsync_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict, char *op_errstr)
         if (ret)
             goto out;
 
-        ret = dict_get_strn(rsp_dict, "conf_path", SLEN("conf_path"),
-                            &conf_path);
+        ret = dict_get_str(rsp_dict, "conf_path", &conf_path);
         if (!ret && conf_path) {
             ret = dict_set_dynstr_with_alloc(ctx, "conf_path", conf_path);
             if (ret) {
@@ -384,15 +382,13 @@ glusterd_max_opversion_use_rsp_dict(dict_t *dst, dict_t *src)
     GF_VALIDATE_OR_GOTO(THIS->name, dst, out);
     GF_VALIDATE_OR_GOTO(THIS->name, src, out);
 
-    ret = dict_get_int32n(dst, "max-opversion", SLEN("max-opversion"),
-                          &max_opversion);
+    ret = dict_get_int32(dst, "max-opversion", &max_opversion);
     if (ret)
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Maximum supported op-version not set in destination "
                "dictionary");
 
-    ret = dict_get_int32n(src, "max-opversion", SLEN("max-opversion"),
-                          &src_max_opversion);
+    ret = dict_get_int32(src, "max-opversion", &src_max_opversion);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get maximum supported op-version from source");
@@ -402,8 +398,7 @@ glusterd_max_opversion_use_rsp_dict(dict_t *dst, dict_t *src)
     if (max_opversion == -1 || src_max_opversion < max_opversion)
         max_opversion = src_max_opversion;
 
-    ret = dict_set_int32n(dst, "max-opversion", SLEN("max-opversion"),
-                          max_opversion);
+    ret = dict_set_int32_sizen(dst, "max-opversion", max_opversion);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set max op-version");
@@ -442,7 +437,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = dict_get_strn(aggr, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(aggr, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
@@ -456,9 +451,9 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_get_int32n(aggr, "count", SLEN("count"), &dst_count);
+    ret = dict_get_int32(aggr, "count", &dst_count);
 
-    ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &src_count);
+    ret = dict_get_int32(rsp_dict, "count", &src_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "failed to get count value");
@@ -466,7 +461,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_set_int32n(aggr, "count", SLEN("count"), src_count + dst_count);
+    ret = dict_set_int32_sizen(aggr, "count", src_count + dst_count);
     if (ret)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set count in dictonary");
@@ -574,8 +569,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_get_strn(rsp_dict, "bitrot_log_file", SLEN("bitrot_log_file"),
-                        &bitd_log);
+    ret = dict_get_str(rsp_dict, "bitrot_log_file", &bitd_log);
     if (!ret) {
         ret = dict_set_dynstr_with_alloc(aggr, "bitrot_log_file", bitd_log);
         if (ret) {
@@ -586,8 +580,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_get_strn(rsp_dict, "scrub_log_file", SLEN("scrub_log_file"),
-                        &scrub_log);
+    ret = dict_get_str(rsp_dict, "scrub_log_file", &scrub_log);
     if (!ret) {
         ret = dict_set_dynstr_with_alloc(aggr, "scrub_log_file", scrub_log);
         if (ret) {
@@ -598,8 +591,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_get_strn(rsp_dict, "features.scrub-freq",
-                        SLEN("features.scrub-freq"), &scrub_freq);
+    ret = dict_get_str(rsp_dict, "features.scrub-freq", &scrub_freq);
     if (!ret) {
         ret = dict_set_dynstr_with_alloc(aggr, "features.scrub-freq",
                                          scrub_freq);
@@ -611,8 +603,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_get_strn(rsp_dict, "features.scrub-throttle",
-                        SLEN("features.scrub-throttle"), &scrub_impact);
+    ret = dict_get_str(rsp_dict, "features.scrub-throttle", &scrub_impact);
     if (!ret) {
         ret = dict_set_dynstr_with_alloc(aggr, "features.scrub-throttle",
                                          scrub_impact);
@@ -624,8 +615,7 @@ glusterd_volume_bitrot_scrub_use_rsp_dict(dict_t *aggr, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_get_strn(rsp_dict, "features.scrub", SLEN("features.scrub"),
-                        &scrub_state);
+    ret = dict_get_str(rsp_dict, "features.scrub", &scrub_state);
     if (!ret) {
         ret = dict_set_dynstr_with_alloc(aggr, "features.scrub", scrub_state);
         if (ret) {
@@ -659,11 +649,9 @@ glusterd_sys_exec_output_rsp_dict(dict_t *dst, dict_t *src)
         goto out;
     }
 
-    ret = dict_get_int32n(dst, "output_count", SLEN("output_count"),
-                          &dst_output_count);
+    ret = dict_get_int32(dst, "output_count", &dst_output_count);
 
-    ret = dict_get_int32n(src, "output_count", SLEN("output_count"),
-                          &src_output_count);
+    ret = dict_get_int32(src, "output_count", &src_output_count);
     if (ret) {
         gf_msg_debug("glusterd", 0, "No output from source");
         ret = 0;
@@ -698,8 +686,8 @@ glusterd_sys_exec_output_rsp_dict(dict_t *dst, dict_t *src)
         }
     }
 
-    ret = dict_set_int32n(dst, "output_count", SLEN("output_count"),
-                          dst_output_count + src_output_count);
+    ret = dict_set_int32_sizen(dst, "output_count",
+                               dst_output_count + src_output_count);
 out:
     gf_msg_debug("glusterd", 0, "Returning %d", ret);
     return ret;
@@ -778,7 +766,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
     xlator_t *this = THIS;
     int type = GF_QUOTA_OPTION_TYPE_NONE;
 
-    ret = dict_get_int32n(dict, "type", SLEN("type"), &type);
+    ret = dict_get_int32(dict, "type", &type);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get quota opcode");
@@ -794,7 +782,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_get_int32n(rsp_dict, "count", SLEN("count"), &rsp_dict_count);
+    ret = dict_get_int32(rsp_dict, "count", &rsp_dict_count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get the count of "
@@ -802,7 +790,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "count", SLEN("count"), &count);
+    ret = dict_get_int32(dict, "count", &count);
     if (ret)
         /* The key "count" is absent in op_ctx when this function is
          * called after self-staging on the originator. This must not
@@ -840,7 +828,7 @@ glusterd_volume_quota_copy_to_op_ctx_dict(dict_t *dict, dict_t *rsp_dict)
         }
     }
 
-    ret = dict_set_int32n(dict, "count", SLEN("count"), rsp_dict_count + count);
+    ret = dict_set_int32_sizen(dict, "count", rsp_dict_count + count);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set aggregated "
@@ -1901,7 +1889,7 @@ glusterd_validate_and_set_gfid(dict_t *op_ctx, dict_t *req_dict,
     char *uuid1_str_dup = NULL;
     char *uuid2_str = NULL;
 
-    ret = dict_get_int32n(op_ctx, "type", SLEN("type"), &op_code);
+    ret = dict_get_int32(op_ctx, "type", &op_code);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get quota opcode");
@@ -1916,14 +1904,14 @@ glusterd_validate_and_set_gfid(dict_t *op_ctx, dict_t *req_dict,
         goto out;
     }
 
-    ret = dict_get_strn(op_ctx, "path", SLEN("path"), &path);
+    ret = dict_get_str(op_ctx, "path", &path);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get path");
         goto out;
     }
 
-    ret = dict_get_int32n(op_ctx, "count", SLEN("count"), &count);
+    ret = dict_get_int32(op_ctx, "count", &count);
     if (ret) {
         gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get count");
@@ -1992,7 +1980,7 @@ glusterd_validate_and_set_gfid(dict_t *op_ctx, dict_t *req_dict,
             goto out;
         }
 
-        ret = dict_set_dynstrn(req_dict, "gfid", SLEN("gfid"), uuid1_str_dup);
+        ret = dict_set_dynstr_sizen(req_dict, "gfid", uuid1_str_dup);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set gfid");

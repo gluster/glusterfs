@@ -273,9 +273,8 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
 
     snprintf(volname, sizeof(volname), "rebalance/%s", volinfo->volname);
 
-    if (dict_get_strn(this->options, "transport.socket.bind-address",
-                      SLEN("transport.socket.bind-address"),
-                      &volfileserver) != 0) {
+    if (dict_get_str(this->options, "transport.socket.bind-address",
+                     &volfileserver) != 0) {
         volfileserver = "localhost";
     }
 
@@ -301,9 +300,8 @@ glusterd_handle_defrag_start(glusterd_volinfo_t *volinfo, char *op_errstr,
     runner_argprintf(&runner, "%s", logfile);
     if (volinfo->memory_accounting)
         runner_add_arg(&runner, "--mem-accounting");
-    if (dict_get_strn(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
-                      SLEN(GLUSTERD_LOCALTIME_LOGGING_KEY),
-                      &localtime_logging) == 0) {
+    if (dict_get_str(priv->opts, GLUSTERD_LOCALTIME_LOGGING_KEY,
+                     &localtime_logging) == 0) {
         if (strcmp(localtime_logging, "enable") == 0)
             runner_add_arg(&runner, "--localtime-logging");
     }
@@ -519,15 +517,14 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(msg, sizeof(msg), "Failed to get volume name");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s", msg);
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          (int32_t *)&cmd);
+    ret = dict_get_int32(dict, "rebalance-command", (int32_t *)&cmd);
     if (ret) {
         snprintf(msg, sizeof(msg), "Failed to get command");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s", msg);
@@ -618,14 +615,13 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
     GF_ASSERT(rsp_dict);
     GF_ASSERT(req_dict);
 
-    ret = dict_get_strn(rsp_dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(rsp_dict, "volname", &volname);
     if (ret) {
         gf_msg_debug(this->name, 0, "volname not found");
         goto out;
     }
 
-    ret = dict_get_int32n(rsp_dict, "rebalance-command",
-                          SLEN("rebalance-command"), &cmd);
+    ret = dict_get_int32(rsp_dict, "rebalance-command", &cmd);
     if (ret) {
         gf_msg_debug(this->name, 0, "cmd not found");
         goto out;
@@ -645,8 +641,7 @@ glusterd_set_rebalance_id_in_rsp_dict(dict_t *req_dict, dict_t *rsp_dict)
         (cmd == GF_DEFRAG_CMD_START_LAYOUT_FIX) ||
         (cmd == GF_DEFRAG_CMD_START_FORCE)) {
         if (is_origin_glusterd(rsp_dict)) {
-            ret = dict_get_strn(req_dict, GF_REBALANCE_TID_KEY,
-                                SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+            ret = dict_get_str(req_dict, GF_REBALANCE_TID_KEY, &task_id_str);
             if (ret) {
                 snprintf(msg, sizeof(msg), "Missing rebalance-id");
                 gf_msg(this->name, GF_LOG_WARNING, 0,
@@ -704,14 +699,13 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
     char *task_id_str = NULL;
     xlator_t *this = THIS;
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg_debug(this->name, 0, "volname not found");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          &cmd);
+    ret = dict_get_int32(dict, "rebalance-command", &cmd);
     if (ret) {
         gf_msg_debug(this->name, 0, "cmd not found");
         goto out;
@@ -757,8 +751,7 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
                     goto out;
                 }
             } else {
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     snprintf(msg, sizeof(msg), "Missing rebalance-id");
                     gf_msg(this->name, GF_LOG_WARNING, 0,
@@ -779,7 +772,7 @@ glusterd_mgmt_v3_op_stage_rebalance(dict_t *dict, char **op_errstr)
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
 
-            ret = dict_get_strn(dict, "cmd-str", SLEN("cmd-str"), &cmd_str);
+            ret = dict_get_str(dict, "cmd-str", &cmd_str);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Failed to get "
@@ -850,14 +843,13 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     uint32_t commit_hash;
     int32_t is_force = 0;
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg_debug(this->name, 0, "volname not given");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          &cmd);
+    ret = dict_get_int32(dict, "rebalance-command", &cmd);
     if (ret) {
         gf_msg_debug(this->name, 0, "command not given");
         goto out;
@@ -875,7 +867,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
 
-            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
+            ret = dict_get_int32(dict, "force", &is_force);
             if (ret)
                 is_force = 0;
             if (!is_force) {
@@ -885,8 +877,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  */
                 volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
 
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Missing rebalance"
@@ -924,8 +915,7 @@ glusterd_mgmt_v3_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 volinfo->rebal.defrag_cmd = cmd;
                 volinfo->rebal.op = GD_OP_REBALANCE;
 
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Missing rebalance"
@@ -1008,14 +998,13 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
     dict_t *op_ctx = NULL;
     xlator_t *this = THIS;
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg_debug(this->name, 0, "volname not found");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          &cmd);
+    ret = dict_get_int32(dict, "rebalance-command", &cmd);
     if (ret) {
         gf_msg_debug(this->name, 0, "cmd not found");
         goto out;
@@ -1069,8 +1058,7 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
                     goto out;
                 }
             } else {
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     snprintf(msg, sizeof(msg), "Missing rebalance-id");
                     gf_msg(this->name, GF_LOG_WARNING, 0,
@@ -1091,7 +1079,7 @@ glusterd_op_stage_rebalance(dict_t *dict, char **op_errstr)
         case GF_DEFRAG_CMD_STATUS:
         case GF_DEFRAG_CMD_STOP:
 
-            ret = dict_get_strn(dict, "cmd-str", SLEN("cmd-str"), &cmd_str);
+            ret = dict_get_str(dict, "cmd-str", &cmd_str);
             if (ret) {
                 gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Failed to get "
@@ -1163,14 +1151,13 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
     uint32_t commit_hash;
     int32_t is_force = 0;
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg_debug(this->name, 0, "volname not given");
         goto out;
     }
 
-    ret = dict_get_int32n(dict, "rebalance-command", SLEN("rebalance-command"),
-                          &cmd);
+    ret = dict_get_int32(dict, "rebalance-command", &cmd);
     if (ret) {
         gf_msg_debug(this->name, 0, "command not given");
         goto out;
@@ -1217,7 +1204,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
         case GF_DEFRAG_CMD_START_LAYOUT_FIX:
         case GF_DEFRAG_CMD_START_FORCE:
 
-            ret = dict_get_int32n(dict, "force", SLEN("force"), &is_force);
+            ret = dict_get_int32(dict, "force", &is_force);
             if (ret)
                 is_force = 0;
             if (!is_force) {
@@ -1227,8 +1214,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                  */
                 volinfo->rebal.defrag_status = GF_DEFRAG_STATUS_NOT_STARTED;
 
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Missing rebalance"
@@ -1266,8 +1252,7 @@ glusterd_op_rebalance(dict_t *dict, char **op_errstr, dict_t *rsp_dict)
                 volinfo->rebal.defrag_cmd = cmd;
                 volinfo->rebal.op = GD_OP_REBALANCE;
 
-                ret = dict_get_strn(dict, GF_REBALANCE_TID_KEY,
-                                    SLEN(GF_REBALANCE_TID_KEY), &task_id_str);
+                ret = dict_get_str(dict, GF_REBALANCE_TID_KEY, &task_id_str);
                 if (ret) {
                     gf_msg_debug(this->name, 0,
                                  "Missing rebalance"
@@ -1348,7 +1333,7 @@ glusterd_defrag_event_notify_handle(dict_t *dict)
 
     GF_ASSERT(dict);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get volname");

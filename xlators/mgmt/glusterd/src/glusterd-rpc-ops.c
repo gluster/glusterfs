@@ -58,7 +58,7 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
     switch (op) {
         case GD_OP_REMOVE_BRICK: {
             if (ctx)
-                ret = dict_get_strn(ctx, "errstr", SLEN("errstr"), &errstr);
+                ret = dict_get_str(ctx, "errstr", &errstr);
             break;
         }
         case GD_OP_RESET_VOLUME: {
@@ -69,7 +69,7 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
         case GD_OP_REBALANCE:
         case GD_OP_DEFRAG_BRICK_VOLUME: {
             if (ctx) {
-                ret = dict_get_int32n(ctx, "status", SLEN("status"), &status);
+                ret = dict_get_int32(ctx, "status", &status);
                 if (ret) {
                     gf_msg_trace(this->name, 0, "failed to get status");
                 }
@@ -79,16 +79,16 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
         case GD_OP_GSYNC_CREATE:
         case GD_OP_GSYNC_SET: {
             if (ctx) {
-                ret = dict_get_strn(ctx, "errstr", SLEN("errstr"), &errstr);
-                ret = dict_set_strn(ctx, "glusterd_workdir",
-                                    SLEN("glusterd_workdir"), conf->workdir);
+                ret = dict_get_str(ctx, "errstr", &errstr);
+                ret = dict_set_str_sizen(ctx, "glusterd_workdir",
+                                         conf->workdir);
                 /* swallow error here, that will be re-triggered in cli */
             }
             break;
         }
         case GD_OP_PROFILE_VOLUME: {
-            if (ctx && dict_get_int32n(ctx, "count", SLEN("count"), &count)) {
-                ret = dict_set_int32n(ctx, "count", SLEN("count"), 0);
+            if (ctx && dict_get_int32(ctx, "count", &count)) {
+                ret = dict_set_int32_sizen(ctx, "count", 0);
                 if (ret) {
                     gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                            "failed to set count in dictionary");
@@ -147,14 +147,14 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
         }
         case GD_OP_COPY_FILE: {
             if (ctx)
-                ret = dict_get_strn(ctx, "errstr", SLEN("errstr"), &errstr);
+                ret = dict_get_str(ctx, "errstr", &errstr);
             break;
         }
         case GD_OP_SYS_EXEC: {
             if (ctx) {
-                ret = dict_get_strn(ctx, "errstr", SLEN("errstr"), &errstr);
-                ret = dict_set_strn(ctx, "glusterd_workdir",
-                                    SLEN("glusterd_workdir"), conf->workdir);
+                ret = dict_get_str(ctx, "errstr", &errstr);
+                ret = dict_set_str_sizen(ctx, "glusterd_workdir",
+                                         conf->workdir);
             }
             break;
         }
@@ -1439,13 +1439,13 @@ glusterd_rpc_probe(call_frame_t *frame, xlator_t *this, void *data)
 
     dict = data;
 
-    ret = dict_get_strn(dict, "hostname", SLEN("hostname"), &hostname);
+    ret = dict_get_str(dict, "hostname", &hostname);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=hostname", NULL);
         goto out;
     }
-    ret = dict_get_int32n(dict, "port", SLEN("port"), &port);
+    ret = dict_get_int32(dict, "port", &port);
     if (ret) {
         gf_smsg(this->name, GF_LOG_DEBUG, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=port", NULL);
@@ -1651,7 +1651,7 @@ glusterd_rpc_friend_update(call_frame_t *frame, xlator_t *this, void *data)
     if (ret)
         goto out;
     /* Don't want to send the pointer over */
-    dict_deln(friends, "peerinfo", SLEN("peerinfo"));
+    dict_del_sizen(friends, "peerinfo");
 
     ret = dict_allocate_and_serialize(friends, &req.friends.friends_val,
                                       &req.friends.friends_len);
@@ -1727,7 +1727,7 @@ glusterd_mgmt_v3_lock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     // peerinfo should not be in payload
-    dict_deln(dict, "peerinfo", SLEN("peerinfo"));
+    dict_del_sizen(dict, "peerinfo");
 
     glusterd_get_uuid(&req.uuid);
 
@@ -1799,7 +1799,7 @@ glusterd_mgmt_v3_unlock_peers(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     // peerinfo should not be in payload
-    dict_deln(dict, "peerinfo", SLEN("peerinfo"));
+    dict_del_sizen(dict, "peerinfo");
 
     glusterd_get_uuid(&req.uuid);
 
@@ -1905,7 +1905,7 @@ glusterd_stage_op(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     // peerinfo should not be in payload
-    dict_deln(dict, "peerinfo", SLEN("peerinfo"));
+    dict_del_sizen(dict, "peerinfo");
 
     glusterd_get_uuid(&req.uuid);
     req.op = glusterd_op_get_op();
@@ -1977,7 +1977,7 @@ glusterd_commit_op(call_frame_t *frame, xlator_t *this, void *data)
     }
 
     // peerinfo should not be in payload
-    dict_deln(dict, "peerinfo", SLEN("peerinfo"));
+    dict_del_sizen(dict, "peerinfo");
 
     glusterd_get_uuid(&req.uuid);
     req.op = glusterd_op_get_op();
@@ -2097,7 +2097,7 @@ __glusterd_brick_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
     if (GD_OP_STATUS_VOLUME == req_ctx->op) {
         node = frame->cookie;
         index = node->index;
-        ret = dict_set_int32n(dict, "index", SLEN("index"), index);
+        ret = dict_set_int32_sizen(dict, "index", index);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Error setting index on brick status rsp dict");

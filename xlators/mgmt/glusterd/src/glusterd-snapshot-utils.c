@@ -3046,7 +3046,7 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     }
 
     if (snap_volume) {
-        ret = dict_get_str_sizen(dict, "snapname", &snapname);
+        ret = dict_get_str(dict, "snapname", &snapname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "failed to "
@@ -3088,7 +3088,7 @@ glusterd_snap_quorum_check_for_clone(dict_t *dict, gf_boolean_t snap_volume,
     }
 
     for (i = 1; i <= volcount; i++) {
-        ret = dict_get_str_sizen(dict, "clonename", &volname);
+        ret = dict_get_str(dict, "clonename", &volname);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                    "failed to "
@@ -3266,7 +3266,7 @@ glusterd_snap_quorum_check(dict_t *dict, gf_boolean_t snap_volume,
         goto out;
     }
 
-    ret = dict_get_int32_sizen(dict, "type", &snap_command);
+    ret = dict_get_int32(dict, "type", &snap_command);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "unable to get the type of "
