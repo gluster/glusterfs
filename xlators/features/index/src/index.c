@@ -38,6 +38,8 @@ static char *index_subdirs[XATTROP_TYPE_END] = {
     [DIRTY] = DIRTY_SUBDIR,
     [ENTRY_CHANGES] = ENTRY_CHANGES_SUBDIR};
 
+static uuid_t gfid_index[XATTROP_TYPE_END][32] = {{}};
+
 int
 index_get_type_from_vgfid(index_priv_t *priv, uuid_t vgfid)
 {
@@ -241,10 +243,10 @@ index_worker(void *data)
     return NULL;
 }
 
-static void
+static int
 make_index_dir_path(char *base, const char *subdir, char *index_dir, size_t len)
 {
-    snprintf(index_dir, len, "%s/%s", base, subdir);
+    return snprintf(index_dir, len, "%s/%s", base, subdir);
 }
 
 int
@@ -592,7 +594,7 @@ out:
 }
 
 int
-index_link_to_base(xlator_t *this, char *fpath, const char *subdir)
+index_link_to_base(xlator_t *this, char *fpath, const char *subdir, int type)
 {
     int ret = 0;
     int fd = 0;
@@ -600,8 +602,9 @@ index_link_to_base(xlator_t *this, char *fpath, const char *subdir)
     uuid_t index = {0};
     index_priv_t *priv = this->private;
     char base[PATH_MAX] = {0};
+    int id = rand() % 31;
 
-    index_get_index(priv, index);
+    gf_uuid_copy(index, gfid_index[type][id]);
     make_index_path(priv->index_basepath, subdir, index, base, sizeof(base));
 
     ret = sys_link(base, fpath);
@@ -674,7 +677,7 @@ index_add(xlator_t *this, uuid_t gfid, const char *subdir,
     ret = sys_stat(gfid_path, &st);
     if (!ret)
         goto out;
-    ret = index_link_to_base(this, gfid_path, subdir);
+    ret = index_link_to_base(this, gfid_path, subdir, type);
     if (ret == 0) {
         index_update_link_count_cache(priv, type, 1);
     }
@@ -888,7 +891,8 @@ index_entry_create(xlator_t *this, inode_t *inode, char *filename)
 
     op_errno = 0;
 
-    ret = index_link_to_base(this, entry_path, ENTRY_CHANGES_SUBDIR);
+    ret = index_link_to_base(this, entry_path, ENTRY_CHANGES_SUBDIR,
+                             ENTRY_CHANGES);
 out:
     if (op_errno)
         ret = -op_errno;
@@ -2376,6 +2380,11 @@ init(xlator_t *this)
     char *pendinglist = NULL;
     char *index_base_parent = NULL;
     char *tmp = NULL;
+    char fullpath[PATH_MAX] = {
+        0,
+    };
+    int j;
+    int fd;
 
     if (!this->children || this->children->next) {
         gf_msg(this->name, GF_LOG_ERROR, EINVAL, INDEX_MSG_INVALID_GRAPH,
@@ -2497,6 +2506,20 @@ init(xlator_t *this)
                "Failed to create worker thread, aborting");
         goto out;
     }
+
+    for (i = 0; i < 3; i++) {
+        for (j = 0; j < 32; j++) {
+            gf_uuid_generate(gfid_index[i][j]);
+            ret = make_index_dir_path(priv->index_basepath, index_subdirs[i],
+                                      fullpath, sizeof(fullpath));
+            snprintf(fullpath + ret, PATH_MAX - ret, "/%s-%s", index_subdirs[i],
+                     uuid_utoa(gfid_index[i][j]));
+            fd = sys_creat(fullpath, 0);
+            if (fd >= 0)
+                sys_close(fd);
+        }
+    }
+
     priv->curr_count++;
     ret = 0;
 out:
