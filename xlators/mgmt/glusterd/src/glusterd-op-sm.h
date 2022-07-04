@@ -84,7 +84,6 @@ struct glusterd_op_info_ {
     int32_t op_count;
     /* op is an enum, glusterd_op_t or glusterd_op_sm_state_info_t */
     int op;
-    struct cds_list_head op_peers;
     void *op_ctx;
     rpcsvc_request_t *req;
     int32_t op_ret;
