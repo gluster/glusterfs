@@ -104,9 +104,9 @@ dht_selfheal_dir_finish(call_frame_t *frame, int ret, int invoke_cbk)
 
     lock_local_parent_layout = &lock_local->lock[0].ns.parent_layout;
 
-    COPY_LOCK_ARRAY(parent_layout, lock_local_parent_layout);
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    RESET_LOCK_ARRAY(parent_layout);
+    dht_lock_array_reset(parent_layout);
 
     dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_selfheal_unlock_cbk);
@@ -586,7 +586,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
     ret = dht_blocking_inodelk(frame, lk_array, count,
                                dht_selfheal_layout_lock_cbk);
     if (ret < 0) {
-        RESET_LOCK_ARRAY(my_layout);
+        dht_lock_array_reset(my_layout);
         goto err;
     }
 
@@ -2576,7 +2576,7 @@ dht_update_commit_hash_for_layout(call_frame_t *frame)
     ret = dht_blocking_inodelk(frame, lk_array, count,
                                dht_update_commit_hash_for_layout_resume);
     if (ret < 0) {
-        RESET_LOCK_ARRAY(my_layout);
+        dht_lock_array_reset(my_layout);
         goto err;
     }
 

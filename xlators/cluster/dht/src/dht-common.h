@@ -51,18 +51,6 @@
 /* Rebalance nodeuuid flags */
 #define REBAL_NODEUUID_MINE 0x01
 
-#define RESET_LOCK_ARRAY(_array)                                               \
-    do {                                                                       \
-        _array->locks = NULL;                                                  \
-        _array->lk_count = 0;                                                  \
-    } while (0)
-
-#define COPY_LOCK_ARRAY(_src, _dst)                                            \
-    do {                                                                       \
-        _dst->locks = _src->locks;                                             \
-        _dst->lk_count = _src->lk_count;                                       \
-    } while (0)
-
 typedef int (*dht_selfheal_dir_cbk_t)(call_frame_t *frame, void *cookie,
                                       int32_t op_ret, int32_t op_errno,
                                       dict_t *xdata);
@@ -221,6 +209,20 @@ typedef struct {
     int op_ret;
     int op_errno;
 } dht_lock_wrap_t;
+
+static inline void
+dht_lock_array_reset(dht_lock_wrap_t *_array)
+{
+    _array->locks = NULL;
+    _array->lk_count = 0;
+}
+
+static inline void
+dht_lock_array_copy(dht_lock_wrap_t *_src, dht_lock_wrap_t *_dst)
+{
+    _dst->locks = _src->locks;
+    _dst->lk_count = _src->lk_count;
+}
 
 /* The first member of dht_dir_transaction_t should be of type dht_lock_wrap_t.
  * Otherwise it can result in subtle memory corruption issues as in most of the

@@ -7658,9 +7658,9 @@ dht_mknod_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
 
     lock_local_parent_layout = &lock_local->lock[0].layout.parent_layout;
 
-    COPY_LOCK_ARRAY(parent_layout, lock_local_parent_layout);
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    RESET_LOCK_ARRAY(parent_layout);
+    dht_lock_array_reset(parent_layout);
 
     dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_mknod_unlock_cbk);
@@ -7745,7 +7745,7 @@ dht_mknod_lock(call_frame_t *frame, xlator_t *subvol)
     ret = dht_blocking_inodelk(frame, lk_array, count, dht_mknod_lock_cbk);
 
     if (ret < 0) {
-        RESET_LOCK_ARRAY(parent_layout);
+        dht_lock_array_reset(parent_layout);
         goto err;
     }
 
@@ -8898,9 +8898,9 @@ dht_create_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
 
     lock_local_parent_layout = &lock_local->lock[0].layout.parent_layout;
 
-    COPY_LOCK_ARRAY(parent_layout, lock_local_parent_layout);
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    RESET_LOCK_ARRAY(parent_layout);
+    dht_lock_array_reset(parent_layout);
 
     dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_create_unlock_cbk);
@@ -8988,7 +8988,7 @@ dht_create_lock(call_frame_t *frame, xlator_t *subvol)
     ret = dht_blocking_inodelk(frame, lk_array, count, dht_create_lock_cbk);
 
     if (ret < 0) {
-        RESET_LOCK_ARRAY(parent_layout);
+        dht_lock_array_reset(parent_layout);
         goto err;
     }
 
@@ -9879,9 +9879,9 @@ dht_rmdir_unlock(call_frame_t *frame, xlator_t *this)
 
     lock_local_parent_layout = &lock_local->lock[0].ns.parent_layout;
 
-    COPY_LOCK_ARRAY(parent_layout, lock_local_parent_layout);
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    RESET_LOCK_ARRAY(parent_layout);
+    dht_lock_array_reset(parent_layout);
 
     dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_rmdir_unlock_cbk);

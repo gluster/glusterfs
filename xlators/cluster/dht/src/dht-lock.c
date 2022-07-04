@@ -70,7 +70,7 @@ dht_lock_stack_destroy(call_frame_t *lock_frame, dht_lock_type_t lk)
     } else {
         dht_lock = &local->lock[0].ns.directory_ns;
     }
-    RESET_LOCK_ARRAY(dht_lock);
+    dht_lock_array_reset(dht_lock);
 
     DHT_STACK_DESTROY(lock_frame);
     return;
@@ -288,7 +288,7 @@ dht_entrylk_done(call_frame_t *lock_frame)
     main_frame = local->main_frame;
     directory_ns = &local->lock[0].ns.directory_ns;
 
-    RESET_LOCK_ARRAY(directory_ns);
+    dht_lock_array_reset(directory_ns);
 
     entrylk_cbk = directory_ns->entrylk_cbk;
     directory_ns->entrylk_cbk = NULL;
@@ -447,7 +447,7 @@ dht_unlock_entrylk_wrapper(call_frame_t *frame, dht_lock_wrap_t *entrylk)
     directory_ns->locks = entrylk->locks;
     directory_ns->lk_count = entrylk->lk_count;
 
-    RESET_LOCK_ARRAY(entrylk);
+    dht_lock_array_reset(entrylk);
 
     call_cnt = dht_lock_count(directory_ns);
     if (call_cnt) {
@@ -643,7 +643,7 @@ dht_inodelk_done(call_frame_t *lock_frame)
     main_frame = local->main_frame;
 
     my_layout = &local->lock[0].layout.my_layout;
-    RESET_LOCK_ARRAY(my_layout);
+    dht_lock_array_reset(my_layout);
 
     inodelk_cbk = my_layout->inodelk_cbk;
     my_layout->inodelk_cbk = NULL;
@@ -820,7 +820,7 @@ dht_unlock_inodelk_wrapper(call_frame_t *frame, dht_lock_wrap_t *inodelk)
     my_layout->locks = inodelk->locks;
     my_layout->lk_count = inodelk->lk_count;
 
-    RESET_LOCK_ARRAY(inodelk);
+    dht_lock_array_reset(inodelk);
 
     ret = dht_unlock_inodelk(lock_frame, my_layout, dht_unlock_inodelk_done);
 
@@ -1085,7 +1085,7 @@ err:
     if (lk_array != NULL) {
         dht_lock_array_free(lk_array, count);
         GF_FREE(lk_array);
-        RESET_LOCK_ARRAY(entrylk);
+        dht_lock_array_reset(entrylk);
     }
 
     /* Unlock inodelk. No harm calling unlock twice */
@@ -1212,13 +1212,13 @@ err:
     if (entrylk->locks != NULL) {
         dht_lock_array_free(entrylk->locks, count);
         GF_FREE(entrylk->locks);
-        RESET_LOCK_ARRAY(entrylk);
+        dht_lock_array_reset(entrylk);
     }
 
     if (inodelk->locks != NULL) {
         dht_lock_array_free(inodelk->locks, count);
         GF_FREE(inodelk->locks);
-        RESET_LOCK_ARRAY(inodelk);
+        dht_lock_array_reset(inodelk);
     }
 
     loc_wipe(&parent);
