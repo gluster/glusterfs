@@ -344,6 +344,11 @@ GLFS_NEW(LIBGLUSTERFS, LG_MSG_NOFILE_FAILED,
     GLFS_I64(low), GLFS_I64(high)
 )
 
+GLFS_NEW(LIBGLUSTERFS, LG_MSG_UNLINK_FAILED,
+    "Failed to remove file", 1,
+    GLFS_STR(path)
+)
+
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
 #define LG_MSG_INVALID_POLL_OUT_STR "invalid poll_out value"

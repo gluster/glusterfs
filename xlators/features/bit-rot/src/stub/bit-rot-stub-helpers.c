@@ -156,10 +156,7 @@ br_stub_del(xlator_t *this, uuid_t gfid)
                                   EINVAL);
     snprintf(gfid_path, sizeof(gfid_path), "%s/%s", priv->stub_basepath,
              uuid_utoa(gfid));
-    ret = sys_unlink(gfid_path);
-    if (ret && (errno != ENOENT)) {
-        gf_smsg(this->name, GF_LOG_ERROR, errno, BRS_MSG_BAD_OBJ_UNLINK_FAIL,
-                "path=%s", gfid_path, NULL);
+    if (!gf_unlink(gfid_path)) {
         ret = -errno;
         goto out;
     }

@@ -1119,6 +1119,9 @@ fop_log_level(glusterfs_fop_t fop, int op_errno);
 int
 recursive_rmdir(const char *delete_path);
 
+gf_boolean_t
+gf_unlink(const char *path);
+
 int
 gf_get_index_by_elem(char **array, char *elem);
 

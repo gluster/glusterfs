@@ -898,7 +898,6 @@ out:
 int
 index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
 {
-    int ret = 0;
     int op_errno = 0;
     char pgfid_path[PATH_MAX] = {0};
     char entry_path[PATH_MAX] = {0};
@@ -929,13 +928,8 @@ index_entry_delete(xlator_t *this, uuid_t pgfid, char *filename)
         goto out;
     }
 
-    ret = sys_unlink(entry_path);
-    if (ret && (errno != ENOENT)) {
+    if (!gf_unlink(entry_path))
         op_errno = errno;
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, INDEX_MSG_INDEX_DEL_FAILED,
-               "%s: failed to delete from index/entry-changes", entry_path);
-    }
-
 out:
     return -op_errno;
 }

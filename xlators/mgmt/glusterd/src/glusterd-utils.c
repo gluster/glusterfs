@@ -1802,7 +1802,7 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
      */
     glusterd_set_brick_socket_filepath(volinfo, brickinfo, socketpath,
                                        sizeof(socketpath));
-    (void)glusterd_unlink_file(socketpath);
+    gf_unlink(socketpath);
     rpc = brickinfo->rpc;
     if (rpc) {
         brickinfo->rpc = NULL;
@@ -5348,25 +5348,6 @@ glusterd_pending_node_put_rpc(glusterd_pending_node_t *pending_node)
         default:
             break;
     }
-}
-
-int32_t
-glusterd_unlink_file(char *sockfpath)
-{
-    int ret = 0;
-
-    ret = sys_unlink(sockfpath);
-    if (ret) {
-        if (ENOENT == errno)
-            ret = 0;
-        else
-            gf_msg(THIS->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-                   "Failed to remove %s"
-                   " error: %s",
-                   sockfpath, strerror(errno));
-    }
-
-    return ret;
 }
 
 #ifdef BUILD_GNFS

@@ -5539,16 +5539,8 @@ generate_brick_volfiles(glusterd_volinfo_t *volinfo)
             }
         }
     } else {
-        ret = sys_unlink(tstamp_file);
-        if (ret == -1 && errno == ENOENT)
-            ret = 0;
-        if (ret == -1) {
-            gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-                   "failed to unlink "
-                   "%s",
-                   tstamp_file);
+        if (!gf_unlink(tstamp_file))
             return -1;
-        }
     }
 
     ret = glusterd_volume_brick_for_each(volinfo, NULL,

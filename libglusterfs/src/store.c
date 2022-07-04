@@ -167,13 +167,7 @@ gf_store_unlink_tmppath(gf_store_handle_t *shandle)
     GF_VALIDATE_OR_GOTO("store", shandle->path, out);
 
     snprintf(tmppath, sizeof(tmppath), "%s.tmp", shandle->path);
-    ret = sys_unlink(tmppath);
-    if (ret && (errno != ENOENT)) {
-        gf_msg("", GF_LOG_ERROR, errno, LG_MSG_FILE_OP_FAILED,
-               "Failed to mv %s to %s", tmppath, shandle->path);
-    } else {
-        ret = 0;
-    }
+    ret = gf_unlink(tmppath) ? 0 : -1;
 out:
     if (shandle && shandle->tmp_fd >= 0) {
         sys_close(shandle->tmp_fd);

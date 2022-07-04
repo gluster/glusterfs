@@ -646,17 +646,8 @@ glusterd_store_delete_brick(glusterd_brickinfo_t *brickinfo, char *delete_path)
 
     GF_FREE(tmppath);
 
-    ret = sys_unlink(brickpath);
+    ret = gf_unlink(brickpath) ? 0 : -1;
 
-    if ((ret < 0) && (errno != ENOENT)) {
-        gf_msg_debug(this->name, 0, "Unlink failed on %s", brickpath);
-        ret = -1;
-        goto out;
-    } else {
-        ret = 0;
-    }
-
-out:
     if (brickinfo->shandle) {
         gf_store_handle_destroy(brickinfo->shandle);
         brickinfo->shandle = NULL;
@@ -4335,9 +4326,7 @@ glusterd_store_delete_peerinfo(glusterd_peerinfo_t *peerinfo)
             goto out;
     }
 
-    ret = sys_unlink(filepath);
-    if (ret && (errno == ENOENT))
-        ret = 0;
+    ret = gf_unlink(filepath) ? 0 : -1;
 
 out:
     if (peerinfo && peerinfo->shandle) {

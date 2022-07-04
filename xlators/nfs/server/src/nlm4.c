@@ -2664,10 +2664,8 @@ nlm4svc_init(xlator_t *nfsx)
        instead. This is still a theory but we need to thoroughly test it
        out. Until then NLM support is non-existent on OSX.
     */
-    ret = sys_unlink(GF_SM_NOTIFY_PIDFILE);
-    if (ret == -1 && errno != ENOENT) {
-        gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
-               "unable to unlink %s: %d", GF_SM_NOTIFY_PIDFILE, errno);
+    if (!gf_unlink(GF_SM_NOTIFY_PIDFILE)) {
+        ret = -1;
         goto err;
     }
     /* temporary work around to restart statd, not distro/OS independent.
@@ -2701,10 +2699,8 @@ nlm4svc_init(xlator_t *nfsx)
         ret = runcmd(KILLALL_CMD, "-9", "rpc.statd", NULL);
     }
 
-    ret = sys_unlink(GF_RPC_STATD_PIDFILE);
-    if (ret == -1 && errno != ENOENT) {
-        gf_msg(GF_NLM, GF_LOG_ERROR, errno, NFS_MSG_UNLINK_ERROR,
-               "unable to unlink %s", pid_file);
+    if (!gf_unlink(GF_RPC_STATD_PIDFILE)) {
+        ret = -1;
         goto err;
     }
 

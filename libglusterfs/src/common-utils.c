@@ -4304,3 +4304,20 @@ gf_set_nofile(rlim_t high, rlim_t low)
 }
 
 #endif /* not GF_DARWIN_HOST_OS */
+
+/* Like sys_unlink() but tolerate ENOENT. */
+
+gf_boolean_t
+gf_unlink(const char *path)
+{
+    int ret = 0;
+
+    GF_ASSERT(path);
+    ret = sys_unlink(path);
+
+    if (ret && errno != ENOENT) {
+        GF_LOG_W(THIS->name, LG_MSG_UNLINK_FAILED(path));
+        return _gf_false;
+    }
+    return _gf_true;
+}

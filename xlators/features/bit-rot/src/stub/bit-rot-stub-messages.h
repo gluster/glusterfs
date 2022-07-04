@@ -38,7 +38,7 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
            BRS_MSG_BAD_OBJECT_DIR_READ_FAIL, BRS_MSG_GET_FD_CONTEXT_FAILED,
            BRS_MSG_BAD_HANDLE_DIR_NULL, BRS_MSG_BAD_OBJ_THREAD_FAIL,
            BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL, BRS_MSG_LINK_FAIL,
-           BRS_MSG_BAD_OBJ_UNLINK_FAIL, BRS_MSG_DICT_SET_FAILED,
+           BRS_MSG_UNUSED_PLACEHOLDER, BRS_MSG_DICT_SET_FAILED,
            BRS_MSG_PATH_GET_FAILED, BRS_MSG_NULL_LOCAL,
            BRS_MSG_SPAWN_SIGN_THRD_FAILED, BRS_MSG_KILL_SIGN_THREAD,
            BRS_MSG_NON_BITD_PID, BRS_MSG_SIGN_PREPARE_FAIL,
@@ -90,8 +90,6 @@ GLFS_MSGID(BITROT_STUB, BRS_MSG_NO_MEMORY, BRS_MSG_SET_EVENT_FAILED,
 #define BRS_MSG_CREATE_FRAME_FAILED_STR "create_frame() failure"
 #define BRS_MSG_BAD_OBJ_DIR_CLOSE_FAIL_STR "closedir error"
 #define BRS_MSG_LINK_FAIL_STR "failed to record gfid"
-#define BRS_MSG_BAD_OBJ_UNLINK_FAIL_STR                                        \
-    "failed to delete bad object link from quaratine directory"
 #define BRS_MSG_BAD_OBJECT_DIR_FAIL_STR "failed stub directory"
 #define BRS_MSG_BAD_OBJECT_DIR_SEEK_FAIL_STR                                   \
     "seekdir failed. Invalid argument (offset reused from another DIR * "      \
