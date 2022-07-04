@@ -35,8 +35,4 @@ glusterd_scrubsvc_stop(glusterd_svc_t *svc, int sig);
 int
 glusterd_scrubsvc_reconfigure();
 
-void
-glusterd_scrubsvc_build_volfile_path(char *server, char *workdir, char *volfile,
-                                     size_t len);
-
 #endif

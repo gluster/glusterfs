@@ -241,10 +241,6 @@ glusterd_brick_op_build_payload(glusterd_op_t op,
 int
 glusterd_node_op_build_payload(glusterd_op_t op, gd1_mgmt_brick_op_req **req,
                                dict_t *dict);
-int32_t
-glusterd_handle_brick_rsp(void *pending_entry, glusterd_op_t op,
-                          dict_t *rsp_dict, dict_t *ctx_dict, char **op_errstr,
-                          gd_node_type type);
 
 dict_t *
 glusterd_op_init_commit_rsp_dict(glusterd_op_t op);
@@ -252,17 +248,6 @@ glusterd_op_init_commit_rsp_dict(glusterd_op_t op);
 void
 glusterd_op_modify_op_ctx(glusterd_op_t op, void *op_ctx);
 
-int
-glusterd_set_detach_bricks(dict_t *dict, glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_volume_stats_read_perf(char *brick_path, int32_t blk_size,
-                                int32_t blk_count, double *throughput,
-                                double *time);
-int32_t
-glusterd_volume_stats_write_perf(char *brick_path, int32_t blk_size,
-                                 int32_t blk_count, double *throughput,
-                                 double *time);
 gf_boolean_t
 glusterd_is_volume_started(glusterd_volinfo_t *volinfo);
 

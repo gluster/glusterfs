@@ -38,10 +38,6 @@ glusterd_gfproxydsvc_stop(glusterd_svc_t *svc, int sig);
 int
 glusterd_gfproxydsvc_reconfigure(glusterd_volinfo_t *volinfo);
 
-void
-glusterd_gfproxydsvc_build_volfile_path(char *server, char *workdir,
-                                        char *volfile, size_t len);
-
 int
 glusterd_gfproxydsvc_restart();
 #endif

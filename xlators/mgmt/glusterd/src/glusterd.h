@@ -979,12 +979,6 @@ glusterd_list_add_snapvol(glusterd_volinfo_t *origin_vol,
                           glusterd_volinfo_t *snap_vol);
 
 glusterd_snap_t *
-glusterd_remove_snap_by_id(uuid_t snap_id);
-
-glusterd_snap_t *
-glusterd_remove_snap_by_name(char *snap_name);
-
-glusterd_snap_t *
 glusterd_find_snap_by_name(char *snap_name);
 
 glusterd_snap_t *

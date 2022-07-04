@@ -69,10 +69,6 @@ glusterd_bricks_snapshot_restore(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
 gf_boolean_t
 glusterd_snapshot_probe(char *path, glusterd_brickinfo_t *brickinfo);
 
-int32_t
-glusterd_snapshot_mount(glusterd_brickinfo_t *brickinfo,
-                        char *brick_mount_path);
-
 int
 glusterd_snapshot_umount(glusterd_volinfo_t *snap_vol,
                          glusterd_brickinfo_t *brickinfo, int32_t brick_count);
@@ -129,9 +125,6 @@ gd_restore_snap_volume(dict_t *dict, dict_t *rsp_dict,
                        glusterd_volinfo_t *orig_vol,
                        glusterd_volinfo_t *snap_vol, int32_t volcount,
                        gf_boolean_t retain_origin_path);
-
-int32_t
-glusterd_umount(const char *path, gf_boolean_t remove);
 
 int32_t
 glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo);
@@ -197,14 +190,8 @@ int
 glusterd_snapshot_restore_cleanup(dict_t *rsp_dict, char *volname,
                                   glusterd_snap_t *snap);
 
-void
-glusterd_get_snapd_dir(glusterd_volinfo_t *volinfo, char *path, int path_len);
-
 int
 glusterd_is_snapd_enabled(glusterd_volinfo_t *volinfo);
-
-int32_t
-glusterd_check_and_set_config_limit(glusterd_conf_t *priv);
 
 int32_t
 glusterd_is_snap_soft_limit_reached(glusterd_volinfo_t *volinfo, dict_t *dict);
