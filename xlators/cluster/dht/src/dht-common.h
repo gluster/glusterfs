@@ -728,8 +728,6 @@ xlator_t *
 dht_layout_search(xlator_t *this, dht_layout_t *layout, const char *name);
 int32_t
 dht_migration_get_dst_subvol(xlator_t *this, dht_local_t *local);
-int32_t
-dht_migration_needed(xlator_t *this);
 int
 dht_layout_normalize(xlator_t *this, loc_t *loc, dht_layout_t *layout);
 void
