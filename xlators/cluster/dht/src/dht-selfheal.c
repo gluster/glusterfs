@@ -71,9 +71,8 @@ dht_selfheal_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-static int
-dht_selfheal_dir_finish(call_frame_t *frame, xlator_t *this, int ret,
-                        int invoke_cbk)
+int
+dht_selfheal_dir_finish(call_frame_t *frame, int ret, int invoke_cbk)
 {
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
@@ -116,8 +115,7 @@ dht_selfheal_dir_finish(call_frame_t *frame, xlator_t *this, int ret,
 
 done:
     if (invoke_cbk)
-        local->selfheal.dir_cbk(frame, NULL, frame->this, ret, local->op_errno,
-                                NULL);
+        local->selfheal.dir_cbk(frame, NULL, ret, local->op_errno, NULL);
     if (lock_frame != NULL) {
         DHT_STACK_DESTROY(lock_frame);
     }
@@ -152,7 +150,7 @@ dht_refresh_layout_done(call_frame_t *frame)
 
         dht_layout_unref(heal);
 
-        dht_selfheal_dir_finish(frame, frame->this, 0, 1);
+        dht_selfheal_dir_finish(frame, 0, 1);
     }
 
     return 0;
@@ -217,7 +215,7 @@ unlock:
 
 err:
     if (local) {
-        local->refresh_layout_unlock(frame, this, -1, 1);
+        local->refresh_layout_unlock(frame, -1, 1);
     }
     return 0;
 }
@@ -292,7 +290,7 @@ dht_refresh_layout(call_frame_t *frame)
 
 out:
     if (local) {
-        local->refresh_layout_unlock(frame, this, -1, 1);
+        local->refresh_layout_unlock(frame, -1, 1);
     }
     return 0;
 }
@@ -321,7 +319,7 @@ dht_selfheal_layout_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 
 err:
-    dht_selfheal_dir_finish(frame, this, -1, 1);
+    dht_selfheal_dir_finish(frame, -1, 1);
     return 0;
 }
 
@@ -655,7 +653,7 @@ dht_selfheal_dir_xattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
-        dht_selfheal_dir_finish(frame, this, 0, 1);
+        dht_selfheal_dir_finish(frame, 0, 1);
     }
 
     return 0;
@@ -890,7 +888,7 @@ dht_selfheal_dir_xattr(call_frame_t *frame, loc_t *loc, dht_layout_t *layout)
                  missing_xattr, loc->path);
 
     if (missing_xattr == 0) {
-        dht_selfheal_dir_finish(frame, this, 0, 1);
+        dht_selfheal_dir_finish(frame, 0, 1);
         return 0;
     }
 
@@ -947,7 +945,7 @@ dht_selfheal_dir_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             gf_msg_trace(this->name, 0, "Skip heal layout for %s gfid = %s ",
                          local->loc.path, uuid_utoa(local->gfid));
 
-            dht_selfheal_dir_finish(frame, this, 0, 1);
+            dht_selfheal_dir_finish(frame, 0, 1);
             return 0;
         }
         ret = dht_selfheal_layout_lock(frame, layout, _gf_false,
@@ -955,7 +953,7 @@ dht_selfheal_dir_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                                        dht_should_heal_layout);
 
         if (ret < 0) {
-            dht_selfheal_dir_finish(frame, this, -1, 1);
+            dht_selfheal_dir_finish(frame, -1, 1);
         }
     }
 
@@ -993,7 +991,7 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
         if (!local->heal_layout) {
             gf_msg_trace(this->name, 0, "Skip heal layout for %s gfid = %s ",
                          loc->path, uuid_utoa(loc->gfid));
-            dht_selfheal_dir_finish(frame, this, 0, 1);
+            dht_selfheal_dir_finish(frame, 0, 1);
             return 0;
         }
         ret = dht_selfheal_layout_lock(frame, layout, _gf_false,
@@ -1001,7 +999,7 @@ dht_selfheal_dir_setattr(call_frame_t *frame, loc_t *loc, struct iatt *stbuf,
                                        dht_should_heal_layout);
 
         if (ret < 0) {
-            dht_selfheal_dir_finish(frame, this, -1, 1);
+            dht_selfheal_dir_finish(frame, -1, 1);
         }
 
         return 0;
@@ -1062,7 +1060,7 @@ out:
     this_call_cnt = dht_frame_return(frame);
 
     if (is_last_call(this_call_cnt)) {
-        dht_selfheal_dir_finish(frame, this, ret, 0);
+        dht_selfheal_dir_finish(frame, ret, 0);
         dht_selfheal_dir_setattr(frame, &local->loc, &local->stbuf, 0xffffff,
                                  layout);
     }
@@ -1143,7 +1141,7 @@ dht_selfheal_dir_mkdir_lookup_done(call_frame_t *frame, xlator_t *this)
     return 0;
 
 err:
-    dht_selfheal_dir_finish(frame, this, -1, 1);
+    dht_selfheal_dir_finish(frame, -1, 1);
     return 0;
 }
 
@@ -1223,7 +1221,7 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
             }
 
             if (missing_dirs == 0) {
-                dht_selfheal_dir_finish(frame, this, 0, 0);
+                dht_selfheal_dir_finish(frame, 0, 0);
                 dht_selfheal_dir_setattr(frame, loc, &local->stbuf, 0xffffffff,
                                          layout);
                 return 0;
@@ -1237,7 +1235,7 @@ dht_selfheal_dir_mkdir_lookup_cbk(call_frame_t *frame, void *cookie,
     return 0;
 
 err:
-    dht_selfheal_dir_finish(frame, this, -1, 1);
+    dht_selfheal_dir_finish(frame, -1, 1);
     return 0;
 }
 
@@ -1302,7 +1300,7 @@ dht_selfheal_dir_mkdir_lock_cbk(call_frame_t *frame, void *cookie,
     return 0;
 
 err:
-    dht_selfheal_dir_finish(frame, this, -1, 1);
+    dht_selfheal_dir_finish(frame, -1, 1);
     return 0;
 }
 
@@ -1911,7 +1909,7 @@ dht_selfheal_new_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
 out:
     if (ret < 0) {
-        dir_cbk(frame, NULL, frame->this, -1, op_errno, NULL);
+        dir_cbk(frame, NULL, -1, op_errno, NULL);
     }
 
     return 0;
@@ -2051,7 +2049,7 @@ dht_selfheal_directory(call_frame_t *frame, dht_selfheal_dir_cbk_t dir_cbk,
 
 sorry_no_fix:
     /* TODO: need to put appropriate local->op_errno */
-    dht_selfheal_dir_finish(frame, this, ret, 1);
+    dht_selfheal_dir_finish(frame, ret, 1);
 
     return 0;
 }

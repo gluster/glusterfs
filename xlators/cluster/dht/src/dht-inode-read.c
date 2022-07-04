@@ -11,22 +11,28 @@
 #include "dht-common.h"
 
 static int
-dht_access2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_access2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_readv2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_readv2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_attr2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_attr2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_open2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_open2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_flush2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_flush2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_lk2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_lk2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_fsync2(xlator_t *this, xlator_t *dst_node, call_frame_t *frame, int ret);
+dht_fsync2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_common_xattrop2(xlator_t *this, xlator_t *subvol, call_frame_t *frame,
-                    int ret);
+dht_common_xattrop2(xlator_t *subvol, call_frame_t *frame, int ret);
 
 static int
 dht_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -68,7 +74,7 @@ out:
 }
 
 static int
-dht_open2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_open2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -203,7 +209,7 @@ dht_file_attr_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 if (!ret)
                     return 0;
             } else {
-                dht_attr2(this, subvol2, frame, 0);
+                dht_attr2(subvol2, frame, 0);
                 return 0;
             }
         }
@@ -217,7 +223,7 @@ err:
 }
 
 static int
-dht_attr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_attr2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -459,7 +465,7 @@ dht_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         } else {
             /* value is already set in fd_ctx, that means no need
                to check for whether its complete or not. */
-            dht_readv2(this, dst_subvol, frame, 0);
+            dht_readv2(dst_subvol, frame, 0);
             return 0;
         }
     }
@@ -474,7 +480,7 @@ out:
 }
 
 static int
-dht_readv2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_readv2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -607,7 +613,7 @@ out:
 }
 
 static int
-dht_access2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_access2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -718,7 +724,7 @@ dht_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     /* If context is set, then send flush() it to the destination */
     dht_inode_ctx_get_mig_info(this, local->fd->inode, NULL, &subvol);
     if (subvol && dht_fd_open_on_dst(this, local->fd, subvol)) {
-        dht_flush2(this, subvol, frame, 0);
+        dht_flush2(subvol, frame, 0);
         return 0;
     }
 
@@ -736,7 +742,7 @@ out:
 }
 
 static int
-dht_flush2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_flush2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -867,7 +873,7 @@ dht_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             if (!ret)
                 return 0;
         } else {
-            dht_fsync2(this, dst_subvol, frame, 0);
+            dht_fsync2(dst_subvol, frame, 0);
             return 0;
         }
     }
@@ -882,7 +888,7 @@ out:
 }
 
 static int
-dht_fsync2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_fsync2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -989,7 +995,7 @@ dht_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (op_errno == EREMOTE) {
         dht_inode_ctx_get_mig_info(this, local->fd->inode, NULL, &subvol);
         if (subvol && dht_fd_open_on_dst(this, local->fd, subvol)) {
-            dht_lk2(this, subvol, frame, 0);
+            dht_lk2(subvol, frame, 0);
             return 0;
         } else {
             ret = dht_rebalance_complete_check(this, frame);
@@ -1007,7 +1013,7 @@ out:
 }
 
 static int
-dht_lk2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_lk2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -1290,7 +1296,7 @@ dht_common_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             if (!ret)
                 return 0;
         } else {
-            dht_common_xattrop2(this, dst_subvol, frame, 0);
+            dht_common_xattrop2(dst_subvol, frame, 0);
             return 0;
         }
     }
@@ -1306,8 +1312,7 @@ out:
 }
 
 static int
-dht_common_xattrop2(xlator_t *this, xlator_t *subvol, call_frame_t *frame,
-                    int ret)
+dht_common_xattrop2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;

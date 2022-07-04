@@ -11,17 +11,22 @@
 #include "dht-common.h"
 
 static int
-dht_writev2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_writev2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_truncate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_truncate2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_setattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_setattr2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_fallocate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_fallocate2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_discard2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_discard2(xlator_t *subvol, call_frame_t *frame, int ret);
+
 static int
-dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_zerofill2(xlator_t *subvol, call_frame_t *frame, int ret);
 
 int
 dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
@@ -122,7 +127,7 @@ dht_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                          &subvol2);
         if (!dht_mig_info_is_invalid(local->cached_subvol, subvol1, subvol2)) {
             if (dht_fd_open_on_dst(this, local->fd, subvol2)) {
-                dht_writev2(this, subvol2, frame, 0);
+                dht_writev2(subvol2, frame, 0);
                 return 0;
             }
         }
@@ -141,7 +146,7 @@ out:
 }
 
 static int
-dht_writev2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_writev2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -316,7 +321,7 @@ dht_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             if ((!local->fd) ||
                 ((local->fd) &&
                  dht_fd_open_on_dst(this, local->fd, dst_subvol))) {
-                dht_truncate2(this, dst_subvol, frame, 0);
+                dht_truncate2(dst_subvol, frame, 0);
                 return 0;
             }
         }
@@ -335,7 +340,7 @@ err:
 }
 
 static int
-dht_truncate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_truncate2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -534,7 +539,7 @@ dht_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (!dht_mig_info_is_invalid(local->cached_subvol, src_subvol,
                                      dst_subvol)) {
             if (dht_fd_open_on_dst(this, local->fd, dst_subvol)) {
-                dht_fallocate2(this, dst_subvol, frame, 0);
+                dht_fallocate2(dst_subvol, frame, 0);
                 return 0;
             }
         }
@@ -554,7 +559,7 @@ err:
 }
 
 static int
-dht_fallocate2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_fallocate2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -711,7 +716,7 @@ dht_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (!dht_mig_info_is_invalid(local->cached_subvol, src_subvol,
                                      dst_subvol)) {
             if (dht_fd_open_on_dst(this, local->fd, dst_subvol)) {
-                dht_discard2(this, dst_subvol, frame, 0);
+                dht_discard2(dst_subvol, frame, 0);
                 return 0;
             }
         }
@@ -730,7 +735,7 @@ err:
 }
 
 static int
-dht_discard2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_discard2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -881,7 +886,7 @@ dht_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                                          &subvol2);
         if (!dht_mig_info_is_invalid(local->cached_subvol, subvol1, subvol2)) {
             if (dht_fd_open_on_dst(this, local->fd, subvol2)) {
-                dht_zerofill2(this, subvol2, frame, 0);
+                dht_zerofill2(subvol2, frame, 0);
                 return 0;
             }
         }
@@ -901,7 +906,7 @@ err:
 }
 
 static int
-dht_zerofill2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_zerofill2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;
@@ -1048,7 +1053,7 @@ out:
 }
 
 static int
-dht_setattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_setattr2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int32_t op_errno = EINVAL;

@@ -29,7 +29,7 @@ dht_rmdir_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        dict_t *xdata);
 
 static int
-dht_link2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret);
+dht_link2(xlator_t *subvol, call_frame_t *frame, int ret);
 
 static int
 dht_set_dir_xattr_req(xlator_t *this, loc_t *loc, dict_t *xattr_req);
@@ -451,19 +451,20 @@ dht_inode_ctx_mdsvol_get(inode_t *inode, xlator_t *this, xlator_t **mdsvol)
 */
 
 static int
-dht_lookup_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, dict_t *xdata)
+dht_lookup_selfheal_cbk(call_frame_t *frame, void *cookie, int op_ret,
+                        int op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     dht_layout_t *layout = NULL;
     dht_conf_t *conf = NULL;
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_VALIDATE_OR_GOTO("dht", frame, out);
-    GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO("dht", frame->local, out);
 
     local = frame->local;
+    this = frame->this;
     conf = this->private;
     ret = op_ret;
 
@@ -3677,16 +3678,16 @@ post_unlock:
 }
 
 static int
-dht_common_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int32_t op_ret, int32_t op_errno, dict_t *xdata)
+dht_common_setxattr_cbk(call_frame_t *frame, void *cookie, int32_t op_ret,
+                        int32_t op_errno, dict_t *xdata)
 {
     DHT_STACK_UNWIND(setxattr, frame, op_ret, op_errno, xdata);
     return 0;
 }
 
 static int
-dht_fix_layout_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                            int32_t op_ret, int32_t op_errno, dict_t *xdata)
+dht_fix_layout_setxattr_cbk(call_frame_t *frame, void *cookie, int32_t op_ret,
+                            int32_t op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     dht_layout_t *layout = NULL;
@@ -3696,7 +3697,7 @@ dht_fix_layout_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         local = frame->local;
         layout = local->selfheal.layout;
 
-        dht_layout_set(this, local->loc.inode, layout);
+        dht_layout_set(frame->this, local->loc.inode, layout);
     }
 
     DHT_STACK_UNWIND(setxattr, frame, op_ret, op_errno, xdata);
@@ -5283,7 +5284,7 @@ err:
 }
 
 static int
-dht_setxattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_setxattr2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -5386,7 +5387,7 @@ dht_file_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dht_inode_ctx_get_mig_info(this, inode, &subvol1, &subvol2);
         if (!dht_mig_info_is_invalid(local->cached_subvol, subvol1, subvol2)) {
-            dht_setxattr2(this, subvol2, frame, 0);
+            dht_setxattr2(subvol2, frame, 0);
             return 0;
         }
 
@@ -5997,7 +5998,7 @@ err:
 }
 
 static int
-dht_removexattr2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_removexattr2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -6098,7 +6099,7 @@ dht_file_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         ret = dht_inode_ctx_get_mig_info(this, inode, &subvol1, &subvol2);
         if (!dht_mig_info_is_invalid(local->cached_subvol, subvol1, subvol2)) {
-            dht_removexattr2(this, subvol2, frame, 0);
+            dht_removexattr2(subvol2, frame, 0);
             return 0;
         }
 
@@ -7461,7 +7462,7 @@ out:
     if (local && local->lock[0].layout.parent_layout.locks) {
         /* store op_errno for failure case*/
         local->op_errno = op_errno;
-        local->refresh_layout_unlock(frame, this, op_ret, 1);
+        local->refresh_layout_unlock(frame, op_ret, 1);
 
         if (op_ret == 0) {
             DHT_STACK_UNWIND(mknod, frame, op_ret, op_errno, inode, stbuf,
@@ -7518,7 +7519,7 @@ dht_mknod_linkfile_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 err:
     if (local && local->lock[0].layout.parent_layout.locks) {
-        local->refresh_layout_unlock(frame, this, -1, 1);
+        local->refresh_layout_unlock(frame, -1, 1);
     } else {
         DHT_STACK_UNWIND(mknod, frame, -1, op_errno, NULL, NULL, NULL, NULL,
                          NULL);
@@ -7617,7 +7618,7 @@ dht_mknod_do(call_frame_t *frame)
                                    local->params);
     return 0;
 err:
-    local->refresh_layout_unlock(frame, this, -1, 1);
+    local->refresh_layout_unlock(frame, -1, 1);
 
     return 0;
 }
@@ -7631,8 +7632,7 @@ dht_mknod_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static int32_t
-dht_mknod_finish(call_frame_t *frame, xlator_t *this, int op_ret,
-                 int invoke_cbk)
+dht_mknod_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
 {
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
@@ -7712,7 +7712,7 @@ dht_mknod_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 err:
     if (local)
-        dht_mknod_finish(frame, this, -1, 0);
+        dht_mknod_finish(frame, -1, 0);
     else
         DHT_STACK_UNWIND(mknod, frame, -1, EINVAL, NULL, NULL, NULL, NULL,
                          NULL);
@@ -7765,8 +7765,7 @@ err:
 }
 
 static int
-dht_refresh_parent_layout_resume(call_frame_t *frame, xlator_t *this, int ret,
-                                 int invoke_cbk)
+dht_refresh_parent_layout_resume(call_frame_t *frame, int ret, int invoke_cbk)
 {
     dht_local_t *local = NULL, *parent_local = NULL;
     call_stub_t *stub = NULL;
@@ -7811,7 +7810,7 @@ dht_refresh_parent_layout_done(call_frame_t *frame)
                    local->selfheal.refreshed_layout);
 
 resume:
-    dht_refresh_parent_layout_resume(frame, frame->this, ret, 1);
+    dht_refresh_parent_layout_resume(frame, ret, 1);
     return 0;
 }
 
@@ -8324,7 +8323,7 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             if (!ret)
                 return 0;
         } else {
-            dht_link2(this, subvol, frame, 0);
+            dht_link2(subvol, frame, 0);
             return 0;
         }
     }
@@ -8333,7 +8332,7 @@ dht_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     if (IS_DHT_MIGRATION_PHASE1(stbuf)) {
         ret = dht_inode_ctx_get_mig_info(this, local->loc.inode, NULL, &subvol);
         if (subvol) {
-            dht_link2(this, subvol, frame, 0);
+            dht_link2(subvol, frame, 0);
             return 0;
         }
         ret = dht_rebalance_in_progress_check(this, frame);
@@ -8352,7 +8351,7 @@ out:
 }
 
 static int
-dht_link2(xlator_t *this, xlator_t *subvol, call_frame_t *frame, int ret)
+dht_link2(xlator_t *subvol, call_frame_t *frame, int ret)
 {
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
@@ -8626,7 +8625,7 @@ out:
     if (local && local->lock[0].layout.parent_layout.locks) {
         /* store op_errno for failure case*/
         local->op_errno = op_errno;
-        local->refresh_layout_unlock(frame, this, op_ret, 1);
+        local->refresh_layout_unlock(frame, op_ret, 1);
 
         if (op_ret == 0) {
             DHT_STACK_UNWIND(create, frame, op_ret, op_errno, fd, inode, stbuf,
@@ -8682,7 +8681,7 @@ dht_create_linkfile_create_cbk(call_frame_t *frame, void *cookie,
     return 0;
 err:
     if (local && local->lock[0].layout.parent_layout.locks) {
-        local->refresh_layout_unlock(frame, this, -1, 1);
+        local->refresh_layout_unlock(frame, -1, 1);
     } else {
         DHT_STACK_UNWIND(create, frame, -1, op_errno, NULL, NULL, NULL, NULL,
                          NULL, NULL);
@@ -8864,7 +8863,7 @@ dht_create_do(call_frame_t *frame)
                                     local->fd, local->params);
     return 0;
 err:
-    local->refresh_layout_unlock(frame, this, -1, 1);
+    local->refresh_layout_unlock(frame, -1, 1);
 
     return 0;
 }
@@ -8878,8 +8877,7 @@ dht_create_unlock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static int32_t
-dht_create_finish(call_frame_t *frame, xlator_t *this, int op_ret,
-                  int invoke_cbk)
+dht_create_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
 {
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
@@ -8959,7 +8957,7 @@ dht_create_lock_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 err:
     if (local)
-        dht_create_finish(frame, this, -1, 0);
+        dht_create_finish(frame, -1, 0);
     else
         DHT_STACK_UNWIND(create, frame, -1, EINVAL, NULL, NULL, NULL, NULL,
                          NULL, NULL);
@@ -9215,13 +9213,15 @@ err:
 }
 
 static int
-dht_mkdir_selfheal_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
+dht_mkdir_selfheal_cbk(call_frame_t *frame, void *cookie, int32_t op_ret,
+                       int32_t op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     dht_layout_t *layout = NULL;
+    xlator_t *this = NULL;
 
     local = frame->local;
+    this = frame->this;
     layout = local->selfheal.layout;
 
     FRAME_SU_UNDO(frame, dht_local_t);
@@ -9724,8 +9724,8 @@ err:
 }
 
 static int
-dht_rmdir_selfheal_cbk(call_frame_t *heal_frame, void *cookie, xlator_t *this,
-                       int op_ret, int op_errno, dict_t *xdata)
+dht_rmdir_selfheal_cbk(call_frame_t *heal_frame, void *cookie, int op_ret,
+                       int op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
     dht_local_t *heal_local = NULL;

@@ -52,13 +52,14 @@
 #define REBAL_NODEUUID_MINE 0x01
 
 typedef int (*dht_selfheal_dir_cbk_t)(call_frame_t *frame, void *cookie,
-                                      xlator_t *this, int32_t op_ret,
-                                      int32_t op_errno, dict_t *xdata);
-typedef int (*dht_defrag_cbk_fn_t)(xlator_t *this, xlator_t *dst_node,
-                                   call_frame_t *frame, int ret);
+                                      int32_t op_ret, int32_t op_errno,
+                                      dict_t *xdata);
 
-typedef int (*dht_refresh_layout_unlock)(call_frame_t *frame, xlator_t *this,
-                                         int op_ret, int invoke_cbk);
+typedef int (*dht_defrag_cbk_fn_t)(xlator_t *subvol, call_frame_t *frame,
+                                   int ret);
+
+typedef int (*dht_refresh_layout_unlock_t)(call_frame_t *frame, int op_ret,
+                                           int invoke_cbk);
 
 typedef int (*dht_refresh_layout_done_handle)(call_frame_t *frame);
 
@@ -299,7 +300,7 @@ struct dht_local {
         gf_boolean_t force_mkdir;
     } selfheal;
 
-    dht_refresh_layout_unlock refresh_layout_unlock;
+    dht_refresh_layout_unlock_t refresh_layout_unlock;
     dht_refresh_layout_done_handle refresh_layout_done;
 
     uint32_t uid;
