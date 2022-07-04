@@ -205,12 +205,6 @@ glusterd_create_volfiles_and_notify_services(glusterd_volinfo_t *volinfo);
 int
 glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo);
 
-void
-glusterd_get_nfs_filepath(char *filename);
-
-void
-glusterd_get_shd_filepath(char *filename);
-
 int
 build_shd_graph(glusterd_volinfo_t *volinfo, volgen_graph_t *graph,
                 dict_t *mod_dict);
@@ -235,10 +229,6 @@ build_scrub_graph(volgen_graph_t *graph, dict_t *mod_dict);
 int
 glusterd_delete_volfile(glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *brickinfo);
-int
-glusterd_delete_snap_volfile(glusterd_volinfo_t *volinfo,
-                             glusterd_volinfo_t *snap_volinfo,
-                             glusterd_brickinfo_t *brickinfo);
 
 int
 glusterd_volinfo_get(glusterd_volinfo_t *volinfo, char *key, char **value);
@@ -249,9 +239,6 @@ glusterd_volinfo_get_boolean(glusterd_volinfo_t *volinfo, char *key);
 int
 glusterd_validate_globalopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
                              char **op_errstr);
-
-int
-glusterd_validate_localopts(dict_t *val_dict, char **op_errstr);
 
 gf_boolean_t
 glusterd_check_globaloption(char *key);

@@ -445,9 +445,6 @@ int
 glusterd_copy_uuid_to_dict(uuid_t uuid, dict_t *dict, char *key,
                            const int keylen);
 
-gf_boolean_t
-glusterd_is_same_address(char *name1, char *name2);
-
 void
 gd_update_volume_op_versions(glusterd_volinfo_t *volinfo);
 
