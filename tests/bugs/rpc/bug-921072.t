@@ -35,7 +35,7 @@ TEST ! mount_nfs $H0:/$V0 $N0 nolock
 TEST $CLI volume reset $V0 force
 TEST $CLI volume set $V0 nfs.disable off
 # case 3: reject only localhost ip
-TEST $CLI volume set $V0 nfs.rpc-auth-reject 127.0.0.1
+TEST $CLI volume set $V0 nfs.rpc-auth-reject $H0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 TEST ! mount_nfs $H0:/$V0 $N0 nolock
@@ -93,7 +93,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $N0
 TEST $CLI volume reset $V0 force
 TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume set $V0 nfs.addr-namelookup on
-TEST $CLI volume set $V0 nfs.rpc-auth-allow 127.0.0.1
+TEST $CLI volume set $V0 nfs.rpc-auth-allow $H0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 TEST mount_nfs $H0:/$V0 $N0 nolock
@@ -110,7 +110,7 @@ TEST ! mount_nfs localhost:/$V0 $N0 nolock
 TEST $CLI volume reset $V0 force
 TEST $CLI volume set $V0 nfs.disable off
 TEST $CLI volume set $V0 nfs.addr-namelookup on
-TEST $CLI volume set $V0 nfs.rpc-auth-reject 127.0.0.1
+TEST $CLI volume set $V0 nfs.rpc-auth-reject $H0
 EXPECT_WITHIN $NFS_EXPORT_TIMEOUT 1 is_nfs_export_available
 
 TEST ! mount_nfs $H0:/$V0 $N0 nolock
