@@ -92,7 +92,7 @@
 #define gf_res_err(_err)                                                       \
     ({                                                                         \
         int32_t __gf_res_err = -(_err);                                        \
-        if (__gf_res_err < 0) {                                                \
+        if (__gf_res_err > 0) {                                                \
             GF_LOG_E("io", LG_MSG_IO_BAD_RETURN(-__gf_res_err));               \
             __gf_res_err = -EUCLEAN;                                           \
         }                                                                      \
