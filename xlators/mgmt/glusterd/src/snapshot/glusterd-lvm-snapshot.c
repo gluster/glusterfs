@@ -31,15 +31,14 @@
 
 extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
-int32_t
+static int32_t
 glusterd_origin_device(char *device, char **origin_device)
 {
     int ret = -1;
-    char msg[1024] = "";
+    char msg[4096] = "";
     char origin_name[PATH_MAX] = "";
     char *ptr = NULL;
     char *snap_device = NULL;
-    char origin_dev[PATH_MAX] = "";
     xlator_t *this = NULL;
     runner_t runner = {
         0,
@@ -83,15 +82,14 @@ glusterd_origin_device(char *device, char **origin_device)
     runner_end(&runner);
 
     snap_device = gf_strdup(device);
-    len = snprintf(origin_dev, sizeof(origin_dev), "%s/%s",
-                   dirname(snap_device), origin_name);
+    len = gf_asprintf(origin_device, "%s/%s", dirname(snap_device),
+                      origin_name);
 
-    if ((len < 0) || (len >= sizeof(origin_dev))) {
+    if (len < 0) {
         ret = -1;
         goto out;
     }
 
-    *origin_device = origin_dev;
     ret = 0;
 
 out:
