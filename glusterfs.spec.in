@@ -55,7 +55,7 @@
 
 # linux-io_uring
 # If you wish to compile an rpm without linux-io_uring support...
-# rpmbuild -ta  @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --disable-linux-io_uring
+# rpmbuild -ta  @PACKAGE_NAME@-@PACKAGE_VERSION@.tar.gz --without linux-io_uring
 %{?_without_linux_io_uring:%global _without_linux_io_uring --disable-linux-io_uring}
 
 # Disable linux-io_uring on unsupported distros.
