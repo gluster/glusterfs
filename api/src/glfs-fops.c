@@ -876,7 +876,7 @@ retry:
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
 
-    if (!subvol || !stat) {
+    if (!subvol || !stat || !loc.inode) {
         ret = -1;
         goto out;
     }
@@ -2961,7 +2961,7 @@ retry:
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
 
-    if (!subvol && ret) {
+    if (!subvol) {
         ret = -1;
         goto out;
     }
@@ -3218,7 +3218,7 @@ retry:
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
 
-    if (!subvol && ret)
+    if (!subvol)
         goto out;
 
     if (iatt.ia_type != IA_IFLNK) {
@@ -3778,7 +3778,14 @@ retry:
 
     ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
 
-    if (!oldsubvol && ret) {
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    /* subvol is not NULL */
+    if (!oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
         goto out;
     }
 
@@ -3795,7 +3802,7 @@ retrynew:
 
     ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
 
-    if (!newsubvol && ret) {
+    if (!newsubvol) {
         goto out;
     }
 
@@ -3874,7 +3881,14 @@ retry:
 
     ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
 
-    if (!oldsubvol && ret) {
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    /* subvol is not NULL */
+    if (!oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
         goto out;
     }
 
@@ -4068,14 +4082,21 @@ retry:
         cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
     }
 
-    oldsubvol = setup_fopat_args(pglfd, oldpath, follow, &oldloc, &oldiatt, reval);
+    oldsubvol = setup_fopat_args(pglfd, oldpath, follow, &oldloc, &oldiatt,
+                                 reval);
     if (!oldsubvol) {
         ret = -1;
     }
 
     ESTALE_RETRY(ret, errno, reval, &newloc, retry);
 
-    if (!oldsubvol && ret) {
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    if (oldsubvol && !oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
         goto out;
     }
 
@@ -4093,7 +4114,7 @@ retrynew:
 
     ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
 
-    if (!newsubvol && ret == 0) {
+    if (newsubvol && newloc.inode) {
         ret = -1;
         errno = EEXIST;
         goto out;

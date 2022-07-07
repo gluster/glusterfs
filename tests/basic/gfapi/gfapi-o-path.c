@@ -164,7 +164,7 @@ main(int argc, char *argv[])
     if (stbuf.st_uid != 1001 || stbuf.st_gid != 1001) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed", ret,
-                                        out);
+                                         out);
     }
 
     // TESTS for 'AT_SYMLINK_FOLLOW' flag.
@@ -181,8 +181,8 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
     filename_symlinkat_inode = stbuf.st_ino;
 
-    ret = glfs_linkat(fd1, filename_symlinkat, filename_linkat,
-                      flags);
+    ret = glfs_linkat(fd1, filename_symlinkat, filename_linkat, flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
 
     ret = glfs_lstat(fs, filepath_linkat, &stbuf);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
@@ -249,8 +249,7 @@ main(int argc, char *argv[])
     ret = glfs_stat(fs, filepath_BLK, &stbuf);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
 
-    if (!S_ISBLK(stbuf.st_mode) ||
-        (stbuf.st_mode & 0777) != 0777) {
+    if (!S_ISBLK(stbuf.st_mode) || (stbuf.st_mode & 0777) != 0777) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mknodat operation failed", ret,
                                          out);
@@ -268,7 +267,7 @@ main(int argc, char *argv[])
 
     if (ret != stbuf.st_size) {
         ret = -1;
-       VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat buf size mismatch",
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_readlinkat buf size mismatch",
                                          ret, out);
     }
 
@@ -287,8 +286,8 @@ main(int argc, char *argv[])
 
     if (glfs_access(fs, filepath_renameat, F_OK) == 0 ||
         glfs_access(fs, filepath_renameat2, F_OK) == -1) {
-       ret = -1;
-       VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat2 operation failed", ret,
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat2 operation failed", ret,
                                          out);
     }
 
