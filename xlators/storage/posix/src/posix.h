@@ -501,9 +501,6 @@ int
 posix_forget(xlator_t *this, inode_t *inode);
 
 int32_t
-posix_discover(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata);
-
-int32_t
 posix_stat(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata);
 
 int

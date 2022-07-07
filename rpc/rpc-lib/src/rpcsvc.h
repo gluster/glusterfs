@@ -553,14 +553,6 @@ rpcsvc_transport_privport_check(rpcsvc_t *svc, char *volname, uint16_t port);
 #define rpcsvc_request_seterr(req, err) ((req)->rpc_err = (int)(err))
 #define rpcsvc_request_set_autherr(req, err) ((req)->auth_err = (int)(err))
 
-extern int
-rpcsvc_submit_vectors(rpcsvc_request_t *req);
-
-extern int
-rpcsvc_request_attach_vector(rpcsvc_request_t *req, struct iovec msgvec,
-                             struct iobuf *iob, struct iobref *ioref,
-                             int finalvector);
-
 typedef int (*auth_init_trans)(rpc_transport_t *trans, void *priv);
 typedef int (*auth_init_request)(rpcsvc_request_t *req, void *priv);
 typedef int (*auth_request_authenticate)(rpcsvc_request_t *req, void *priv);
@@ -607,9 +599,6 @@ rpcsvc_auth_init(rpcsvc_t *svc, dict_t *options);
 
 extern int
 rpcsvc_auth_reconf(rpcsvc_t *svc, dict_t *options);
-
-extern int
-rpcsvc_auth_transport_init(rpc_transport_t *xprt);
 
 extern int
 rpcsvc_authenticate(rpcsvc_request_t *req);

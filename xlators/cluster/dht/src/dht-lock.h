@@ -67,11 +67,6 @@ dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
                                    int32_t op_errno, dict_t *xdata);
 
-int32_t
-dht_blocking_entrylk_after_inodelk_rename(call_frame_t *frame, void *cookie,
-                                          xlator_t *this, int32_t op_ret,
-                                          int32_t op_errno, dict_t *xdata);
-
 void
 dht_unlock_namespace(call_frame_t *, dht_dir_transaction_t *);
 
