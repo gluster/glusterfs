@@ -52,7 +52,7 @@ struct check_and_add_user_xlator_t {
     do {                                                                       \
         char *_value = NULL;                                                   \
                                                                                \
-        if (dict_get_str_sizen(set_dict, CLI_OPT, &_value) == 0) {             \
+        if (dict_get_str(set_dict, CLI_OPT, &_value) == 0) {                   \
             if (xlator_set_fixed_option(XL, "transport.socket." XLATOR_OPT,    \
                                         _value) != 0) {                        \
                 gf_msg("glusterd", GF_LOG_WARNING, errno,                      \
@@ -1164,12 +1164,12 @@ get_transport_type(glusterd_volinfo_t *volinfo, dict_t *set_dict, char *transt,
     char *tt = NULL;
 
     if (is_nfs == _gf_false) {
-        ret = dict_get_str_sizen(set_dict, "client-transport-type", &tt);
+        ret = dict_get_str(set_dict, "client-transport-type", &tt);
         if (ret)
             get_vol_transport_type(volinfo, transt);
     } else {
 #ifdef BUILD_GNFS
-        ret = dict_get_str_sizen(set_dict, "nfs.transport-type", &tt);
+        ret = dict_get_str(set_dict, "nfs.transport-type", &tt);
         if (ret)
             get_vol_nfs_transport_type(volinfo, transt);
 #endif
@@ -1485,14 +1485,14 @@ volgen_graph_set_xl_options(volgen_graph_t *graph, dict_t *dict)
     char *loglevel = NULL;
     xlator_t *trav = NULL;
 
-    ret = dict_get_str_sizen(dict, "xlator", &xlator);
+    ret = dict_get_str(dict, "xlator", &xlator);
     if (ret) {
         gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=xlator", NULL);
         goto out;
     }
 
-    ret = dict_get_str_sizen(dict, "loglevel", &loglevel);
+    ret = dict_get_str(dict, "loglevel", &loglevel);
     if (ret) {
         gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=loglevel", NULL);
@@ -2459,8 +2459,8 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     RPC_SET_OPT(xl, SSL_DH_PARAM_OPT, "ssl-dh-param", return -1);
     RPC_SET_OPT(xl, SSL_EC_CURVE_OPT, "ssl-ec-curve", return -1);
 
-    if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
-                           &address_family_data) == 0) {
+    if (dict_get_str(volinfo->dict, "transport.address-family",
+                     &address_family_data) == 0) {
         ret = xlator_set_fixed_option(xl, "transport.address-family",
                                       address_family_data);
         if (ret) {
@@ -2505,7 +2505,7 @@ brick_graph_add_server(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             return -1;
     }
 
-    if (dict_get_str_sizen(volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
+    if (dict_get_str(volinfo->dict, "auth.ssl-allow", &ssl_user) == 0) {
         len = snprintf(key, sizeof(key), "auth.login.%s.ssl-allow",
                        brickinfo->path);
         if ((len < 0) || (len >= sizeof(key))) {
@@ -2822,11 +2822,11 @@ server_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         i--;
     }
 
-    ret = dict_get_str_sizen(set_dict, "xlator", &xlator);
+    ret = dict_get_str(set_dict, "xlator", &xlator);
 
     /* got a cli log level request */
     if (!ret) {
-        ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
+        ret = dict_get_str(set_dict, "loglevel", &loglevel);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
@@ -3207,8 +3207,8 @@ volgen_graph_build_client(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     if (ret)
         goto err;
 
-    if (dict_get_str_sizen(volinfo->dict, "transport.address-family",
-                           &address_family_data) == 0) {
+    if (dict_get_str(volinfo->dict, "transport.address-family",
+                     &address_family_data) == 0) {
         ret = xlator_set_fixed_option(xl, "transport.address-family",
                                       address_family_data);
         if (ret) {
@@ -3238,7 +3238,7 @@ volgen_graph_build_client(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         }
     }
 
-    if (dict_get_str_sizen(set_dict, "client.ssl", &ssl_str) == 0) {
+    if (dict_get_str(set_dict, "client.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
                 ret = xlator_set_fixed_option(
@@ -4047,7 +4047,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
      * glusterd_volinfo_get, so that we consider key value of the in
      * progress volume set option.
      */
-    ret = dict_get_str_sizen(set_dict, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
+    ret = dict_get_str(set_dict, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
     if (ret < 0) {
         ret = glusterd_volinfo_get(volinfo, VKEY_RDA_CACHE_LIMIT, &rda_cache_s);
         if (ret < 0)
@@ -4060,7 +4060,7 @@ client_graph_set_rda_options(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
         goto out;
     }
 
-    ret = dict_get_str_sizen(set_dict, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
+    ret = dict_get_str(set_dict, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
     if (ret < 0) {
         ret = glusterd_volinfo_get(volinfo, VKEY_RDA_REQUEST_SIZE, &rda_req_s);
         if (ret < 0)
@@ -4370,9 +4370,9 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
     /* Do not allow changing read-after-open option if root-squash is
        enabled.
     */
-    ret = dict_get_str_sizen(set_dict, "performance.read-after-open", &tmp);
+    ret = dict_get_str(set_dict, "performance.read-after-open", &tmp);
     if (!ret) {
-        ret = dict_get_str_sizen(volinfo->dict, "server.root-squash", &tmp);
+        ret = dict_get_str(volinfo->dict, "server.root-squash", &tmp);
         if (!ret) {
             ob = _gf_false;
             ret = gf_string2boolean(tmp, &ob);
@@ -4395,15 +4395,15 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
        root-squash is enabled, open-behind's option to read after
        open is done is also enabled.
     */
-    ret = dict_get_str_sizen(set_dict, "server.root-squash", &tmp);
+    ret = dict_get_str(set_dict, "server.root-squash", &tmp);
     if (!ret) {
         ret = gf_string2boolean(tmp, &var);
         if (ret)
             goto out;
 
         if (var) {
-            ret = dict_get_str_sizen(volinfo->dict,
-                                     "performance.read-after-open", &tmp);
+            ret = dict_get_str(volinfo->dict, "performance.read-after-open",
+                               &tmp);
             if (!ret) {
                 ret = gf_string2boolean(tmp, &ob);
                 /* go ahead with turning read-after-open on
@@ -4425,8 +4425,8 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
                option was not set before turning on root-squash.
             */
             ob = _gf_false;
-            ret = dict_get_str_sizen(volinfo->dict,
-                                     "performance.read-after-open", &tmp);
+            ret = dict_get_str(volinfo->dict, "performance.read-after-open",
+                               &tmp);
             if (!ret) {
                 ret = gf_string2boolean(tmp, &ob);
 
@@ -5602,7 +5602,7 @@ glusterd_generate_client_per_brick_volfile(glusterd_volinfo_t *volinfo)
         goto free_dict;
     }
 
-    if (dict_get_str_sizen(volinfo->dict, "client.ssl", &ssl_str) == 0) {
+    if (dict_get_str(volinfo->dict, "client.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
                 if (dict_set_dynstr_with_alloc(dict, "client.ssl", "on") != 0) {
@@ -5867,9 +5867,9 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (!set_dict)
         return -1;
 
-    ret = dict_get_str_sizen(set_dict, "xlator", &xlator);
+    ret = dict_get_str(set_dict, "xlator", &xlator);
     if (!ret) {
-        ret = dict_get_str_sizen(set_dict, "loglevel", &loglevel);
+        ret = dict_get_str(set_dict, "loglevel", &loglevel);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                    "could not get both"
@@ -5904,7 +5904,7 @@ glusterd_snapdsvc_generate_volfile(volgen_graph_t *graph,
     if (ret)
         return -1;
 
-    if (dict_get_str_sizen(set_dict, "server.ssl", &ssl_str) == 0) {
+    if (dict_get_str(set_dict, "server.ssl", &ssl_str) == 0) {
         if (gf_string2boolean(ssl_str, &ssl_bool) == 0) {
             if (ssl_bool) {
                 ret = xlator_set_fixed_option(
@@ -6459,7 +6459,7 @@ validate_nfsopts(glusterd_volinfo_t *volinfo, dict_t *val_dict,
     graph.errstr = op_errstr;
 
     get_vol_transport_type(volinfo, transport_type);
-    ret = dict_get_str_sizen(val_dict, "nfs.transport-type", &tt);
+    ret = dict_get_str(val_dict, "nfs.transport-type", &tt);
     if (!ret) {
         if (volinfo->transport_type != GF_TRANSPORT_BOTH_TCP_RDMA) {
             snprintf(err_str, sizeof(err_str),

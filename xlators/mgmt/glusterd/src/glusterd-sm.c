@@ -162,7 +162,7 @@ glusterd_broadcast_friend_delete(char *hostname, uuid_t uuid)
         goto out;
     }
 
-    ret = dict_set_int32n(friends, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(friends, "count", count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=%s", key, NULL);
@@ -396,15 +396,14 @@ glusterd_ac_friend_probe(glusterd_friend_sm_event_t *event, void *ctx)
                     NULL);
             goto unlock;
         }
-        ret = dict_set_strn(dict, "hostname", SLEN("hostname"),
-                            probe_ctx->hostname);
+        ret = dict_set_str_sizen(dict, "hostname", probe_ctx->hostname);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=hostname", NULL);
             goto unlock;
         }
 
-        ret = dict_set_int32n(dict, "port", SLEN("port"), probe_ctx->port);
+        ret = dict_set_int32_sizen(dict, "port", probe_ctx->port);
         if (ret) {
             gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=port", NULL);
@@ -601,7 +600,7 @@ glusterd_ac_send_friend_update(glusterd_friend_sm_event_t *event, void *ctx)
             goto unlock;
     }
 
-    ret = dict_set_int32n(friends, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(friends, "count", count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
@@ -717,7 +716,7 @@ glusterd_ac_update_friend(glusterd_friend_sm_event_t *event, void *ctx)
             goto unlock;
     }
 
-    ret = dict_set_int32n(friends, "count", SLEN("count"), count);
+    ret = dict_set_int32_sizen(friends, "count", count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
@@ -1052,8 +1051,7 @@ glusterd_ac_handle_friend_add_req(glusterd_friend_sm_event_t *event, void *ctx)
 
     new_event->ctx = new_ev_ctx;
 
-    ret = dict_get_strn(ev_ctx->vols, "hostname_in_cluster",
-                        SLEN("hostname_in_cluster"), &hostname);
+    ret = dict_get_str(ev_ctx->vols, "hostname_in_cluster", &hostname);
     if (ret || !hostname) {
         gf_msg_debug(this->name, 0, "Unable to fetch local hostname from peer");
     } else if (snprintf(local_node_hostname, sizeof(local_node_hostname), "%s",

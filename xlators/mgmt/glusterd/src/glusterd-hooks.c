@@ -245,8 +245,8 @@ glusterd_hooks_set_volume_args(dict_t *dict, runner_t *runner)
 
     glusterd_hooks_add_custom_args(dict, runner);
     if (flag == 1) {
-        ret = dict_get_str_sizen(this->options, "transport.address-family",
-                                 &inet_family);
+        ret = dict_get_str(this->options, "transport.address-family",
+                           &inet_family);
         if (!ret) {
             runner_argprintf(runner, "transport.address-family=%s",
                              inet_family);

@@ -80,14 +80,14 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
         }
     }
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         snprintf(msg, sizeof(msg), "Could not get volume name");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED, "%s", msg);
         goto out;
     }
 
-    ret = dict_get_strn(dict, "operation", SLEN("operation"), &cli_op);
+    ret = dict_get_str(dict, "operation", &cli_op);
     if (ret) {
         gf_msg_debug(this->name, 0, "dict_get on operation failed");
         snprintf(msg, sizeof(msg), "Could not get operation");
@@ -107,7 +107,7 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
         goto out;
     }
 
-    ret = dict_get_strn(dict, "src-brick", SLEN("src-brick"), &src_brick);
+    ret = dict_get_str(dict, "src-brick", &src_brick);
 
     if (ret) {
         snprintf(msg, sizeof(msg), "Failed to get src brick");
@@ -119,7 +119,7 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
     if (!strcmp(cli_op, "GF_RESET_OP_COMMIT") ||
         !strcmp(cli_op, "GF_RESET_OP_COMMIT_FORCE") ||
         !strcmp(cli_op, "GF_REPLACE_OP_COMMIT_FORCE")) {
-        ret = dict_get_strn(dict, "dst-brick", SLEN("dst-brick"), &dst_brick);
+        ret = dict_get_str(dict, "dst-brick", &dst_brick);
 
         if (ret) {
             snprintf(msg, sizeof(msg),
@@ -361,7 +361,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
             }
         }
 
-        ret = dict_set_int32n(rsp_dict, "brick_count", SLEN("brick_count"), 1);
+        ret = dict_set_int32_sizen(rsp_dict, "brick_count", 1);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "Failed to set local_brick_count");
@@ -435,8 +435,7 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
      * introduced in gluster-3.6.0
      */
     if (conf->op_version >= GD_OP_VERSION_3_6_0) {
-        ret = dict_get_strn(dict, "brick1.mount_dir", SLEN("brick1.mount_dir"),
-                            &brick_mount_dir);
+        ret = dict_get_str(dict, "brick1.mount_dir", &brick_mount_dir);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, errno,
                    GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
@@ -499,7 +498,7 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = dict_get_strn(dict, "src-brick", SLEN("src-brick"), &src_brick);
+    ret = dict_get_str(dict, "src-brick", &src_brick);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get src brick");
@@ -508,7 +507,7 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
 
     gf_msg_debug(this->name, 0, "src brick=%s", src_brick);
 
-    ret = dict_get_strn(dict, "dst-brick", SLEN("dst-brick"), &dst_brick);
+    ret = dict_get_str(dict, "dst-brick", &dst_brick);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get dst brick");
@@ -517,14 +516,14 @@ glusterd_op_replace_brick(dict_t *dict, dict_t *rsp_dict)
 
     gf_msg_debug(this->name, 0, "dst brick=%s", dst_brick);
 
-    ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+    ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Unable to get volume name");
         goto out;
     }
 
-    ret = dict_get_strn(dict, "operation", SLEN("operation"), &replace_op);
+    ret = dict_get_str(dict, "operation", &replace_op);
     if (ret) {
         gf_msg_debug(this->name, 0, "dict_get on operation failed");
         goto out;
@@ -649,8 +648,7 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases(rpcsvc_request_t *req,
         goto out;
     }
 
-    ret = dict_set_int32n(dict, "is_synctasked", SLEN("is_synctasked"),
-                          _gf_true);
+    ret = dict_set_int32_sizen(dict, "is_synctasked", _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set synctasked flag to true.");

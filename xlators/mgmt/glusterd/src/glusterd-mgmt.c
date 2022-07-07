@@ -463,7 +463,7 @@ gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
             break;
         }
         case GD_OP_ADD_BRICK: {
-            ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+            ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
                 gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Unable to get"
@@ -488,7 +488,7 @@ gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
             break;
         }
         case GD_OP_START_VOLUME: {
-            ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+            ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
                 gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Unable to get"
@@ -507,7 +507,7 @@ gd_mgmt_v3_post_validate_fn(glusterd_op_t op, int32_t op_ret, dict_t *dict,
             break;
         }
         case GD_OP_STOP_VOLUME: {
-            ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+            ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
                 gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                        "Unable to get"
@@ -1126,7 +1126,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
         case GD_OP_REPLACE_BRICK:
         case GD_OP_RESET_BRICK:
         case GD_OP_PROFILE_VOLUME: {
-            ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+            ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
                 gf_msg(this->name, GF_LOG_CRITICAL, -ret,
                        GD_MSG_DICT_GET_FAILED,
@@ -1148,7 +1148,7 @@ glusterd_mgmt_v3_build_payload(dict_t **req, char **op_errstr, dict_t *dict,
                 ret = -1;
                 goto out;
             }
-            ret = dict_get_strn(dict, "volname", SLEN("volname"), &volname);
+            ret = dict_get_str(dict, "volname", &volname);
             if (ret) {
                 gf_msg(this->name, GF_LOG_CRITICAL, -ret,
                        GD_MSG_DICT_GET_FAILED,
@@ -2733,7 +2733,7 @@ glusterd_set_barrier_value(dict_t *dict, char *option)
      * As of now only snapshot of single volume is supported,
      * Hence volname1 is directly fetched
      */
-    ret = dict_get_strn(dict, "volname1", SLEN("volname1"), &volname);
+    ret = dict_get_str(dict, "volname1", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Volname not present in "
@@ -2831,8 +2831,7 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     }
 
     /* Marking the operation as complete synctasked */
-    ret = dict_set_int32n(dict, "is_synctasked", SLEN("is_synctasked"),
-                          _gf_true);
+    ret = dict_set_int32_sizen(dict, "is_synctasked", _gf_true);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set synctasked flag.");
@@ -2923,7 +2922,7 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
        above and along with it the originator glusterd also goes down?
        Who will initiate the cleanup?
     */
-    ret = dict_set_int32n(req_dict, "cleanup", SLEN("cleanup"), 1);
+    ret = dict_set_int32_sizen(req_dict, "cleanup", 1);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "failed to set dict");
