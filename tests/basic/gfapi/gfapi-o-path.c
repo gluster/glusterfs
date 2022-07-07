@@ -42,6 +42,7 @@ main(int argc, char *argv[])
     char *logfile = NULL;
     char *hostname = NULL;
     const char *topdir = "/dir_tmp";
+    const char *mkdirat = "/dir_tmp_mkdirat";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
     const char *filename_linkat = "file_tmp_linkat";
@@ -139,6 +140,13 @@ main(int argc, char *argv[])
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fstatat(Size mismatch)", ret,
                                          out);
+    }
+
+    ret = glfs_mkdirat(fd1, mkdirat, 0755);
+    fprintf(stderr, "mkdirat(%s): %s\n", mkdirat, strerror(errno));
+    if (ret) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mkdirat", ret, out);
     }
 
     ret = glfs_faccessat(fd1, filename, F_OK, flags);

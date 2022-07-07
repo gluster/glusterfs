@@ -873,6 +873,10 @@ glfs_mkdir(glfs_t *fs, const char *path, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_mkdir, 3.4.0);
 
 int
+glfs_mkdirat(struct glfs_fd *glfd, const char *path, mode_t mode) __THROW
+    GFAPI_PUBLIC(glfs_mkdirat, 11.0);
+
+int
 glfs_unlink(glfs_t *fs, const char *path) __THROW
     GFAPI_PUBLIC(glfs_unlink, 3.4.0);
 
