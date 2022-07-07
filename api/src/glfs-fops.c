@@ -647,25 +647,9 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     }
 
     if (is_create && !loc.inode) {
-        loc.inode = inode_new(loc.parent->table);
-        if (!loc.inode) {
-            ret = -1;
-            errno = ENOMEM;
-            goto out;
-        }
 
-        gf_uuid_generate(gfid);
-        fop_attr = dict_new();
-        if (!fop_attr) {
-            ret = -1;
-            errno = ENOMEM;
-            goto out;
-        }
-
-        ret = dict_set_gfuuid(fop_attr, "gfid-req", gfid, true);
+        ret = setup_entry_fopat_args(gfid, &fop_attr, &loc);
         if (ret) {
-            ret = -1;
-            errno = ENOMEM;
             goto out;
         }
     }
