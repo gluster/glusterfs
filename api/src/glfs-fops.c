@@ -3069,7 +3069,7 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_symlinkat, 11.0)
 int
-pub_glfs_symlinkat(struct glfs_fd *pglfd, const char *data, const char *path)
+pub_glfs_symlinkat(const char *data, struct glfs_fd *pglfd, const char *path)
 {
     int ret = -1;
     int reval = 0;
@@ -3802,8 +3802,8 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_renameat, 11.0)
 int
-pub_glfs_renameat(struct glfs_fd *pglfd, const char *oldpath,
-                  const char *newpath)
+pub_glfs_renameat(struct glfs_fd *oldpglfd, const char *oldpath,
+                  struct glfs_fd *newpglfd, const char *newpath)
 {
     int ret = -1;
     int reval = 0;
@@ -3823,15 +3823,17 @@ pub_glfs_renameat(struct glfs_fd *pglfd, const char *oldpath,
     };
 
     DECLARE_OLD_THIS;
-    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
 
 retry:
     /* Retry case */
     if (oldsubvol) {
-        cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
     }
 
-    oldsubvol = setup_fopat_args(pglfd, oldpath, 0, &oldloc, &oldiatt, reval);
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, 0, &oldloc, &oldiatt,
+                                 reval);
     if (!oldsubvol) {
         ret = -1;
     }
@@ -3852,10 +3854,11 @@ retry:
 retrynew:
     /* Retry case */
     if (newsubvol) {
-        cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
     }
 
-    newsubvol = setup_fopat_args(pglfd, newpath, 0, &newloc, &newiatt, reval);
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
     if (!newsubvol) {
         ret = -1;
     }
@@ -3894,8 +3897,8 @@ retrynew:
             inode_forget(newloc.inode, 0);
     }
 out:
-    cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
-    cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
 
     __GLFS_EXIT_FS;
 
@@ -3905,8 +3908,8 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_renameat2, 11.0)
 int
-pub_glfs_renameat2(struct glfs_fd *pglfd, const char *oldpath,
-                   const char *newpath, int flags)
+pub_glfs_renameat2(struct glfs_fd *oldpglfd, const char *oldpath,
+                   struct glfs_fd *newpglfd, const char *newpath, int flags)
 {
     int ret = -1;
     int reval = 0;
@@ -3926,15 +3929,17 @@ pub_glfs_renameat2(struct glfs_fd *pglfd, const char *oldpath,
     };
 
     DECLARE_OLD_THIS;
-    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
 
 retry:
     /* Retry case */
     if (oldsubvol) {
-        cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
     }
 
-    oldsubvol = setup_fopat_args(pglfd, oldpath, 0, &oldloc, &oldiatt, reval);
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, 0, &oldloc, &oldiatt,
+                                 reval);
     if (!oldsubvol) {
         ret = -1;
     }
@@ -3955,17 +3960,18 @@ retry:
 retrynew:
     /* Retry case */
     if (newsubvol) {
-        cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
     }
 
-    newsubvol = setup_fopat_args(pglfd, newpath, 0, &newloc, &newiatt, reval);
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
     if (!newsubvol) {
         ret = -1;
     }
 
     ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
 
-    if (!newsubvol && ret) {
+    if (!newsubvol) {
         goto out;
     }
 
@@ -4006,8 +4012,8 @@ retrynew:
             inode_forget(newloc.inode, 0);
     }
 out:
-    cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
-    cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
 
     __GLFS_EXIT_FS;
 
@@ -4103,8 +4109,8 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_linkat, 11.0)
 int
-pub_glfs_linkat(struct glfs_fd *pglfd, const char *oldpath, const char *newpath,
-                int flags)
+pub_glfs_linkat(struct glfs_fd *oldpglfd, const char *oldpath,
+                struct glfs_fd *newpglfd, const char *newpath, int flags)
 {
     int ret = -1;
     int reval = 0;
@@ -4125,7 +4131,8 @@ pub_glfs_linkat(struct glfs_fd *pglfd, const char *oldpath, const char *newpath,
     int follow = 0;
 
     DECLARE_OLD_THIS;
-    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
 
     /* Old path will not be de-referenced by default if it is a sym-link.
        If 'AT_SYMLINK_FOLLOW' flag is set, then oldpath is deferenced to
@@ -4139,10 +4146,10 @@ pub_glfs_linkat(struct glfs_fd *pglfd, const char *oldpath, const char *newpath,
 retry:
     /* Retry case */
     if (oldsubvol) {
-        cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
     }
 
-    oldsubvol = setup_fopat_args(pglfd, oldpath, follow, &oldloc, &oldiatt,
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, follow, &oldloc, &oldiatt,
                                  reval);
     if (!oldsubvol) {
         ret = -1;
@@ -4163,11 +4170,12 @@ retry:
 retrynew:
     /* Retry case */
     if (newsubvol) {
-        cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
     }
     /* The 'AT_SYMLINK_FOLLOW' flag applies only to oldpath.
      */
-    newsubvol = setup_fopat_args(pglfd, newpath, 0, &newloc, &newiatt, reval);
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
     if (!newsubvol) {
         ret = -1;
     }
@@ -4201,8 +4209,8 @@ retrynew:
     if (ret == 0)
         ret = glfs_loc_link(&newloc, &newiatt);
 out:
-    cleanup_fopat_args(pglfd, oldsubvol, ret, &oldloc);
-    cleanup_fopat_args(pglfd, newsubvol, ret, &newloc);
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
 
     __GLFS_EXIT_FS;
 

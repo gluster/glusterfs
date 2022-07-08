@@ -159,7 +159,7 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fstat", ret, out);
     if (stbuf.st_mode & 0777 != 0777) {
         ret = -1;
-       VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchmodat operation failed", ret,
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchmodat operation failed", ret,
                                          out);
     }
 
@@ -189,7 +189,7 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
     filename_symlinkat_inode = stbuf.st_ino;
 
-    ret = glfs_linkat(fd1, filename_symlinkat, filename_linkat, flags);
+    ret = glfs_linkat(fd1, filename_symlinkat, fd1, filename_linkat, flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
 
     ret = glfs_lstat(fs, filepath_linkat, &stbuf);
@@ -211,7 +211,7 @@ main(int argc, char *argv[])
     ret = glfs_symlink(fs, filepath, filepath_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlink", ret, out);
 
-    ret = glfs_linkat(fd1, filename_symlinkat, filename_linkat,
+    ret = glfs_linkat(fd1, filename_symlinkat, fd1, filename_linkat,
                       AT_SYMLINK_FOLLOW);
 
     ret = glfs_stat(fs, filepath_linkat, &stbuf);
@@ -234,7 +234,7 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
 
     // TEST without 'AT_SYMLINK_FOLLOW' flag & symlink file.
-    ret = glfs_linkat(fd1, filename, filename_linkat, flags);
+    ret = glfs_linkat(fd1, filename, fd1, filename_linkat, flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
 
     ret = glfs_stat(fs, filepath, &stbuf);
@@ -279,7 +279,7 @@ main(int argc, char *argv[])
                                          ret, out);
     }
 
-    ret = glfs_renameat(fd1, filename, filename_renameat);
+    ret = glfs_renameat(fd1, filename, fd1, filename_renameat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat", ret, out);
 
     if (glfs_access(fs, filepath, F_OK) == 0 ||
@@ -289,7 +289,8 @@ main(int argc, char *argv[])
                                          ret, out);
     }
 
-    ret = glfs_renameat2(fd1, filename_renameat, filename_renameat2, flags);
+    ret = glfs_renameat2(fd1, filename_renameat, fd1, filename_renameat2,
+                         flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_renameat2", ret, out);
 
     if (glfs_access(fs, filepath_renameat, F_OK) == 0 ||
@@ -302,7 +303,7 @@ main(int argc, char *argv[])
     ret = glfs_unlink(fs, filepath_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
 
-    ret = glfs_symlinkat(fd1, filename, filename_symlinkat);
+    ret = glfs_symlinkat(filename, fd1, filename_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat", ret, out);
 
     ret = glfs_lstat(fs, filepath_symlinkat, &stbuf);
