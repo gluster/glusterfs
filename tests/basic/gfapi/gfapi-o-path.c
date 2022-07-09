@@ -303,7 +303,7 @@ main(int argc, char *argv[])
     ret = glfs_unlink(fs, filepath_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
 
-    ret = glfs_symlinkat(filename, fd1, filename_symlinkat);
+    ret = glfs_symlinkat(filename_renameat2, fd1, filename_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat", ret, out);
 
     ret = glfs_lstat(fs, filepath_symlinkat, &stbuf);
