@@ -37,6 +37,17 @@
 /* Helper macro to define names of bits. */
 #define GF_IO_BITNAME(_prefix, _name) { _prefix##_##_name, #_name }
 
+/* We use the last padding word to store the number of committed SQEs. Since
+ * the size of the padding may change between version, we compute the index
+ * of the last one. */
+#define GF_IO_URING_SQE_PAD_IDX \
+    (CAA_ARRAY_SIZE(((struct io_uring_sqe *)0)->__pad2) - 1)
+
+/* This accesses the padding word of a given SQE (referenced by index) that
+ * contains the number of committed SQEs. */
+#define GF_IO_URING_SQE_COUNT(_idx) \
+    (gf_io_uring.sq.sqes[(_idx)].__pad2[GF_IO_URING_SQE_PAD_IDX])
+
 /* Structure to keep names of bits. */
 typedef struct _gf_io_uring_bitname {
     /* Bitmask of the bit/field. */
@@ -614,7 +625,7 @@ static void
 gf_io_uring_sq_commit(uint32_t idx, uint32_t nr)
 {
     cmm_smp_wmb();
-    CMM_STORE_SHARED(gf_io_uring.sq.sqes[idx].__pad2[2], nr);
+    CMM_STORE_SHARED(GF_IO_URING_SQE_COUNT(idx), nr);
 }
 
 /* Read the number of SQ entries to process. */
@@ -623,7 +634,7 @@ gf_io_uring_sq_length(uint32_t idx)
 {
     uint32_t nr;
 
-    nr = (uint32_t)CMM_LOAD_SHARED(gf_io_uring.sq.sqes[idx].__pad2[2]);
+    nr = (uint32_t)CMM_LOAD_SHARED(GF_IO_URING_SQE_COUNT(idx));
     cmm_smp_rmb();
 
     return nr;
@@ -654,7 +665,7 @@ gf_io_uring_sq_consume_shared(uint32_t tail)
     idx = tail & gf_io_uring.sq.mask;
     nr = gf_io_uring_sq_length(idx);
     if (nr != 0) {
-        nr = (uint32_t)uatomic_xchg(&gf_io_uring.sq.sqes[idx].__pad2[2], 0);
+        nr = (uint32_t)uatomic_xchg(&GF_IO_URING_SQE_COUNT(idx), 0);
     }
 
     return nr;
@@ -790,8 +801,12 @@ static uint64_t
 gf_io_uring_common(uint64_t seq, uint64_t id, struct io_uring_sqe *sqe,
                    uint32_t count)
 {
+    uint32_t i;
+
     sqe->user_data = id;
-    sqe->__pad2[0] = sqe->__pad2[1] = 0;
+    for (i = 0; i < GF_IO_URING_SQE_PAD_IDX; i++) {
+        sqe->__pad2[i] = 0;
+    }
 
     if ((id & GF_IO_ID_FLAG_CHAIN) == 0) {
         gf_io_uring_sq_commit(seq & gf_io_uring.sq.mask, count);
