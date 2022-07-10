@@ -337,7 +337,7 @@ out:
 }
 
 static gf_boolean_t
-is_bitd_configure_noop(xlator_t *this, glusterd_volinfo_t *volinfo)
+is_bitd_configure_noop(glusterd_volinfo_t *volinfo)
 {
     gf_boolean_t noop = _gf_true;
     glusterd_brickinfo_t *brickinfo = NULL;
@@ -349,7 +349,7 @@ is_bitd_configure_noop(xlator_t *this, glusterd_volinfo_t *volinfo)
     else {
         cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+            if (!glusterd_is_local_brick(volinfo, brickinfo))
                 continue;
             noop = _gf_false;
             return noop;
@@ -395,7 +395,7 @@ glusterd_bitrot_signer_threads(glusterd_volinfo_t *volinfo, dict_t *dict,
         goto out;
     }
 
-    if (!is_bitd_configure_noop(this, volinfo)) {
+    if (!is_bitd_configure_noop(volinfo)) {
         ret = priv->bitd_svc.manager(&(priv->bitd_svc), NULL,
                                      PROC_START_NO_WAIT);
         if (ret) {
@@ -513,7 +513,7 @@ glusterd_should_i_stop_bitd()
         else {
             cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
             {
-                if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+                if (!glusterd_is_local_brick(volinfo, brickinfo))
                     continue;
                 stopped = _gf_false;
                 return stopped;

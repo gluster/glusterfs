@@ -7067,7 +7067,7 @@ glusterd_get_single_snap_status(char **op_errstr, dict_t *rsp_dict,
         }
         cds_list_for_each_entry(brickinfo, &snap_volinfo->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, snap_volinfo, brickinfo)) {
+            if (!glusterd_is_local_brick(snap_volinfo, brickinfo)) {
                 brickcount++;
                 continue;
             }

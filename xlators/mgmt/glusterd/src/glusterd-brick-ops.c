@@ -1695,7 +1695,7 @@ glusterd_remove_brick_validate_bricks(gf1_op_commands cmd, int32_t brick_count,
             goto out;
         }
 
-        if (glusterd_is_local_brick(THIS, volinfo, brickinfo)) {
+        if (glusterd_is_local_brick(volinfo, brickinfo)) {
             switch (cmd) {
                 case GF_OP_CMD_START:
                     goto check;
