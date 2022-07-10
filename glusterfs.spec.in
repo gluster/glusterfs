@@ -1525,6 +1525,7 @@ exit 0
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/features/leases.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt/glusterd.so
+     %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/mgmt/volfile-server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol
      %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/protocol/server.so
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/xlator/storage

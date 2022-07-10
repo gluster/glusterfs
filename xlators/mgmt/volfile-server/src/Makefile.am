@@ -16,7 +16,7 @@ volfile_server_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
 	$(XML_LIBS) -lcrypto $(URCU_LIBS) $(URCU_CDS_LIBS) $(LIB_DL) $(GF_XLATOR_MGNT_LIBADD)
 
-noinst_HEADERS = glusterd.h glusterd-mem-types.h
+noinst_HEADERS = glusterd.h glusterd-mem-types.h glusterd-messages.h
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
