@@ -1020,6 +1020,7 @@ ec_manager_statfs(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk = NULL;
     gf_boolean_t deem_statfs_enabled = _gf_false;
+    gf_boolean_t simple_quota = _gf_false;
     int32_t err = 0;
 
     switch (state) {
@@ -1040,9 +1041,14 @@ ec_manager_statfs(ec_fop_data_t *fop, int32_t state)
                     if (err != -ENOENT) {
                         ec_cbk_set_error(cbk, -err, _gf_true);
                     }
+                    err = dict_get_int8(cbk->xdata, "simple-quota",
+                                        (int8_t *)&simple_quota);
+                    if (err != -ENOENT) {
+                        ec_cbk_set_error(cbk, -err, _gf_true);
+                    }
                 }
 
-                if (err != 0 || deem_statfs_enabled == _gf_false) {
+                if (err != 0 || !(deem_statfs_enabled || simple_quota)) {
                     cbk->statvfs.f_blocks *= ec->fragments;
                     cbk->statvfs.f_bfree *= ec->fragments;
                     cbk->statvfs.f_bavail *= ec->fragments;
