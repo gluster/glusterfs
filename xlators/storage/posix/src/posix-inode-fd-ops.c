@@ -2178,7 +2178,9 @@ overwrite:
         }
     }
 
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
+    if (preop.ia_blocks < postop.ia_blocks)
+        GF_ATOMIC_ADD(priv->write_value,
+                      ((postop.ia_blocks - preop.ia_blocks) * 512));
 
 out:
 

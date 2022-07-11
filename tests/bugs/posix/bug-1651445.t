@@ -21,7 +21,7 @@ TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST $CLI volume set $V0 storage.reserve 40MB
 
 TEST dd if=/dev/zero of=$M0/a bs=90M count=1
-TEST ! dd if=/dev/zero of=$M0/b bs=10M count=1
+TEST dd if=/dev/zero of=$M0/b bs=10M count=1
 
 # setup_lvm create lvm partition of 150M and 40M are reserve so after
 # consuming more than 110M next dd should fail
@@ -34,7 +34,7 @@ rm -rf $M0/*
 TEST $CLI volume set $V0 storage.reserve 40
 
 TEST dd if=/dev/zero of=$M0/a bs=70M count=1
-TEST ! dd if=/dev/zero of=$M0/b bs=10M count=1
+TEST dd if=/dev/zero of=$M0/b bs=10M count=1
 
 TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
 

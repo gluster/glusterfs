@@ -4090,7 +4090,7 @@ server4_0_writev(rpcsvc_request_t *req)
         ret = dict_set_int32_sizen(state->xdata, "buffer-size", len);
         if (ret) {
             gf_msg(THIS->name, GF_LOG_INFO, ENOMEM, 0,
-                   "%ld: dict set (buffer-size) failed, continuing", len);
+                   "%zu: dict set (buffer-size) failed, continuing", len);
             goto out;
         }
     }

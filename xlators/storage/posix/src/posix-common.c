@@ -368,7 +368,7 @@ posix_statfs_path(xlator_t *this, char *real_path)
     reserved_blocks = (buf.f_bfree * buf.f_bsize);
 
     priv->disk_size_after_reserve = reserved_blocks;
-    gf_log(this->name, GF_LOG_INFO, "Set disk_size_after reserve is %lu",
+    gf_log(this->name, GF_LOG_INFO, "Set disk_size_after reserve is %" PRIu64,
            reserved_blocks);
     return 0;
 }
