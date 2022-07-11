@@ -323,7 +323,7 @@ set_xattr_user_namespace_mode(struct posix_private *priv, const char *str)
 }
 #endif
 
-int32_t
+static int32_t
 posix_statfs_path(xlator_t *this, char *real_path)
 {
     int32_t op_ret = -1;

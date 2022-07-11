@@ -1517,7 +1517,6 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     };
     dict_t *rsp_xdata = NULL;
     gf_boolean_t cs_obj_status, cs_obj_repair;
-    uint64_t write_val = 0;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1538,18 +1537,6 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
                "failed",
                loc->path, real_path ? real_path : "<null>");
         goto out;
-    }
-
-    if (prebuf.ia_size < offset) {
-        write_val = GF_ATOMIC_GET(priv->write_value);
-        if ((offset + write_val) > priv->disk_size_after_reserve) {
-            gf_msg_debug(this->name, ENOSPC,
-                         "disk space utilization reached limits for path %s",
-                         priv->base_path);
-            op_errno = ENOSPC;
-            op_ret = -ENOSPC;
-            goto out;
-        }
     }
 
     if (xdata) {
@@ -1592,10 +1579,9 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     posix_set_ctime(frame, this, real_path, -1, loc->inode, &postbuf);
 
-    if (prebuf.ia_size < offset)
-        GF_ATOMIC_ADD(priv->write_value, offset);
-    else
-        GF_ATOMIC_SUB(priv->write_value, (prebuf.ia_size - offset));
+    if (postbuf.ia_blocks < prebuf.ia_blocks)
+        GF_ATOMIC_SUB(priv->write_value,
+                      ((prebuf.ia_blocks - postbuf.ia_blocks) * 512));
 
     op_ret = 0;
 out:

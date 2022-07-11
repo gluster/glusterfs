@@ -82,8 +82,8 @@
     do {                                                                       \
         gf_boolean_t flag = _gf_false;                                         \
         int32_t buffer_size = 0;                                               \
-        int64_t write_val = 0;                                                \
-        int64_t disk_free = 0;                                                \
+        int64_t write_val = 0;                                                 \
+        int64_t disk_free = 0;                                                 \
         if (frame->root->pid >= 0 &&                                           \
             !dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {              \
             if (priv->disk_space_full) {                                       \
