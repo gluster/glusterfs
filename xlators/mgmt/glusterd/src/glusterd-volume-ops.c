@@ -54,7 +54,7 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
     gf_cli_rsp rsp = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     char *free_ptr = NULL;
     char *trans_type = NULL;
@@ -74,9 +74,10 @@ __glusterd_handle_create_volume(rpcsvc_request_t *req)
     glusterd_volinfo_t *volinfo = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+    GF_ASSERT(conf);
 
     ret = -1;
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
@@ -299,13 +300,15 @@ __glusterd_handle_cli_start_volume(rpcsvc_request_t *req)
     char errstr[2048] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
+
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         snprintf(errstr, sizeof(errstr),
@@ -386,13 +389,15 @@ __glusterd_handle_cli_stop_volume(rpcsvc_request_t *req)
     char *dup_volname = NULL;
     dict_t *dict = NULL;
     glusterd_op_t cli_op = GD_OP_STOP_VOLUME;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char err_str[64] = {
         0,
     };
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -479,6 +484,7 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
         },
     };
     glusterd_op_t cli_op = GD_OP_DELETE_VOLUME;
+    xlator_t *this = NULL;
     dict_t *dict = NULL;
     char *volname = NULL;
     char err_str[64] = {
@@ -486,6 +492,8 @@ __glusterd_handle_cli_delete_volume(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -555,13 +563,18 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
                                             glusterd_volinfo_t *volinfo)
 {
     gf_xl_afr_op_t heal_op = GF_SHD_OP_INVALID;
+    xlator_t *this = NULL;
     int ret = 0;
     char *key = NULL;
     char *value = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     ret = dict_get_int32(dict, "heal-op", (int32_t *)&heal_op);
     if (ret || (heal_op == GF_SHD_OP_INVALID)) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                 "Key=heal-op", NULL);
         ret = -1;
         goto out;
@@ -601,7 +614,7 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
         key = "cluster.granular-entry-heal";
         ret = dict_set_int8(dict, "is-special-key", 1);
         if (ret) {
-            gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+            gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                     "Key=is-special-key", NULL);
             goto out;
         }
@@ -609,21 +622,21 @@ glusterd_handle_heal_options_enable_disable(rpcsvc_request_t *req, dict_t *dict,
 
     ret = dict_set_str_sizen(dict, "key1", key);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=key1", NULL);
         goto out;
     }
 
     ret = dict_set_str_sizen(dict, "value1", value);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=value1", NULL);
         goto out;
     }
 
     ret = dict_set_int32_sizen(dict, "count", 1);
     if (ret) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -678,12 +691,14 @@ __glusterd_handle_cli_heal_volume(rpcsvc_request_t *req)
     glusterd_op_t cli_op = GD_OP_HEAL_VOLUME;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char op_errstr[2048] = {
         0,
     };
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -795,12 +810,14 @@ __glusterd_handle_cli_statedump_volume(rpcsvc_request_t *req)
     char err_str[128] = {
         0,
     };
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = THIS->private;
     GF_ASSERT(priv);
-
-    GF_ASSERT(req);
 
     ret = -1;
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);

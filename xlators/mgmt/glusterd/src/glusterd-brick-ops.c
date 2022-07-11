@@ -242,7 +242,7 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
         0,
     };
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     int total_bricks = 0;
     int32_t replica_count = 0;
     int32_t arbiter_count = 0;
@@ -250,7 +250,8 @@ __glusterd_handle_add_brick(rpcsvc_request_t *req)
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -611,10 +612,12 @@ __glusterd_handle_remove_brick(rpcsvc_request_t *req)
     char vol_type[256] = "";
     int32_t replica_count = 0;
     char *volname = 0;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     int cmd = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

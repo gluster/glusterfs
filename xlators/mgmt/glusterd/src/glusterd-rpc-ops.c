@@ -47,10 +47,12 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
     gf_cli_rsp rsp = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
-
     GF_ASSERT(conf);
 
     ctx = op_ctx;

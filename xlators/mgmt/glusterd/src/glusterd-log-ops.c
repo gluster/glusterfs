@@ -30,9 +30,11 @@ __glusterd_handle_log_rotate(rpcsvc_request_t *req)
     char msg[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {

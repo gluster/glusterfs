@@ -27,9 +27,12 @@ glusterd_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, int32_t status,
     gd1_mgmt_v3_lock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     if (rsp.op_ret)
@@ -40,7 +43,7 @@ glusterd_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, int32_t status,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
 
     return ret;
 }
@@ -51,10 +54,12 @@ glusterd_synctasked_mgmt_v3_lock(rpcsvc_request_t *req,
                                  glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(ctx);
     GF_ASSERT(ctx->dict);
 
@@ -76,12 +81,14 @@ glusterd_op_state_machine_mgmt_v3_lock(rpcsvc_request_t *req,
                                        glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_op_info_t txn_op_info = {
         GD_OP_STATE_DEFAULT,
     };
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     glusterd_txn_opinfo_init(&txn_op_info, 0, &lock_req->op, ctx->dict, req);
 
@@ -113,15 +120,17 @@ glusterd_handle_mgmt_v3_lock_fn(rpcsvc_request_t *req)
     };
     int32_t ret = -1;
     glusterd_op_lock_ctx_t *ctx = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_synctasked = _gf_false;
     gf_boolean_t free_ctx = _gf_false;
     glusterd_conf_t *conf = NULL;
     time_t timeout = 0;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
-    GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &lock_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_lock_req);
@@ -232,9 +241,11 @@ glusterd_mgmt_v3_pre_validate_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -269,13 +280,15 @@ glusterd_handle_pre_validate_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_pre_val_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_pre_val_req);
@@ -357,9 +370,11 @@ glusterd_mgmt_v3_brick_op_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -393,12 +408,14 @@ glusterd_handle_brick_op_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_brick_op_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_brick_op_req);
@@ -480,9 +497,11 @@ glusterd_mgmt_v3_commit_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -517,13 +536,15 @@ glusterd_handle_commit_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_commit_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_commit_req);
@@ -606,9 +627,11 @@ glusterd_mgmt_v3_post_commit_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -643,13 +666,15 @@ glusterd_handle_post_commit_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_post_commit_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_post_commit_req);
@@ -732,9 +757,11 @@ glusterd_mgmt_v3_post_validate_send_resp(rpcsvc_request_t *req, int32_t op,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -768,12 +795,14 @@ glusterd_handle_post_validate_fn(rpcsvc_request_t *req)
     gd1_mgmt_v3_post_val_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *op_errstr = NULL;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &op_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_post_val_req);
@@ -853,9 +882,12 @@ glusterd_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, int32_t status)
     gd1_mgmt_v3_unlock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     if (rsp.op_ret)
@@ -866,7 +898,7 @@ glusterd_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, int32_t status)
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
 
     return ret;
 }
@@ -877,9 +909,11 @@ glusterd_syctasked_mgmt_v3_unlock(rpcsvc_request_t *req,
                                   glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(ctx);
 
     /* Trying to release multiple mgmt_v3 locks */
@@ -901,9 +935,11 @@ glusterd_op_state_machine_mgmt_v3_unlock(rpcsvc_request_t *req,
                                          glusterd_op_lock_ctx_t *ctx)
 {
     int32_t ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = glusterd_op_sm_inject_event(GD_OP_EVENT_UNLOCK, &lock_req->txn_id,
                                       ctx);
@@ -926,11 +962,13 @@ glusterd_handle_mgmt_v3_unlock_fn(rpcsvc_request_t *req)
     };
     int32_t ret = -1;
     glusterd_op_lock_ctx_t *ctx = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_synctasked = _gf_false;
     gf_boolean_t free_ctx = _gf_false;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &lock_req,
                          (xdrproc_t)xdr_gd1_mgmt_v3_unlock_req);

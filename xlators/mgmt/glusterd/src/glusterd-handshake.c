@@ -889,7 +889,7 @@ __server_getspec(rpcsvc_request_t *req)
     };
     char addrstr[RPCSVC_PEER_STRLEN] = {0};
     peer_info_t *peerinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     dict_t *dict = NULL;
     glusterd_peerinfo_t *peer = NULL;
     glusterd_conf_t *conf = NULL;
@@ -901,7 +901,12 @@ __server_getspec(rpcsvc_request_t *req)
     };
     int len = 0;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
+    GF_ASSERT(conf);
+
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
     if (ret < 0) {
         // failed to decode msg;
@@ -1132,6 +1137,7 @@ int32_t
 __server_event_notify(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
+    xlator_t *this = NULL;
     gf_event_notify_req args = {
         0,
     };
@@ -1141,24 +1147,28 @@ __server_event_notify(rpcsvc_request_t *req)
     dict_t *dict = NULL;
     gf_boolean_t need_rsp = _gf_true;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_gf_event_notify_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_GARBAGE_ARGS, NULL);
         goto fail;
     }
 
     if (args.dict.dict_len) {
         dict = dict_new();
         if (!dict) {
-            gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
+            gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL,
                     NULL);
             return ret;
         }
         ret = dict_unserialize(args.dict.dict_val, args.dict.dict_len, &dict);
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "Failed to unserialize req");
             goto fail;
         }
@@ -1166,7 +1176,7 @@ __server_event_notify(rpcsvc_request_t *req)
 
     switch (args.op) {
         case GF_EN_DEFRAG_STATUS:
-            gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_DEFRAG_STATUS_UPDATED,
+            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DEFRAG_STATUS_UPDATED,
                    "received defrag status updated");
             if (dict) {
                 glusterd_defrag_event_notify_handle(dict);
@@ -1174,7 +1184,7 @@ __server_event_notify(rpcsvc_request_t *req)
             }
             break;
         default:
-            gf_msg("glusterd", GF_LOG_ERROR, EINVAL, GD_MSG_OP_UNSUPPORTED,
+            gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_OP_UNSUPPORTED,
                    "Unknown op received in event "
                    "notify");
             gf_event(EVENT_NOTIFY_UNKNOWN_OP, "op=%d", args.op);
@@ -1282,11 +1292,15 @@ gd_validate_mgmt_hndsk_req(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
     glusterd_peerinfo_t *peer = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *uuid_str = NULL;
     uuid_t peer_uuid = {
         0,
     };
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     if (!glusterd_have_peers() && !glusterd_have_volumes())
         return _gf_true;
@@ -1350,7 +1364,7 @@ int
 __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
 {
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1364,7 +1378,11 @@ __glusterd_mgmt_hndsk_versions(rpcsvc_request_t *req)
     };
     dict_t *args_dict = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
     if (ret < 0) {
@@ -1452,7 +1470,7 @@ int
 __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
 {
     dict_t *clnt_dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int ret = -1;
     int op_errno = EINVAL;
@@ -1466,7 +1484,11 @@ __glusterd_mgmt_hndsk_versions_ack(rpcsvc_request_t *req)
         0,
     };
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_mgmt_hndsk_req);
     if (ret < 0) {
@@ -1544,8 +1566,11 @@ __server_get_volume_info(rpcsvc_request_t *req)
     dict_t *dict_rsp = NULL;
     char *volume_id_str = NULL;
     int32_t flags = 0;
+    xlator_t *this = NULL;
 
-    xlator_t *this = THIS;
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &vol_info_req,
                          (xdrproc_t)xdr_gf_get_volume_info_req);
@@ -1695,17 +1720,20 @@ __server_get_snap_info(rpcsvc_request_t *req)
     gf_getsnap_name_uuid_rsp snap_info_rsp = {
         0,
     };
+    xlator_t *this = NULL;
     dict_t *dict = NULL;
     dict_t *dict_rsp = NULL;
     char *volname = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &snap_info_req,
                          (xdrproc_t)xdr_gf_getsnap_name_uuid_req);
     if (ret < 0) {
         req->rpc_err = GARBAGE_ARGS;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
                "Failed to decode management handshake response");
         goto out;
     }
@@ -1713,7 +1741,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
     if (snap_info_req.dict.dict_len) {
         dict = dict_new();
         if (!dict) {
-            gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+            gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
                     NULL);
             op_errno = ENOMEM;
             ret = -1;
@@ -1723,7 +1751,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
         ret = dict_unserialize(snap_info_req.dict.dict_val,
                                snap_info_req.dict.dict_len, &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, EINVAL,
+            gf_msg(this->name, GF_LOG_ERROR, EINVAL,
                    GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "Failed to unserialize dictionary");
             op_errno = EINVAL;
@@ -1737,7 +1765,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         op_errno = EINVAL;
-        gf_msg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_GET_FAILED,
                "Failed to retrieve volname");
         ret = -1;
         goto out;
@@ -1745,7 +1773,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
 
     dict_rsp = dict_new();
     if (!dict_rsp) {
-        gf_smsg("glusterd", GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
+        gf_smsg(this->name, GF_LOG_WARNING, ENOMEM, GD_MSG_DICT_CREATE_FAIL,
                 NULL);
         op_errno = ENOMEM;
         ret = -1;
@@ -1756,7 +1784,7 @@ __server_get_snap_info(rpcsvc_request_t *req)
                                                &snap_info_rsp);
 
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, EINVAL, GD_MSG_VOL_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_ERROR, EINVAL, GD_MSG_VOL_NOT_FOUND,
                "Error getting snapshot volume names and uuids : %s", volname);
         op_errno = EINVAL;
     }

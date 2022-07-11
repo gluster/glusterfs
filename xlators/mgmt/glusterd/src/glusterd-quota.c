@@ -165,10 +165,12 @@ __glusterd_handle_quota(rpcsvc_request_t *req)
     char msg[2048] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

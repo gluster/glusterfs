@@ -91,10 +91,11 @@ __glusterd_handle_sys_exec(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -172,10 +173,11 @@ __glusterd_handle_copy_file(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -256,10 +258,11 @@ __glusterd_handle_gsync_set(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

@@ -2399,16 +2399,18 @@ glusterd_mgmt_v3_initiate_all_phases_with_brickop_phase(rpcsvc_request_t *req,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     uint32_t txn_generation = 0;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
-    GF_ASSERT(dict);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
+    GF_ASSERT(dict);
 
     /* Save the peer list generation */
     txn_generation = conf->generation;
@@ -2563,16 +2565,18 @@ glusterd_mgmt_v3_initiate_all_phases(rpcsvc_request_t *req, glusterd_op_t op,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     uint32_t txn_generation = 0;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
-    GF_ASSERT(dict);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
+    GF_ASSERT(dict);
 
     /* Save the peer list generation */
     txn_generation = conf->generation;
@@ -2790,7 +2794,7 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     dict_t *tmp_dict = NULL;
     glusterd_conf_t *conf = NULL;
     char *op_errstr = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_acquired = _gf_false;
     uuid_t *originator_uuid = NULL;
     gf_boolean_t success = _gf_false;
@@ -2799,9 +2803,11 @@ glusterd_mgmt_v3_initiate_snap_phases(rpcsvc_request_t *req, glusterd_op_t op,
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
-    GF_ASSERT(dict);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
+    GF_ASSERT(dict);
 
     /* Save the peer list generation */
     txn_generation = conf->generation;

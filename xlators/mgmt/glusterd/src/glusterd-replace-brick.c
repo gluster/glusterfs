@@ -44,11 +44,14 @@ __glusterd_handle_replace_brick(rpcsvc_request_t *req)
     char msg[256] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -622,14 +625,16 @@ glusterd_mgmt_v3_initiate_replace_brick_cmd_phases(rpcsvc_request_t *req,
     dict_t *req_dict = NULL;
     dict_t *tmp_dict = NULL;
     uuid_t *originator_uuid = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     gf_boolean_t is_acquired = _gf_false;
 
     GF_ASSERT(req);
-    GF_ASSERT(dict);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
+    GF_ASSERT(dict);
 
     txn_generation = conf->generation;
     originator_uuid = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);

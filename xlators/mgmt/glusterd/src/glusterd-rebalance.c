@@ -485,10 +485,11 @@ __glusterd_handle_defrag_volume(rpcsvc_request_t *req)
     char msg[2048] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 

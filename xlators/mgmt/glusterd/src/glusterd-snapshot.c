@@ -1306,11 +1306,13 @@ glusterd_handle_snapshot_config(rpcsvc_request_t *req, glusterd_op_t op,
 {
     int32_t ret = -1;
     char *volname = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     int config_command = 0;
 
-    GF_VALIDATE_OR_GOTO(this->name, req, out);
-    GF_VALIDATE_OR_GOTO(this->name, dict, out);
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    GF_ASSERT(dict);
 
     /* TODO : Type of lock to be taken when we are setting
      * limits system wide
@@ -3315,11 +3317,13 @@ glusterd_handle_snapshot_info(rpcsvc_request_t *req, glusterd_op_t op,
     char *volname = NULL;
     char *snapname = NULL;
     glusterd_snap_t *snap = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     int32_t cmd = GF_SNAP_INFO_TYPE_ALL;
 
-    GF_VALIDATE_OR_GOTO(this->name, req, out);
-    GF_VALIDATE_OR_GOTO(this->name, dict, out);
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    GF_ASSERT(dict);
 
     ret = dict_get_int32(dict, "sub-cmd", &cmd);
     if (ret) {
@@ -3526,11 +3530,13 @@ glusterd_handle_snapshot_list(rpcsvc_request_t *req, glusterd_op_t op,
     int ret = -1;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
-    GF_VALIDATE_OR_GOTO(this->name, req, out);
-    GF_VALIDATE_OR_GOTO(this->name, dict, out);
-    GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    GF_ASSERT(dict);
+    GF_ASSERT(op_errno);
 
     /* Ignore error for getting volname as it is optional */
     ret = dict_get_str(dict, "volname", &volname);
@@ -3597,7 +3603,7 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
     char *volname = NULL;
     char *snapname = NULL;
     int64_t volcount = 0;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char key[64] = "";
     int keylen;
     char *username = NULL;
@@ -3610,7 +3616,10 @@ glusterd_handle_snapshot_create(rpcsvc_request_t *req, glusterd_op_t op,
     char new_snapname[GLUSTERD_MAX_SNAP_NAME] = "";
     char gmt_snaptime[GLUSTERD_MAX_SNAP_NAME] = "";
     time_t snap_time;
+
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
 
@@ -3789,14 +3798,17 @@ glusterd_handle_snapshot_status(rpcsvc_request_t *req, glusterd_op_t op,
                                 dict_t *dict, char *err_str, size_t len)
 {
     int ret = -1;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
 
     ret = glusterd_mgmt_v3_initiate_snap_phases(req, op, dict);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_INIT_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_INIT_FAIL,
                "Failed to initiate "
                "snap phases");
         goto out;
@@ -3826,7 +3838,7 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
     int ret = -1;
     char *clonename = NULL;
     char *snapname = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char key[64] = "";
     int keylen;
     char *username = NULL;
@@ -3838,6 +3850,8 @@ glusterd_handle_snapshot_clone(rpcsvc_request_t *req, glusterd_op_t op,
     char snap_volname[GD_VOLUME_NAME_MAX] = "";
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
 
@@ -3976,17 +3990,18 @@ glusterd_handle_snapshot_restore(rpcsvc_request_t *req, glusterd_op_t op,
     char *snapname = NULL;
     char *buf = NULL;
     glusterd_conf_t *conf = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_snap_t *snap = NULL;
     glusterd_volinfo_t *snap_volinfo = NULL;
     int32_t i = 0;
     char key[64] = "";
     int keylen;
 
-    conf = this->private;
-
-    GF_ASSERT(conf);
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
 
@@ -5315,9 +5330,11 @@ glusterd_handle_snapshot_delete_type_snap(rpcsvc_request_t *req,
     glusterd_snap_t *snap = NULL;
     glusterd_volinfo_t *snap_vol = NULL;
     glusterd_volinfo_t *tmp = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
 
@@ -5400,13 +5417,15 @@ glusterd_handle_snapshot_delete(rpcsvc_request_t *req, glusterd_op_t op,
                                 size_t len)
 {
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     int32_t delete_cmd = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(dict);
     GF_ASSERT(err_str);
-    GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
+    GF_ASSERT(op_errno);
 
     ret = dict_get_int32(dict, "sub-cmd", &delete_cmd);
     if (ret) {
@@ -8675,11 +8694,12 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     glusterd_conf_t *conf = NULL;
     char *host_uuid = NULL;
     char err_str[2048] = "";
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

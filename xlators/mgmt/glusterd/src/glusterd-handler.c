@@ -98,8 +98,15 @@ glusterd_big_locked_notify(struct rpc_clnt *rpc, void *mydata,
 int
 glusterd_big_locked_handler(rpcsvc_request_t *req, rpcsvc_actor actor_fn)
 {
-    glusterd_conf_t *priv = THIS->private;
+    glusterd_conf_t *priv = NULL;
+    xlator_t *this = NULL;
     int ret = -1;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
+    GF_ASSERT(priv);
 
     synclock_lock(&priv->big_lock);
     ret = actor_fn(req);
@@ -121,8 +128,13 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     glusterd_friend_req_ctx_t *ctx = NULL;
     char rhost[UNIX_PATH_MAX + 1] = {0};
     dict_t *dict = NULL;
+    xlator_t *this = NULL;
     dict_t *peer_ver = NULL;
     int totcount = sizeof(specific_key_suffix) / sizeof(specific_key_suffix[0]);
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -136,7 +148,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     RCU_READ_LOCK;
 
     if (!ctx || !dict || !peer_ver) {
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Unable to allocate memory");
         ret = -1;
         goto out;
@@ -158,7 +170,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     ret = glusterd_friend_sm_new_event(GD_FRIEND_EVENT_RCVD_FRIEND_REQ, &event);
 
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
                "event generation failed: %d", ret);
         goto out;
     }
@@ -176,7 +188,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
         specific_key_suffix, &peer_ver, totcount);
 
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+        gf_smsg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                 NULL);
         goto out;
     } else
@@ -188,7 +200,7 @@ glusterd_handle_friend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     ret = glusterd_friend_sm_inject_event(event);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject event %d, "
                "ret = %d",
                event->event, ret);
@@ -228,9 +240,14 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
                              int port)
 {
     int ret = -1;
+    xlator_t *this = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_friend_req_ctx_t *ctx = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     if (!port)
         port = GF_DEFAULT_BASE_PORT;
@@ -243,7 +260,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     if (peerinfo == NULL) {
         RCU_READ_UNLOCK;
-        gf_msg("glusterd", GF_LOG_CRITICAL, 0, GD_MSG_REQ_FROM_UNKNOWN_PEER,
+        gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_REQ_FROM_UNKNOWN_PEER,
                "Received remove-friend from unknown peer %s", hostname);
         ret = glusterd_xfer_friend_remove_resp(req, hostname, port);
         goto out;
@@ -254,7 +271,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     if (ret) {
         RCU_READ_UNLOCK;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
                "event generation failed: %d", ret);
         goto out;
     }
@@ -267,7 +284,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
     if (!ctx) {
         RCU_READ_UNLOCK;
         ret = -1;
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Unable to allocate memory");
         goto out;
     }
@@ -283,7 +300,7 @@ glusterd_handle_unfriend_req(rpcsvc_request_t *req, uuid_t uuid, char *hostname,
 
     if (ret) {
         RCU_READ_UNLOCK;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject event %d, "
                "ret = %d",
                event->event, ret);
@@ -625,7 +642,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 {
     int32_t ret = -1;
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     int32_t locked = 0;
     char *tmp = NULL;
@@ -639,11 +656,13 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
     time_t timeout = 0;
 
     GF_ASSERT(req);
-    GF_ASSERT((op > GD_OP_NONE) && (op < GD_OP_MAX));
-    GF_ASSERT(NULL != ctx);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
+
+    GF_ASSERT((op > GD_OP_NONE) && (op < GD_OP_MAX));
+    GF_ASSERT(NULL != ctx);
 
     dict = ctx;
 
@@ -788,11 +807,13 @@ __glusterd_handle_cluster_lock(rpcsvc_request_t *req)
     };
     glusterd_conf_t *priv = NULL;
     uuid_t *txn_id = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-    GF_ASSERT(req);
 
     txn_id = &priv->global_txn_id;
 
@@ -885,7 +906,11 @@ glusterd_req_ctx_create(rpcsvc_request_t *rpc_req, int op, uuid_t uuid,
     };
     glusterd_req_ctx_t *req_ctx = NULL;
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(rpc_req);
+    this = rpc_req->trans->xl;
+    GF_ASSERT(this);
 
     gf_uuid_unparse(uuid, str);
     gf_msg_debug(this->name, 0, "Received op from uuid %s", str);
@@ -932,7 +957,7 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     gd1_mgmt_stage_op_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     uuid_t *txn_id = NULL;
     glusterd_op_info_t txn_op_info = {
         GD_OP_STATE_DEFAULT,
@@ -940,9 +965,11 @@ __glusterd_handle_stage_op(rpcsvc_request_t *req)
     glusterd_op_sm_state_t state = GD_OP_STATE_DEFAULT;
     glusterd_conf_t *priv = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-    GF_ASSERT(req);
 
     txn_id = &priv->global_txn_id;
 
@@ -1032,13 +1059,15 @@ __glusterd_handle_commit_op(rpcsvc_request_t *req)
     gd1_mgmt_commit_op_req op_req = {
         {0},
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     uuid_t *txn_id = NULL;
     glusterd_conf_t *priv = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-    GF_ASSERT(req);
 
     txn_id = &priv->global_txn_id;
 
@@ -1101,7 +1130,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     };
     glusterd_peerinfo_t *peerinfo = NULL;
     gf_boolean_t run_fsm = _gf_true;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *bind_name = NULL;
     dict_t *dict = NULL;
     char *hostname = NULL;
@@ -1109,6 +1138,8 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     int op_errno = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -1156,12 +1187,12 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
            "Received CLI probe req %s %d", hostname, port);
 
     if (dict_get_str(this->options, "transport.socket.bind-address",
                      &bind_name) == 0) {
-        gf_msg_debug("glusterd", 0,
+        gf_msg_debug(this->name, 0,
                      "only checking probe address vs. bind address");
         ret = gf_is_same_address(bind_name, hostname);
     } else {
@@ -1182,7 +1213,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     RCU_READ_UNLOCK;
 
     if (ret) {
-        gf_msg_debug("glusterd", 0,
+        gf_msg_debug(this->name, 0,
                      "Probe host %s port %d "
                      "already a peer",
                      hostname, port);
@@ -1270,7 +1301,7 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     };
     uuid_t uuid = {0};
     int op_errno = 0;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     dict_t *dict = NULL;
     char *hostname = NULL;
@@ -1282,9 +1313,11 @@ __glusterd_handle_cli_deprobe(rpcsvc_request_t *req)
     glusterd_snap_t *tmpsnap = NULL;
     gf_boolean_t need_free = _gf_false;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-    GF_ASSERT(req);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -1433,22 +1466,25 @@ __glusterd_handle_cli_list_friends(rpcsvc_request_t *req)
     gf1_cli_peer_list_req cli_req = {
         0,
     };
+    xlator_t *this = NULL;
     dict_t *dict = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req,
                          (xdrproc_t)xdr_gf1_cli_peer_list_req);
     if (ret < 0) {
         // failed to decode msg;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
                "Failed to decode "
                "request received from cli");
         req->rpc_err = GARBAGE_ARGS;
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_CLI_REQ_RECVD,
            "Received cli list req");
 
     if (cli_req.dict.dict_len) {
@@ -1458,7 +1494,7 @@ __glusterd_handle_cli_list_friends(rpcsvc_request_t *req)
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             goto out;
@@ -1494,9 +1530,11 @@ __glusterd_handle_cli_get_volume(rpcsvc_request_t *req)
     }};
     int32_t flags = 0;
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -1556,7 +1594,7 @@ __glusterd_handle_cli_uuid_reset(rpcsvc_request_t *req)
 {
     int ret = -1;
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     uuid_t uuid = {0};
     gf_cli_rsp rsp = {
@@ -1570,7 +1608,8 @@ __glusterd_handle_cli_uuid_reset(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
-
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -1584,7 +1623,7 @@ __glusterd_handle_cli_uuid_reset(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg_debug("glusterd", 0, "Received uuid reset req");
+    gf_msg_debug(this->name, 0, "Received uuid reset req");
 
     if (cli_req.dict.dict_len) {
         /* Unserialize the dictionary */
@@ -1674,7 +1713,7 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     int ret = -1;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_cli_rsp rsp = {
         0,
     };
@@ -1689,6 +1728,8 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -1699,7 +1740,7 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg_debug("glusterd", 0, "Received uuid get req");
+    gf_msg_debug(this->name, 0, "Received uuid get req");
 
     if (cli_req.dict.dict_len) {
         dict = dict_new();
@@ -1713,7 +1754,7 @@ __glusterd_handle_cli_uuid_get(rpcsvc_request_t *req)
         ret = dict_unserialize(cli_req.dict.dict_val, cli_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             snprintf(err_str, sizeof(err_str),
@@ -1782,6 +1823,7 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
 {
     int ret = -1;
     dict_t *dict = NULL;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     int count = 0;
@@ -1794,13 +1836,14 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
-
-    priv = THIS->private;
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
     GF_ASSERT(priv);
 
     dict = dict_new();
     if (!dict) {
-        gf_smsg("glusterd", GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
+        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_DICT_CREATE_FAIL, NULL);
         goto out;
     }
 
@@ -1815,7 +1858,7 @@ __glusterd_handle_cli_list_volume(rpcsvc_request_t *req)
 
     ret = dict_set_int32_sizen(dict, "count", count);
     if (ret) {
-        gf_smsg("glusterd", GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
+        gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=count", NULL);
         goto out;
     }
@@ -1878,9 +1921,11 @@ __glusterd_handle_ganesha_cmd(rpcsvc_request_t *req)
     char err_str[2048] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -1954,9 +1999,11 @@ __glusterd_handle_reset_volume(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     gf_msg(this->name, GF_LOG_INFO, 0, 0, "Received reset vol req");
 
@@ -2039,9 +2086,11 @@ __glusterd_handle_set_volume(rpcsvc_request_t *req)
     char err_str[2048] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -2154,9 +2203,11 @@ __glusterd_handle_sync_volume(rpcsvc_request_t *req)
     char *volname = NULL;
     gf1_cli_sync_volume flags = 0;
     char *hostname = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -2249,9 +2300,12 @@ glusterd_fsm_log_send_resp(rpcsvc_request_t *req, int op_ret, char *op_errstr,
                            dict_t *dict)
 {
     int ret = -1;
+    xlator_t *this = NULL;
     gf1_cli_fsm_log_rsp rsp = {0};
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(op_errstr);
 
     rsp.op_ret = op_ret;
@@ -2260,7 +2314,7 @@ glusterd_fsm_log_send_resp(rpcsvc_request_t *req, int op_ret, char *op_errstr,
         ret = dict_allocate_and_serialize(dict, &rsp.fsm_log.fsm_log_val,
                                           &rsp.fsm_log.fsm_log_len);
         if (ret < 0) {
-            gf_smsg("glusterd", GF_LOG_ERROR, errno,
+            gf_smsg(this->name, GF_LOG_ERROR, errno,
                     GD_MSG_DICT_ALLOC_AND_SERL_LENGTH_GET_FAIL, NULL);
             return ret;
         }
@@ -2270,7 +2324,7 @@ glusterd_fsm_log_send_resp(rpcsvc_request_t *req, int op_ret, char *op_errstr,
                                 (xdrproc_t)xdr_gf1_cli_fsm_log_rsp);
     GF_FREE(rsp.fsm_log.fsm_log_val);
 
-    gf_msg_debug("glusterd", 0, "Responded, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded, ret: %d", ret);
 
     return 0;
 }
@@ -2368,12 +2422,14 @@ __glusterd_handle_fsm_log(rpcsvc_request_t *req)
         0,
     };
     dict_t *dict = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     char msg[2048] = {0};
     glusterd_peerinfo_t *peerinfo = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req,
                          (xdrproc_t)xdr_gf1_cli_fsm_log_req);
@@ -2435,16 +2491,20 @@ glusterd_op_lock_send_resp(rpcsvc_request_t *req, int32_t status)
     gd1_mgmt_cluster_lock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     glusterd_get_uuid(&rsp.uuid);
     rsp.op_ret = status;
 
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_cluster_lock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to lock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to lock, ret: %d", ret);
 
     return 0;
 }
@@ -2455,16 +2515,20 @@ glusterd_op_unlock_send_resp(rpcsvc_request_t *req, int32_t status)
     gd1_mgmt_cluster_unlock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
 
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_cluster_unlock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to unlock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to unlock, ret: %d", ret);
 
     return ret;
 }
@@ -2476,10 +2540,14 @@ glusterd_op_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     gd1_mgmt_v3_lock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(txn_id);
+
     glusterd_get_uuid(&rsp.uuid);
     rsp.op_ret = status;
     if (rsp.op_ret)
@@ -2489,7 +2557,7 @@ glusterd_op_mgmt_v3_lock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_lock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 lock, ret: %d", ret);
 
     return ret;
 }
@@ -2501,10 +2569,14 @@ glusterd_op_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     gd1_mgmt_v3_unlock_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int ret = -1;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(txn_id);
+
     rsp.op_ret = status;
     if (rsp.op_ret)
         rsp.op_errno = errno;
@@ -2514,7 +2586,7 @@ glusterd_op_mgmt_v3_unlock_send_resp(rpcsvc_request_t *req, uuid_t *txn_id,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_v3_unlock_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to mgmt_v3 unlock, ret: %d", ret);
 
     return ret;
 }
@@ -2527,13 +2599,15 @@ __glusterd_handle_cluster_unlock(rpcsvc_request_t *req)
     };
     int32_t ret = -1;
     glusterd_op_lock_ctx_t *ctx = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     uuid_t *txn_id = NULL;
     glusterd_conf_t *priv = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-    GF_ASSERT(req);
 
     txn_id = &priv->global_txn_id;
 
@@ -2597,9 +2671,11 @@ glusterd_op_stage_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
@@ -2634,9 +2710,12 @@ glusterd_op_commit_send_resp(rpcsvc_request_t *req, int32_t op, int32_t status,
         {0},
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     rsp.op_ret = status;
     glusterd_get_uuid(&rsp.uuid);
     rsp.op = op;
@@ -2674,20 +2753,24 @@ __glusterd_handle_incoming_friend_req(rpcsvc_request_t *req)
         {0},
     };
     gf_boolean_t run_fsm = _gf_true;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     ret = xdr_to_generic(req->msg[0], &friend_req,
                          (xdrproc_t)xdr_gd1_mgmt_friend_req);
     if (ret < 0) {
         // failed to decode msg;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
                "Failed to decode "
                "request received from friend");
         req->rpc_err = GARBAGE_ARGS;
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PROBE_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_PROBE_RCVD,
            "Received probe from uuid: %s", uuid_utoa(friend_req.uuid));
     ret = glusterd_handle_friend_req(req, friend_req.uuid, friend_req.hostname,
                                      friend_req.port, &friend_req);
@@ -2726,26 +2809,30 @@ __glusterd_handle_incoming_unfriend_req(rpcsvc_request_t *req)
     char remote_hostname[UNIX_PATH_MAX + 1] = {
         0,
     };
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+
     ret = xdr_to_generic(req->msg[0], &friend_req,
                          (xdrproc_t)xdr_gd1_mgmt_friend_req);
     if (ret < 0) {
         // failed to decode msg;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
                "Failed to decode "
                "request received.");
         req->rpc_err = GARBAGE_ARGS;
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_UNFRIEND_REQ_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_UNFRIEND_REQ_RCVD,
            "Received unfriend from uuid: %s", uuid_utoa(friend_req.uuid));
 
     ret = glusterd_remote_hostname_get(req, remote_hostname,
                                        sizeof(remote_hostname));
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_RESOLVE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_RESOLVE_FAIL,
                "Unable to get the remote hostname");
         goto out;
     }
@@ -2784,7 +2871,7 @@ glusterd_handle_friend_update_delete(dict_t *dict)
     ret = glusterd_friend_remove(NULL, hostname);
 
 out:
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(THIS->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -2846,7 +2933,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         {0},
     };
     glusterd_peerinfo_t *peerinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gd1_mgmt_friend_update_rsp rsp = {
         {0},
     };
@@ -2865,6 +2952,8 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
     int32_t op = 0;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &friend_req,
                          (xdrproc_t)xdr_gd1_mgmt_friend_update);
@@ -2892,7 +2981,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_FRIEND_UPDATE_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_FRIEND_UPDATE_RCVD,
            "Received friend update from uuid: %s", uuid_utoa(friend_req.uuid));
 
     if (friend_req.friends.friends_len) {
@@ -2902,7 +2991,7 @@ __glusterd_handle_friend_update(rpcsvc_request_t *req)
         ret = dict_unserialize(friend_req.friends.friends_val,
                                friend_req.friends.friends_len, &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             goto out;
@@ -3031,7 +3120,7 @@ int
 __glusterd_handle_probe_query(rpcsvc_request_t *req)
 {
     int32_t ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     gd1_mgmt_probe_req probe_req = {
         {0},
@@ -3047,6 +3136,10 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
     };
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    conf = this->private;
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &probe_req,
                          (xdrproc_t)xdr_gd1_mgmt_probe_req);
@@ -3059,20 +3152,19 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
         goto out;
     }
 
-    conf = this->private;
     if (probe_req.port)
         port = probe_req.port;
     else
         port = GF_DEFAULT_BASE_PORT;
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PROBE_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_PROBE_RCVD,
            "Received probe from uuid: %s", uuid_utoa(probe_req.uuid));
 
     /* Check for uuid collision and handle it in a user friendly way by
      * sending the error.
      */
     if (!gf_uuid_compare(probe_req.uuid, MY_UUID)) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_UUIDS_SAME_RETRY,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UUIDS_SAME_RETRY,
                "Peer uuid %s is same as "
                "local uuid. Please check the uuid of both the peers "
                "from %s/%s",
@@ -3087,7 +3179,7 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
     ret = glusterd_remote_hostname_get(req, remote_hostname,
                                        sizeof(remote_hostname));
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_RESOLVE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_HOSTNAME_RESOLVE_FAIL,
                "Unable to get the remote hostname");
         goto out;
     }
@@ -3098,7 +3190,7 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
         rsp.op_ret = -1;
         rsp.op_errno = GF_PROBE_ANOTHER_CLUSTER;
     } else if (peerinfo == NULL) {
-        gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
                "Unable to find peerinfo"
                " for host: %s (%d)",
                remote_hostname, port);
@@ -3107,7 +3199,7 @@ __glusterd_handle_probe_query(rpcsvc_request_t *req)
                                   GD_FRIEND_STATE_PROBE_RCVD, NULL, &peerinfo,
                                   0, &args);
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_PEER_ADD_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_ADD_FAIL,
                    "Failed to add peer %s", remote_hostname);
             rsp.op_errno = GF_PROBE_ADD_FAILED;
         }
@@ -3124,7 +3216,7 @@ respond:
                           (xdrproc_t)xdr_gd1_mgmt_probe_rsp);
     ret = 0;
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
            "Responded to %s, op_ret: %d, "
            "op_errno: %d, ret: %d",
            remote_hostname, rsp.op_ret, rsp.op_errno, ret);
@@ -3158,12 +3250,14 @@ __glusterd_handle_cli_profile_volume(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, out);
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -3249,13 +3343,15 @@ __glusterd_handle_getwd(rpcsvc_request_t *req)
         0,
     };
     glusterd_conf_t *priv = NULL;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
-
-    priv = THIS->private;
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
     GF_ASSERT(priv);
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_GETWD_REQ_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_GETWD_REQ_RCVD,
            "Received getwd req");
 
     rsp.wd = priv->workdir;
@@ -3287,16 +3383,20 @@ __glusterd_handle_mount(rpcsvc_request_t *req)
     };
     dict_t *dict = NULL;
     int ret = 0;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(req);
-    priv = THIS->private;
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
+    GF_ASSERT(priv);
 
     ret = xdr_to_generic(req->msg[0], &mnt_req,
                          (xdrproc_t)xdr_gf1_cli_mount_req);
     if (ret < 0) {
         // failed to decode msg;
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
                "Failed to decode mount "
                "request received");
         req->rpc_err = GARBAGE_ARGS;
@@ -3305,7 +3405,7 @@ __glusterd_handle_mount(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_MOUNT_REQ_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_MOUNT_REQ_RCVD,
            "Received mount req");
 
     if (mnt_req.dict.dict_len) {
@@ -3315,7 +3415,7 @@ __glusterd_handle_mount(rpcsvc_request_t *req)
         ret = dict_unserialize(mnt_req.dict.dict_val, mnt_req.dict.dict_len,
                                &dict);
         if (ret < 0) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_UNSERIALIZE_FAIL,
                    "failed to "
                    "unserialize req-buffer to dictionary");
             rsp.op_ret = -1;
@@ -3374,14 +3474,17 @@ __glusterd_handle_umount(rpcsvc_request_t *req)
         0,
     };
     int ret = 0;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t dir_ok = _gf_false;
     char *pdir = NULL;
     char *t = NULL;
     glusterd_conf_t *priv = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
+    GF_ASSERT(priv);
 
     ret = xdr_to_generic(req->msg[0], &umnt_req,
                          (xdrproc_t)xdr_gf1_cli_umount_req);
@@ -3395,7 +3498,7 @@ __glusterd_handle_umount(rpcsvc_request_t *req)
         goto out;
     }
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_UMOUNT_REQ_RCVD,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_UMOUNT_REQ_RCVD,
            "Received umount req");
 
     if (dict_get_str(this->options, "mountbroker-root", &mountbroker_root) !=
@@ -3565,7 +3668,7 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
      */
     ret = dict_set_int32_sizen(dict, "frame-timeout", 600);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set frame-timeout");
         goto out;
     }
@@ -3574,18 +3677,18 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
     ret = dict_get_int32(this->options, "transport.socket.keepalive-interval",
                          &interval);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get socket keepalive-interval");
     }
     ret = dict_get_int32(this->options, "transport.socket.keepalive-time",
                          &time);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get socket keepalive-time");
     }
     ret = dict_get_int32(this->options, "transport.tcp-user-timeout", &timeout);
     if (ret) {
-        gf_msg("glusterd", GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get tcp-user-timeout");
     }
 
@@ -3593,7 +3696,7 @@ glusterd_transport_inet_options_build(dict_t *dict, const char *hostname,
         ret = rpc_transport_keepalive_options_set(dict, interval, time,
                                                   timeout);
 out:
-    gf_msg_debug("glusterd", 0, "Returning %d", ret);
+    gf_msg_debug(this->name, 0, "Returning %d", ret);
     return ret;
 }
 
@@ -3662,7 +3765,7 @@ glusterd_friend_rpc_create(xlator_t *this, glusterd_peerinfo_t *peerinfo,
         ret = dict_set_sizen_str_sizen(options, "transport.socket.ssl-enabled",
                                        "on");
         if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                    "failed to set ssl-enabled in dict");
             goto out;
         }
@@ -3800,17 +3903,21 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
                      dict_t *dict, int *op_errno)
 {
     int ret = -1;
+    xlator_t *this = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_peerctx_args_t args = {0};
     glusterd_friend_sm_event_t *event = NULL;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(hoststr);
 
     RCU_READ_LOCK;
     peerinfo = glusterd_peerinfo_find(NULL, hoststr);
 
     if (peerinfo == NULL) {
-        gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
                "Unable to find peerinfo"
                " for host: %s (%d)",
                hoststr, port);
@@ -3852,7 +3959,7 @@ glusterd_probe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
 
 out:
     RCU_READ_UNLOCK;
-    gf_msg_debug("glusterd", 0, "returning %d", ret);
+    gf_msg_debug(this->name, 0, "returning %d", ret);
     return ret;
 }
 
@@ -3861,19 +3968,22 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
                        uuid_t uuid, dict_t *dict, int *op_errno)
 {
     int ret = -1;
+    xlator_t *this = NULL;
     glusterd_peerinfo_t *peerinfo = NULL;
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_probe_ctx_t *ctx = NULL;
 
-    GF_ASSERT(hoststr);
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    GF_ASSERT(hoststr);
 
     RCU_READ_LOCK;
 
     peerinfo = glusterd_peerinfo_find(uuid, hoststr);
     if (peerinfo == NULL) {
         ret = -1;
-        gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_PEER_NOT_FOUND,
                "Unable to find peerinfo"
                " for host: %s %d",
                hoststr, port);
@@ -3896,7 +4006,7 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
                                        &event);
 
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_NEW_GET_FAIL,
                "Unable to get new event");
         goto out;
     }
@@ -3920,7 +4030,7 @@ glusterd_deprobe_begin(rpcsvc_request_t *req, const char *hoststr, int port,
     ret = glusterd_friend_sm_inject_event(event);
 
     if (ret) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_EVENT_INJECT_FAIL,
                "Unable to inject event %d, "
                "ret = %d",
                event->event, ret);
@@ -3940,8 +4050,12 @@ glusterd_xfer_friend_remove_resp(rpcsvc_request_t *req, char *hostname,
     gd1_mgmt_friend_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int32_t ret = -1;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(hostname);
 
     rsp.op_ret = 0;
@@ -3952,7 +4066,7 @@ glusterd_xfer_friend_remove_resp(rpcsvc_request_t *req, char *hostname,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
            "Responded to %s (%d), ret: %d", hostname, port, ret);
     return ret;
 }
@@ -3965,8 +4079,12 @@ glusterd_xfer_friend_add_resp(rpcsvc_request_t *req, char *myhostname,
     gd1_mgmt_friend_rsp rsp = {
         {0},
     };
+    xlator_t *this = NULL;
     int32_t ret = -1;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     GF_ASSERT(myhostname);
 
     gf_uuid_copy(rsp.uuid, MY_UUID);
@@ -3978,7 +4096,7 @@ glusterd_xfer_friend_add_resp(rpcsvc_request_t *req, char *myhostname,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gd1_mgmt_friend_rsp);
 
-    gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
+    gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_RESPONSE_INFO,
            "Responded to %s (%d), ret: %d, op_ret: %d", remote_hostname, port,
            ret, op_ret);
     GF_FREE(rsp.hostname);
@@ -4111,9 +4229,11 @@ glusterd_xfer_cli_probe_resp(rpcsvc_request_t *req, int32_t op_ret,
         0,
     };
     char *cmd_str = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     (void)set_probe_error_str(op_ret, op_errno, op_errstr, errstr,
                               sizeof(errstr), hostname, port);
@@ -4228,8 +4348,11 @@ glusterd_xfer_cli_deprobe_resp(rpcsvc_request_t *req, int32_t op_ret,
     char errstr[2048] = {
         0,
     };
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     (void)set_deprobe_error_str(op_ret, op_errno, op_errstr, errstr,
                                 sizeof(errstr), hostname);
@@ -4237,7 +4360,7 @@ glusterd_xfer_cli_deprobe_resp(rpcsvc_request_t *req, int32_t op_ret,
     if (dict) {
         ret = dict_get_str(dict, "cmd-str", &cmd_str);
         if (ret)
-            gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_CMDSTR_NOTFOUND_IN_DICT,
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_CMDSTR_NOTFOUND_IN_DICT,
                    "Failed to get "
                    "command string");
     }
@@ -4253,7 +4376,7 @@ glusterd_xfer_cli_deprobe_resp(rpcsvc_request_t *req, int32_t op_ret,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gf_cli_rsp);
 
-    gf_msg_debug(THIS->name, 0, "Responded to CLI, ret: %d", ret);
+    gf_msg_debug(this->name, 0, "Responded to CLI, ret: %d", ret);
 
     return ret;
 }
@@ -4276,9 +4399,11 @@ glusterd_list_friends(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         0,
     };
     int keylen;
+    xlator_t *this = NULL;
 
-    xlator_t *this = THIS;
-
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
 
@@ -4376,9 +4501,14 @@ glusterd_get_volumes(rpcsvc_request_t *req, dict_t *dict, int32_t flags)
         0,
     };
     char *volname = NULL;
+    xlator_t *this = NULL;
 
-    priv = THIS->private;
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
     GF_ASSERT(priv);
+
     volumes = dict_new();
     if (!volumes) {
         gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
@@ -4480,10 +4610,12 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
     char err_str[256] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 
@@ -4621,11 +4753,12 @@ __glusterd_handle_cli_clearlocks_volume(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
-    ret = -1;
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REQ_DECODE_FAIL,
@@ -4768,7 +4901,7 @@ static int
 __glusterd_handle_barrier(rpcsvc_request_t *req)
 {
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_cli_req cli_req = {{
         0,
     }};
@@ -4776,6 +4909,8 @@ __glusterd_handle_barrier(rpcsvc_request_t *req)
     char *volname = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -4870,7 +5005,7 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
     int keylen;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     gf_cli_rsp rsp = {
@@ -4880,10 +5015,11 @@ glusterd_get_volume_opts(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
     GF_ASSERT(priv);
-
-    GF_ASSERT(req);
     GF_ASSERT(dict);
 
     ret = dict_get_str(dict, "volname", &volname);
@@ -5160,9 +5296,11 @@ __glusterd_handle_get_vol_opt(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
 
     GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -5763,7 +5901,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
     glusterd_peer_hostname_t *peer_hostname_info = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     dict_t *vol_all_opts = NULL;
     struct statvfs brickstat = {0};
     char *odir = NULL;
@@ -5802,9 +5940,13 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
         0,
     };
 
-    priv = THIS->private;
-    GF_VALIDATE_OR_GOTO(this->name, priv, out);
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
+    priv = this->private;
+    GF_ASSERT(priv);
 
+    GF_VALIDATE_OR_GOTO(this->name, priv, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
     ret = dict_get_str(dict, "odir", &tmp_str);
@@ -6214,7 +6356,11 @@ __glusterd_handle_get_state(rpcsvc_request_t *req)
     char err_str[64] = {
         0,
     };
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     GF_VALIDATE_OR_GOTO(this->name, req, out);
 

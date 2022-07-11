@@ -2283,10 +2283,14 @@ gd_unlock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, int *op_ret,
     uuid_t tmp_uuid = {0};
     int peer_cnt = 0;
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     struct syncargs args = {0};
     int32_t global = 0;
     char *type = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     /* If the lock has not been held during this
      * transaction, do not send unlock requests */
@@ -2417,7 +2421,10 @@ gd_get_brick_count(struct cds_list_head *bricks)
 {
     glusterd_pending_node_t *pending_node = NULL;
     int npeers = 0;
-    cds_list_for_each_entry(pending_node, bricks, list) { npeers++; }
+    cds_list_for_each_entry(pending_node, bricks, list)
+    {
+        npeers++;
+    }
     return npeers;
 }
 
@@ -2538,7 +2545,7 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     char *tmp = NULL;
     char *global = NULL;
     char *volname = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     gf_boolean_t is_acquired = _gf_false;
     gf_boolean_t is_global = _gf_false;
     uuid_t *txn_id = NULL;
@@ -2549,6 +2556,9 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
     gf_boolean_t cluster_lock = _gf_false;
     time_t timeout = 0;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
     GF_ASSERT(conf);
 

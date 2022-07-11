@@ -408,7 +408,11 @@ __gluster_pmap_portbybrick(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args,
                          (xdrproc_t)xdr_pmap_port_by_brick_req);
@@ -541,8 +545,12 @@ __gluster_pmap_signin(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signin_req);
     if (ret < 0) {
@@ -583,14 +591,17 @@ __gluster_pmap_signout(rpcsvc_request_t *req)
         0,
     };
     int ret = -1;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_brickinfo_t *brickinfo = NULL;
     char pidfile[PATH_MAX] = {0};
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, conf, fail);
+    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_pmap_signout_req);
     if (ret < 0) {

@@ -562,6 +562,11 @@ glusterd_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
     struct iobuf *iob = NULL;
     ssize_t retlen = -1;
     ssize_t rsp_size = 0;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     /* First, get the io buffer into which the reply in arg will
      * be serialized.
@@ -569,7 +574,7 @@ glusterd_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
     rsp_size = xdr_sizeof(xdrproc, arg);
     iob = iobuf_get2(req->svc->ctx->iobuf_pool, rsp_size);
     if (!iob) {
-        gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+        gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                "Failed to get iobuf");
         goto ret;
     }
@@ -583,7 +588,7 @@ glusterd_serialize_reply(rpcsvc_request_t *req, void *arg, struct iovec *outmsg,
      */
     retlen = xdr_serialize_generic(*outmsg, arg, xdrproc);
     if (retlen == -1) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_ENCODE_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ENCODE_FAIL,
                "Failed to encode message");
         goto ret;
     }
@@ -609,16 +614,16 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
         0,
     };
     char new_iobref = 0;
+    xlator_t *this = NULL;
 
-    if (!req) {
-        GF_ASSERT(req);
-        goto out;
-    }
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     if (!iobref) {
         iobref = iobref_new();
         if (!iobref) {
-            gf_msg("glusterd", GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
+            gf_msg(this->name, GF_LOG_ERROR, ENOMEM, GD_MSG_NO_MEMORY,
                    "out of memory");
             goto out;
         }
@@ -628,7 +633,7 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
 
     iob = glusterd_serialize_reply(req, arg, &rsp, xdrproc);
     if (!iob) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_SERIALIZE_MSG_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SERIALIZE_MSG_FAIL,
                "Failed to serialize reply");
     } else {
         iobref_add(iobref, iob);
@@ -637,7 +642,7 @@ glusterd_submit_reply(rpcsvc_request_t *req, void *arg, struct iovec *payload,
     ret = rpcsvc_submit_generic(req, &rsp, 1, payload, payloadcount, iobref);
 
     if (ret == -1) {
-        gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_REPLY_SUBMIT_FAIL,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_REPLY_SUBMIT_FAIL,
                "Reply submission failed");
         goto out;
     }
@@ -9082,13 +9087,18 @@ glusterd_to_cli(rpcsvc_request_t *req, gf_cli_rsp *arg, struct iovec *payload,
     char *cmd = NULL;
     int op_ret = 0;
     char *op_errstr = NULL;
+    xlator_t *this = NULL;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     op_ret = arg->op_ret;
     op_errstr = arg->op_errstr;
 
     ret = dict_get_str(dict, "cmd-str", &cmd);
     if (ret)
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get command "
                "string");
 
@@ -11404,13 +11414,18 @@ glusterd_get_global_max_op_version(rpcsvc_request_t *req, dict_t *ctx,
     int ret = -1;
     char *def_val = NULL;
     char dict_key[50] = "";
+    xlator_t *this = NULL;
     int keylen;
+
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
 
     ret = glusterd_mgmt_v3_initiate_all_phases(req, GD_OP_MAX_OPVERSION, ctx);
 
     ret = dict_get_str(ctx, "max-opversion", &def_val);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
                "Failed to get max-opversion value from"
                " dictionary");
         goto out;
@@ -11420,7 +11435,7 @@ glusterd_get_global_max_op_version(rpcsvc_request_t *req, dict_t *ctx,
     ret = dict_set_nstrn(ctx, dict_key, keylen, GLUSTERD_MAX_OP_VERSION_KEY,
                          SLEN(GLUSTERD_MAX_OP_VERSION_KEY));
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set %s in "
                "dictionary",
                GLUSTERD_MAX_OP_VERSION_KEY);
@@ -11430,7 +11445,7 @@ glusterd_get_global_max_op_version(rpcsvc_request_t *req, dict_t *ctx,
     sprintf(dict_key, "value%d", count);
     ret = dict_set_dynstr_with_alloc(ctx, dict_key, def_val);
     if (ret) {
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set %s for key %s in dictionary", def_val,
                GLUSTERD_MAX_OP_VERSION_KEY);
         goto out;
@@ -11449,7 +11464,7 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
     gf_boolean_t all_opts = _gf_false;
     gf_boolean_t key_found = _gf_false;
     glusterd_conf_t *priv = NULL;
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     char *key = NULL;
     char *key_fixed = NULL;
     char dict_key[50] = "";
@@ -11460,10 +11475,12 @@ glusterd_get_global_options_for_all_vols(rpcsvc_request_t *req, dict_t *ctx,
     gf_boolean_t exists = _gf_false;
     gf_boolean_t need_free = _gf_false;
 
+    GF_ASSERT(req);
+    this = req->trans->xl;
+    GF_ASSERT(this);
     priv = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, priv, out);
-
-    GF_VALIDATE_OR_GOTO(this->name, ctx, out);
+    GF_ASSERT(priv);
+    GF_ASSERT(ctx);
 
     ret = dict_get_str(ctx, "key", &key);
     if (ret) {
