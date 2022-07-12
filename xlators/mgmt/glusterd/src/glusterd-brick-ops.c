@@ -2357,7 +2357,7 @@ glusterd_op_remove_brick(dict_t *dict, char **op_errstr)
     }
     volinfo->subvol_count = (volinfo->brick_count / volinfo->dist_leaf_count);
 
-    if (!glusterd_is_volume_replicate(volinfo){
+    if (!glusterd_is_volume_replicate(volinfo)) {
         ret = dict_set_sizen_str_sizen(volinfo->dict,
                                        "performance.client-io-threads", "on");
         if (ret) {

@@ -1782,10 +1782,6 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
         goto out;
     }
 
-<<<<<<< HEAD
-=======
-
->>>>>>> 8320d7c665 (mgmt: Remove old code related to version 3.x)
     ret = dict_get_str(dict, "volname", &volname);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_GET_FAILED,
@@ -2430,7 +2426,7 @@ glusterd_update_volumes_dict(glusterd_volinfo_t *volinfo)
         }
     }
     ret = dict_get_str(volinfo->dict, "transport.address-family",
-                        &address_family_str);
+                       &address_family_str);
     if (ret) {
         if (volinfo->transport_type == GF_TRANSPORT_TCP) {
             ret = dict_set_dynstr_with_alloc(
