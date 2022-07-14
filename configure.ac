@@ -541,7 +541,7 @@ AC_ARG_WITH([server],
 AM_CONDITIONAL([WITH_SERVER], [test x$with_server = xyes])
 
 # LEX needs a check
-AC_PROG_LEX
+AC_PROG_LEX([noyywrap])
 if test  "x${LEX}" != "xflex" -a "x${FLEX}" != "xlex"; then
    AC_MSG_ERROR([Flex or lex required to build glusterfs.])
 fi
