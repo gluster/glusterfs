@@ -565,6 +565,62 @@ out:
     return subvol;
 }
 
+static int
+setup_entry_fopat_args(uuid_t gfid, dict_t **xattr_req, loc_t *loc)
+{
+    int ret = 0;
+
+    if (loc->inode) {
+        errno = EEXIST;
+        ret = -1;
+        goto out;
+    }
+
+    /* errno from setup_fopat_args */
+    if (errno != ENOENT)
+        /* Any other type of error is fatal */
+        goto out;
+
+    /* errno == ENOENT */
+    if (!loc->parent)
+        /* The parent directory or an ancestor even
+           higher does not exist
+        */
+        goto out;
+
+    loc->inode = inode_new(loc->parent->table);
+    if (!loc->inode) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    *xattr_req = dict_new();
+    if (!*xattr_req) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(gfid);
+    ret = dict_set_gfuuid(*xattr_req, "gfid-req", gfid, true);
+    if (ret) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    if (ret) {
+        if (*xattr_req)
+            dict_unref(*xattr_req);
+    }
+
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_openat, 11.0)
 struct glfs_fd *
 pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
@@ -591,25 +647,8 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     }
 
     if (is_create && !loc.inode) {
-        loc.inode = inode_new(loc.parent->table);
-        if (!loc.inode) {
-            ret = -1;
-            errno = ENOMEM;
-            goto out;
-        }
-
-        gf_uuid_generate(gfid);
-        fop_attr = dict_new();
-        if (!fop_attr) {
-            ret = -1;
-            errno = ENOMEM;
-            goto out;
-        }
-
-        ret = dict_set_gfuuid(fop_attr, "gfid-req", gfid, true);
+        ret = setup_entry_fopat_args(gfid, &fop_attr, &loc);
         if (ret) {
-            ret = -1;
-            errno = ENOMEM;
             goto out;
         }
     }
@@ -809,6 +848,8 @@ int
 pub_glfs_fstatat(struct glfs_fd *pglfd, const char *path, struct stat *stat,
                  int flags)
 {
+    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
+
     int ret = -1;
     xlator_t *subvol = NULL;
     loc_t loc = {
@@ -838,6 +879,12 @@ retry:
 
     if (!subvol || !stat) {
         ret = -1;
+        goto out;
+    }
+
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOENT;
         goto out;
     }
 
@@ -6668,6 +6715,842 @@ out:
 
     if (subvol)
         glfs_subvol_done(glfd->fs, subvol);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_mkdirat, 11.0)
+int
+pub_glfs_mkdirat(struct glfs_fd *pglfd, const char *path, mode_t mode)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = setup_entry_fopat_args(gfid, &xattr_req, &loc);
+    if (ret) {
+        goto out;
+    }
+
+    ret = syncop_mkdir(subvol, &loc, mode, &iatt, xattr_req, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_faccessat, 11.0)
+int
+pub_glfs_faccessat(struct glfs_fd *pglfd, const char *path, int mode, int flags)
+{
+    volatile int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int no_follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+    ret = syncop_access(subvol, &loc, mode, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fchmodat, 11.0)
+int
+pub_glfs_fchmodat(struct glfs_fd *pglfd, const char *path, mode_t mode,
+                  int flags)
+{
+    int ret = -1;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int glvalid;
+    int no_follow = 0;
+
+    struct glfs_stat stat = {
+        0,
+    };
+
+    stat.glfs_st_mode = mode;
+    stat.glfs_st_mask = GLFS_STAT_MODE;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
+    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, 0);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+    glfs_iatt_from_statx(&iatt, &stat);
+    glfsflags_from_gfapiflags(&stat, &glvalid);
+
+    ret = syncop_setattr(subvol, &loc, &iatt, glvalid, 0, 0, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fchownat, 11.0)
+int
+pub_glfs_fchownat(struct glfs_fd *pglfd, const char *path, uid_t uid, gid_t gid,
+                  int flags)
+{
+    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
+
+    int ret = 0;
+    struct glfs_stat stat = {
+        0,
+    };
+
+    if (uid != (uid_t)-1) {
+        stat.glfs_st_uid = uid;
+        stat.glfs_st_mask = GLFS_STAT_UID;
+    }
+
+    if (gid != (uid_t)-1) {
+        stat.glfs_st_gid = gid;
+        stat.glfs_st_mask = stat.glfs_st_mask | GLFS_STAT_GID;
+    }
+
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    int glvalid;
+    int no_follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
+    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, 0);
+    if (!subvol) {
+        ret = -1;
+        errno = EIO;
+        goto out;
+    }
+
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+    glfs_iatt_from_statx(&iatt, &stat);
+    glfsflags_from_gfapiflags(&stat, &glvalid);
+
+    if (stat.glfs_st_mask) {
+        ret = syncop_setattr(subvol, &loc, &iatt, glvalid, 0, 0, NULL, NULL);
+        DECODE_SYNCOP_ERR(ret);
+    }
+
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_linkat, 11.0)
+int
+pub_glfs_linkat(struct glfs_fd *oldpglfd, const char *oldpath,
+                struct glfs_fd *newpglfd, const char *newpath, int flags)
+{
+    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
+
+    int ret = -1;
+    int reval = 0;
+    xlator_t *oldsubvol = NULL;
+    xlator_t *newsubvol = NULL;
+    loc_t oldloc = {
+        0,
+    };
+    loc_t newloc = {
+        0,
+    };
+    struct iatt oldiatt = {
+        0,
+    };
+    struct iatt newiatt = {
+        0,
+    };
+    int follow = 0;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
+
+    /* Old path will not be de-referenced by default if it is a sym-link.
+       If 'AT_SYMLINK_FOLLOW' flag is set, then oldpath is deferenced to
+       its original path.
+
+       If oldpath is a symbolic link and 'AT_SYMLINK_FOLLOW' is set then
+       a new link created will be a symbolic link to defreferenced oldpath.
+    */
+    follow = (flags & AT_SYMLINK_FOLLOW) == AT_SYMLINK_FOLLOW;
+
+retry:
+    /* Retry case */
+    if (oldsubvol) {
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    }
+
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, follow, &oldloc, &oldiatt,
+                                 reval);
+    if (!oldsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &newloc, retry);
+
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    if (oldsubvol && !oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+retrynew:
+    /* Retry case */
+    if (newsubvol) {
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+    }
+    /* The 'AT_SYMLINK_FOLLOW' flag applies only to oldpath.
+     */
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
+    if (!newsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
+
+    if (newsubvol && newloc.inode) {
+        ret = -1;
+        errno = EEXIST;
+        goto out;
+    }
+
+    if (oldiatt.ia_type == IA_IFDIR) {
+        ret = -1;
+        errno = EISDIR;
+        goto out;
+    }
+
+    /* Filling the inode of the hard link to be same as that of the
+       original file
+    */
+    if (newloc.inode) {
+        inode_unref(newloc.inode);
+        newloc.inode = NULL;
+    }
+    newloc.inode = inode_ref(oldloc.inode);
+
+    ret = syncop_link(newsubvol, &oldloc, &newloc, &newiatt, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&newloc, &newiatt);
+out:
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_mknodat, 11.0)
+int
+pub_glfs_mknodat(struct glfs_fd *pglfd, const char *path, mode_t mode,
+                 dev_t dev)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    ret = setup_entry_fopat_args(gfid, &xattr_req, &loc);
+    if (ret) {
+        goto out;
+    }
+
+    ret = syncop_mknod(subvol, &loc, mode, dev, &iatt, xattr_req, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
+
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_readlinkat, 11.0)
+int
+pub_glfs_readlinkat(struct glfs_fd *pglfd, const char *path, char *buf,
+                    size_t bufsiz)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    char *linkval = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol)
+        goto out;
+
+    if (!loc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+    if (iatt.ia_type != IA_IFLNK) {
+        ret = -1;
+        errno = EINVAL;
+        goto out;
+    }
+
+    ret = syncop_readlink(subvol, &loc, &linkval, bufsiz, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+    if (ret > 0) {
+        memcpy(buf, linkval, ret);
+        GF_FREE(linkval);
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_renameat, 11.0)
+int
+pub_glfs_renameat(struct glfs_fd *oldpglfd, const char *oldpath,
+                  struct glfs_fd *newpglfd, const char *newpath)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *oldsubvol = NULL;
+    xlator_t *newsubvol = NULL;
+    loc_t oldloc = {
+        0,
+    };
+    loc_t newloc = {
+        0,
+    };
+    struct iatt oldiatt = {
+        0,
+    };
+    struct iatt newiatt = {
+        0,
+    };
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (oldsubvol) {
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    }
+
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, 0, &oldloc, &oldiatt,
+                                 reval);
+    if (!oldsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
+
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    /* subvol is not NULL */
+    if (!oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+retrynew:
+    /* Retry case */
+    if (newsubvol) {
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+    }
+
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
+    if (!newsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
+
+    if (!newsubvol) {
+        goto out;
+    }
+
+    if (newsubvol && newloc.inode) {
+        ret = -1;
+        errno = EEXIST;
+        goto out;
+    }
+
+    if (errno != ENOENT && newloc.parent)
+        goto out;
+
+    if (newiatt.ia_type != IA_INVAL) {
+        if ((oldiatt.ia_type == IA_IFDIR) != (newiatt.ia_type == IA_IFDIR)) {
+            /* Either both old and new must be dirs,
+             * or both must be non-dirs. Else, fail.
+             */
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    }
+
+    /* TODO: - check if new or old is a prefix of the other, and fail EINVAL
+     *       - Add leaseid */
+
+    ret = syncop_rename(newsubvol, &oldloc, &newloc, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == 0) {
+        inode_rename(oldloc.parent->table, oldloc.parent, oldloc.name,
+                     newloc.parent, newloc.name, oldloc.inode, &oldiatt);
+
+        if (newloc.inode && !inode_has_dentry(newloc.inode))
+            inode_forget(newloc.inode, 0);
+    }
+out:
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_renameat2, 11.0)
+int
+pub_glfs_renameat2(struct glfs_fd *oldpglfd, const char *oldpath,
+                   struct glfs_fd *newpglfd, const char *newpath, int flags)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *oldsubvol = NULL;
+    xlator_t *newsubvol = NULL;
+    loc_t oldloc = {
+        0,
+    };
+    loc_t newloc = {
+        0,
+    };
+    struct iatt oldiatt = {
+        0,
+    };
+    struct iatt newiatt = {
+        0,
+    };
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
+    __GLFS_ENTRY_VALIDATE_FD(newpglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (oldsubvol) {
+        cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    }
+
+    oldsubvol = setup_fopat_args(oldpglfd, oldpath, 0, &oldloc, &oldiatt,
+                                 reval);
+    if (!oldsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
+
+    if (!oldsubvol) {
+        goto out;
+    }
+
+    /* subvol is not NULL */
+    if (!oldloc.inode) {
+        ret = -1;
+        errno = ENOENT;
+        goto out;
+    }
+
+retrynew:
+    /* Retry case */
+    if (newsubvol) {
+        cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+    }
+
+    newsubvol = setup_fopat_args(newpglfd, newpath, 0, &newloc, &newiatt,
+                                 reval);
+    if (!newsubvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &newloc, retrynew);
+
+    if (!newsubvol) {
+        goto out;
+    }
+
+    if (newloc.inode) {
+        ret = -1;
+        errno = EEXIST;
+        goto out;
+    }
+
+    if (errno != ENOENT && newloc.parent)
+        goto out;
+
+    if (newiatt.ia_type != IA_INVAL) {
+        if ((oldiatt.ia_type == IA_IFDIR) != (newiatt.ia_type == IA_IFDIR)) {
+            /* Either both old and new must be dirs,
+             * or both must be non-dirs. Else, fail.
+             */
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    }
+
+    /* TODO: - check if new or old is a prefix of the other, and fail EINVAL
+     *       - Add leaseid */
+
+    ret = syncop_rename(newsubvol, &oldloc, &newloc, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    if (ret == -1 && errno == ESTALE) {
+        if (reval < DEFAULT_REVAL_COUNT) {
+            reval++;
+            loc_wipe(&oldloc);
+            loc_wipe(&newloc);
+            goto retry;
+        }
+    }
+
+    if (ret == 0) {
+        inode_rename(oldloc.parent->table, oldloc.parent, oldloc.name,
+                     newloc.parent, newloc.name, oldloc.inode, &oldiatt);
+
+        if (newloc.inode && !inode_has_dentry(newloc.inode))
+            inode_forget(newloc.inode, 0);
+    }
+out:
+    cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
+    cleanup_fopat_args(newpglfd, newsubvol, ret, &newloc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_symlinkat, 11.0)
+int
+pub_glfs_symlinkat(const char *data, struct glfs_fd *pglfd, const char *path)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+    uuid_t gfid;
+    dict_t *xattr_req = NULL;
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    /* loc == newloc */
+    if (subvol && loc.inode) {
+        ret = -1;
+        errno = EEXIST;
+        goto out;
+    }
+
+    ret = setup_entry_fopat_args(gfid, &xattr_req, &loc);
+    if (ret) {
+        goto out;
+    }
+
+    ret = syncop_symlink(subvol, &loc, data, &iatt, xattr_req, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
+out:
+    if (xattr_req)
+        dict_unref(xattr_req);
+
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
+
+    __GLFS_EXIT_FS;
+
+invalid_fs:
+    return ret;
+}
+
+GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_unlinkat, 11.0)
+int
+pub_glfs_unlinkat(struct glfs_fd *pglfd, const char *path, int flags)
+{
+    int ret = -1;
+    int reval = 0;
+    xlator_t *subvol = NULL;
+    loc_t loc = {
+        0,
+    };
+    struct iatt iatt = {
+        0,
+    };
+
+    DECLARE_OLD_THIS;
+    __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+retry:
+    /* Retry case */
+    if (subvol) {
+        cleanup_fopat_args(pglfd, subvol, ret, &loc);
+    }
+
+    subvol = setup_fopat_args(pglfd, path, 0, &loc, &iatt, reval);
+    if (!subvol) {
+        ret = -1;
+    }
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (!subvol) {
+        ret = -1;
+        goto out;
+    }
+
+    if (iatt.ia_type == IA_IFDIR) {
+        ret = -1;
+        errno = EISDIR;
+        goto out;
+    }
+
+    /* TODO: Add leaseid */
+    ret = syncop_unlink(subvol, &loc, NULL, NULL);
+    DECODE_SYNCOP_ERR(ret);
+
+    ESTALE_RETRY(ret, errno, reval, &loc, retry);
+
+    if (ret == 0)
+        ret = glfs_loc_unlink(&loc);
+out:
+    cleanup_fopat_args(pglfd, subvol, ret, &loc);
 
     __GLFS_EXIT_FS;
 

@@ -286,4 +286,15 @@ GFAPI_11.0 {
 	global:
 		glfs_openat;
 		glfs_fstatat;
+		glfs_mkdirat;
+		glfs_faccessat;
+		glfs_fchmodat;
+		glfs_fchownat;
+		glfs_linkat;
+		glfs_mknodat;
+		glfs_readlinkat;
+		glfs_renameat;
+		glfs_renameat2;
+		glfs_symlinkat;
+		glfs_unlinkat;
 } GFAPI_7.0;

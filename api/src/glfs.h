@@ -841,24 +841,48 @@ glfs_access(glfs_t *fs, const char *path, int mode) __THROW
     GFAPI_PUBLIC(glfs_access, 3.4.0);
 
 int
+glfs_faccessat(struct glfs_fd *glfd, const char *path, int mode,
+               int flags) __THROW GFAPI_PUBLIC(glfs_faccessat, 11.0);
+
+int
 glfs_symlink(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_symlink, 3.4.0);
+
+int
+glfs_symlinkat(const char *oldpath, struct glfs_fd *glfd,
+               const char *newpath) __THROW GFAPI_PUBLIC(glfs_symlinkat, 11.0);
 
 int
 glfs_readlink(glfs_t *fs, const char *path, char *buf, size_t bufsiz) __THROW
     GFAPI_PUBLIC(glfs_readlink, 3.4.0);
 
 int
+glfs_readlinkat(struct glfs_fd *glfd, const char *path, char *buf,
+                size_t bufsiz) __THROW GFAPI_PUBLIC(glfs_readlinkat, 11.0);
+
+int
 glfs_mknod(glfs_t *fs, const char *path, mode_t mode, dev_t dev) __THROW
     GFAPI_PUBLIC(glfs_mknod, 3.4.0);
+
+int
+glfs_mknodat(struct glfs_fd *glfd, const char *path, mode_t mode,
+             dev_t dev) __THROW GFAPI_PUBLIC(glfs_mknod, 11.0);
 
 int
 glfs_mkdir(glfs_t *fs, const char *path, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_mkdir, 3.4.0);
 
 int
+glfs_mkdirat(struct glfs_fd *glfd, const char *path, mode_t mode) __THROW
+    GFAPI_PUBLIC(glfs_mkdirat, 11.0);
+
+int
 glfs_unlink(glfs_t *fs, const char *path) __THROW
     GFAPI_PUBLIC(glfs_unlink, 3.4.0);
+
+int
+glfs_unlinkat(struct glfs_fd *glfd, const char *path, int flags) __THROW
+    GFAPI_PUBLIC(glfs_unlinkat, 11.0);
 
 int
 glfs_rmdir(glfs_t *fs, const char *path) __THROW
@@ -869,8 +893,23 @@ glfs_rename(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_rename, 3.4.0);
 
 int
+glfs_renameat(struct glfs_fd *oldglfd, const char *oldpath,
+              struct glfs_fd *newglfd, const char *newpath) __THROW
+    GFAPI_PUBLIC(glfs_renameat, 11.0);
+
+int
+glfs_renameat2(struct glfs_fd *oldglfd, const char *oldpath,
+               struct glfs_fd *newglfd, const char *newpath, int flags) __THROW
+    GFAPI_PUBLIC(glfs_renameat2, 11.0);
+
+int
 glfs_link(glfs_t *fs, const char *oldpath, const char *newpath) __THROW
     GFAPI_PUBLIC(glfs_link, 3.4.0);
+
+int
+glfs_linkat(struct glfs_fd *oldglfd, const char *oldpath,
+            struct glfs_fd *newglfd, const char *newpath, int flags) __THROW
+    GFAPI_PUBLIC(glfs_linkat, 11.0);
 
 glfs_fd_t *
 glfs_opendir(glfs_t *fs, const char *path) __THROW
@@ -931,6 +970,10 @@ glfs_fchmod(glfs_fd_t *fd, mode_t mode) __THROW
     GFAPI_PUBLIC(glfs_fchmod, 3.4.0);
 
 int
+glfs_fchmodat(struct glfs_fd *glfd, const char *path, mode_t mode,
+              int flags) __THROW GFAPI_PUBLIC(glfs_fchmodat, 11.0);
+
+int
 glfs_chown(glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW
     GFAPI_PUBLIC(glfs_chown, 3.4.0);
 
@@ -941,6 +984,10 @@ glfs_lchown(glfs_t *fs, const char *path, uid_t uid, gid_t gid) __THROW
 int
 glfs_fchown(glfs_fd_t *fd, uid_t uid, gid_t gid) __THROW
     GFAPI_PUBLIC(glfs_fchown, 3.4.0);
+
+int
+glfs_fchownat(struct glfs_fd *glfd, const char *path, uid_t uid, gid_t gid,
+              int flags) __THROW GFAPI_PUBLIC(glfs_fchownat, 11.0);
 
 int
 glfs_utimens(glfs_t *fs, const char *path,
