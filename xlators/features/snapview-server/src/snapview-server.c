@@ -1239,7 +1239,7 @@ svs_releasedir(xlator_t *this, fd_t *fd)
         if (fs) {
             sfd = (svs_fd_t *)(long)tmp_pfd;
             if (sfd->fd) {
-                ret = glfs_closedir(sfd->fd);
+                ret = glfs_close(sfd->fd);
                 if (ret)
                     gf_msg(this->name, GF_LOG_WARNING, errno,
                            SVS_MSG_RELEASEDIR_FAILED,
