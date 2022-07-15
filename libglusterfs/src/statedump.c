@@ -916,12 +916,11 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
         gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
-        len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
-                   timestr);
+        len = snprintf(sign_string, sizeof(sign_string),
+                       "DUMP-START-TIME: %s\n", timestr);
 
         // swallow the errors of write for start and end marker
         (void)sys_write(gf_dump_fd, sign_string, len);
-
     }
 
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(mem)) {
@@ -964,7 +963,7 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     if (0 == ret) {
         gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
         len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",
-                    timestr);
+                       timestr);
         (void)sys_write(gf_dump_fd, sign_string, len);
     }
 
