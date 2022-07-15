@@ -468,7 +468,7 @@ upcall_cache_invalidate(call_frame_t *frame, xlator_t *this, client_t *client,
         linked_inode = inode_find(inode->table, stbuf->ia_gfid);
         if (linked_inode) {
             gf_log("upcall", GF_LOG_DEBUG,
-                   "upcall_inode_ctx_get of linked inode (%p)", inode);
+                   "upcall_inode_ctx_get of linked inode (%p)", linked_inode);
             up_inode_ctx = upcall_inode_ctx_get(linked_inode, this);
         }
     }
