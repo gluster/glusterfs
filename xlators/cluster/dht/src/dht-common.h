@@ -195,9 +195,12 @@ typedef struct {
     gf_lkowner_t lk_owner;
 } dht_lock_t;
 
-/* The lock structure represents inodelk. */
+/* The lock structure represents inodelk or entrylk. */
 typedef struct {
-    fop_inodelk_cbk_t inodelk_cbk;
+    union {
+        fop_inodelk_cbk_t inodelk_cbk;
+        fop_entrylk_cbk_t entrylk_cbk;
+    };
     dht_lock_t **locks;
     int lk_count;
     dht_reaction_type_t reaction;
@@ -205,33 +208,35 @@ typedef struct {
     /* whether locking failed on _any_ of the "locks" above */
     int op_ret;
     int op_errno;
-} dht_ilock_wrap_t;
+} dht_lock_wrap_t;
 
-/* The lock structure represents entrylk. */
-typedef struct {
-    fop_entrylk_cbk_t entrylk_cbk;
-    dht_lock_t **locks;
-    int lk_count;
-    dht_reaction_type_t reaction;
+static inline void
+dht_lock_array_reset(dht_lock_wrap_t *_array)
+{
+    _array->locks = NULL;
+    _array->lk_count = 0;
+}
 
-    /* whether locking failed on _any_ of the "locks" above */
-    int op_ret;
-    int op_errno;
-} dht_elock_wrap_t;
+static inline void
+dht_lock_array_copy(dht_lock_wrap_t *_src, dht_lock_wrap_t *_dst)
+{
+    _dst->locks = _src->locks;
+    _dst->lk_count = _src->lk_count;
+}
 
-/* The first member of dht_dir_transaction_t should be of type dht_ilock_wrap_t.
+/* The first member of dht_dir_transaction_t should be of type dht_lock_wrap_t.
  * Otherwise it can result in subtle memory corruption issues as in most of the
  * places we use lock[0].layout.my_layout or lock[0].layout.parent_layout and
  * lock[0].ns.parent_layout (like in dht_local_wipe).
  */
 typedef union {
     union {
-        dht_ilock_wrap_t my_layout;
-        dht_ilock_wrap_t parent_layout;
+        dht_lock_wrap_t my_layout;
+        dht_lock_wrap_t parent_layout;
     } layout;
     struct dht_namespace {
-        dht_ilock_wrap_t parent_layout;
-        dht_elock_wrap_t directory_ns;
+        dht_lock_wrap_t parent_layout;
+        dht_lock_wrap_t directory_ns;
         fop_entrylk_cbk_t ns_cbk;
     } ns;
 } dht_dir_transaction_t;

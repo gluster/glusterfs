@@ -7637,10 +7637,11 @@ dht_mknod_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
     int lock_count = 0;
+    dht_lock_wrap_t *parent_layout, *lock_local_parent_layout;
 
     local = frame->local;
-    lock_count = dht_lock_count(local->lock[0].layout.parent_layout.locks,
-                                local->lock[0].layout.parent_layout.lk_count);
+    parent_layout = &local->lock[0].layout.parent_layout;
+    lock_count = dht_lock_count(parent_layout);
     if (lock_count == 0)
         goto done;
 
@@ -7655,17 +7656,13 @@ dht_mknod_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
         goto done;
     }
 
-    lock_local->lock[0]
-        .layout.parent_layout.locks = local->lock[0].layout.parent_layout.locks;
-    lock_local->lock[0].layout.parent_layout.lk_count =
-        local->lock[0].layout.parent_layout.lk_count;
+    lock_local_parent_layout = &lock_local->lock[0].layout.parent_layout;
 
-    local->lock[0].layout.parent_layout.locks = NULL;
-    local->lock[0].layout.parent_layout.lk_count = 0;
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    dht_unlock_inodelk(lock_frame,
-                       lock_local->lock[0].layout.parent_layout.locks,
-                       lock_local->lock[0].layout.parent_layout.lk_count,
+    dht_lock_array_reset(parent_layout);
+
+    dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_mknod_unlock_cbk);
     lock_frame = NULL;
 
@@ -7725,9 +7722,7 @@ dht_mknod_lock(call_frame_t *frame, xlator_t *subvol)
     dht_local_t *local = NULL;
     int count = 1, ret = -1;
     dht_lock_t **lk_array = NULL;
-
-    GF_VALIDATE_OR_GOTO("dht", frame, err);
-    GF_VALIDATE_OR_GOTO(frame->this->name, frame->local, err);
+    dht_lock_wrap_t *parent_layout;
 
     local = frame->local;
 
@@ -7743,14 +7738,14 @@ dht_mknod_lock(call_frame_t *frame, xlator_t *subvol)
     if (lk_array[0] == NULL)
         goto err;
 
-    local->lock[0].layout.parent_layout.locks = lk_array;
-    local->lock[0].layout.parent_layout.lk_count = count;
+    parent_layout = &local->lock[0].layout.parent_layout;
+    parent_layout->locks = lk_array;
+    parent_layout->lk_count = count;
 
     ret = dht_blocking_inodelk(frame, lk_array, count, dht_mknod_lock_cbk);
 
     if (ret < 0) {
-        local->lock[0].layout.parent_layout.locks = NULL;
-        local->lock[0].layout.parent_layout.lk_count = 0;
+        dht_lock_array_reset(parent_layout);
         goto err;
     }
 
@@ -8882,10 +8877,11 @@ dht_create_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
     int lock_count = 0;
+    dht_lock_wrap_t *parent_layout, *lock_local_parent_layout;
 
     local = frame->local;
-    lock_count = dht_lock_count(local->lock[0].layout.parent_layout.locks,
-                                local->lock[0].layout.parent_layout.lk_count);
+    parent_layout = &local->lock[0].layout.parent_layout;
+    lock_count = dht_lock_count(parent_layout);
     if (lock_count == 0)
         goto done;
 
@@ -8900,17 +8896,13 @@ dht_create_finish(call_frame_t *frame, int op_ret, int invoke_cbk)
         goto done;
     }
 
-    lock_local->lock[0]
-        .layout.parent_layout.locks = local->lock[0].layout.parent_layout.locks;
-    lock_local->lock[0].layout.parent_layout.lk_count =
-        local->lock[0].layout.parent_layout.lk_count;
+    lock_local_parent_layout = &lock_local->lock[0].layout.parent_layout;
 
-    local->lock[0].layout.parent_layout.locks = NULL;
-    local->lock[0].layout.parent_layout.lk_count = 0;
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    dht_unlock_inodelk(lock_frame,
-                       lock_local->lock[0].layout.parent_layout.locks,
-                       lock_local->lock[0].layout.parent_layout.lk_count,
+    dht_lock_array_reset(parent_layout);
+
+    dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_create_unlock_cbk);
     lock_frame = NULL;
 
@@ -8970,6 +8962,7 @@ dht_create_lock(call_frame_t *frame, xlator_t *subvol)
     dht_local_t *local = NULL;
     int count = 1, ret = -1;
     dht_lock_t **lk_array = NULL;
+    dht_lock_wrap_t *parent_layout;
 
     GF_VALIDATE_OR_GOTO("dht", frame, err);
     GF_VALIDATE_OR_GOTO(frame->this->name, frame->local, err);
@@ -8988,14 +8981,14 @@ dht_create_lock(call_frame_t *frame, xlator_t *subvol)
     if (lk_array[0] == NULL)
         goto err;
 
-    local->lock[0].layout.parent_layout.locks = lk_array;
-    local->lock[0].layout.parent_layout.lk_count = count;
+    parent_layout = &local->lock[0].layout.parent_layout;
+    parent_layout->locks = lk_array;
+    parent_layout->lk_count = count;
 
     ret = dht_blocking_inodelk(frame, lk_array, count, dht_create_lock_cbk);
 
     if (ret < 0) {
-        local->lock[0].layout.parent_layout.locks = NULL;
-        local->lock[0].layout.parent_layout.lk_count = 0;
+        dht_lock_array_reset(parent_layout);
         goto err;
     }
 
@@ -9860,15 +9853,17 @@ dht_rmdir_unlock(call_frame_t *frame, xlator_t *this)
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
     int lock_count = 0;
+    dht_lock_wrap_t *parent_layout, *lock_local_parent_layout;
 
     local = frame->local;
+
+    parent_layout = &local->lock[0].ns.parent_layout;
 
     /* Unlock entrylk */
     dht_unlock_entrylk_wrapper(frame, &local->lock[0].ns.directory_ns);
 
     /* Unlock inodelk */
-    lock_count = dht_lock_count(local->lock[0].ns.parent_layout.locks,
-                                local->lock[0].ns.parent_layout.lk_count);
+    lock_count = dht_lock_count(parent_layout);
 
     if (lock_count == 0)
         goto done;
@@ -9882,15 +9877,13 @@ dht_rmdir_unlock(call_frame_t *frame, xlator_t *this)
     if (lock_local == NULL)
         goto done;
 
-    lock_local->lock[0].ns.parent_layout.locks = local->lock[0]
-                                                     .ns.parent_layout.locks;
-    lock_local->lock[0]
-        .ns.parent_layout.lk_count = local->lock[0].ns.parent_layout.lk_count;
+    lock_local_parent_layout = &lock_local->lock[0].ns.parent_layout;
 
-    local->lock[0].ns.parent_layout.locks = NULL;
-    local->lock[0].ns.parent_layout.lk_count = 0;
-    dht_unlock_inodelk(lock_frame, lock_local->lock[0].ns.parent_layout.locks,
-                       lock_local->lock[0].ns.parent_layout.lk_count,
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
+
+    dht_lock_array_reset(parent_layout);
+
+    dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_rmdir_unlock_cbk);
     lock_frame = NULL;
 

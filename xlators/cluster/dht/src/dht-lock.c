@@ -10,31 +10,35 @@
 
 #include "dht-lock.h"
 
+static void
+dht_blocking_entrylk_rec(call_frame_t *frame, int i);
+
+static void
+dht_blocking_inodelk_rec(call_frame_t *frame, int i);
+
 static char *
 dht_lock_asprintf(dht_lock_t *lock)
 {
     char *lk_buf = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {
-        0,
-    };
 
-    if (lock == NULL)
-        goto out;
+    if (lock)
+        gf_asprintf(&lk_buf, "%s:%s", lock->xl->name,
+                    uuid_utoa(lock->loc.gfid));
 
-    uuid_utoa_r(lock->loc.gfid, gfid);
-
-    gf_asprintf(&lk_buf, "%s:%s", lock->xl->name, gfid);
-
-out:
     return lk_buf;
 }
 
 static void
-dht_log_lk_array(char *name, gf_loglevel_t log_level, dht_lock_t **lk_array,
-                 int count)
+dht_log_lk_array(char *name, gf_loglevel_t log_level,
+                 dht_lock_wrap_t *lock_wrap)
 {
     int i = 0;
     char *lk_buf = NULL;
+    int count;
+    dht_lock_t **lk_array;
+
+    lk_array = lock_wrap->locks;
+    count = lock_wrap->lk_count;
 
     if ((lk_array == NULL) || (count == 0))
         goto out;
@@ -57,16 +61,16 @@ static void
 dht_lock_stack_destroy(call_frame_t *lock_frame, dht_lock_type_t lk)
 {
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *dht_lock;
 
     local = lock_frame->local;
 
     if (lk == DHT_INODELK) {
-        local->lock[0].layout.my_layout.locks = NULL;
-        local->lock[0].layout.my_layout.lk_count = 0;
+        dht_lock = &local->lock[0].layout.my_layout;
     } else {
-        local->lock[0].ns.directory_ns.locks = NULL;
-        local->lock[0].ns.directory_ns.lk_count = 0;
+        dht_lock = &local->lock[0].ns.directory_ns;
     }
+    dht_lock_array_reset(dht_lock);
 
     DHT_STACK_DESTROY(lock_frame);
     return;
@@ -129,16 +133,11 @@ out:
 static int
 dht_lock_order_requests(dht_lock_t **locks, int count)
 {
-    int ret = -1;
-
     if (!locks || !count)
-        goto out;
+        return -1;
 
     qsort(locks, count, sizeof(*locks), dht_lock_request_cmp);
-    ret = 0;
-
-out:
-    return ret;
+    return 0;
 }
 
 void
@@ -161,10 +160,17 @@ out:
 }
 
 int32_t
-dht_lock_count(dht_lock_t **lk_array, int lk_count)
+dht_lock_count(dht_lock_wrap_t *lock_wrap)
 {
     int i = 0, locked = 0;
+    dht_lock_t **lk_array;
+    int lk_count;
 
+    if (!lock_wrap)
+        goto out;
+
+    lk_array = lock_wrap->locks;
+    lk_count = lock_wrap->lk_count;
     if ((lk_array == NULL) || (lk_count == 0))
         goto out;
 
@@ -182,12 +188,9 @@ dht_lock_frame(call_frame_t *parent_frame)
     call_frame_t *lock_frame = NULL;
 
     lock_frame = copy_frame(parent_frame);
-    if (lock_frame == NULL)
-        goto out;
+    if (lock_frame)
+        set_lk_owner_from_ptr(&lock_frame->root->lk_owner, parent_frame->root);
 
-    set_lk_owner_from_ptr(&lock_frame->root->lk_owner, parent_frame->root);
-
-out:
     return lock_frame;
 }
 
@@ -253,27 +256,22 @@ dht_local_entrylk_init(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 {
     int ret = -1;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *directory_ns;
 
     local = frame->local;
 
     if (local == NULL) {
         local = dht_local_init(frame, NULL, NULL, 0);
+        if (local == NULL)
+            goto out;
     }
 
-    if (local == NULL) {
-        goto out;
-    }
+    directory_ns = &local->lock[0].ns.directory_ns;
+    directory_ns->entrylk_cbk = entrylk_cbk;
+    directory_ns->locks = lk_array;
+    directory_ns->lk_count = lk_count;
 
-    local->lock[0].ns.directory_ns.entrylk_cbk = entrylk_cbk;
-    local->lock[0].ns.directory_ns.locks = lk_array;
-    local->lock[0].ns.directory_ns.lk_count = lk_count;
-
-    ret = dht_lock_order_requests(local->lock[0].ns.directory_ns.locks,
-                                  local->lock[0].ns.directory_ns.lk_count);
-    if (ret < 0)
-        goto out;
-
-    ret = 0;
+    ret = dht_lock_order_requests(directory_ns->locks, directory_ns->lk_count);
 out:
     return ret;
 }
@@ -284,19 +282,19 @@ dht_entrylk_done(call_frame_t *lock_frame)
     fop_entrylk_cbk_t entrylk_cbk = NULL;
     call_frame_t *main_frame = NULL;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *directory_ns;
 
     local = lock_frame->local;
     main_frame = local->main_frame;
+    directory_ns = &local->lock[0].ns.directory_ns;
 
-    local->lock[0].ns.directory_ns.locks = NULL;
-    local->lock[0].ns.directory_ns.lk_count = 0;
+    dht_lock_array_reset(directory_ns);
 
-    entrylk_cbk = local->lock[0].ns.directory_ns.entrylk_cbk;
-    local->lock[0].ns.directory_ns.entrylk_cbk = NULL;
+    entrylk_cbk = directory_ns->entrylk_cbk;
+    directory_ns->entrylk_cbk = NULL;
 
-    entrylk_cbk(main_frame, NULL, main_frame->this,
-                local->lock[0].ns.directory_ns.op_ret,
-                local->lock[0].ns.directory_ns.op_errno, NULL);
+    entrylk_cbk(main_frame, NULL, main_frame->this, directory_ns->op_ret,
+                directory_ns->op_errno, NULL);
 
     dht_lock_stack_destroy(lock_frame, DHT_ENTRYLK);
     return;
@@ -307,16 +305,14 @@ dht_unlock_entrylk_done(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {0};
-
-    local = frame->local;
-    gf_uuid_unparse(local->lock[0].ns.directory_ns.locks[0]->loc.inode->gfid,
-                    gfid);
 
     if (op_ret < 0) {
-        gf_smsg(this->name, GF_LOG_WARNING, op_errno,
-                DHT_MSG_UNLOCK_GFID_FAILED, "gfid=%s", gfid,
-                "DHT_LAYOUT_HEAL_DOMAIN", NULL);
+        local = frame->local;
+        gf_smsg(
+            this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCK_GFID_FAILED,
+            "gfid=%s",
+            uuid_utoa(local->lock[0].ns.directory_ns.locks[0]->loc.inode->gfid),
+            "DHT_LAYOUT_HEAL_DOMAIN", NULL);
     }
 
     DHT_STACK_DESTROY(frame);
@@ -329,21 +325,19 @@ dht_unlock_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     dht_local_t *local = NULL;
     int lk_index = 0, call_cnt = 0;
-    char gfid[GF_UUID_BUF_SIZE] = {0};
+    dht_lock_t *dht_lock;
 
     lk_index = (long)cookie;
 
     local = frame->local;
-
-    uuid_utoa_r(local->lock[0].ns.directory_ns.locks[lk_index]->loc.gfid, gfid);
+    dht_lock = local->lock[0].ns.directory_ns.locks[lk_index];
 
     if (op_ret < 0) {
         gf_smsg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
-                "name=%s",
-                local->lock[0].ns.directory_ns.locks[lk_index]->xl->name,
-                "gfid=%s", gfid, NULL);
+                "name=%s", dht_lock->xl->name, "gfid=%s",
+                uuid_utoa(dht_lock->loc.gfid), NULL);
     } else {
-        local->lock[0].ns.directory_ns.locks[lk_index]->locked = 0;
+        dht_lock->locked = 0;
     }
 
     call_cnt = dht_frame_return(frame);
@@ -355,23 +349,13 @@ dht_unlock_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static int32_t
-dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
-                   fop_entrylk_cbk_t entrylk_cbk)
+dht_unlock_entrylk(call_frame_t *frame, dht_lock_wrap_t *directory_ns,
+                   int call_cnt, fop_entrylk_cbk_t entrylk_cbk)
 {
     dht_local_t *local = NULL;
     int ret = -1, i = 0;
     call_frame_t *lock_frame = NULL;
-    int call_cnt = 0;
-
-    GF_VALIDATE_OR_GOTO("dht-locks", frame, done);
-    GF_VALIDATE_OR_GOTO(frame->this->name, lk_array, done);
-    GF_VALIDATE_OR_GOTO(frame->this->name, entrylk_cbk, done);
-
-    call_cnt = dht_lock_count(lk_array, lk_count);
-    if (call_cnt == 0) {
-        ret = 0;
-        goto done;
-    }
+    dht_lock_t *dht_lock;
 
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL) {
@@ -379,17 +363,18 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                 DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS,
                 NULL);
 
-        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
+        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, directory_ns);
         goto done;
     }
 
-    ret = dht_local_entrylk_init(lock_frame, lk_array, lk_count, entrylk_cbk);
+    ret = dht_local_entrylk_init(lock_frame, directory_ns->locks,
+                                 directory_ns->lk_count, entrylk_cbk);
     if (ret < 0) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, 0,
                 DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
                 NULL);
 
-        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
+        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, directory_ns);
 
         goto done;
     }
@@ -398,20 +383,16 @@ dht_unlock_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     local->main_frame = frame;
     local->call_cnt = call_cnt;
 
-    for (i = 0; i < local->lock[0].ns.directory_ns.lk_count; i++) {
-        if (!local->lock[0].ns.directory_ns.locks[i]->locked)
+    for (i = 0; i < directory_ns->lk_count; i++) {
+        dht_lock = directory_ns->locks[i];
+        if (!dht_lock->locked)
             continue;
 
-        lk_owner_copy(&lock_frame->root->lk_owner,
-                      &local->lock[0].ns.directory_ns.locks[i]->lk_owner);
-        STACK_WIND_COOKIE(
-            lock_frame, dht_unlock_entrylk_cbk, (void *)(long)i,
-            local->lock[0].ns.directory_ns.locks[i]->xl,
-            local->lock[0].ns.directory_ns.locks[i]->xl->fops->entrylk,
-            local->lock[0].ns.directory_ns.locks[i]->domain,
-            &local->lock[0].ns.directory_ns.locks[i]->loc,
-            local->lock[0].ns.directory_ns.locks[i]->basename, ENTRYLK_UNLOCK,
-            ENTRYLK_WRLCK, NULL);
+        lk_owner_copy(&lock_frame->root->lk_owner, &dht_lock->lk_owner);
+        STACK_WIND_COOKIE(lock_frame, dht_unlock_entrylk_cbk, (void *)(long)i,
+                          dht_lock->xl, dht_lock->xl->fops->entrylk,
+                          dht_lock->domain, &dht_lock->loc, dht_lock->basename,
+                          ENTRYLK_UNLOCK, ENTRYLK_WRLCK, NULL);
         if (!--call_cnt)
             break;
     }
@@ -430,48 +411,51 @@ done:
 }
 
 int32_t
-dht_unlock_entrylk_wrapper(call_frame_t *frame, dht_elock_wrap_t *entrylk)
+dht_unlock_entrylk_wrapper(call_frame_t *frame, dht_lock_wrap_t *entrylk)
 {
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
-    char pgfid[GF_UUID_BUF_SIZE] = {0};
-    int ret = 0;
+    int ret = 0, call_cnt;
+    dht_lock_wrap_t *directory_ns;
 
     local = frame->local;
 
     if (!entrylk || !entrylk->locks)
         goto out;
 
-    gf_uuid_unparse(local->loc.parent->gfid, pgfid);
-
     lock_frame = copy_frame(frame);
     if (lock_frame == NULL) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s", pgfid, "name=%s",
-                local->loc.name, "path=%s", local->loc.path, NULL);
+                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s",
+                uuid_utoa(local->loc.parent->gfid), "name=%s", local->loc.name,
+                "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_local = dht_local_init(lock_frame, NULL, NULL, 0);
     if (lock_local == NULL) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-                DHT_MSG_CREATE_FAILED, "local", "pgfid=%s", pgfid, "name=%s",
-                local->loc.name, "path=%s", local->loc.path, NULL);
+                DHT_MSG_CREATE_FAILED, "local", "pgfid=%s",
+                uuid_utoa(local->loc.parent->gfid), "name=%s", local->loc.name,
+                "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_frame->local = lock_local;
 
-    lock_local->lock[0].ns.directory_ns.locks = entrylk->locks;
-    lock_local->lock[0].ns.directory_ns.lk_count = entrylk->lk_count;
-    entrylk->locks = NULL;
-    entrylk->lk_count = 0;
+    directory_ns = &lock_local->lock[0].ns.directory_ns;
+    directory_ns->locks = entrylk->locks;
+    directory_ns->lk_count = entrylk->lk_count;
 
-    ret = dht_unlock_entrylk(
-        lock_frame, lock_local->lock[0].ns.directory_ns.locks,
-        lock_local->lock[0].ns.directory_ns.lk_count, dht_unlock_entrylk_done);
-    if (ret)
-        goto done;
+    dht_lock_array_reset(entrylk);
+
+    call_cnt = dht_lock_count(directory_ns);
+    if (call_cnt) {
+        ret = dht_unlock_entrylk(lock_frame, directory_ns, call_cnt,
+                                 dht_unlock_entrylk_done);
+        if (ret)
+            goto done;
+    }
 
     lock_frame = NULL;
 
@@ -495,18 +479,16 @@ dht_entrylk_cleanup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 static void
 dht_entrylk_cleanup(call_frame_t *lock_frame)
 {
-    dht_lock_t **lk_array = NULL;
-    int lk_count = 0, lk_acquired = 0;
+    int lk_acquired = 0;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *directory_ns;
 
     local = lock_frame->local;
+    directory_ns = &local->lock[0].ns.directory_ns;
 
-    lk_array = local->lock[0].ns.directory_ns.locks;
-    lk_count = local->lock[0].ns.directory_ns.lk_count;
-
-    lk_acquired = dht_lock_count(lk_array, lk_count);
+    lk_acquired = dht_lock_count(directory_ns);
     if (lk_acquired != 0) {
-        dht_unlock_entrylk(lock_frame, lk_array, lk_count,
+        dht_unlock_entrylk(lock_frame, directory_ns, lk_acquired,
                            dht_entrylk_cleanup_cbk);
     } else {
         dht_entrylk_done(lock_frame);
@@ -522,40 +504,41 @@ dht_blocking_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int lk_index = 0;
     int i = 0;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *directory_ns;
 
     lk_index = (long)cookie;
 
     local = frame->local;
+    directory_ns = &local->lock[0].ns.directory_ns;
     if (op_ret == 0) {
-        local->lock[0].ns.directory_ns.locks[lk_index]->locked = _gf_true;
+        directory_ns->locks[lk_index]->locked = _gf_true;
     } else {
         switch (op_errno) {
             case ESTALE:
             case ENOENT:
-                if (local->lock[0]
-                        .ns.directory_ns.locks[lk_index]
-                        ->do_on_failure != IGNORE_ENOENT_ESTALE) {
-                    local->lock[0].ns.directory_ns.op_ret = -1;
-                    local->lock[0].ns.directory_ns.op_errno = op_errno;
+                if (directory_ns->locks[lk_index]->do_on_failure !=
+                    IGNORE_ENOENT_ESTALE) {
+                    directory_ns->op_ret = -1;
+                    directory_ns->op_errno = op_errno;
                     goto cleanup;
                 }
                 break;
             default:
-                local->lock[0].ns.directory_ns.op_ret = -1;
-                local->lock[0].ns.directory_ns.op_errno = op_errno;
+                directory_ns->op_ret = -1;
+                directory_ns->op_errno = op_errno;
                 goto cleanup;
         }
     }
 
-    if (lk_index == (local->lock[0].ns.directory_ns.lk_count - 1)) {
-        for (i = 0; (i < local->lock[0].ns.directory_ns.lk_count) &&
-                    (!local->lock[0].ns.directory_ns.locks[i]->locked);
+    if (lk_index == (directory_ns->lk_count - 1)) {
+        for (i = 0;
+             (i < directory_ns->lk_count) && (!directory_ns->locks[i]->locked);
              i++)
             ;
 
-        if (i == local->lock[0].ns.directory_ns.lk_count) {
-            local->lock[0].ns.directory_ns.op_ret = -1;
-            local->lock[0].ns.directory_ns.op_errno = op_errno;
+        if (i == directory_ns->lk_count) {
+            directory_ns->op_ret = -1;
+            directory_ns->op_errno = op_errno;
         }
 
         dht_entrylk_done(frame);
@@ -571,26 +554,24 @@ cleanup:
     return 0;
 }
 
-void
+static void
 dht_blocking_entrylk_rec(call_frame_t *frame, int i)
 {
     dht_local_t *local = NULL;
+    dht_lock_t *dht_lock;
 
     local = frame->local;
+    dht_lock = local->lock[0].ns.directory_ns.locks[i];
 
-    STACK_WIND_COOKIE(
-        frame, dht_blocking_entrylk_cbk, (void *)(long)i,
-        local->lock[0].ns.directory_ns.locks[i]->xl,
-        local->lock[0].ns.directory_ns.locks[i]->xl->fops->entrylk,
-        local->lock[0].ns.directory_ns.locks[i]->domain,
-        &local->lock[0].ns.directory_ns.locks[i]->loc,
-        local->lock[0].ns.directory_ns.locks[i]->basename, ENTRYLK_LOCK,
-        ENTRYLK_WRLCK, NULL);
+    STACK_WIND_COOKIE(frame, dht_blocking_entrylk_cbk, (void *)(long)i,
+                      dht_lock->xl, dht_lock->xl->fops->entrylk,
+                      dht_lock->domain, &dht_lock->loc, dht_lock->basename,
+                      ENTRYLK_LOCK, ENTRYLK_WRLCK, NULL);
 
     return;
 }
 
-int
+static int
 dht_blocking_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                      fop_entrylk_cbk_t entrylk_cbk)
 {
@@ -598,9 +579,7 @@ dht_blocking_entrylk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     call_frame_t *lock_frame = NULL;
     dht_local_t *local = NULL;
 
-    GF_VALIDATE_OR_GOTO("dht-locks", frame, out);
     GF_VALIDATE_OR_GOTO(frame->this->name, lk_array, out);
-    GF_VALIDATE_OR_GOTO(frame->this->name, entrylk_cbk, out);
 
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL)
@@ -632,27 +611,22 @@ dht_local_inodelk_init(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
 {
     int ret = -1;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *my_layout;
 
     local = frame->local;
 
     if (local == NULL) {
         local = dht_local_init(frame, NULL, NULL, 0);
+        if (local == NULL)
+            goto out;
     }
 
-    if (local == NULL) {
-        goto out;
-    }
+    my_layout = &local->lock[0].layout.my_layout;
+    my_layout->inodelk_cbk = inodelk_cbk;
+    my_layout->locks = lk_array;
+    my_layout->lk_count = lk_count;
 
-    local->lock[0].layout.my_layout.inodelk_cbk = inodelk_cbk;
-    local->lock[0].layout.my_layout.locks = lk_array;
-    local->lock[0].layout.my_layout.lk_count = lk_count;
-
-    ret = dht_lock_order_requests(local->lock[0].layout.my_layout.locks,
-                                  local->lock[0].layout.my_layout.lk_count);
-    if (ret < 0)
-        goto out;
-
-    ret = 0;
+    ret = dht_lock_order_requests(my_layout->locks, my_layout->lk_count);
 out:
     return ret;
 }
@@ -663,19 +637,19 @@ dht_inodelk_done(call_frame_t *lock_frame)
     fop_inodelk_cbk_t inodelk_cbk = NULL;
     call_frame_t *main_frame = NULL;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *my_layout;
 
     local = lock_frame->local;
     main_frame = local->main_frame;
 
-    local->lock[0].layout.my_layout.locks = NULL;
-    local->lock[0].layout.my_layout.lk_count = 0;
+    my_layout = &local->lock[0].layout.my_layout;
+    dht_lock_array_reset(my_layout);
 
-    inodelk_cbk = local->lock[0].layout.my_layout.inodelk_cbk;
-    local->lock[0].layout.my_layout.inodelk_cbk = NULL;
+    inodelk_cbk = my_layout->inodelk_cbk;
+    my_layout->inodelk_cbk = NULL;
 
-    inodelk_cbk(main_frame, NULL, main_frame->this,
-                local->lock[0].layout.my_layout.op_ret,
-                local->lock[0].layout.my_layout.op_errno, NULL);
+    inodelk_cbk(main_frame, NULL, main_frame->this, my_layout->op_ret,
+                my_layout->op_errno, NULL);
 
     dht_lock_stack_destroy(lock_frame, DHT_INODELK);
     return;
@@ -687,21 +661,18 @@ dht_unlock_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     dht_local_t *local = NULL;
     int lk_index = 0, call_cnt = 0;
-    char gfid[GF_UUID_BUF_SIZE] = {0};
+    dht_lock_t *dht_lock;
 
     lk_index = (long)cookie;
 
     local = frame->local;
+    dht_lock = local->lock[0].layout.my_layout.locks[lk_index];
     if (op_ret < 0) {
-        uuid_utoa_r(local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid,
-                    gfid);
-
         gf_smsg(this->name, GF_LOG_WARNING, op_errno, DHT_MSG_UNLOCKING_FAILED,
-                "name=%s",
-                local->lock[0].layout.my_layout.locks[lk_index]->xl->name,
-                "gfid=%s", gfid, NULL);
+                "name=%s", dht_lock->xl->name, "gfid=%s",
+                uuid_utoa(dht_lock->loc.gfid), NULL);
     } else {
-        local->lock[0].layout.my_layout.locks[lk_index]->locked = 0;
+        dht_lock->locked = 0;
     }
 
     call_cnt = dht_frame_return(frame);
@@ -717,16 +688,14 @@ dht_unlock_inodelk_done(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
     dht_local_t *local = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {0};
-
-    local = frame->local;
-    gf_uuid_unparse(local->lock[0].layout.my_layout.locks[0]->loc.inode->gfid,
-                    gfid);
 
     if (op_ret < 0) {
+        local = frame->local;
         gf_smsg(this->name, GF_LOG_WARNING, op_errno,
                 DHT_MSG_UNLOCK_GFID_FAILED, "DHT_LAYOUT_HEAL_DOMAIN gfid=%s",
-                gfid, NULL);
+                uuid_utoa(
+                    local->lock[0].layout.my_layout.locks[0]->loc.inode->gfid),
+                NULL);
     }
 
     DHT_STACK_DESTROY(frame);
@@ -734,7 +703,7 @@ dht_unlock_inodelk_done(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 int32_t
-dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
+dht_unlock_inodelk(call_frame_t *frame, dht_lock_wrap_t *lock_wrap,
                    fop_inodelk_cbk_t inodelk_cbk)
 {
     dht_local_t *local = NULL;
@@ -743,13 +712,18 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     };
     int ret = -1, i = 0;
     call_frame_t *lock_frame = NULL;
-    int call_cnt = 0;
+    int call_cnt = 0, lk_count;
+    dht_lock_t **lk_array;
+    dht_lock_t *dht_lock;
 
     GF_VALIDATE_OR_GOTO("dht-locks", frame, done);
+    GF_VALIDATE_OR_GOTO(frame->this->name, lock_wrap, done);
+    lk_array = lock_wrap->locks;
     GF_VALIDATE_OR_GOTO(frame->this->name, lk_array, done);
+    lk_count = lock_wrap->lk_count;
     GF_VALIDATE_OR_GOTO(frame->this->name, inodelk_cbk, done);
 
-    call_cnt = dht_lock_count(lk_array, lk_count);
+    call_cnt = dht_lock_count(lock_wrap);
     if (call_cnt == 0) {
         ret = 0;
         goto done;
@@ -761,7 +735,7 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                 DHT_MSG_ALLOC_FRAME_FAILED_NOT_UNLOCKING_FOLLOWING_ENTRYLKS,
                 NULL);
 
-        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
+        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lock_wrap);
         goto done;
     }
 
@@ -771,7 +745,7 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
                 DHT_MSG_LOCAL_LOCKS_STORE_FAILED_UNLOCKING_FOLLOWING_ENTRYLK,
                 NULL);
 
-        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lk_array, lk_count);
+        dht_log_lk_array(frame->this->name, GF_LOG_WARNING, lock_wrap);
 
         goto done;
     }
@@ -783,18 +757,15 @@ dht_unlock_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     flock.l_type = F_UNLCK;
 
     for (i = 0; i < local->lock[0].layout.my_layout.lk_count; i++) {
-        if (!local->lock[0].layout.my_layout.locks[i]->locked)
+        dht_lock = local->lock[0].layout.my_layout.locks[i];
+        if (!dht_lock->locked)
             continue;
 
-        lk_owner_copy(&lock_frame->root->lk_owner,
-                      &local->lock[0].layout.my_layout.locks[i]->lk_owner);
-        STACK_WIND_COOKIE(
-            lock_frame, dht_unlock_inodelk_cbk, (void *)(long)i,
-            local->lock[0].layout.my_layout.locks[i]->xl,
-            local->lock[0].layout.my_layout.locks[i]->xl->fops->inodelk,
-            local->lock[0].layout.my_layout.locks[i]->domain,
-            &local->lock[0].layout.my_layout.locks[i]->loc, F_SETLK, &flock,
-            NULL);
+        lk_owner_copy(&lock_frame->root->lk_owner, &dht_lock->lk_owner);
+        STACK_WIND_COOKIE(lock_frame, dht_unlock_inodelk_cbk, (void *)(long)i,
+                          dht_lock->xl, dht_lock->xl->fops->inodelk,
+                          dht_lock->domain, &dht_lock->loc, F_SETLK, &flock,
+                          NULL);
         if (!--call_cnt)
             break;
     }
@@ -813,46 +784,45 @@ done:
 }
 
 int32_t
-dht_unlock_inodelk_wrapper(call_frame_t *frame, dht_ilock_wrap_t *inodelk)
+dht_unlock_inodelk_wrapper(call_frame_t *frame, dht_lock_wrap_t *inodelk)
 {
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
-    char pgfid[GF_UUID_BUF_SIZE] = {0};
     int ret = 0;
-
-    local = frame->local;
+    dht_lock_wrap_t *my_layout;
 
     if (!inodelk || !inodelk->locks)
         goto out;
 
-    gf_uuid_unparse(local->loc.parent->gfid, pgfid);
-
     lock_frame = copy_frame(frame);
     if (lock_frame == NULL) {
+        local = frame->local;
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s", pgfid, "name=%s",
-                local->loc.name, "path=%s", local->loc.path, NULL);
+                DHT_MSG_COPY_FRAME_FAILED, "pgfid=%s",
+                uuid_utoa(local->loc.parent->gfid), "name=%s", local->loc.name,
+                "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_local = dht_local_init(lock_frame, NULL, NULL, 0);
     if (lock_local == NULL) {
+        local = frame->local;
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
-                DHT_MSG_CREATE_FAILED, "local", "gfid=%s", pgfid, "name=%s",
-                local->loc.name, "path=%s", local->loc.path, NULL);
+                DHT_MSG_CREATE_FAILED, "local", "gfid=%s",
+                uuid_utoa(local->loc.parent->gfid), "name=%s", local->loc.name,
+                "path=%s", local->loc.path, NULL);
         goto done;
     }
 
     lock_frame->local = lock_local;
 
-    lock_local->lock[0].layout.my_layout.locks = inodelk->locks;
-    lock_local->lock[0].layout.my_layout.lk_count = inodelk->lk_count;
-    inodelk->locks = NULL;
-    inodelk->lk_count = 0;
+    my_layout = &lock_local->lock[0].layout.my_layout;
+    my_layout->locks = inodelk->locks;
+    my_layout->lk_count = inodelk->lk_count;
 
-    ret = dht_unlock_inodelk(
-        lock_frame, lock_local->lock[0].layout.my_layout.locks,
-        lock_local->lock[0].layout.my_layout.lk_count, dht_unlock_inodelk_done);
+    dht_lock_array_reset(inodelk);
+
+    ret = dht_unlock_inodelk(lock_frame, my_layout, dht_unlock_inodelk_done);
 
     if (ret)
         goto done;
@@ -878,19 +848,17 @@ dht_inodelk_cleanup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 static void
 dht_inodelk_cleanup(call_frame_t *lock_frame)
 {
-    dht_lock_t **lk_array = NULL;
-    int lk_count = 0, lk_acquired = 0;
+    int lk_acquired = 0;
     dht_local_t *local = NULL;
+    dht_lock_wrap_t *my_layout;
 
     local = lock_frame->local;
 
-    lk_array = local->lock[0].layout.my_layout.locks;
-    lk_count = local->lock[0].layout.my_layout.lk_count;
+    my_layout = &local->lock[0].layout.my_layout;
 
-    lk_acquired = dht_lock_count(lk_array, lk_count);
+    lk_acquired = dht_lock_count(my_layout);
     if (lk_acquired != 0) {
-        dht_unlock_inodelk(lock_frame, lk_array, lk_count,
-                           dht_inodelk_cleanup_cbk);
+        dht_unlock_inodelk(lock_frame, my_layout, dht_inodelk_cleanup_cbk);
     } else {
         dht_inodelk_done(lock_frame);
     }
@@ -905,85 +873,64 @@ dht_blocking_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     int lk_index = 0;
     int i = 0;
     dht_local_t *local = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {
-        0,
-    };
     dht_reaction_type_t reaction = 0;
+    dht_lock_wrap_t *my_layout;
+    dht_lock_t *dht_lock;
 
     lk_index = (long)cookie;
 
     local = frame->local;
+    my_layout = &local->lock[0].layout.my_layout;
+    dht_lock = my_layout->locks[lk_index];
+
     if (op_ret == 0) {
-        local->lock[0].layout.my_layout.locks[lk_index]->locked = _gf_true;
+        dht_lock->locked = _gf_true;
     } else {
         switch (op_errno) {
             case ESTALE:
             case ENOENT:
-                reaction = local->lock[0]
-                               .layout.my_layout.locks[lk_index]
-                               ->do_on_failure;
+                reaction = dht_lock->do_on_failure;
                 if ((reaction != IGNORE_ENOENT_ESTALE) &&
                     (reaction != IGNORE_ENOENT_ESTALE_EIO)) {
-                    gf_uuid_unparse(local->lock[0]
-                                        .layout.my_layout.locks[lk_index]
-                                        ->loc.gfid,
-                                    gfid);
-                    local->lock[0].layout.my_layout.op_ret = -1;
-                    local->lock[0].layout.my_layout.op_errno = op_errno;
+                    my_layout->op_ret = -1;
+                    my_layout->op_errno = op_errno;
                     gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                             DHT_MSG_INODELK_FAILED, "subvol=%s",
-                            local->lock[0]
-                                .layout.my_layout.locks[lk_index]
-                                ->xl->name,
-                            "gfid=%s", gfid, NULL);
+                            dht_lock->xl->name, "gfid=%s",
+                            uuid_utoa(dht_lock->loc.gfid), NULL);
                     goto cleanup;
                 }
                 break;
             case EIO:
-                reaction = local->lock[0]
-                               .layout.my_layout.locks[lk_index]
-                               ->do_on_failure;
+                reaction = dht_lock->do_on_failure;
                 if (reaction != IGNORE_ENOENT_ESTALE_EIO) {
-                    gf_uuid_unparse(local->lock[0]
-                                        .layout.my_layout.locks[lk_index]
-                                        ->loc.gfid,
-                                    gfid);
-                    local->lock[0].layout.my_layout.op_ret = -1;
-                    local->lock[0].layout.my_layout.op_errno = op_errno;
+                    my_layout->op_ret = -1;
+                    my_layout->op_errno = op_errno;
                     gf_smsg(this->name, GF_LOG_ERROR, op_errno,
                             DHT_MSG_INODELK_FAILED, "subvol=%s",
-                            local->lock[0]
-                                .layout.my_layout.locks[lk_index]
-                                ->xl->name,
-                            "gfid=%s", gfid, NULL);
+                            dht_lock->xl->name, "gfid=%s",
+                            uuid_utoa(dht_lock->loc.gfid), NULL);
                     goto cleanup;
                 }
                 break;
 
             default:
-                gf_uuid_unparse(
-                    local->lock[0].layout.my_layout.locks[lk_index]->loc.gfid,
-                    gfid);
-                local->lock[0].layout.my_layout.op_ret = -1;
-                local->lock[0].layout.my_layout.op_errno = op_errno;
-                gf_smsg(
-                    this->name, GF_LOG_ERROR, op_errno, DHT_MSG_INODELK_FAILED,
-                    "subvol=%s",
-                    local->lock[0].layout.my_layout.locks[lk_index]->xl->name,
-                    "gfid=%s", gfid, NULL);
+                my_layout->op_ret = -1;
+                my_layout->op_errno = op_errno;
+                gf_smsg(this->name, GF_LOG_ERROR, op_errno,
+                        DHT_MSG_INODELK_FAILED, "subvol=%s", dht_lock->xl->name,
+                        "gfid=%s", uuid_utoa(dht_lock->loc.gfid), NULL);
                 goto cleanup;
         }
     }
 
-    if (lk_index == (local->lock[0].layout.my_layout.lk_count - 1)) {
-        for (i = 0; (i < local->lock[0].layout.my_layout.lk_count) &&
-                    (!local->lock[0].layout.my_layout.locks[i]->locked);
-             i++)
+    if (lk_index == (my_layout->lk_count - 1)) {
+        for (i = 0; (i < my_layout->lk_count) && (!dht_lock->locked); i++)
             ;
 
-        if (i == local->lock[0].layout.my_layout.lk_count) {
-            local->lock[0].layout.my_layout.op_ret = -1;
-            local->lock[0].layout.my_layout.op_errno = op_errno;
+        if (i == my_layout->lk_count) {
+            my_layout->op_ret = -1;
+            my_layout->op_errno = op_errno;
         }
 
         dht_inodelk_done(frame);
@@ -999,24 +946,23 @@ cleanup:
     return 0;
 }
 
-void
+static void
 dht_blocking_inodelk_rec(call_frame_t *frame, int i)
 {
     dht_local_t *local = NULL;
     struct gf_flock flock = {
         0,
     };
+    dht_lock_t *dht_lock;
 
     local = frame->local;
 
-    flock.l_type = local->lock[0].layout.my_layout.locks[i]->type;
+    dht_lock = local->lock[0].layout.my_layout.locks[i];
+    flock.l_type = dht_lock->type;
 
-    STACK_WIND_COOKIE(
-        frame, dht_blocking_inodelk_cbk, (void *)(long)i,
-        local->lock[0].layout.my_layout.locks[i]->xl,
-        local->lock[0].layout.my_layout.locks[i]->xl->fops->inodelk,
-        local->lock[0].layout.my_layout.locks[i]->domain,
-        &local->lock[0].layout.my_layout.locks[i]->loc, F_SETLKW, &flock, NULL);
+    STACK_WIND_COOKIE(frame, dht_blocking_inodelk_cbk, (void *)(long)i,
+                      dht_lock->xl, dht_lock->xl->fops->inodelk,
+                      dht_lock->domain, &dht_lock->loc, F_SETLKW, &flock, NULL);
 
     return;
 }
@@ -1029,29 +975,26 @@ dht_blocking_inodelk(call_frame_t *frame, dht_lock_t **lk_array, int lk_count,
     call_frame_t *lock_frame = NULL;
     dht_local_t *local = NULL;
     dht_local_t *tmp_local = NULL;
-    char gfid[GF_UUID_BUF_SIZE] = {
-        0,
-    };
 
     GF_VALIDATE_OR_GOTO("dht-locks", frame, out);
     GF_VALIDATE_OR_GOTO(frame->this->name, lk_array, out);
     GF_VALIDATE_OR_GOTO(frame->this->name, inodelk_cbk, out);
 
-    tmp_local = frame->local;
-
     lock_frame = dht_lock_frame(frame);
     if (lock_frame == NULL) {
-        gf_uuid_unparse(tmp_local->loc.gfid, gfid);
+        tmp_local = frame->local;
         gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCK_FRAME_FAILED,
-                "gfid=%s", gfid, "path=%s", tmp_local->loc.path, NULL);
+                "gfid=%s", uuid_utoa(tmp_local->loc.gfid), "path=%s",
+                tmp_local->loc.path, NULL);
         goto out;
     }
 
     ret = dht_local_inodelk_init(lock_frame, lk_array, lk_count, inodelk_cbk);
     if (ret < 0) {
-        gf_uuid_unparse(tmp_local->loc.gfid, gfid);
+        tmp_local = frame->local;
         gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_LOCAL_LOCK_INIT_FAILED,
-                "gfid=%s", gfid, "path=%s", tmp_local->loc.path, NULL);
+                "gfid=%s", uuid_utoa(tmp_local->loc.gfid), "path=%s",
+                tmp_local->loc.path, NULL);
         goto out;
     }
 
@@ -1097,7 +1040,7 @@ dht_protect_namespace_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
                                    xlator_t *this, int32_t op_ret,
                                    int32_t op_errno, dict_t *xdata)
@@ -1106,9 +1049,8 @@ dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
     int ret = -1;
     loc_t *loc = NULL;
     dht_lock_t **lk_array = NULL;
-    char pgfid[GF_UUID_BUF_SIZE] = {0};
     int count = 0;
-    dht_elock_wrap_t *entrylk = NULL;
+    dht_lock_wrap_t *entrylk = NULL;
 
     local = frame->local;
     entrylk = &local->current->ns.directory_ns;
@@ -1118,9 +1060,6 @@ dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
         local->op_errno = op_errno;
         goto err;
     }
-
-    loc = &entrylk->locks[0]->loc;
-    gf_uuid_unparse(loc->gfid, pgfid);
 
     local->op_ret = 0;
     lk_array = entrylk->locks;
@@ -1132,10 +1071,11 @@ dht_blocking_entrylk_after_inodelk(call_frame_t *frame, void *cookie,
     if (ret < 0) {
         local->op_ret = -1;
         local->op_errno = EIO;
+        loc = &entrylk->locks[0]->loc;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_ENTRYLK_FAILED_AFT_INODELK, "fop=%s",
-                gf_fop_list[local->fop], "pgfid=%s", pgfid, "basename=%s",
-                entrylk->locks[0]->basename, NULL);
+                gf_fop_list[local->fop], "pgfid=%s", uuid_utoa(loc->gfid),
+                "basename=%s", entrylk->locks[0]->basename, NULL);
         goto err;
     }
 
@@ -1145,8 +1085,7 @@ err:
     if (lk_array != NULL) {
         dht_lock_array_free(lk_array, count);
         GF_FREE(lk_array);
-        entrylk->locks = NULL;
-        entrylk->lk_count = 0;
+        dht_lock_array_reset(entrylk);
     }
 
     /* Unlock inodelk. No harm calling unlock twice */
@@ -1166,8 +1105,8 @@ int
 dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
                       struct dht_namespace *ns, fop_entrylk_cbk_t ns_cbk)
 {
-    dht_ilock_wrap_t *inodelk = NULL;
-    dht_elock_wrap_t *entrylk = NULL;
+    dht_lock_wrap_t *inodelk = NULL;
+    dht_lock_wrap_t *entrylk = NULL;
     dht_lock_t **lk_array = NULL;
     dht_local_t *local = NULL;
     xlator_t *this = NULL;
@@ -1175,17 +1114,16 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         0,
     };
     int ret = -1;
-    char pgfid[GF_UUID_BUF_SIZE] = {0};
     int32_t op_errno = 0;
     int count = 1;
 
     GF_VALIDATE_OR_GOTO("dht-locks", frame, out);
-    GF_VALIDATE_OR_GOTO(frame->this->name, loc, out);
-    GF_VALIDATE_OR_GOTO(frame->this->name, loc->parent, out);
-    GF_VALIDATE_OR_GOTO(frame->this->name, subvol, out);
+    this = frame->this;
+    GF_VALIDATE_OR_GOTO(this->name, loc, out);
+    GF_VALIDATE_OR_GOTO(this->name, loc->parent, out);
+    GF_VALIDATE_OR_GOTO(this->name, subvol, out);
 
     local = frame->local;
-    this = frame->this;
 
     inodelk = &ns->parent_layout;
     entrylk = &ns->directory_ns;
@@ -1200,7 +1138,6 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
                 "path=%s", loc->path, NULL);
         goto out;
     }
-    gf_uuid_unparse(parent.gfid, pgfid);
 
     /* Alloc inodelk */
     inodelk->locks = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_pointer);
@@ -1208,8 +1145,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         local->op_errno = ENOMEM;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_CALLOC_FAILED, "fop=%s", gf_fop_list[local->fop],
-                "pgfid=%s", pgfid, "name=%s", loc->name, "path=%s", loc->path,
-                NULL);
+                "pgfid=%s", uuid_utoa(parent.gfid), "name=%s", loc->name,
+                "path=%s", loc->path, NULL);
         goto out;
     }
 
@@ -1220,8 +1157,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         local->op_errno = ENOMEM;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_LOCK_ALLOC_FAILED, "inodelk-fop=%s",
-                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
-                loc->name, "path=%s", loc->path, NULL);
+                gf_fop_list[local->fop], "pgfid=%s", uuid_utoa(parent.gfid),
+                "name=%s", loc->name, "path=%s", loc->path, NULL);
         goto err;
     }
     inodelk->lk_count = count;
@@ -1232,8 +1169,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         local->op_errno = ENOMEM;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_CALLOC_FAILED, "entrylk-fop=%s",
-                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
-                loc->name, "path=%s", loc->path, NULL);
+                gf_fop_list[local->fop], "pgfid=%s", uuid_utoa(parent.gfid),
+                "name=%s", loc->name, "path=%s", loc->path, NULL);
 
         goto err;
     }
@@ -1245,8 +1182,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         local->op_errno = ENOMEM;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_LOCK_ALLOC_FAILED, "entrylk-fop=%s",
-                gf_fop_list[local->fop], "pgfid=%s", pgfid, "name=%s",
-                loc->name, "path=%s", loc->path, NULL);
+                gf_fop_list[local->fop], "pgfid=%s", uuid_utoa(parent.gfid),
+                "name=%s", loc->name, "path=%s", loc->path, NULL);
 
         goto err;
     }
@@ -1262,8 +1199,8 @@ dht_protect_namespace(call_frame_t *frame, loc_t *loc, xlator_t *subvol,
         local->op_errno = EIO;
         gf_smsg(this->name, GF_LOG_WARNING, local->op_errno,
                 DHT_MSG_BLOCK_INODELK_FAILED, "fop=%s", gf_fop_list[local->fop],
-                "pgfid=%s", pgfid, "name=%s", loc->name, "path=%s", loc->path,
-                NULL);
+                "pgfid=%s", uuid_utoa(parent.gfid), "name=%s", loc->name,
+                "path=%s", loc->path, NULL);
 
         goto err;
     }
@@ -1275,15 +1212,13 @@ err:
     if (entrylk->locks != NULL) {
         dht_lock_array_free(entrylk->locks, count);
         GF_FREE(entrylk->locks);
-        entrylk->locks = NULL;
-        entrylk->lk_count = 0;
+        dht_lock_array_reset(entrylk);
     }
 
     if (inodelk->locks != NULL) {
         dht_lock_array_free(inodelk->locks, count);
         GF_FREE(inodelk->locks);
-        inodelk->locks = NULL;
-        inodelk->lk_count = 0;
+        dht_lock_array_reset(inodelk);
     }
 
     loc_wipe(&parent);

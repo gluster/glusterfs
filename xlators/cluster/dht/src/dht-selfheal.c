@@ -77,6 +77,7 @@ dht_selfheal_dir_finish(call_frame_t *frame, int ret, int invoke_cbk)
     dht_local_t *local = NULL, *lock_local = NULL;
     call_frame_t *lock_frame = NULL;
     int lock_count = 0;
+    dht_lock_wrap_t *parent_layout, *lock_local_parent_layout;
 
     local = frame->local;
 
@@ -84,8 +85,9 @@ dht_selfheal_dir_finish(call_frame_t *frame, int ret, int invoke_cbk)
     dht_unlock_entrylk_wrapper(frame, &local->lock[0].ns.directory_ns);
 
     /* Unlock inodelk */
-    lock_count = dht_lock_count(local->lock[0].ns.parent_layout.locks,
-                                local->lock[0].ns.parent_layout.lk_count);
+
+    parent_layout = &local->lock[0].ns.parent_layout;
+    lock_count = dht_lock_count(parent_layout);
     if (lock_count == 0)
         goto done;
 
@@ -100,16 +102,13 @@ dht_selfheal_dir_finish(call_frame_t *frame, int ret, int invoke_cbk)
         goto done;
     }
 
-    lock_local->lock[0].ns.parent_layout.locks = local->lock[0]
-                                                     .ns.parent_layout.locks;
-    lock_local->lock[0]
-        .ns.parent_layout.lk_count = local->lock[0].ns.parent_layout.lk_count;
+    lock_local_parent_layout = &lock_local->lock[0].ns.parent_layout;
 
-    local->lock[0].ns.parent_layout.locks = NULL;
-    local->lock[0].ns.parent_layout.lk_count = 0;
+    dht_lock_array_copy(parent_layout, lock_local_parent_layout);
 
-    dht_unlock_inodelk(lock_frame, lock_local->lock[0].ns.parent_layout.locks,
-                       lock_local->lock[0].ns.parent_layout.lk_count,
+    dht_lock_array_reset(parent_layout);
+
+    dht_unlock_inodelk(lock_frame, lock_local_parent_layout,
                        dht_selfheal_unlock_cbk);
     lock_frame = NULL;
 
@@ -520,6 +519,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
     dht_conf_t *conf = NULL;
     dht_layout_t *tmp = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
+    dht_lock_wrap_t *my_layout;
 
     GF_VALIDATE_OR_GOTO("dht", frame, err);
     GF_VALIDATE_OR_GOTO(frame->this->name, frame->local, err);
@@ -538,7 +538,7 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
     if (!newdir) {
         count = conf->subvolume_cnt;
 
-        lk_array = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_char);
+        lk_array = GF_MALLOC(count * sizeof(*lk_array), gf_common_mt_char);
         if (lk_array == NULL) {
             gf_uuid_unparse(local->stbuf.ia_gfid, gfid);
             gf_smsg("dht", GF_LOG_ERROR, ENOMEM, DHT_MSG_MEM_ALLOC_FAILED,
@@ -579,14 +579,14 @@ dht_selfheal_layout_lock(call_frame_t *frame, dht_layout_t *layout,
         }
     }
 
-    local->lock[0].layout.my_layout.locks = lk_array;
-    local->lock[0].layout.my_layout.lk_count = count;
+    my_layout = &local->lock[0].layout.my_layout;
+    my_layout->locks = lk_array;
+    my_layout->lk_count = count;
 
     ret = dht_blocking_inodelk(frame, lk_array, count,
                                dht_selfheal_layout_lock_cbk);
     if (ret < 0) {
-        local->lock[0].layout.my_layout.locks = NULL;
-        local->lock[0].layout.my_layout.lk_count = 0;
+        dht_lock_array_reset(my_layout);
         goto err;
     }
 
@@ -2344,8 +2344,7 @@ dht_update_commit_hash_for_layout_unlock(call_frame_t *frame, xlator_t *this)
 
     local = frame->local;
 
-    ret = dht_unlock_inodelk(frame, local->lock[0].layout.my_layout.locks,
-                             local->lock[0].layout.my_layout.lk_count,
+    ret = dht_unlock_inodelk(frame, &local->lock[0].layout.my_layout,
                              dht_update_commit_hash_for_layout_done);
     if (ret < 0) {
         /* preserve oldest error, just ... */
@@ -2546,6 +2545,7 @@ dht_update_commit_hash_for_layout(call_frame_t *frame)
     int count = 1, ret = -1, i = 0;
     dht_lock_t **lk_array = NULL;
     dht_conf_t *conf = NULL;
+    dht_lock_wrap_t *my_layout;
 
     GF_VALIDATE_OR_GOTO("dht", frame, err);
     GF_VALIDATE_OR_GOTO(frame->this->name, frame->local, err);
@@ -2557,7 +2557,7 @@ dht_update_commit_hash_for_layout(call_frame_t *frame)
         goto err;
 
     count = conf->local_subvols_cnt;
-    lk_array = GF_CALLOC(count, sizeof(*lk_array), gf_common_mt_char);
+    lk_array = GF_MALLOC(count * sizeof(*lk_array), gf_common_mt_char);
     if (lk_array == NULL)
         goto err;
 
@@ -2569,14 +2569,14 @@ dht_update_commit_hash_for_layout(call_frame_t *frame)
             goto err;
     }
 
-    local->lock[0].layout.my_layout.locks = lk_array;
-    local->lock[0].layout.my_layout.lk_count = count;
+    my_layout = &local->lock[0].layout.my_layout;
+    my_layout->locks = lk_array;
+    my_layout->lk_count = count;
 
     ret = dht_blocking_inodelk(frame, lk_array, count,
                                dht_update_commit_hash_for_layout_resume);
     if (ret < 0) {
-        local->lock[0].layout.my_layout.locks = NULL;
-        local->lock[0].layout.my_layout.lk_count = 0;
+        dht_lock_array_reset(my_layout);
         goto err;
     }
 
