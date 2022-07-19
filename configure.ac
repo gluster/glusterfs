@@ -1305,6 +1305,18 @@ fi
 
 AC_SUBST(GF_DISTRIBUTION)
 
+AC_CHECK_FILE([/etc/os-release])
+
+if test "x$ac_cv_file__etc_os_release" = "xyes"; then
+   AC_CANONICAL_HOST
+
+   if test "x${host_cpu}" = "xs390x" || test "x${host_cpu}" = "xs390" ; then
+      if grep "Red Hat Enterprise Linux 8\|SUSE Linux Enterprise Server 15" /etc/os-release ; then
+         AC_DEFINE(REDHAT8_OR_SLES15_ON_S390X, 1, [Red Hat 8 or SLES 15 on s390x])
+      fi
+   fi
+fi
+
 GF_HOST_OS=""
 GF_LDFLAGS="${GF_LDFLAGS} -rdynamic"
 
