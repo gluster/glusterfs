@@ -575,7 +575,7 @@ gf_proc_dump_per_xlator_info(xlator_t *top)
     }
 }
 
-void
+static void
 gf_proc_dump_xlator_info(xlator_t *top, gf_boolean_t brick_mux)
 {
     xlator_t *trav = NULL;
@@ -916,15 +916,12 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
         gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+        len = snprintf(sign_string, sizeof(sign_string),
+                       "DUMP-START-TIME: %s\n", timestr);
+
+        // swallow the errors of write for start and end marker
+        (void)sys_write(gf_dump_fd, sign_string, len);
     }
-
-    len = snprintf(sign_string, sizeof(sign_string), "DUMP-START-TIME: %s\n",
-                   timestr);
-
-    // swallow the errors of write for start and end marker
-    (void)sys_write(gf_dump_fd, sign_string, len);
-
-    memset(timestr, 0, sizeof(timestr));
 
     if (GF_PROC_DUMP_IS_OPTION_ENABLED(mem)) {
         gf_proc_dump_mem_info();
@@ -965,11 +962,10 @@ gf_proc_dump_info(int signum, glusterfs_ctx_t *ctx)
     ret = gettimeofday(&tv, NULL);
     if (0 == ret) {
         gf_time_fmt_tv_FT(timestr, sizeof timestr, &tv, ctx);
+        len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",
+                       timestr);
+        (void)sys_write(gf_dump_fd, sign_string, len);
     }
-
-    len = snprintf(sign_string, sizeof(sign_string), "\nDUMP-END-TIME: %s",
-                   timestr);
-    (void)sys_write(gf_dump_fd, sign_string, len);
 
     if (gf_dump_fd != -1)
         gf_proc_dump_close();

@@ -82,7 +82,7 @@ call_stack_set_groups(call_stack_t *stack, int ngrps, gid_t **groupbuf_p)
     *groupbuf_p = (void *)0xdeadf00d;
 }
 
-void
+static void
 gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
 {
     char prefix[GF_DUMP_MAX_BUF_LEN];
@@ -143,7 +143,7 @@ gf_proc_dump_call_frame(call_frame_t *call_frame, const char *key_buf, ...)
     if (my_frame.unwind_to)
         gf_proc_dump_write("unwind_to", "%s", my_frame.unwind_to);
 
-    ret = 0;
+    return;
 out:
     if (ret) {
         gf_proc_dump_write("Unable to dump the frame information",
@@ -152,7 +152,7 @@ out:
     }
 }
 
-void
+static void
 gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
 {
     char prefix[GF_DUMP_MAX_BUF_LEN];
@@ -172,8 +172,7 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     va_end(ap);
 
     cnt = call_frames_count(call_stack);
-    gf_time_fmt_FT(timestr, sizeof(timestr), call_stack->tv.tv_sec);
-    len = strlen(timestr);
+    len = gf_time_fmt_FT(timestr, sizeof(timestr), call_stack->tv.tv_sec);
     snprintf(timestr + len, sizeof(timestr) - len, ".%" GF_PRI_SNSECONDS,
              call_stack->tv.tv_nsec);
     gf_proc_dump_write("callstack-creation-time", "%s", timestr);
@@ -185,7 +184,7 @@ gf_proc_dump_call_stack(call_stack_t *call_stack, const char *key_buf, ...)
     gf_proc_dump_write("unique", "%" PRIu64, call_stack->unique);
     gf_proc_dump_write("lk-owner", "%s", lkowner_utoa(&call_stack->lk_owner));
     gf_proc_dump_write("ctime", "%" GF_PRI_SECOND ".%" GF_PRI_SNSECONDS,
-                       call_stack->tv.tv_sec, call_stack->tv.tv_nsec);
+                       call_stack->ctime.tv_sec, call_stack->ctime.tv_nsec);
 
     if (call_stack->type == GF_OP_TYPE_FOP)
         gf_proc_dump_write("op", "%s", (char *)gf_fop_list[call_stack->op]);
@@ -242,15 +241,15 @@ out:
     return;
 }
 
-void
+static void
 gf_proc_dump_call_frame_to_dict(call_frame_t *call_frame, char *prefix,
                                 dict_t *dict)
 {
     int ret = -1;
-    char key[GF_DUMP_MAX_BUF_LEN] = {
+    char key[128] = {
         0,
     };
-    char msg[GF_DUMP_MAX_BUF_LEN] = {
+    char msg[128] = {
         0,
     };
     call_frame_t tmp_frame = {
@@ -326,12 +325,12 @@ gf_proc_dump_call_frame_to_dict(call_frame_t *call_frame, char *prefix,
     return;
 }
 
-void
+static void
 gf_proc_dump_call_stack_to_dict(call_stack_t *call_stack, char *prefix,
                                 dict_t *dict)
 {
     int ret = -1;
-    char key[GF_DUMP_MAX_BUF_LEN] = {
+    char key[64] = {
         0,
     };
     call_frame_t *trav = NULL;
@@ -396,7 +395,7 @@ gf_proc_dump_pending_frames_to_dict(call_pool_t *call_pool, dict_t *dict)
 {
     int ret = -1;
     call_stack_t *trav = NULL;
-    char key[GF_DUMP_MAX_BUF_LEN] = {
+    char key[32] = {
         0,
     };
     int i = 0;
