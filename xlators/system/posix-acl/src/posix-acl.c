@@ -18,6 +18,19 @@
 #define UINT64(ptr) ((uint64_t)((long)(ptr)))
 #define PTR(num) ((void *)((long)(num)))
 
+static struct posix_acl *
+posix_acl_ref(xlator_t *this, struct posix_acl *acl);
+
+static struct posix_acl_ctx *
+posix_acl_ctx_get(inode_t *inode, xlator_t *this);
+
+static void
+posix_acl_unref(xlator_t *this, struct posix_acl *acl);
+
+static void
+posix_acl_get(inode_t *inode, xlator_t *this, struct posix_acl **acl_access_p,
+              struct posix_acl **acl_default_p);
+
 int32_t
 mem_acct_init(xlator_t *this)
 {
@@ -39,11 +52,11 @@ mem_acct_init(xlator_t *this)
 }
 
 static uid_t
-r00t()
+r00t(xlator_t *this)
 {
     struct posix_acl_conf *conf = NULL;
 
-    conf = THIS->private;
+    conf = this->private;
 
     return conf->super_uid;
 }
@@ -65,25 +78,25 @@ allowed_xattr(const char *key)
     return 0;
 }
 
-int
+static int
 frame_is_user(call_frame_t *frame, uid_t uid)
 {
     return (frame->root->uid == uid);
 }
 
-int
+static int
 frame_is_super_user(call_frame_t *frame)
 {
     int ret;
 
-    ret = frame_is_user(frame, r00t());
+    ret = frame_is_user(frame, r00t(frame->this));
     if (!ret)
         ret = frame_is_user(frame, 0);
 
     return ret;
 }
 
-int
+static int
 frame_in_group(call_frame_t *frame, gid_t gid)
 {
     int i = 0;
@@ -97,7 +110,7 @@ frame_in_group(call_frame_t *frame, gid_t gid)
     return 0;
 }
 
-mode_t
+static mode_t
 posix_acl_access_set_mode(struct posix_acl *acl, struct posix_acl_ctx *ctx)
 {
     struct posix_ace *ace = NULL;
@@ -241,7 +254,7 @@ posix_acl_log_permit_denied(call_frame_t *frame, inode_t *inode, int want,
     char *acl_str = NULL;
     client_t *client = NULL;
 
-    if (!frame || !inode || !ctx || !frame->root)
+    if (!inode || !ctx)
         goto out;
 
     client = frame->root->client;
@@ -276,8 +289,6 @@ acl_permits(call_frame_t *frame, inode_t *inode, int want)
     int found = 0;
     int acl_present = 0;
 
-    conf = frame->this->private;
-
     if ((0 > frame->root->pid) || frame_is_super_user(frame))
         goto green;
 
@@ -287,6 +298,7 @@ acl_permits(call_frame_t *frame, inode_t *inode, int want)
 
     posix_acl_get(inode, frame->this, &acl, NULL);
     if (!acl) {
+        conf = frame->this->private;
         acl = posix_acl_ref(frame->this, conf->minimal_acl);
     }
 
@@ -372,7 +384,7 @@ out:
     return verdict;
 }
 
-struct posix_acl_ctx *
+static struct posix_acl_ctx *
 __posix_acl_ctx_get(inode_t *inode, xlator_t *this, gf_boolean_t create)
 {
     struct posix_acl_ctx *ctx = NULL;
@@ -399,7 +411,7 @@ __posix_acl_ctx_get(inode_t *inode, xlator_t *this, gf_boolean_t create)
     return ctx;
 }
 
-struct posix_acl_ctx *
+static struct posix_acl_ctx *
 posix_acl_ctx_new(inode_t *inode, xlator_t *this)
 {
     struct posix_acl_ctx *ctx = NULL;
@@ -423,7 +435,7 @@ posix_acl_ctx_new(inode_t *inode, xlator_t *this)
     return ctx;
 }
 
-struct posix_acl_ctx *
+static struct posix_acl_ctx *
 posix_acl_ctx_get(inode_t *inode, xlator_t *this)
 {
     struct posix_acl_ctx *ctx = NULL;
@@ -447,7 +459,7 @@ posix_acl_ctx_get(inode_t *inode, xlator_t *this)
     return ctx;
 }
 
-int
+static int
 __posix_acl_set_specific(inode_t *inode, xlator_t *this, gf_boolean_t is_access,
                          struct posix_acl *acl)
 {
@@ -468,71 +480,53 @@ out:
     return ret;
 }
 
-int
+static void
 __posix_acl_set(inode_t *inode, xlator_t *this, struct posix_acl *acl_access,
                 struct posix_acl *acl_default)
 {
-    int ret = 0;
     struct posix_acl_ctx *ctx = NULL;
 
     ctx = posix_acl_ctx_get(inode, this);
     if (!ctx)
-        goto out;
+        return;
 
     ctx->acl_access = acl_access;
     ctx->acl_default = acl_default;
-
-out:
-    return ret;
 }
 
-int
+static void
 __posix_acl_get(inode_t *inode, xlator_t *this, struct posix_acl **acl_access_p,
                 struct posix_acl **acl_default_p)
 {
-    int ret = 0;
     struct posix_acl_ctx *ctx = NULL;
 
     ctx = posix_acl_ctx_get(inode, this);
     if (!ctx)
-        goto out;
+        return;
 
     if (acl_access_p)
         *acl_access_p = ctx->acl_access;
     if (acl_default_p)
         *acl_default_p = ctx->acl_default;
-
-out:
-    return ret;
 }
 
 struct posix_acl *
-posix_acl_new(xlator_t *this, int entrycnt)
+posix_acl_new(int entrycnt)
 {
     struct posix_acl *acl = NULL;
-    struct posix_ace *ace = NULL;
 
-    acl = GF_CALLOC(1, sizeof(*acl) + (entrycnt * sizeof(*ace)),
+    acl = GF_CALLOC(1, sizeof(*acl) + (entrycnt * sizeof(struct posix_ace)),
                     gf_posix_acl_mt_posix_ace_t);
     if (!acl)
         return NULL;
 
+    acl->refcnt++;
     acl->count = entrycnt;
-
-    posix_acl_ref(this, acl);
 
     return acl;
 }
 
-void
-posix_acl_destroy(xlator_t *this, struct posix_acl *acl)
-{
-    GF_FREE(acl);
-
-    return;
-}
-
-struct posix_acl *
+static struct posix_acl *
 posix_acl_ref(xlator_t *this, struct posix_acl *acl)
 {
     struct posix_acl_conf *conf = NULL;
@@ -548,21 +542,20 @@ posix_acl_ref(xlator_t *this, struct posix_acl *acl)
     return acl;
 }
 
-struct posix_acl *
-posix_acl_dup(xlator_t *this, struct posix_acl *acl)
+static struct posix_acl *
+posix_acl_dup(struct posix_acl *acl)
 {
     struct posix_acl *dup = NULL;
 
-    dup = posix_acl_new(this, acl->count);
-    if (!dup)
-        return NULL;
-
-    memcpy(dup->entries, acl->entries, sizeof(struct posix_ace) * acl->count);
+    dup = posix_acl_new(acl->count);
+    if (dup)
+        memcpy(dup->entries, acl->entries,
+               sizeof(struct posix_ace) * acl->count);
 
     return dup;
 }
 
-void
+static void
 posix_acl_unref(xlator_t *this, struct posix_acl *acl)
 {
     struct posix_acl_conf *conf = NULL;
@@ -579,15 +572,14 @@ posix_acl_unref(xlator_t *this, struct posix_acl *acl)
     UNLOCK(&conf->acl_lock);
 out:
     if (!refcnt)
-        posix_acl_destroy(this, acl);
+        GF_FREE(acl);
 }
 
-int
+static int
 posix_acl_set_specific(inode_t *inode, xlator_t *this, struct posix_acl *acl,
                        gf_boolean_t is_access)
 {
     int ret = 0;
-    int oldret = 0;
     struct posix_acl *old_acl = NULL;
     struct posix_acl_conf *conf = NULL;
 
@@ -596,28 +588,26 @@ posix_acl_set_specific(inode_t *inode, xlator_t *this, struct posix_acl *acl,
     LOCK(&conf->acl_lock);
     {
         if (is_access)
-            oldret = __posix_acl_get(inode, this, &old_acl, NULL);
+            __posix_acl_get(inode, this, &old_acl, NULL);
         else
-            oldret = __posix_acl_get(inode, this, NULL, &old_acl);
+            __posix_acl_get(inode, this, NULL, &old_acl);
         if (acl)
             acl->refcnt++;
         ret = __posix_acl_set_specific(inode, this, is_access, acl);
     }
     UNLOCK(&conf->acl_lock);
 
-    if (!oldret && old_acl) {
+    if (old_acl) {
         posix_acl_unref(this, old_acl);
     }
 
     return ret;
 }
 
-int
+static void
 posix_acl_set(inode_t *inode, xlator_t *this, struct posix_acl *acl_access,
               struct posix_acl *acl_default)
 {
-    int ret = 0;
-    int oldret = 0;
     struct posix_acl *old_access = NULL;
     struct posix_acl *old_default = NULL;
     struct posix_acl_conf *conf = NULL;
@@ -626,61 +616,50 @@ posix_acl_set(inode_t *inode, xlator_t *this, struct posix_acl *acl_access,
 
     LOCK(&conf->acl_lock);
     {
-        oldret = __posix_acl_get(inode, this, &old_access, &old_default);
+        __posix_acl_get(inode, this, &old_access, &old_default);
         if (acl_access)
             acl_access->refcnt++;
         if (acl_default)
             acl_default->refcnt++;
 
-        ret = __posix_acl_set(inode, this, acl_access, acl_default);
+        __posix_acl_set(inode, this, acl_access, acl_default);
     }
     UNLOCK(&conf->acl_lock);
 
-    if (oldret == 0) {
-        if (old_access)
-            posix_acl_unref(this, old_access);
-        if (old_default)
-            posix_acl_unref(this, old_default);
-    }
-
-    return ret;
+    if (old_access)
+        posix_acl_unref(this, old_access);
+    if (old_default)
+        posix_acl_unref(this, old_default);
 }
 
-int
+static void
 posix_acl_get(inode_t *inode, xlator_t *this, struct posix_acl **acl_access_p,
               struct posix_acl **acl_default_p)
 {
     struct posix_acl_conf *conf = NULL;
     struct posix_acl *acl_access = NULL;
     struct posix_acl *acl_default = NULL;
-    int ret = 0;
 
     conf = this->private;
 
     LOCK(&conf->acl_lock);
     {
-        ret = __posix_acl_get(inode, this, &acl_access, &acl_default);
-
-        if (ret != 0)
-            goto unlock;
+        __posix_acl_get(inode, this, &acl_access, &acl_default);
 
         if (acl_access && acl_access_p)
             acl_access->refcnt++;
         if (acl_default && acl_default_p)
             acl_default->refcnt++;
     }
-unlock:
     UNLOCK(&conf->acl_lock);
 
     if (acl_access_p)
         *acl_access_p = acl_access;
     if (acl_default_p)
         *acl_default_p = acl_default;
-
-    return ret;
 }
 
-mode_t
+static mode_t
 posix_acl_inherit_mode(struct posix_acl *acl, mode_t modein)
 {
     struct posix_ace *ace = NULL;
@@ -730,7 +709,7 @@ posix_acl_inherit_mode(struct posix_acl *acl, mode_t modein)
     return newmode;
 }
 
-mode_t
+static mode_t
 posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
                   int32_t umask, int is_dir)
 {
@@ -763,14 +742,14 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
         }
     }
 
-    ret = posix_acl_get(loc->parent, this, NULL, &par_default);
+    posix_acl_get(loc->parent, this, NULL, &par_default);
 
     if (!par_default)
         goto out;
 
     ctx = posix_acl_ctx_new(loc->inode, this);
 
-    acl_access = posix_acl_dup(this, par_default);
+    acl_access = posix_acl_dup(par_default);
     if (!acl_access)
         goto out;
 
@@ -778,14 +757,14 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
     retmode = posix_acl_inherit_mode(acl_access, retmode);
     ctx->perm = retmode;
 
-    size_access = posix_acl_to_xattr(this, acl_access, NULL, 0);
+    size_access = posix_acl_to_xattr(acl_access, NULL, 0);
     xattr_access = GF_CALLOC(1, size_access, gf_posix_acl_mt_char);
     if (!xattr_access) {
         gf_log(this->name, GF_LOG_ERROR, "out of memory");
         ret = -1;
         goto out;
     }
-    posix_acl_to_xattr(this, acl_access, xattr_access, size_access);
+    posix_acl_to_xattr(acl_access, xattr_access, size_access);
 
     ret = dict_set_bin(params, POSIX_ACL_ACCESS_XATTR, xattr_access,
                        size_access);
@@ -801,14 +780,14 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
 
     acl_default = posix_acl_ref(this, par_default);
 
-    size_default = posix_acl_to_xattr(this, acl_default, NULL, 0);
+    size_default = posix_acl_to_xattr(acl_default, NULL, 0);
     xattr_default = GF_CALLOC(1, size_default, gf_posix_acl_mt_char);
     if (!xattr_default) {
         gf_log(this->name, GF_LOG_ERROR, "out of memory");
         ret = -1;
         goto out;
     }
-    posix_acl_to_xattr(this, acl_default, xattr_default, size_default);
+    posix_acl_to_xattr(acl_default, xattr_default, size_default);
 
     ret = dict_set_bin(params, POSIX_ACL_DEFAULT_XATTR, xattr_default,
                        size_default);
@@ -820,9 +799,7 @@ posix_acl_inherit(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
     }
 
 set:
-    ret = posix_acl_set(loc->inode, this, acl_access, acl_default);
-    if (ret != 0)
-        goto out;
+    posix_acl_set(loc->inode, this, acl_access, acl_default);
 
 out:
     retmode &= ~client_umask;
@@ -837,7 +814,7 @@ out:
     return retmode;
 }
 
-mode_t
+static mode_t
 posix_acl_inherit_dir(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
                       int32_t umask)
 {
@@ -848,7 +825,7 @@ posix_acl_inherit_dir(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
     return retmode;
 }
 
-mode_t
+static mode_t
 posix_acl_inherit_file(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
                        int32_t umask)
 {
@@ -859,7 +836,7 @@ posix_acl_inherit_file(xlator_t *this, loc_t *loc, dict_t *params, mode_t mode,
     return retmode;
 }
 
-int
+static int
 posix_acl_ctx_update(inode_t *inode, xlator_t *this, struct iatt *buf,
                      glusterfs_fop_t fop)
 {
@@ -946,7 +923,6 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     struct posix_acl *old_default = NULL;
     struct posix_acl_ctx *ctx = NULL;
     data_t *data = NULL;
-    int ret = 0;
     dict_t *my_xattr = NULL;
 
     if (op_ret != 0)
@@ -959,7 +935,7 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto unwind;
     }
 
-    ret = posix_acl_get(inode, this, &old_access, &old_default);
+    posix_acl_get(inode, this, &old_access, &old_default);
 
     if (xattr == NULL)
         goto acl_set;
@@ -969,10 +945,10 @@ posix_acl_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto acl_default;
 
     if (old_access &&
-        posix_acl_matches_xattr(this, old_access, data->data, data->len)) {
+        posix_acl_matches_xattr(old_access, data->data, data->len)) {
         acl_access = posix_acl_ref(this, old_access);
     } else {
-        acl_access = posix_acl_from_xattr(this, data->data, data->len);
+        acl_access = posix_acl_from_xattr(data->data, data->len);
     }
 
 acl_default:
@@ -981,18 +957,16 @@ acl_default:
         goto acl_set;
 
     if (old_default &&
-        posix_acl_matches_xattr(this, old_default, data->data, data->len)) {
+        posix_acl_matches_xattr(old_default, data->data, data->len)) {
         acl_default = posix_acl_ref(this, old_default);
     } else {
-        acl_default = posix_acl_from_xattr(this, data->data, data->len);
+        acl_default = posix_acl_from_xattr(data->data, data->len);
     }
 
 acl_set:
     posix_acl_ctx_update(inode, this, buf, GF_FOP_LOOKUP);
 
-    ret = posix_acl_set(inode, this, acl_access, acl_default);
-    if (ret)
-        gf_log(this->name, GF_LOG_WARNING, "failed to set ACL in context");
+    posix_acl_set(inode, this, acl_access, acl_default);
 unwind:
     my_xattr = frame->local;
     frame->local = NULL;
@@ -1550,7 +1524,6 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     struct posix_acl *acl_default = NULL;
     struct posix_acl_ctx *ctx = NULL;
     data_t *data = NULL;
-    int ret = 0;
 
     if (op_ret <= 0)
         goto unwind;
@@ -1568,20 +1541,20 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto unwind;
         }
 
-        ret = posix_acl_get(entry->inode, this, &acl_access, &acl_default);
+        posix_acl_get(entry->inode, this, &acl_access, &acl_default);
 
         data = dict_get(entry->dict, POSIX_ACL_ACCESS_XATTR);
         if (!data)
             goto acl_default;
 
         if (acl_access &&
-            posix_acl_matches_xattr(this, acl_access, data->data, data->len))
+            posix_acl_matches_xattr(acl_access, data->data, data->len))
             goto acl_default;
 
         if (acl_access)
             posix_acl_unref(this, acl_access);
 
-        acl_access = posix_acl_from_xattr(this, data->data, data->len);
+        acl_access = posix_acl_from_xattr(data->data, data->len);
 
     acl_default:
         data = dict_get(entry->dict, POSIX_ACL_DEFAULT_XATTR);
@@ -1589,21 +1562,19 @@ posix_acl_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             goto acl_set;
 
         if (acl_default &&
-            posix_acl_matches_xattr(this, acl_default, data->data, data->len))
+            posix_acl_matches_xattr(acl_default, data->data, data->len))
             goto acl_set;
 
         if (acl_default)
             posix_acl_unref(this, acl_default);
 
-        acl_default = posix_acl_from_xattr(this, data->data, data->len);
+        acl_default = posix_acl_from_xattr(data->data, data->len);
 
     acl_set:
         posix_acl_ctx_update(entry->inode, this, &entry->d_stat,
                              GF_FOP_READDIRP);
 
-        ret = posix_acl_set(entry->inode, this, acl_access, acl_default);
-        if (ret)
-            gf_log(this->name, GF_LOG_WARNING, "failed to set ACL in context");
+        posix_acl_set(entry->inode, this, acl_access, acl_default);
 
         if (acl_access)
             posix_acl_unref(this, acl_access);
@@ -1800,7 +1771,7 @@ red:
     return 0;
 }
 
-int
+static int
 setxattr_scrutiny(call_frame_t *frame, inode_t *inode, dict_t *xattr)
 {
     struct posix_acl_ctx *ctx = NULL;
@@ -1828,7 +1799,7 @@ setxattr_scrutiny(call_frame_t *frame, inode_t *inode, dict_t *xattr)
     return 0;
 }
 
-struct posix_acl *
+static struct posix_acl *
 posix_acl_xattr_update(xlator_t *this, inode_t *inode, dict_t *xattr,
                        char *name, struct posix_acl *old)
 {
@@ -1837,7 +1808,7 @@ posix_acl_xattr_update(xlator_t *this, inode_t *inode, dict_t *xattr,
 
     data = dict_get(xattr, name);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
     }
 
     if (!acl && old)
@@ -1846,7 +1817,7 @@ posix_acl_xattr_update(xlator_t *this, inode_t *inode, dict_t *xattr,
     return acl;
 }
 
-int
+static int
 posix_acl_setxattr_update(xlator_t *this, inode_t *inode, dict_t *xattr)
 {
     struct posix_acl *acl_access = NULL;
@@ -1854,13 +1825,12 @@ posix_acl_setxattr_update(xlator_t *this, inode_t *inode, dict_t *xattr)
     struct posix_acl *old_access = NULL;
     struct posix_acl *old_default = NULL;
     struct posix_acl_ctx *ctx = NULL;
-    int ret = 0;
 
     ctx = posix_acl_ctx_get(inode, this);
     if (!ctx)
         return -1;
 
-    ret = posix_acl_get(inode, this, &old_access, &old_default);
+    posix_acl_get(inode, this, &old_access, &old_default);
 
     acl_access = posix_acl_xattr_update(this, inode, xattr,
                                         POSIX_ACL_ACCESS_XATTR, old_access);
@@ -1868,7 +1838,7 @@ posix_acl_setxattr_update(xlator_t *this, inode_t *inode, dict_t *xattr)
     acl_default = posix_acl_xattr_update(this, inode, xattr,
                                          POSIX_ACL_DEFAULT_XATTR, old_default);
 
-    ret = posix_acl_set(inode, this, acl_access, acl_default);
+    posix_acl_set(inode, this, acl_access, acl_default);
 
     if (acl_access && acl_access != old_access) {
         posix_acl_access_set_mode(acl_access, ctx);
@@ -1883,7 +1853,7 @@ posix_acl_setxattr_update(xlator_t *this, inode_t *inode, dict_t *xattr)
     if (old_default)
         posix_acl_unref(this, old_default);
 
-    return ret;
+    return 0;
 }
 
 /* *
@@ -1891,7 +1861,7 @@ posix_acl_setxattr_update(xlator_t *this, inode_t *inode, dict_t *xattr)
  * GF_POSIX_ACL_DEFAULT  which requires to update the context of
  * access-control translator
  */
-int
+static int
 handling_other_acl_related_xattr(xlator_t *this, inode_t *inode, dict_t *xattr)
 {
     struct posix_acl *acl = NULL;
@@ -1904,7 +1874,7 @@ handling_other_acl_related_xattr(xlator_t *this, inode_t *inode, dict_t *xattr)
 
     data = dict_get(xattr, POSIX_ACL_ACCESS_XATTR);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
         if (!acl) {
             ret = -1;
             goto out;
@@ -1927,7 +1897,7 @@ handling_other_acl_related_xattr(xlator_t *this, inode_t *inode, dict_t *xattr)
 
     data = dict_get(xattr, POSIX_ACL_DEFAULT_XATTR);
     if (data) {
-        acl = posix_acl_from_xattr(this, data->data, data->len);
+        acl = posix_acl_from_xattr(data->data, data->len);
         if (!acl) {
             ret = -1;
             goto out;
@@ -2059,7 +2029,7 @@ posix_acl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
                       const char *name, dict_t *xdata)
 {
     struct posix_acl_ctx *ctx = NULL;
-    int op_errno = EACCES;
+    int op_errno = 0;
 
     if (frame_is_super_user(frame))
         goto green;
@@ -2079,8 +2049,10 @@ posix_acl_removexattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
     if (acl_permits(frame, loc->inode, POSIX_ACL_WRITE))
         goto green;
-    else
+    else {
+        op_errno = EACCES;
         goto red;
+    }
 green:
     STACK_WIND(frame, default_removexattr_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->removexattr, loc, name, xdata);
@@ -2142,7 +2114,7 @@ init(xlator_t *this)
 
     this->private = conf;
 
-    minacl = posix_acl_new(this, 3);
+    minacl = posix_acl_new(3);
     if (!minacl)
         return -1;
 
