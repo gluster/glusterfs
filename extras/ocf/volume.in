@@ -93,7 +93,7 @@ volume_getdir() {
 
 volume_getpid_dir() {
     local volpid_dir
-    volpid_dir="/var/run/gluster/vols/${OCF_RESKEY_volname}"
+    volpid_dir="/run/gluster/vols/${OCF_RESKEY_volname}"
 
     [ -d ${volpid_dir} ] || return 1
 

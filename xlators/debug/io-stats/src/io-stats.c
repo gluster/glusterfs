@@ -21,7 +21,7 @@
  * per fd e) counts of all FOP types passing through it
  *
  *  Usage: setfattr -n trusted.io-stats-dump -v filename /mnt/gluster
- *      output is written to /var/run/gluster/filename.<iostats xlator instance
+ *      output is written to /run/gluster/filename.<iostats xlator instance
  * name>
  *
  */
@@ -3036,10 +3036,10 @@ conditional_dump(dict_t *dict, char *key, data_t *value, void *data)
     instance in the graph, or the client and server processes are running
     on the same node */
     /* For the sanity of where the file should be located, we should make
-       sure file is written only inside RUNDIR (ie, /var/run/gluster) */
+       sure file is written only inside RUNDIR (ie, /run/gluster) */
     /* TODO: provide an option to dump it to different directory of
        choice, based on options */
-    /* name format: /var/run/gluster/<passed in path/filename>.<xlator name
+    /* name format: /run/gluster/<passed in path/filename>.<xlator name
      * slashes to -> */
 
     path_in_value = alloca0(value->len + 1);

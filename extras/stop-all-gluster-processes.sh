@@ -72,7 +72,7 @@ kill_bricks_and_services()
     local pidfile
     local pid
 
-    for pidfile in $(find /var/run/gluster/ -name '*.pid');
+    for pidfile in $(find /run/gluster/ -name '*.pid');
     do
         local pid=$(cat ${pidfile});
         echo "sending SIG${signal} to pid: ${pid}";

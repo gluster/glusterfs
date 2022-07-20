@@ -16,7 +16,7 @@ PATH=/sbin:/usr/sbin:/bin:/usr/bin
 NAME=glusterd
 SCRIPTNAME=/etc/init.d/$NAME
 DAEMON=@prefix@/sbin/$NAME
-PIDFILE=/var/run/$NAME.pid
+PIDFILE=/run/$NAME.pid
 GLUSTERD_OPTS=""
 PID=`test -f $PIDFILE && cat $PIDFILE`
 

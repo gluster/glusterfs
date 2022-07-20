@@ -2545,7 +2545,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_3_7_1,
      .description = "Create and mount the shared storage volume"
                     "(gluster_shared_storage) at "
-                    "/var/run/gluster/shared_storage on enabling this "
+                    "/run/gluster/shared_storage on enabling this "
                     "option. Unmount and delete the shared storage volume "
                     " on disabling this option."},
     {

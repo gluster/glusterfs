@@ -10,8 +10,8 @@
 name="glusterd"
 rcvar=`set_rcvar`
 command=@prefix@/sbin/${name}
-pidfile="/var/run/${name}.pid"
-glusterd_flags="-p /var/run/${name}.pid"
+pidfile="/run/${name}.pid"
+glusterd_flags="-p /run/${name}.pid"
 start_precmd="glusterd_prestart"
 
 glusterd_prestart()

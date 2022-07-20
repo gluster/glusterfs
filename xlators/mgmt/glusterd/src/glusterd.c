@@ -130,7 +130,6 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
 #define GLUSTERD_SCRUB_RUN_DIR "/scrub"
 #define GLUSTERD_NFS_RUN_DIR "/nfs"
 #define GLUSTERD_QUOTAD_RUN_DIR "/quotad"
-#define GLUSTERD_VAR_RUN_DIR "/var/run"
 #define GLUSTERD_RUN_DIR "/run"
 
 static int
@@ -1314,42 +1313,6 @@ out:
 }
 
 static int
-glusterd_find_correct_var_run_dir(xlator_t *this, char *var_run_dir)
-{
-    int ret = -1;
-    struct stat buf = {
-        0,
-    };
-
-    GF_VALIDATE_OR_GOTO("glusterd", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, var_run_dir, out);
-
-    /* /var/run is normally a symbolic link to /run dir, which
-     * creates problems as the entry point in the mtab for the mount point
-     * and glusterd maintained entry point will be different. Therefore
-     * identify the correct run dir and use it
-     */
-    ret = sys_lstat(GLUSTERD_VAR_RUN_DIR, &buf);
-    if (ret != 0) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_FILE_OP_FAILED,
-               "stat fails on %s, exiting. (errno = %d)", GLUSTERD_VAR_RUN_DIR,
-               errno);
-        goto out;
-    }
-
-    /* If /var/run is symlink then use /run dir */
-    if (S_ISLNK(buf.st_mode)) {
-        strcpy(var_run_dir, GLUSTERD_RUN_DIR);
-    } else {
-        strcpy(var_run_dir, GLUSTERD_VAR_RUN_DIR);
-    }
-
-    ret = 0;
-out:
-    return ret;
-}
-
-static int
 glusterd_init_var_run_dirs(xlator_t *this, char *var_run_dir,
                            char *dir_to_be_created)
 {
@@ -1533,9 +1496,7 @@ init(xlator_t *this)
     gf_valgrind_tool vgtool;
     char *valgrind_str = NULL;
     char *transport_type = NULL;
-    char var_run_dir[PATH_MAX] = {
-        0,
-    };
+    char var_run_dir[PATH_MAX] = GLUSTERD_RUN_DIR;
     int32_t workers = 0;
     gf_boolean_t upgrade = _gf_false;
     gf_boolean_t downgrade = _gf_false;
@@ -1547,22 +1508,15 @@ init(xlator_t *this)
     struct {
         char *base;
         const char *name;
-    } *p, dirs[] = {
-        { workdir, "vols" },
-        { rundir, "vols" },
-        { workdir, "snaps" },
-        { workdir, "peers" },
-        { logdir, "bricks" },
+    } * p, dirs[] = {{workdir, "vols"},       {rundir, "vols"},
+                     {workdir, "snaps"},      {workdir, "peers"},
+                     {logdir, "bricks"},
 #ifdef BUILD_GNFS
-        { workdir, "nfs" },
+                     {workdir, "nfs"},
 #endif /* BUILD_GNFS */
-        { workdir, "bitd" },
-        { workdir, "scrub" },
-        { workdir, "glustershd" },
-        { workdir, "quotad" },
-        { workdir, "groups" },
-        { NULL, NULL }
-    };
+                     {workdir, "bitd"},       {workdir, "scrub"},
+                     {workdir, "glustershd"}, {workdir, "quotad"},
+                     {workdir, "groups"},     {NULL, NULL}};
 
 #if defined(RUN_WITH_MEMCHECK)
     vgtool = _gf_memcheck;
@@ -1665,14 +1619,6 @@ init(xlator_t *this)
            "Using %s as pid file working "
            "directory",
            rundir);
-
-    ret = glusterd_find_correct_var_run_dir(this, var_run_dir);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_VAR_RUN_DIR_FIND_FAIL,
-               "Unable to find "
-               "the correct var run dir");
-        exit(1);
-    }
 
     ret = glusterd_init_var_run_dirs(this, var_run_dir,
                                      GLUSTERD_DEFAULT_SNAPS_BRICK_DIR);

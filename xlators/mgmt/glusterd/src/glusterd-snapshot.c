@@ -4489,7 +4489,7 @@ glusterd_add_brick_to_snap_volume(dict_t *dict, dict_t *rsp_dict,
         }
     }
 
-    /* Create brick-path in the format /var/run/gluster/snaps/ *
+    /* Create brick-path in the format /run/gluster/snaps/ *
      * <snap-uuid>/<original-brick#>/snap-brick-dir *
      */
     if (clone) {
@@ -5795,7 +5795,7 @@ glusterd_snapshot_deactivate_commit(dict_t *dict, char **op_errstr,
                "Failed to unmounts for %s", snap->snapname);
     }
 
-    /*Remove /var/run/gluster/snaps/<snap-name> entry for deactivated snaps.
+    /*Remove /run/gluster/snaps/<snap-name> entry for deactivated snaps.
      * This entry will be created again during snap activate.
      */
     snprintf(snap_path, sizeof(snap_path), "%s/%s", snap_mount_dir, snapname);

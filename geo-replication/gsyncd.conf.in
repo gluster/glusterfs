@@ -35,7 +35,7 @@ value = @GLUSTERD_WORKDIR@
 value = /var/log/glusterfs
 
 [gluster-rundir]
-value = /var/run/gluster
+value = /run/gluster
 
 [gsyncd-miscdir]
 value = /var/lib/misc/gluster/gsyncd

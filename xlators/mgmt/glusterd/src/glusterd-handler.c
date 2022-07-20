@@ -5817,7 +5817,7 @@ glusterd_get_state(rpcsvc_request_t *req, dict_t *dict)
 
     ret = dict_get_strn(dict, "odir", SLEN("odir"), &tmp_str);
     if (ret) {
-        odirlen = gf_asprintf(&odir, "%s", "/var/run/gluster/");
+        odirlen = gf_asprintf(&odir, "%s", "/run/gluster/");
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
                "Default output directory: %s", odir);
     } else {

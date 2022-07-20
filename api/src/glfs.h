@@ -212,7 +212,7 @@ glfs_set_volfile(glfs_t *fs, const char *volfile) __THROW
               This would either be
               - FQDN (e.g : "storage01.company.com") or
               - ASCII (e.g : "192.168.22.1") or
-              - Socket path (e.g : "/var/run/glusterd.socket")
+              - Socket path (e.g : "/run/glusterd.socket")
 
   NOTE: This API is special, multiple calls to this function with different
         volfile servers, port or transport-type would create a list of volfile
