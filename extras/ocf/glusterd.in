@@ -23,7 +23,7 @@ prefix=@prefix@
 
 
 OCF_RESKEY_binary_default="glusterd"
-OCF_RESKEY_pid_default="@localstatedir@/run/glusterd.pid"
+OCF_RESKEY_pid_default="/run/glusterd.pid"
 OCF_RESKEY_socket_default=""
 OCF_RESKEY_additional_parameters_default=""
 

@@ -13,7 +13,7 @@
 
 #include "glusterfs/glusterfs.h"
 
-#define GLUSTER_METRICS_DIR "/var/run/gluster/metrics"
+#define GLUSTER_METRICS_DIR "/run/gluster/metrics"
 
 char *
 gf_monitor_metrics(glusterfs_ctx_t *ctx);
