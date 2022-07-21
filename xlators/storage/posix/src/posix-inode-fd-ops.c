@@ -1526,6 +1526,10 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     posix_set_ctime(frame, this, real_path, -1, loc->inode, &postbuf);
 
+    if (postbuf.ia_blocks < prebuf.ia_blocks)
+        GF_ATOMIC_SUB(priv->write_value,
+                      ((prebuf.ia_blocks - postbuf.ia_blocks) * 512));
+
     op_ret = 0;
 out:
     SET_TO_OLD_FS_ID();
@@ -1964,7 +1968,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
 
     VALIDATE_OR_GOTO(priv, unwind);
-    DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
+    DISK_SPACE_CHECK_WRITEV_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
 overwrite:
 
@@ -2101,7 +2105,9 @@ overwrite:
         }
     }
 
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
+    if (preop.ia_blocks < postop.ia_blocks)
+        GF_ATOMIC_ADD(priv->write_value,
+                      ((postop.ia_blocks - preop.ia_blocks) * 512));
 
 out:
 

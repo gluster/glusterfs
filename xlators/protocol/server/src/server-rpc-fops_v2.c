@@ -3935,6 +3935,15 @@ server4_0_writev(rpcsvc_request_t *req)
         goto out;
     }
 
+    if (state->xdata) {
+        ret = dict_set_int32_sizen(state->xdata, "buffer-size", len);
+        if (ret) {
+            gf_msg(THIS->name, GF_LOG_INFO, ENOMEM, 0,
+                   "%zu: dict set (buffer-size) failed, continuing", len);
+            goto out;
+        }
+    }
+
 #ifdef GF_TESTING_IO_XDATA
     dict_dump_to_log(state->xdata);
 #endif
