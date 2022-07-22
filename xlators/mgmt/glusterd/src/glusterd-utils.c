@@ -8083,27 +8083,11 @@ glusterd_recreate_volfiles(glusterd_conf_t *conf)
 
     cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
     {
-        ret = generate_brick_volfiles(volinfo);
+        ret = glusterd_create_volfiles(volinfo);
         if (ret) {
             gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
                    "Failed to "
-                   "regenerate brick volfiles for %s",
-                   volinfo->volname);
-            op_ret = ret;
-        }
-        ret = generate_client_volfiles(volinfo, GF_CLIENT_TRUSTED);
-        if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
-                   "Failed to "
-                   "regenerate trusted client volfiles for %s",
-                   volinfo->volname);
-            op_ret = ret;
-        }
-        ret = generate_client_volfiles(volinfo, GF_CLIENT_OTHER);
-        if (ret) {
-            gf_msg("glusterd", GF_LOG_ERROR, 0, GD_MSG_VOLFILE_CREATE_FAIL,
-                   "Failed to "
-                   "regenerate client volfiles for %s",
+                   "regenerate volfile(s) for %s",
                    volinfo->volname);
             op_ret = ret;
         }
