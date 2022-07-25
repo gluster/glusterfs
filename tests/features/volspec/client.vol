@@ -1,0 +1,49 @@
+volume sq-client-1
+    type protocol/client
+    option remote-subvolume /d/backends/sq/brick1
+    option remote-port 24011
+    option remote-host local
+end-volume
+
+volume sq-utime
+    type features/utime
+    option noatime on
+    subvolumes sq-client-1
+end-volume
+
+volume sq-md-cache
+    type performance/md-cache
+    subvolumes sq-utime
+end-volume
+
+volume sq-write-behind
+    type performance/write-behind
+    option cache-size 1MB
+    option flush-behind on
+    option write-behind on
+    subvolumes sq-md-cache
+end-volume
+
+volume sq-open-behind
+    type performance/open-behind
+    option use-anonymous-fd no
+    option open-behind on
+    option pass-through false
+    option read-after-open yes
+    option lazy-open yes
+    subvolumes sq-write-behind
+end-volume
+
+volume sq-nl-cache
+    type performance/nl-cache
+    option pass-through false
+    option nl-cache on
+    subvolumes sq-open-behind
+end-volume
+
+volume sq
+    type debug/io-stats
+    option unique-id /no/such/path
+    subvolumes sq-nl-cache
+end-volume
+

@@ -22,7 +22,8 @@ client_cbk_null(struct rpc_clnt *rpc, void *mydata, void *data)
 static int
 client_cbk_fetchspec(struct rpc_clnt *rpc, void *mydata, void *data)
 {
-    gf_smsg(THIS->name, GF_LOG_WARNING, 0, PC_MSG_FUNCTION_CALL_ERROR, NULL);
+    /* Ignore this */
+    gf_smsg(THIS->name, GF_LOG_DEBUG, 0, PC_MSG_FUNCTION_CALL_ERROR, NULL);
     return 0;
 }
 

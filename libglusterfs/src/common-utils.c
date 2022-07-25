@@ -3042,8 +3042,21 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     }
 
     INIT_LIST_HEAD(&server->list);
+    server->port = port;
 
-    server->volfile_server = gf_strdup(host);
+    char *duphost = gf_strdup(host);
+    if (duphost) {
+        char *lastptr = rindex(duphost, ':');
+        if (lastptr) {
+            *lastptr = '\0';
+            long port_argument = strtol(lastptr + 1, NULL, 0);
+            if (!port_argument) {
+                port_argument = port;
+            }
+            server->port = port_argument;
+        }
+    }
+    server->volfile_server = gf_strdup(duphost);
     if (!server->volfile_server) {
         errno = ENOMEM;
         goto out;
@@ -3054,8 +3067,6 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
         errno = ENOMEM;
         goto out;
     }
-
-    server->port = port;
 
     if (!cmd_args->volfile_server) {
         cmd_args->volfile_server = server->volfile_server;
@@ -3082,6 +3093,8 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     ret = 0;
 out:
     if (-1 == ret) {
+        if (duphost)
+            GF_FREE(duphost);
         if (server) {
             GF_FREE(server->volfile_server);
             GF_FREE(server->transport);
@@ -4298,7 +4311,7 @@ gf_set_nofile(rlim_t high, rlim_t low)
 {
     int n, ret = -1;
     struct rlimit lim;
-    rlim_t r[2] = { high, low };
+    rlim_t r[2] = {high, low};
 
     for (n = 0; n < 2; n++)
         if (r[n] != 0) {
@@ -4350,15 +4363,19 @@ gf_rebalance_thread_count(char *str, char **errmsg)
         if (count > 0 && count <= lim)
             return count;
         else {
-            if (gf_asprintf(errmsg, "number of rebalance threads should be "
-                            "in range from 1 to %d, not %d", lim, count) < 0)
+            if (gf_asprintf(errmsg,
+                            "number of rebalance threads should be "
+                            "in range from 1 to %d, not %d",
+                            lim, count) < 0)
                 *errmsg = NULL;
             return -1;
         }
     }
-    if (gf_asprintf(errmsg, "number of rebalance threads should "
+    if (gf_asprintf(errmsg,
+                    "number of rebalance threads should "
                     "be {lazy|normal|aggressive} or a number in "
-                    "range from 1 to %d, not %s", lim, str) < 0)
+                    "range from 1 to %d, not %s",
+                    lim, str) < 0)
         *errmsg = NULL;
     return -1;
 }

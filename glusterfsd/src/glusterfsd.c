@@ -1494,6 +1494,142 @@ cleanup_and_exit(int signum)
     }
 }
 
+static FILE *
+get_volfp(glusterfs_ctx_t *ctx)
+{
+    cmd_args_t *cmd_args = NULL;
+    FILE *specfp = NULL;
+
+    cmd_args = &ctx->cmd_args;
+
+    if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
+                "volume_file=%s", cmd_args->volfile, NULL);
+        return NULL;
+    }
+
+    gf_msg_debug("glusterfsd", 0, "loading volume file %s", cmd_args->volfile);
+
+    return specfp;
+}
+
+static int
+volfile_init(glusterfs_ctx_t *ctx)
+{
+    int ret = -1;
+    char *volfile = NULL;
+    gf_volfile_t *volfile_obj = NULL;
+    gf_volfile_t *volfile_tmp = NULL;
+    struct stat stbuf = {
+        0,
+    };
+    char sha256_hash[SHA256_DIGEST_LENGTH] = {
+        0,
+    };
+
+    cmd_args_t *cmd_args = &ctx->cmd_args;
+    FILE *fp = get_volfp(ctx);
+    if (!fp) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_28, NULL);
+        goto out;
+    }
+    ret = sys_stat(cmd_args->volfile, &stbuf);
+    if (IS_ERROR(ret)) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
+                "volume_file=%s", cmd_args->volfile, NULL);
+        goto out;
+    }
+
+    volfile = GF_MALLOC(stbuf.st_size, gf_common_mt_char);
+    if (!volfile) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, ENOMEM, glusterfsd_msg_9,
+                "volume_file=%s", cmd_args->volfile, NULL);
+        ret = -1;
+        goto out;
+    }
+    ret = fread(volfile, stbuf.st_size, 1, fp);
+    if (IS_ERROR(ret)) {
+        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
+                "volume_file=%s", cmd_args->volfile, NULL);
+        goto out;
+    }
+    glusterfs_compute_sha256((const unsigned char *)volfile, stbuf.st_size,
+                             sha256_hash);
+    LOCK(&ctx->volfile_lock);
+    {
+        list_for_each_entry(volfile_obj, &ctx->volfile_list, volfile_list)
+        {
+            if (!memcmp(sha256_hash, volfile_obj->volfile_checksum,
+                        sizeof(volfile_obj->volfile_checksum))) {
+                UNLOCK(&ctx->volfile_lock);
+                ret = 0;
+                gf_smsg(THIS->name, GF_LOG_INFO, 0, glusterfsd_msg_40, NULL);
+                goto out;
+            }
+            volfile_tmp = volfile_obj;
+            break;
+        }
+    }
+    UNLOCK(&ctx->volfile_lock);
+
+    /*  Check if only options have changed. No need to reload the
+     *  volfile if topology hasn't changed.
+     *  glusterfs_volfile_reconfigure returns 3 possible return states
+     *  return 0          =======> reconfiguration of options has succeeded
+     *  return 1          =======> the graph has to be reconstructed and all
+     * the xlators should be inited return -1(or -ve) =======> Some Internal
+     * Error occurred during the operation
+     */
+
+    if (volfile_tmp) {
+        ret = glusterfs_volfile_reconfigure(fp, ctx);
+        if (ret == 0) {
+            gf_msg_debug("glusterfsd-mgmt", 0,
+                         "No need to re-load volfile, reconfigure done");
+            memcpy(volfile_tmp->volfile_checksum, sha256_hash,
+                   sizeof(volfile_tmp->volfile_checksum));
+            goto out;
+        } else {
+            gf_msg("glusterfsd-mgmt", GF_LOG_INFO, 0, 0,
+                   "reconfigure failed, continuing with init");
+        }
+    } else {
+        gf_msg("glusterfsd-mgmt", GF_LOG_INFO, 0, 0,
+               "volume not found, continuing with init");
+    }
+
+    ret = glusterfs_process_volfp(ctx, fp);
+    if (ret)
+        goto out;
+
+    LOCK(&ctx->volfile_lock);
+    {
+        if (!volfile_tmp) {
+            volfile_tmp = GF_CALLOC(1, sizeof(gf_volfile_t),
+                                    gf_common_volfile_t);
+            if (!volfile_tmp) {
+                ret = -1;
+                goto out;
+            }
+
+            INIT_LIST_HEAD(&volfile_tmp->volfile_list);
+            volfile_tmp->graph = ctx->active;
+            list_add(&volfile_tmp->volfile_list, &ctx->volfile_list);
+            snprintf(volfile_tmp->vol_id, sizeof(volfile_tmp->vol_id), "%s",
+                     cmd_args->volfile_id);
+        }
+        memcpy(volfile_tmp->volfile_checksum, sha256_hash,
+               sizeof(volfile_tmp->volfile_checksum));
+    }
+    UNLOCK(&ctx->volfile_lock);
+
+    ret = 0;
+out:
+    if (volfile)
+        GF_FREE(volfile);
+    return ret;
+}
+
 static void
 reincarnate(int signum)
 {
@@ -1509,6 +1645,8 @@ reincarnate(int signum)
     if (cmd_args->volfile_server) {
         gf_smsg("glusterfsd", GF_LOG_INFO, 0, glusterfsd_msg_11, NULL);
         ret = glusterfs_volfile_fetch(ctx);
+    } else {
+        ret = volfile_init(ctx);
     }
 
     /* Also, SIGHUP should do logrotate */
@@ -1516,6 +1654,10 @@ reincarnate(int signum)
 
     if (ret < 0)
         gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_12, NULL);
+
+    /* Notify all xlators */
+    if (ctx->active)
+        xlator_notify(ctx->active->top, GF_EVENT_SIGHUP, NULL);
 
     return;
 }
@@ -2538,29 +2680,9 @@ out:
     return ret;
 }
 
-static FILE *
-get_volfp(glusterfs_ctx_t *ctx)
-{
-    cmd_args_t *cmd_args = NULL;
-    FILE *specfp = NULL;
-
-    cmd_args = &ctx->cmd_args;
-
-    if ((specfp = fopen(cmd_args->volfile, "r")) == NULL) {
-        gf_smsg("glusterfsd", GF_LOG_ERROR, errno, glusterfsd_msg_9,
-                "volume_file=%s", cmd_args->volfile, NULL);
-        return NULL;
-    }
-
-    gf_msg_debug("glusterfsd", 0, "loading volume file %s", cmd_args->volfile);
-
-    return specfp;
-}
-
 static int
 glusterfs_volumes_init(glusterfs_ctx_t *ctx)
 {
-    FILE *fp = NULL;
     cmd_args_t *cmd_args = NULL;
     int ret = 0;
 
@@ -2578,18 +2700,7 @@ glusterfs_volumes_init(glusterfs_ctx_t *ctx)
         return ret;
     }
 
-    fp = get_volfp(ctx);
-
-    if (!fp) {
-        gf_smsg("glusterfsd", GF_LOG_ERROR, 0, glusterfsd_msg_28, NULL);
-        ret = -1;
-        goto out;
-    }
-
-    ret = glusterfs_process_volfp(ctx, fp);
-    if (ret)
-        goto out;
-
+    ret = volfile_init(ctx);
 out:
     emancipate(ctx, ret);
     return ret;

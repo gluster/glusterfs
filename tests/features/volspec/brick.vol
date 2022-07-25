@@ -1,0 +1,58 @@
+volume sq-posix
+    type storage/posix
+#    option volume-id UUID
+    option directory BRICK
+end-volume
+
+volume sq-access-control
+    type features/access-control
+    option super-uid 0
+    subvolumes sq-posix
+end-volume
+
+volume sq-locks
+    type features/locks
+    subvolumes sq-access-control
+end-volume
+
+volume sq-quota
+    type features/simple-quota
+    option pass-through false
+    option cmd-from-all-client true
+    subvolumes sq-locks
+end-volume
+
+volume sq-upcall
+    type features/upcall
+    option cache-invalidation off
+    option cache-invalidation-timeout 60
+    subvolumes sq-quota
+end-volume
+
+volume sq-io-threads
+    type performance/io-threads
+    subvolumes sq-upcall
+end-volume
+
+volume sq-barrier
+    type features/barrier
+    option barrier disable
+    option barrier-timeout 120
+    subvolumes sq-io-threads
+end-volume
+
+volume /d/backends/sq/brick1
+    type debug/io-stats
+    option unique-id /no/such/path
+    subvolumes sq-barrier
+end-volume
+
+volume sq-server
+    type protocol/server
+    option transport-type tcp
+    option transport.socket.read-fail-log false
+    option auth.addr./d/backends/sq/brick1.allow *
+    option transport.socket.listen-port 24011
+    #option volspec-directory BRICK/.glusterfs/vols
+    subvolumes /d/backends/sq/brick1
+end-volume
