@@ -304,7 +304,7 @@ T: https://github.com/Cyan4973/xxHash.git
 Management Daemon - glusterd
 M: Atin Mukherjee <amukherj@redhat.com>
 M: Mohit Agrawal <moagrawa@redhat.com>
-M: Sanju Rakonde <srakonde@redhat.com>
+M: Sanju Rakonde <sanju.rakonde@phonepe.com>
 P: Nikhil Ladha <nladha@redhat.com>
 S: Maintained
 F: cli/
