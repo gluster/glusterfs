@@ -862,6 +862,16 @@ server_reconfigure(xlator_t *this, dict_t *options)
     GF_FREE(this->ctx->statedump_path);
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
+    statedump_path = NULL;
+    GF_OPTION_RECONF("volspec-directory", statedump_path, options, path,
+                     do_auth);
+    if (!statedump_path) {
+        goto do_auth;
+    }
+    gf_path_strip_trailing_slashes(statedump_path);
+    GF_FREE(conf->volfile_dir);
+    conf->volfile_dir = gf_strdup(statedump_path);
+
 do_auth:
     if (conf->auth_modules)
         gf_auth_fini(conf->auth_modules);
@@ -1143,6 +1153,7 @@ server_init(xlator_t *this)
     if (ret)
         goto err;
 
+    /* Volfile server */
     ret = dict_get_str_sizen(this->options, "config-directory",
                              &conf->conf_dir);
     if (ret)
@@ -1161,6 +1172,13 @@ server_init(xlator_t *this)
                 NULL);
         ret = -1;
         goto err;
+    }
+
+    statedump_path = NULL;
+    GF_OPTION_INIT("volspec-directory", statedump_path, path, err);
+    if (statedump_path) {
+        gf_path_strip_trailing_slashes(statedump_path);
+        conf->volfile_dir = gf_strdup(statedump_path);
     }
 
     /* Authentication modules */
@@ -1331,6 +1349,7 @@ server_fini(xlator_t *this)
                 if (conf->auth_modules)
                         dict_unref (conf->auth_modules);
 
+                GF_FREE (conf->volfile_dir);
                 GF_FREE (conf);
         }
 
@@ -1913,6 +1932,9 @@ struct volume_options server_options[] = {
      .default_value = "off",
      .description = "strict-auth-accept reject connection with out"
                     "a valid username and password."},
+    {.key = {"volspec-directory", "volfile-path"},
+     .type = GF_OPTION_TYPE_PATH,
+     .default_value = GLUSTERD_DEFAULT_WORKDIR "/vols"},
     {.key = {NULL}},
 };
 
