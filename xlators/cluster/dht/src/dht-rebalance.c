@@ -25,9 +25,6 @@
 #define ESTIMATE_START_INTERVAL 600 /* 10 mins */
 #define HARDLINK_MIG_INPROGRESS -2
 #define SKIP_MIGRATION_FD_POSITIVE -3
-#ifndef MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
 
 #define GF_CRAWL_INDEX_MOVE(idx, sv_cnt)                                       \
     {                                                                          \
@@ -4061,7 +4058,7 @@ gf_defrag_parallel_migration_init(xlator_t *this, gf_defrag_info_t *defrag,
 
     INIT_LIST_HEAD(&(defrag->queue[0].list));
 
-    thread_spawn_count = MAX(MAX_REBAL_THREADS, 4);
+    thread_spawn_count = max(sysconf(_SC_NPROCESSORS_ONLN), 4);
 
     gf_msg_debug(this->name, 0, "thread_spawn_count: %d", thread_spawn_count);
 

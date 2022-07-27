@@ -4321,3 +4321,34 @@ gf_unlink(const char *path)
     }
     return _gf_true;
 }
+
+int
+gf_rebalance_thread_count(char *str, char **errmsg)
+{
+    int count = 0, lim = sysconf(_SC_NPROCESSORS_ONLN);
+
+    /* An option should be one of lazy|normal|aggressive or
+       a number from 1 to the number of cores in the machine. */
+
+    if (!strcasecmp(str, "lazy"))
+        return 1;
+    else if (!strcasecmp(str, "normal"))
+        return 2;
+    else if (!strcasecmp(str, "aggressive"))
+        return max(lim - 4, 4);
+    else if (gf_string2int(str, &count) == 0) {
+        if (count > 0 && count <= lim)
+            return count;
+        else {
+            if (gf_asprintf(errmsg, "number of rebalance threads should be "
+                            "in range from 1 to %d, not %d", lim, count) < 0)
+                *errmsg = NULL;
+            return -1;
+        }
+    }
+    if (gf_asprintf(errmsg, "number of rebalance threads should "
+                    "be {lazy|normal|aggressive} or a number in "
+                    "range from 1 to %d, not %s", lim, str) < 0)
+        *errmsg = NULL;
+    return -1;
+}

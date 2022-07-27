@@ -13,10 +13,6 @@
 #include "dht-common.h"
 #include "dht-messages.h"
 
-#ifndef MAX
-#define MAX(a, b) (((a) > (b)) ? (a) : (b))
-#endif
-
 /* TODO:
    - use volumename in xattr instead of "dht"
    - use NS locks
@@ -364,49 +360,23 @@ out:
 static int
 dht_configure_throttle(xlator_t *this, dht_conf_t *conf, char *temp_str)
 {
-    int rebal_thread_count = 0;
-    int ret = 0;
+    char *errmsg = NULL;
+    int ret, count = gf_rebalance_thread_count(temp_str, &errmsg);
 
-    pthread_mutex_lock(&conf->defrag->dfq_mutex);
-    {
-        if (!strcasecmp(temp_str, "lazy")) {
-            conf->defrag->recon_thread_count = 1;
-        } else if (!strcasecmp(temp_str, "normal")) {
-            conf->defrag->recon_thread_count = 2;
-        } else if (!strcasecmp(temp_str, "aggressive")) {
-            conf->defrag->recon_thread_count = MAX(MAX_REBAL_THREADS - 4, 4);
-        } else if ((gf_string2int(temp_str, &rebal_thread_count) == 0)) {
-            if ((rebal_thread_count > 0) &&
-                (rebal_thread_count <= MAX_REBAL_THREADS)) {
-                conf->defrag->recon_thread_count = rebal_thread_count;
-                pthread_mutex_unlock(&conf->defrag->dfq_mutex);
-                gf_msg(this->name, GF_LOG_INFO, 0, 0,
-                       "rebal thread count configured to %d",
-                       rebal_thread_count);
-                goto out;
-            } else {
-                pthread_mutex_unlock(&conf->defrag->dfq_mutex);
-                gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INVALID_OPTION,
-                       "Invalid option: Reconfigure: "
-                       "rebal-throttle should be "
-                       "within range of 0 and maximum number of"
-                       " cores available");
-                ret = -1;
-                goto out;
-            }
-        } else {
-            gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INVALID_OPTION,
-                   "Invalid option: Reconfigure: "
-                   "rebal-throttle should be {lazy|normal|aggressive}"
-                   " or a number up to the number of cores available,"
-                   " not (%s), defaulting to (%d)",
-                   temp_str, conf->dthrottle);
-            ret = -1;
-        }
+    if (count > 0) {
+        pthread_mutex_lock(&conf->defrag->dfq_mutex);
+        conf->defrag->recon_thread_count = count;
+        pthread_mutex_unlock(&conf->defrag->dfq_mutex);
+        gf_msg(this->name, GF_LOG_INFO, 0, 0, "rebalance "
+               "thread count configured to %d", count);
+        ret = 0;
+    } else {
+        gf_msg(this->name, GF_LOG_ERROR, 0, DHT_MSG_INVALID_OPTION, "%s",
+               errmsg ? errmsg : "<out of memory>");
+        if (errmsg)
+            GF_FREE(errmsg);
+        ret = -1;
     }
-    pthread_mutex_unlock(&conf->defrag->dfq_mutex);
-
-out:
     return ret;
 }
 
