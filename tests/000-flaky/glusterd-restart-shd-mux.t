@@ -37,9 +37,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "afr_shd_
 
 shd_pid=$(get_shd_mux_pid $V0)
 for i in $(seq 1 3); do
-    afr_path="/var/run/gluster/shd/${V0}_afr$i/${V0}_afr$i-shd.pid"
+    afr_path="/run/gluster/shd/${V0}_afr$i/${V0}_afr$i-shd.pid"
     EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" cat $afr_path
-    ec_path="/var/run/gluster/shd/${V0}_ec$i/${V0}_ec${i}-shd.pid"
+    ec_path="/run/gluster/shd/${V0}_ec$i/${V0}_ec${i}-shd.pid"
     EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" cat $ec_path
 done
 
@@ -58,9 +58,9 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^24$" number_healer_threads_shd $V0 "afr_shd_
 
 shd_pid=$(get_shd_mux_pid $V0)
 for i in $(seq 1 3); do
-    afr_path="/var/run/gluster/shd/${V0}_afr$i/${V0}_afr$i-shd.pid"
+    afr_path="/run/gluster/shd/${V0}_afr$i/${V0}_afr$i-shd.pid"
     EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" cat $afr_path
-    ec_path="/var/run/gluster/shd/${V0}_ec$i/${V0}_ec${i}-shd.pid"
+    ec_path="/run/gluster/shd/${V0}_ec$i/${V0}_ec${i}-shd.pid"
     EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^${shd_pid}$" cat $ec_path
 done
 

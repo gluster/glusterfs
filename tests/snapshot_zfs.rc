@@ -63,7 +63,7 @@ function cleanup_zfs() {
     fi
 
     _cleanup_zfs_again >/dev/null 2>&1
-    \rm -rf /var/run/gluster/snaps/*
+    \rm -rf /run/gluster/snaps/*
     zfs list | grep "${ZFS_PREFIX}" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
     return 0
 }

@@ -42,9 +42,9 @@ ret=$(echo $?)
 EXPECT 0 echo $ret
 
 # Check if we have 5 io-stat files in /tmp
-EXPECT 5 ls -1 /var/run/gluster/io-stats-1322825*
+EXPECT 5 ls -1 /run/gluster/io-stats-1322825*
 # Cleanup the 5 generated files
-rm -f /var/run/gluster/io-stats-1322825*
+rm -f /run/gluster/io-stats-1322825*
 
 # Rinse and repeat above for a directory
 TEST setfattr -n trusted.io-stats-dump -v io-stats-1322825 $M0/dir1
@@ -61,7 +61,7 @@ getfattr -n trusted.io-stats-dump $B0/${V0}4/dir1 2>&1 | grep -qi "no such attri
 ret=$(echo $?)
 EXPECT 0 echo $ret
 
-EXPECT 5 ls -1 /var/run/gluster/io-stats-1322825*
-rm -f /var/run/gluster/io-stats-1322825*
+EXPECT 5 ls -1 /run/gluster/io-stats-1322825*
+rm -f /run/gluster/io-stats-1322825*
 
 cleanup;

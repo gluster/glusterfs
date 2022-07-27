@@ -23,7 +23,7 @@ INITIAL SETUP
 
 The administrator needs to create a shared storage that can be available to nodes across the cluster. A GlusterFS volume can also be used for the same. It is preferable that the *shared volume* be a replicate volume to avoid SPOF.
 
-Once the shared storage is created, it should be mounted on all nodes in the trusted storage pool which will be participating in the scheduling. The location where the shared_storage should be mounted (/var/run/gluster/snaps/shared_storage) in these nodes is fixed and is not configurable. Each node participating in the scheduling then needs to perform an initialisation of the snapshot scheduler by invoking the following:
+Once the shared storage is created, it should be mounted on all nodes in the trusted storage pool which will be participating in the scheduling. The location where the shared_storage should be mounted (/run/gluster/snaps/shared_storage) in these nodes is fixed and is not configurable. Each node participating in the scheduling then needs to perform an initialisation of the snapshot scheduler by invoking the following:
 
 snap_scheduler.py init
 
