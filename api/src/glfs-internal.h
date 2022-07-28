@@ -714,6 +714,9 @@ get_fop_attr_thrd_key(dict_t **fop_attr);
 void
 unset_fop_attr(dict_t **fop_attr);
 
+int
+validate_open_flags(int flags, ia_type_t ia_type);
+
 /*
   SYNOPSIS
   glfs_statx: Fetch extended file attributes for the given path.
