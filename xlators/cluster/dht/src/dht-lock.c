@@ -191,6 +191,8 @@ dht_lock_frame(call_frame_t *parent_frame)
     if (lock_frame)
         set_lk_owner_from_ptr(&lock_frame->root->lk_owner, parent_frame->root);
 
+    /* Set negative pid to conisder lock fop as an internal fop */
+    lock_frame->pid = GF_CLIENT_PID_NO_ROOT_SQUASH;
     return lock_frame;
 }
 
