@@ -763,10 +763,10 @@ ec_setxattr(call_frame_t *frame, xlator_t *this, uintptr_t target,
         int64_t new_value = val / ec->fragments;
         ret = dict_set_int64(fop->dict, SQUOTA_LIMIT_KEY, new_value);
         if (IS_ERROR(ret)) {
-            /* Add a trace log */
-            gf_msg(ec->xl->name, GF_LOG_DEBUG, ENOMEM,
-                   EC_MSG_FILE_DESC_REF_FAIL,
+            /* Add a debug log */
+            gf_msg(ec->xl->name, GF_LOG_DEBUG, ENOMEM, EC_MSG_DICT_REF_FAIL,
                    "Failed to update the simple-quota limit");
+            goto out;
         }
     }
     error = 0;
