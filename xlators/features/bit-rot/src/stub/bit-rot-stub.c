@@ -2758,8 +2758,8 @@ br_stub_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        if ((strcmp(entry->d_name, ".") == 0) ||
-            (strcmp(entry->d_name, "..") == 0))
+        /* skip . and .. */
+        if (inode_dir_or_parentdir(entry))
             continue;
 
         if (!IA_ISREG(entry->d_stat.ia_type))

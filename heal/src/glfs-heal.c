@@ -754,8 +754,8 @@ glfsh_heal_entries(glfs_t *fs, xlator_t *top_subvol, loc_t *rootloc,
     list_for_each_entry_safe(entry, tmp, &entries->list, list)
     {
         *offset = entry->d_off;
-        if ((strcmp(entry->d_name, ".") == 0) ||
-            (strcmp(entry->d_name, "..") == 0))
+        /* skip . and .. */
+        if (inode_dir_or_parentdir(entry))
             continue;
         snprintf(file, sizeof(file), "gfid:%s", entry->d_name);
         ret = glfsh_heal_splitbrain_file(fs, top_subvol, rootloc, file,
@@ -788,8 +788,8 @@ glfsh_process_entries(xlator_t *xl, fd_t *fd, gf_dirent_t *entries,
     list_for_each_entry_safe(entry, tmp, &entries->list, list)
     {
         *offset = entry->d_off;
-        if ((strcmp(entry->d_name, ".") == 0) ||
-            (strcmp(entry->d_name, "..") == 0))
+        /* skip . and .. */
+        if (inode_dir_or_parentdir(entry))
             continue;
 
         if (dict) {

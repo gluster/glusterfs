@@ -3793,8 +3793,8 @@ shard_delete_shards(void *opaque)
             list_for_each_entry(entry, &entries.list, list)
             {
                 offset = entry->d_off;
-
-                if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+                /* skip . and .. */
+                if (inode_dir_or_parentdir(entry))
                     continue;
 
                 if (!entry->inode) {

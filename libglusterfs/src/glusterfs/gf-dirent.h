@@ -53,6 +53,13 @@ struct _gf_dirent {
 
 #define DT_ISDIR(mode) (mode == DT_DIR)
 
+static inline gf_boolean_t
+inode_dir_or_parentdir(gf_dirent_t *entry)
+{
+    return (entry->d_len <= 2 && (strcmp(entry->d_name, ".") == 0 ||
+                                  strcmp(entry->d_name, "..") == 0));
+}
+
 gf_dirent_t *
 gf_dirent_for_name(const char *name);
 gf_dirent_t *

@@ -308,8 +308,7 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
         if (size + dirent_size > request_size)
             break;
 
-        if (dirent->inode && (!((strcmp(dirent->d_name, ".") == 0) ||
-                                (strcmp(dirent->d_name, "..") == 0)))) {
+        if (dirent->inode && !(inode_dir_or_parentdir(dirent))) {
             rda_inode_ctx_get_iatt(dirent->inode, this, &dirent->d_stat);
         }
 
@@ -504,8 +503,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             /* must preserve entry order */
             list_add_tail(&dirent->list, &ctx->entries.list);
             if (dirent->inode) {
-                if (!((strcmp(dirent->d_name, ".") == 0) ||
-                      (strcmp(dirent->d_name, "..") == 0))) {
+                if (!(inode_dir_or_parentdir(dirent))) {
                     /* If ctxp->stat is invalidated, don't update it
                      * with dirent->d_stat as we don't have
                      * generation number of the inode when readdirp

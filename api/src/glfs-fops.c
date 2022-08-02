@@ -3993,21 +3993,21 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
             {
                 if ((!entry->inode && (!IA_ISDIR(entry->d_stat.ia_type))) ||
                     ((entry->d_stat.ia_ctime == 0) &&
-                     strcmp(entry->d_name, ".") &&
-                     strcmp(entry->d_name, ".."))) {
-                    /* entry->inode for directories will be
-                     * always set to null to force a lookup
-                     * on the dentry. Hence to not degrade
-                     * readdir performance, we skip lookups
-                     * for directory entries. Also we will have
-                     * proper stat if directory present on
-                     * hashed subvolume.
-                     *
-                     * In addition, if the stat is invalid, force
-                     * lookup to fetch proper stat.
-                     */
-                    gf_fill_iatt_for_dirent(entry, fd->inode, subvol);
-                }
+                     inode_dir_or_parentdir(entry)))
+                    {
+                        /* entry->inode for directories will be
+                         * always set to null to force a lookup
+                         * on the dentry. Hence to not degrade
+                         * readdir performance, we skip lookups
+                         * for directory entries. Also we will have
+                         * proper stat if directory present on
+                         * hashed subvolume.
+                         *
+                         * In addition, if the stat is invalid, force
+                         * lookup to fetch proper stat.
+                         */
+                        gf_fill_iatt_for_dirent(entry, fd->inode, subvol);
+                    }
             }
 
             gf_link_inodes_from_dirent(fd->inode, &entries);
