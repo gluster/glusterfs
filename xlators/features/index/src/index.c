@@ -253,11 +253,8 @@ index_dir_create(xlator_t *this, const char *subdir)
     int ret = 0;
     struct stat st = {0};
     char fullpath[PATH_MAX] = {0};
-    char path[PATH_MAX] = {0};
     char *dir = NULL;
     index_priv_t *priv = NULL;
-    size_t len = 0;
-    size_t pathlen = 0;
 
     priv = this->private;
     make_index_dir_path(priv->index_basepath, subdir, fullpath,
@@ -269,19 +266,17 @@ index_dir_create(xlator_t *this, const char *subdir)
         goto out;
     }
 
-    pathlen = strlen(fullpath);
-    if ((pathlen > 1) && fullpath[pathlen - 1] == '/')
-        fullpath[pathlen - 1] = '\0';
+    gf_path_strip_trailing_slashes(fullpath);
+
     dir = strchr(fullpath, '/');
     while (dir) {
         dir = strchr(dir + 1, '/');
-        if (dir)
-            len = pathlen - strlen(dir);
-        else
-            len = pathlen;
-        strncpy(path, fullpath, len);
-        path[len] = '\0';
-        ret = sys_mkdir(path, 0600);
+        if (dir) {
+            *dir = '\0';
+            ret = sys_mkdir(fullpath, 0600);
+            *dir = '/';
+        } else
+            ret = sys_mkdir(fullpath, 0600);
         if (ret && (errno != EEXIST))
             goto out;
     }
