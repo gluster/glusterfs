@@ -862,16 +862,16 @@ server_reconfigure(xlator_t *this, dict_t *options)
     GF_FREE(this->ctx->statedump_path);
     this->ctx->statedump_path = gf_strdup(statedump_path);
 
+    /* if the option is not set, we should fall back to NULL value */
+    GF_FREE(conf->volfile_dir);
+    conf->volfile_dir = NULL;
     statedump_path = NULL;
     GF_OPTION_RECONF("volspec-directory", statedump_path, options, path,
                      do_auth);
-    if (!statedump_path) {
-        goto do_auth;
+    if (statedump_path) {
+        gf_path_strip_trailing_slashes(statedump_path);
+        conf->volfile_dir = gf_strdup(statedump_path);
     }
-    gf_path_strip_trailing_slashes(statedump_path);
-    GF_FREE(conf->volfile_dir);
-    conf->volfile_dir = gf_strdup(statedump_path);
-
 do_auth:
     if (conf->auth_modules)
         gf_auth_fini(conf->auth_modules);
@@ -1934,7 +1934,7 @@ struct volume_options server_options[] = {
                     "a valid username and password."},
     {.key = {"volspec-directory", "volfile-path"},
      .type = GF_OPTION_TYPE_PATH,
-     .default_value = GLUSTERD_DEFAULT_WORKDIR "/vols"},
+     .default_value = NULL},
     {.key = {NULL}},
 };
 

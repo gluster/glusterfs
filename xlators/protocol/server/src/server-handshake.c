@@ -66,21 +66,31 @@ server_getspec(rpcsvc_request_t *req)
         goto out;
     }
 
+    /* By default, the behavior is not to return anything if specific option is not set */
+    if (!conf->volfile_dir) {
+        ret = -1;
+        op_errno = ENOTSUP;
+        rsp.spec = "<this method is not in use, use glusterd for getspec>";
+        goto out;
+    }
     char *volid = args.key;
     ret = snprintf(volpath, PATH_MAX - 1, "%s/%s.vol", conf->volfile_dir,
                    volid);
     if (ret == -1) {
+        op_errno = ENOMEM;
         gf_msg(this->name, GF_LOG_ERROR, errno, 0, "failed to copy volfile");
         goto out;
     }
 
     ret = sys_stat(volpath, &stbuf);
     if (ret < 0) {
+        op_errno = errno;
         goto out;
     }
 
-    spec_fd = open(volpath, O_RDONLY);
+    spec_fd = sys_open(volpath, O_RDONLY, 0);
     if (spec_fd < 0) {
+        op_errno = errno;
         gf_msg("glusterd", GF_LOG_ERROR, errno, 0, "Unable to open %s (%s)",
                volpath, strerror(errno));
         goto out;
@@ -88,14 +98,16 @@ server_getspec(rpcsvc_request_t *req)
     ret = stbuf.st_size;
 
     if (ret > 0) {
-        rsp.spec = CALLOC(ret + 1, sizeof(char));
+        rsp.spec = MALLOC((ret + 1) * sizeof(char));
         if (!rsp.spec) {
             gf_msg(this->name, GF_LOG_ERROR, errno, 0, "no memory");
             ret = -1;
-            op_errno = ENOMEM;
             goto out;
         }
         ret = sys_read(spec_fd, rsp.spec, ret);
+        if (ret <= 0) {
+            op_errno = errno;
+        }
     }
 
 out:
@@ -104,8 +116,6 @@ out:
 
     rsp.op_ret = ret;
     if (rsp.op_ret < 0) {
-        if (!op_errno)
-            op_errno = ENOENT;
         gf_msg(this->name, GF_LOG_ERROR, op_errno, 0,
                "Failed to mount the volume");
     }
