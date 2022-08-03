@@ -3050,6 +3050,9 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
     char is_linkfile = 0;
     gf_dirent_t *df_entry = NULL;
     dht_container_t *tmp_container = NULL;
+    loc_t entry_loc = {
+        0,
+    };
 
     if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
         goto out;
@@ -3140,11 +3143,22 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
                migration. Only the actual data file need to
                be checked for migration criteria.
             */
-
+            loc_wipe(&entry_loc);
+            ret = dht_build_child_loc(conf->local_subvols[i], &entry_loc, loc,
+                                      df_entry->d_name);
+            if (ret) {
+                gf_log(this->name, GF_LOG_ERROR,
+                       "Child loc"
+                       " build failed for entry: %s",
+                       df_entry->d_name);
+            } else {
+                ret = syncop_unlink(conf->local_subvols[i], &entry_loc, NULL,
+                                    NULL);
+            }
             gf_msg_debug(this->name, 0,
-                         "Skipping linkfile"
-                         " %s on subvol: %s",
-                         df_entry->d_name, conf->local_subvols[i]->name);
+                         "Unlink linkfile"
+                         " %s on subvol: %s status is %d",
+                         df_entry->d_name, conf->local_subvols[i]->name, ret);
             continue;
         }
 
