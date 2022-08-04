@@ -2631,6 +2631,7 @@ gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
     gf_boolean_t update_skippedcount = _gf_true;
     int i = 0;
     gf_boolean_t should_i_migrate = 0;
+    char is_linkfile = 0;
 
     GF_ASSERT(this);
 
@@ -2691,6 +2692,9 @@ gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
     gf_uuid_copy(entry_loc.pargfid, loc->gfid);
 
     ret = syncop_lookup(this, &entry_loc, &iatt, NULL, NULL, NULL);
+    is_linkfile = check_is_linkfile(NULL, &rebal_entry->df_entry->d_stat,
+                                    rebal_entry->df_entry->dict,
+                                    conf->link_xattr_name);
 
     if (!should_i_migrate) {
         /* this node isn't supposed to migrate the file. suppressing any
@@ -2746,6 +2750,14 @@ gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
     }
 
     if (hashed_subvol == cached_subvol) {
+        if (is_linkfile == 1) {
+            i = rebal_entry->local_subvol_index;
+            ret = syncop_unlink(conf->local_subvols[i], &entry_loc, NULL, NULL);
+            gf_msg_debug(this->name, 0,
+                         "Unlink linkfile"
+                         " %s on subvol: %s status is %d",
+                         entry_loc.path, conf->local_subvols[i]->name, ret);
+        }
         ret = 0;
         goto out;
     }
@@ -3050,6 +3062,10 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
     char is_linkfile = 0;
     gf_dirent_t *df_entry = NULL;
     dht_container_t *tmp_container = NULL;
+    loc_t entry_loc = {
+        0,
+    };
+    int j = 0;
 
     if (defrag->defrag_status != GF_DEFRAG_STATUS_STARTED) {
         goto out;
@@ -3136,18 +3152,30 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
                                         conf->link_xattr_name);
 
         if (is_linkfile) {
-            /* No need to add linkto file to the queue for
-               migration. Only the actual data file need to
-               be checked for migration criteria.
-            */
-
-            gf_msg_debug(this->name, 0,
-                         "Skipping linkfile"
-                         " %s on subvol: %s",
-                         df_entry->d_name, conf->local_subvols[i]->name);
-            continue;
+            for (j = 0; j < conf->subvolume_cnt; j++) {
+                if (conf->decommissioned_bricks[j] == conf->local_subvols[i]) {
+                    loc_wipe(&entry_loc);
+                    ret = dht_build_child_loc(conf->local_subvols[i],
+                                              &entry_loc, loc,
+                                              df_entry->d_name);
+                    if (ret) {
+                        gf_log(this->name, GF_LOG_ERROR,
+                               "Child loc"
+                               " build failed for entry: %s",
+                               df_entry->d_name);
+                    } else {
+                        ret = syncop_unlink(conf->local_subvols[i], &entry_loc,
+                                            NULL, NULL);
+                    }
+                    gf_msg_debug(this->name, 0,
+                                 "Unlink linkfile"
+                                 " %s on subvol: %s status is %d",
+                                 df_entry->d_name, conf->local_subvols[i]->name,
+                                 ret);
+                    continue;
+                }
+            }
         }
-
         /*Build Container Structure */
 
         tmp_container = GF_CALLOC(1, sizeof(struct dht_container),
