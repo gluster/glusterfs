@@ -453,7 +453,8 @@ dht_reconfigure(xlator_t *this, dict_t *options)
 
     GF_OPTION_RECONF("lookup-optimize", conf->lookup_optimize, options, bool,
                      out);
-
+    GF_OPTION_RECONF("rmdir-optimize", conf->rmdir_optimize, options, bool,
+                     out);
     GF_OPTION_RECONF("min-free-disk", conf->min_free_disk, options,
                      percent_or_size, out);
     /* option can be any one of percent or bytes */
@@ -720,6 +721,7 @@ dht_init(xlator_t *this)
     }
 
     GF_OPTION_INIT("lookup-optimize", conf->lookup_optimize, bool, err);
+    GF_OPTION_INIT("rmdir-optimize", conf->rmdir_optimize, bool, err);
 
     GF_OPTION_INIT("unhashed-sticky-bit", conf->unhashed_sticky_bit, bool, err);
 
@@ -905,6 +907,15 @@ struct volume_options dht_options[] = {
          "files, in case the hashed subvolume does not return any result. "
          "This option disregards the lookup-unhashed setting, when enabled.",
      .op_version = {GD_OP_VERSION_3_7_2},
+     .level = OPT_STATUS_ADVANCED,
+     .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"rmdir-optimize"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "on",
+     .description =
+         "This option if set to ON enables the optimization "
+         "of rmdir,  by not doing a readdirp call to check about linkto files.",
+     .op_version = {GD_OP_VERSION_11_0},
      .level = OPT_STATUS_ADVANCED,
      .flags = OPT_FLAG_CLIENT_OPT | OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"min-free-disk"},
