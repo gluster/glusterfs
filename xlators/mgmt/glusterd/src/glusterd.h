@@ -952,7 +952,7 @@ glusterd_op_statedump_volume_args_get(dict_t *dict, char **volname,
 
 int
 glusterd_op_gsync_args_get(dict_t *dict, char **op_errstr, char **primary,
-                           char **secondary, char **host_uuid);
+                           char **secondary, uuid_t *host_uuid);
 
 int
 glusterd_op_get_max_opversion(char **op_errstr, dict_t *rsp_dict);

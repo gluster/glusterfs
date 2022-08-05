@@ -1032,6 +1032,8 @@ valid_internet_address(char *address, gf_boolean_t wildcard_acc,
 char *
 gf_rev_dns_lookup(const char *ip);
 
+void *
+gf_uuid_dup(uuid_t uuid);
 char *
 uuid_utoa(uuid_t uuid);
 char *

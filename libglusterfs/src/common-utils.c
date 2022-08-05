@@ -4321,3 +4321,9 @@ gf_unlink(const char *path)
     }
     return _gf_true;
 }
+
+void *
+gf_uuid_dup(uuid_t uuid)
+{
+    return gf_memdup(uuid, sizeof(uuid_t));
+}

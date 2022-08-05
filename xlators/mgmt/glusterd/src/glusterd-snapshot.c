@@ -8673,7 +8673,7 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     glusterd_op_t cli_op = GD_OP_SNAP;
     int type = 0;
     glusterd_conf_t *conf = NULL;
-    char *host_uuid = NULL;
+    void *host_uuid = NULL;
     char err_str[2048] = "";
     xlator_t *this = THIS;
     uint32_t op_errno = 0;
@@ -8709,7 +8709,7 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
 
         dict->extra_stdfree = cli_req.dict.dict_val;
 
-        host_uuid = gf_strdup(uuid_utoa(MY_UUID));
+        host_uuid = gf_uuid_dup(MY_UUID);
         if (host_uuid == NULL) {
             snprintf(err_str, sizeof(err_str),
                      "Failed to get "
@@ -8717,7 +8717,7 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
             ret = -1;
             goto out;
         }
-        ret = dict_set_dynstr_sizen(dict, "host-uuid", host_uuid);
+        ret = dict_set_gfuuid(dict, "host-uuid", host_uuid, false);
         if (ret) {
             GF_FREE(host_uuid);
             goto out;
