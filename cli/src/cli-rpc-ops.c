@@ -737,18 +737,17 @@ gf_cli_print_number_of_bricks(int type, int brick_count, int dist_count,
     if (type == GF_CLUSTER_TYPE_NONE) {
         cli_out("Number of Bricks: %d", brick_count);
     } else if (type == GF_CLUSTER_TYPE_DISPERSE) {
-        cli_out("Number of Bricks: %d x (%d + %d) = %d",
-                (brick_count / dist_count), disperse_count - redundancy_count,
-                redundancy_count, brick_count);
+        cli_out("Number of Bricks: %d x (%d + %d) = %d", dist_count,
+                disperse_count - redundancy_count, redundancy_count,
+                brick_count);
     } else {
         /* For replicate, dist_count is good enough */
         if (arbiter_count == 0) {
-            cli_out("Number of Bricks: %d x %d = %d",
-                    (brick_count / dist_count), dist_count, brick_count);
+            cli_out("Number of Bricks: %d x %d = %d", dist_count, replica_count,
+                    brick_count);
         } else {
-            cli_out("Number of Bricks: %d x (%d + %d) = %d",
-                    (brick_count / dist_count), dist_count - arbiter_count,
-                    arbiter_count, brick_count);
+            cli_out("Number of Bricks: %d x (%d + %d) = %d", dist_count,
+                    replica_count - arbiter_count, arbiter_count, brick_count);
         }
     }
 }
@@ -912,6 +911,11 @@ xml_output:
 
         keylen = snprintf(key, sizeof(key), "volume%d.dist_count", i);
         ret = dict_get_int32n(dict, key, keylen, &dist_count);
+        if (ret)
+            goto out;
+
+        keylen = snprintf(key, sizeof(key), "volume%d.replica_count", i);
+        ret = dict_get_int32n(dict, key, keylen, &replica_count);
         if (ret)
             goto out;
 
