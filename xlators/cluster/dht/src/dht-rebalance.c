@@ -3172,9 +3172,11 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
                                  " %s on subvol: %s status is %d",
                                  df_entry->d_name, conf->local_subvols[i]->name,
                                  ret);
-                    continue;
+                    break;
                 }
             }
+            if (j < conf->subvolume_cnt)
+                continue;
         }
         /*Build Container Structure */
 
