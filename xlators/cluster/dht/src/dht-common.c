@@ -2369,9 +2369,6 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
                              NULL);
             return 0;
         }
-        /* A hack */
-        dht_lookup_directory(frame, this, &local->loc);
-        return 0;
     }
 
     if (local->dir_count) {
@@ -3094,8 +3091,7 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
              * heal this so check if this is a directory on the other subvols.
              */
             if ((op_errno == ENOTCONN) || (op_errno == ENODATA)) {
-                dht_lookup_directory(frame, this, &local->loc);
-                return 0;
+                goto is_dir_check;
             }
         }
         gf_msg_debug(this->name, op_errno, "%s: Lookup on subvolume %s failed",
@@ -3122,6 +3118,7 @@ dht_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         }
     }
 
+is_dir_check:
     is_dir = check_is_dir(inode, stbuf, xattr);
     if (is_dir) {
         /* A directory is present on all subvols, send the lookup to
