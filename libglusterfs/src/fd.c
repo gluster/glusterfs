@@ -444,17 +444,6 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
     int i = 0;
     xlator_t *old_THIS = NULL;
 
-    if (fd == NULL) {
-        gf_msg_callingfn("xlator", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
-                         "invalid argument");
-        goto out;
-    }
-
-    if (fd->inode == NULL) {
-        gf_msg_callingfn("xlator", GF_LOG_ERROR, 0, LG_MSG_FD_INODE_NULL,
-                         "fd->inode is NULL");
-        goto out;
-    }
     if (!fd->_ctx)
         goto out;
 
@@ -467,10 +456,12 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
                         old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->releasedir(xl, fd);
-                    THIS = old_THIS;
                 }
             }
         }
+        if (old_THIS)
+            THIS = old_THIS;
+
     } else {
         for (i = 0; i < fd->xl_count; i++) {
             if (fd->_ctx[i].key) {
@@ -480,10 +471,11 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
                         old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->release(xl, fd);
-                    THIS = old_THIS;
                 }
             }
         }
+        if (old_THIS)
+            THIS = old_THIS;
     }
 
     LOCK_DESTROY(&fd->lock);

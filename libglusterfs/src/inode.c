@@ -366,10 +366,11 @@ __inode_ctx_free(inode_t *inode)
                     old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
-                THIS = old_THIS;
             }
         }
     }
+    if (old_THIS)
+        THIS = old_THIS;
 
     GF_FREE(inode->_ctx);
     inode->_ctx = NULL;

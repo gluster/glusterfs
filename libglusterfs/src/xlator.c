@@ -483,14 +483,16 @@ xlator_foreach(xlator_t *this, void (*fn)(xlator_t *each, void *data),
         first = first->prev;
 
     while (first) {
-        old_THIS = THIS;
+        if (!old_THIS)
+            old_THIS = THIS;
         THIS = first;
 
         fn(first, data);
 
-        THIS = old_THIS;
         first = first->next;
     }
+    if (old_THIS)
+        THIS = old_THIS;
 
 out:
     return;
