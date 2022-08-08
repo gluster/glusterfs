@@ -469,6 +469,7 @@ int
 rpcsvc_auth_array(rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
 {
     int count = 0;
+#ifdef BUILD_GNFS
     int result = RPCSVC_AUTH_REJECT;
     char *srchstr = NULL;
     int ret = 0;
@@ -512,12 +513,16 @@ rpcsvc_auth_array(rpcsvc_t *svc, char *volname, int *autharr, int arrlen)
     }
 
 err:
+#endif
     return count;
 }
 
 gid_t *
 rpcsvc_auth_unix_auxgids(rpcsvc_request_t *req, int *arrlen)
 {
+#ifndef BUILD_GNFS
+    return NULL;
+#else
     if ((!req) || (!arrlen))
         return NULL;
 
@@ -536,4 +541,5 @@ rpcsvc_auth_unix_auxgids(rpcsvc_request_t *req, int *arrlen)
         return NULL;
 
     return &req->auxgids[0];
+#endif
 }
