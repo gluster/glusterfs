@@ -142,13 +142,13 @@ function _create_lv() {
     local virtualsize="150M"
 
     wipefs -a "${dir}/${LVM_PREFIX}_loop"
-    /sbin/pvcreate $dir/${LVM_PREFIX}_loop
-    /sbin/vgcreate ${!vg} $dir/${LVM_PREFIX}_loop
+    /sbin/pvcreate --zero n $dir/${LVM_PREFIX}_loop
+    /sbin/vgcreate --zero n ${!vg} $dir/${LVM_PREFIX}_loop
 
-    /sbin/lvcreate -L ${thinpoolsize} -T ${!vg}/thinpool
+    /sbin/lvcreate --zero n -L ${thinpoolsize} -T ${!vg}/thinpool
     /sbin/lvcreate -V ${virtualsize} -T ${!vg}/thinpool -n brick_lvm
 
-    mkfs.xfs -f /dev/${!vg}/brick_lvm
+    mkfs.xfs -K -f /dev/${!vg}/brick_lvm
 }
 
 function _mount_lv() {
