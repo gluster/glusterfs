@@ -446,7 +446,8 @@ glusterd_add_volume_detail_to_dict(glusterd_volinfo_t *volinfo, dict_t *volumes,
     }
 
     keylen = snprintf(key, sizeof(key), "volume%d.dist_count", count);
-    ret = dict_set_int32n(volumes, key, keylen, volinfo->dist_leaf_count);
+    ret = dict_set_int32n(volumes, key, keylen,
+                          volinfo->brick_count / volinfo->dist_leaf_count);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, -ret, GD_MSG_DICT_SET_FAILED,
                 "Key=%s", key, NULL);
