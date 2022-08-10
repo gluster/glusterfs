@@ -49,15 +49,39 @@ TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 start
 EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}2"
 TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}2 stop
 
-EXPECT "1" confirm_all_linkto_files $B0/${V0}2/dir0/dir1
-
-#Modify the xattrs of the linkto files on the removed brick to point to itself.
-
-target=$(cat $M0/.meta/graphs/active/$V0-dht/subvolumes/1/name)
-
-setfattr -n trusted.glusterfs.dht.linkto -v "$target\0" $B0/${V0}2/dir0/dir1/nfile*
-
-
+EXPECT "0" echo $(ls $B0/${V0}2/dir0/dir1 | wc -l)
 TEST rm -rf $M0/dir0
+
+
+TEST $CLI volume stop $V0
+TEST $CLI volume delete $V0
+
+umount $M0
+
+TEST $CLI volume create $V0 $H0:$B0/${V0}{1..3};
+TEST $CLI volume start $V0
+
+# Mount FUSE
+TEST glusterfs -s $H0 --volfile-id $V0 $M0
+cd $M0
+TEST mkdir dir1
+cd dir1
+for i in {1..10}; do echo "Test file" > file-$i; mv file-$i newfile-$i; mv newfile-$i green-$i; done
+cd
+
+# Expect 2 linkfiles on 2nd node
+EXPECT "2" echo $(stat -c %a $B0/${V0}2/dir1/* | grep 1000 | wc -l)
+
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 start
+EXPECT_WITHIN $REBALANCE_TIMEOUT "completed" remove_brick_status_completed_field "$V0 $H0:$B0/${V0}3"
+TEST $CLI volume remove-brick $V0 $H0:$B0/${V0}3 stop
+
+# Expect 0 link file on remove brick node
+EXPECT "0" echo $(ls $B0/${V0}3/dir1 | wc -l)
+
+# Expect 9 link file on 2nd node
+EXPECT "0" echo $(stat -c %a $B0/${V0}2/dir1/* | grep 1000 | wc -l)
+
+TEST rm -rf $M0/dir1
 
 cleanup;
