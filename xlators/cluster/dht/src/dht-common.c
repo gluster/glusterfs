@@ -10729,7 +10729,13 @@ dht_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
         goto err;
     }
 
-    if (flags) {
+    /* By default rmdir_optimize is enabled, In this case we
+       don't need to wind a readdirp call to unlink about linkto
+       files, After fixing the stale linkto files issue by the patch
+       https://github.com/gluster/glusterfs/issues/3683 it is unlikely
+       the stale linkto files exist on the backend
+    */
+    if (flags || conf->rmdir_optimize) {
         return dht_rmdir_do(frame, this);
     }
     if (xdata) {

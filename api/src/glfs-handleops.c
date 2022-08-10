@@ -653,18 +653,9 @@ pub_glfs_h_open(struct glfs *fs, struct glfs_object *object, int flags)
         goto out;
     }
 
-    /* check types to open */
-    if (IA_ISDIR(inode->ia_type)) {
-        ret = -1;
-        errno = EISDIR;
+    ret = validate_open_flags(flags, inode->ia_type);
+    if (ret)
         goto out;
-    }
-
-    if (!IA_ISREG(inode->ia_type)) {
-        ret = -1;
-        errno = EINVAL;
-        goto out;
-    }
 
     glfd = glfs_fd_new(fs);
     if (!glfd) {

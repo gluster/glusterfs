@@ -568,6 +568,8 @@ struct dht_conf {
 
     gf_boolean_t lookup_optimize;
 
+    gf_boolean_t rmdir_optimize;
+
     gf_boolean_t unhashed_sticky_bit;
 
     gf_boolean_t assert_no_child_down;
