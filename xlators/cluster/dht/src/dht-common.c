@@ -2370,6 +2370,7 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
             return 0;
         }
         /* A hack */
+        local->gfid_missing = _gf_false;
         dht_lookup_directory(frame, this, &local->loc);
         return 0;
     }
