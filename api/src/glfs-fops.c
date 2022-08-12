@@ -1,4 +1,3 @@
-
 /*
   Copyright (c) 2012-2018 Red Hat, Inc. <http://www.redhat.com>
   This file is part of GlusterFS.
@@ -21,6 +20,7 @@
 #include "glfs.h"
 #include "gfapi-messages.h"
 #include <glusterfs/compat-errno.h>
+#include <glusterfs/common-utils.h>
 #include <limits.h>
 #include "glusterfs3.h"
 
@@ -832,8 +832,6 @@ int
 pub_glfs_fstatat(struct glfs_fd *pglfd, const char *path, struct stat *stat,
                  int flags)
 {
-    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
-
     int ret = -1;
     xlator_t *subvol = NULL;
     loc_t loc = {
@@ -843,9 +841,13 @@ pub_glfs_fstatat(struct glfs_fd *pglfd, const char *path, struct stat *stat,
         0,
     };
     int reval = 0;
+    int is_path_empty = 0;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+    fd_t *fd = NULL;
+
+    is_path_empty = (flags & AT_EMPTY_PATH) == AT_EMPTY_PATH;
 
 retry:
     /* Retry case */
@@ -853,8 +855,30 @@ retry:
         cleanup_fopat_args(pglfd, subvol, ret, &loc);
     }
 
-    subvol = setup_fopat_args(pglfd, path, !(flags & AT_SYMLINK_NOFOLLOW), &loc,
-                              &iatt, reval);
+    if (is_path_empty && path[0] == '\0') {
+        GF_REF_GET(pglfd);
+
+        subvol = glfs_active_subvol(pglfd->fs);
+        if (!subvol) {
+            ret = -1;
+            errno = EIO;
+            goto out;
+        }
+
+        fd = glfs_resolve_fd(pglfd->fs, subvol, pglfd);
+        if (!fd) {
+            ret = -1;
+            errno = EBADFD;
+            goto out;
+        }
+
+        ret = syncop_fstat(subvol, fd, &iatt, NULL, NULL);
+        DECODE_SYNCOP_ERR(ret);
+    } else {
+        subvol = setup_fopat_args(pglfd, path, !(flags & AT_SYMLINK_NOFOLLOW),
+                                  &loc, &iatt, reval);
+    }
+
     if (!subvol) {
         ret = -1;
     }
@@ -866,7 +890,7 @@ retry:
         goto out;
     }
 
-    if (!loc.inode) {
+    if (!loc.inode && !is_path_empty) {
         ret = -1;
         errno = ENOENT;
         goto out;
@@ -6882,8 +6906,6 @@ int
 pub_glfs_fchownat(struct glfs_fd *pglfd, const char *path, uid_t uid, gid_t gid,
                   int flags)
 {
-    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
-
     int ret = 0;
     struct glfs_stat stat = {
         0,
@@ -6908,16 +6930,32 @@ pub_glfs_fchownat(struct glfs_fd *pglfd, const char *path, uid_t uid, gid_t gid,
     };
     int glvalid;
     int no_follow = 0;
+    int is_path_empty = 0;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
 
     no_follow = (flags & AT_SYMLINK_NOFOLLOW) == AT_SYMLINK_NOFOLLOW;
-    subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, 0);
-    if (!subvol) {
-        ret = -1;
-        errno = EIO;
-        goto out;
+    is_path_empty = (flags & AT_EMPTY_PATH) == AT_EMPTY_PATH;
+
+    if (is_path_empty && path[0] == '\0') {
+        GF_REF_GET(pglfd);
+
+        subvol = glfs_active_subvol(pglfd->fs);
+        if (!subvol) {
+            ret = -1;
+            errno = EIO;
+            goto out;
+        }
+
+        fd_to_loc(pglfd, &loc);
+    } else {
+        subvol = setup_fopat_args(pglfd, path, !no_follow, &loc, &iatt, 0);
+        if (!subvol) {
+            ret = -1;
+            errno = EIO;
+            goto out;
+        }
     }
 
     if (!loc.inode) {
@@ -6948,8 +6986,6 @@ int
 pub_glfs_linkat(struct glfs_fd *oldpglfd, const char *oldpath,
                 struct glfs_fd *newpglfd, const char *newpath, int flags)
 {
-    /* TODO: Add support for 'AT_EMPTY_PATH' flag */
-
     int ret = -1;
     int reval = 0;
     xlator_t *oldsubvol = NULL;
@@ -6967,6 +7003,7 @@ pub_glfs_linkat(struct glfs_fd *oldpglfd, const char *oldpath,
         0,
     };
     int follow = 0;
+    int is_path_empty = 0;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(oldpglfd, invalid_fs);
@@ -6980,6 +7017,7 @@ pub_glfs_linkat(struct glfs_fd *oldpglfd, const char *oldpath,
        a new link created will be a symbolic link to defreferenced oldpath.
     */
     follow = (flags & AT_SYMLINK_FOLLOW) == AT_SYMLINK_FOLLOW;
+    is_path_empty = (flags & AT_EMPTY_PATH) == AT_EMPTY_PATH;
 
 retry:
     /* Retry case */
@@ -6987,13 +7025,33 @@ retry:
         cleanup_fopat_args(oldpglfd, oldsubvol, ret, &oldloc);
     }
 
-    oldsubvol = setup_fopat_args(oldpglfd, oldpath, follow, &oldloc, &oldiatt,
-                                 reval);
+    if (is_path_empty && oldpath[0] == '\0') {
+        GF_REF_GET(oldpglfd);
+
+        oldsubvol = glfs_active_subvol(oldpglfd->fs);
+        if (!oldsubvol) {
+            ret = -1;
+            errno = EIO;
+            goto out;
+        }
+
+        fd_to_loc(oldpglfd, &oldloc);
+
+        if (*&oldloc.inode->ia_type == IA_IFDIR) {
+            ret = -1;
+            errno = EISDIR;
+            goto out;
+        }
+    } else {
+        oldsubvol = setup_fopat_args(oldpglfd, oldpath, follow, &oldloc,
+                                     &oldiatt, reval);
+    }
+
     if (!oldsubvol) {
         ret = -1;
     }
 
-    ESTALE_RETRY(ret, errno, reval, &newloc, retry);
+    ESTALE_RETRY(ret, errno, reval, &oldloc, retry);
 
     if (!oldsubvol) {
         goto out;
