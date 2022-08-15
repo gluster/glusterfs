@@ -507,7 +507,7 @@ glfsh_print_heal_op_status(int ret, uint64_t num_entries,
     return glfsh_output->print_heal_op_status(ret, num_entries, fmt_str);
 }
 
-int
+static int
 glfsh_get_index_dir_loc(loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
                         int32_t *op_errno, char *vgfid)
 {
@@ -515,7 +515,6 @@ glfsh_get_index_dir_loc(loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
     int ret = 0;
     dict_t *xattr = NULL;
     struct iatt iattr = {0};
-    struct iatt parent = {0};
 
     ret = syncop_getxattr(xl, rootloc, &xattr, vgfid, NULL, NULL);
     if (ret < 0) {
@@ -532,7 +531,7 @@ glfsh_get_index_dir_loc(loc_t *rootloc, xlator_t *xl, loc_t *dirloc,
     gf_uuid_copy(dirloc->gfid, index_gfid);
     dirloc->path = "";
     dirloc->inode = inode_new(rootloc->inode->table);
-    ret = syncop_lookup(xl, dirloc, &iattr, &parent, NULL, NULL);
+    ret = syncop_lookup(xl, dirloc, &iattr, NULL, NULL, NULL);
     dirloc->path = NULL;
     if (ret < 0) {
         *op_errno = -ret;

@@ -5344,9 +5344,6 @@ fuse_first_lookup(xlator_t *this)
     dict_t *dict = NULL;
     static uuid_t gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     int ret = -1;
-    struct iatt iatt = {
-        0,
-    };
 
     priv = this->private;
 
@@ -5366,7 +5363,7 @@ fuse_first_lookup(xlator_t *this)
         goto out;
     }
 
-    ret = syncop_lookup(xl, &loc, &iatt, NULL, dict, NULL);
+    ret = syncop_lookup(xl, &loc, NULL, NULL, dict, NULL);
     DECODE_SYNCOP_ERR(ret);
     if (ret < 0) {
         gf_log(this->name, GF_LOG_ERROR, "first lookup on root failed (%s)",

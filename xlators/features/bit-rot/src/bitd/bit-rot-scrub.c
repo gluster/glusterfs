@@ -290,9 +290,6 @@ br_scrubber_scrub_begin(xlator_t *this, struct br_fsscan_entry *fsentry)
     struct iatt iatt = {
         0,
     };
-    struct iatt parent_buf = {
-        0,
-    };
     pid_t pid = 0;
     br_child_t *child = NULL;
     unsigned char *md = NULL;
@@ -328,7 +325,7 @@ br_scrubber_scrub_begin(xlator_t *this, struct br_fsscan_entry *fsentry)
 
     syncopctx_setfspid(&pid);
 
-    ret = syncop_lookup(child->xl, &loc, &iatt, &parent_buf, NULL, NULL);
+    ret = syncop_lookup(child->xl, &loc, &iatt, NULL, NULL, NULL);
     if (ret) {
         br_log_object_path(this, "lookup", loc.path, -ret);
         goto out;

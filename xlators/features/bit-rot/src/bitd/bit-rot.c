@@ -940,9 +940,6 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     struct iatt iatt = {
         0,
     };
-    struct iatt parent_buf = {
-        0,
-    };
     dict_t *xattr = NULL;
     int32_t ret = -1;
     inode_t *linked_inode = NULL;
@@ -959,7 +956,7 @@ bitd_oneshot_crawl(xlator_t *subvol, gf_dirent_t *entry, loc_t *parent,
     if (!ret)
         goto out;
 
-    ret = syncop_lookup(child->xl, &loc, &iatt, &parent_buf, NULL, NULL);
+    ret = syncop_lookup(child->xl, &loc, &iatt, NULL, NULL, NULL);
     if (ret) {
         br_log_object_path(this, "lookup", loc.path, -ret);
         goto out;
@@ -1273,12 +1270,6 @@ br_brick_connect(xlator_t *this, br_child_t *child)
     loc_t loc = {
         0,
     };
-    struct iatt buf = {
-        0,
-    };
-    struct iatt parent = {
-        0,
-    };
     br_stub_init_t *stub = NULL;
     dict_t *xattr = NULL;
     int op_errno = 0;
@@ -1294,7 +1285,7 @@ br_brick_connect(xlator_t *this, br_child_t *child)
     gf_uuid_copy(loc.gfid, loc.inode->gfid);
     loc.path = gf_strdup("/");
 
-    ret = syncop_lookup(child->xl, &loc, &buf, &parent, NULL, NULL);
+    ret = syncop_lookup(child->xl, &loc, NULL, NULL, NULL, NULL);
     if (ret) {
         op_errno = -ret;
         ret = -1;

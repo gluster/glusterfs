@@ -662,8 +662,8 @@ __dht_rebalance_create_dst_file(xlator_t *this, xlator_t *to, xlator_t *from,
             goto out;
         }
     } else {
-        ret = syncop_create(to, loc, O_RDWR, DHT_LINKFILE_MODE, fd, &new_stbuf,
-                            dict, NULL);
+        ret = syncop_create(to, loc, O_RDWR, DHT_LINKFILE_MODE, fd, NULL, dict,
+                            NULL);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_MIGRATE_FILE_FAILED,
                    "failed to create %s on %s", loc->path, to->name);
@@ -4176,12 +4176,6 @@ gf_defrag_start_crawl(void *data)
     loc_t loc = {
         0,
     };
-    struct iatt iatt = {
-        0,
-    };
-    struct iatt parent = {
-        0,
-    };
     int thread_index = 0;
     pthread_t *tid = NULL;
     pthread_t filecnt_thread;
@@ -4213,7 +4207,7 @@ gf_defrag_start_crawl(void *data)
 
     /* fix-layout on '/' first */
 
-    ret = syncop_lookup(this, &loc, &iatt, &parent, NULL, NULL);
+    ret = syncop_lookup(this, &loc, NULL, NULL, NULL, NULL);
 
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_REBALANCE_START_FAILED,

@@ -234,13 +234,15 @@ pub_glfs_h_stat(struct glfs *fs, struct glfs_object *object, struct stat *stat)
     GLFS_LOC_FILL_INODE(inode, loc, out);
 
     /* fop/op */
-    ret = syncop_stat(subvol, &loc, &iatt, NULL, NULL);
+    if (stat) {
+        ret = syncop_stat(subvol, &loc, &iatt, NULL, NULL);
+        if (!ret)
+            /* populate out args */
+            glfs_iatt_to_stat(fs, &iatt, stat);
+    } else
+        ret = syncop_stat(subvol, &loc, NULL, NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
 
-    /* populate out args */
-    if (!ret && stat) {
-        glfs_iatt_to_stat(fs, &iatt, stat);
-    }
 out:
     loc_wipe(&loc);
 
@@ -293,12 +295,14 @@ pub_glfs_h_getattrs(struct glfs *fs, struct glfs_object *object,
     }
 
     /* fop/op */
-    ret = glfs_resolve_base(fs, subvol, inode, &iatt);
-
-    /* populate out args */
-    if (!ret && stat) {
-        glfs_iatt_to_stat(fs, &iatt, stat);
-    }
+    if (stat) {
+        ret = glfs_resolve_base(fs, subvol, inode, &iatt);
+        /* populate out args */
+        if (!ret) {
+            glfs_iatt_to_stat(fs, &iatt, stat);
+        }
+    } else
+        ret = glfs_resolve_base(fs, subvol, inode, NULL);
 
 out:
     if (inode)

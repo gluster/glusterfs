@@ -665,8 +665,8 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     if (!is_create)
         ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
     else
-        ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, &iatt,
-                            fop_attr, NULL);
+        ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, NULL, fop_attr,
+                            NULL);
 
     DECODE_SYNCOP_ERR(ret);
 
@@ -991,11 +991,14 @@ pub_glfs_fstat(struct glfs_fd *glfd, struct stat *stat)
         goto out;
     }
 
-    ret = syncop_fstat(subvol, fd, &iatt, NULL, NULL);
+    if (stat) {
+        ret = syncop_fstat(subvol, fd, &iatt, NULL, NULL);
+        if (ret == 0)
+            glfs_iatt_to_stat(glfd->fs, &iatt, stat);
+    } else
+        ret = syncop_fstat(subvol, fd, NULL, NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
 
-    if (ret == 0 && stat)
-        glfs_iatt_to_stat(glfd->fs, &iatt, stat);
 out:
     if (fd)
         fd_unref(fd);
@@ -1307,12 +1310,16 @@ glfs_preadv_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_readv(subvol, fd, size, offset, 0, &iov, &cnt, &iobref, &iatt,
-                       fop_attr, NULL);
-    DECODE_SYNCOP_ERR(ret);
+    if (poststat) {
+        ret = syncop_readv(subvol, fd, size, offset, 0, &iov, &cnt, &iobref,
+                           &iatt, fop_attr, NULL);
+        if (ret >= 0)
+            glfs_iatt_to_statx(glfd->fs, &iatt, poststat);
+    } else
+        ret = syncop_readv(subvol, fd, size, offset, 0, &iov, &cnt, &iobref,
+                           NULL, fop_attr, NULL);
 
-    if (ret >= 0 && poststat)
-        glfs_iatt_to_statx(glfd->fs, &iatt, poststat);
+    DECODE_SYNCOP_ERR(ret);
 
     if (ret <= 0)
         goto out;
@@ -1825,8 +1832,21 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, &preiatt,
-                        &postiatt, fop_attr, NULL);
+    if (prestat) {
+        if (poststat)
+            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
+                                &preiatt, &postiatt, fop_attr, NULL);
+        else
+            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
+                                &preiatt, NULL, fop_attr, NULL);
+    } else {
+        if (poststat)
+            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
+                                NULL, &postiatt, fop_attr, NULL);
+        else
+            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
+                                NULL, NULL, fop_attr, NULL);
+    }
     DECODE_SYNCOP_ERR(ret);
 
     if (ret >= 0) {

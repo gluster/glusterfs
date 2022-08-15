@@ -380,9 +380,6 @@ mq_are_xattrs_set(xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
     quota_meta_t meta = {
         0,
     };
-    struct iatt stbuf = {
-        0,
-    };
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
 
@@ -396,7 +393,7 @@ mq_are_xattrs_set(xlator_t *this, loc_t *loc, gf_boolean_t *contri_set,
     if (ret < 0)
         goto out;
 
-    ret = syncop_lookup(FIRST_CHILD(this), loc, &stbuf, NULL, dict, &rsp_dict);
+    ret = syncop_lookup(FIRST_CHILD(this), loc, NULL, NULL, dict, &rsp_dict);
     if (ret < 0) {
         gf_log_callingfn(
             this->name,
@@ -527,9 +524,6 @@ mq_get_dirty(xlator_t *this, loc_t *loc, int32_t *dirty)
     int8_t value = 0;
     dict_t *dict = NULL;
     dict_t *rsp_dict = NULL;
-    struct iatt stbuf = {
-        0,
-    };
 
     dict = dict_new();
     if (dict == NULL) {
@@ -543,7 +537,7 @@ mq_get_dirty(xlator_t *this, loc_t *loc, int32_t *dirty)
         goto out;
     }
 
-    ret = syncop_lookup(FIRST_CHILD(this), loc, &stbuf, NULL, dict, &rsp_dict);
+    ret = syncop_lookup(FIRST_CHILD(this), loc, NULL, NULL, dict, &rsp_dict);
     if (ret < 0) {
         gf_log_callingfn(
             this->name,
