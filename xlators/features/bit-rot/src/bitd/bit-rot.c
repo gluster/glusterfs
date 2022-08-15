@@ -325,8 +325,7 @@ out:
 }
 
 int32_t
-br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
-                          struct iatt *iatt)
+br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd)
 {
     int32_t ret = -1;
     off_t offset = 0;
@@ -336,7 +335,6 @@ br_calculate_obj_checksum(unsigned char *md, br_child_t *child, fd_t *fd,
     SHA256_CTX sha256;
 
     GF_VALIDATE_OR_GOTO("bit-rot", child, out);
-    GF_VALIDATE_OR_GOTO("bit-rot", iatt, out);
     GF_VALIDATE_OR_GOTO("bit-rot", fd, out);
 
     this = child->this;
@@ -367,15 +365,7 @@ out:
 }
 
 static int32_t
-br_object_checksum(unsigned char *md, br_object_t *object, fd_t *fd,
-                   struct iatt *iatt)
-{
-    return br_calculate_obj_checksum(md, object->child, fd, iatt);
-}
-
-static int32_t
-br_object_read_sign(inode_t *linked_inode, fd_t *fd, br_object_t *object,
-                    struct iatt *iatt)
+br_object_read_sign(inode_t *linked_inode, fd_t *fd, br_object_t *object)
 {
     int32_t ret = -1;
     xlator_t *this = NULL;
@@ -396,7 +386,7 @@ br_object_read_sign(inode_t *linked_inode, fd_t *fd, br_object_t *object,
         goto out;
     }
 
-    ret = br_object_checksum(md, object, fd, iatt);
+    ret = br_calculate_obj_checksum(md, object->child, fd);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_CALC_CHECKSUM_FAILED,
                 "object-gfid=%s", uuid_utoa(linked_inode->gfid), NULL);
@@ -603,7 +593,7 @@ br_sign_object(br_object_t *object)
     gf_msg_debug(this->name, 0, "Signing object [%s]",
                  uuid_utoa(linked_inode->gfid));
 
-    ret = br_object_read_sign(linked_inode, fd, object, &iatt);
+    ret = br_object_read_sign(linked_inode, fd, object);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, BRB_MSG_READ_AND_SIGN_FAILED,
                 "gfid=%s", uuid_utoa(linked_inode->gfid), NULL);

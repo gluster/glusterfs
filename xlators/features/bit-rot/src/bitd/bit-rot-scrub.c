@@ -395,7 +395,7 @@ br_scrubber_scrub_begin(xlator_t *this, struct br_fsscan_entry *fsentry)
     if (!md)
         goto unrefd;
 
-    ret = br_calculate_obj_checksum(md, child, fd, &iatt);
+    ret = br_calculate_obj_checksum(md, child, fd);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, BRB_MSG_CALC_ERROR,
                "error calculating hash for object [GFID: %s]",
