@@ -235,7 +235,7 @@ void
 br_log_object_path(xlator_t *, char *, const char *, int32_t);
 
 int32_t
-br_calculate_obj_checksum(unsigned char *, br_child_t *, fd_t *, struct iatt *);
+br_calculate_obj_checksum(unsigned char *, br_child_t *, fd_t *);
 
 int32_t
 br_prepare_loc(xlator_t *, br_child_t *, loc_t *, gf_dirent_t *, loc_t *);
