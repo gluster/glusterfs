@@ -2021,6 +2021,7 @@ inode_t *
 inode_from_path(inode_table_t *itable, const char *path)
 {
     inode_t *inode = NULL;
+#ifdef BUILD_GNFS
     inode_t *parent = NULL;
     inode_t *root = NULL;
     inode_t *curr = NULL;
@@ -2072,6 +2073,7 @@ inode_from_path(inode_table_t *itable, const char *path)
     GF_FREE(pathname);
 
 out:
+#endif
     return inode;
 }
 
