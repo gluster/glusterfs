@@ -286,9 +286,6 @@ gf_boolean_t
 __is_root_gfid(uuid_t gfid);
 
 void
-__inode_table_set_lru_limit(inode_table_t *table, uint32_t lru_limit);
-
-void
 inode_table_set_lru_limit(inode_table_t *table, uint32_t lru_limit);
 
 void
@@ -297,17 +294,11 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode);
 int
 inode_is_linked(inode_t *inode);
 
-void
-inode_set_need_lookup(inode_t *inode, xlator_t *this);
-
 gf_boolean_t
 inode_needs_lookup(inode_t *inode, xlator_t *this);
 
 int
 inode_has_dentry(inode_t *inode);
-
-size_t
-inode_ctx_size(inode_t *inode);
 
 void
 inode_find_directory_name(inode_t *inode, const char **name);
