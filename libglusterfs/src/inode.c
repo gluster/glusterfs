@@ -176,7 +176,7 @@ hash_dentry(inode_t *parent, const char *name, int mod)
 static int
 hash_gfid(uuid_t uuid, int mod)
 {
-    return ((uuid[15] + (uuid[14] << 8)) % mod);
+    return ((int *)uuid)[0] & (mod - 1);
 }
 
 static void
@@ -1676,6 +1676,7 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
 {
     inode_table_t *new = NULL;
     uint32_t mem_pool_size = lru_limit;
+    size_t diff;
     int ret = -1;
     int i = 0;
 
@@ -1708,11 +1709,18 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         new->dentry_hashsize = dentry_hashsize;
     }
 
+    /* The size of hash table MUST always be power of 2 as required by hash_gfid
+     */
     if (inode_hashsize == 0) {
-        /* The size of hash table always should be power of 2 */
         new->inode_hashsize = 65536;
     } else {
         new->inode_hashsize = inode_hashsize;
+        while ((diff = new->inode_hashsize & -new->inode_hashsize) != new->inode_hashsize)
+            new->inode_hashsize += diff;
+
+        if (new->inode_hashsize != inode_hashsize)
+            gf_log(THIS->name, GF_LOG_WARNING,
+                    "Rounded inode table size up to %lu from %u", new->inode_hashsize, inode_hashsize);
     }
 
     /* In case FUSE is initing the inode table. */
