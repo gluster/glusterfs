@@ -17,6 +17,9 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info
 
+# Ensure port mapper is up and running. Silently continue if it fails.
+sudo systemctl start rpcbind || true
+
 H0IP=$(ip addr show |grep -w inet |grep -v 127.0.0.1|awk '{ print $2 }'| cut -d "/" -f 1)
 H0IP6=$(host $HOSTNAME | grep IPv6 | awk '{print $NF}')
 
