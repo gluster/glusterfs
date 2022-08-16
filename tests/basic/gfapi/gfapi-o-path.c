@@ -51,6 +51,7 @@ main(int argc, char *argv[])
     const char *filename_renameat = "file_tmp_renameat";
     const char *filename_renameat2 = "file_tmp_renameat2";
     const char *filename_unlinkat = "file_tmp_unlinkat";
+    const char *dirname_mkdir2_unlinkat = "mkdir2_unlinkat";
     const char *filepath = "/dir_tmp/file_tmp";
     const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
     const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
@@ -58,6 +59,8 @@ main(int argc, char *argv[])
     const char *filepath_renameat = "/dir_tmp/file_tmp_renameat";
     const char *filepath_renameat2 = "/dir_tmp/file_tmp_renameat2";
     const char *filepath_unlinkat = "/dir_tmp/file_tmp_unlinkat";
+    const char *dirpath_mkdir2_unlinkat = "/dir_tmp/mkdir2_unlinkat";
+
     const char *buff =
         "An opinion should be the result of thought, "
         "not a substitute for it.";
@@ -314,6 +317,17 @@ main(int argc, char *argv[])
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlinkat operation failed", ret,
                                          out);
     }
+
+    ret = glfs_mkdir(fs, dirpath_mkdir2_unlinkat, 0755);
+    fprintf(stderr, "mkdir(%s): %s\n", dirpath_mkdir2_unlinkat,
+            strerror(errno));
+    if (ret) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mkdir", ret, out);
+    }
+
+    ret = glfs_unlinkat(fd1, dirname_mkdir2_unlinkat, AT_REMOVEDIR);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat", ret, out);
 
     ret = glfs_unlinkat(fd1, filename_unlinkat, flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlinkat", ret, out);

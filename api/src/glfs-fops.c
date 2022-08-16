@@ -6771,7 +6771,7 @@ GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_faccessat, 11.0)
 int
 pub_glfs_faccessat(struct glfs_fd *pglfd, const char *path, int mode, int flags)
 {
-    volatile int ret = -1;
+    int ret = -1;
     int reval = 0;
     xlator_t *subvol = NULL;
     loc_t loc = {
@@ -7490,6 +7490,7 @@ pub_glfs_unlinkat(struct glfs_fd *pglfd, const char *path, int flags)
 {
     int ret = -1;
     int reval = 0;
+    int is_rmdir = 0;
     xlator_t *subvol = NULL;
     loc_t loc = {
         0,
@@ -7500,6 +7501,8 @@ pub_glfs_unlinkat(struct glfs_fd *pglfd, const char *path, int flags)
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(pglfd, invalid_fs);
+
+    is_rmdir = (flags & AT_REMOVEDIR) == AT_REMOVEDIR;
 
 retry:
     /* Retry case */
@@ -7519,14 +7522,26 @@ retry:
         goto out;
     }
 
-    if (iatt.ia_type == IA_IFDIR) {
+    /* If a directory is to be unlinked then 'AT_REMOVEDIR'
+       is to be used mandatorily.
+    */
+    if (iatt.ia_type == IA_IFDIR && !is_rmdir) {
         ret = -1;
         errno = EISDIR;
+        goto out;
+    } else if (iatt.ia_type != IA_IFDIR && is_rmdir) {
+        ret = -1;
+        errno = ENOTDIR;
         goto out;
     }
 
     /* TODO: Add leaseid */
-    ret = syncop_unlink(subvol, &loc, NULL, NULL);
+    /* Unlink or rmdir based on 'AT_REMOVEDIR' flag */
+    if (!is_rmdir)
+        ret = syncop_unlink(subvol, &loc, NULL, NULL);
+    else
+        ret = syncop_rmdir(subvol, &loc, 0, NULL, NULL);
+
     DECODE_SYNCOP_ERR(ret);
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
