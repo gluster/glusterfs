@@ -78,8 +78,10 @@ def create_custom_config_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(CUSTOM_CONFIG_FILE):
-        with open(CUSTOM_CONFIG_FILE, "w") as f:
+        with open(CUSTOM_CONFIG_FILE + ".tmp2", "w") as f:
             f.write("{}")
+
+        os.rename(CUSTOM_CONFIG_FILE + ".tmp2", CUSTOM_CONFIG_FILE)
 
 
 def create_webhooks_file_if_not_exists(args):
@@ -91,8 +93,10 @@ def create_webhooks_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(WEBHOOKS_FILE):
-        with open(WEBHOOKS_FILE, "w") as f:
+        with open(WEBHOOKS_FILE + ".tmp1", "w") as f:
             f.write("{}")
+
+        os.rename(WEBHOOKS_FILE + ".tmp1", WEBHOOKS_FILE)
 
 
 def boolify(value):
