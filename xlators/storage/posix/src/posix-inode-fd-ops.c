@@ -2109,8 +2109,13 @@ out:
         pthread_mutex_unlock(&ctx->write_atomic_lock);
         locked = _gf_false;
     }
-
-    if (op_errno == ENOSPC && priv->disk_space_full && !check_space_error) {
+    /* Check overwrite in case if errorno is ENOSPC, there could be
+       a situation the disk_space_check thread is not set disk_space_flag
+       because the thread is already waiting on sleep and other thread has
+       already consumed free disk space, at the same time if another client try
+       to overwrite the data it would get failed.
+    */
+    if (op_errno == ENOSPC && !check_space_error) {
         ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
