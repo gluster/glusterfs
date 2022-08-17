@@ -772,7 +772,6 @@ inode_ctx_set2
 inode_ctx_size
 inode_dump
 inode_dump_to_dict
-__inode_find
 inode_find
 inode_find_directory_name
 inode_forget
