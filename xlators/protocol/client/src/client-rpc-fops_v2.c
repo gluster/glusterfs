@@ -5407,7 +5407,7 @@ client4_0_seek(call_frame_t *frame, xlator_t *this, void *data)
 
     return 0;
 unwind:
-    CLIENT_STACK_UNWIND(ipc, frame, -1, op_errno, NULL);
+    CLIENT_STACK_UNWIND(seek, frame, -1, op_errno, 0, NULL);
     GF_FREE(req.xdata.pairs.pairs_val);
 
     return 0;
