@@ -654,6 +654,7 @@ __gf_realloc
 _gf_ref_get
 _gf_ref_init
 _gf_ref_put
+gf_rebalance_thread_count
 gf_rev_dns_lookup
 gf_rsync_strong_checksum
 gf_rsync_md5_checksum

@@ -34,7 +34,6 @@
 /* Namespace synchronization */
 #define DHT_ENTRY_SYNC_DOMAIN "dht.entry.sync"
 #define DHT_LAYOUT_HASH_INVALID 1
-#define MAX_REBAL_THREADS sysconf(_SC_NPROCESSORS_ONLN)
 
 #define DHT_DIR_STAT_BLOCKS 8
 #define DHT_DIR_STAT_SIZE 4096
@@ -538,8 +537,6 @@ struct dht_conf {
     xlator_t **local_subvols;
     subvol_nodeuuids_info_t *local_nodeuuids;
     int32_t local_subvols_cnt;
-
-    int dthrottle;
 
     /* Hard link handle requirement for migration triggered from client*/
     synclock_t link_lock;

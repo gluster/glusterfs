@@ -1123,6 +1123,9 @@ gf_boolean_t
 gf_unlink(const char *path);
 
 int
+gf_rebalance_thread_count(char *str, char **errmsg);
+
+int
 gf_get_index_by_elem(char **array, char *elem);
 
 int
