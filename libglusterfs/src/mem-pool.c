@@ -150,9 +150,8 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 }
 
 static bool
-gf_mem_acct_enabled(void)
+gf_mem_acct_enabled(xlator_t *x)
 {
-    xlator_t *x = THIS;
     /* Low-level __gf_xxx() may be called
        before ctx is initialized. */
     return x->ctx && x->ctx->mem_acct_enable;
@@ -166,10 +165,10 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
     void *ptr = NULL;
     xlator_t *xl = NULL;
 
-    if (!gf_mem_acct_enabled())
-        return CALLOC(nmemb, size);
-
     xl = THIS;
+
+    if (!gf_mem_acct_enabled(xl))
+        return CALLOC(nmemb, size);
 
     req_size = nmemb * size;
     tot_size = __gf_total_alloc_size(req_size);
@@ -191,10 +190,10 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
     void *ptr = NULL;
     xlator_t *xl = NULL;
 
-    if (!gf_mem_acct_enabled())
-        return MALLOC(size);
-
     xl = THIS;
+
+    if (!gf_mem_acct_enabled(xl))
+        return MALLOC(size);
 
     tot_size = __gf_total_alloc_size(size);
 
@@ -213,7 +212,7 @@ __gf_realloc(void *ptr, size_t size)
     size_t tot_size = 0;
     struct mem_header *header = NULL;
 
-    if (!gf_mem_acct_enabled())
+    if (!gf_mem_acct_enabled(THIS))
         return REALLOC(ptr, size);
 
     REQUIRE(NULL != ptr);
@@ -339,7 +338,7 @@ __gf_free(void *free_ptr)
     if (caa_unlikely(!free_ptr))
         return;
 
-    if (!gf_mem_acct_enabled()) {
+    if (!gf_mem_acct_enabled(THIS)) {
         FREE(free_ptr);
         return;
     }
