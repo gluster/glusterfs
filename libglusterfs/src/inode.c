@@ -933,14 +933,11 @@ __is_root_gfid(uuid_t gfid)
     return _gf_false;
 }
 
-inode_t *
+static inode_t *
 __inode_find(inode_table_t *table, uuid_t gfid, const int hash)
 {
     inode_t *inode = NULL;
     inode_t *tmp = NULL;
-
-    if (__is_root_gfid(gfid))
-        return table->root;
 
     list_for_each_entry(tmp, &table->inode_hash[hash], hash)
     {
@@ -965,6 +962,9 @@ inode_find(inode_table_t *table, uuid_t gfid)
                          "found");
         return NULL;
     }
+
+    if (__is_root_gfid(gfid))
+        return table->root;
 
     int hash = hash_gfid(gfid, table->inode_hashsize);
 
@@ -1028,16 +1028,18 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             return NULL;
         }
 
-        int ihash = hash_gfid(iatt->ia_gfid, table->inode_hashsize);
-
-        old_inode = __inode_find(table, iatt->ia_gfid, ihash);
-
-        if (old_inode) {
-            link_inode = old_inode;
-        } else {
-            gf_uuid_copy(inode->gfid, iatt->ia_gfid);
-            inode->ia_type = iatt->ia_type;
-            __inode_hash(inode, ihash);
+        if (__is_root_gfid(iatt->ia_gfid))
+            link_inode = table->root;
+        else {
+            int ihash = hash_gfid(iatt->ia_gfid, table->inode_hashsize);
+            old_inode = __inode_find(table, iatt->ia_gfid, ihash);
+            if (old_inode) {
+                link_inode = old_inode;
+            } else {
+                gf_uuid_copy(inode->gfid, iatt->ia_gfid);
+                inode->ia_type = iatt->ia_type;
+                __inode_hash(inode, ihash);
+            }
         }
     } else {
         /* @old_inode serves another important purpose - it indicates
@@ -1682,12 +1684,7 @@ static void
 __inode_table_init_root(inode_table_t *table)
 {
     inode_t *root = NULL;
-    struct iatt iatt = {
-        0,
-    };
-
-    if (!table)
-        return;
+    static uuid_t root_gfid = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
     root = inode_create(table);
 
@@ -1695,13 +1692,14 @@ __inode_table_init_root(inode_table_t *table)
     table->lru_size++;
     root->in_lru_list = _gf_true;
 
-    iatt.ia_gfid[15] = 1;
-    iatt.ia_ino = 1;
-    iatt.ia_type = IA_IFDIR;
+    gf_uuid_copy(root->gfid, root_gfid);
+    root->ia_type = IA_IFDIR;
+    __inode_hash(root, hash_gfid(root_gfid, table->inode_hashsize));
 
-    __inode_link(root, NULL, NULL, &iatt, 0);
+    root = __inode_ref(root, _gf_false);
+
     table->root = root;
-    root->ns_inode = inode_ref(root);
+    root->ns_inode = __inode_ref(root, _gf_false);
 }
 
 inode_table_t *
