@@ -457,7 +457,7 @@ ra_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  "NEW REQ at offset=%" PRId64 " for size=%" GF_PRI_SIZET "",
                  offset, size);
 
-    fd_ctx_get(fd, this, &tmp_file);
+    tmp_file = fd_ctx_get(fd, this);
     file = (ra_file_t *)(long)tmp_file;
 
     if (!file || file->disabled) {
@@ -629,7 +629,7 @@ ra_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
             tmp_file = 0;
-            fd_ctx_get(iter_fd, this, &tmp_file);
+            tmp_file = fd_ctx_get(iter_fd, this);
             file = (ra_file_t *)(long)tmp_file;
 
             if (!file)
@@ -700,7 +700,7 @@ ra_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
             tmp_file = 0;
-            fd_ctx_get(iter_fd, this, &tmp_file);
+            tmp_file = fd_ctx_get(iter_fd, this);
             file = (ra_file_t *)(long)tmp_file;
 
             if (!file)
@@ -773,7 +773,7 @@ ra_fdctx_dump(xlator_t *this, fd_t *fd)
         0,
     };
 
-    fd_ctx_get(fd, this, &tmp_file);
+    tmp_file = fd_ctx_get(fd, this);
     file = (ra_file_t *)(long)tmp_file;
 
     if (file == NULL) {
@@ -841,7 +841,7 @@ ra_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
             list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
             {
                 tmp_file = 0;
-                fd_ctx_get(iter_fd, this, &tmp_file);
+                tmp_file = fd_ctx_get(iter_fd, this);
                 file = (ra_file_t *)(long)tmp_file;
 
                 if (!file)
@@ -882,7 +882,7 @@ ra_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
             tmp_file = 0;
-            fd_ctx_get(iter_fd, this, &tmp_file);
+            tmp_file = fd_ctx_get(iter_fd, this);
             file = (ra_file_t *)(long)tmp_file;
             if (!file)
                 continue;
@@ -941,7 +941,7 @@ ra_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
             tmp_file = 0;
-            fd_ctx_get(iter_fd, this, &tmp_file);
+            tmp_file = fd_ctx_get(iter_fd, this);
             file = (ra_file_t *)(long)tmp_file;
             if (!file)
                 continue;
@@ -993,7 +993,7 @@ ra_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
             tmp_file = 0;
-            fd_ctx_get(iter_fd, this, &tmp_file);
+            tmp_file = fd_ctx_get(iter_fd, this);
             file = (ra_file_t *)(long)tmp_file;
             if (!file)
                 continue;

@@ -140,7 +140,7 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     local = frame->local;
     fd = local->fd;
 
-    fd_ctx_get(fd, this, &tmp_file);
+    tmp_file = fd_ctx_get(fd, this);
 
     file = (ra_file_t *)(long)tmp_file;
     pending_offset = local->pending_offset;
@@ -436,7 +436,7 @@ ra_frame_unwind(call_frame_t *frame)
     }
 
     fd = local->fd;
-    fd_ctx_get(fd, frame->this, &tmp_file);
+    tmp_file = fd_ctx_get(fd, frame->this);
     file = (ra_file_t *)(long)tmp_file;
 
     STACK_UNWIND_STRICT(readv, frame, local->op_ret, local->op_errno, vector,

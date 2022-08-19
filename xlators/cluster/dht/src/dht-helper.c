@@ -84,8 +84,8 @@ dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
 
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &value);
-        if (ret && value) {
+        value = __fd_ctx_get(fd, this);
+        if (value) {
             fd_ctx = (dht_fd_ctx_t *)(uintptr_t)value;
             if (fd_ctx->opened_on_dst == (uint64_t)(uintptr_t)dst) {
                 /* This could happen due to racing
@@ -122,8 +122,8 @@ dht_fd_ctx_get(xlator_t *this, fd_t *fd)
 
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &tmp_val);
-        if ((ret < 0) || (tmp_val == 0)) {
+        tmp_val = __fd_ctx_get(fd, this);
+        if (tmp_val == 0) {
             goto unlock;
         }
 

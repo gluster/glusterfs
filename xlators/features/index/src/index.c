@@ -1137,8 +1137,8 @@ __index_fd_ctx_get(fd_t *fd, xlator_t *this, index_fd_ctx_t **ctx)
     uint64_t tmpctx = 0;
     char dirpath[PATH_MAX] = {0};
 
-    ret = __fd_ctx_get(fd, this, &tmpctx);
-    if (!ret) {
+    tmpctx = __fd_ctx_get(fd, this);
+    if (tmpctx) {
         fctx = (index_fd_ctx_t *)(long)tmpctx;
         *ctx = fctx;
         goto out;

@@ -313,9 +313,9 @@ ios_fd_ctx_get(fd_t *fd, xlator_t *this, struct ios_fd **iosfd)
     unsigned long iosfdlong = 0;
     int ret = 0;
 
-    ret = fd_ctx_get(fd, this, &iosfd64);
+    iosfd64 = fd_ctx_get(fd, this);
     iosfdlong = iosfd64;
-    if (ret != -1)
+    if (iosfdlong)
         *iosfd = (void *)iosfdlong;
 
     return ret;

@@ -1109,6 +1109,7 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     uint32_t weight = 0;
     ioc_table_t *table = NULL;
     int32_t op_errno = EINVAL;
+    uint64_t fd_ctx = 0;
 
     if (!this) {
         goto out;
@@ -1157,7 +1158,8 @@ ioc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     }
     ioc_inode_unlock(ioc_inode);
 
-    if (!fd_ctx_get(fd, this, NULL)) {
+    fd_ctx = fd_ctx_get(fd, this);
+    if (fd_ctx) {
         /* disable caching for this fd, go ahead with normal readv */
         STACK_WIND_TAIL(frame, FIRST_CHILD(this),
                         FIRST_CHILD(this)->fops->readv, fd, size, offset, flags,

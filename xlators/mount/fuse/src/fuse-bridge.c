@@ -82,7 +82,7 @@ __fuse_fd_ctx_check_n_create(xlator_t *this, fd_t *fd)
     int32_t ret = 0;
     fuse_fd_ctx_t *fd_ctx = NULL;
 
-    ret = __fd_ctx_get(fd, this, &val);
+    val = __fd_ctx_get(fd, this);
 
     fd_ctx = (fuse_fd_ctx_t *)(unsigned long)val;
 
@@ -148,16 +148,11 @@ fuse_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     fuse_fd_ctx_t *fdctx = NULL;
     uint64_t value = 0;
-    int ret = 0;
 
-    ret = fd_ctx_get(fd, this, &value);
-    if (ret < 0) {
-        goto out;
-    }
+    value = fd_ctx_get(fd, this);
+    if (value)
+        fdctx = (fuse_fd_ctx_t *)(unsigned long)value;
 
-    fdctx = (fuse_fd_ctx_t *)(unsigned long)value;
-
-out:
     return fdctx;
 }
 

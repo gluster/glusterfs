@@ -677,7 +677,6 @@ __is_lease_grantable(xlator_t *this, lease_inode_ctx_t *lease_ctx,
     int32_t flags = 0;
     fd_t *iter_fd = NULL;
     gf_boolean_t grant = _gf_false;
-    int ret = 0;
     lease_fd_ctx_t *fd_ctx = NULL;
     uint64_t ctx = 0;
 
@@ -705,8 +704,8 @@ __is_lease_grantable(xlator_t *this, lease_inode_ctx_t *lease_ctx,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            ret = fd_ctx_get(iter_fd, this, &ctx);
-            if (ret < 0) {
+            ctx = fd_ctx_get(iter_fd, this);
+            if (!ctx) {
                 grant = _gf_false;
                 UNLOCK(&inode->lock);
                 gf_msg(this->name, GF_LOG_ERROR, 0, LEASE_MSG_INVAL_FD_CTX,

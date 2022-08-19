@@ -607,8 +607,8 @@ pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
 
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &tmp);
-        if ((ret != 0) || (tmp == 0)) {
+        tmp = __fd_ctx_get(fd, this);
+        if (tmp == 0) {
             fdctx = pl_new_fdctx();
             if (fdctx == NULL) {
                 goto unlock;
@@ -2553,7 +2553,7 @@ pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
 
         gf_log(this->name, GF_LOG_DEBUG, "There are active locks on fd");
 
-        ret = fd_ctx_get(fd, this, &tmp);
+        tmp = fd_ctx_get(fd, this);
         fdctx = (pl_fdctx_t *)(long)tmp;
 
         if (list_empty(&fdctx->locks_list)) {

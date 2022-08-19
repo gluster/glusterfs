@@ -1832,8 +1832,8 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
 
     priv = this->private;
 
-    ret = __fd_ctx_get(fd, this, &tmp_pfd);
-    if (ret == 0) {
+    tmp_pfd = __fd_ctx_get(fd, this);
+    if (tmp_pfd) {
         pfd = (void *)(long)tmp_pfd;
         goto out;
     }

@@ -1014,7 +1014,7 @@ int
 afr_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata);
 
-int
+void
 afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd);
 
 #define AFR_STACK_UNWIND(fop, frame, op_ret, op_errno, params...)              \

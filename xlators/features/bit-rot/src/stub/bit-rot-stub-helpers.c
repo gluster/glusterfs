@@ -50,8 +50,8 @@ __br_stub_fd_ctx_get(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("bit-rot-stub", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = __fd_ctx_get(fd, this, &value);
-    if (ret)
+    value = __fd_ctx_get(fd, this);
+    if (!value)
         return NULL;
 
     br_stub_fd = (br_stub_fd_t *)((long)value);

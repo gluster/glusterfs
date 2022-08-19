@@ -880,8 +880,8 @@ out:
      *                      OR
      *     - Find why release is not called post the last close call
      */
-    ret = fd_ctx_get(fd, this, &ctx);
-    if (ret == 0) {
+    ctx = fd_ctx_get(fd, this);
+    if (ctx) {
         fd_ctx = (lease_fd_ctx_t *)(long)ctx;
         if (fd_ctx->client_uid) {
             GF_FREE(fd_ctx->client_uid);

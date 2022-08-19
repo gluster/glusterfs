@@ -539,9 +539,9 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
     lockee_num = cookie / priv->child_count;
 
     if (local->fd) {
-        ret = fd_ctx_get(local->fd, this, &ctx);
+        ctx = fd_ctx_get(local->fd, this);
 
-        if (ret < 0) {
+        if (!ctx) {
             gf_msg(this->name, GF_LOG_INFO, 0, AFR_MSG_FD_CTX_GET_FAILED,
                    "unable to get fd ctx for fd=%p", local->fd);
 

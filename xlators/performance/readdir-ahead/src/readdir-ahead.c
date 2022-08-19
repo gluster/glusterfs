@@ -55,7 +55,8 @@ get_rda_fd_ctx(fd_t *fd, xlator_t *this)
 
     LOCK(&fd->lock);
 
-    if (__fd_ctx_get(fd, this, &val) < 0) {
+    val = __fd_ctx_get(fd, this);
+    if (!val) {
         ctx = GF_CALLOC(1, sizeof(struct rda_fd_ctx), gf_rda_mt_rda_fd_ctx);
         if (!ctx)
             goto out;
@@ -219,7 +220,7 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
             list_for_each_entry(fd, &parent->fd_list, inode_list)
             {
                 val = 0;
-                fd_ctx_get(fd, this, &val);
+                val = fd_ctx_get(fd, this);
                 if (val == 0)
                     continue;
 

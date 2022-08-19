@@ -815,16 +815,10 @@ fd_lookup_anonymous(inode_t *inode, int32_t flags)
     return fd;
 }
 
-gf_boolean_t
-fd_is_anonymous(fd_t *fd)
-{
-    return (fd && fd->anonymous);
-}
-
-uint8_t
+int
 fd_list_empty(inode_t *inode)
 {
-    uint8_t empty = 0;
+    int empty = 0;
 
     LOCK(&inode->lock);
     {
@@ -855,9 +849,9 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
             /* don't break, to check if key already exists
                further on */
         }
-        if (fd->_ctx[index].xl_key == xlator) {
+        else if (fd->_ctx[index].xl_key == xlator) {
             set_idx = index;
-            break;
+            goto set_value;
         }
     }
 
@@ -885,6 +879,7 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
     }
 
     fd->_ctx[set_idx].xl_key = xlator;
+set_value:
     fd->_ctx[set_idx].value1 = value;
 
 out:
@@ -911,76 +906,58 @@ fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
     return ret;
 }
 
-int
-__fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value)
+uint64_t
+__fd_ctx_get(fd_t *fd, xlator_t *xlator)
 {
     int index = 0;
     int ret = 0;
 
     if (!fd || !xlator)
-        return -1;
+        return 0;
 
     for (index = 0; index < fd->xl_count; index++) {
         if (fd->_ctx[index].xl_key == xlator)
-            break;
+            return fd->_ctx[index].value1;
     }
 
-    if (index == fd->xl_count) {
-        ret = -1;
-        goto out;
-    }
-
-    if (value)
-        *value = fd->_ctx[index].value1;
-
-out:
-    return ret;
+    return 0;
 }
 
-int
-fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value)
+uint64_t
+fd_ctx_get(fd_t *fd, xlator_t *xlator)
 {
-    int ret = 0;
+    uint64_t ret = 0;
 
-    if (!fd || !xlator)
-        return -1;
-
-    LOCK(&fd->lock);
-    {
-        ret = __fd_ctx_get(fd, xlator, value);
+    if (fd) {
+        LOCK(&fd->lock);
+        {
+            ret = __fd_ctx_get(fd, xlator);
+        }
+        UNLOCK(&fd->lock);
     }
-    UNLOCK(&fd->lock);
 
     return ret;
 }
 
-int
+static int
 __fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
     int index = 0;
-    int ret = 0;
 
     if (!fd || !xlator)
         return -1;
 
     for (index = 0; index < fd->xl_count; index++) {
-        if (fd->_ctx[index].xl_key == xlator)
-            break;
+        if (fd->_ctx[index].xl_key == xlator) {
+            if (value)
+                *value = fd->_ctx[index].value1;
+            fd->_ctx[index].key = 0;
+            fd->_ctx[index].value1 = 0;
+            return 0;
+        }
     }
 
-    if (index == fd->xl_count) {
-        ret = -1;
-        goto out;
-    }
-
-    if (value)
-        *value = fd->_ctx[index].value1;
-
-    fd->_ctx[index].key = 0;
-    fd->_ctx[index].value1 = 0;
-
-out:
-    return ret;
+    return -1;
 }
 
 int
@@ -988,7 +965,7 @@ fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value)
 {
     int ret = 0;
 
-    if (!fd || !xlator)
+    if (!fd)
         return -1;
 
     LOCK(&fd->lock);
@@ -1020,7 +997,7 @@ fd_dump(fd_t *fd, char *prefix)
     }
 }
 
-void
+static void
 fdentry_dump(fdentry_t *fdentry, char *prefix)
 {
     if (!fdentry)

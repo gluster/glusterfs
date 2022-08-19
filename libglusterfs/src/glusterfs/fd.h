@@ -75,6 +75,8 @@ typedef struct _fdtable fdtable_t;
  */
 #define GF_FDENTRY_ALLOCATED -2
 
+#define fd_is_anonymous(_fd) (((_fd) && (_fd)->anonymous))
+
 #include "glusterfs/logging.h"
 #include "glusterfs/xlator.h"
 
@@ -129,10 +131,7 @@ fd_anonymous(inode_t *inode);
 fd_t *
 fd_anonymous_with_flags(inode_t *inode, int32_t flags);
 
-gf_boolean_t
-fd_is_anonymous(fd_t *fd);
-
-uint8_t
+int
 fd_list_empty(struct _inode *inode);
 
 fd_t *
@@ -141,20 +140,17 @@ fd_bind(fd_t *fd);
 int
 fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int
-fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+fd_ctx_get(fd_t *fd, xlator_t *xlator);
 
 int
 fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value);
 
 int
-__fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value);
-
-int
 __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int
-__fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+__fd_ctx_get(fd_t *fd, xlator_t *xlator);
 
 void
 fd_ctx_dump(fd_t *fd, char *prefix);

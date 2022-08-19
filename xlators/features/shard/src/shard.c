@@ -6091,9 +6091,9 @@ shard_fsync_shards_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                             SHARD_MASK_TIMES);
     }
     UNLOCK(&frame->lock);
-    fd_ctx_get(anon_fd, this, &fsync_count);
 out:
     if (anon_fd && (base_inode != anon_fd->inode)) {
+        fsync_count = fd_ctx_get(anon_fd, this);
         LOCK(&base_inode->lock);
         LOCK(&anon_fd->inode->lock);
         {
