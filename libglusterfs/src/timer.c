@@ -83,7 +83,8 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
     if (ctx->cleanup_started) {
         gf_msg_callingfn("timer", GF_LOG_INFO, 0, LG_MSG_CTX_CLEANUP_STARTED,
                          "ctx cleanup started");
-        return -1;
+        event->canceled = _gf_true;
+        return 0;
     }
 
     LOCK(&ctx->lock);
@@ -149,7 +150,8 @@ gf_timer_proc(void *data)
                     old_THIS = THIS;
                     THIS = event->xl;
                 }
-                event->callbk(event->data);
+                if (!event->canceled)
+                    event->callbk(event->data);
                 GF_FREE(event);
                 if (old_THIS) {
                     THIS = old_THIS;

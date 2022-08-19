@@ -30,6 +30,7 @@ struct _gf_timer {
     void *data;
     xlator_t *xl;
     gf_boolean_t fired;
+    gf_boolean_t canceled;
 };
 
 struct _gf_timer_registry {
