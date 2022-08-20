@@ -1319,7 +1319,7 @@ svs_release(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
     tmp_pfd = fd_ctx_del(fd, this);
-    if (tmp_pfd) {
+    if (!tmp_pfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         ret = -1;
         goto out;

@@ -848,8 +848,7 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
                 set_idx = index;
             /* don't break, to check if key already exists
                further on */
-        }
-        else if (fd->_ctx[index].xl_key == xlator) {
+        } else if (fd->_ctx[index].xl_key == xlator) {
             set_idx = index;
             goto set_value;
         }
@@ -910,7 +909,6 @@ uint64_t
 __fd_ctx_get(fd_t *fd, xlator_t *xlator)
 {
     int index = 0;
-    int ret = 0;
 
     if (!fd || !xlator)
         return 0;

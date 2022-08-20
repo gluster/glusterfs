@@ -4056,12 +4056,9 @@ afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd)
     afr_fd_ctx_t *fd_ctx = NULL;
 
     ctx = fd_ctx_get(fd, this);
-    if (ctx) {
-        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
-        if (fd_ctx) {
-            _afr_cleanup_fd_ctx(this, fd_ctx);
-        }
-    }
+    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
+    if (fd_ctx)
+        _afr_cleanup_fd_ctx(this, fd_ctx);
 }
 
 int

@@ -528,7 +528,6 @@ afr_lock_blocking(call_frame_t *frame, xlator_t *this, int cookie)
     afr_local_t *local = NULL;
     afr_private_t *priv = NULL;
     uint64_t ctx = 0;
-    int ret = 0;
     int child_index = 0;
     int lockee_num = 0;
 
