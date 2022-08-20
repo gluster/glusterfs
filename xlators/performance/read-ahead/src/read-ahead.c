@@ -234,14 +234,13 @@ int
 ra_release(xlator_t *this, fd_t *fd)
 {
     uint64_t tmp_file = 0;
-    int ret = 0;
 
     GF_VALIDATE_OR_GOTO("read-ahead", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_file);
+    tmp_file = fd_ctx_del(fd, this);
 
-    if (!ret) {
+    if (tmp_file) {
         ra_file_destroy((ra_file_t *)(long)tmp_file);
     }
 

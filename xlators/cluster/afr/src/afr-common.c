@@ -4122,7 +4122,6 @@ static afr_fd_ctx_t *
 __afr_fd_ctx_get(fd_t *fd, xlator_t *this)
 {
     uint64_t ctx = 0;
-    int ret = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
 
     ctx = __fd_ctx_get(fd, this);

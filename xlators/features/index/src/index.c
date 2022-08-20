@@ -2571,8 +2571,8 @@ index_releasedir(xlator_t *this, fd_t *fd)
     uint64_t ctx = 0;
     int ret = 0;
 
-    ret = fd_ctx_del(fd, this, &ctx);
-    if (ret < 0)
+    ctx = fd_ctx_del(fd, this);
+    if (!ctx)
         goto out;
 
     fctx = (index_fd_ctx_t *)(long)ctx;
@@ -2593,15 +2593,13 @@ index_release(xlator_t *this, fd_t *fd)
 {
     index_fd_ctx_t *fctx = NULL;
     uint64_t ctx = 0;
-    int ret = 0;
 
-    ret = fd_ctx_del(fd, this, &ctx);
-    if (ret < 0)
-        goto out;
+    ctx = fd_ctx_del(fd, this);
+    if (ctx) {
+        fctx = (index_fd_ctx_t *)(long)ctx;
+        GF_FREE(fctx);
+    }
 
-    fctx = (index_fd_ctx_t *)(long)ctx;
-    GF_FREE(fctx);
-out:
     return 0;
 }
 

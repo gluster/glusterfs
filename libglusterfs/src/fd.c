@@ -939,41 +939,38 @@ fd_ctx_get(fd_t *fd, xlator_t *xlator)
     return ret;
 }
 
-static int
-__fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value)
+static uint64_t
+__fd_ctx_del(fd_t *fd, xlator_t *xlator)
 {
     int index = 0;
+    uint64_t value = 0;
 
     if (!fd || !xlator)
         return -1;
 
     for (index = 0; index < fd->xl_count; index++) {
         if (fd->_ctx[index].xl_key == xlator) {
-            if (value)
-                *value = fd->_ctx[index].value1;
+            value = fd->_ctx[index].value1;
             fd->_ctx[index].key = 0;
             fd->_ctx[index].value1 = 0;
-            return 0;
         }
     }
 
-    return -1;
+    return value;
 }
 
-int
-fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value)
+uint64_t
+fd_ctx_del(fd_t *fd, xlator_t *xlator)
 {
-    int ret = 0;
+    uint64_t ret = 0;
 
-    if (!fd)
-        return -1;
-
-    LOCK(&fd->lock);
-    {
-        ret = __fd_ctx_del(fd, xlator, value);
+    if (fd) {
+        LOCK(&fd->lock);
+        {
+            ret = __fd_ctx_del(fd, xlator);
+        }
+        UNLOCK(&fd->lock);
     }
-    UNLOCK(&fd->lock);
-
     return ret;
 }
 

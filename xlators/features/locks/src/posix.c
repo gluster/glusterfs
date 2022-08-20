@@ -2996,9 +2996,10 @@ pl_release(xlator_t *this, fd_t *fd)
     pl_update_refkeeper(this, fd->inode);
 
 clean:
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    tmp = fd_ctx_del(fd, this);
+    if (!tmp) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
+        ret = -1;
         goto out;
     }
 
@@ -3020,8 +3021,8 @@ pl_releasedir(xlator_t *this, fd_t *fd)
         goto out;
     }
 
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    tmp = fd_ctx_del(fd, this);
+    if (!tmp) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
     }
@@ -3029,6 +3030,7 @@ pl_releasedir(xlator_t *this, fd_t *fd)
     fdctx = (pl_fdctx_t *)(long)tmp;
 
     GF_FREE(fdctx);
+    ret = 0;
 out:
     return ret;
 }

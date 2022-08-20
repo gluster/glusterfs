@@ -1502,7 +1502,8 @@ ec_gf_release_fd(xlator_t *this, fd_t *fd)
     uint64_t value = 0;
     ec_fd_t *ctx = NULL;
 
-    if ((fd_ctx_del(fd, this, &value) == 0) && (value != 0)) {
+    value = fd_ctx_del(fd, this);
+    if (value) {
         ctx = (ec_fd_t *)(uintptr_t)value;
         loc_wipe(&ctx->loc);
         GF_FREE(ctx);

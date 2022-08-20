@@ -1885,7 +1885,7 @@ changelog_release(xlator_t *this, fd_t *fd)
     gf_uuid_copy(ev.u.release.gfid, fd->inode->gfid);
     changelog_dispatch_event(this, priv, &ev);
 
-    (void)fd_ctx_del(fd, this, NULL);
+    (void)fd_ctx_del(fd, this);
 
     return 0;
 }

@@ -1224,9 +1224,10 @@ svs_releasedir(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    tmp_pfd = fd_ctx_del(fd, this);
+    if (tmp_pfd == 0) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
+        ret = -1;
         goto out;
     }
 
@@ -1261,7 +1262,6 @@ svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
 {
     int32_t op_ret = -1;
     int32_t op_errno = 0;
-    int ret = -1;
     uint64_t value = 0;
     svs_inode_t *inode_ctx = NULL;
     call_stack_t *root = NULL;
@@ -1318,9 +1318,10 @@ svs_release(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    tmp_pfd = fd_ctx_del(fd, this);
+    if (tmp_pfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
+        ret = -1;
         goto out;
     }
 

@@ -2770,9 +2770,7 @@ wb_forget(xlator_t *this, inode_t *inode)
 int
 wb_release(xlator_t *this, fd_t *fd)
 {
-    uint64_t tmp = 0;
-
-    (void)fd_ctx_del(fd, this, &tmp);
+    (void)fd_ctx_del(fd, this);
 
     return 0;
 }

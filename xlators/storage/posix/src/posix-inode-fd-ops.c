@@ -1431,13 +1431,12 @@ posix_releasedir(xlator_t *this, fd_t *fd)
 {
     struct posix_fd *pfd = NULL;
     uint64_t tmp_pfd = 0;
-    int ret = 0;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    tmp_pfd = fd_ctx_del(fd, this);
+    if (tmp_pfd == 0) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
@@ -2651,7 +2650,6 @@ int32_t
 posix_release(xlator_t *this, fd_t *fd)
 {
     struct posix_fd *pfd = NULL;
-    int ret = -1;
     uint64_t tmp_pfd = 0;
 
     VALIDATE_OR_GOTO(this, out);
@@ -2660,8 +2658,8 @@ posix_release(xlator_t *this, fd_t *fd)
     if (fd->inode->active_fd_count == 0)
         posix_unlink_renamed_file(this, fd->inode);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    tmp_pfd = fd_ctx_del(fd, this);
+    if (tmp_pfd == 0) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_PFD_NULL,
                "pfd is NULL from fd=%p", fd);
         goto out;

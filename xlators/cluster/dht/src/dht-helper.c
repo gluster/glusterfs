@@ -28,8 +28,8 @@ dht_fd_ctx_destroy(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &value);
-    if (ret) {
+    value = fd_ctx_del(fd, this);
+    if (!value) {
         goto out;
     }
 
@@ -114,7 +114,6 @@ static dht_fd_ctx_t *
 dht_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    int ret = -1;
     uint64_t tmp_val = 0;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
@@ -123,14 +122,11 @@ dht_fd_ctx_get(xlator_t *this, fd_t *fd)
     LOCK(&fd->lock);
     {
         tmp_val = __fd_ctx_get(fd, this);
-        if (tmp_val == 0) {
-            goto unlock;
+        if (tmp_val) {
+            fd_ctx = (dht_fd_ctx_t *)(uintptr_t)tmp_val;
+            GF_REF_GET(fd_ctx);
         }
-
-        fd_ctx = (dht_fd_ctx_t *)(uintptr_t)tmp_val;
-        GF_REF_GET(fd_ctx);
     }
-unlock:
     UNLOCK(&fd->lock);
 
 out:

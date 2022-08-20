@@ -126,11 +126,10 @@ fuse_fd_ctx_destroy(xlator_t *this, fd_t *fd)
 {
     fd_t *activefd = NULL;
     uint64_t val = 0;
-    int ret = 0;
     fuse_fd_ctx_t *fdctx = NULL;
 
-    ret = fd_ctx_del(fd, this, &val);
-    if (!ret) {
+    val = fd_ctx_del(fd, this);
+    if (val) {
         fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
         if (fdctx) {
             activefd = fdctx->activefd;

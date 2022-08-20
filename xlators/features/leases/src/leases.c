@@ -1065,8 +1065,8 @@ leases_release(xlator_t *this, fd_t *fd)
 
     gf_log(this->name, GF_LOG_TRACE, "Releasing all leases with fd %p", fd);
 
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    tmp = fd_ctx_del(fd, this);
+    if (!tmp) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
     }

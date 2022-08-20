@@ -143,8 +143,8 @@ fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 uint64_t
 fd_ctx_get(fd_t *fd, xlator_t *xlator);
 
-int
-fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+fd_ctx_del(fd_t *fd, xlator_t *xlator);
 
 int
 __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);

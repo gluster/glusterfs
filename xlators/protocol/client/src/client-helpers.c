@@ -44,17 +44,12 @@ out:
 clnt_fd_ctx_t *
 this_fd_del_ctx(fd_t *file, xlator_t *this)
 {
-    int dict_ret = -1;
     uint64_t ctxaddr = 0;
 
     GF_VALIDATE_OR_GOTO("client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, file, out);
 
-    dict_ret = fd_ctx_del(file, this, &ctxaddr);
-
-    if (dict_ret < 0) {
-        ctxaddr = 0;
-    }
+    ctxaddr = fd_ctx_del(file, this);
 
 out:
     return (clnt_fd_ctx_t *)(unsigned long)ctxaddr;

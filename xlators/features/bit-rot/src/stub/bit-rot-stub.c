@@ -3452,7 +3452,7 @@ unblock:
         br_stub_send_ipc_fop(this, fd, releaseversion, signinfo);
     }
 
-    ret = fd_ctx_del(fd, this, &tmp);
+    tmp = fd_ctx_del(fd, this);
     br_stub_fd = (br_stub_fd_t *)(long)tmp;
 
     GF_FREE(br_stub_fd);
@@ -3467,8 +3467,8 @@ br_stub_releasedir(xlator_t *this, fd_t *fd)
     uint64_t ctx = 0;
     int ret = 0;
 
-    ret = fd_ctx_del(fd, this, &ctx);
-    if (ret < 0)
+    ctx = fd_ctx_del(fd, this);
+    if (!ctx)
         goto out;
 
     fctx = (br_stub_fd_t *)(long)ctx;

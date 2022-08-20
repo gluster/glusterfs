@@ -2400,13 +2400,12 @@ gf_svc_releasedir(xlator_t *this, fd_t *fd)
 {
     svc_fd_t *sfd = NULL;
     uint64_t tmp_pfd = 0;
-    int ret = 0;
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    tmp_pfd = fd_ctx_del(fd, this);
+    if (!tmp_pfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
