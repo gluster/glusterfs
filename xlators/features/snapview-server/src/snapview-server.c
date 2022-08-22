@@ -1240,7 +1240,7 @@ svs_releasedir(xlator_t *this, fd_t *fd)
         if (fs) {
             sfd = (svs_fd_t *)(long)tmp_pfd;
             if (sfd->fd) {
-                ret = glfs_closedir(sfd->fd);
+                ret = glfs_close(sfd->fd);
                 if (ret)
                     gf_msg(this->name, GF_LOG_WARNING, errno,
                            SVS_MSG_RELEASEDIR_FAILED,
@@ -2214,42 +2214,45 @@ svs_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
         goto out;
     }
 
-    if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE)
-        GF_ASSERT(0);  // on entry point it should always be opendir
-
-    SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret, op_errno,
-                           out);
-
-    op_ret = gf_setcredentials(&root->uid, &root->gid, root->ngrps,
-                               root->groups);
-    if (op_ret != 0) {
+    if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
+        op_ret = 0;
+        op_errno = 0;
         goto out;
-    }
+    } else {
+        SVS_GET_INODE_CTX_INFO(inode_ctx, fs, object, this, loc, op_ret,
+                               op_errno, out);
 
-    glfd = glfs_h_open(fs, object, flags);
-    if (!glfd) {
-        op_ret = -1;
-        op_errno = errno;
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_OPEN_FAILED,
-               "glfs_h_open on %s failed (gfid: %s)", loc->name,
-               uuid_utoa(loc->inode->gfid));
-        goto out;
-    }
+        op_ret = gf_setcredentials(&root->uid, &root->gid, root->ngrps,
+                                   root->groups);
+        if (op_ret != 0) {
+            goto out;
+        }
 
-    sfd = svs_fd_ctx_get_or_new(this, fd);
-    if (!sfd) {
-        op_ret = -1;
-        op_errno = ENOMEM;
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
-               "failed to allocate fd context "
-               "for %s (gfid: %s)",
-               loc->name, uuid_utoa(loc->inode->gfid));
-        glfs_close(glfd);
-        goto out;
-    }
-    sfd->fd = glfd;
+        glfd = glfs_h_open(fs, object, flags);
+        if (!glfd) {
+            op_ret = -1;
+            op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_OPEN_FAILED,
+                   "glfs_h_open on %s failed (gfid: %s)", loc->name,
+                   uuid_utoa(loc->inode->gfid));
+            goto out;
+        }
 
-    op_ret = 0;
+        sfd = svs_fd_ctx_get_or_new(this, fd);
+        if (!sfd) {
+            op_ret = -1;
+            op_errno = ENOMEM;
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, SVS_MSG_NO_MEMORY,
+                   "failed to allocate fd context "
+                   "for %s (gfid: %s)",
+                   loc->name, uuid_utoa(loc->inode->gfid));
+            glfs_close(glfd);
+            goto out;
+        }
+        sfd->fd = glfd;
+
+        op_ret = 0;
+    }
 
 out:
     STACK_UNWIND_STRICT(open, frame, op_ret, op_errno, fd, NULL);
