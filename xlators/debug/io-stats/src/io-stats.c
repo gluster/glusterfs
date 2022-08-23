@@ -151,6 +151,7 @@ typedef enum {
 
 struct ios_conf {
     gf_lock_t lock;
+    time_t last_fop_hit; /* Timestamp of last fop hit */
     struct ios_global_stats cumulative;
     uint64_t increment;
     struct ios_global_stats incremental;
@@ -241,6 +242,7 @@ is_fop_latency_started(call_frame_t *frame)
         conf = this->private;                                                  \
         if (conf && conf->measure_latency) {                                   \
             timespec_now(&frame->begin);                                       \
+            conf->last_fop_hit = gf_time();                                    \
         } else {                                                               \
             memset(&frame->begin, 0, sizeof(frame->begin));                    \
         }                                                                      \
@@ -1292,6 +1294,8 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     char str_read[128] = {0};
     char str_write[128] = {0};
     uint64_t fop_hits = 0;
+    uint64_t duration = 0;
+    uint64_t total_fop_hits = 0;
     uint64_t block_count_read = 0;
     uint64_t block_count_write = 0;
     glusterfs_ctx_t *ctx;
@@ -1306,8 +1310,14 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
         ios_log(this, logfp, "\n=== Cumulative stats ===");
     else
         ios_log(this, logfp, "\n=== Interval %d stats ===", interval);
-    ios_log(this, logfp, "      Duration : %" PRIu64 " secs",
-            (uint64_t)(now - stats->started_at));
+    ios_log(this, logfp, "      Start : %" PRIu64 " secs",
+            (uint64_t)(stats->started_at));
+    if (conf->last_fop_hit)
+        ios_log(this, logfp, "      End : %" PRIu64 " secs",
+                (uint64_t)(conf->last_fop_hit));
+    else
+        ios_log(this, logfp, "      End : %" PRIu64 " secs", (uint64_t)(now));
+
     ios_log(this, logfp, "     BytesRead : %" GF_PRI_ATOMIC,
             GF_ATOMIC_GET(stats->data_read));
     ios_log(this, logfp, "  BytesWritten : %" GF_PRI_ATOMIC "\n",
@@ -1367,19 +1377,21 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
 
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
         fop_hits = GF_ATOMIC_GET(stats->fop_hits[i]);
-        if (fop_hits && !stats->latency[i].avg)
+        if (fop_hits && !stats->latency[i].avg) {
             ios_log(this, logfp,
                     "%-13s %10" GF_PRI_ATOMIC
                     " %11s "
                     "us %11s us %11s us",
                     gf_fop_list[i], fop_hits, "0", "0", "0");
-        else if (fop_hits && stats->latency[i].avg)
+        } else if (fop_hits && stats->latency[i].avg) {
+            total_fop_hits += fop_hits;
             ios_log(this, logfp,
                     "%-13s %10" GF_PRI_ATOMIC
                     " "
-                    "%11.2lf us %11.2lf us %11.2lf us",
+                    "%11.2lf ns %11.2lf ns %11.2lf ns",
                     gf_fop_list[i], fop_hits, stats->latency[i].avg,
                     stats->latency[i].min, stats->latency[i].max);
+        }
     }
 
     for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
@@ -1390,6 +1402,24 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
                     " %11s "
                     "us %11s us %11s us",
                     gf_upcall_list[i], fop_hits, "0", "0", "0");
+    }
+
+    /* To measure FOP_HITS_PER_SEC consider time difference
+       between last profile stat started and last fop hit.
+       In case if last_fop_hit value is 0 then consider now
+       to measure the duration
+    */
+    if (conf->last_fop_hit)
+        duration = (conf->last_fop_hit - stats->started_at);
+    else
+        duration = (now - stats->started_at);
+
+    if (duration > 0) {
+        ios_log(this, logfp, "FOPS/S : %" PRIu64, (total_fop_hits / duration));
+        ios_log(this, logfp, "\n");
+    } else {
+        ios_log(this, logfp, "FOPS/S : %" PRIu64, total_fop_hits);
+        ios_log(this, logfp, "\n");
     }
 
     ios_log(this, logfp,
@@ -1460,12 +1490,16 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
     int i = 0;
     uint64_t count = 0;
     uint64_t fop_hits = 0;
+    uint64_t total_fop_hits = 0;
+    struct ios_conf *conf = NULL;
+    uint64_t end_time = now;
 
     GF_ASSERT(stats);
     GF_ASSERT(now);
     GF_ASSERT(dict);
     GF_ASSERT(this);
 
+    conf = this->private;
     if (interval == -1)
         snprintf(key, sizeof(key), "cumulative");
     else
@@ -1477,14 +1511,44 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
                "interval %d",
                interval);
 
+    sec = (uint64_t)(now - stats->started_at);
     snprintf(key, sizeof(key), "%d-duration", interval);
-    sec = now - stats->started_at;
+    /* To measure correct FOP_HITS_PER_SEC consider time
+       difference between last incremental profile stat
+       started and last fop hit.
+    */
+    if (conf->last_fop_hit) {
+        sec = (conf->last_fop_hit - stats->started_at);
+        end_time = conf->last_fop_hit;
+    } else {
+        sec = (now - stats->started_at);
+    }
     ret = dict_set_uint64(dict, key, sec);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
                "failed to set "
                "duration(%d) - %" PRId64,
                interval, sec);
+        goto out;
+    }
+
+    snprintf(key, sizeof(key), "%d-start", interval);
+    ret = dict_set_uint64(dict, key, stats->started_at);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "failed to set "
+               "started timestamp(%d) - %ld",
+               interval, stats->started_at);
+        goto out;
+    }
+
+    snprintf(key, sizeof(key), "%d-end", interval);
+    ret = dict_set_uint64(dict, key, end_time);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "failed to set "
+               "end timestamp(%d) - %" PRId64,
+               interval, end_time);
         goto out;
     }
 
@@ -1553,6 +1617,7 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
 
         if (stats->latency[i].avg == 0)
             continue;
+        total_fop_hits += fop_hits;
         snprintf(key, sizeof(key), "%d-%d-avglatency", interval, i);
         ret = dict_set_double(dict, key, stats->latency[i].avg);
         if (ret) {
@@ -1595,6 +1660,20 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
             goto out;
         }
     }
+
+    /* Set the fop-hit-per-sec only for incremental stats */
+    if (total_fop_hits && (interval >= 0) && (sec > 0)) {
+        snprintf(key, sizeof(key), "%d-fop-hits-per-sec", interval);
+        ret = dict_set_uint64(dict, key, (total_fop_hits / sec));
+        if (ret) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "failed to "
+                   "set total fop hits per sec "
+                   " duration %" PRIu64 " total_fop_hits %" PRIu64,
+                   sec, total_fop_hits);
+        }
+    }
+
 out:
     gf_log(this->name, GF_LOG_DEBUG, "returning %d", ret);
     return ret;

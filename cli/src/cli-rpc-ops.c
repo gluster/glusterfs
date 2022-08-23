@@ -967,9 +967,9 @@ xml_output:
                                       replica_count, disperse_count,
                                       redundancy_count, arbiter_count);
 
-        cli_out("Transport-type: %s", ((transport == 0)   ? "tcp"
-                                       : (transport == 1) ? "rdma"
-                                                          : "tcp,rdma"));
+        cli_out("Transport-type: %s",
+                ((transport == 0) ? "tcp"
+                                  : (transport == 1) ? "rdma" : "tcp,rdma"));
         j = 1;
 
         GF_FREE(local->get_vol.volname);
@@ -5479,6 +5479,8 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     uint64_t sec = 0;
     uint64_t r_count = 0;
     uint64_t w_count = 0;
+    uint64_t start_time = 0;
+    uint64_t end_time = 0;
     uint64_t rb_counts[32] = {0};
     uint64_t wb_counts[32] = {0};
     cli_profile_info_t profile_info[GF_FOP_MAXVALUE] = {{0}};
@@ -5493,6 +5495,7 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     int is_header_printed = 0;
     int ret = 0;
     double total_percentage_latency = 0;
+    uint64_t fop_hits_per_sec = 0;
 
     for (i = 0; i < 32; i++) {
         snprintf(key, sizeof(key), "%d-%d-read-%" PRIu32, count, interval,
@@ -5566,6 +5569,18 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
         gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
     }
 
+    snprintf(key, sizeof(key), "%d-%d-start", count, interval);
+    ret = dict_get_uint64(dict, key, &start_time);
+    if (ret) {
+        gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
+    }
+
+    snprintf(key, sizeof(key), "%d-%d-end", count, interval);
+    ret = dict_get_uint64(dict, key, &end_time);
+    if (ret) {
+        gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
+    }
+
     snprintf(key, sizeof(key), "%d-%d-total-read", count, interval);
     ret = dict_get_uint64(dict, key, &r_count);
     if (ret) {
@@ -5574,6 +5589,12 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
 
     snprintf(key, sizeof(key), "%d-%d-total-write", count, interval);
     ret = dict_get_uint64(dict, key, &w_count);
+    if (ret) {
+        gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
+    }
+
+    snprintf(key, sizeof(key), "%d-%d-fop-hits-per-sec", count, interval);
+    ret = dict_get_uint64(dict, key, &fop_hits_per_sec);
     if (ret) {
         gf_log("cli", GF_LOG_DEBUG, "failed to get %s from dict", key);
     }
@@ -5662,9 +5683,12 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     }
 
     cli_out(" ");
-    cli_out("%12s: %" PRId64 " seconds", "Duration", sec);
+    cli_out("%12s: %" PRId64 " seconds", "Start time", start_time);
+    cli_out("%12s: %" PRId64 " seconds", "End time", end_time);
     cli_out("%12s: %" PRId64 " bytes", "Data Read", r_count);
     cli_out("%12s: %" PRId64 " bytes", "Data Written", w_count);
+    cli_out("%12s: %" PRId64, "FOPS/S", fop_hits_per_sec);
+
     cli_out(" ");
 }
 
