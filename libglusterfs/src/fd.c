@@ -815,10 +815,10 @@ fd_lookup_anonymous(inode_t *inode, int32_t flags)
     return fd;
 }
 
-int
+uint8_t
 fd_list_empty(inode_t *inode)
 {
-    int empty = 0;
+    uint8_t empty = 0;
 
     LOCK(&inode->lock);
     {
@@ -848,9 +848,10 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
                 set_idx = index;
             /* don't break, to check if key already exists
                further on */
-        } else if (fd->_ctx[index].xl_key == xlator) {
+        }
+        if (fd->_ctx[index].xl_key == xlator) {
             set_idx = index;
-            goto set_value;
+            break;
         }
     }
 
@@ -878,7 +879,6 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
     }
 
     fd->_ctx[set_idx].xl_key = xlator;
-set_value:
     fd->_ctx[set_idx].value1 = value;
 
 out:
@@ -944,12 +944,12 @@ __fd_ctx_del(fd_t *fd, xlator_t *xlator)
     uint64_t value = 0;
 
     if (!fd || !xlator)
-        return -1;
+        return 0;
 
     for (index = 0; index < fd->xl_count; index++) {
         if (fd->_ctx[index].xl_key == xlator) {
-            value = fd->_ctx[index].value1;
             fd->_ctx[index].key = 0;
+            value = fd->_ctx[index].value1;
             fd->_ctx[index].value1 = 0;
         }
     }

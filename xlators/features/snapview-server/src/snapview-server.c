@@ -1289,14 +1289,15 @@ svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         goto out;
     }
 
-    value = fd_ctx_get(fd, this);
-    if (!value && inode_ctx->type != SNAP_VIEW_ENTRY_POINT_INODE) {
-        op_errno = EINVAL;
-        gf_msg(this->name, GF_LOG_WARNING, op_errno,
-               SVS_MSG_GET_FD_CONTEXT_FAILED, "pfd is NULL on fd=%p", fd);
-        goto out;
+    if (inode_ctx->type != SNAP_VIEW_ENTRY_POINT_INODE) {
+        value = fd_ctx_get(fd, this);
+        if (!value) {
+            op_errno = EINVAL;
+            gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                SVS_MSG_GET_FD_CONTEXT_FAILED, "pfd is NULL on fd=%p", fd);
+            goto out;
+        }
     }
-
     op_ret = 0;
 
 out:

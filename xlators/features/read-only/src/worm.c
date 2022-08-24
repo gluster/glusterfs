@@ -621,6 +621,7 @@ worm_release(xlator_t *this, fd_t *fd)
         value = fd_ctx_get(fd, this);
         if (!value) {
             gf_log(this->name, GF_LOG_DEBUG, "Failed to get the fd ctx");
+            goto out;
         }
 
         ret = dict_set_int8(dict, "trusted.worm_file", 1);

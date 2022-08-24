@@ -131,7 +131,7 @@ fd_anonymous(inode_t *inode);
 fd_t *
 fd_anonymous_with_flags(inode_t *inode, int32_t flags);
 
-int
+uint8_t
 fd_list_empty(struct _inode *inode);
 
 fd_t *
