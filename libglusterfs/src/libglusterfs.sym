@@ -770,7 +770,6 @@ __inode_ctx_set1
 inode_ctx_set1
 __inode_ctx_set2
 inode_ctx_set2
-inode_ctx_size
 inode_dump
 inode_dump_to_dict
 inode_find
@@ -795,15 +794,12 @@ inode_ref_reduce_by_n
 inode_rename
 inode_resolve
 inode_set_namespace_inode
-inode_set_need_lookup
-inode_table_ctx_free
 inode_table_destroy
 inode_table_destroy_all
 inode_table_dump
 inode_table_dump_to_dict
 inode_table_new
 inode_table_with_invalidator
-__inode_table_set_lru_limit
 inode_table_set_lru_limit
 inode_unlink
 inode_unref
