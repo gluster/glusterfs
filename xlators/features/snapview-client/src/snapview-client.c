@@ -2414,6 +2414,7 @@ gf_svc_releasedir(xlator_t *this, fd_t *fd)
         goto out;
     }
 
+    sfd = (svc_fd_t *)(long)tmp_pfd;
     GF_FREE(sfd);
 
 out:
