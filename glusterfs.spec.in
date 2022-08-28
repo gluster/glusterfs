@@ -981,7 +981,7 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 
 ## Install bash completion for cli
 install -p -m 0744 -D extras/command-completion/gluster.bash \
-    %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
+    %{buildroot}%{_datadir}/bash-completion/completions/gluster
 
 %clean
 rm -rf %{buildroot}
@@ -1291,7 +1291,7 @@ exit 0
 %files cli
 %{_sbindir}/gluster
 %{_mandir}/man8/gluster.8*
-%{_sysconfdir}/bash_completion.d/gluster
+%{_datadir}/bash-completion/completions/gluster
 
 %files cloudsync-plugins
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins

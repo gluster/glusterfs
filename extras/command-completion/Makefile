@@ -1,6 +1,6 @@
 install:
-	mkdir -p /etc/bash_completion.d
-	cp gluster.bash /etc/bash_completion.d/gluster
+	mkdir -p /usr/share/bash-completion/completions
+	cp gluster.bash /usr/share/bash-completion/completions/gluster
 
 uninstall:
-	rm -f /etc/bash_completion.d/gluster
+	rm -f /usr/share/bash-completion/completions/gluster
