@@ -2760,22 +2760,13 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
  *        : failure: -errno
  */
 
-int
+unsigned int
 dict_serialized_length_lk(dict_t *this)
 {
-    int ret = -EINVAL;
-    int count = this->count;
-    const int keyhdrlen = DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
+    unsigned int count = this->count;
+    const unsigned int keyhdrlen = DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
 
-    if (count < 0) {
-        gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_COUNT_LESS_THAN_ZERO,
-                "count=%d", count, NULL);
-        goto out;
-    }
-
-    ret = DICT_HDR_LEN + this->totkvlen + (count * keyhdrlen);
-out:
-    return ret;
+    return DICT_HDR_LEN + this->totkvlen + (count * keyhdrlen);
 }
 
 /**
@@ -2795,18 +2786,12 @@ dict_serialize_lk(dict_t *this, char *buf)
 {
     int ret = -1;
     data_pair_t *pair = this->members_list;
-    int32_t count = this->count;
-    int32_t keylen = 0;
-    int32_t netword = 0;
+    uint32_t count = this->count;
+    uint32_t keylen = 0;
+    uint32_t netword = 0;
 
     if (!buf) {
         gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG, NULL);
-        goto out;
-    }
-
-    if (count < 0) {
-        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
-                "count=%d", count, NULL);
         goto out;
     }
 
@@ -2876,7 +2861,7 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
 {
     char *buf = orig_buf;
     int ret = -1;
-    int32_t count = 0;
+    uint32_t count = 0;
     int i = 0;
 
     data_t *value = NULL;
@@ -2920,12 +2905,6 @@ dict_unserialize(char *orig_buf, int32_t size, dict_t **fill)
     memcpy(&hostord, buf, sizeof(hostord));
     count = be32toh(hostord);
     buf += DICT_HDR_LEN;
-
-    if (count < 0) {
-        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
-                "count=%d", count, NULL);
-        goto out;
-    }
 
     /* count will be set by the dict_set's below */
     (*fill)->count = 0;
@@ -3028,10 +3007,6 @@ dict_allocate_and_serialize(dict_t *this, char **buf, u_int *length)
     LOCK(&this->lock);
     {
         len = dict_serialized_length_lk(this);
-        if (len < 0) {
-            ret = len;
-            goto unlock;
-        }
 
         *buf = GF_MALLOC(len, gf_common_mt_char);
         if (*buf == NULL) {
@@ -3073,19 +3048,13 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
                                    char delimiter)
 {
     int ret = -1;
-    int32_t count = this->count;
+    uint32_t count = this->count;
     int32_t vallen = 0;
     int32_t total_len = 0;
     data_pair_t *pair = this->members_list;
 
     if (!buf) {
         gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG, NULL);
-        goto out;
-    }
-
-    if (count < 0) {
-        gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG, "count=%d",
-                count, NULL);
         goto out;
     }
 
@@ -3303,7 +3272,7 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
 {
     char *buf = orig_buf;
     int ret = -1;
-    int32_t count = 0;
+    uint32_t count = 0;
     int i = 0;
     int j = 0;
 
@@ -3349,12 +3318,6 @@ dict_unserialize_specific_keys(char *orig_buf, int32_t size, dict_t **fill,
     memcpy(&hostord, buf, sizeof(hostord));
     count = be32toh(hostord);
     buf += DICT_HDR_LEN;
-
-    if (count < 0) {
-        gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_COUNT_LESS_THAN_ZERO,
-                "count=%d", count, NULL);
-        goto out;
-    }
 
     /* Compute specific key length and save in array */
     for (i = 0; i < totkeycount; i++) {

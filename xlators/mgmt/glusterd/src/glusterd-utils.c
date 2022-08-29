@@ -3227,13 +3227,13 @@ out:
 }
 
 static int
-glusterd_dict_searialize(dict_t *dict_arr[], int count, int totcount, char *buf)
+glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count, unsigned int totcount, char *buf)
 {
     int i = 0;
-    int32_t keylen = 0;
-    int64_t netword = 0;
+    uint32_t keylen = 0;
+    uint64_t netword = 0;
     data_pair_t *pair = NULL;
-    int dict_count = 0;
+    unsigned int dict_count = 0;
     int ret = 0;
 
     netword = htobe32(totcount);
@@ -3299,12 +3299,12 @@ out:
 }
 
 static int
-glusterd_dict_arr_serialize(dict_t *dict_arr[], int count, char **buf,
+glusterd_dict_arr_serialize(dict_t *dict_arr[], unsigned int count, char **buf,
                             u_int *length)
 {
     ssize_t len = 0;
     int i = 0;
-    int totcount = 0;
+    unsigned int totcount = 0;
     int ret = 0;
 
     for (i = 0; i < count; i++) {
@@ -3350,7 +3350,7 @@ glusterd_add_volumes_to_export_dict(dict_t *peer_data, char **buf,
     int32_t count = 0;
     glusterd_dict_ctx_t ctx = {0};
     xlator_t *this = THIS;
-    int totthread = 0;
+    unsigned int totthread = 0;
     int volcnt = 0;
     int start = 1;
     int endindex = 0;

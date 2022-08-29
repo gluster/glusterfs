@@ -102,7 +102,7 @@ struct _data_pair {
 
 struct _dict {
     uint64_t max_count;
-    int32_t count;
+    uint32_t count;
     /* Variable to store total keylen + value->len */
     uint32_t totkvlen;
     gf_atomic_t refcount;
@@ -459,7 +459,7 @@ are_dicts_equal(dict_t *one, dict_t *two,
 int
 dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result);
 
-int
+unsigned int
 dict_serialized_length_lk(dict_t *this);
 
 int32_t
