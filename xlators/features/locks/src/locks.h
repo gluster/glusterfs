@@ -33,7 +33,6 @@ struct __posix_lock {
     short fl_type;
     short blocked;              /* waiting to acquire */
     struct gf_flock user_flock; /* the flock supplied by the user */
-    xlator_t *this;             /* required for blocked locks */
     unsigned long fd_num;
 
     fd_t *fd;
@@ -75,7 +74,6 @@ struct __pl_inode_lock {
     const char *volume;
 
     struct gf_flock user_flock; /* the flock supplied by the user */
-    xlator_t *this;             /* required for blocked locks */
     struct __pl_inode *pl_inode;
 
     call_frame_t *frame;

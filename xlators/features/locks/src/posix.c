@@ -2683,7 +2683,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
             /* fall through */
         case F_RESLK_LCK:
             reqlock->frame = frame;
-            reqlock->this = this;
 
             ret = pl_reserve_setlk(this, pl_inode, reqlock, can_block);
             if (ret < 0) {
@@ -2703,7 +2702,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
         case F_RESLK_UNLCK:
             reqlock->frame = frame;
-            reqlock->this = this;
             ret = pl_reserve_unlock(this, pl_inode, reqlock);
             if (ret < 0) {
                 op_ret = -1;
@@ -2716,7 +2714,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
         case F_GETLK_FD:
             reqlock->frame = frame;
-            reqlock->this = this;
             ret = pl_verify_reservelk(this, pl_inode, reqlock, can_block);
             GF_ASSERT(ret >= 0);
 
@@ -2752,7 +2749,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
         case F_SETLKW:
             can_block = 1;
             reqlock->frame = frame;
-            reqlock->this = this;
             reqlock->blocking = can_block;
             /* fall through */
 
@@ -2761,7 +2757,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 #endif
         case F_SETLK:
             reqlock->frame = frame;
-            reqlock->this = this;
             lock_type = flock->l_type;
 
             pthread_mutex_lock(&pl_inode->mutex);
