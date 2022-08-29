@@ -923,7 +923,6 @@ new_inode_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
     lock->volume = volume;
     lk_owner_copy(&lock->owner, &frame->root->lk_owner);
     lock->frame = frame;
-    lock->this = this;
 
     if (conn_id) {
         lock->connection_id = gf_strdup(conn_id);
