@@ -13,6 +13,7 @@
 
 #include "rpc-transport.h"
 #include <glusterfs/timer.h>
+#include <glusterfs/refcount.h>
 #include "xdr-common.h"
 #include "glusterfs3.h"
 
@@ -167,6 +168,7 @@ struct rpc_req {
 };
 
 typedef struct rpc_clnt {
+    GF_REF_DECL;
     pthread_mutex_t lock;
     rpc_clnt_notify_t notifyfn;
     rpc_clnt_connection_t conn;
@@ -183,7 +185,6 @@ typedef struct rpc_clnt {
     struct mem_pool *saved_frames_pool;
 
     glusterfs_ctx_t *ctx;
-    gf_atomic_t refcount;
     xlator_t *owner;
     char disabled;
 } rpc_clnt_t;
@@ -225,11 +226,17 @@ rpc_clnt_submit(struct rpc_clnt *rpc, rpc_clnt_prog_t *prog, int procnum,
                 int rsphdr_count, struct iovec *rsp_payload,
                 int rsp_payload_count, struct iobref *rsp_iobref);
 
-struct rpc_clnt *
-rpc_clnt_ref(struct rpc_clnt *rpc);
+static inline rpc_clnt_t *
+rpc_clnt_ref(rpc_clnt_t *rpc)
+{
+    return rpc ? GF_REF_GET(rpc) : NULL;
+}
 
-struct rpc_clnt *
-rpc_clnt_unref(struct rpc_clnt *rpc);
+static inline rpc_clnt_t *
+rpc_clnt_unref(rpc_clnt_t *rpc)
+{
+    return rpc ? (GF_REF_PUT(rpc) ? rpc : NULL) : NULL;
+}
 
 int
 rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn);

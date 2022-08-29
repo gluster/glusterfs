@@ -352,6 +352,7 @@ rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *trans_name)
 
     INIT_LIST_HEAD(&trans->list);
     GF_ATOMIC_INIT(trans->disconnect_progress, 0);
+    GF_REF_INIT(trans, rpc_transport_release);
 
     return_trans = trans;
 
@@ -473,41 +474,17 @@ rpc_transport_destroy(rpc_transport_t *this)
     GF_FREE(this);
 }
 
-rpc_transport_t *
-rpc_transport_ref(rpc_transport_t *this)
+void
+rpc_transport_release(void *data)
 {
-    rpc_transport_t *return_this = NULL;
+    rpc_transport_t *this = data;
 
-    GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
-
-    GF_ATOMIC_INC(this->refcount);
-
-    return_this = this;
-fail:
-    return return_this;
-}
-
-int32_t
-rpc_transport_unref(rpc_transport_t *this)
-{
-    int32_t refcount = 0;
-    int32_t ret = -1;
-
-    GF_VALIDATE_OR_GOTO("rpc_transport", this, fail);
-
-    refcount = GF_ATOMIC_DEC(this->refcount);
-
-    if (refcount == 0) {
-        if (this->mydata)
-            this->notify(this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
-        this->mydata = NULL;
-        this->notify = NULL;
-        rpc_transport_destroy(this);
-    }
-
-    ret = 0;
-fail:
-    return ret;
+    GF_ASSERT(this);
+    if (this->mydata)
+        this->notify(this, this->mydata, RPC_TRANSPORT_CLEANUP, NULL);
+    this->mydata = NULL;
+    this->notify = NULL;
+    rpc_transport_destroy(this);
 }
 
 int32_t

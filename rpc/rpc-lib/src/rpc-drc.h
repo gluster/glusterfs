@@ -12,18 +12,23 @@
 #define RPC_DRC_H
 
 #include "rpcsvc.h"
+#include <glusterfs/refcount.h>
 #include <glusterfs/locking.h>
 #include <glusterfs/dict.h>
 #include "rb.h"
 
+struct drc_globals;
+
 /* per-client cache structure */
 struct drc_client {
+    GF_REF_DECL;
     union gf_sock_union sock_union;
     /* pointers to the cache */
     struct rb_table *rbtree;
+    /* backpointer to drc data */
+    struct drc_globals *drc;
     /* no. of ops currently cached */
     uint32_t op_count;
-    gf_atomic_uint32_t ref;
     struct list_head client_list;
 };
 

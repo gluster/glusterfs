@@ -80,6 +80,33 @@ rpcsvc_remove_drc_client(drc_client_t *client)
 }
 
 /**
+ * rpcsvc_drc_client_ref - ref the drc client
+ *
+ * @param client - the drc client to ref
+ * @return client
+ */
+static drc_client_t *
+rpcsvc_drc_client_ref(drc_client_t *client)
+{
+    GF_ASSERT(client);
+    return GF_REF_GET(client);
+}
+
+/**
+ * rpcsvc_drc_client_unref - unref the drc client, and destroy
+ *                           the client on last unref
+ *
+ * @param client - the drc client to unref
+ * @return NULL if it is the last unref, client otherwise
+ */
+static drc_client_t *
+rpcsvc_drc_client_unref(drc_client_t *client)
+{
+    GF_ASSERT(client);
+    return GF_REF_PUT(client) ? client : NULL;
+}
+
+/**
  * gf_sock_union_equal_addr - check if two given gf_sock_unions have same addr
  *
  * @param a - first sock union
@@ -145,7 +172,7 @@ rpcsvc_client_lookup(rpcsvc_drc_globals_t *drc,
     {
         if (gf_sock_union_equal_addr(&client->sock_union,
                                      (union gf_sock_union *)sockaddr))
-            return client;
+            return rpcsvc_drc_client_ref(client);
     }
 
     return NULL;
@@ -207,6 +234,18 @@ drc_init_client_cache(rpcsvc_drc_globals_t *drc, drc_client_t *client)
     return 0;
 }
 
+static void
+drc_client_release(void *data)
+{
+    drc_client_t *client = data;
+
+    GF_ASSERT(client);
+    GF_ASSERT(client->drc);
+
+    client->drc->client_count--;
+    rpcsvc_remove_drc_client(client);
+}
+
 /**
  * rpcsvc_get_drc_client - find the drc client with given sockaddr, else
  *                         allocate and initialize a new drc client
@@ -233,9 +272,10 @@ rpcsvc_get_drc_client(rpcsvc_drc_globals_t *drc,
     if (!client)
         goto out;
 
-    GF_ATOMIC_INIT(client->ref, 0);
+    GF_REF_INIT(client, drc_client_release);
     client->sock_union = (union gf_sock_union) * sockaddr;
     client->op_count = 0;
+    client->drc = drc;
     INIT_LIST_HEAD(&client->client_list);
 
     if (drc_init_client_cache(drc, client)) {
@@ -280,45 +320,6 @@ rpcsvc_need_drc(rpcsvc_request_t *req)
 }
 
 /**
- * rpcsvc_drc_client_ref - ref the drc client
- *
- * @param client - the drc client to ref
- * @return client
- */
-static drc_client_t *
-rpcsvc_drc_client_ref(drc_client_t *client)
-{
-    GF_ASSERT(client);
-    GF_ATOMIC_INC(client->ref);
-    return client;
-}
-
-/**
- * rpcsvc_drc_client_unref - unref the drc client, and destroy
- *                           the client on last unref
- *
- * @param drc - the main drc structure
- * @param client - the drc client to unref
- * @return NULL if it is the last unref, client otherwise
- */
-static drc_client_t *
-rpcsvc_drc_client_unref(rpcsvc_drc_globals_t *drc, drc_client_t *client)
-{
-    uint32_t refcount;
-
-    GF_ASSERT(drc);
-
-    refcount = GF_ATOMIC_DEC(client->ref);
-    if (!refcount) {
-        drc->client_count--;
-        rpcsvc_remove_drc_client(client);
-        client = NULL;
-    }
-
-    return client;
-}
-
-/**
  * rpcsvc_drc_lookup - lookup a request to see if it is already cached
  *
  * @param req - incoming request
@@ -344,7 +345,7 @@ rpcsvc_drc_lookup(rpcsvc_request_t *req)
         if (!client)
             goto out;
 
-        req->trans->drc_client = rpcsvc_drc_client_ref(client);
+        req->trans->drc_client = client;
     }
 
     client = req->trans->drc_client;
@@ -384,7 +385,7 @@ rpcsvc_send_cached_reply(rpcsvc_request_t *req, drc_cached_op_t *reply)
         req->trans, reply->msg.rpchdr, reply->msg.rpchdrcount,
         reply->msg.proghdr, reply->msg.proghdrcount, reply->msg.progpayload,
         reply->msg.progpayloadcount, reply->msg.iobref, req->trans_private);
-    rpcsvc_drc_client_unref(req->svc->drc, reply->client);
+    rpcsvc_drc_client_unref(reply->client);
 
     return ret;
 }
@@ -467,7 +468,7 @@ rpcsvc_vacate_drc_entries(rpcsvc_drc_globals_t *drc)
         rb_delete(client->rbtree, reply);
 
         rpcsvc_drc_op_destroy(drc, reply);
-        rpcsvc_drc_client_unref(drc, client);
+        rpcsvc_drc_client_unref(client);
         i++;
         if (i >= n)
             break;
@@ -555,7 +556,7 @@ rpcsvc_cache_request(rpcsvc_request_t *req)
     if (ret) {
         req->reply = NULL;
         rpcsvc_drc_op_destroy(drc, reply);
-        rpcsvc_drc_client_unref(drc, client);
+        rpcsvc_drc_client_unref(client);
         gf_log(GF_RPCSVC, GF_LOG_DEBUG, "Failed to add op to drc cache");
     }
 
@@ -632,8 +633,6 @@ rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
                 gf_proc_dump_write(key, "%s", "N/A");
         }
 
-        gf_proc_dump_build_key(key, "client", "%d.ref_count", i);
-        gf_proc_dump_write(key, "%" PRIu32, GF_ATOMIC_GET(client->ref));
         gf_proc_dump_build_key(key, "client", "%d.op_count", i);
         gf_proc_dump_write(key, "%d", client->op_count);
         i++;
@@ -678,7 +677,7 @@ rpcsvc_drc_notify(rpcsvc_t *svc, void *xl, rpcsvc_event_t event, void *data)
 
         switch (event) {
             case RPCSVC_EVENT_ACCEPT:
-                trans->drc_client = rpcsvc_drc_client_ref(client);
+                trans->drc_client = client;
                 ret = 0;
                 break;
 
@@ -687,8 +686,13 @@ rpcsvc_drc_notify(rpcsvc_t *svc, void *xl, rpcsvc_event_t event, void *data)
                 if (list_empty(&drc->clients_head))
                     break;
                 /* should be the last unref */
+                trans->drc_client = rpcsvc_drc_client_unref(client);
+#if 0
+                /* FIXME: this is not the case for now */
+                GF_ASSERT(trans->drc_client == NULL);
+#else
                 trans->drc_client = NULL;
-                rpcsvc_drc_client_unref(drc, client);
+#endif
                 break;
 
             default:

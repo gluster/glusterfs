@@ -21,6 +21,9 @@
 static void
 rpc_clnt_reply_deinit(struct rpc_req *req);
 
+static void
+rpc_clnt_release(void *data);
+
 static struct saved_frame *
 __saved_frames_get_timedout(struct saved_frames *frames, time_t latest)
 {
@@ -996,7 +999,6 @@ rpc_clnt_connection_init(struct rpc_clnt *clnt, glusterfs_ctx_t *ctx,
         ret = -1;
         goto out;
     }
-    rpc_transport_ref(trans);
 
     pthread_mutex_lock(&conn->lock);
     {
@@ -1056,6 +1058,7 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
     rpc->ctx = ctx;
     rpc->owner = owner;
     GF_ATOMIC_INIT(rpc->xid, 1);
+    GF_REF_INIT(rpc, rpc_clnt_release);
 
     if (!reqpool_size)
         reqpool_size = RPC_CLNT_DEFAULT_REQUEST_COUNT;
@@ -1093,7 +1096,6 @@ rpc_clnt_new(dict_t *options, xlator_t *owner, char *name,
 
     rpc->auth_value = (auth_null) ? 0 : AUTH_GLUSTERFS_v2;
 
-    rpc = rpc_clnt_ref(rpc);
     INIT_LIST_HEAD(&rpc->programs);
 
 out:
@@ -1699,21 +1701,12 @@ out:
     return ret;
 }
 
-struct rpc_clnt *
-rpc_clnt_ref(struct rpc_clnt *rpc)
-{
-    if (!rpc)
-        return NULL;
-
-    GF_ATOMIC_INC(rpc->refcount);
-    return rpc;
-}
-
 static void
-rpc_clnt_trigger_destroy(struct rpc_clnt *rpc)
+rpc_clnt_release(void *data)
 {
     rpc_clnt_connection_t *conn = NULL;
     rpc_transport_t *trans = NULL;
+    rpc_clnt_t *rpc = data;
 
     if (!rpc)
         return;
@@ -1776,23 +1769,6 @@ rpc_clnt_destroy(struct rpc_clnt *rpc)
 
     GF_FREE(rpc);
     return;
-}
-
-struct rpc_clnt *
-rpc_clnt_unref(struct rpc_clnt *rpc)
-{
-    int count = 0;
-
-    if (!rpc)
-        return NULL;
-
-    count = GF_ATOMIC_DEC(rpc->refcount);
-
-    if (!count) {
-        rpc_clnt_trigger_destroy(rpc);
-        return NULL;
-    }
-    return rpc;
 }
 
 int

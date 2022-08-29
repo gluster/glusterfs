@@ -2924,6 +2924,8 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
             goto out;
         }
 
+        GF_REF_INIT(new_trans, rpc_transport_release);
+
         ret = pthread_mutex_init(&new_trans->lock, NULL);
         if (ret != 0) {
             gf_log(this->name, GF_LOG_WARNING,
@@ -3027,12 +3029,6 @@ socket_server_event_handler(int fd, int idx, int gen, void *data, int poll_in,
         new_priv->ssl_enabled = priv->ssl_enabled;
         new_priv->connected = 1;
         new_priv->is_server = _gf_true;
-
-        /*
-         * This is the first ref on the newly accepted
-         * transport.
-         */
-        rpc_transport_ref(new_trans);
 
         {
             /* Take a ref on the new_trans to avoid

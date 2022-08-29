@@ -55,6 +55,7 @@ typedef struct rpc_transport rpc_transport_t;
 #include <glusterfs/dict.h>
 #include <glusterfs/compat.h>
 #include <glusterfs/async.h>
+#include <glusterfs/refcount.h>
 #include "rpcsvc-common.h"
 
 struct peer_info {
@@ -146,6 +147,7 @@ typedef int (*rpc_transport_notify_t)(rpc_transport_t *, void *mydata,
                                       rpc_transport_event_t, void *data, ...);
 
 struct rpc_transport {
+    GF_REF_DECL;
     struct rpc_transport_ops *ops;
     rpc_transport_t *listener; /* listener transport to which
                                 * request for creation of this
@@ -158,7 +160,6 @@ struct rpc_transport {
     void *xl; /* Used for THIS */
     void *mydata;
     pthread_mutex_t lock;
-    gf_atomic_t refcount;
     glusterfs_ctx_t *ctx;
     dict_t *options;
     char *name;
@@ -250,11 +251,20 @@ rpc_transport_submit_reply(rpc_transport_t *this, rpc_transport_reply_t *reply);
 rpc_transport_t *
 rpc_transport_load(glusterfs_ctx_t *ctx, dict_t *options, char *name);
 
-rpc_transport_t *
-rpc_transport_ref(rpc_transport_t *trans);
+void
+rpc_transport_release(void *data);
 
-int32_t
-rpc_transport_unref(rpc_transport_t *trans);
+static inline rpc_transport_t *
+rpc_transport_ref(rpc_transport_t *trans)
+{
+    return trans ? GF_REF_GET(trans) : NULL;
+}
+
+static inline rpc_transport_t *
+rpc_transport_unref(rpc_transport_t *trans)
+{
+    return trans ? (GF_REF_PUT(trans) ? trans : NULL) : NULL;
+}
 
 int
 rpc_transport_register_notify(rpc_transport_t *trans, rpc_transport_notify_t,
