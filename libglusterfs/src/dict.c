@@ -604,7 +604,7 @@ dict_destroy(dict_t *this)
 void
 dict_unref(dict_t *this)
 {
-    uint64_t ref = 0;
+    uint32_t ref = 0;
 
     if (!this) {
         gf_msg_callingfn("dict", GF_LOG_DEBUG, EINVAL, LG_MSG_INVALID_ARG,
@@ -634,7 +634,7 @@ dict_ref(dict_t *this)
 void
 data_unref(data_t *this)
 {
-    uint64_t ref;
+    uint32_t ref;
 
     if (!this) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
