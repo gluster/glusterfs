@@ -362,18 +362,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             gf_boolean_t replace)
 {
     data_pair_t *pair;
-    int key_free = 0;
-    int keylen;
-
-    if (!key) {
-        keylen = gf_asprintf(&key, "ref:%p", value);
-        if (-1 == keylen) {
-            return -1;
-        }
-        key_free = 1;
-    } else {
-        keylen = key_len;
-    }
 
     /* Search for a existing key if 'replace' is asked for */
     if (replace) {
@@ -383,8 +371,6 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
             pair->value = data_ref(value);
             this->totkvlen += (value->len - unref_data->len);
             data_unref(unref_data);
-            if (key_free)
-                GF_FREE(key);
             /* Indicates duplicate key */
             return 0;
         }
@@ -393,37 +379,26 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
     if (this->free_pair.key) { /* the free_pair is used */
         pair = mem_get(THIS->ctx->dict_pair_pool);
         if (!pair) {
-            if (key_free)
-                GF_FREE(key);
             return -1;
         }
     } else { /* assign the pair to the free pair */
         pair = &this->free_pair;
     }
 
-    if (key_free) {
-        /* It's ours.  Use it. */
-        pair->key = key;
-        key_free = 0;
-    } else {
-        pair->key = (char *)GF_MALLOC(keylen + 1, gf_common_mt_char);
-        if (!pair->key) {
-            if (pair != &this->free_pair) {
-                mem_put(pair);
-            }
-            return -1;
+    pair->key = (char *)GF_MALLOC(key_len + 1, gf_common_mt_char);
+    if (!pair->key) {
+        if (pair != &this->free_pair) {
+            mem_put(pair);
         }
-        strcpy(pair->key, key);
+        return -1;
     }
+    strcpy(pair->key, key);
     pair->value = data_ref(value);
-    this->totkvlen += (keylen + 1 + value->len);
+    this->totkvlen += (key_len + 1 + value->len);
 
     pair->next = this->members_list;
     this->members_list = pair;
     this->count++;
-
-    if (key_free)
-        GF_FREE(key);
 
     if (this->max_count < this->count)
         this->max_count = this->count;
