@@ -2059,6 +2059,7 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .type = NO_DOC,
      .op_version = 3},
 
+#ifdef BUILD_GNFS
     /* NFS xlator options */
     {.key = "nfs.enable-ino32",
      .voltype = "nfs/server",
@@ -2247,6 +2248,8 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .option = "nfs.auth-cache-ttl-sec",
      .type = GLOBAL_DOC,
      .op_version = GD_OP_VERSION_3_7_0},
+
+#endif /* BUILD_GNFS */
 
     /* Other options which don't fit any place above */
     {.key = "features.read-only",
