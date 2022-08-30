@@ -273,7 +273,7 @@ done:
     return _gf_false;
 }
 
-void
+static void
 data_destroy(data_t *data)
 {
     if (data) {
@@ -3018,7 +3018,7 @@ out:
  * @return    : 0 -> success
  *            : -errno -> failure
  */
-int
+static int
 dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
                                    char delimiter)
 {
@@ -3027,11 +3027,6 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
     int32_t vallen = 0;
     int32_t total_len = 0;
     data_pair_t *pair = this->members_list;
-
-    if (!buf) {
-        gf_smsg("dict", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG, NULL);
-        goto out;
-    }
 
     while (count) {
         if (!pair) {

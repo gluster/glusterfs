@@ -131,7 +131,6 @@ cluster_xattrop_cbk
 copy_opts_to_child
 create_frame
 data_copy
-data_destroy
 data_from_dynptr
 data_from_int32
 data_from_uint64

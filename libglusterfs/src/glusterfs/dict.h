@@ -116,8 +116,6 @@ typedef gf_boolean_t (*dict_match_t)(dict_t *d, char *k, data_t *v, void *data);
 
 int32_t
 is_data_equal(data_t *one, data_t *two);
-void
-data_destroy(data_t *data);
 
 /* function to set a key/value pair (overwrite existing if matches the key */
 int32_t
