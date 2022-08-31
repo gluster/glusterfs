@@ -1294,7 +1294,7 @@ svs_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         if (!value) {
             op_errno = EINVAL;
             gf_msg(this->name, GF_LOG_WARNING, op_errno,
-                SVS_MSG_GET_FD_CONTEXT_FAILED, "pfd is NULL on fd=%p", fd);
+                   SVS_MSG_GET_FD_CONTEXT_FAILED, "pfd is NULL on fd=%p", fd);
             goto out;
         }
     }
