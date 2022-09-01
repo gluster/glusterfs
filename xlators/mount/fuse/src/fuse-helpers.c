@@ -674,7 +674,7 @@ fuse_ignore_xattr_set(fuse_private_t *priv, char *key)
           (fnmatch("*.glusterfs.shard.block-size", key, FNM_PERIOD) == 0) ||
           (fnmatch("*.glusterfs.lockinfo", key, FNM_PERIOD) == 0) ||
           (fnmatch("*.glusterfs.shard.file-size", key, FNM_PERIOD) == 0) ||
-        (fnmatch("trusted.SGI_ACL_FILE", key, FNM_PERIOD) == 0)))
+          (fnmatch("trusted.SGI_ACL_FILE", key, FNM_PERIOD) == 0)))
         ret = -1;
 
 out:
