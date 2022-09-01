@@ -24,8 +24,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=4
 primary_mnt=$M0

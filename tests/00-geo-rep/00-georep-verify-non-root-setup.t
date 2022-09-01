@@ -18,8 +18,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=2
 primary_mnt=$M0
@@ -31,7 +30,7 @@ grp="ggroup"
 
 secondary_url=$usr@$secondary
 secondary_vol=$GSV0
-ssh_url=$usr@$SH0
+ssh_url=$usr@$H0
 
 #Cleanup stale keys
 sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' /home/$usr/.ssh/authorized_keys

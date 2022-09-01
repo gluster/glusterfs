@@ -5,7 +5,7 @@
 
 #### patchy.dev.d-backends-patchy1.vol
 brick=${B0//\//-}
-SERVER_VOLFILE="/var/lib/glusterd/vols/${V0}/${V0}.${HOSTNAME}.${brick:1}-${V0}1.vol"
+SERVER_VOLFILE="/var/lib/glusterd/vols/${V0}/${V0}.${H0}.${brick:1}-${V0}1.vol"
 
 cleanup;
 
