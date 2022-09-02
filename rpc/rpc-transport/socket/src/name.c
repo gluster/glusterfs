@@ -322,6 +322,8 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
     uint16_t remote_port = GF_DEFAULT_SOCKET_LISTEN_PORT;
     struct addrinfo *addr_info = NULL;
     int32_t ret = 0;
+    struct in6_addr serveraddr_ipv6;
+    struct in_addr serveraddr_ipv4;
 
     remote_host_data = dict_get_sizen(options, "remote-host");
     if (remote_host_data == NULL) {
@@ -364,8 +366,6 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
     /* Need to update transport-address family if address-family is not provided
        to command-line arguments
     */
-    struct in6_addr serveraddr_ipv6;
-    struct in_addr serveraddr_ipv4;
     if (inet_pton(AF_INET6, remote_host, &serveraddr_ipv6)) {
         sockaddr->sa_family = AF_INET6;
     } else if (inet_pton(AF_INET, remote_host, &serveraddr_ipv4)) {
