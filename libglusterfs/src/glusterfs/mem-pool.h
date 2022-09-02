@@ -78,8 +78,8 @@ struct mem_header {
 #ifdef DEBUG
 struct mem_invalid {
     gf_mem_magic_t magic;
-    void *mem_acct;
     uint32_t type;
+    void *mem_acct;
     size_t size;
     void *baseaddr;
 };
