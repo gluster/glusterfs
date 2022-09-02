@@ -272,16 +272,16 @@ gf_asprintf(char **string_ptr, const char *format, ...)
 }
 
 #ifdef DEBUG
-void
+static void
 __gf_mem_invalidate(void *ptr)
 {
     struct mem_header *header = ptr;
-    void *end = NULL;
+    void *end, *old_ptr = NULL;
 
     struct mem_invalid inval = {
         .magic = GF_MEM_INVALID_MAGIC,
-        .mem_acct = header->mem_acct,
         .type = header->type,
+        .mem_acct = header->mem_acct,
         .size = header->size,
         .baseaddr = ptr + GF_MEM_HEADER_SIZE,
     };
@@ -289,19 +289,9 @@ __gf_mem_invalidate(void *ptr)
     /* calculate the last byte of the allocated area */
     end = ptr + __gf_total_alloc_size(inval.size);
 
-    /* overwrite the old mem_header */
-    memcpy(ptr, &inval, sizeof(inval));
-    ptr += sizeof(inval);
+    old_ptr = ptr;
 
-    /* zero out remaining (old) mem_header bytes) */
-    memset(ptr, 0x00, sizeof(*header) - sizeof(inval));
-    ptr += sizeof(*header) - sizeof(inval);
-
-    /* zero out the first byte of data */
-    *(uint32_t *)(ptr) = 0x00;
-    ptr += 1;
-
-    /* repeated writes of invalid structurein data area */
+    /* repeated writes of invalid structure in data area */
     while ((ptr + (sizeof(inval))) < (end - 1)) {
         memcpy(ptr, &inval, sizeof(inval));
         ptr += sizeof(inval);
@@ -309,6 +299,11 @@ __gf_mem_invalidate(void *ptr)
 
     /* fill out remaining data area with 0xff */
     memset(ptr, 0xff, end - ptr);
+
+    /* zero out remaining (old) mem_header bytes) */
+    /* and the first byte of data */
+    memset(old_ptr + sizeof(inval), 0x00, (sizeof(struct mem_header) - sizeof(inval)) + 1);
+
 }
 #endif /* DEBUG */
 
@@ -347,10 +342,10 @@ __gf_free(void *free_ptr)
     ptr = free_ptr - GF_MEM_HEADER_SIZE;
     header = (struct mem_header *)ptr;
 
+    mem_acct = header->mem_acct;
     // Possible corruption, assert here
     GF_ASSERT(GF_MEM_HEADER_MAGIC == header->magic);
 
-    mem_acct = header->mem_acct;
     if (!mem_acct) {
         goto free;
     }
