@@ -25,8 +25,6 @@ const char *
 ec_fop_name(int32_t id);
 void
 ec_trace(const char *event, ec_fop_data_t *fop, const char *fmt, ...);
-int32_t
-ec_bits_consume(uint64_t *n);
 size_t
 ec_iov_copy_to(void *dst, struct iovec *vector, int32_t count, off_t offset,
                size_t size);
@@ -190,9 +188,6 @@ ec_is_internal_xattr(dict_t *dict, char *key, data_t *value, void *data);
 
 void
 ec_filter_internal_xattrs(dict_t *xattr);
-
-gf_boolean_t
-ec_is_data_fop(glusterfs_fop_t fop);
 
 int32_t
 ec_launch_replace_heal(ec_t *ec);

@@ -189,7 +189,7 @@ ec_lock_conflict(ec_lock_link_t *l1, ec_lock_link_t *l2)
     return ec_is_range_conflict(l1, l2);
 }
 
-uint32_t
+static uint32_t
 ec_select_first_by_read_policy(ec_t *ec, ec_fop_data_t *fop)
 {
     if (ec->read_policy == EC_ROUND_ROBIN) {
@@ -231,7 +231,7 @@ ec_child_next(ec_t *ec, ec_fop_data_t *fop, uint32_t idx)
     return idx;
 }
 
-int32_t
+static int32_t
 ec_heal_report(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, uintptr_t mask, uintptr_t good,
                uintptr_t bad, uint32_t pending, dict_t *xdata)
@@ -253,13 +253,11 @@ ec_heal_report(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static uintptr_t
-ec_fop_needs_name_heal(ec_fop_data_t *fop)
+ec_fop_needs_name_heal(ec_fop_data_t *fop, ec_t *ec)
 {
-    ec_t *ec = NULL;
     ec_cbk_data_t *cbk = NULL;
     ec_cbk_data_t *enoent_cbk = NULL;
 
-    ec = fop->xl->private;
     if (fop->id != GF_FOP_LOOKUP)
         return 0;
 
@@ -280,11 +278,9 @@ ec_fop_needs_name_heal(ec_fop_data_t *fop)
     return ec->xl_up & ~enoent_cbk->mask;
 }
 
-int32_t
-ec_fop_needs_heal(ec_fop_data_t *fop)
+static int32_t
+ec_fop_needs_heal(ec_fop_data_t *fop, ec_t *ec)
 {
-    ec_t *ec = fop->xl->private;
-
     if (fop->lock_count == 0) {
         /*
          * if fop->lock_count is zero that means it saw version mismatch
@@ -300,14 +296,14 @@ ec_fop_needs_heal(ec_fop_data_t *fop)
     return (ec->xl_up & ~(fop->remaining | fop->good)) != 0;
 }
 
-void
+static void
 ec_check_status(ec_fop_data_t *fop)
 {
     ec_t *ec = fop->xl->private;
     int32_t partial = 0;
     char str1[32], str2[32], str3[32], str4[32], str5[32];
 
-    if (!ec_fop_needs_name_heal(fop) && !ec_fop_needs_heal(fop)) {
+    if (!ec_fop_needs_name_heal(fop, ec) && !ec_fop_needs_heal(fop, ec)) {
         return;
     }
 
@@ -451,7 +447,7 @@ ec_sleep(ec_fop_data_t *fop)
     UNLOCK(&fop->lock);
 }
 
-int32_t
+static int32_t
 ec_check_complete(ec_fop_data_t *fop, ec_resume_f resume)
 {
     int32_t error = -1;
@@ -522,7 +518,7 @@ ec_resume_parent(ec_fop_data_t *fop)
     }
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_is_recoverable_error(int32_t op_errno)
 {
     switch (op_errno) {
@@ -618,8 +614,6 @@ ec_msg_str(ec_fop_data_t *fop)
 {
     loc_t *loc1 = NULL;
     loc_t *loc2 = NULL;
-    char gfid1[64] = {0};
-    char gfid2[64] = {0};
     ec_fop_data_t *parent = fop->parent;
 
     if (fop->errstr)
@@ -629,35 +623,33 @@ ec_msg_str(ec_fop_data_t *fop)
         loc2 = &fop->loc[1];
 
         if (fop->id == GF_FOP_RENAME) {
+            char gfid2[64];
             gf_asprintf(&fop->errstr,
                         "FOP : '%s' failed on '%s' and '%s' with gfids "
                         "%s and %s respectively. Parent FOP: %s",
                         ec_fop_name(fop->id), loc1->path, loc2->path,
-                        uuid_utoa_r(loc1->gfid, gfid1),
-                        uuid_utoa_r(loc2->gfid, gfid2),
+                        uuid_utoa(loc1->gfid), uuid_utoa_r(loc2->gfid, gfid2),
                         parent ? ec_fop_name(parent->id) : "No Parent");
         } else {
             gf_asprintf(
                 &fop->errstr,
                 "FOP : '%s' failed on '%s' with gfid %s. Parent FOP: %s",
-                ec_fop_name(fop->id), loc1->path,
-                uuid_utoa_r(loc1->gfid, gfid1),
+                ec_fop_name(fop->id), loc1->path, uuid_utoa(loc1->gfid),
                 parent ? ec_fop_name(parent->id) : "No Parent");
         }
     } else {
-        gf_asprintf(
-            &fop->errstr, "FOP : '%s' failed on gfid %s. Parent FOP: %s",
-            ec_fop_name(fop->id), uuid_utoa_r(fop->fd->inode->gfid, gfid1),
-            parent ? ec_fop_name(parent->id) : "No Parent");
+        gf_asprintf(&fop->errstr,
+                    "FOP : '%s' failed on gfid %s. Parent FOP: %s",
+                    ec_fop_name(fop->id), uuid_utoa(fop->fd->inode->gfid),
+                    parent ? ec_fop_name(parent->id) : "No Parent");
     }
     return fop->errstr;
 }
 
 static void
-ec_log_insufficient_vol(ec_fop_data_t *fop, int32_t have, uint32_t need,
-                        int32_t loglevel)
+ec_log_insufficient_vol(ec_fop_data_t *fop, ec_t *ec, int32_t have,
+                        uint32_t need, int32_t loglevel)
 {
-    ec_t *ec = fop->xl->private;
     char str1[32], str2[32], str3[32];
 
     gf_msg(ec->xl->name, loglevel, 0, EC_MSG_CHILDS_INSUFFICIENT,
@@ -668,6 +660,23 @@ ec_log_insufficient_vol(ec_fop_data_t *fop, int32_t have, uint32_t need,
            ec_bin(str2, sizeof(str2), fop->mask, ec->nodes),
            ec_bin(str3, sizeof(str3), fop->healing, ec->nodes),
            ec_msg_str(fop));
+}
+
+static gf_boolean_t
+ec_is_data_fop(glusterfs_fop_t fop)
+{
+    switch (fop) {
+        case GF_FOP_WRITE:
+        case GF_FOP_TRUNCATE:
+        case GF_FOP_FTRUNCATE:
+        case GF_FOP_FALLOCATE:
+        case GF_FOP_DISCARD:
+        case GF_FOP_ZEROFILL:
+            return _gf_true;
+        default:
+            return _gf_false;
+    }
+    return _gf_false;
 }
 
 static int32_t
@@ -727,7 +736,7 @@ ec_child_select(ec_fop_data_t *fop)
     ec_trace("SELECT", fop, "");
 
     if ((num < fop->minimum) && (num < ec->fragments)) {
-        ec_log_insufficient_vol(fop, num, fop->minimum, GF_LOG_ERROR);
+        ec_log_insufficient_vol(fop, ec, num, fop->minimum, GF_LOG_ERROR);
         return 0;
     }
 
@@ -735,7 +744,8 @@ ec_child_select(ec_fop_data_t *fop)
         (fop->locks[0].update[EC_DATA_TXN] ||
          fop->locks[0].update[EC_METADATA_TXN])) {
         if (ec->quorum_count && (num < ec->quorum_count)) {
-            ec_log_insufficient_vol(fop, num, ec->quorum_count, GF_LOG_ERROR);
+            ec_log_insufficient_vol(fop, ec, num, ec->quorum_count,
+                                    GF_LOG_ERROR);
             return 0;
         }
     }
@@ -770,7 +780,7 @@ ec_dispatch_next(ec_fop_data_t *fop, uint32_t idx)
     }
 }
 
-void
+static void
 ec_dispatch_mask(ec_fop_data_t *fop, uintptr_t mask)
 {
     ec_t *ec = fop->xl->private;
@@ -799,7 +809,7 @@ ec_dispatch_mask(ec_fop_data_t *fop, uintptr_t mask)
     }
 }
 
-void
+static void
 ec_dispatch_start(ec_fop_data_t *fop)
 {
     fop->answer = NULL;
@@ -922,7 +932,7 @@ ec_succeed_all(ec_fop_data_t *fop)
     }
 }
 
-ec_lock_t *
+static ec_lock_t *
 ec_lock_allocate(ec_fop_data_t *fop, loc_t *loc)
 {
     ec_t *ec = fop->xl->private;
@@ -958,7 +968,7 @@ ec_lock_allocate(ec_fop_data_t *fop, loc_t *loc)
     return lock;
 }
 
-void
+static void
 ec_lock_destroy(ec_lock_t *lock)
 {
     loc_wipe(&lock->loc);
@@ -969,7 +979,7 @@ ec_lock_destroy(ec_lock_t *lock)
     mem_put(lock);
 }
 
-int32_t
+static int
 ec_lock_compare(ec_lock_t *lock1, ec_lock_t *lock2)
 {
     return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
@@ -1148,7 +1158,7 @@ ec_lock_prepare_fd(ec_fop_data_t *fop, fd_t *fd, uint32_t flags, off_t fl_start,
     loc_wipe(&loc);
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_config_check(xlator_t *xl, ec_config_t *config)
 {
     ec_t *ec;
@@ -1194,7 +1204,7 @@ ec_config_check(xlator_t *xl, ec_config_t *config)
     return _gf_true;
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_set_dirty_flag(ec_lock_link_t *link, ec_inode_t *ctx, uint64_t *dirty)
 {
     gf_boolean_t set_dirty = _gf_false;
@@ -1216,7 +1226,7 @@ ec_set_dirty_flag(ec_lock_link_t *link, ec_inode_t *ctx, uint64_t *dirty)
     return set_dirty;
 }
 
-int32_t
+static int32_t
 ec_prepare_update_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
@@ -1419,7 +1429,7 @@ ec_set_xattrop_flags_and_params(ec_lock_t *lock, ec_lock_link_t *link,
     return oldflags ^ newflags;
 }
 
-void
+static void
 ec_get_size_version(ec_lock_link_t *link)
 {
     loc_t loc;
@@ -1442,8 +1452,6 @@ ec_get_size_version(ec_lock_link_t *link)
     if (ec->optimistic_changelog && !(ec->node_mask & ~link->lock->good_mask) &&
         !ec_is_data_fop(fop->id))
         link->optimistic_changelog = _gf_true;
-
-    memset(&loc, 0, sizeof(loc));
 
     LOCK(&lock->loc.inode->lock);
 
@@ -1533,6 +1541,8 @@ unlock:
      * fop.
      */
     if (lock->fd == NULL) {
+        memset(&loc, 0, sizeof(loc));
+
         error = ec_loc_from_loc(fop->xl, &loc, &lock->loc);
         if (error != 0) {
             goto out;
@@ -1550,6 +1560,8 @@ unlock:
         ec_xattrop(fop->frame, fop->xl, fop->mask, fop->minimum,
                    ec_prepare_update_cbk, link, &loc, GF_XATTROP_ADD_ARRAY64,
                    dict, xdata);
+
+        loc_wipe(&loc);
     } else {
         ec_fxattrop(fop->frame, fop->xl, fop->mask, fop->minimum,
                     ec_prepare_update_cbk, link, lock->fd,
@@ -1561,8 +1573,6 @@ unlock:
 out:
     fop->frame->root->uid = fop->uid;
     fop->frame->root->gid = fop->gid;
-
-    loc_wipe(&loc);
 
     if (dict != NULL) {
         dict_unref(dict);
@@ -1696,7 +1706,7 @@ unlock:
     UNLOCK(&inode->lock);
 }
 
-int32_t
+static int32_t
 ec_get_real_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, inode_t *inode,
                      struct iatt *buf, dict_t *xdata, struct iatt *postparent)
@@ -1723,7 +1733,7 @@ ec_get_real_size_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
  * Any error processing this request is ignored. In the worst case, an invalid
  * or not up to date value in the iatt could cause some cache invalidation.
  */
-void
+static void
 ec_get_real_size(ec_lock_link_t *link)
 {
     ec_fop_data_t *fop;
@@ -1845,7 +1855,7 @@ ec_lock_apply(ec_lock_link_t *link)
     ec_get_real_size(link);
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_lock_acquire(ec_lock_link_t *link);
 
 static void
@@ -1870,7 +1880,7 @@ ec_lock_resume_shared(struct list_head *list)
     }
 }
 
-void
+static void
 ec_lock_acquired(ec_lock_link_t *link)
 {
     struct list_head list;
@@ -1908,7 +1918,7 @@ ec_lock_acquired(ec_lock_link_t *link)
     ec_lock_resume_shared(&list);
 }
 
-int32_t
+static int32_t
 ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
           int32_t op_errno, dict_t *xdata)
 {
@@ -1937,7 +1947,7 @@ ec_locked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_lock_acquire(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
@@ -2196,7 +2206,7 @@ ec_lock(ec_fop_data_t *fop)
     ec_resume(fop, 0);
 }
 
-void
+static void
 ec_lock_unfreeze(ec_lock_link_t *link)
 {
     struct list_head list;
@@ -2251,7 +2261,7 @@ ec_lock_unfreeze(ec_lock_link_t *link)
     }
 }
 
-int32_t
+static int32_t
 ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
             int32_t op_errno, dict_t *xdata)
 {
@@ -2270,7 +2280,7 @@ ec_unlocked(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     return 0;
 }
 
-void
+static void
 ec_unlock_lock(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
@@ -2297,7 +2307,7 @@ ec_unlock_lock(ec_lock_link_t *link)
     }
 }
 
-void
+static void
 ec_inode_bad_inc(inode_t *inode, xlator_t *xl)
 {
     ec_inode_t *ctx = NULL;
@@ -2314,7 +2324,7 @@ unlock:
     UNLOCK(&inode->lock);
 }
 
-int32_t
+static int32_t
 ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
                             int32_t op_ret, int32_t op_errno, dict_t *xattr,
                             dict_t *xdata)
@@ -2373,7 +2383,7 @@ ec_update_size_version_done(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-void
+static void
 ec_update_size_version(ec_lock_link_t *link, uint64_t *version, uint64_t size,
                        uint64_t *dirty)
 {
@@ -2468,7 +2478,7 @@ out:
     }
 }
 
-gf_boolean_t
+static gf_boolean_t
 ec_update_info(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
@@ -2535,7 +2545,7 @@ ec_update_info(ec_lock_link_t *link)
     return _gf_false;
 }
 
-void
+static void
 ec_unlock_now(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
@@ -2604,10 +2614,10 @@ done:
     }
 }
 
-void
+static void
 ec_unlock_timer_add(ec_lock_link_t *link);
 
-void
+static void
 ec_unlock_timer_del(ec_lock_link_t *link)
 {
     ec_lock_t *lock;
@@ -2685,7 +2695,7 @@ ec_unlock_timer_del(ec_lock_link_t *link)
     }
 }
 
-void
+static void
 ec_unlock_timer_cbk(void *data)
 {
     ec_unlock_timer_del(data);
@@ -2742,12 +2752,13 @@ ec_lock_delay_create(ec_lock_link_t *link)
     return _gf_true;
 }
 
-void
+static void
 ec_unlock_timer_add(ec_lock_link_t *link)
 {
     ec_fop_data_t *fop = link->fop;
     ec_lock_t *lock = link->lock;
     gf_boolean_t now = _gf_false;
+    ec_t *ec = fop->xl->private;
 
     LOCK(&lock->loc.inode->lock);
 
@@ -2769,7 +2780,7 @@ ec_unlock_timer_add(ec_lock_link_t *link)
 
     /* If the fop detects that a heal is needed, we mark the lock to be
      * released as soon as possible. */
-    lock->release |= ec_fop_needs_heal(fop);
+    lock->release |= ec_fop_needs_heal(fop, ec);
 
     if (lock->refs_owners > 1) {
         ec_trace("UNLOCK_SKIP", fop, "lock=%p", lock);
@@ -2785,8 +2796,6 @@ ec_unlock_timer_add(ec_lock_link_t *link)
          * fops waiting, at least one of them should have been promoted to an
          * owner, so the waiting list should be empty. */
         GF_ASSERT(list_empty(&lock->owners) && list_empty(&lock->waiting));
-
-        ec_t *ec = fop->xl->private;
 
         /* If everything goes as expected this fop will be put to sleep until
          * the timer callback is executed. */
@@ -2978,7 +2987,7 @@ ec_lock_reuse(ec_fop_data_t *fop)
     }
 }
 
-void
+static void
 __ec_manager(ec_fop_data_t *fop, int32_t error)
 {
     ec_t *ec = fop->xl->private;

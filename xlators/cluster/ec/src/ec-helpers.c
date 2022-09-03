@@ -87,18 +87,6 @@ ec_trace(const char *event, ec_fop_data_t *fop, const char *fmt, ...)
     }
 }
 
-int32_t
-ec_bits_consume(uint64_t *n)
-{
-    uint64_t tmp;
-
-    tmp = *n;
-    tmp &= -tmp;
-    *n ^= tmp;
-
-    return gf_bits_index(tmp);
-}
-
 size_t
 ec_iov_copy_to(void *dst, struct iovec *vector, int32_t count, off_t offset,
                size_t size)
@@ -256,12 +244,19 @@ ec_dict_set_number(dict_t *dict, char *key, uint64_t value)
     int ret = -1;
     uint64_t *ptr;
 
-    ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
-    if (ptr == NULL) {
-        return -ENOMEM;
-    }
+    if (value == 0) {
+        ptr = GF_CALLOC(1, sizeof(value), gf_common_mt_char);
+        if (ptr == NULL) {
+            return -ENOMEM;
+        }
+    } else {
+        ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
+        if (ptr == NULL) {
+            return -ENOMEM;
+        }
 
-    *ptr = htobe64(value);
+        *ptr = htobe64(value);
+    }
 
     ret = dict_set_bin(dict, key, ptr, sizeof(value));
     if (ret)
@@ -826,22 +821,6 @@ ec_filter_internal_xattrs(dict_t *xattr)
                        dict_remove_foreach_fn, NULL);
 }
 
-gf_boolean_t
-ec_is_data_fop(glusterfs_fop_t fop)
-{
-    switch (fop) {
-        case GF_FOP_WRITE:
-        case GF_FOP_TRUNCATE:
-        case GF_FOP_FTRUNCATE:
-        case GF_FOP_FALLOCATE:
-        case GF_FOP_DISCARD:
-        case GF_FOP_ZEROFILL:
-            return _gf_true;
-        default:
-            return _gf_false;
-    }
-    return _gf_false;
-}
 /*
 gf_boolean_t
 ec_is_metadata_fop (int32_t lock_kind, glusterfs_fop_t fop)
