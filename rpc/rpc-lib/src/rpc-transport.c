@@ -17,10 +17,6 @@
 
 #include "rpc-transport.h"
 
-#ifndef GF_OPTION_LIST_EMPTY
-#define GF_OPTION_LIST_EMPTY(_opt) (_opt->value[0] == NULL)
-#endif
-
 int32_t
 rpc_transport_count(const char *transport_type)
 {
@@ -45,19 +41,6 @@ rpc_transport_count(const char *transport_type)
 
     GF_FREE(transport_dup);
     return count;
-}
-
-int
-rpc_transport_get_myaddr(rpc_transport_t *this, char *peeraddr, int addrlen,
-                         struct sockaddr_storage *sa, size_t salen)
-{
-    int32_t ret = -1;
-    GF_VALIDATE_OR_GOTO("rpc", this, out);
-
-    ret = this->ops->get_myaddr(this, peeraddr, addrlen, sa, salen);
-
-out:
-    return ret;
 }
 
 int32_t

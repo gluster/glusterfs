@@ -267,10 +267,6 @@ int32_t
 rpc_transport_get_peeraddr(rpc_transport_t *this, char *peeraddr, int addrlen,
                            struct sockaddr_storage *sa, size_t salen);
 
-int32_t
-rpc_transport_get_myaddr(rpc_transport_t *this, char *peeraddr, int addrlen,
-                         struct sockaddr_storage *sa, size_t salen);
-
 int
 rpc_transport_throttle(rpc_transport_t *this, gf_boolean_t onoff);
 
