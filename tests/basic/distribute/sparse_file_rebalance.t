@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../dht.rc
 
+SCRIPT_TIMEOUT=300
+
 # Initialize
 #------------------------------------------------------------
 cleanup;
@@ -33,8 +35,8 @@ TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 
 # Create some sparse files and get their size
 TEST cd $M0;
-dd if=/dev/urandom of=sparse_file bs=10k count=1 seek=2M
-cp --sparse=always sparse_file sparse_file_3;
+TEST dd if=/dev/urandom of=sparse_file bs=10k count=1 seek=2M
+TEST cp --sparse=always sparse_file sparse_file_3;
 
 # Add a 3rd brick
 TEST $CLI volume add-brick $V0 $H0:$B0/${V0}3;
