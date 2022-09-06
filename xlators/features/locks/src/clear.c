@@ -154,6 +154,7 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
     struct gf_flock ulock = {
         0,
     };
+    struct list_head blocked_list;
     int ret = -1;
     int bcount = 0;
     int gcount = 0;
@@ -164,6 +165,7 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
         goto out;
     }
 
+    INIT_LIST_HEAD(&blocked_list);
     pthread_mutex_lock(&pl_inode->mutex);
     {
         list_for_each_entry_safe(plock, tmp, &pl_inode->ext_list, list)
@@ -186,21 +188,30 @@ clrlk_clear_posixlk(xlator_t *this, pl_inode_t *pl_inode, clrlk_args *args,
 
             list_del_init(&plock->list);
             if (plock->blocked) {
+                list_add_tail(&plock->list, &blocked_list);
                 bcount++;
-                pl_trace_out(this, plock->frame, NULL, NULL, F_SETLKW,
-                             &plock->user_flock, -1, EINTR, NULL);
-
-                local = plock->frame->local;
-                PL_STACK_UNWIND_AND_FREE(local, lk, plock->frame, -1, EINTR,
-                                         &plock->user_flock, NULL);
-
             } else {
                 gcount++;
+                __destroy_lock(plock);
             }
-            __destroy_lock(plock);
         }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
+
+    plock = NULL;
+    tmp = NULL;
+    /* Perform stack unwind outside of pl_inode lock */
+    list_for_each_entry_safe(plock, tmp, &blocked_list, list)
+    {
+        list_del_init(&plock->list);
+        pl_trace_out(this, plock->frame, NULL, NULL, F_SETLKW,
+                     &plock->user_flock, -1, EINTR, NULL);
+
+        local = plock->frame->local;
+        PL_STACK_UNWIND_AND_FREE(local, lk, plock->frame, -1, EINTR,
+                                 &plock->user_flock, NULL);
+        __destroy_lock(plock);
+    }
     grant_blocked_locks(this, pl_inode);
     ret = 0;
 out:
