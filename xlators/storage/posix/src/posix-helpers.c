@@ -778,9 +778,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
             struct iatt *buf_p, gf_boolean_t inode_locked,
             gf_boolean_t fetch_time)
 {
-    struct stat lstatbuf = {
-        0,
-    };
+    struct stat lstatbuf;
     struct iatt stbuf = {
         0,
     };
@@ -790,14 +788,8 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     priv = this->private;
 
-    if (gfid && !gf_uuid_is_null(gfid))
-        gf_uuid_copy(stbuf.ia_gfid, gfid);
-    else
-        posix_fill_gfid_path(path, &stbuf);
-    stbuf.ia_flags |= IATT_GFID;
-
     ret = sys_lstat(path, &lstatbuf);
-    if (ret == -1) {
+    if (ret != 0) {
         if (errno != ENOENT) {
             op_errno = errno;
             gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
@@ -819,6 +811,12 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     if (!S_ISDIR(lstatbuf.st_mode))
         lstatbuf.st_nlink--;
+
+    if (gfid && !gf_uuid_is_null(gfid))
+        gf_uuid_copy(stbuf.ia_gfid, gfid);
+    else
+        posix_fill_gfid_path(path, &stbuf);
+    stbuf.ia_flags |= IATT_GFID;
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
