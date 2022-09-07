@@ -484,8 +484,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
                 goto err;
             }
 
-            ret = dict_set_bin(filler->xattr, key, databuf,
-                               read_len);
+            ret = dict_set_bin(filler->xattr, key, databuf, read_len);
             if (ret < 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, 0,
                        P_MSG_XDATA_GETXATTR,
