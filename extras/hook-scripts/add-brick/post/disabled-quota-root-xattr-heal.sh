@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 ##---------------------------------------------------------------------------
 ## This script updates the 'limit-set' xattr on the newly added node. Please
@@ -106,7 +106,7 @@ ENABLED_STATE_1="${GLUSTERD_WORKDIR}/hooks/${VERSION}/${VOLUME_OP}/"
 ENABLED_STATE_2="post/${ENABLED_NAME_PREFIX}${VOL_NAME}-${ENABLED_NAME}"
 ENABLED_STATE="${ENABLED_STATE_1}${ENABLED_STATE_2}"
 
-if [ "${THIS_SCRIPT}" != *"${VOL_NAME}"* ]; then
+if [[ "${THIS_SCRIPT}" != *"${VOL_NAME}"* ]]; then
   exit 0
 fi
 
