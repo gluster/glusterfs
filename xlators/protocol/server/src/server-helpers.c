@@ -822,14 +822,13 @@ serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
     gf_dirent_t *entry = NULL;
     gfx_dirplist *trav = NULL;
     gfx_dirplist *prev = NULL;
-    int ret = -1;
 
     GF_VALIDATE_OR_GOTO("server", entries, out);
     GF_VALIDATE_OR_GOTO("server", rsp, out);
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_server_mt_dirent_rsp_t);
         if (!trav)
             goto out;
 
@@ -842,20 +841,18 @@ serialize_rsp_direntp_v2(gf_dirent_t *entries, gfx_readdirp_rsp *rsp)
         gfx_stat_from_iattx(&trav->stat, &entry->d_stat);
         dict_to_xdr(entry->dict, &trav->dict);
 
+        trav->nextentry = NULL;
         if (prev)
             prev->nextentry = trav;
         else
             rsp->reply = trav;
 
         prev = trav;
-        trav = NULL;
     }
 
-    ret = 0;
+    return 0;
 out:
-    GF_FREE(trav);
-
-    return ret;
+    return -1;
 }
 
 int
@@ -864,14 +861,13 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
     gf_dirent_t *entry = NULL;
     gfx_dirlist *trav = NULL;
     gfx_dirlist *prev = NULL;
-    int ret = -1;
 
     GF_VALIDATE_OR_GOTO("server", rsp, out);
     GF_VALIDATE_OR_GOTO("server", entries, out);
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        trav = GF_CALLOC(1, sizeof(*trav), gf_server_mt_dirent_rsp_t);
+        trav = GF_MALLOC(sizeof(*trav), gf_server_mt_dirent_rsp_t);
         if (!trav)
             goto out;
         trav->d_ino = entry->d_ino;
@@ -879,6 +875,7 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
         trav->d_len = entry->d_len;
         trav->d_type = entry->d_type;
         trav->name = entry->d_name;
+        trav->nextentry = NULL;
         if (prev)
             prev->nextentry = trav;
         else
@@ -887,9 +884,9 @@ serialize_rsp_dirent_v2(gf_dirent_t *entries, gfx_readdir_rsp *rsp)
         prev = trav;
     }
 
-    ret = 0;
+    return 0;
 out:
-    return ret;
+    return -1;
 }
 
 int
