@@ -435,6 +435,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     struct iatt stbuf = {
         0,
     };
+    ssize_t read_len;
 
     if (posix_xattr_ignorable(key))
         goto out;
@@ -448,8 +449,8 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
 
         /* file content request */
         req_size = data_to_uint64(data);
-        if (req_size >= filler->stbuf->ia_size) {
-            _fd = open(filler->real_path, O_RDONLY);
+        if (req_size >= filler->stbuf->ia_size && filler->stbuf->ia_size > 0) {
+            _fd = open(filler->real_path, O_RDONLY | O_NOATIME);
             if (_fd == -1) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                        P_MSG_XDATA_GETXATTR, "Opening file %s failed",
@@ -457,23 +458,13 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
                 goto err;
             }
 
-            /*
-             * There could be a situation where the ia_size is
-             * zero. GF_CALLOC will return a pointer to the
-             * memory initialized by gf_mem_set_acct_info.
-             * This function adds a header and a footer to
-             * the allocated memory.  The returned pointer
-             * points to the memory just after the header, but
-             * when size is zero, there is no space for user
-             * data. The memory can be freed by calling GF_FREE.
-             */
-            databuf = GF_CALLOC(1, filler->stbuf->ia_size, gf_posix_mt_char);
+            databuf = GF_MALLOC(filler->stbuf->ia_size, gf_posix_mt_char);
             if (!databuf) {
                 goto err;
             }
 
-            ret = sys_read(_fd, databuf, filler->stbuf->ia_size);
-            if (ret == -1) {
+            read_len = sys_read(_fd, databuf, filler->stbuf->ia_size);
+            if (read_len <= 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                        P_MSG_XDATA_GETXATTR, "Read on file %s failed",
                        filler->real_path);
@@ -490,7 +481,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
             }
 
             ret = dict_set_bin(filler->xattr, key, databuf,
-                               filler->stbuf->ia_size);
+                               read_len);
             if (ret < 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, 0,
                        P_MSG_XDATA_GETXATTR,
