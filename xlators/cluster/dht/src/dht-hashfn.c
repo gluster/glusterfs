@@ -51,7 +51,7 @@ dht_munge_name(const char *original, char *modified, size_t len, regex_t *re)
 
     ret = regexec(re, original, 2, matches, 0);
 
-    if (caa_unlikely(ret == REG_NOERROR)) {
+    if (caa_unlikely(ret == 0)) {
         if (matches[1].rm_so != -1) {
             new_len = matches[1].rm_eo - matches[1].rm_so;
             if (new_len <= len) {
