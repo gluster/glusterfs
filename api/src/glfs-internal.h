@@ -755,3 +755,9 @@ glfs_iatt_from_statx(struct iatt *, const struct glfs_stat *)
 int
 glfs_setfspid(struct glfs *, pid_t) GFAPI_PRIVATE(glfs_setfspid, 6.1);
 #endif /* !_GLFS_INTERNAL_H */
+
+/* This function is of use when filepath is not present to
+ * resolve and to fill loc.
+ */
+void
+fd_to_loc(struct glfs_fd *glfd, loc_t *loc);
