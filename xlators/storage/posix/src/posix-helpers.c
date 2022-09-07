@@ -450,7 +450,11 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
         /* file content request */
         req_size = data_to_uint64(data);
         if (req_size >= filler->stbuf->ia_size && filler->stbuf->ia_size > 0) {
+#ifdef GF_LINUX_HOST_OS
             _fd = open(filler->real_path, O_RDONLY | O_NOATIME);
+#else /* O_NOATIME does not exist on BSD */
+            _fd = open(filler->real_path, O_RDONLY);
+#endif
             if (_fd == -1) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                        P_MSG_XDATA_GETXATTR, "Opening file %s failed",
