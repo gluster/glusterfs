@@ -8748,7 +8748,7 @@ glusterd_volinfo_reset_defrag_stats(glusterd_volinfo_t *volinfo)
 }
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
+glusterd_is_local_brick(glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *brickinfo)
 {
     gf_boolean_t local = _gf_false;
@@ -10158,7 +10158,7 @@ _heal_volume_add_shd_rsp(dict_t *this, char *key, data_t *value, void *data)
         brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
         if (!brickinfo)
             goto out;
-        if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(volinfo, brickinfo))
             goto out;
     }
     new_value = data_copy(value);
@@ -10232,7 +10232,7 @@ _heal_volume_add_shd_rsp_of_statistics(dict_t *this, char *key, data_t *value,
     brickinfo = glusterd_get_brickinfo_by_position(volinfo, brick_id);
     if (!brickinfo)
         goto out;
-    if (!glusterd_is_local_brick(rsp_ctx->this, volinfo, brickinfo))
+    if (!glusterd_is_local_brick(volinfo, brickinfo))
         goto out;
 
     new_value = data_copy(value);

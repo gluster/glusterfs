@@ -160,6 +160,9 @@ trap(void);
 /* Advisory buffer size for formatted timestamps (see gf_time_fmt) */
 #define GF_TIMESTR_SIZE 256
 
+/* Allow empty relative pathname */
+#define AT_EMPTY_PATH 0x1000
+
 /*
  * we could have initialized these as +ve values and treated
  * them as negative while comparing etc.. (which would have

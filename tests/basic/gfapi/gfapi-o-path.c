@@ -20,6 +20,10 @@
 #define AT_SYMLINK_FOLLOW 0x400
 #endif
 
+#ifndef AT_EMPTY_PATH
+#define AT_EMPTY_PATH 0x1000
+#endif
+
 #define VALIDATE_AND_GOTO_LABEL_ON_ERROR(func, ret, label)                     \
     do {                                                                       \
         if (ret < 0) {                                                         \
@@ -38,11 +42,15 @@ main(int argc, char *argv[])
     glfs_fd_t *fd1 = NULL;
     glfs_fd_t *fd2 = NULL;
     glfs_fd_t *fd3 = NULL;
+    glfs_fd_t *fd4a = NULL;
+    glfs_fd_t *fd4b = NULL;
+    glfs_fd_t *fd5 = NULL;
     char *volname = NULL;
     char *logfile = NULL;
     char *hostname = NULL;
     const char *topdir = "/dir_tmp";
     const char *mkdirat = "/dir_tmp_mkdirat";
+    const char *emptypath_dir = "/dir_tmp/emptypath_dir";
     const char *filename = "file_tmp";
     const char *filename2 = "file_tmp_2";
     const char *filename_linkat = "file_tmp_linkat";
@@ -52,6 +60,7 @@ main(int argc, char *argv[])
     const char *filename_renameat2 = "file_tmp_renameat2";
     const char *filename_unlinkat = "file_tmp_unlinkat";
     const char *dirname_mkdir2_unlinkat = "mkdir2_unlinkat";
+    const char *filename_emptypath = "file_tmp_emptypath";
     const char *filepath = "/dir_tmp/file_tmp";
     const char *filepath_linkat = "/dir_tmp/file_tmp_linkat";
     const char *filepath_symlinkat = "/dir_tmp/file_tmp_symlinkat";
@@ -60,6 +69,8 @@ main(int argc, char *argv[])
     const char *filepath_renameat2 = "/dir_tmp/file_tmp_renameat2";
     const char *filepath_unlinkat = "/dir_tmp/file_tmp_unlinkat";
     const char *dirpath_mkdir2_unlinkat = "/dir_tmp/mkdir2_unlinkat";
+    const char
+        *filepath_emptypath = "/dir_tmp/emptypath_dir/file_tmp_emptypath";
 
     const char *buff =
         "An opinion should be the result of thought, "
@@ -97,6 +108,13 @@ main(int argc, char *argv[])
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mkdir", ret, out);
     }
 
+    ret = glfs_mkdir(fs, emptypath_dir, 0777);
+    fprintf(stderr, "mkdir(%s): %s\n", emptypath_dir, strerror(errno));
+    if (ret) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mkdir", ret, out);
+    }
+
     fd1 = glfs_creat(fs, filepath, O_CREAT | O_RDWR, 0644);
     if (fd1 == NULL) {
         ret = -1;
@@ -111,8 +129,29 @@ main(int argc, char *argv[])
     }
     glfs_close(fd1);
 
+    fd1 = glfs_creat(fs, filepath_emptypath, O_CREAT | O_RDWR, 0777);
+    if (fd1 == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_creat", ret, out);
+    }
+    glfs_close(fd1);
+
     fd1 = glfs_open(fs, topdir, O_PATH);
     if (fd1 == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_open(O_PATH)", ret, out);
+    }
+
+    // For AT_EMPTYPATH flag test on Dir file.
+    fd4a = glfs_open(fs, emptypath_dir, O_PATH);
+    if (fd4a == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_open(O_PATH)", ret, out);
+    }
+
+    // For AT_EMPTYPATH flag test on normal file.
+    fd4b = glfs_open(fs, filepath_emptypath, O_PATH);
+    if (fd4b == NULL) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_open(O_PATH)", ret, out);
     }
@@ -130,6 +169,16 @@ main(int argc, char *argv[])
                                          out);
     }
 
+    fd5 = glfs_openat(fd4a, filename_emptypath, O_RDWR, 0777);
+    if (fd5 == NULL) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_openat(O_CREAT | O_RDWR)", ret,
+                                         out);
+    }
+
+    ret = glfs_write(fd5, buff, strlen(buff), flags);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename)", ret, out);
+
     ret = glfs_write(fd2, buff, strlen(buff), flags);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_write(filename)", ret, out);
 
@@ -145,8 +194,27 @@ main(int argc, char *argv[])
                                          out);
     }
 
+    // fstatat on directory file with `AT_EMPTY_PATH'
+    ret = glfs_fstatat(fd4a, "", &stbuf, AT_EMPTY_PATH);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fstatat", ret, out);
+
+    if (stbuf.st_mode & 0777 != 0777) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR(
+            "glfs_fstatat(AT_EMPTY_PATH) operation failed", ret, out);
+    }
+
+    // fstatat on normal file with `AT_EMPTY_PATH'
+    ret = glfs_fstatat(fd4b, "", &stbuf, AT_EMPTY_PATH);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fstatat", ret, out);
+
+    if (strlen(buff) != stbuf.st_size) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR(
+            "glfs_fstatat(AT_EMPTY_PATH) operation failed", ret, out);
+    }
+
     ret = glfs_mkdirat(fd1, mkdirat, 0755);
-    fprintf(stderr, "mkdirat(%s): %s\n", mkdirat, strerror(errno));
     if (ret) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_mkdirat", ret, out);
@@ -166,7 +234,31 @@ main(int argc, char *argv[])
                                          out);
     }
 
-    ret = glfs_fchownat(fd1, filename, 1001, 1001, flags);
+    ret = glfs_fchownat(fd4a, "", 1001, 1001, AT_EMPTY_PATH);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat", ret, out);
+
+    ret = glfs_stat(fs, emptypath_dir, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    if (stbuf.st_uid != 1001 || stbuf.st_gid != 1001) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed1", ret,
+                                         out);
+    }
+
+    ret = glfs_fchownat(fd4b, "", 1001, 1001, AT_EMPTY_PATH);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat", ret, out);
+
+    ret = glfs_stat(fs, filepath_emptypath, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+
+    if (stbuf.st_uid != 1001 || stbuf.st_gid != 1001) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed2", ret,
+                                         out);
+    }
+
+    ret = glfs_fchownat(fd1, filename, 1001, 1001, 0);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat", ret, out);
 
     ret = glfs_stat(fs, filepath, &stbuf);
@@ -174,7 +266,7 @@ main(int argc, char *argv[])
 
     if (stbuf.st_uid != 1001 || stbuf.st_gid != 1001) {
         ret = -1;
-        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed", ret,
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_fchownat operation failed3", ret,
                                          out);
     }
 
@@ -184,6 +276,7 @@ main(int argc, char *argv[])
     int filename_symlinkat_inode = 0;
     int filename_linkat_inode = 0;
     int filename_inode = 0;
+    int filename_emptypath_inode = 0;
 
     ret = glfs_symlink(fs, filepath, filepath_symlinkat);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_symlink", ret, out);
@@ -192,7 +285,7 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_lstat", ret, out);
     filename_symlinkat_inode = stbuf.st_ino;
 
-    ret = glfs_linkat(fd1, filename_symlinkat, fd1, filename_linkat, flags);
+    ret = glfs_linkat(fd1, filename_symlinkat, fd1, filename_linkat, 0);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
 
     ret = glfs_lstat(fs, filepath_linkat, &stbuf);
@@ -237,7 +330,7 @@ main(int argc, char *argv[])
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
 
     // TEST without 'AT_SYMLINK_FOLLOW' flag & symlink file.
-    ret = glfs_linkat(fd1, filename, fd1, filename_linkat, flags);
+    ret = glfs_linkat(fd1, filename, fd1, filename_linkat, 0);
     VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
 
     ret = glfs_stat(fs, filepath, &stbuf);
@@ -249,6 +342,27 @@ main(int argc, char *argv[])
     filename_linkat_inode = stbuf.st_ino;
 
     if (filename_inode != filename_linkat_inode) {
+        ret = -1;
+        VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat operation failed", ret,
+                                         out);
+    }
+
+    ret = glfs_unlink(fs, filepath_linkat);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_unlink", ret, out);
+
+    // TEST with `AT_EMPTY_PATH`
+    ret = glfs_linkat(fd4b, "", fd1, filename_linkat, AT_EMPTY_PATH);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat", ret, out);
+
+    ret = glfs_stat(fs, filepath_emptypath, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+    filename_emptypath_inode = stbuf.st_ino;
+
+    ret = glfs_stat(fs, filepath_linkat, &stbuf);
+    VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_stat", ret, out);
+    filename_linkat_inode = stbuf.st_ino;
+
+    if (filename_emptypath_inode != filename_linkat_inode) {
         ret = -1;
         VALIDATE_AND_GOTO_LABEL_ON_ERROR("glfs_linkat operation failed", ret,
                                          out);
@@ -345,6 +459,12 @@ out:
         glfs_close(fd3);
     if (fd1 != NULL)
         glfs_close(fd1);
+    if (fd4a != NULL)
+        glfs_close(fd4a);
+    if (fd4b != NULL)
+        glfs_close(fd4b);
+    if (fd5 != NULL)
+        glfs_close(fd5);
     if (fs) {
         (void)glfs_fini(fs);
     }

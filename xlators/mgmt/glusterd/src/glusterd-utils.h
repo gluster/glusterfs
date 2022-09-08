@@ -386,7 +386,7 @@ int
 glusterd_get_dist_leaf_count(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_is_local_brick(xlator_t *this, glusterd_volinfo_t *volinfo,
+glusterd_is_local_brick(glusterd_volinfo_t *volinfo,
                         glusterd_brickinfo_t *brickinfo);
 int
 glusterd_validate_volume_id(dict_t *op_dict, glusterd_volinfo_t *volinfo);

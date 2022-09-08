@@ -17,8 +17,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=2
 primary_mnt=$M0
@@ -53,8 +52,8 @@ TEST glusterfs -s $H0 --volfile-id $GSV0 $M1
 ############################################################
 
 #Test invalid secondary url
-TEST ! $GEOREP_CLI $primary ${SH0}:${GSV0} create push-pem
-TEST ! $GEOREP_CLI $primary ${SH0}:::${GSV0} create push-pem
+TEST ! $GEOREP_CLI $primary ${H0}:${GSV0} create push-pem
+TEST ! $GEOREP_CLI $primary ${H0}:::${GSV0} create push-pem
 
 #Create geo-rep session
 TEST create_georep_session $primary $secondary

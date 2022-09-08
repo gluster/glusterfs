@@ -1226,3 +1226,11 @@ out:
     GF_FREE(lpath);
     return target_object;
 }
+
+void
+fd_to_loc(struct glfs_fd *glfd, loc_t *loc)
+{
+    loc->inode = inode_ref(glfd->fd->inode);
+    loc->parent = inode_parent(glfd->fd->inode, NULL, NULL);
+    uuid_copy(loc->gfid, glfd->fd->inode->gfid);
+}

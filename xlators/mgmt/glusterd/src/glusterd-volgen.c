@@ -6043,7 +6043,7 @@ build_bitd_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(volinfo, brickinfo))
             continue;
 
         xl = volgen_graph_build_client(&cgraph, volinfo, brickinfo->hostname,
@@ -6116,7 +6116,7 @@ build_bitd_graph(volgen_graph_t *graph, dict_t *mod_dict)
 
         cds_list_for_each_entry(brickinfo, &voliter->bricks, brick_list)
         {
-            if (!glusterd_is_local_brick(this, voliter, brickinfo))
+            if (!glusterd_is_local_brick(voliter, brickinfo))
                 continue;
             numbricks++;
         }
@@ -6197,7 +6197,7 @@ build_scrub_volume_graph(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
-        if (!glusterd_is_local_brick(this, volinfo, brickinfo))
+        if (!glusterd_is_local_brick(volinfo, brickinfo))
             continue;
 
         xl = volgen_graph_build_client(&cgraph, volinfo, brickinfo->hostname,
