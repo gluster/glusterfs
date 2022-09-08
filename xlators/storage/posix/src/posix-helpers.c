@@ -134,7 +134,7 @@ posix_handle_georep_xattrs(call_frame_t *frame, const char *name, int *op_errno,
                                          "*.glusterfs.lockinfo",
                                          "*.glusterfs.*.entry_stime",
                                          "*.glusterfs.volume-mark.*",
-                                         "trusted.SGI_ACL_FILE",
+                                         "trusted.SGI_*",
                                          NULL};
 
     if (!name) {
