@@ -3028,6 +3028,7 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
 {
     server_cmdline_t *server = NULL;
     server_cmdline_t *tmp = NULL;
+    char *duphost = NULL;
     int ret = -1;
 
     GF_VALIDATE_OR_GOTO(THIS->name, cmd_args, out);
@@ -3044,17 +3045,20 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     INIT_LIST_HEAD(&server->list);
     server->port = port;
 
-    char *duphost = gf_strdup(host);
-    if (duphost) {
-        char *lastptr = rindex(duphost, ':');
-        if (lastptr) {
-            *lastptr = '\0';
-            long port_argument = strtol(lastptr + 1, NULL, 0);
-            if (!port_argument) {
-                port_argument = port;
-            }
-            server->port = port_argument;
+    duphost = gf_strdup(host);
+    if (!duphost) {
+        errno = ENOMEM;
+        goto out;
+    }
+
+    char *lastptr = rindex(duphost, ':');
+    if (lastptr) {
+        *lastptr = '\0';
+        long port_argument = strtol(lastptr + 1, NULL, 0);
+        if (!port_argument) {
+            port_argument = port;
         }
+        server->port = port_argument;
     }
     server->volfile_server = gf_strdup(duphost);
     if (!server->volfile_server) {
@@ -3093,14 +3097,14 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     ret = 0;
 out:
     if (-1 == ret) {
-        if (duphost)
-            GF_FREE(duphost);
         if (server) {
             GF_FREE(server->volfile_server);
             GF_FREE(server->transport);
             GF_FREE(server);
         }
     }
+    if (duphost)
+        GF_FREE(duphost);
 
     return ret;
 }

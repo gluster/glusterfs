@@ -66,7 +66,8 @@ server_getspec(rpcsvc_request_t *req)
         goto out;
     }
 
-    /* By default, the behavior is not to return anything if specific option is not set */
+    /* By default, the behavior is not to return anything if specific option is
+     * not set */
     if (!conf->volfile_dir) {
         ret = -1;
         op_errno = ENOTSUP;
@@ -74,6 +75,13 @@ server_getspec(rpcsvc_request_t *req)
         goto out;
     }
     char *volid = args.key;
+    if (strstr(volid, "../")) {
+        op_errno = EINVAL;
+        rsp.spec = "having '../' in volid is not valid";
+        rsp.op_errno = gf_errno_to_error(op_errno);
+        rsp.op_ret = -1;
+        goto out;
+    }
     ret = snprintf(volpath, PATH_MAX - 1, "%s/%s.vol", conf->volfile_dir,
                    volid);
     if (ret == -1) {

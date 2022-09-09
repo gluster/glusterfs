@@ -869,6 +869,10 @@ server_reconfigure(xlator_t *this, dict_t *options)
     if (statedump_path) {
         gf_path_strip_trailing_slashes(statedump_path);
         conf->volfile_dir = gf_strdup(statedump_path);
+        if (!conf->volfile_dir) {
+            ret = -1;
+            goto out;
+        }
     }
 do_auth:
     if (conf->auth_modules)
@@ -1177,6 +1181,12 @@ server_init(xlator_t *this)
     if (statedump_path) {
         gf_path_strip_trailing_slashes(statedump_path);
         conf->volfile_dir = gf_strdup(statedump_path);
+        if (!conf->volfile_dir) {
+            gf_smsg(this->name, GF_LOG_ERROR, 0,
+                    PS_MSG_SET_STATEDUMP_PATH_ERROR, NULL);
+            ret = -1;
+            goto err;
+        }
     }
 
     /* Authentication modules */
@@ -1944,8 +1954,8 @@ struct volume_options server_options[] = {
      .default_value = "off",
      .description = "strict-auth-accept reject connection with out"
                     "a valid username and password."},
-    /* As we append '${volid}.vol' at the end of this path, the
-       security issue is not present */
+    /* As we append '${volid}.vol' at the end of this path, no systemfiles
+       would be exposed through this option */
     {.key = {"volspec-directory", "volfile-path"},
      .type = GF_OPTION_TYPE_PATH,
      .default_value = NULL},
