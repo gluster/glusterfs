@@ -34,14 +34,14 @@ static const char gzip_header[10] = {'\037', '\213', Z_DEFLATED,  0, 0, 0, 0,
                                      0,      0,      GF_CDC_OS_ID};
 
 static int32_t
-cdc_next_iovec(xlator_t *this, cdc_info_t *ci)
+cdc_next_iovec(cdc_info_t *ci)
 {
     int ret = -1;
 
     ci->ncount++;
     /* check for iovec overflow -- should not happen */
-    if (ci->ncount == MAX_IOVEC) {
-        gf_log(this->name, GF_LOG_ERROR,
+    if (caa_unlikely(ci->ncount == MAX_IOVEC)) {
+        gf_log(THIS->name, GF_LOG_ERROR,
                "Zlib output buffer overflow"
                " ->ncount (%d) | ->MAX_IOVEC (%d)",
                ci->ncount, MAX_IOVEC);
@@ -71,12 +71,12 @@ cdc_get_long(unsigned char *buf)
 }
 
 static int32_t
-cdc_init_gzip_trailer(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
+cdc_init_gzip_trailer(cdc_info_t *ci)
 {
     int ret = -1;
     char *buf = NULL;
 
-    ret = cdc_next_iovec(this, ci);
+    ret = cdc_next_iovec(ci);
     if (ret)
         goto out;
 
@@ -98,25 +98,24 @@ out:
 }
 
 static int32_t
-cdc_alloc_iobuf_and_init_vec(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci,
-                             int size)
+cdc_alloc_iobuf_and_init_vec(xlator_t *this, cdc_info_t *ci, int size)
 {
     int ret = -1;
     int alloc_len = 0;
     struct iobuf *iobuf = NULL;
 
-    ret = cdc_next_iovec(this, ci);
-    if (ret)
+    ret = cdc_next_iovec(ci);
+    if (caa_unlikely(ret))
         goto out;
 
     alloc_len = size ? size : ci->buffer_size;
 
     iobuf = iobuf_get2(this->ctx->iobuf_pool, alloc_len);
-    if (!iobuf)
+    if (caa_unlikely(!iobuf))
         goto out;
 
     ret = iobref_add(ci->iobref, iobuf);
-    if (ret)
+    if (caa_unlikely(ret))
         goto out;
 
     /* Initialize this iovec */
@@ -130,7 +129,7 @@ out:
 }
 
 static void
-cdc_init_zlib_output_stream(cdc_priv_t *priv, cdc_info_t *ci, int size)
+cdc_init_zlib_output_stream(cdc_info_t *ci, int size)
 {
     ci->stream.next_out = (unsigned char *)CURR_VEC(ci).iov_base;
     ci->stream.avail_out = size ? size : ci->buffer_size;
@@ -140,7 +139,7 @@ cdc_init_zlib_output_stream(cdc_priv_t *priv, cdc_info_t *ci, int size)
  * Data written = header(10) + <compressed-data> + trailer(8)
  * So each gzip dump file is at least 18 bytes in size.
  */
-void
+static void
 cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
 {
     int i = 0;
@@ -169,7 +168,7 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
 }
 
 static int32_t
-cdc_flush_libz_buffer(cdc_priv_t *priv, xlator_t *this, cdc_info_t *ci,
+cdc_flush_libz_buffer(xlator_t *this, cdc_info_t *ci,
                       int (*libz_func)(z_streamp, int), int flush)
 {
     int32_t ret = Z_OK;
@@ -182,14 +181,14 @@ cdc_flush_libz_buffer(cdc_priv_t *priv, xlator_t *this, cdc_info_t *ci,
         if (deflate_len != 0) {
             CURR_VEC(ci).iov_len = deflate_len;
 
-            ret = cdc_alloc_iobuf_and_init_vec(this, priv, ci, 0);
+            ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
             if (ret) {
                 ret = Z_MEM_ERROR;
                 break;
             }
 
             /* Re-position Zlib output buffer */
-            cdc_init_zlib_output_stream(priv, ci, 0);
+            cdc_init_zlib_output_stream(ci, 0);
         }
 
         if (done) {
@@ -215,27 +214,16 @@ cdc_flush_libz_buffer(cdc_priv_t *priv, xlator_t *this, cdc_info_t *ci,
 }
 
 static int32_t
-do_cdc_compress(struct iovec *vec, xlator_t *this, cdc_priv_t *priv,
-                cdc_info_t *ci)
+do_cdc_compress(struct iovec *vec, xlator_t *this, cdc_info_t *ci)
 {
     int ret = -1;
 
-    /* Initialize defalte */
-    ret = deflateInit2(&ci->stream, priv->cdc_level, Z_DEFLATED,
-                       priv->window_size, priv->mem_level, Z_DEFAULT_STRATEGY);
-
-    if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "unable to init Zlib (retval: %d)",
-               ret);
-        goto out;
-    }
-
-    ret = cdc_alloc_iobuf_and_init_vec(this, priv, ci, 0);
+    ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
     if (ret)
         goto out;
 
     /* setup output buffer */
-    cdc_init_zlib_output_stream(priv, ci, 0);
+    cdc_init_zlib_output_stream(ci, 0);
 
     /* setup input buffer */
     ci->stream.next_in = (unsigned char *)vec->iov_base;
@@ -251,12 +239,12 @@ do_cdc_compress(struct iovec *vec, xlator_t *this, cdc_priv_t *priv,
         if (ci->stream.avail_out == 0) {
             CURR_VEC(ci).iov_len = ci->buffer_size;
 
-            ret = cdc_alloc_iobuf_and_init_vec(this, priv, ci, 0);
+            ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
             if (ret)
                 break;
 
             /* Re-position Zlib output buffer */
-            cdc_init_zlib_output_stream(priv, ci, 0);
+            cdc_init_zlib_output_stream(ci, 0);
         }
 
         ret = deflate(&ci->stream, Z_NO_FLUSH);
@@ -288,15 +276,25 @@ cdc_compress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t **xdata)
         }
     }
 
+    /* Initialize defalte */
+    ret = deflateInit2(&ci->stream, priv->cdc_level, Z_DEFLATED,
+                       priv->window_size, priv->mem_level, Z_DEFAULT_STRATEGY);
+
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR, "unable to init Zlib (retval: %d)",
+               ret);
+        goto out;
+    }
+
     /* data */
     for (i = 0; i < ci->count; i++) {
-        ret = do_cdc_compress(&ci->vector[i], this, priv, ci);
+        ret = do_cdc_compress(&ci->vector[i], this, ci);
         if (ret != Z_OK)
             goto deflate_cleanup_out;
     }
 
     /* flush zlib buffer */
-    ret = cdc_flush_libz_buffer(priv, this, ci, deflate, Z_FINISH);
+    ret = cdc_flush_libz_buffer(this, ci, deflate, Z_FINISH);
     if (!(ret == Z_OK || ret == Z_STREAM_END)) {
         gf_log(this->name, GF_LOG_ERROR, "Compression Error: ret (%d)", ret);
         ret = -1;
@@ -304,7 +302,7 @@ cdc_compress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t **xdata)
     }
 
     /* trailer */
-    ret = cdc_init_gzip_trailer(this, priv, ci);
+    ret = cdc_init_gzip_trailer(ci);
     if (ret)
         goto deflate_cleanup_out;
 
@@ -317,7 +315,7 @@ cdc_compress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t **xdata)
     ret = dict_set_int32(*xdata, GF_CDC_DEFLATE_CANARY_VAL, 1);
     if (ret) {
         /* Send uncompressed data if we can't _tell_ the client
-         * that deflated data is on it's way. So, we just log
+         * that deflated data is on its way. So, we just log
          * the failure and continue as usual.
          */
         gf_log(this->name, GF_LOG_ERROR,
@@ -368,7 +366,7 @@ cdc_validate_inflate(cdc_info_t *ci, unsigned long crc, unsigned long len)
 }
 
 static int32_t
-do_cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
+do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
 {
     int ret = -1;
     int i = 0;
@@ -380,12 +378,6 @@ do_cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
     };
     unsigned long computed_crc = 0;
     unsigned long computed_len = 0;
-
-    ret = inflateInit2(&ci->stream, priv->window_size);
-    if (ret) {
-        gf_log(this->name, GF_LOG_ERROR, "Zlib: Unable to initialize inflate");
-        goto out;
-    }
 
     vec = THIS_VEC(ci, 0);
 
@@ -405,12 +397,12 @@ do_cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
     len = vec.iov_len - GF_CDC_VALIDATION_SIZE;
 
     /* allocate buffer of the original length of the data */
-    ret = cdc_alloc_iobuf_and_init_vec(this, priv, ci, 0);
+    ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
     if (ret)
         goto out;
 
     /* setup output buffer */
-    cdc_init_zlib_output_stream(priv, ci, 0);
+    cdc_init_zlib_output_stream(ci, 0);
 
     /* setup input buffer */
     ci->stream.next_in = (unsigned char *)inflte;
@@ -420,12 +412,12 @@ do_cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
         if (ci->stream.avail_out == 0) {
             CURR_VEC(ci).iov_len = ci->buffer_size;
 
-            ret = cdc_alloc_iobuf_and_init_vec(this, priv, ci, 0);
+            ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
             if (ret)
                 break;
 
             /* Re-position Zlib output buffer */
-            cdc_init_zlib_output_stream(priv, ci, 0);
+            cdc_init_zlib_output_stream(ci, 0);
         }
 
         ret = inflate(&ci->stream, Z_NO_FLUSH);
@@ -434,14 +426,14 @@ do_cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci)
     }
 
     /* flush zlib buffer */
-    ret = cdc_flush_libz_buffer(priv, this, ci, inflate, Z_SYNC_FLUSH);
+    ret = cdc_flush_libz_buffer(this, ci, inflate, Z_SYNC_FLUSH);
     if (!(ret == Z_OK || ret == Z_STREAM_END)) {
         gf_log(this->name, GF_LOG_ERROR, "Decompression Error: ret (%d)", ret);
         ret = -1;
         goto out;
     }
 
-    /* compute CRC of the uncompresses data to check for
+    /* compute CRC of the uncompressed data to check for
      * correctness */
 
     for (i = 0; i < ci->ncount; i++) {
@@ -504,7 +496,13 @@ cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t *xdata)
         /* TODO: coallate all iovecs in one */
     }
 
-    ret = do_cdc_decompress(this, priv, ci);
+    ret = inflateInit2(&ci->stream, priv->window_size);
+    if (ret) {
+        gf_log(this->name, GF_LOG_ERROR, "Zlib: Unable to initialize inflate");
+        goto inflate_cleanup_out;
+    }
+
+    ret = do_cdc_decompress(this, ci);
     if (ret)
         goto inflate_cleanup_out;
 

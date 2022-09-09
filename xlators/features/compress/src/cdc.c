@@ -22,7 +22,7 @@ cdc_cleanup_iobref(cdc_info_t *ci)
     iobref_clear(ci->iobref);
 }
 
-int32_t
+static int32_t
 cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, struct iovec *vector, int32_t count,
               struct iatt *stbuf, struct iobref *iobref, dict_t *xdata)
@@ -36,10 +36,10 @@ cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     GF_VALIDATE_OR_GOTO("cdc", this, default_out);
     GF_VALIDATE_OR_GOTO(this->name, frame, default_out);
 
-    priv = this->private;
-
     if (op_ret <= 0)
         goto default_out;
+
+    priv = this->private;
 
     if ((priv->min_file_size != 0) && (op_ret < priv->min_file_size))
         goto default_out;
@@ -87,7 +87,7 @@ cdc_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 }
 
-int32_t
+static int32_t
 cdc_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                struct iatt *postbuf, dict_t *xdata)
@@ -112,12 +112,12 @@ cdc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     GF_VALIDATE_OR_GOTO("cdc", this, err);
     GF_VALIDATE_OR_GOTO(this->name, frame, err);
 
-    priv = this->private;
-
     isize = iov_length(vector, count);
 
     if (isize <= 0)
         goto default_out;
+
+    priv = this->private;
 
     if ((priv->min_file_size != 0) && (isize < priv->min_file_size))
         goto default_out;
@@ -304,13 +304,13 @@ struct volume_options options[] = {
                     "compression ratio; memLevel=9 uses maximum memory "
                     "for optimal speed. The default value is 8."},
     {.key = {"compression-level"},
-     .default_value = "-1",
+     .default_value = "1",
      .type = GF_OPTION_TYPE_INT,
      .description = "Compression levels \n"
                     "0 : no compression, 1 : best speed, \n"
                     "9 : best compression, -1 : default compression "},
     {.key = {"min-size"},
-     .default_value = "0",
+     .default_value = "1024",
      .type = GF_OPTION_TYPE_INT,
      .description = "Data is compressed only when its size exceeds this."},
     {.key = {"mode"},

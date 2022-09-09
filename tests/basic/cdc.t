@@ -43,6 +43,9 @@ TEST ! $CLI volume set $V0 network.compression.mode client
 TEST $CLI volume set $V0 network.compression.debug on
 EXPECT 'on' volinfo_field $V0 'network.compression.debug'
 
+## don't use min-size, so any size will be compressed.
+TEST $CLI volume set $V0 network.compression.min-size 0
+
 ## Start the volume
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
