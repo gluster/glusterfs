@@ -244,19 +244,12 @@ ec_dict_set_number(dict_t *dict, char *key, uint64_t value)
     int ret = -1;
     uint64_t *ptr;
 
-    if (value == 0) {
-        ptr = GF_CALLOC(1, sizeof(value), gf_common_mt_char);
-        if (ptr == NULL) {
-            return -ENOMEM;
-        }
-    } else {
-        ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
-        if (ptr == NULL) {
-            return -ENOMEM;
-        }
-
-        *ptr = htobe64(value);
+    ptr = GF_MALLOC(sizeof(value), gf_common_mt_char);
+    if (ptr == NULL) {
+        return -ENOMEM;
     }
+
+    *ptr = htobe64(value);
 
     ret = dict_set_bin(dict, key, ptr, sizeof(value));
     if (ret)

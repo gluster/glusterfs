@@ -253,7 +253,7 @@ ec_heal_report(call_frame_t *frame, void *cookie, xlator_t *this,
 }
 
 static uintptr_t
-ec_fop_needs_name_heal(ec_fop_data_t *fop, ec_t *ec)
+ec_fop_needs_name_heal(ec_t *ec, ec_fop_data_t *fop)
 {
     ec_cbk_data_t *cbk = NULL;
     ec_cbk_data_t *enoent_cbk = NULL;
@@ -279,7 +279,7 @@ ec_fop_needs_name_heal(ec_fop_data_t *fop, ec_t *ec)
 }
 
 static int32_t
-ec_fop_needs_heal(ec_fop_data_t *fop, ec_t *ec)
+ec_fop_needs_heal(ec_t *ec, ec_fop_data_t *fop)
 {
     if (fop->lock_count == 0) {
         /*
@@ -303,7 +303,7 @@ ec_check_status(ec_fop_data_t *fop)
     int32_t partial = 0;
     char str1[32], str2[32], str3[32], str4[32], str5[32];
 
-    if (!ec_fop_needs_name_heal(fop, ec) && !ec_fop_needs_heal(fop, ec)) {
+    if (!ec_fop_needs_name_heal(ec, fop) && !ec_fop_needs_heal(ec, fop)) {
         return;
     }
 
@@ -979,7 +979,7 @@ ec_lock_destroy(ec_lock_t *lock)
     mem_put(lock);
 }
 
-static int
+static bool
 ec_lock_compare(ec_lock_t *lock1, ec_lock_t *lock2)
 {
     return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
@@ -1541,8 +1541,6 @@ unlock:
      * fop.
      */
     if (lock->fd == NULL) {
-        memset(&loc, 0, sizeof(loc));
-
         error = ec_loc_from_loc(fop->xl, &loc, &lock->loc);
         if (error != 0) {
             goto out;
@@ -2780,7 +2778,7 @@ ec_unlock_timer_add(ec_lock_link_t *link)
 
     /* If the fop detects that a heal is needed, we mark the lock to be
      * released as soon as possible. */
-    lock->release |= ec_fop_needs_heal(fop, ec);
+    lock->release |= ec_fop_needs_heal(ec, fop);
 
     if (lock->refs_owners > 1) {
         ec_trace("UNLOCK_SKIP", fop, "lock=%p", lock);
