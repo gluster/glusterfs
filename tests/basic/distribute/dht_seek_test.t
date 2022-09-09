@@ -4,8 +4,7 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../dht.rc
 
-SCRIPT_TIMEOUT=300
-TESTS_EXPECTED_IN_LOOP=76
+TESTS_EXPECTED_IN_LOOP=57
 # Initialize
 #------------------------------------------------------------
 cleanup;
@@ -28,7 +27,6 @@ EXPECT 'Started' volinfo_field $V0 'Status';
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 
 for i in {1..20}; do
-    TEST dd if=/dev/urandom of=${M0}/file.${i} bs=1k count=1
     TEST dd if=/dev/urandom of=${M0}/file.${i} bs=1k count=1 seek=128
 done
 

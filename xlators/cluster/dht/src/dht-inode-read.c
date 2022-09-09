@@ -1727,7 +1727,7 @@ dht_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         goto out;
     }
 
-    if ((op_errno == ENXIO) || (op_errno == EOVERFLOW))
+    if ((op_ret == -1) && ((op_errno == ENXIO) || (op_errno == EOVERFLOW)))
         goto out;
 
     if (!op_ret || (local->call_cnt != 1))
@@ -1752,9 +1752,6 @@ dht_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     xlator_t *subvol = NULL;
     dht_local_t *local = NULL;
     int op_errno = EINVAL;
-
-    if (!frame || !this || !fd)
-        goto err;
 
     local = dht_local_init(frame, NULL, fd, GF_FOP_SEEK);
     if (!local) {
@@ -1783,7 +1780,6 @@ dht_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     return 0;
 
 err:
-    op_errno = (op_errno == -1) ? errno : op_errno;
     DHT_STACK_UNWIND(seek, frame, -1, op_errno, offset, xdata);
 
     return 0;
