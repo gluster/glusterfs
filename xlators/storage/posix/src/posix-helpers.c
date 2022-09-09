@@ -468,7 +468,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
             }
 
             read_len = sys_read(_fd, databuf, filler->stbuf->ia_size);
-            if (read_len <= 0) {
+            if (read_len < 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                        P_MSG_XDATA_GETXATTR, "Read on file %s failed",
                        filler->real_path);
