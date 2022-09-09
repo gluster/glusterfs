@@ -150,7 +150,7 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 }
 
 static bool
-gf_mem_acct_enabled(xlator_t *x)
+gf_mem_acct_enabled(xlator_t *xl)
 {
     /* Low-level __gf_xxx() may be called
        before ctx is initialized. */
