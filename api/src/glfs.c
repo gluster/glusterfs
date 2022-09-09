@@ -651,6 +651,30 @@ unset_fop_attr(dict_t **fop_attr)
     }
 }
 
+int
+validate_open_flags(int flags, ia_type_t ia_type)
+{
+    int ret = 0;
+
+    if (IA_ISDIR(ia_type)) {
+        if ((flags & (O_RDWR | O_WRONLY)) ||
+            ((flags & O_CREAT) && !(flags & O_DIRECTORY))) {
+            ret = -1;
+            errno = EISDIR;
+        }
+    } else {
+        if (flags & O_DIRECTORY) {
+            ret = -1;
+            errno = ENOTDIR;
+        } else if (!IA_ISREG(ia_type)) {
+            ret = -1;
+            errno = EINVAL;
+        }
+    }
+
+    return ret;
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_from_glfd, 3.4.0)
 struct glfs *
 pub_glfs_from_glfd(struct glfs_fd *glfd)
