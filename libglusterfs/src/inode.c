@@ -197,12 +197,6 @@ __is_dentry_hashed(dentry_t *dentry)
 }
 
 static void
-__dentry_unhash(dentry_t *dentry)
-{
-    list_del_init(&dentry->hash);
-}
-
-static void
 dentry_destroy(dentry_t *dentry)
 {
     if (dentry) {
@@ -218,9 +212,8 @@ __dentry_unset(dentry_t *dentry)
     if (!dentry)
         return NULL;
 
-    __dentry_unhash(dentry);
-
     list_del_init(&dentry->inode_list);
+    list_del_init(&dentry->hash);
 
     if (dentry->parent) {
         GF_ATOMIC_DEC(dentry->parent->kids);
@@ -233,8 +226,8 @@ __dentry_unset(dentry_t *dentry)
 
 static int
 __foreach_ancestor_dentry(dentry_t *dentry,
-                          int(per_dentry_fn)(dentry_t *dentry, void *data),
-                          void *data)
+                          int(per_dentry_fn)(dentry_t *dentry, inode_t *data),
+                          inode_t *data)
 {
     inode_t *parent = NULL;
     dentry_t *each = NULL;
@@ -271,7 +264,7 @@ out:
 }
 
 static int
-__check_cycle(dentry_t *a_dentry, void *data)
+__check_cycle(dentry_t *a_dentry, inode_t *data)
 {
     inode_t *link_inode = NULL;
 
@@ -296,12 +289,6 @@ __is_dentry_cyclic(dentry_t *dentry)
     }
 
     return ret;
-}
-
-static void
-__inode_unhash(inode_t *inode)
-{
-    list_del_init(&inode->hash);
 }
 
 static int
@@ -363,10 +350,12 @@ __inode_ctx_free(inode_t *inode)
                     old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
-                THIS = old_THIS;
             }
         }
     }
+
+    if (old_THIS)
+        THIS = old_THIS;
 
     GF_FREE(inode->_ctx);
     inode->_ctx = NULL;
@@ -454,7 +443,7 @@ __inode_retire(inode_t *inode)
     list_move_tail(&inode->list, &inode->table->purge);
     inode->table->purge_size++;
 
-    __inode_unhash(inode);
+    list_del_init(&inode->hash);
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
