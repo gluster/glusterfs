@@ -1063,11 +1063,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             dentry->parent = __inode_ref(parent, false);
             GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
-            if (parent->ns_inode)
-                link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
-            else
-                link_inode->ns_inode = NULL;
-
+            link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
                 dentry_destroy(__dentry_unset(dentry));
@@ -1339,8 +1335,7 @@ inode_rename(inode_table_t *table, inode_t *srcdir, const char *srcname,
     /* free the old dentry */
     dentry_destroy(dentry);
 
-    if (table)
-        inode_table_prune(table);
+    inode_table_prune(table);
 
     return 0;
 }
