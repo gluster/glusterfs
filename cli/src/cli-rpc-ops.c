@@ -5687,7 +5687,7 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     cli_out("%12s: %" PRId64 " seconds", "End time", end_time);
     cli_out("%12s: %" PRId64 " bytes", "Data Read", r_count);
     cli_out("%12s: %" PRId64 " bytes", "Data Written", w_count);
-    cli_out("%12s: %" PRId64, "FOPS/S", fop_hits_per_sec);
+    cli_out("%12s: %" PRId64 " ", "fops/s", fop_hits_per_sec);
 
     cli_out(" ");
 }

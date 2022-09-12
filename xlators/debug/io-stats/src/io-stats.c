@@ -1409,16 +1409,15 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
        In case if last_fop_hit value is 0 then consider now
        to measure the duration
     */
-    if (conf->last_fop_hit)
+    if (conf->last_fop_hit) {
         duration = (conf->last_fop_hit - stats->started_at);
-    else
-        duration = (now - stats->started_at);
-
-    if (duration > 0) {
-        ios_log(this, logfp, "FOPS/S : %" PRIu64, (total_fop_hits / duration));
+        ios_log(this, logfp, "fops/s : %" PRIu64,
+                (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
         ios_log(this, logfp, "\n");
     } else {
-        ios_log(this, logfp, "FOPS/S : %" PRIu64, total_fop_hits);
+        duration = (now - stats->started_at);
+        ios_log(this, logfp, "fops/s : %" PRIu64,
+                (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
         ios_log(this, logfp, "\n");
     }
 
@@ -1520,9 +1519,8 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
     if (conf->last_fop_hit) {
         sec = (conf->last_fop_hit - stats->started_at);
         end_time = conf->last_fop_hit;
-    } else {
-        sec = (now - stats->started_at);
     }
+
     ret = dict_set_uint64(dict, key, sec);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
@@ -1662,9 +1660,10 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
     }
 
     /* Set the fop-hit-per-sec only for incremental stats */
-    if (total_fop_hits && (interval >= 0) && (sec > 0)) {
+    if (total_fop_hits && (interval >= 0)) {
         snprintf(key, sizeof(key), "%d-fop-hits-per-sec", interval);
-        ret = dict_set_uint64(dict, key, (total_fop_hits / sec));
+        ret = dict_set_uint64(
+            dict, key, (sec != 0 ? (total_fop_hits / sec) : (total_fop_hits)));
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR,
                    "failed to "
