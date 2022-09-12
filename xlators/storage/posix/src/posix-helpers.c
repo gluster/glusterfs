@@ -449,7 +449,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
 
         /* file content request */
         req_size = data_to_uint64(data);
-        if (req_size >= filler->stbuf->ia_size && filler->stbuf->ia_size > 0) {
+        if (req_size >= filler->stbuf->ia_size) {
 #ifdef GF_LINUX_HOST_OS
             _fd = open(filler->real_path, O_RDONLY | O_NOATIME);
 #else /* O_NOATIME does not exist on BSD */
