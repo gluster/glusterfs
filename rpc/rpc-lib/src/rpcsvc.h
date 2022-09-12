@@ -35,70 +35,20 @@ typedef enum {
 
 #define RPCSVC_DEFAULT_OUTSTANDING_RPC_LIMIT                                   \
     64 /* Default for protocol/server */
+#ifdef BUILD_GNFS
 #define RPCSVC_DEF_NFS_OUTSTANDING_RPC_LIMIT 16 /* Default for nfs/server */
+#endif
 #define RPCSVC_MAX_OUTSTANDING_RPC_LIMIT 65536
 #define RPCSVC_MIN_OUTSTANDING_RPC_LIMIT 0 /* No limit i.e. Unlimited */
 
 #define GF_RPCSVC "rpc-service"
-#define RPCSVC_THREAD_STACK_SIZE ((size_t)(1024 * GF_UNIT_KB))
 
-#define RPCSVC_FRAGHDR_SIZE 4 /* 4-byte RPC fragment header size */
-#define RPCSVC_DEFAULT_LISTEN_PORT GF_DEFAULT_BASE_PORT
 #define RPCSVC_DEFAULT_MEMFACTOR 8
-#define RPCSVC_EVENTPOOL_SIZE_MULT 1024
 #define RPCSVC_POOLCOUNT_MULT 64
-#define RPCSVC_CONN_READ (128 * GF_UNIT_KB)
-#define RPCSVC_PAGE_SIZE (128 * GF_UNIT_KB)
 #define RPC_ROOT_UID 0
 #define RPC_ROOT_GID 0
 #define RPC_NOBODY_UID 65534
 #define RPC_NOBODY_GID 65534
-
-/* RPC Record States */
-#define RPCSVC_READ_FRAGHDR 1
-#define RPCSVC_READ_FRAG 2
-/* The size in bytes, if crossed by a fragment will be handed over to the
- * vectored actor so that it can allocate its buffers the way it wants.
- * In our RPC layer, we assume that vectored RPC requests/records are never
- * spread over multiple RPC fragments since that prevents us from determining
- * whether the record should be handled in RPC layer completely or handed to
- * the vectored handler.
- */
-#define RPCSVC_VECTORED_FRAGSZ 4096
-#define RPCSVC_VECTOR_READCRED 1003
-#define RPCSVC_VECTOR_READVERFSZ 1004
-#define RPCSVC_VECTOR_READVERF 1005
-#define RPCSVC_VECTOR_IGNORE 1006
-#define RPCSVC_VECTOR_READVEC 1007
-#define RPCSVC_VECTOR_READPROCHDR 1008
-
-#define rpcsvc_record_vectored_baremsg(rs)                                     \
-    (((rs)->state == RPCSVC_READ_FRAG) && (rs)->vecstate == 0)
-#define rpcsvc_record_vectored_cred(rs)                                        \
-    ((rs)->vecstate == RPCSVC_VECTOR_READCRED)
-#define rpcsvc_record_vectored_verfsz(rs)                                      \
-    ((rs)->vecstate == RPCSVC_VECTOR_READVERFSZ)
-#define rpcsvc_record_vectored_verfread(rs)                                    \
-    ((rs)->vecstate == RPCSVC_VECTOR_READVERF)
-#define rpcsvc_record_vectored_ignore(rs)                                      \
-    ((rs)->vecstate == RPCSVC_VECTOR_IGNORE)
-#define rpcsvc_record_vectored_readvec(rs)                                     \
-    ((rs)->vecstate == RPCSVC_VECTOR_READVEC)
-#define rpcsvc_record_vectored_readprochdr(rs)                                 \
-    ((rs)->vecstate == RPCSVC_VECTOR_READPROCHDR)
-#define rpcsvc_record_vectored(rs) ((rs)->fragsize > RPCSVC_VECTORED_FRAGSZ)
-/* Includes bytes up to and including the credential length field. The credlen
- * will be followed by @credlen bytes of credential data which will have to be
- * read separately by the vectored reader. After the credentials comes the
- * verifier which will also have to be read separately including the 8 bytes of
- * verf flavour and verflen.
- */
-#define RPCSVC_BARERPC_MSGSZ 32
-#define rpcsvc_record_readfraghdr(rs) ((rs)->state == RPCSVC_READ_FRAGHDR)
-#define rpcsvc_record_readfrag(rs) ((rs)->state == RPCSVC_READ_FRAG)
-
-#define RPCSVC_LOWVERS 2
-#define RPCSVC_HIGHVERS 2
 
 #if 0
 #error "defined in /usr/include/rpc/auth.h"

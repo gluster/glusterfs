@@ -66,8 +66,10 @@ rpcsvc_notify(rpc_transport_t *trans, void *mydata, rpc_transport_event_t event,
 void *
 rpcsvc_request_handler(void *arg);
 
+#ifdef BUILD_GNFS
 static int
 rpcsvc_match_subnet_v4(const char *addrtok, const char *ipaddr);
+#endif
 
 static void
 rpcsvc_toggle_queue_status(rpcsvc_program_t *prog,
@@ -1609,10 +1611,13 @@ rpcsvc_error_reply(rpcsvc_request_t *req)
 int
 rpcsvc_program_register_rpcbind6(rpcsvc_program_t *newprog, uint32_t port)
 {
+#ifndef BUILD_GNFS
+    return 0;
+#else
+    int err = 0;
     const int IP_BUF_LEN = 64;
     char addr_buf[IP_BUF_LEN];
 
-    int err = 0;
     bool_t success = 0;
     struct netconfig *nc;
     struct netbuf *nb;
@@ -1656,6 +1661,7 @@ rpcsvc_program_register_rpcbind6(rpcsvc_program_t *newprog, uint32_t port)
 
 out:
     return err;
+#endif  // BUILD_GNFS
 }
 
 int
@@ -1686,14 +1692,16 @@ rpcsvc_program_unregister_rpcbind6(rpcsvc_program_t *newprog)
 out:
     return err;
 }
-#endif
+#endif  // IPV6_DEFAULT
 
 /* Register the program with the local portmapper service. */
 int
 rpcsvc_program_register_portmap(rpcsvc_program_t *newprog, uint32_t port)
 {
+#ifndef BUILD_GNFS
+    return 0;
+#else
     int ret = -1; /* FAIL */
-
     if (!newprog) {
         goto out;
     }
@@ -1710,6 +1718,7 @@ rpcsvc_program_register_portmap(rpcsvc_program_t *newprog, uint32_t port)
     ret = 0; /* SUCCESS */
 out:
     return ret;
+#endif  // BUILD_GNFS
 }
 
 int
@@ -1936,11 +1945,15 @@ int
 rpcsvc_transport_peeraddr(rpc_transport_t *trans, char *addrstr, int addrlen,
                           struct sockaddr_storage *sa, socklen_t sasize)
 {
+#ifndef BUILD_GNFS
+    return 0;
+#else
     if (!trans) {
         return -1;
     }
 
     return rpc_transport_get_peeraddr(trans, addrstr, addrlen, sa, sasize);
+#endif
 }
 
 rpcsvc_listener_t *
@@ -2706,10 +2719,12 @@ rpcsvc_set_outstanding_rpc_limit(rpcsvc_t *svc, dict_t *options, int defvalue)
 int
 rpcsvc_set_throttle_on(rpcsvc_t *svc)
 {
+#ifdef BUILD_GNFS
     if (!svc)
         return -1;
 
     svc->throttle = _gf_true;
+#endif
 
     return 0;
 }
@@ -2850,7 +2865,9 @@ free_svc:
     return svc;
 }
 
-int
+#ifdef BUILD_GNFS
+
+static int
 rpcsvc_transport_peer_check_search(dict_t *options, char *pattern, char *ip,
                                    char *hostname)
 {
@@ -2980,7 +2997,7 @@ out:
  * If neither rejects, ACCEPT if either accepts.
  * If neither accepts, DONTCARE
  */
-int
+static int
 rpcsvc_combine_allow_reject_volume_check(int allow, int reject)
 {
     if (allow == RPCSVC_AUTH_REJECT || reject == RPCSVC_AUTH_REJECT)
@@ -2992,10 +3009,13 @@ rpcsvc_combine_allow_reject_volume_check(int allow, int reject)
     return RPCSVC_AUTH_DONTCARE;
 }
 
+#endif  // BUILD_GNFS
+
 int
 rpcsvc_auth_check(rpcsvc_t *svc, char *volname, char *ipaddr)
 {
-    int ret = RPCSVC_AUTH_REJECT;
+#ifdef BUILD_GNFS
+    int ret = 0;
     int accept = RPCSVC_AUTH_REJECT;
     int reject = RPCSVC_AUTH_REJECT;
     char *hostname = NULL;
@@ -3005,12 +3025,12 @@ rpcsvc_auth_check(rpcsvc_t *svc, char *volname, char *ipaddr)
     dict_t *options = NULL;
 
     if (!svc || !volname || !ipaddr)
-        return ret;
+        return RPCSVC_AUTH_REJECT;
 
     /* Fetch the options from svc struct and validate */
     options = svc->options;
     if (!options)
-        return ret;
+        return RPCSVC_AUTH_REJECT;
 
     /* Accept if its the default case: Allow all, Reject none
      * The default volfile always contains a 'allow *' rule
@@ -3075,18 +3095,24 @@ rpcsvc_auth_check(rpcsvc_t *svc, char *volname, char *ipaddr)
     if (hostname)
         GF_FREE(hostname);
     return rpcsvc_combine_allow_reject_volume_check(accept, reject);
+#else
+    return 0;
+#endif  // BUILD_GNFS
 }
 
 int
 rpcsvc_transport_privport_check(rpcsvc_t *svc, char *volname, uint16_t port)
 {
-    int ret = RPCSVC_AUTH_REJECT;
+#ifndef BUILD_GNFS
+    return 0;
+#else
+    int ret = 0;
     char *srchstr = NULL;
     char *valstr = NULL;
     gf_boolean_t insecure = _gf_false;
 
     if ((!svc) || (!volname))
-        return ret;
+        return RPCSVC_AUTH_REJECT;
 
     gf_log(GF_RPCSVC, GF_LOG_TRACE, "Client port: %d", (int)port);
     /* If the port is already a privileged one, don't bother with checking
@@ -3135,14 +3161,15 @@ err:
         GF_FREE(srchstr);
 
     return ret;
+#endif  // BUILD_GNFS
 }
 
 char *
 rpcsvc_volume_allowed(dict_t *options, char *volname)
 {
-    char globalrule[] = "rpc-auth.addr.allow";
-    char *srchstr = NULL;
     char *addrstr = NULL;
+#ifdef BUILD_GNFS
+    char *srchstr = NULL;
     int ret = -1;
 
     if ((!options) || (!volname))
@@ -3155,16 +3182,18 @@ rpcsvc_volume_allowed(dict_t *options, char *volname)
     }
 
     if (!dict_get(options, srchstr))
-        ret = dict_get_str(options, globalrule, &addrstr);
+        ret = dict_get_str(options, "rpc-auth.addr.allow", &addrstr);
     else
         ret = dict_get_str(options, srchstr, &addrstr);
 
 out:
     GF_FREE(srchstr);
+#endif
 
     return addrstr;
 }
 
+#ifdef BUILD_GNFS
 /*
  * rpcsvc_match_subnet_v4() takes subnetwork address pattern and checks
  * if the target IPv4 address has the same network address with the help
@@ -3235,6 +3264,7 @@ out:
     GF_FREE(netaddr);
     return ret;
 }
+#endif  // BUILD_GNFS
 
 void
 rpcsvc_program_dump(rpcsvc_program_t *prog)

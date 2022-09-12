@@ -192,6 +192,11 @@ xlator_volopt_dynload(char *xlator_type, void **dl_handle,
 
     GF_VALIDATE_OR_GOTO("xlator", xlator_type, out);
 
+#ifndef BUILD_GNFS
+    if (strcmp(xlator_type, "nfs/server") == 0)
+        return -1;
+#endif /* BUILD_GNFS */
+
     /* socket.so doesn't fall under the default xlator directory, hence we
      * need this check */
     if (!strstr(xlator_type, "rpc-transport"))

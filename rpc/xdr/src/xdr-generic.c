@@ -59,8 +59,9 @@ ssize_t
 xdr_to_generic_payload(struct iovec inmsg, void *args, xdrproc_t proc,
                        struct iovec *pendingpayload)
 {
+    ssize_t ret;
+#ifdef BUILD_GNFS
     XDR xdr;
-    ssize_t ret = -1;
 
     if ((!inmsg.iov_base) || (!args) || (!proc))
         return -1;
@@ -81,12 +82,14 @@ xdr_to_generic_payload(struct iovec inmsg, void *args, xdrproc_t proc,
     }
 
 ret:
+#endif /* BUILD_GNFS */
     return ret;
 }
 
 ssize_t
 xdr_length_round_up(size_t len, size_t bufsize)
 {
+#ifdef BUILD_GNFS
     int roundup = 0;
 
     roundup = len % XDR_BYTES_PER_UNIT;
@@ -95,20 +98,23 @@ xdr_length_round_up(size_t len, size_t bufsize)
 
     if ((roundup > 0) && ((roundup + len) <= bufsize))
         len += roundup;
-
+#endif
     return len;
 }
 
 int
 xdr_bytes_round_up(struct iovec *vec, size_t bufsize)
 {
+#ifdef BUILD_GNFS
     vec->iov_len = xdr_length_round_up(vec->iov_len, bufsize);
+#endif
     return 0;
 }
 
 void
 xdr_vector_round_up(struct iovec *vec, int vcount, uint32_t count)
 {
+#ifdef BUILD_GNFS
     uint32_t round_count = 0;
 
     round_count = xdr_length_round_up(count, 1048576);
@@ -117,4 +123,5 @@ xdr_vector_round_up(struct iovec *vec, int vcount, uint32_t count)
         return;
 
     vec[vcount - 1].iov_len += round_count;
+#endif
 }

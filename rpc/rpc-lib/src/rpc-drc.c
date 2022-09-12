@@ -573,6 +573,7 @@ out:
 int32_t
 rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
 {
+#ifdef BUILD_GNFS
     int i = 0;
     char key[GF_DUMP_MAX_BUF_LEN] = {0};
     drc_client_t *client = NULL;
@@ -640,9 +641,11 @@ rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
     }
 
     UNLOCK(&drc->lock);
+#endif
     return 0;
 }
 
+#ifdef BUILD_GNFS
 /**
  * rpcsvc_drc_notify - function which is notified of RPC transport events
  *
@@ -652,7 +655,7 @@ rpcsvc_drc_priv(rpcsvc_drc_globals_t *drc)
  * @param data - the transport structure
  * @return 0 on success, -1 on failure
  */
-int
+static int
 rpcsvc_drc_notify(rpcsvc_t *svc, void *xl, rpcsvc_event_t event, void *data)
 {
     int ret = -1;
@@ -699,6 +702,7 @@ unlock:
     UNLOCK(&drc->lock);
     return ret;
 }
+#endif
 
 /**
  * rpcsvc_drc_init - Initialize the duplicate request cache service
@@ -710,6 +714,9 @@ unlock:
 int
 rpcsvc_drc_init(rpcsvc_t *svc, dict_t *options)
 {
+#ifndef BUILD_GNFS
+    return 0;
+#else
     int ret = 0;
     uint32_t drc_type = 0;
     uint32_t drc_size = 0;
@@ -806,11 +813,13 @@ post_unlock:
         svc->drc = NULL;
     }
     return ret;
+#endif
 }
 
 int
 rpcsvc_drc_deinit(rpcsvc_t *svc)
 {
+#ifdef BUILD_GNFS
     rpcsvc_drc_globals_t *drc = NULL;
 
     if (!svc)
@@ -830,6 +839,7 @@ rpcsvc_drc_deinit(rpcsvc_t *svc)
 
     GF_FREE(drc);
     svc->drc = NULL;
+#endif
 
     return (0);
 }
@@ -837,6 +847,9 @@ rpcsvc_drc_deinit(rpcsvc_t *svc)
 int
 rpcsvc_drc_reconfigure(rpcsvc_t *svc, dict_t *options)
 {
+#ifndef BUILD_GNFS
+    return 0;
+#else
     int ret = -1;
     gf_boolean_t enable_drc = _gf_false;
     rpcsvc_drc_globals_t *drc = NULL;
@@ -895,4 +908,5 @@ rpcsvc_drc_reconfigure(rpcsvc_t *svc, dict_t *options)
 
     /* case 2: DRC is "OFF" */
     return rpcsvc_drc_deinit(svc);
+#endif
 }
