@@ -357,6 +357,12 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
         }
     }
 
+    // If transport-address family is already present in cmdline args, resolve
+    // right away. If family is set to AF_UNSPEC, we try and guess the family
+    if (sockaddr->sa_family == AF_INET || sockaddr->sa_family == AF_INET6) {
+        goto resolve;
+    }
+
     /* Need to update transport-address family if address-family is not provided
        to command-line arguments
     */
@@ -370,6 +376,7 @@ af_inet_client_get_remote_sockaddr(rpc_transport_t *this,
 
     /* TODO: gf_resolve is a blocking call. kick in some
        non blocking dns techniques */
+resolve:
     ret = gf_resolve_ip6(remote_host, remote_port, sockaddr->sa_family,
                          &this->dnscache, &addr_info);
     if (ret == -1) {
