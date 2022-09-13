@@ -96,7 +96,7 @@ dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)
     }
     UNLOCK(&priv->lock);
 
-    if (caa_unlikely(munged)) {
+    if (munged) {
         gf_msg_debug(this->name, 0, "munged down to %s", rsync_friendly_name);
         len = munged;
     } else {
