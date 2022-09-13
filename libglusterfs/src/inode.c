@@ -335,10 +335,10 @@ __inode_ctx_free(inode_t *inode)
 {
     int index = 0;
     xlator_t *xl = NULL;
-    xlator_t *old_THIS = NULL;
+    xlator_t *old_THIS = THIS;
 
     if (!inode->_ctx) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
+        gf_smsg(old_THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
         goto noctx;
     }
 
@@ -346,16 +346,13 @@ __inode_ctx_free(inode_t *inode)
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
             if (xl && !xl->call_cleanup && xl->cbks->forget) {
-                if (!old_THIS)
-                    old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
             }
         }
     }
 
-    if (old_THIS)
-        THIS = old_THIS;
+    THIS = old_THIS;
 
     GF_FREE(inode->_ctx);
     inode->_ctx = NULL;
@@ -403,10 +400,11 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
                     old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->ictxmerge(xl, fd, inode, linked_inode);
-                THIS = old_THIS;
             }
         }
     }
+    if (old_THIS)
+        THIS = old_THIS;
 }
 
 static void
@@ -1220,6 +1218,7 @@ inode_invalidate(inode_t *inode)
             return ret;
     }
 
+    old_THIS = NULL;
     xl = inode->table->xl->graph->first;
     while (xl) {
         if (xl->cbks->invalidate) {
@@ -1227,7 +1226,6 @@ inode_invalidate(inode_t *inode)
                 old_THIS = THIS;
             THIS = xl;
             ret = xl->cbks->invalidate(xl, inode);
-            THIS = old_THIS;
         }
 
         if (ret)
@@ -1235,6 +1233,9 @@ inode_invalidate(inode_t *inode)
 
         xl = xl->next;
     }
+
+    if (old_THIS)
+        THIS = old_THIS;
 
     return ret;
 }
