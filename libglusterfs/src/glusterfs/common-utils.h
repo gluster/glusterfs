@@ -212,7 +212,9 @@ gf_set_nofile(rlim_t high, rlim_t low);
 
 #else /* Darwin */
 
-#define gf_set_nofile(low, high) do { } while (0)
+#define gf_set_nofile(low, high)                                               \
+    do {                                                                       \
+    } while (0)
 
 #endif /* not GF_DARWIN_HOST_OS */
 

@@ -1294,6 +1294,9 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
     gf_boolean_t syslog_flag = 0;
     glusterfs_ctx_t *ctx = this->ctx;
 
+    if (!ctx)
+        goto out;
+
     if (!strcmp("trusted.glusterfs.syslog", name)) {
         ret = gf_bin_to_string(key, sizeof(key), value, size);
         if (ret != 0) {
@@ -1346,8 +1349,6 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         goto out;
     }
 
-    if (!ctx)
-        goto out;
     if (!ctx->active)
         goto out;
     trav = ctx->active->top;
