@@ -435,7 +435,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     struct iatt stbuf = {
         0,
     };
-    ssize_t read_len;
+    ssize_t read_len = 0;
 
     if (posix_xattr_ignorable(key))
         goto out;
@@ -446,6 +446,8 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
         (len == SLEN(GF_CONTENT_KEY) && !strcmp(key, GF_CONTENT_KEY))) {
         if (!filler->real_path)
             goto out;
+        else if (filler->stbuf->ia_size == 0)
+            goto set_content_key_in_dict;
 
         /* file content request */
         req_size = data_to_uint64(data);
@@ -477,20 +479,21 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
 
             ret = sys_close(_fd);
             _fd = -1;
-            if (ret == -1) {
+            if (ret != 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, errno,
                        P_MSG_XDATA_GETXATTR, "Close on file %s failed",
                        filler->real_path);
                 goto err;
             }
-
-            ret = dict_set_bin(filler->xattr, key, databuf, read_len);
+        set_content_key_in_dict:
+            ret = dict_set_bin(filler->xattr, GF_CONTENT_KEY, databuf,
+                               read_len);
             if (ret < 0) {
                 gf_msg(filler->this->name, GF_LOG_ERROR, 0,
                        P_MSG_XDATA_GETXATTR,
-                       "failed to set dict value. key: %s,"
+                       "failed to set GF_CONTENT_KEY dict value. "
                        "path: %s",
-                       key, filler->real_path);
+                       filler->real_path);
                 goto err;
             }
 
