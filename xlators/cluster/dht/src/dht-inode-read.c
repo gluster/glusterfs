@@ -1661,3 +1661,126 @@ err:
 
     return 0;
 }
+
+static int
+dht_seek2(xlator_t *subvol, call_frame_t *frame, int ret)
+{
+    dht_local_t *local = NULL;
+    int op_errno = EINVAL;
+    off_t offset = 0;
+
+    if (!frame)
+        goto out;
+
+    local = frame->local;
+    op_errno = local->op_errno;
+    offset = local->rebalance.offset;
+
+    if (we_are_not_migrating(ret)) {
+        /* This DHT layer is not migrating the file */
+        DHT_STACK_UNWIND(seek, frame, -1, local->op_errno, 0, NULL);
+        return 0;
+    }
+
+    if (subvol == NULL)
+        goto out;
+
+    local->call_cnt = 2;
+    STACK_WIND_COOKIE(frame, dht_seek_cbk, subvol, subvol, subvol->fops->seek,
+                      local->fd, offset, local->rebalance.flags,
+                      local->xattr_req);
+    return 0;
+
+out:
+    DHT_STACK_UNWIND(seek, frame, -1, op_errno, 0, NULL);
+    return 0;
+}
+
+int
+dht_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+             int op_errno, off_t offset, dict_t *xdata)
+{
+    dht_local_t *local = NULL;
+    xlator_t *prev = NULL;
+    int ret = 0;
+
+    local = frame->local;
+    prev = cookie;
+
+    /* lseek fails with EBADF if dht has not yet opened the fd
+     * on the cached subvol. This could happen if the file was migrated
+     * and a lookup updated the cached subvol in the inode ctx.
+     * We only check once as this could be a valid bad fd error.
+     */
+
+    if (dht_check_remote_fd_failed_error(local, op_ret, op_errno)) {
+        ret = dht_check_and_open_fd_on_subvol(this, frame);
+        if (ret)
+            goto out;
+        return 0;
+    }
+
+    local->op_errno = op_errno;
+    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+        gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
+                     prev->name);
+        goto out;
+    }
+
+    if ((op_ret == -1) && ((op_errno == ENXIO) || (op_errno == EOVERFLOW)))
+        goto out;
+
+    if (!op_ret || (local->call_cnt != 1))
+        goto out;
+
+    /* rebalance would have happened */
+    local->rebalance.target_op_fn = dht_seek2;
+    ret = dht_rebalance_complete_check(this, frame);
+    if (!ret)
+        return 0;
+
+out:
+    DHT_STACK_UNWIND(seek, frame, op_ret, op_errno, offset, xdata);
+
+    return 0;
+}
+
+int
+dht_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+         gf_seek_what_t what, dict_t *xdata)
+{
+    xlator_t *subvol = NULL;
+    dht_local_t *local = NULL;
+    int op_errno = EINVAL;
+
+    local = dht_local_init(frame, NULL, fd, GF_FOP_SEEK);
+    if (!local) {
+        op_errno = ENOMEM;
+        goto err;
+    }
+
+    subvol = local->cached_subvol;
+    if (!subvol) {
+        gf_msg_debug(this->name, 0, "no cached subvolume for fd=%p", fd);
+        op_errno = EINVAL;
+        goto err;
+    }
+
+    if (xdata)
+        local->xattr_req = dict_ref(xdata);
+
+    local->rebalance.offset = offset;
+    local->rebalance.flags = what;
+    local->call_cnt = 1;
+
+    STACK_WIND_COOKIE(frame, dht_seek_cbk, subvol, subvol, subvol->fops->seek,
+                      fd, local->rebalance.offset, local->rebalance.flags,
+                      local->xattr_req);
+
+    return 0;
+
+err:
+    DHT_STACK_UNWIND(seek, frame, -1, op_errno, offset, xdata);
+
+    return 0;
+}
