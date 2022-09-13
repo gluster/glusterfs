@@ -51,7 +51,8 @@ typedef struct cdc_info {
 #define GF_CDC_MAX_WINDOWSIZE -8  /* max value     */
 
 #define GF_CDC_DEF_MEMLEVEL 8
-#define GF_CDC_DEF_BUFFERSIZE 1024*128  // 128K - default compression buffer size
+#define GF_CDC_DEF_BUFFERSIZE                                                  \
+    1024 * 128  // 128K - default compression buffer size
 
 /* Operation mode
  * If xlator is loaded on client, readv decompresses and writev compresses
