@@ -678,7 +678,6 @@ __is_lease_grantable(xlator_t *this, lease_inode_ctx_t *lease_ctx,
     fd_t *iter_fd = NULL;
     gf_boolean_t grant = _gf_false;
     lease_fd_ctx_t *fd_ctx = NULL;
-    uint64_t ctx = 0;
 
     GF_VALIDATE_OR_GOTO("leases", lease_ctx, out);
     GF_VALIDATE_OR_GOTO("leases", lease, out);
@@ -704,15 +703,14 @@ __is_lease_grantable(xlator_t *this, lease_inode_ctx_t *lease_ctx,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            ctx = fd_ctx_get(iter_fd, this);
-            if (!ctx) {
+            fd_ctx = fd_ctx_get_ptr(iter_fd, this);
+            if (!fd_ctx) {
                 grant = _gf_false;
                 UNLOCK(&inode->lock);
                 gf_msg(this->name, GF_LOG_ERROR, 0, LEASE_MSG_INVAL_FD_CTX,
                        "Unable to get fd ctx");
                 goto out;
             }
-            fd_ctx = (lease_fd_ctx_t *)(long)ctx;
 
             /* Check for open fd conflict, note that open fds from
              * the same lease id is not checked for conflict, as it is

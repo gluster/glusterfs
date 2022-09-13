@@ -22,9 +22,6 @@ int
 fuse_migrate_fd(xlator_t *this, fd_t *fd, xlator_t *old_subvol,
                 xlator_t *new_subvol);
 
-fuse_fd_ctx_t *
-fuse_fd_ctx_get(xlator_t *this, fd_t *fd);
-
 static int
 fuse_resolve_loc_touchup(fuse_state_t *state)
 {
@@ -370,7 +367,7 @@ fuse_migrate_fd_task(void *data)
 
     basefd = state->fd;
 
-    basefd_ctx = fuse_fd_ctx_get(state->this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, state->this);
     if (!basefd_ctx)
         goto out;
 
@@ -411,7 +408,7 @@ fuse_migrate_fd_error(xlator_t *this, fd_t *fd)
     fuse_fd_ctx_t *fdctx = NULL;
     char error = 0;
 
-    fdctx = fuse_fd_ctx_get(this, fd);
+    fdctx = fd_ctx_get_ptr(fd, this);
     if (fdctx != NULL) {
         if (fdctx->migration_failed) {
             error = 1;
@@ -452,7 +449,7 @@ fuse_resolve_fd(fuse_state_t *state)
     this = state->this;
 
     basefd = resolve->fd;
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     if (basefd_ctx == NULL) {
         gf_log(state->this->name, GF_LOG_WARNING,
                "fdctx is NULL for basefd (ptr:%p inode-gfid:%s), "

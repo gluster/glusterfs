@@ -444,7 +444,6 @@ ra_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     ra_conf_t *conf = NULL;
     int op_errno = EINVAL;
     char expected_offset = 1;
-    uint64_t tmp_file = 0;
 
     GF_ASSERT(frame);
     GF_VALIDATE_OR_GOTO(frame->this->name, this, unwind);
@@ -456,8 +455,7 @@ ra_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  "NEW REQ at offset=%" PRId64 " for size=%" GF_PRI_SIZET "",
                  offset, size);
 
-    tmp_file = fd_ctx_get(fd, this);
-    file = (ra_file_t *)(long)tmp_file;
+    file = fd_ctx_get_ptr(fd, this);
 
     if (!file || file->disabled) {
         goto disabled;
@@ -612,7 +610,6 @@ ra_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
           dict_t *xdata)
 {
     ra_file_t *file = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
     inode_t *inode = NULL;
     fd_t *iter_fd = NULL;
@@ -627,10 +624,7 @@ ra_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            tmp_file = 0;
-            tmp_file = fd_ctx_get(iter_fd, this);
-            file = (ra_file_t *)(long)tmp_file;
-
+            file = fd_ctx_get_ptr(iter_fd, this);
             if (!file)
                 continue;
 
@@ -685,7 +679,6 @@ ra_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     ra_file_t *file = NULL;
     fd_t *iter_fd = NULL;
     inode_t *inode = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
 
     GF_ASSERT(frame);
@@ -698,10 +691,7 @@ ra_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            tmp_file = 0;
-            tmp_file = fd_ctx_get(iter_fd, this);
-            file = (ra_file_t *)(long)tmp_file;
-
+            file = fd_ctx_get_ptr(iter_fd, this);
             if (!file)
                 continue;
             /*
@@ -766,15 +756,12 @@ ra_fdctx_dump(xlator_t *this, fd_t *fd)
     ra_file_t *file = NULL;
     ra_page_t *page = NULL;
     int32_t ret = 0, i = 0;
-    uint64_t tmp_file = 0;
     char *path = NULL;
     char key_prefix[GF_DUMP_MAX_BUF_LEN] = {
         0,
     };
 
-    tmp_file = fd_ctx_get(fd, this);
-    file = (ra_file_t *)(long)tmp_file;
-
+    file = fd_ctx_get_ptr(fd, this);
     if (file == NULL) {
         ret = 0;
         goto out;
@@ -822,7 +809,6 @@ ra_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     ra_file_t *file = NULL;
     fd_t *iter_fd = NULL;
     inode_t *inode = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
     ra_conf_t *conf = NULL;
 
@@ -839,10 +825,7 @@ ra_fstat(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
         {
             list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
             {
-                tmp_file = 0;
-                tmp_file = fd_ctx_get(iter_fd, this);
-                file = (ra_file_t *)(long)tmp_file;
-
+                file = fd_ctx_get_ptr(iter_fd, this);
                 if (!file)
                     continue;
                 flush_region(frame, file, 0, file->pages.prev->offset + 1, 0);
@@ -867,7 +850,6 @@ ra_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     ra_file_t *file = NULL;
     fd_t *iter_fd = NULL;
     inode_t *inode = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
 
     GF_ASSERT(frame);
@@ -880,9 +862,7 @@ ra_ftruncate(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            tmp_file = 0;
-            tmp_file = fd_ctx_get(iter_fd, this);
-            file = (ra_file_t *)(long)tmp_file;
+            file = fd_ctx_get_ptr(iter_fd, this);
             if (!file)
                 continue;
             /*
@@ -926,7 +906,6 @@ ra_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     ra_file_t *file = NULL;
     fd_t *iter_fd = NULL;
     inode_t *inode = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
 
     GF_ASSERT(frame);
@@ -939,9 +918,7 @@ ra_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            tmp_file = 0;
-            tmp_file = fd_ctx_get(iter_fd, this);
-            file = (ra_file_t *)(long)tmp_file;
+            file = fd_ctx_get_ptr(iter_fd, this);
             if (!file)
                 continue;
 
@@ -978,7 +955,6 @@ ra_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     ra_file_t *file = NULL;
     fd_t *iter_fd = NULL;
     inode_t *inode = NULL;
-    uint64_t tmp_file = 0;
     int32_t op_errno = EINVAL;
 
     GF_ASSERT(frame);
@@ -991,9 +967,7 @@ ra_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
     {
         list_for_each_entry(iter_fd, &inode->fd_list, inode_list)
         {
-            tmp_file = 0;
-            tmp_file = fd_ctx_get(iter_fd, this);
-            file = (ra_file_t *)(long)tmp_file;
+            file = fd_ctx_get_ptr(iter_fd, this);
             if (!file)
                 continue;
 

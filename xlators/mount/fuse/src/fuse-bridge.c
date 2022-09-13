@@ -142,19 +142,6 @@ fuse_fd_ctx_destroy(xlator_t *this, fd_t *fd)
     }
 }
 
-fuse_fd_ctx_t *
-fuse_fd_ctx_get(xlator_t *this, fd_t *fd)
-{
-    fuse_fd_ctx_t *fdctx = NULL;
-    uint64_t value = 0;
-
-    value = fd_ctx_get(fd, this);
-    if (value)
-        fdctx = (fuse_fd_ctx_t *)(unsigned long)value;
-
-    return fdctx;
-}
-
 struct fusedump_timespec {
     uint32_t len;
     uint64_t sec;
@@ -1544,7 +1531,7 @@ fuse_fd_inherit_directio(xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
     GF_VALIDATE_OR_GOTO_WITH_ERROR("glusterfs-fuse", fd, out, ret, -EINVAL);
     GF_VALIDATE_OR_GOTO_WITH_ERROR("glusterfs-fuse", foo, out, ret, -EINVAL);
 
-    fdctx = fuse_fd_ctx_get(this, fd);
+    fdctx = fd_ctx_get_ptr(fd, this);
     if (!fdctx) {
         ret = -ENOMEM;
         goto out;
@@ -1552,7 +1539,7 @@ fuse_fd_inherit_directio(xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
 
     tmp_fd = fd_lookup(fd->inode, 0);
     if (tmp_fd) {
-        tmp_fdctx = fuse_fd_ctx_get(this, tmp_fd);
+        tmp_fdctx = fd_ctx_get_ptr(tmp_fd, this);
         if (tmp_fdctx) {
             foo->open_flags &= ~FOPEN_DIRECT_IO;
             foo->open_flags |= (tmp_fdctx->open_flags & FOPEN_DIRECT_IO);
@@ -5496,7 +5483,7 @@ fuse_migrate_fd_open(xlator_t *this, fd_t *basefd, fd_t *oldfd,
         }
     }
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     newfd = fd_create(loc.inode, basefd->pid);
@@ -5581,7 +5568,7 @@ fuse_migrate_locks(xlator_t *this, fd_t *basefd, fd_t *oldfd,
     if (!oldfd->lk_ctx || fd_lk_ctx_empty(oldfd->lk_ctx))
         return 0;
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     LOCK(&basefd->lock);
@@ -5648,7 +5635,7 @@ fuse_migrate_fd(xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
     fd_t *oldfd = NULL;
     dict_t *xdata = NULL;
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     LOCK(&basefd->lock);
@@ -5786,7 +5773,7 @@ fuse_handle_opened_fds(xlator_t *this, xlator_t *old_subvol,
 
             ret = fuse_migrate_fd(this, fd, old_subvol, new_subvol);
 
-            fdctx = fuse_fd_ctx_get(this, fd);
+            fdctx = fd_ctx_get_ptr(fd, this);
             if (fdctx) {
                 LOCK(&fd->lock);
                 {

@@ -2538,7 +2538,6 @@ static int
 pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
             posix_lock_t *reqlock)
 {
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
     int ret = 0;
 
@@ -2553,8 +2552,7 @@ pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
 
         gf_log(this->name, GF_LOG_DEBUG, "There are active locks on fd");
 
-        tmp = fd_ctx_get(fd, this);
-        fdctx = (pl_fdctx_t *)(long)tmp;
+        fdctx = fd_ctx_get_ptr(fd, this);
 
         if (list_empty(&fdctx->locks_list)) {
             gf_log(this->name, GF_LOG_TRACE,

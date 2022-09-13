@@ -41,20 +41,17 @@ unlock:
 int
 meta_fd_release(fd_t *fd, xlator_t *this)
 {
-    uint64_t value = 0;
     meta_fd_t *meta_fd = NULL;
     int i = 0;
 
-    value = fd_ctx_get(fd, this);
-    meta_fd = (void *)(uintptr_t)value;
-
-    if (meta_fd && meta_fd->dirents) {
-        for (i = 0; i < meta_fd->size; i++)
-            GF_FREE((void *)meta_fd->dirents[i].name);
-        GF_FREE(meta_fd->dirents);
-    }
+    meta_fd = fd_ctx_get_ptr(fd, this);
 
     if (meta_fd) {
+        if (meta_fd->dirents) {
+            for (i = 0; i < meta_fd->size; i++)
+                GF_FREE((void *)meta_fd->dirents[i].name);
+            GF_FREE(meta_fd->dirents);
+        }
         GF_FREE(meta_fd->data);
         GF_FREE(meta_fd);
     }

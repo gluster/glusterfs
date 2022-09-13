@@ -208,7 +208,6 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
 {
     inode_t *parent = NULL;
     fd_t *fd = NULL;
-    uint64_t val = 0;
     int32_t ret = 0;
     struct rda_fd_ctx *fd_ctx = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
@@ -219,12 +218,10 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
         {
             list_for_each_entry(fd, &parent->fd_list, inode_list)
             {
-                val = 0;
-                val = fd_ctx_get(fd, this);
-                if (val == 0)
+                fd_ctx = fd_ctx_get_ptr(fd, this);
+                if (!fd_ctx)
                     continue;
 
-                fd_ctx = (void *)(uintptr_t)val;
                 if (!GF_ATOMIC_GET(fd_ctx->prefetching))
                     continue;
 

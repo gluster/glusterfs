@@ -848,7 +848,6 @@ leases_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     char *lease_id = NULL;
     int ret = 0;
     lease_fd_ctx_t *fd_ctx = NULL;
-    uint64_t ctx = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
     EXIT_IF_INTERNAL_FOP(frame, xdata, out);
@@ -880,9 +879,8 @@ out:
      *                      OR
      *     - Find why release is not called post the last close call
      */
-    ctx = fd_ctx_get(fd, this);
-    if (ctx) {
-        fd_ctx = (lease_fd_ctx_t *)(long)ctx;
+    fd_ctx = fd_ctx_get_ptr(fd, this);
+    if (fd_ctx) {
         if (fd_ctx->client_uid) {
             GF_FREE(fd_ctx->client_uid);
             fd_ctx->client_uid = NULL;

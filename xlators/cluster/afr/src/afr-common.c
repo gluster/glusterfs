@@ -4052,11 +4052,9 @@ _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
 void
 afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd)
 {
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
 
-    ctx = fd_ctx_get(fd, this);
-    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
+    fd_ctx = fd_ctx_get_ptr(fd, this);
     if (fd_ctx)
         _afr_cleanup_fd_ctx(this, fd_ctx);
 }
