@@ -1371,28 +1371,24 @@ out:
 int
 glusterd_check_log_level(const char *value)
 {
-    int log_level = -1;
-
     if (!strcasecmp(value, "CRITICAL")) {
-        log_level = GF_LOG_CRITICAL;
+        return GF_LOG_CRITICAL;
     } else if (!strcasecmp(value, "ERROR")) {
-        log_level = GF_LOG_ERROR;
+        return GF_LOG_ERROR;
     } else if (!strcasecmp(value, "WARNING")) {
-        log_level = GF_LOG_WARNING;
+        return GF_LOG_WARNING;
     } else if (!strcasecmp(value, "INFO")) {
-        log_level = GF_LOG_INFO;
+        return GF_LOG_INFO;
     } else if (!strcasecmp(value, "DEBUG")) {
-        log_level = GF_LOG_DEBUG;
+        return GF_LOG_DEBUG;
     } else if (!strcasecmp(value, "TRACE")) {
-        log_level = GF_LOG_TRACE;
+        return GF_LOG_TRACE;
     } else if (!strcasecmp(value, "NONE")) {
-        log_level = GF_LOG_NONE;
+        return GF_LOG_NONE;
     }
 
-    if (log_level == -1)
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_INIT, NULL);
-
-    return log_level;
+    gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_INIT, NULL);
+    return -1;
 }
 
 int
