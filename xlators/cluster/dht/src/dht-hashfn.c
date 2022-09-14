@@ -51,20 +51,18 @@ dht_munge_name(const char *original, char *modified, size_t len, regex_t *re)
 
     ret = regexec(re, original, 2, matches, 0);
 
-    if (ret != REG_NOMATCH) {
+    if (ret == 0) {
         if (matches[1].rm_so != -1) {
             new_len = matches[1].rm_eo - matches[1].rm_so;
             /* Equal would fail due to the NUL at the end. */
             if (new_len < len) {
                 memcpy(modified, original + matches[1].rm_so, new_len);
                 modified[new_len] = '\0';
-                return new_len + 1; /* +1 for the terminating NULL */
+                return new_len + 1;
             }
         }
     }
 
-    /* This is guaranteed safe because of how the dest was allocated. */
-    strcpy(modified, original);
     return 0;
 }
 
@@ -76,13 +74,13 @@ dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)
     size_t len = 0;
     int munged = 0;
 
-    priv = this->private;
-
-    if (name == NULL)
+    if (caa_unlikely(name == NULL))
         return -1;
 
     len = strlen(name) + 1;
     rsync_friendly_name = alloca(len);
+
+    priv = this->private;
 
     LOCK(&priv->lock);
     {
@@ -92,12 +90,12 @@ dht_hash_compute(xlator_t *this, int type, const char *name, uint32_t *hash_p)
         }
 
         if (!munged && priv->rsync_regex_valid) {
-            gf_msg_trace(this->name, 0, "trying regex for %s", name);
             munged = dht_munge_name(name, rsync_friendly_name, len,
                                     &priv->rsync_regex);
         }
     }
     UNLOCK(&priv->lock);
+
     if (munged) {
         gf_msg_debug(this->name, 0, "munged down to %s", rsync_friendly_name);
         len = munged;
