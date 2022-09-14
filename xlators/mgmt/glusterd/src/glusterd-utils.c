@@ -3227,7 +3227,8 @@ out:
 }
 
 static int
-glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count, unsigned int totcount, char *buf)
+glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count,
+                         unsigned int totcount, char *buf)
 {
     int i = 0;
     uint32_t keylen = 0;

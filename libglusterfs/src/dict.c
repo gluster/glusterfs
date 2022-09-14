@@ -2739,7 +2739,8 @@ unsigned int
 dict_serialized_length_lk(dict_t *this)
 {
     unsigned int count = this->count;
-    const unsigned int keyhdrlen = DICT_DATA_HDR_KEY_LEN + DICT_DATA_HDR_VAL_LEN;
+    const unsigned int keyhdrlen = DICT_DATA_HDR_KEY_LEN +
+                                   DICT_DATA_HDR_VAL_LEN;
 
     return DICT_HDR_LEN + this->totkvlen + (count * keyhdrlen);
 }
@@ -2817,8 +2818,6 @@ dict_serialize_lk(dict_t *this, char *buf)
 out:
     return ret;
 }
-
-
 
 /**
  * dict_unserialize - unserialize a buffer into a dict
