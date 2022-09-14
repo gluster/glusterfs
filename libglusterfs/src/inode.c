@@ -197,22 +197,13 @@ __is_dentry_hashed(dentry_t *dentry)
 }
 
 static void
-__dentry_unhash(dentry_t *dentry)
-{
-    list_del_init(&dentry->hash);
-}
-
-static void
 dentry_destroy(dentry_t *dentry)
 {
-    if (!dentry)
-        return;
-
-    GF_FREE(dentry->name);
-    dentry->name = NULL;
-    mem_put(dentry);
-
-    return;
+    if (dentry) {
+        GF_FREE(dentry->name);
+        dentry->name = NULL;
+        mem_put(dentry);
+    }
 }
 
 static dentry_t *
@@ -221,9 +212,8 @@ __dentry_unset(dentry_t *dentry)
     if (!dentry)
         return NULL;
 
-    __dentry_unhash(dentry);
-
     list_del_init(&dentry->inode_list);
+    list_del_init(&dentry->hash);
 
     if (dentry->parent) {
         GF_ATOMIC_DEC(dentry->parent->kids);
@@ -236,8 +226,8 @@ __dentry_unset(dentry_t *dentry)
 
 static int
 __foreach_ancestor_dentry(dentry_t *dentry,
-                          int(per_dentry_fn)(dentry_t *dentry, void *data),
-                          void *data)
+                          int(per_dentry_fn)(dentry_t *dentry, inode_t *data),
+                          inode_t *data)
 {
     inode_t *parent = NULL;
     dentry_t *each = NULL;
@@ -274,7 +264,7 @@ out:
 }
 
 static int
-__check_cycle(dentry_t *a_dentry, void *data)
+__check_cycle(dentry_t *a_dentry, inode_t *data)
 {
     inode_t *link_inode = NULL;
 
@@ -299,12 +289,6 @@ __is_dentry_cyclic(dentry_t *dentry)
     }
 
     return ret;
-}
-
-static void
-__inode_unhash(inode_t *inode)
-{
-    list_del_init(&inode->hash);
 }
 
 static int
@@ -351,10 +335,10 @@ __inode_ctx_free(inode_t *inode)
 {
     int index = 0;
     xlator_t *xl = NULL;
-    xlator_t *old_THIS = NULL;
+    xlator_t *old_THIS = THIS;
 
     if (!inode->_ctx) {
-        gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
+        gf_smsg(old_THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
         goto noctx;
     }
 
@@ -362,14 +346,13 @@ __inode_ctx_free(inode_t *inode)
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
             if (xl && !xl->call_cleanup && xl->cbks->forget) {
-                if (!old_THIS)
-                    old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->forget(xl, inode);
-                THIS = old_THIS;
             }
         }
     }
+
+    THIS = old_THIS;
 
     GF_FREE(inode->_ctx);
     inode->_ctx = NULL;
@@ -417,10 +400,11 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
                     old_THIS = THIS;
                 THIS = xl;
                 xl->cbks->ictxmerge(xl, fd, inode, linked_inode);
-                THIS = old_THIS;
             }
         }
     }
+    if (old_THIS)
+        THIS = old_THIS;
 }
 
 static void
@@ -457,7 +441,7 @@ __inode_retire(inode_t *inode)
     list_move_tail(&inode->list, &inode->table->purge);
     inode->table->purge_size++;
 
-    __inode_unhash(inode);
+    list_del_init(&inode->hash);
 
     list_for_each_entry_safe(dentry, t, &inode->dentry_list, inode_list)
     {
@@ -470,15 +454,11 @@ __inode_get_xl_index(inode_t *inode, xlator_t *xlator)
 {
     int set_idx = inode_get_ctx_index(inode->table, xlator);
 
-    if ((inode->_ctx[set_idx].xl_key != NULL) &&
-        (inode->_ctx[set_idx].xl_key != xlator)) {
-        set_idx = -1;
-        goto out;
-    }
+    if (inode->_ctx[set_idx].xl_key == NULL)
+        inode->_ctx[set_idx].xl_key = xlator;
+    else if (inode->_ctx[set_idx].xl_key != xlator)
+        return -1;
 
-    inode->_ctx[set_idx].xl_key = xlator;
-
-out:
     return set_idx;
 }
 
@@ -566,11 +546,6 @@ __inode_ref(inode_t *inode, bool is_invalidate)
     int index = 0;
     xlator_t *this = NULL;
 
-    if (!inode)
-        return NULL;
-
-    this = THIS;
-
     /*
      * Root inode should always be in active list of inode table. So unrefs
      * on root inode are no-ops. If we do not allow unrefs but allow refs,
@@ -579,10 +554,10 @@ __inode_ref(inode_t *inode, bool is_invalidate)
      * in inode table increases which is wrong. So just keep the ref
      * count as 1 always
      */
-    if (__is_root_gfid(inode->gfid) && inode->ref)
-        return inode;
-
-    if (!inode->ref) {
+    if (inode->ref) {
+        if (__is_root_gfid(inode->gfid))
+            return inode;
+    } else {
         if (inode->in_invalidate_list) {
             inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
@@ -600,6 +575,8 @@ __inode_ref(inode_t *inode, bool is_invalidate)
             __inode_activate(inode);
         }
     }
+
+    this = THIS;
 
     inode->ref++;
 
@@ -733,11 +710,10 @@ inode_new(inode_table_t *table)
             GF_ASSERT(!inode->in_lru_list);
             inode->in_lru_list = _gf_true;
             __inode_ref(inode, false);
+            /* let the dummy, 'unlinked' inodes have root as namespace */
+            inode->ns_inode = __inode_ref(table->root, _gf_false);
         }
         pthread_mutex_unlock(&table->lock);
-
-        /* let the dummy, 'unlinked' inodes have root as namespace */
-        inode->ns_inode = inode_ref(table->root);
     }
 
     return inode;
@@ -777,13 +753,10 @@ __inode_ref_reduce_by_n(inode_t *inode, uint64_t nref)
     return inode;
 }
 
-static inode_t *
+static void
 inode_forget_atomic(inode_t *inode, uint64_t nlookup)
 {
     uint64_t inode_lookup = 0;
-
-    if (!inode)
-        return NULL;
 
     if (nlookup == 0) {
         GF_ATOMIC_INIT(inode->nlookup, 0);
@@ -791,8 +764,6 @@ inode_forget_atomic(inode_t *inode, uint64_t nlookup)
         inode_lookup = GF_ATOMIC_FETCH_SUB(inode->nlookup, nlookup);
         GF_ASSERT(inode_lookup >= nlookup);
     }
-
-    return inode;
 }
 
 dentry_t *
@@ -1080,7 +1051,6 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             GF_ATOMIC_INC(parent->kids);
             list_add(&dentry->inode_list, &link_inode->dentry_list);
             link_inode->ns_inode = __inode_ref(parent->ns_inode, false);
-
             if (old_inode && __is_dentry_cyclic(dentry)) {
                 errno = ELOOP;
                 dentry_destroy(__dentry_unset(dentry));
@@ -1248,6 +1218,7 @@ inode_invalidate(inode_t *inode)
             return ret;
     }
 
+    old_THIS = NULL;
     xl = inode->table->xl->graph->first;
     while (xl) {
         if (xl->cbks->invalidate) {
@@ -1255,7 +1226,6 @@ inode_invalidate(inode_t *inode)
                 old_THIS = THIS;
             THIS = xl;
             ret = xl->cbks->invalidate(xl, inode);
-            THIS = old_THIS;
         }
 
         if (ret)
@@ -1264,6 +1234,9 @@ inode_invalidate(inode_t *inode)
         xl = xl->next;
     }
 
+    if (old_THIS)
+        THIS = old_THIS;
+
     return ret;
 }
 
@@ -1271,8 +1244,6 @@ static dentry_t *
 __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *dentry = NULL;
-    char pgfid[64] = {0};
-    char gfid[64] = {0};
 
     dentry = __dentry_search_for_inode(inode, parent->gfid, name);
 
@@ -1280,10 +1251,11 @@ __inode_unlink(inode_t *inode, inode_t *parent, const char *name)
     if (dentry) {
         dentry = __dentry_unset(dentry);
     } else {
+        char pgfid[64];
         gf_smsg("inode", GF_LOG_WARNING, 0, LG_MSG_DENTRY_NOT_FOUND,
                 "parent-gfid=%s name=%s gfid%s",
-                uuid_utoa_r(parent->gfid, pgfid), name,
-                uuid_utoa_r(inode->gfid, gfid), NULL);
+                uuid_utoa_r(parent->gfid, pgfid), name, uuid_utoa(inode->gfid),
+                NULL);
     }
 
     return dentry;
@@ -1392,6 +1364,7 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
     inode_t *parent = NULL;
     inode_table_t *table = NULL;
     dentry_t *dentry = NULL;
+    gf_boolean_t search_for_inode = _gf_false;
 
     if (!inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, 0, LG_MSG_INODE_NOT_FOUND,
@@ -1401,19 +1374,22 @@ inode_parent(inode_t *inode, uuid_t pargfid, const char *name)
 
     table = inode->table;
 
+    if (pargfid && !gf_uuid_is_null(pargfid) && name)
+        search_for_inode = _gf_true;
+
     pthread_mutex_lock(&table->lock);
     {
-        if (pargfid && !gf_uuid_is_null(pargfid) && name) {
+        if (search_for_inode) {
             dentry = __dentry_search_for_inode(inode, pargfid, name);
         } else {
             dentry = __dentry_search_arbit(inode);
         }
 
-        if (dentry)
+        if (dentry) {
             parent = dentry->parent;
-
-        if (parent)
-            __inode_ref(parent, false);
+            if (parent)
+                __inode_ref(parent, false);
+        }
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1563,18 +1539,11 @@ inode_path(inode_t *inode, const char *name, char **bufp)
 }
 
 void
-__inode_table_set_lru_limit(inode_table_t *table, uint32_t lru_limit)
-{
-    table->lru_limit = lru_limit;
-    return;
-}
-
-void
 inode_table_set_lru_limit(inode_table_t *table, uint32_t lru_limit)
 {
     pthread_mutex_lock(&table->lock);
     {
-        __inode_table_set_lru_limit(table, lru_limit);
+        table->lru_limit = lru_limit;
     }
     pthread_mutex_unlock(&table->lock);
 
@@ -1596,9 +1565,6 @@ inode_table_prune(inode_table_t *table)
     inode_t *entry = NULL;
     uint64_t nlookup = 0;
     int64_t lru_size = 0;
-
-    if (!table)
-        return -1;
 
     INIT_LIST_HEAD(&purge);
 
@@ -1761,13 +1727,14 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!new->dentry_pool)
         goto out;
 
-    new->inode_hash = (void *)GF_CALLOC(
-        new->inode_hashsize, sizeof(struct list_head), gf_common_mt_list_head);
+    new->inode_hash = (void *)GF_MALLOC(
+        new->inode_hashsize * sizeof(struct list_head), gf_common_mt_list_head);
     if (!new->inode_hash)
         goto out;
 
-    new->name_hash = (void *)GF_CALLOC(
-        new->dentry_hashsize, sizeof(struct list_head), gf_common_mt_list_head);
+    new->name_hash = (void *)GF_MALLOC(
+        new->dentry_hashsize * sizeof(struct list_head),
+        gf_common_mt_list_head);
     if (!new->name_hash)
         goto out;
 
@@ -1830,70 +1797,6 @@ inode_table_new(uint32_t lru_limit, xlator_t *xl, uint32_t dentry_hashsize,
                                         dentry_hashsize, inode_hashsize);
 }
 
-int
-inode_table_ctx_free(inode_table_t *table)
-{
-    int ret = 0;
-    inode_t *del = NULL;
-    inode_t *tmp = NULL;
-    int purge_count = 0;
-    int lru_count = 0;
-    int active_count = 0;
-    xlator_t *this = NULL;
-    int itable_size = 0;
-
-    if (!table)
-        return -1;
-
-    this = THIS;
-
-    pthread_mutex_lock(&table->lock);
-    {
-        list_for_each_entry_safe(del, tmp, &table->purge, list)
-        {
-            if (del->_ctx) {
-                __inode_ctx_free(del);
-                purge_count++;
-            }
-        }
-
-        list_for_each_entry_safe(del, tmp, &table->lru, list)
-        {
-            if (del->_ctx) {
-                __inode_ctx_free(del);
-                lru_count++;
-            }
-        }
-
-        /* should the contexts of active inodes be freed?
-         * Since before this function being called fds would have
-         * been migrated and would have held the ref on the new
-         * inode from the new inode table, the older inode would not
-         * be used.
-         */
-        list_for_each_entry_safe(del, tmp, &table->active, list)
-        {
-            if (del->_ctx) {
-                __inode_ctx_free(del);
-                active_count++;
-            }
-        }
-    }
-    pthread_mutex_unlock(&table->lock);
-
-    ret = purge_count + lru_count + active_count;
-    itable_size = table->active_size + table->lru_size + table->purge_size;
-    gf_msg_callingfn(this->name, GF_LOG_INFO, 0, LG_MSG_INODE_CONTEXT_FREED,
-                     "total %d (itable size: "
-                     "%d) inode contexts have been freed (active: %d, ("
-                     "active size: %d), lru: %d, (lru size: %d),  purge: "
-                     "%d, (purge size: %d))",
-                     ret, itable_size, active_count, table->active_size,
-                     lru_count, table->lru_size, purge_count,
-                     table->purge_size);
-    return ret;
-}
-
 void
 inode_table_destroy_all(glusterfs_ctx_t *ctx)
 {
@@ -1946,9 +1849,6 @@ inode_table_destroy(inode_table_t *inode_table)
      * Not sure which is the approach to be taken, going by approach 2.
      */
 
-    /* Approach 3:
-     * ret = inode_table_ctx_free (inode_table);
-     */
     pthread_mutex_lock(&inode_table->lock);
     {
         inode_table->cleanup_started = _gf_true;
@@ -2075,19 +1975,6 @@ inode_from_path(inode_table_t *itable, const char *path)
 out:
 #endif
     return inode;
-}
-
-void
-inode_set_need_lookup(inode_t *inode, xlator_t *this)
-{
-    uint64_t need_lookup = LOOKUP_NEEDED;
-
-    if (!inode || !this)
-        return;
-
-    inode_ctx_set(inode, this, &need_lookup);
-
-    return;
 }
 
 /* Function behaviour:
@@ -2690,46 +2577,6 @@ out:
     pthread_mutex_unlock(&itable->lock);
 
     return;
-}
-
-size_t
-inode_ctx_size(inode_t *inode)
-{
-    int i = 0;
-    size_t size = 0;
-    xlator_t *xl = NULL, *old_THIS = NULL;
-
-    if (!inode)
-        goto out;
-
-    LOCK(&inode->lock);
-    {
-        for (i = 0; i < inode->table->ctxcount; i++) {
-            if (!inode->_ctx[i].xl_key)
-                continue;
-
-            xl = (xlator_t *)(long)inode->_ctx[i].xl_key;
-
-            /* If inode ref is taken when THIS is global xlator,
-             * the ctx xl_key is set, but the value is NULL.
-             * For global xlator the cbks can be NULL, hence check
-             * for the same */
-            if (!xl->cbks)
-                continue;
-
-            if (xl->cbks->ictxsize) {
-                if (!old_THIS)
-                    old_THIS = THIS;
-                THIS = xl;
-                size += xl->cbks->ictxsize(xl, inode);
-                THIS = old_THIS;
-            }
-        }
-    }
-    UNLOCK(&inode->lock);
-
-out:
-    return size;
 }
 
 /* *
