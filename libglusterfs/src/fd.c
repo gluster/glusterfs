@@ -948,13 +948,14 @@ __fd_ctx_del(fd_t *fd, xlator_t *xlator)
 
     for (index = 0; index < fd->xl_count; index++) {
         if (fd->_ctx[index].xl_key == xlator) {
-            fd->_ctx[index].key = 0;
             value = fd->_ctx[index].value1;
+            fd->_ctx[index].key = 0;
             fd->_ctx[index].value1 = 0;
+            return value;
         }
     }
 
-    return value;
+    return 0;
 }
 
 uint64_t
