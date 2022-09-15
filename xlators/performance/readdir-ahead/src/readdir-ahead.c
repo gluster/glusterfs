@@ -1114,14 +1114,9 @@ rda_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
 static int32_t
 rda_releasedir(xlator_t *this, fd_t *fd)
 {
-    uint64_t val;
     struct rda_fd_ctx *ctx;
 
-    val = fd_ctx_del(fd, this);
-    if (val == 0)
-        return -1;
-
-    ctx = (struct rda_fd_ctx *)(uintptr_t)val;
+    ctx = fd_ctx_del_ptr(fd, this);
     if (!ctx)
         return 0;
 

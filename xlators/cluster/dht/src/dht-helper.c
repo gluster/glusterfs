@@ -22,19 +22,13 @@ int32_t
 dht_fd_ctx_destroy(xlator_t *this, fd_t *fd)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    uint64_t value = 0;
     int32_t ret = -1;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
     ret = 0;
-    value = fd_ctx_del(fd, this);
-    if (!value) {
-        goto out;
-    }
-
-    fd_ctx = (dht_fd_ctx_t *)(uintptr_t)value;
+    fd_ctx = fd_ctx_del_ptr(fd, this);
     if (fd_ctx) {
         GF_REF_PUT(fd_ctx);
     }

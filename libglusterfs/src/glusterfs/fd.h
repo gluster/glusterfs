@@ -146,6 +146,7 @@ fd_ctx_get(fd_t *fd, xlator_t *xlator);
 
 uint64_t
 fd_ctx_del(fd_t *fd, xlator_t *xlator);
+#define fd_ctx_del_ptr(_fd, _xl) (void *)(uintptr_t)fd_ctx_del(_fd, _xl)
 
 int
 __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);

@@ -233,15 +233,15 @@ flush_region(call_frame_t *frame, ra_file_t *file, off_t offset, off_t size,
 int
 ra_release(xlator_t *this, fd_t *fd)
 {
-    uint64_t tmp_file = 0;
+    ra_file_t *tmp_file = NULL;
 
     GF_VALIDATE_OR_GOTO("read-ahead", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    tmp_file = fd_ctx_del(fd, this);
+    tmp_file = fd_ctx_del_ptr(fd, this);
 
     if (tmp_file) {
-        ra_file_destroy((ra_file_t *)(long)tmp_file);
+        ra_file_destroy(tmp_file);
     }
 
 out:

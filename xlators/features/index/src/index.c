@@ -2566,14 +2566,12 @@ int32_t
 index_releasedir(xlator_t *this, fd_t *fd)
 {
     index_fd_ctx_t *fctx = NULL;
-    uint64_t ctx = 0;
     int ret = 0;
 
-    ctx = fd_ctx_del(fd, this);
-    if (!ctx)
+    fctx = fd_ctx_del_ptr(fd, this);
+    if (!fctx)
         goto out;
 
-    fctx = (index_fd_ctx_t *)(long)ctx;
     if (fctx->dir) {
         ret = sys_closedir(fctx->dir);
         if (ret)
@@ -2590,11 +2588,9 @@ int32_t
 index_release(xlator_t *this, fd_t *fd)
 {
     index_fd_ctx_t *fctx = NULL;
-    uint64_t ctx = 0;
 
-    ctx = fd_ctx_del(fd, this);
-    if (ctx) {
-        fctx = (index_fd_ctx_t *)(long)ctx;
+    fctx = fd_ctx_del_ptr(fd, this);
+    if (fctx) {
         GF_FREE(fctx);
     }
 

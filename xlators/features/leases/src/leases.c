@@ -1054,7 +1054,6 @@ static int
 leases_release(xlator_t *this, fd_t *fd)
 {
     int ret = -1;
-    uint64_t tmp = 0;
     lease_fd_ctx_t *fd_ctx = NULL;
 
     if (fd == NULL) {
@@ -1063,14 +1062,11 @@ leases_release(xlator_t *this, fd_t *fd)
 
     gf_log(this->name, GF_LOG_TRACE, "Releasing all leases with fd %p", fd);
 
-    tmp = fd_ctx_del(fd, this);
-    if (!tmp) {
+    fd_ctx = fd_ctx_del_ptr(fd, this);
+    if (!fd_ctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
-    }
-
-    fd_ctx = (lease_fd_ctx_t *)(long)tmp;
-    if (fd_ctx)
+    } else
         GF_FREE(fd_ctx);
 
     ret = 0;

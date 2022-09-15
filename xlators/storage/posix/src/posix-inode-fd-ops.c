@@ -1430,18 +1430,16 @@ int32_t
 posix_releasedir(xlator_t *this, fd_t *fd)
 {
     struct posix_fd *pfd = NULL;
-    uint64_t tmp_pfd = 0;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
 
-    tmp_pfd = fd_ctx_del(fd, this);
-    if (tmp_pfd == 0) {
+    pfd = fd_ctx_del_ptr(fd, this);
+    if (pfd == NULL) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
 
-    pfd = (struct posix_fd *)(long)tmp_pfd;
     if (!pfd->dir) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_PFD_NULL,
                "pfd->dir is NULL for fd=%p", fd);
@@ -2650,7 +2648,6 @@ int32_t
 posix_release(xlator_t *this, fd_t *fd)
 {
     struct posix_fd *pfd = NULL;
-    uint64_t tmp_pfd = 0;
 
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
@@ -2658,14 +2655,13 @@ posix_release(xlator_t *this, fd_t *fd)
     if (fd->inode->active_fd_count == 0)
         posix_unlink_renamed_file(this, fd->inode);
 
-    tmp_pfd = fd_ctx_del(fd, this);
-    if (tmp_pfd == 0) {
+    pfd = fd_ctx_del_ptr(fd, this);
+    if (pfd == NULL) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_PFD_NULL,
                "pfd is NULL from fd=%p", fd);
         goto out;
     }
 
-    pfd = (struct posix_fd *)(long)tmp_pfd;
     if (pfd->dir) {
         gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DIR_NOT_NULL,
                "pfd->dir is %p (not NULL) for file fd=%p", pfd->dir, fd);
@@ -6023,7 +6019,10 @@ posix_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         if (op_ret >= 0) {
             op_ret = 0;
 
-            list_for_each_entry(entry, &entries.list, list) { op_ret++; }
+            list_for_each_entry(entry, &entries.list, list)
+            {
+                op_ret++;
+            }
         }
 
         STACK_UNWIND_STRICT(readdirp, frame, op_ret, op_errno, &entries, NULL);

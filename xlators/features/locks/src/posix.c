@@ -312,7 +312,10 @@ __get_posixlk_count(pl_inode_t *pl_inode)
     posix_lock_t *lock = NULL;
     int32_t count = 0;
 
-    list_for_each_entry(lock, &pl_inode->ext_list, list) { count++; }
+    list_for_each_entry(lock, &pl_inode->ext_list, list)
+    {
+        count++;
+    }
 
     return count;
 }
@@ -2973,7 +2976,6 @@ pl_release(xlator_t *this, fd_t *fd)
     pl_inode_t *pl_inode = NULL;
     uint64_t tmp_pl_inode = 0;
     int ret = -1;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     if (fd == NULL) {
@@ -2994,15 +2996,13 @@ pl_release(xlator_t *this, fd_t *fd)
     pl_update_refkeeper(this, fd->inode);
 
 clean:
-    tmp = fd_ctx_del(fd, this);
-    if (!tmp) {
+    fdctx = fd_ctx_del_ptr(fd, this);
+    if (!fdctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         ret = -1;
         goto out;
     }
     ret = 0;
-
-    fdctx = (pl_fdctx_t *)(long)tmp;
 
     GF_FREE(fdctx);
 out:
@@ -3013,20 +3013,17 @@ int
 pl_releasedir(xlator_t *this, fd_t *fd)
 {
     int ret = -1;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     if (fd == NULL) {
         goto out;
     }
 
-    tmp = fd_ctx_del(fd, this);
-    if (!tmp) {
+    fdctx = fd_ctx_del_ptr(fd, this);
+    if (!fdctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
     }
-
-    fdctx = (pl_fdctx_t *)(long)tmp;
 
     GF_FREE(fdctx);
     ret = 0;

@@ -1215,7 +1215,6 @@ static int32_t
 svs_releasedir(xlator_t *this, fd_t *fd)
 {
     svs_fd_t *sfd = NULL;
-    uint64_t tmp_pfd = 0;
     int ret = 0;
     svs_inode_t *svs_inode = NULL;
     glfs_t *fs = NULL;
@@ -1224,8 +1223,8 @@ svs_releasedir(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    tmp_pfd = fd_ctx_del(fd, this);
-    if (tmp_pfd == 0) {
+    sfd = fd_ctx_del_ptr(fd, this);
+    if (!sfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         ret = -1;
         goto out;
@@ -1238,7 +1237,6 @@ svs_releasedir(xlator_t *this, fd_t *fd)
         fs = svs_inode->fs; /* should inode->lock be held for this? */
         SVS_CHECK_VALID_SNAPSHOT_HANDLE(fs, this);
         if (fs) {
-            sfd = (svs_fd_t *)(long)tmp_pfd;
             if (sfd->fd) {
                 ret = glfs_close(sfd->fd);
                 if (ret)
@@ -1310,7 +1308,6 @@ static int32_t
 svs_release(xlator_t *this, fd_t *fd)
 {
     svs_fd_t *sfd = NULL;
-    uint64_t tmp_pfd = 0;
     int ret = 0;
     inode_t *inode = NULL;
     svs_inode_t *svs_inode = NULL;
@@ -1319,8 +1316,8 @@ svs_release(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("snapview-server", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    tmp_pfd = fd_ctx_del(fd, this);
-    if (!tmp_pfd) {
+    sfd = fd_ctx_del_ptr(fd, this);
+    if (!sfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         ret = -1;
         goto out;
@@ -1333,7 +1330,6 @@ svs_release(xlator_t *this, fd_t *fd)
         fs = svs_inode->fs; /* should inode->lock be held for this? */
         SVS_CHECK_VALID_SNAPSHOT_HANDLE(fs, this);
         if (fs) {
-            sfd = (svs_fd_t *)(long)tmp_pfd;
             if (sfd->fd) {
                 ret = glfs_close(sfd->fd);
                 if (ret)
