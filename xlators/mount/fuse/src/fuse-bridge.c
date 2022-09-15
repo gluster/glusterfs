@@ -6467,8 +6467,9 @@ fuse_graph_setup(xlator_t *this, glusterfs_graph_t *graph)
         }
 
 #if FUSE_KERNEL_MINOR_VERSION >= 11
-        itable = inode_table_with_invalidator(
-            priv->lru_limit, graph->top, fuse_inode_invalidate_fn, this, 0, 0);
+        itable = inode_table_with_invalidator(priv->lru_limit, graph->top,
+                                              fuse_inode_invalidate_fn, this, 0,
+                                              priv->inode_table_size);
 #else
         itable = inode_table_new(0, graph->top, 0, 0);
 #endif
@@ -6900,6 +6901,9 @@ init(xlator_t *this_xl)
 
     GF_OPTION_INIT("lru-limit", priv->lru_limit, uint32, cleanup_exit);
 
+    GF_OPTION_INIT("inode-table-size", priv->inode_table_size, uint32,
+                   cleanup_exit);
+
     GF_OPTION_INIT("invalidate-limit", priv->invalidate_limit, uint32,
                    cleanup_exit);
 
@@ -7228,6 +7232,15 @@ struct volume_options options[] = {
         .min = 0,
         .description = "makes glusterfs invalidate kernel inodes after "
                        "reaching this limit (0 means 'unlimited')",
+    },
+    {
+        .key = {"inode-table-size"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "65536",
+        .min = 0,
+        .description = "sets the size of the inode hash table (must be a "
+                       "power of two, greater than or equal to 65536, "
+                       "will be rounded up if not)",
     },
     {
         .key = {"invalidate-limit"},

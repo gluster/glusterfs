@@ -171,6 +171,7 @@ struct fuse_private {
 
     /* LRU Limit, if not set, default is 64k for now */
     uint32_t lru_limit;
+    uint32_t inode_table_size;
     uint32_t invalidate_limit;
     uint32_t fuse_dev_eperm_ratelimit_ns;
 

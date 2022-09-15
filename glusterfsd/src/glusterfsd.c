@@ -197,6 +197,9 @@ static struct argp_option gf_options[] = {
     {"lru-limit", ARGP_FUSE_LRU_LIMIT_KEY, "N", 0,
      "Set fuse module's limit for number of inodes kept in LRU list to N "
      "[default: 65536]"},
+    {"inode-table-size", ARGP_FUSE_INODE_TABLESIZE_KEY, "N", 0,
+     "Set the inode hash table size to N - this must be a power of 2 and "
+     "will be rounded up if not [default: 65536]"},
     {"invalidate-limit", ARGP_FUSE_INVALIDATE_LIMIT_KEY, "N", 0,
      "Suspend inode invalidations implied by 'lru-limit' if the number of "
      "outstanding invalidations reaches N"},
@@ -428,6 +431,11 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
     if (cmd_args->lru_limit >= 0) {
         DICT_SET_VAL(dict_set_int32_sizen, options, "lru-limit",
                      cmd_args->lru_limit, glusterfsd_msg_3);
+    }
+
+    if (cmd_args->inode_table_size >= 0) {
+        DICT_SET_VAL(dict_set_int32_sizen, options, "inode-table-size",
+                     cmd_args->inode_table_size, glusterfsd_msg_3);
     }
 
     if (cmd_args->invalidate_limit >= 0) {
@@ -1107,6 +1115,14 @@ parse_opts(int key, char *arg, struct argp_state *state)
                 break;
 
             argp_failure(state, -1, 0, "unknown LRU limit option %s", arg);
+            break;
+
+        case ARGP_FUSE_INODE_TABLESIZE_KEY:
+            if (!gf_string2int32(arg, &cmd_args->inode_table_size))
+                break;
+
+            argp_failure(state, -1, 0, "unknown inode table size option %s",
+                         arg);
             break;
 
         case ARGP_FUSE_INVALIDATE_LIMIT_KEY:

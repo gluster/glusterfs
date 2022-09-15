@@ -1711,16 +1711,22 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
 
     /* The size of hash table MUST always be power of 2 as required by hash_gfid
      */
-    if (inode_hashsize == 0) {
+    if (inode_hashsize < 65536) {
+        if (inode_hashsize > 0)
+            gf_log(THIS->name, GF_LOG_WARNING,
+                   "Set inode table size to minimum value of 65536 rather than "
+                   "the configured %u", inode_hashsize);
         new->inode_hashsize = 65536;
     } else {
         new->inode_hashsize = inode_hashsize;
-        while ((diff = new->inode_hashsize & -new->inode_hashsize) != new->inode_hashsize)
+        while ((diff = new->inode_hashsize & -new->inode_hashsize) !=
+               new->inode_hashsize)
             new->inode_hashsize += diff;
 
         if (new->inode_hashsize != inode_hashsize)
             gf_log(THIS->name, GF_LOG_WARNING,
-                    "Rounded inode table size up to %lu from %u", new->inode_hashsize, inode_hashsize);
+                   "Rounded inode table size up to %zu from %u",
+                   new->inode_hashsize, inode_hashsize);
     }
 
     /* In case FUSE is initing the inode table. */
