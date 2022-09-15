@@ -453,17 +453,9 @@ retry:
     if (ret)
         goto out;
 
-    if (IA_ISDIR(iatt.ia_type)) {
-        ret = -1;
-        errno = EISDIR;
+    ret = validate_open_flags(flags, iatt.ia_type);
+    if (ret)
         goto out;
-    }
-
-    if (!IA_ISREG(iatt.ia_type)) {
-        ret = -1;
-        errno = EINVAL;
-        goto out;
-    }
 
     if (glfd->fd) {
         /* Retry. Safe to touch glfd->fd as we
