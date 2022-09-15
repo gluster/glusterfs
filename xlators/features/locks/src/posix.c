@@ -3000,6 +3000,7 @@ clean:
         ret = -1;
         goto out;
     }
+    ret = 0;
 
     fdctx = (pl_fdctx_t *)(long)tmp;
 

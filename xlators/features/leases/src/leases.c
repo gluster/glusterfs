@@ -1072,6 +1072,8 @@ leases_release(xlator_t *this, fd_t *fd)
     fd_ctx = (lease_fd_ctx_t *)(long)tmp;
     if (fd_ctx)
         GF_FREE(fd_ctx);
+
+    ret = 0;
 out:
     return ret;
 }

@@ -28,6 +28,7 @@ dht_fd_ctx_destroy(xlator_t *this, fd_t *fd)
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
+    ret = 0;
     value = fd_ctx_del(fd, this);
     if (!value) {
         goto out;
