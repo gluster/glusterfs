@@ -602,7 +602,6 @@ static pl_fdctx_t *
 pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
 {
     int ret = 0;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     GF_VALIDATE_OR_GOTO("posix-locks", this, out);
@@ -610,19 +609,20 @@ pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
 
     LOCK(&fd->lock);
     {
-        tmp = __fd_ctx_get(fd, this);
-        if (tmp == 0) {
-            fdctx = pl_new_fdctx();
-            if (fdctx == NULL) {
-                goto unlock;
-            }
+        fdctx = __fd_ctx_get_ptr(fd, this);
+        if (fdctx)
+            goto unlock;
+
+        fdctx = pl_new_fdctx();
+        if (fdctx == NULL) {
+            goto unlock;
         }
 
         ret = __fd_ctx_set(fd, this, (uint64_t)(long)fdctx);
         if (ret != 0) {
+            UNLOCK(&fd->lock);
             GF_FREE(fdctx);
             fdctx = NULL;
-            UNLOCK(&fd->lock);
             gf_log(this->name, GF_LOG_DEBUG, "failed to set fd ctx");
             goto out;
         }
