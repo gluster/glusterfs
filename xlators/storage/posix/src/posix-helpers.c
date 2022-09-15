@@ -1831,6 +1831,7 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
 
     pfd = __fd_ctx_get_ptr(fd, this);
     if (pfd) {
+        ret = 0;
         goto out;
     } else if (!fd_is_anonymous(fd)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_READ_FAILED,
