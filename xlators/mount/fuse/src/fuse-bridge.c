@@ -78,13 +78,10 @@ fuse_forget_cbk(xlator_t *this, inode_t *inode)
 fuse_fd_ctx_t *
 __fuse_fd_ctx_check_n_create(xlator_t *this, fd_t *fd)
 {
-    uint64_t val = 0;
     int32_t ret = 0;
     fuse_fd_ctx_t *fd_ctx = NULL;
 
-    val = __fd_ctx_get(fd, this);
-
-    fd_ctx = (fuse_fd_ctx_t *)(unsigned long)val;
+    fd_ctx = __fd_ctx_get_ptr(fd, this);
 
     if (fd_ctx == NULL) {
         fd_ctx = GF_CALLOC(1, sizeof(*fd_ctx), gf_fuse_mt_fd_ctx_t);
@@ -6354,8 +6351,7 @@ fuse_priv_dump(xlator_t *this)
     if (!this)
         return -1;
 
-   private
-    = this->private;
+    private = this->private;
 
     if (!private)
         return -1;
@@ -6503,8 +6499,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     glusterfs_graph_t *graph = NULL;
     struct pollfd pfd = {0};
 
-   private
-    = this->private;
+    private = this->private;
 
     graph = data;
 
@@ -6529,8 +6524,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                 (event == GF_EVENT_CHILD_DOWN)) {
                 pthread_mutex_lock(&private->sync_mutex);
                 {
-                   private
-                    ->event_recvd = 1;
+                    private->event_recvd = 1;
                     pthread_cond_broadcast(&private->sync_cond);
                 }
                 pthread_mutex_unlock(&private->sync_mutex);
@@ -6539,18 +6533,16 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             pthread_mutex_lock(&private->sync_mutex);
             {
                 if (!private->fuse_thread_started) {
-                   private
-                    ->fuse_thread_started = 1;
+                    private->fuse_thread_started = 1;
                     start_thread = _gf_true;
                 }
             }
             pthread_mutex_unlock(&private->sync_mutex);
 
             if (start_thread) {
-               private
-                ->fuse_thread = GF_CALLOC(private->reader_thread_count,
-                                          sizeof(pthread_t),
-                                          gf_fuse_mt_pthread_t);
+                private->fuse_thread = GF_CALLOC(private->reader_thread_count,
+                                                 sizeof(pthread_t),
+                                                 gf_fuse_mt_pthread_t);
                 for (i = 0; i < private->reader_thread_count; i++) {
                     ret = gf_thread_create(&private->fuse_thread[i], NULL,
                                            fuse_thread_proc, this, "fuseproc");
@@ -6584,8 +6576,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                         if (fuse_get_mount_status(this) != 0) {
                             goto auth_fail_unlock;
                         }
-                       private
-                        ->mount_finished = _gf_true;
+                        private->mount_finished = _gf_true;
                     } else if (pfd.revents) {
                         gf_log(this->name, GF_LOG_ERROR,
                                "mount pipe closed without status");

@@ -76,7 +76,6 @@ int
 dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    uint64_t value = 0;
     int ret = -1;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
@@ -84,9 +83,8 @@ dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
 
     LOCK(&fd->lock);
     {
-        value = __fd_ctx_get(fd, this);
-        if (value) {
-            fd_ctx = (dht_fd_ctx_t *)(uintptr_t)value;
+        fd_ctx = __fd_ctx_get_ptr(fd, this);
+        if (fd_ctx) {
             if (fd_ctx->opened_on_dst == (uint64_t)(uintptr_t)dst) {
                 /* This could happen due to racing
                  * check_progress tasks*/
@@ -114,16 +112,14 @@ static dht_fd_ctx_t *
 dht_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    uint64_t tmp_val = 0;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
     LOCK(&fd->lock);
     {
-        tmp_val = __fd_ctx_get(fd, this);
-        if (tmp_val) {
-            fd_ctx = (dht_fd_ctx_t *)(uintptr_t)tmp_val;
+        fd_ctx = __fd_ctx_get_ptr(fd, this);
+        if (fd_ctx) {
             GF_REF_GET(fd_ctx);
         }
     }

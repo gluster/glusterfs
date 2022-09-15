@@ -16,20 +16,16 @@
 meta_fd_t *
 meta_fd_get(fd_t *fd, xlator_t *this)
 {
-    uint64_t value = 0;
     meta_fd_t *meta_fd = NULL;
 
     LOCK(&fd->lock);
     {
-        value = __fd_ctx_get(fd, this);
-        if (!value) {
+        meta_fd = __fd_ctx_get_ptr(fd, this);
+        if (!meta_fd) {
             meta_fd = GF_CALLOC(1, sizeof(*meta_fd), gf_meta_mt_fd_t);
             if (!meta_fd)
                 goto unlock;
-            value = (long)meta_fd;
-            __fd_ctx_set(fd, this, value);
-        } else {
-            meta_fd = (void *)(uintptr_t)value;
+            __fd_ctx_set(fd, this, (long)meta_fd);
         }
     }
 unlock:

@@ -3453,9 +3453,10 @@ unblock:
     }
 
     tmp = fd_ctx_del(fd, this);
-    br_stub_fd = (br_stub_fd_t *)(long)tmp;
-
-    GF_FREE(br_stub_fd);
+    if (tmp) {
+        br_stub_fd = (br_stub_fd_t *)(long)tmp;
+        GF_FREE(br_stub_fd);
+    }
 
     return 0;
 }

@@ -46,10 +46,11 @@ this_fd_del_ctx(fd_t *file, xlator_t *this)
 {
     uint64_t ctxaddr = 0;
 
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, file, out);
-
     ctxaddr = fd_ctx_del(file, this);
+    if (!ctxaddr) { /* check that we did not pass NULL to either this or file */
+        GF_VALIDATE_OR_GOTO("client", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, file, out);
+    }
 
 out:
     return (clnt_fd_ctx_t *)(unsigned long)ctxaddr;

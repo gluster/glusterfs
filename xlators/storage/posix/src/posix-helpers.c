@@ -1819,7 +1819,6 @@ static int
 __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
                    int *op_errno_p)
 {
-    uint64_t tmp_pfd = 0;
     struct posix_fd *pfd = NULL;
     int ret = -1;
     char *real_path = NULL;
@@ -1830,14 +1829,10 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
 
     struct posix_private *priv = NULL;
 
-    priv = this->private;
-
-    tmp_pfd = __fd_ctx_get(fd, this);
-    if (tmp_pfd) {
-        pfd = (void *)(long)tmp_pfd;
+    pfd = __fd_ctx_get_ptr(fd, this);
+    if (pfd) {
         goto out;
-    }
-    if (!fd_is_anonymous(fd)) {
+    } else if (!fd_is_anonymous(fd)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, P_MSG_READ_FAILED,
                "Failed to get fd context for a non-anonymous fd, "
                "gfid: %s",
@@ -1883,6 +1878,7 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
     if (fd->inode->ia_type == IA_IFREG) {
         _fd = open(real_path, fd->flags);
         if ((_fd == -1) && (errno == ENOENT)) {
+            priv = this->private;
             POSIX_GET_FILE_UNLINK_PATH(priv->base_path, fd->inode->gfid,
                                        unlink_path);
             _fd = open(unlink_path, fd->flags);

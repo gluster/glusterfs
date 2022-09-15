@@ -4116,15 +4116,12 @@ out:
 static afr_fd_ctx_t *
 __afr_fd_ctx_get(fd_t *fd, xlator_t *this)
 {
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
 
-    ctx = __fd_ctx_get(fd, this);
+    fd_ctx = __fd_ctx_get_ptr(fd, this);
 
-    if (!ctx) {
+    if (!fd_ctx) {
         fd_ctx = __afr_fd_ctx_set(this, fd);
-    } else {
-        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
     }
     return fd_ctx;
 }

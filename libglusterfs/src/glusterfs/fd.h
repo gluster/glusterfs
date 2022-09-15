@@ -142,7 +142,7 @@ fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
 uint64_t
 fd_ctx_get(fd_t *fd, xlator_t *xlator);
-#define fd_ctx_get_ptr(_fd, _xl) (void *)(uintptr_t) fd_ctx_get(_fd, _xl)
+#define fd_ctx_get_ptr(_fd, _xl) (void *)(uintptr_t)fd_ctx_get(_fd, _xl)
 
 uint64_t
 fd_ctx_del(fd_t *fd, xlator_t *xlator);
@@ -152,6 +152,7 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
 uint64_t
 __fd_ctx_get(fd_t *fd, xlator_t *xlator);
+#define __fd_ctx_get_ptr(_fd, _xl) (void *)(uintptr_t)__fd_ctx_get(_fd, _xl)
 
 void
 fd_ctx_dump(fd_t *fd, char *prefix);
