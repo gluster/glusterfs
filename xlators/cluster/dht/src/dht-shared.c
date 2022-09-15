@@ -113,7 +113,7 @@ dht_priv_dump(xlator_t *this)
     gf_proc_dump_write("gen", "%d", conf->gen);
     gf_proc_dump_write("min_free_disk", "%lf", conf->min_free_disk);
     gf_proc_dump_write("min_free_inodes", "%lf", conf->min_free_inodes);
-    gf_proc_dump_write("disk_unit", "%c", conf->disk_unit);
+    gf_proc_dump_write("disk_unit percentage", "%d", conf->disk_unit_percent);
     gf_proc_dump_write("refresh_interval", "%d", conf->refresh_interval);
     gf_proc_dump_write("unhashed_sticky_bit", "%d", conf->unhashed_sticky_bit);
     gf_proc_dump_write("use-readdirp", "%d", conf->use_readdirp);
@@ -454,9 +454,9 @@ dht_reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("min-free-disk", conf->min_free_disk, options,
                      percent_or_size, out);
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100.0)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     GF_OPTION_RECONF("min-free-inodes", conf->min_free_inodes, options, percent,
                      out);
@@ -762,9 +762,9 @@ dht_init(xlator_t *this)
     }
 
     /* option can be any one of percent or bytes */
-    conf->disk_unit = 0;
+    conf->disk_unit_percent = _gf_false;
     if (conf->min_free_disk < 100)
-        conf->disk_unit = 'p';
+        conf->disk_unit_percent = _gf_true;
 
     ret = dht_init_subvolumes(this, conf);
     if (ret == -1) {
