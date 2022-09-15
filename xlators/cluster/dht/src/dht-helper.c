@@ -76,6 +76,7 @@ dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
+    ret = 0;
     LOCK(&fd->lock);
     {
         fd_ctx = __fd_ctx_get_ptr(fd, this);
