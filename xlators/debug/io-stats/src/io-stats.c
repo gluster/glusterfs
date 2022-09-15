@@ -1312,7 +1312,7 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
         ios_log(this, logfp, "\n=== Interval %d stats ===", interval);
     ios_log(this, logfp, "      Start : %" PRIu64 " secs",
             (uint64_t)(stats->started_at));
-    if (conf->last_fop_hit)
+    if (conf->last_fop_hit > stats->started_at)
         ios_log(this, logfp, "      End : %" PRIu64 " secs",
                 (uint64_t)(conf->last_fop_hit));
     else
@@ -1409,17 +1409,14 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
        In case if last_fop_hit value is 0 then consider now
        to measure the duration
     */
-    if (conf->last_fop_hit) {
+    if (conf->last_fop_hit > stats->started_at) {
         duration = (conf->last_fop_hit - stats->started_at);
-        ios_log(this, logfp, "fops/s : %" PRIu64,
-                (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
-        ios_log(this, logfp, "\n");
     } else {
         duration = (now - stats->started_at);
-        ios_log(this, logfp, "fops/s : %" PRIu64,
-                (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
-        ios_log(this, logfp, "\n");
     }
+
+    ios_log(this, logfp, "fops/s : %" PRIu64,
+            (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
 
     ios_log(this, logfp,
             "------ ----- ----- ----- ----- ----- ----- ----- "
@@ -1511,12 +1508,13 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
                interval);
 
     sec = (uint64_t)(now - stats->started_at);
+    end_time = now;
     snprintf(key, sizeof(key), "%d-duration", interval);
     /* To measure correct FOP_HITS_PER_SEC consider time
        difference between last incremental profile stat
        started and last fop hit.
     */
-    if (conf->last_fop_hit) {
+    if (conf->last_fop_hit > stats->started_at) {
         sec = (conf->last_fop_hit - stats->started_at);
         end_time = conf->last_fop_hit;
     }
@@ -1660,7 +1658,7 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
     }
 
     /* Set the fop-hit-per-sec only for incremental stats */
-    if (total_fop_hits && (interval >= 0)) {
+    if (total_fop_hits) {
         snprintf(key, sizeof(key), "%d-fop-hits-per-sec", interval);
         ret = dict_set_uint64(
             dict, key, (sec != 0 ? (total_fop_hits / sec) : (total_fop_hits)));
