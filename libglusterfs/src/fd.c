@@ -407,7 +407,7 @@ gf_fd_fdptr_get(fdtable_t *fdtable, int64_t fd)
     {
         fdptr = fdtable->fdentries[fd].fd;
         if (fdptr) {
-            fd_ref(fdptr);
+            __fd_ref(fdptr);
         }
     }
     pthread_rwlock_unlock(&fdtable->lock);
@@ -460,30 +460,33 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
 
     if (IA_ISDIR(fd->inode->ia_type)) {
         for (i = 0; i < fd->xl_count; i++) {
-            if (fd->_ctx[i].key) {
-                xl = fd->_ctx[i].xl_key;
+            xl = fd->_ctx[i].xl_key;
+            if (xl) {
                 if (!xl->call_cleanup && xl->cbks->releasedir) {
                     if (!old_THIS)
                         old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->releasedir(xl, fd);
-                    THIS = old_THIS;
                 }
             }
         }
+        if (old_THIS)
+            THIS = old_THIS;
     } else {
         for (i = 0; i < fd->xl_count; i++) {
-            if (fd->_ctx[i].key) {
-                xl = fd->_ctx[i].xl_key;
+            xl = fd->_ctx[i].xl_key;
+            if (xl) {
                 if (!xl->call_cleanup && xl->cbks->release) {
                     if (!old_THIS)
                         old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->release(xl, fd);
-                    THIS = old_THIS;
                 }
             }
         }
+        if (old_THIS)
+            THIS = old_THIS;
+
     }
 
     LOCK_DESTROY(&fd->lock);
@@ -534,7 +537,7 @@ fd_close(fd_t *fd)
 void
 fd_unref(fd_t *fd)
 {
-    int32_t refcount = 0;
+    uint32_t refcount = 0;
     gf_boolean_t bound = _gf_false;
 
     if (!fd) {
@@ -849,7 +852,7 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
             /* don't break, to check if key already exists
                further on */
         }
-        if (fd->_ctx[index].xl_key == xlator) {
+        else if (fd->_ctx[index].xl_key == xlator) {
             set_idx = index;
             break;
         }
@@ -943,9 +946,6 @@ __fd_ctx_del(fd_t *fd, xlator_t *xlator)
     int index = 0;
     uint64_t value = 0;
 
-    if (!fd || !xlator)
-        return 0;
-
     for (index = 0; index < fd->xl_count; index++) {
         if (fd->_ctx[index].xl_key == xlator) {
             value = fd->_ctx[index].value1;
@@ -963,7 +963,7 @@ fd_ctx_del(fd_t *fd, xlator_t *xlator)
 {
     uint64_t ret = 0;
 
-    if (fd) {
+    if (fd && xlator) {
         LOCK(&fd->lock);
         {
             ret = __fd_ctx_del(fd, xlator);
@@ -982,7 +982,7 @@ fd_dump(fd_t *fd, char *prefix)
         return;
 
     gf_proc_dump_write("pid", "%" PRIu64, fd->pid);
-    gf_proc_dump_write("refcount", "%" GF_PRI_ATOMIC,
+    gf_proc_dump_write("refcount", "%" PRIu32,
                        GF_ATOMIC_GET(fd->refcount));
     gf_proc_dump_write("flags", "%d", fd->flags);
 
