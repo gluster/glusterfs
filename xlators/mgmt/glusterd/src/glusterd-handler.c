@@ -711,26 +711,6 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
             goto out;
     }
 
-    /* Cli will add timeout key to dict if the default timeout is
-     * other than 2 minutes. Here we use this value to check whether
-     * mgmt_v3_lock_timeout should be set to default value or we
-     * need to change the value according to timeout value
-     * i.e, timeout + 120 seconds. */
-    ret = dict_get_time(dict, "timeout", &timeout);
-    if (!ret)
-        priv->mgmt_v3_lock_timeout = timeout + 120;
-
-    ret = glusterd_mgmt_v3_lock(volname, MY_UUID, &op_errno, "vol");
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_LOCK_GET_FAIL,
-               "Unable to acquire lock for %s", volname);
-        snprintf(err_str, err_len,
-                 "Another transaction is in progress for %s. "
-                 "Please try again after some time.",
-                 volname);
-        goto out;
-    }
-
     locked = 1;
     gf_msg_debug(this->name, 0, "Acquired lock on localhost");
 

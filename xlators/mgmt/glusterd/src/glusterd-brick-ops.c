@@ -1044,22 +1044,23 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
     }
 
     /* Gets changed only if the options are given in add-brick cli */
-    if (type)
+    if (type) {
         volinfo->type = type;
-    /* performance.client-io-threads is turned on by default,
-     * however this has adverse effects on replicate volumes due to
-     * replication design issues, till that get addressed
-     * performance.client-io-threads option is turned off for all
-     * replicate volumes if not already explicitly enabled.
-     */
-    if (type && glusterd_is_volume_replicate(volinfo)) {
-        ret = dict_set_sizen_str_sizen(volinfo->dict,
-                                       "performance.client-io-threads", "off");
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                   "Failed to set "
-                   "performance.client-io-threads to off");
-            goto out;
+        /* performance.client-io-threads is turned on by default,
+         * however this has adverse effects on replicate volumes due to
+         * replication design issues, till that get addressed
+         * performance.client-io-threads option is turned off for all
+         * replicate volumes if not already explicitly enabled.
+         */
+        if (glusterd_is_volume_replicate(volinfo)) {
+            ret = dict_set_sizen_str_sizen(
+                volinfo->dict, "performance.client-io-threads", "off");
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                       "Failed to set "
+                       "performance.client-io-threads to off");
+                goto out;
+            }
         }
     }
 
@@ -1080,7 +1081,7 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
 
     ret = 0;
     if (GLUSTERD_STATUS_STARTED != volinfo->status)
-        goto generate_volfiles;
+        goto out;
 
     ret = generate_brick_volfiles(volinfo);
     if (ret)
@@ -1164,15 +1165,14 @@ glusterd_op_perform_add_bricks(glusterd_volinfo_t *volinfo, int32_t count,
                      _glusterd_restart_gsync_session, &param);
     }
 
-generate_volfiles:
+out:
     /*
      * The cluster is operating at version greater than
-     * gluster-3.7.5. So no need to sent volfile fetch
+     * gluster-3.7.5. So no need to send volfile fetch
      * request in commit phase, the same will be done
      * in post validate phase with v3 framework.
      */
 
-out:
     GF_FREE(free_ptr1);
     GF_FREE(free_ptr2);
     if (restart_shd) {
