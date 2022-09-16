@@ -36,14 +36,20 @@
         frame->local = NULL;                                                   \
         STACK_UNWIND_STRICT(fop, frame, op_ret, params);                       \
         if (__local) {                                                         \
-            if (__local->inodelk_dom_count_req)                                \
+            if (__local->inodelk_dom_count_req) {                              \
                 data_unref(__local->inodelk_dom_count_req);                    \
+                __local->inodelk_dom_count_req = NULL;                         \
+            }                                                                  \
             loc_wipe(&__local->loc[0]);                                        \
             loc_wipe(&__local->loc[1]);                                        \
-            if (__local->fd)                                                   \
+            if (__local->fd) {                                                 \
                 fd_unref(__local->fd);                                         \
-            if (__local->inode)                                                \
+                __local->fd = NULL;                                            \
+            }                                                                  \
+            if (__local->inode) {                                              \
                 inode_unref(__local->inode);                                   \
+                __local->inode = NULL;                                         \
+            }                                                                  \
             if (__local->xdata) {                                              \
                 dict_unref(__local->xdata);                                    \
                 __local->xdata = NULL;                                         \
@@ -52,11 +58,7 @@
         }                                                                      \
     } while (0)
 
-enum {
-    PL_LOCK_GRANTED = 0,
-    PL_LOCK_WOULD_BLOCK,
-    PL_LOCK_QUEUED
-};
+enum { PL_LOCK_GRANTED = 0, PL_LOCK_WOULD_BLOCK, PL_LOCK_QUEUED };
 
 posix_lock_t *
 new_posix_lock(struct gf_flock *flock, client_t *client, pid_t client_pid,
