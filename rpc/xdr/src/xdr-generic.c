@@ -59,7 +59,7 @@ ssize_t
 xdr_to_generic_payload(struct iovec inmsg, void *args, xdrproc_t proc,
                        struct iovec *pendingpayload)
 {
-    ssize_t ret;
+    ssize_t ret = 0;
 #ifdef BUILD_GNFS
     XDR xdr;
 
