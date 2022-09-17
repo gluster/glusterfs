@@ -1,7 +1,7 @@
-This file is not moved to /usr/share/bash-completion/completions/
+This file is not moved to @bashcompdir@
 with the source installation.
 Please execute make install explicity from here to move this file to
-/usr/share/bash-completion/completions/
+@bashcompdir@
 
 Similarly, use make uninstall to remove it from
-/usr/share/bash-completion/completions/
+@bashcompdir@
