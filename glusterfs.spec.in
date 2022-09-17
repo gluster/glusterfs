@@ -984,7 +984,7 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
 ## Install bash completion for cli
-install -p -m 0744 -D extras/command-completion/gluster.bash \
+install -p -m 0644 -D extras/command-completion/gluster.bash \
     %{buildroot}%{bashcompdir}/gluster.bash
 
 %clean
