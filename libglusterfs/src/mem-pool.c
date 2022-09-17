@@ -154,7 +154,7 @@ gf_mem_acct_enabled(xlator_t *xl)
 {
     /* Low-level __gf_xxx() may be called
        before ctx is initialized. */
-    return x->ctx && x->ctx->mem_acct_enable;
+    return xl->ctx && xl->ctx->mem_acct_enable;
 }
 
 void *
