@@ -338,6 +338,7 @@ and client framework.
 
 %package cli
 Summary:          GlusterFS CLI
+BuildRequires:    pkgconfig(bash-completion)
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 
 %description cli
