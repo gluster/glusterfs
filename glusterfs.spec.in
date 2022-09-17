@@ -224,6 +224,10 @@
 %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
+%global bashcompdir %(pkg-config --variable=completionsdir bash-completion 2>/dev/null)
+%if "%{bashcompdir}" == ""
+%global bashcompdir ${sysconfdir}/bash_completion.d
+%endif
 
 ##-----------------------------------------------------------------------------
 ## All package definitions should be placed here in alphabetical order
@@ -981,7 +985,7 @@ find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glus
 
 ## Install bash completion for cli
 install -p -m 0744 -D extras/command-completion/gluster.bash \
-    %{buildroot}%{_datadir}/bash-completion/completions/gluster
+    %{buildroot}%{bashcompdir}/gluster.bash
 
 %clean
 rm -rf %{buildroot}
@@ -1291,7 +1295,7 @@ exit 0
 %files cli
 %{_sbindir}/gluster
 %{_mandir}/man8/gluster.8*
-%{_datadir}/bash-completion/completions/gluster
+%{bashcompdir}/gluster.bash
 
 %files cloudsync-plugins
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins
