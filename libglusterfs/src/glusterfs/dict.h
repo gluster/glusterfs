@@ -88,7 +88,7 @@ typedef struct _data_pair data_pair_t;
 
 struct _data {
     char *data;
-    gf_atomic_t refcount;
+    gf_atomic_uint32_t refcount;
     gf_dict_data_type_t data_type;
     uint32_t len;
     uint32_t is_static;
@@ -102,7 +102,7 @@ struct _data_pair {
 
 struct _dict {
     uint64_t max_count;
-    int32_t count;
+    uint32_t count;
     /* Variable to store total keylen + value->len */
     uint32_t totkvlen;
     gf_atomic_t refcount;
@@ -116,8 +116,6 @@ typedef gf_boolean_t (*dict_match_t)(dict_t *d, char *k, data_t *v, void *data);
 
 int32_t
 is_data_equal(data_t *one, data_t *two);
-void
-data_destroy(data_t *data);
 
 /* function to set a key/value pair (overwrite existing if matches the key */
 int32_t
@@ -172,7 +170,6 @@ dict_reset(dict_t *dict);
 
 int
 dict_key_count(dict_t *this);
-
 
 int32_t
 dict_unserialize(char *buf, int32_t size, dict_t **fill);
@@ -459,7 +456,7 @@ are_dicts_equal(dict_t *one, dict_t *two,
 int
 dict_has_key_from_array(dict_t *dict, char **strings, gf_boolean_t *result);
 
-int
+unsigned int
 dict_serialized_length_lk(dict_t *this);
 
 int32_t
