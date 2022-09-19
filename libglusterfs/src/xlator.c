@@ -1292,7 +1292,10 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
     int ret = -1;
     int log_level = -1;
     gf_boolean_t syslog_flag = 0;
-    glusterfs_ctx_t *ctx = NULL;
+    glusterfs_ctx_t *ctx = this->ctx;
+
+    if (!ctx)
+        goto out;
 
     if (!strcmp("trusted.glusterfs.syslog", name)) {
         ret = gf_bin_to_string(key, sizeof(key), value, size);
@@ -1305,9 +1308,9 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
             goto out;
         }
         if (syslog_flag)
-            gf_log_enable_syslog();
+            gf_log_enable_syslog(ctx);
         else
-            gf_log_disable_syslog();
+            gf_log_disable_syslog(ctx);
 
         goto out;
     }
@@ -1331,7 +1334,7 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         gf_smsg("glusterfs", gf_log_get_loglevel(), 0, LG_MSG_SET_LOG_LEVEL,
                 "new-value=%d", log_level, "old-value=%d",
                 gf_log_get_loglevel(), NULL);
-        gf_log_set_loglevel(this->ctx, log_level);
+        gf_log_set_loglevel(ctx, log_level);
         ret = 0;
         goto out;
     }
@@ -1346,9 +1349,6 @@ is_gf_log_command(xlator_t *this, const char *name, char *value, size_t size)
         goto out;
     }
 
-    ctx = this->ctx;
-    if (!ctx)
-        goto out;
     if (!ctx->active)
         goto out;
     trav = ctx->active->top;
@@ -1371,28 +1371,24 @@ out:
 int
 glusterd_check_log_level(const char *value)
 {
-    int log_level = -1;
-
     if (!strcasecmp(value, "CRITICAL")) {
-        log_level = GF_LOG_CRITICAL;
+        return GF_LOG_CRITICAL;
     } else if (!strcasecmp(value, "ERROR")) {
-        log_level = GF_LOG_ERROR;
+        return GF_LOG_ERROR;
     } else if (!strcasecmp(value, "WARNING")) {
-        log_level = GF_LOG_WARNING;
+        return GF_LOG_WARNING;
     } else if (!strcasecmp(value, "INFO")) {
-        log_level = GF_LOG_INFO;
+        return GF_LOG_INFO;
     } else if (!strcasecmp(value, "DEBUG")) {
-        log_level = GF_LOG_DEBUG;
+        return GF_LOG_DEBUG;
     } else if (!strcasecmp(value, "TRACE")) {
-        log_level = GF_LOG_TRACE;
+        return GF_LOG_TRACE;
     } else if (!strcasecmp(value, "NONE")) {
-        log_level = GF_LOG_NONE;
+        return GF_LOG_NONE;
     }
 
-    if (log_level == -1)
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_INIT, NULL);
-
-    return log_level;
+    gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INVALID_INIT, NULL);
+    return -1;
 }
 
 int

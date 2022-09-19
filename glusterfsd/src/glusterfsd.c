@@ -1759,17 +1759,17 @@ logging_init(glusterfs_ctx_t *ctx, const char *progpath)
     }
 
     /* finish log set parameters before init */
-    gf_log_set_loglevel(ctx, cmd_args->log_level);
+    ctx->log.loglevel = cmd_args->log_level;
 
-    gf_log_set_localtime(cmd_args->localtime_logging);
+    ctx->log.localtime = cmd_args->localtime_logging;
 
-    gf_log_set_logger(cmd_args->logger);
+    ctx->log.logger = cmd_args->logger;
 
-    gf_log_set_logformat(cmd_args->log_format);
+    ctx->log.logformat = cmd_args->log_format;
 
-    gf_log_set_log_buf_size(cmd_args->log_buf_size);
+    gf_log_set_log_buf_size(ctx, cmd_args->log_buf_size);
 
-    gf_log_set_log_flush_timeout(cmd_args->log_flush_timeout);
+    ctx->log.timeout = cmd_args->log_flush_timeout;
 
     if (gf_log_init(ctx, cmd_args->log_file, cmd_args->log_ident) == -1) {
         fprintf(stderr, "ERROR: failed to open logfile %s\n",
