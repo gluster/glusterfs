@@ -21,7 +21,6 @@ typedef struct cdc_priv {
     int min_file_size;
     int op_mode;
     gf_boolean_t debug;
-    gf_lock_t lock;
 } cdc_priv_t;
 
 typedef struct cdc_info {
@@ -44,7 +43,6 @@ typedef struct cdc_info {
     unsigned long crc;
 } cdc_info_t;
 
-#define NVEC(ci) (ci->ncount - 1)
 #define CURR_VEC(ci) ci->vec[ci->ncount - 1]
 #define THIS_VEC(ci, i) ci->vector[i]
 
@@ -53,7 +51,8 @@ typedef struct cdc_info {
 #define GF_CDC_MAX_WINDOWSIZE -8  /* max value     */
 
 #define GF_CDC_DEF_MEMLEVEL 8
-#define GF_CDC_DEF_BUFFERSIZE 262144  // 256K - default compression buffer size
+#define GF_CDC_DEF_BUFFERSIZE                                                  \
+    1024 * 128  // 128K - default compression buffer size
 
 /* Operation mode
  * If xlator is loaded on client, readv decompresses and writev compresses
