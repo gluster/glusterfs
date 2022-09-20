@@ -2978,10 +2978,10 @@ marker_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc,
         goto check_feature;
 
     xattr_req = xattr_req ? dict_ref(xattr_req) : dict_new();
-    if (xattr_req)
-        unref = _gf_true;
-    else
+    if (!xattr_req) {
         goto err;
+    }
+    unref = _gf_true;
 
     ret = marker_key_replace_with_ver(this, xattr_req);
     if (ret < 0)
