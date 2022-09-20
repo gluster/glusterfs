@@ -19,6 +19,6 @@ TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 sleep 5
 TEST $CLI volume profile $V0 start
 TEST dd if=/dev/zero of=$M0/a bs=1M count=500
-TEST ! "$CLI volume profile $V0 info incremental | fgrep FSYNC"
+TEST ! "$CLI volume profile $V0 info incremental | fgrep -w FSYNC"
 
 cleanup;
