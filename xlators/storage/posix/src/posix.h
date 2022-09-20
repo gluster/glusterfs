@@ -235,7 +235,7 @@ struct posix_private {
     gf_boolean_t ctime;
     gf_boolean_t janitor_task_stop;
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
     gf_boolean_t health_check_active;
     gf_boolean_t update_pgfid_nlinks;
     gf_boolean_t gfid2path;
