@@ -1611,8 +1611,12 @@ if test x$BUILD_READLINE = xyes; then
     AC_DEFINE(HAVE_READLINE, 1, [Enable CLI readline support.])
 fi
 
-PKG_CHECK_VAR(bashcompdir, [bash-completion], [completionsdir], ,
-  bashcompdir="${sysconfdir}/bash_completion.d")
+# bash-completion script installation directory
+# PKG_CHECK_VAR should be used but is not available in some distributions
+bashcompdir="$(pkg-config --variable=completionsdir bash-completion 2>/dev/null)"
+if test "x${bashcompdir}" = "x"; then
+    bashcompdir="${sysconfdir}/bash_completion.d"
+fi
 AC_SUBST(bashcompdir)
 
 BUILD_LIBAIO=no
