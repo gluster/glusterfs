@@ -455,6 +455,7 @@ __fd_ctx_get
 fd_ctx_get
 __fd_ctx_set
 fd_ctx_set
+fd_is_anonymous
 fd_list_empty
 fd_lk_ctx_empty
 fd_lk_ctx_ref
