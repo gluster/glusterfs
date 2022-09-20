@@ -40,7 +40,7 @@ meta_fd_release(fd_t *fd, xlator_t *this)
     meta_fd_t *meta_fd = NULL;
     int i = 0;
 
-    meta_fd = fd_ctx_get_ptr(fd, this);
+    meta_fd = fd_ctx_del_ptr(fd, this);
 
     if (meta_fd) {
         if (meta_fd->dirents) {

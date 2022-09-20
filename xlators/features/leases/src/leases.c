@@ -1066,8 +1066,8 @@ leases_release(xlator_t *this, fd_t *fd)
     if (!fd_ctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
-    } else
-        GF_FREE(fd_ctx);
+    }
+    GF_FREE(fd_ctx);
 
     ret = 0;
 out:

@@ -45,7 +45,7 @@ struct _fd {
                        'struct _fd_ctx' array (_ctx).*/
     struct _fd_ctx *_ctx;
     struct fd_lk_ctx *lk_ctx;
-    int xl_count; /* Number of xl referred in this fd */
+    int xl_count;           /* Number of xl referred in this fd */
     gf_boolean_t anonymous; /* fd which does not have counterpart open
                                fd on backend (server for client, posix
                                for server). */
@@ -74,8 +74,6 @@ typedef struct _fdtable fdtable_t;
  * the next_free value in an fdentry that has been allocated
  */
 #define GF_FDENTRY_ALLOCATED -2
-
-#define fd_is_anonymous(_fd) (((_fd) && (_fd)->anonymous))
 
 #include "glusterfs/logging.h"
 #include "glusterfs/xlator.h"
@@ -130,6 +128,9 @@ fd_anonymous(inode_t *inode);
 
 fd_t *
 fd_anonymous_with_flags(inode_t *inode, int32_t flags);
+
+gf_boolean_t
+fd_is_anonymous(fd_t *fd);
 
 uint8_t
 fd_list_empty(struct _inode *inode);

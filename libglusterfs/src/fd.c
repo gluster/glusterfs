@@ -458,36 +458,30 @@ fd_destroy(fd_t *fd, gf_boolean_t bound)
     if (!fd->_ctx)
         goto out;
 
+    old_THIS = THIS;
     if (IA_ISDIR(fd->inode->ia_type)) {
         for (i = 0; i < fd->xl_count; i++) {
             xl = fd->_ctx[i].xl_key;
             if (xl) {
                 if (!xl->call_cleanup && xl->cbks->releasedir) {
-                    if (!old_THIS)
-                        old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->releasedir(xl, fd);
                 }
             }
         }
-        if (old_THIS)
-            THIS = old_THIS;
     } else {
         for (i = 0; i < fd->xl_count; i++) {
             xl = fd->_ctx[i].xl_key;
             if (xl) {
                 if (!xl->call_cleanup && xl->cbks->release) {
-                    if (!old_THIS)
-                        old_THIS = THIS;
                     THIS = xl;
                     xl->cbks->release(xl, fd);
                 }
             }
         }
-        if (old_THIS)
-            THIS = old_THIS;
-
     }
+
+    THIS = old_THIS;
 
     LOCK_DESTROY(&fd->lock);
 
@@ -818,6 +812,12 @@ fd_lookup_anonymous(inode_t *inode, int32_t flags)
     return fd;
 }
 
+gf_boolean_t
+fd_is_anonymous(fd_t *fd)
+{
+    return (fd && fd->anonymous);
+}
+
 uint8_t
 fd_list_empty(inode_t *inode)
 {
@@ -851,8 +851,7 @@ __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value)
                 set_idx = index;
             /* don't break, to check if key already exists
                further on */
-        }
-        else if (fd->_ctx[index].xl_key == xlator) {
+        } else if (fd->_ctx[index].xl_key == xlator) {
             set_idx = index;
             break;
         }
@@ -982,8 +981,7 @@ fd_dump(fd_t *fd, char *prefix)
         return;
 
     gf_proc_dump_write("pid", "%" PRIu64, fd->pid);
-    gf_proc_dump_write("refcount", "%" PRIu32,
-                       GF_ATOMIC_GET(fd->refcount));
+    gf_proc_dump_write("refcount", "%" PRIu32, GF_ATOMIC_GET(fd->refcount));
     gf_proc_dump_write("flags", "%d", fd->flags);
 
     if (fd->inode) {
