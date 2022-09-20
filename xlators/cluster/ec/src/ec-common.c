@@ -979,7 +979,7 @@ ec_lock_destroy(ec_lock_t *lock)
     mem_put(lock);
 }
 
-static bool
+static int
 ec_lock_compare(ec_lock_t *lock1, ec_lock_t *lock2)
 {
     return gf_uuid_compare(lock1->loc.gfid, lock2->loc.gfid);
