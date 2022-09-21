@@ -78,8 +78,8 @@ def create_custom_config_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(CUSTOM_CONFIG_FILE):
-        with open(CUSTOM_CONFIG_FILE, "w") as f:
-            f.write("{}")
+        with LockedOpen(CUSTOM_CONFIG_FILE, "w") as f:
+            f.write(json.dumps({}))
 
 
 def create_webhooks_file_if_not_exists(args):
@@ -91,8 +91,8 @@ def create_webhooks_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(WEBHOOKS_FILE):
-        with open(WEBHOOKS_FILE, "w") as f:
-            f.write("{}")
+        with LockedOpen(WEBHOOKS_FILE, "w") as f:
+           f.write(json.dumps({}))
 
 
 def boolify(value):
