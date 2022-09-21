@@ -2975,7 +2975,7 @@ marker_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc,
     priv = this->private;
 
     if (priv->version <= 0)
-        goto check_feature;
+        goto wind;
 
     xattr_req = xattr_req ? dict_ref(xattr_req) : dict_new();
     if (!xattr_req) {
@@ -2987,7 +2987,6 @@ marker_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc,
     if (ret < 0)
         goto err;
 
-check_feature:
     if (priv->feature_enabled == 0)
         goto wind;
 
