@@ -16,7 +16,7 @@
 #include "cli-cmd.h"
 
 static int
-__is_spc(int ch)
+__is_spc(char ch)
 {
     if (ch == ' ')
         return 1;
@@ -24,7 +24,7 @@ __is_spc(int ch)
 }
 
 static int
-__is_div(int ch)
+__is_div(char ch)
 {
     switch (ch) {
         case '(':
@@ -48,8 +48,8 @@ __is_word(const char *word)
     return (!__is_div(*word) && !__is_spc(*word));
 }
 
-int
-counter_char(int ch)
+char
+counter_char(char ch)
 {
     switch (ch) {
         case '(':
@@ -69,7 +69,7 @@ const char *
 __is_template_balanced(const char *template)
 {
     const char *trav = NULL;
-    int ch = 0;
+    char ch = 0;
 
     trav = template;
 
@@ -168,7 +168,7 @@ cli_cmd_tokens_fill(char **tokens, const char *template)
     char **tokenp = NULL;
     char *token = NULL;
     int ret = 0;
-    int ch = 0;
+    char ch = 0;
 
     tokenp = tokens;
 
