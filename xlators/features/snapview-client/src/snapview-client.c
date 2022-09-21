@@ -126,17 +126,12 @@ static svc_fd_t *
 __svc_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     svc_fd_t *svc_fd = NULL;
-    uint64_t value = 0;
-    int ret = -1;
 
-    GF_VALIDATE_OR_GOTO("snapview-client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, fd, out);
-
-    ret = __fd_ctx_get(fd, this, &value);
-    if (ret)
-        return NULL;
-
-    svc_fd = (svc_fd_t *)((long)value);
+    svc_fd = __fd_ctx_get_ptr(fd, this);
+    if (!svc_fd) {
+        GF_VALIDATE_OR_GOTO("snapview-client", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, fd, out);
+    }
 
 out:
     return svc_fd;
@@ -1915,8 +1910,7 @@ gf_svc_readdir_on_special_dir(call_frame_t *frame, void *cookie, xlator_t *this,
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, this->private, out);
 
-   private
-    = this->private;
+    private = this->private;
     local = frame->local;
 
     loc = &local->loc;
@@ -2402,19 +2396,16 @@ static int32_t
 gf_svc_releasedir(xlator_t *this, fd_t *fd)
 {
     svc_fd_t *sfd = NULL;
-    uint64_t tmp_pfd = 0;
-    int ret = 0;
 
     GF_VALIDATE_OR_GOTO("snapview-client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &tmp_pfd);
-    if (ret < 0) {
+    sfd = fd_ctx_del_ptr(fd, this);
+    if (!sfd) {
         gf_msg_debug(this->name, 0, "pfd from fd=%p is NULL", fd);
         goto out;
     }
 
-    sfd = (svc_fd_t *)(long)tmp_pfd;
     GF_FREE(sfd);
 
 out:
@@ -2604,8 +2595,7 @@ init(xlator_t *this)
                      "volfile");
     }
 
-   private
-    = GF_CALLOC(1, sizeof(*private), gf_svc_mt_svc_private_t);
+    private = GF_CALLOC(1, sizeof(*private), gf_svc_mt_svc_private_t);
     if (!private)
         goto out;
 
@@ -2618,8 +2608,7 @@ init(xlator_t *this)
         goto out;
     }
 
-   private
-    ->path = gf_strdup(path);
+    private->path = gf_strdup(path);
     if (!private->path) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, SVC_MSG_NO_MEMORY,
                 "entry-point-path=%s", path, NULL);
@@ -2638,8 +2627,7 @@ init(xlator_t *this)
         goto out;
     }
 
-   private
-    ->special_dir = gf_strdup(special_dir);
+    private->special_dir = gf_strdup(special_dir);
     if (!private->special_dir) {
         gf_smsg(this->name, GF_LOG_ERROR, 0, SVC_MSG_NO_MEMORY,
                 "special-directory=%s", special_dir, NULL);

@@ -312,7 +312,10 @@ __get_posixlk_count(pl_inode_t *pl_inode)
     posix_lock_t *lock = NULL;
     int32_t count = 0;
 
-    list_for_each_entry(lock, &pl_inode->ext_list, list) { count++; }
+    list_for_each_entry(lock, &pl_inode->ext_list, list)
+    {
+        count++;
+    }
 
     return count;
 }
@@ -599,7 +602,6 @@ static pl_fdctx_t *
 pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
 {
     int ret = 0;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     GF_VALIDATE_OR_GOTO("posix-locks", this, out);
@@ -607,19 +609,20 @@ pl_check_n_create_fdctx(xlator_t *this, fd_t *fd)
 
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &tmp);
-        if ((ret != 0) || (tmp == 0)) {
-            fdctx = pl_new_fdctx();
-            if (fdctx == NULL) {
-                goto unlock;
-            }
+        fdctx = __fd_ctx_get_ptr(fd, this);
+        if (fdctx)
+            goto unlock;
+
+        fdctx = pl_new_fdctx();
+        if (fdctx == NULL) {
+            goto unlock;
         }
 
         ret = __fd_ctx_set(fd, this, (uint64_t)(long)fdctx);
         if (ret != 0) {
+            UNLOCK(&fd->lock);
             GF_FREE(fdctx);
             fdctx = NULL;
-            UNLOCK(&fd->lock);
             gf_log(this->name, GF_LOG_DEBUG, "failed to set fd ctx");
             goto out;
         }
@@ -2538,7 +2541,6 @@ static int
 pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
             posix_lock_t *reqlock)
 {
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
     int ret = 0;
 
@@ -2553,8 +2555,7 @@ pl_getlk_fd(xlator_t *this, pl_inode_t *pl_inode, fd_t *fd,
 
         gf_log(this->name, GF_LOG_DEBUG, "There are active locks on fd");
 
-        ret = fd_ctx_get(fd, this, &tmp);
-        fdctx = (pl_fdctx_t *)(long)tmp;
+        fdctx = fd_ctx_get_ptr(fd, this);
 
         if (list_empty(&fdctx->locks_list)) {
             gf_log(this->name, GF_LOG_TRACE,
@@ -2975,7 +2976,6 @@ pl_release(xlator_t *this, fd_t *fd)
     pl_inode_t *pl_inode = NULL;
     uint64_t tmp_pl_inode = 0;
     int ret = -1;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     if (fd == NULL) {
@@ -2996,13 +2996,13 @@ pl_release(xlator_t *this, fd_t *fd)
     pl_update_refkeeper(this, fd->inode);
 
 clean:
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    fdctx = fd_ctx_del_ptr(fd, this);
+    if (!fdctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
+        ret = -1;
         goto out;
     }
-
-    fdctx = (pl_fdctx_t *)(long)tmp;
+    ret = 0;
 
     GF_FREE(fdctx);
 out:
@@ -3013,22 +3013,20 @@ int
 pl_releasedir(xlator_t *this, fd_t *fd)
 {
     int ret = -1;
-    uint64_t tmp = 0;
     pl_fdctx_t *fdctx = NULL;
 
     if (fd == NULL) {
         goto out;
     }
 
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    fdctx = fd_ctx_del_ptr(fd, this);
+    if (!fdctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
     }
 
-    fdctx = (pl_fdctx_t *)(long)tmp;
-
     GF_FREE(fdctx);
+    ret = 0;
 out:
     return ret;
 }

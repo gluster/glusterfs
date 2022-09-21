@@ -38,14 +38,14 @@ struct _fd_ctx {
 struct _fd {
     uint64_t pid;
     int32_t flags;
-    gf_atomic_t refcount;
+    gf_atomic_uint32_t refcount;
     struct list_head inode_list;
     struct _inode *inode;
     gf_lock_t lock; /* used ONLY for manipulating
                        'struct _fd_ctx' array (_ctx).*/
     struct _fd_ctx *_ctx;
-    int xl_count; /* Number of xl referred in this fd */
     struct fd_lk_ctx *lk_ctx;
+    int xl_count;           /* Number of xl referred in this fd */
     gf_boolean_t anonymous; /* fd which does not have counterpart open
                                fd on backend (server for client, posix
                                for server). */
@@ -141,20 +141,20 @@ fd_bind(fd_t *fd);
 int
 fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int
-fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+fd_ctx_get(fd_t *fd, xlator_t *xlator);
+#define fd_ctx_get_ptr(_fd, _xl) (void *)(uintptr_t)fd_ctx_get(_fd, _xl)
 
-int
-fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value);
-
-int
-__fd_ctx_del(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+fd_ctx_del(fd_t *fd, xlator_t *xlator);
+#define fd_ctx_del_ptr(_fd, _xl) (void *)(uintptr_t)fd_ctx_del(_fd, _xl)
 
 int
 __fd_ctx_set(fd_t *fd, xlator_t *xlator, uint64_t value);
 
-int
-__fd_ctx_get(fd_t *fd, xlator_t *xlator, uint64_t *value);
+uint64_t
+__fd_ctx_get(fd_t *fd, xlator_t *xlator);
+#define __fd_ctx_get_ptr(_fd, _xl) (void *)(uintptr_t)__fd_ctx_get(_fd, _xl)
 
 void
 fd_ctx_dump(fd_t *fd, char *prefix);

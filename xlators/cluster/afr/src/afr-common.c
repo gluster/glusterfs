@@ -4049,25 +4049,14 @@ _afr_cleanup_fd_ctx(xlator_t *this, afr_fd_ctx_t *fd_ctx)
     return;
 }
 
-int
+void
 afr_cleanup_fd_ctx(xlator_t *this, fd_t *fd)
 {
-    uint64_t ctx = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
-    int ret = 0;
 
-    ret = fd_ctx_get(fd, this, &ctx);
-    if (ret < 0)
-        goto out;
-
-    fd_ctx = (afr_fd_ctx_t *)(long)ctx;
-
-    if (fd_ctx) {
+    fd_ctx = fd_ctx_get_ptr(fd, this);
+    if (fd_ctx)
         _afr_cleanup_fd_ctx(this, fd_ctx);
-    }
-
-out:
-    return 0;
 }
 
 int
@@ -4127,16 +4116,12 @@ out:
 static afr_fd_ctx_t *
 __afr_fd_ctx_get(fd_t *fd, xlator_t *this)
 {
-    uint64_t ctx = 0;
-    int ret = 0;
     afr_fd_ctx_t *fd_ctx = NULL;
 
-    ret = __fd_ctx_get(fd, this, &ctx);
+    fd_ctx = __fd_ctx_get_ptr(fd, this);
 
-    if (ret < 0) {
+    if (!fd_ctx) {
         fd_ctx = __afr_fd_ctx_set(this, fd);
-    } else {
-        fd_ctx = (afr_fd_ctx_t *)(long)ctx;
     }
     return fd_ctx;
 }

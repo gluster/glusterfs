@@ -44,39 +44,31 @@ out:
 clnt_fd_ctx_t *
 this_fd_del_ctx(fd_t *file, xlator_t *this)
 {
-    int dict_ret = -1;
-    uint64_t ctxaddr = 0;
+    clnt_fd_ctx_t *ctxaddr = NULL;
 
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, file, out);
-
-    dict_ret = fd_ctx_del(file, this, &ctxaddr);
-
-    if (dict_ret < 0) {
-        ctxaddr = 0;
+    ctxaddr = fd_ctx_del_ptr(file, this);
+    if (!ctxaddr) { /* check that we did not pass NULL to either this or file */
+        GF_VALIDATE_OR_GOTO("client", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, file, out);
     }
 
 out:
-    return (clnt_fd_ctx_t *)(unsigned long)ctxaddr;
+    return ctxaddr;
 }
 
 clnt_fd_ctx_t *
 this_fd_get_ctx(fd_t *file, xlator_t *this)
 {
-    int dict_ret = -1;
-    uint64_t ctxaddr = 0;
+    clnt_fd_ctx_t *ctxaddr = NULL;
 
-    GF_VALIDATE_OR_GOTO("client", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, file, out);
-
-    dict_ret = fd_ctx_get(file, this, &ctxaddr);
-
-    if (dict_ret < 0) {
-        ctxaddr = 0;
+    ctxaddr = fd_ctx_get_ptr(file, this);
+    if (!ctxaddr) { /* check that we did not pass NULL to either this or file */
+        GF_VALIDATE_OR_GOTO("client", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, file, out);
     }
 
 out:
-    return (clnt_fd_ctx_t *)(unsigned long)ctxaddr;
+    return ctxaddr;
 }
 
 void
@@ -88,8 +80,8 @@ this_fd_set_ctx(fd_t *file, xlator_t *this, loc_t *loc, clnt_fd_ctx_t *ctx)
     GF_VALIDATE_OR_GOTO("client", this, out);
     GF_VALIDATE_OR_GOTO(this->name, file, out);
 
-    ret = fd_ctx_get(file, this, &oldaddr);
-    if (ret >= 0) {
+    oldaddr = fd_ctx_get(file, this);
+    if (oldaddr) {
         if (loc)
             gf_smsg(this->name, GF_LOG_INFO, 0, PC_MSG_FD_DUPLICATE_TRY,
                     "path=%s", loc->path, "gfid=%s",

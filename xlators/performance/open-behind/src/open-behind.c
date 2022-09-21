@@ -286,9 +286,10 @@ ob_open_and_resume_fd(xlator_t *xl, fd_t *fd, int32_t open_count,
                       bool synchronous, bool trigger, ob_inode_t **pob_inode,
                       fd_t **pfd)
 {
-    uint64_t err;
+    uint64_t err = 0;
 
-    if ((fd_ctx_get(fd, xl, &err) == 0) && (err != 0)) {
+    err = fd_ctx_get(fd, xl);
+    if (err) {
         return (ob_state_t)-err;
     }
 
@@ -888,7 +889,8 @@ ob_fdctx_dump(xlator_t *this, fd_t *fd)
     if (ret)
         return 0;
 
-    if ((__fd_ctx_get(fd, this, &value) == 0) && (value != 0)) {
+    value = __fd_ctx_get(fd, this);
+    if (value) {
         error = (int32_t)value;
     }
 

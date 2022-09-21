@@ -132,7 +132,6 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     ra_page_t *page = NULL;
     ra_waitq_t *waitq = NULL;
     fd_t *fd = NULL;
-    uint64_t tmp_file = 0;
     gf_boolean_t stale = _gf_false;
 
     GF_ASSERT(frame);
@@ -140,9 +139,8 @@ ra_fault_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     local = frame->local;
     fd = local->fd;
 
-    fd_ctx_get(fd, this, &tmp_file);
+    file = fd_ctx_get_ptr(fd, this);
 
-    file = (ra_file_t *)(long)tmp_file;
     pending_offset = local->pending_offset;
 
     if (file == NULL) {
@@ -379,7 +377,6 @@ ra_frame_unwind(call_frame_t *frame)
     ra_fill_t *next = NULL;
     fd_t *fd = NULL;
     ra_file_t *file = NULL;
-    uint64_t tmp_file = 0;
 
     GF_VALIDATE_OR_GOTO("read-ahead", frame, out);
 
@@ -436,8 +433,7 @@ ra_frame_unwind(call_frame_t *frame)
     }
 
     fd = local->fd;
-    fd_ctx_get(fd, frame->this, &tmp_file);
-    file = (ra_file_t *)(long)tmp_file;
+    file = fd_ctx_get_ptr(fd, frame->this);
 
     STACK_UNWIND_STRICT(readv, frame, local->op_ret, local->op_errno, vector,
                         count, &file->stbuf, iobref, NULL);

@@ -22,18 +22,13 @@ int32_t
 dht_fd_ctx_destroy(xlator_t *this, fd_t *fd)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    uint64_t value = 0;
     int32_t ret = -1;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
-    ret = fd_ctx_del(fd, this, &value);
-    if (ret) {
-        goto out;
-    }
-
-    fd_ctx = (dht_fd_ctx_t *)(uintptr_t)value;
+    ret = 0;
+    fd_ctx = fd_ctx_del_ptr(fd, this);
     if (fd_ctx) {
         GF_REF_PUT(fd_ctx);
     }
@@ -76,17 +71,16 @@ int
 dht_fd_ctx_set(xlator_t *this, fd_t *fd, xlator_t *dst)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    uint64_t value = 0;
     int ret = -1;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
+    ret = 0;
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &value);
-        if (ret && value) {
-            fd_ctx = (dht_fd_ctx_t *)(uintptr_t)value;
+        fd_ctx = __fd_ctx_get_ptr(fd, this);
+        if (fd_ctx) {
             if (fd_ctx->opened_on_dst == (uint64_t)(uintptr_t)dst) {
                 /* This could happen due to racing
                  * check_progress tasks*/
@@ -114,23 +108,17 @@ static dht_fd_ctx_t *
 dht_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     dht_fd_ctx_t *fd_ctx = NULL;
-    int ret = -1;
-    uint64_t tmp_val = 0;
 
     GF_VALIDATE_OR_GOTO("dht", this, out);
     GF_VALIDATE_OR_GOTO(this->name, fd, out);
 
     LOCK(&fd->lock);
     {
-        ret = __fd_ctx_get(fd, this, &tmp_val);
-        if ((ret < 0) || (tmp_val == 0)) {
-            goto unlock;
+        fd_ctx = __fd_ctx_get_ptr(fd, this);
+        if (fd_ctx) {
+            GF_REF_GET(fd_ctx);
         }
-
-        fd_ctx = (dht_fd_ctx_t *)(uintptr_t)tmp_val;
-        GF_REF_GET(fd_ctx);
     }
-unlock:
     UNLOCK(&fd->lock);
 
 out:

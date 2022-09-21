@@ -848,7 +848,6 @@ leases_flush(call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
     char *lease_id = NULL;
     int ret = 0;
     lease_fd_ctx_t *fd_ctx = NULL;
-    uint64_t ctx = 0;
 
     EXIT_IF_LEASES_OFF(this, out);
     EXIT_IF_INTERNAL_FOP(frame, xdata, out);
@@ -880,9 +879,8 @@ out:
      *                      OR
      *     - Find why release is not called post the last close call
      */
-    ret = fd_ctx_get(fd, this, &ctx);
-    if (ret == 0) {
-        fd_ctx = (lease_fd_ctx_t *)(long)ctx;
+    fd_ctx = fd_ctx_get_ptr(fd, this);
+    if (fd_ctx) {
         if (fd_ctx->client_uid) {
             GF_FREE(fd_ctx->client_uid);
             fd_ctx->client_uid = NULL;
@@ -1056,7 +1054,6 @@ static int
 leases_release(xlator_t *this, fd_t *fd)
 {
     int ret = -1;
-    uint64_t tmp = 0;
     lease_fd_ctx_t *fd_ctx = NULL;
 
     if (fd == NULL) {
@@ -1065,15 +1062,14 @@ leases_release(xlator_t *this, fd_t *fd)
 
     gf_log(this->name, GF_LOG_TRACE, "Releasing all leases with fd %p", fd);
 
-    ret = fd_ctx_del(fd, this, &tmp);
-    if (ret) {
+    fd_ctx = fd_ctx_del_ptr(fd, this);
+    if (!fd_ctx) {
         gf_log(this->name, GF_LOG_DEBUG, "Could not get fdctx");
         goto out;
     }
+    GF_FREE(fd_ctx);
 
-    fd_ctx = (lease_fd_ctx_t *)(long)tmp;
-    if (fd_ctx)
-        GF_FREE(fd_ctx);
+    ret = 0;
 out:
     return ret;
 }

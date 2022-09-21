@@ -44,17 +44,14 @@ br_stub_fd_t *
 __br_stub_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     br_stub_fd_t *br_stub_fd = NULL;
-    uint64_t value = 0;
-    int ret = -1;
 
-    GF_VALIDATE_OR_GOTO("bit-rot-stub", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, fd, out);
-
-    ret = __fd_ctx_get(fd, this, &value);
-    if (ret)
-        return NULL;
-
-    br_stub_fd = (br_stub_fd_t *)((long)value);
+    br_stub_fd = __fd_ctx_get_ptr(fd, this);
+    if (!br_stub_fd) {
+        /* check if one of the parameters was null and provide meaningful error
+         */
+        GF_VALIDATE_OR_GOTO("bit-rot-stub", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, fd, out);
+    }
 
 out:
     return br_stub_fd;

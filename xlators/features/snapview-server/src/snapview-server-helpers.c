@@ -160,17 +160,12 @@ svs_fd_t *
 __svs_fd_ctx_get(xlator_t *this, fd_t *fd)
 {
     svs_fd_t *svs_fd = NULL;
-    uint64_t value = 0;
-    int ret = -1;
 
-    GF_VALIDATE_OR_GOTO("snapview-server", this, out);
-    GF_VALIDATE_OR_GOTO(this->name, fd, out);
-
-    ret = __fd_ctx_get(fd, this, &value);
-    if (ret)
-        return NULL;
-
-    svs_fd = (svs_fd_t *)((long)value);
+    svs_fd = __fd_ctx_get_ptr(fd, this);
+    if (!svs_fd) {
+        GF_VALIDATE_OR_GOTO("snapview-server", this, out);
+        GF_VALIDATE_OR_GOTO(this->name, fd, out);
+    }
 
 out:
     return svs_fd;

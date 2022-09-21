@@ -449,7 +449,6 @@ fd_bind
 fd_close
 fd_create
 fd_create_uint64
-__fd_ctx_del
 fd_ctx_del
 fd_ctx_dump
 __fd_ctx_get

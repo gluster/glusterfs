@@ -55,10 +55,10 @@ typedef struct wb_inode {
                                which arrive later (which overlap, etc.)
                                are issued only after their dependencies
                                in this list are "fulfilled".
-
+ 
                                Server acks for entries in this list
                                shrinks the window.
-
+ 
                                The sum total of all req->write_size
                                of entries in this list must be kept less
                                than the permitted window size.
@@ -92,14 +92,14 @@ typedef struct wb_inode {
                                     the current 'state' of liability. Every
                                     new addition to the liability list bumps
                                     the generation number.
-
+               
                                     a newly arrived request is only required
                                     to perform causal checks against the entries
                                     in the liability list which were present
                                     at the time of its addition. the generation
                                     number at the time of its addition is stored
                                     in the request and used during checks.
-
+               
                                     the liability list can grow while the request
                                     waits in the todo list waiting for its
                                     dependent operations to complete. however
@@ -2770,9 +2770,7 @@ wb_forget(xlator_t *this, inode_t *inode)
 int
 wb_release(xlator_t *this, fd_t *fd)
 {
-    uint64_t tmp = 0;
-
-    (void)fd_ctx_del(fd, this, &tmp);
+    (void)fd_ctx_del(fd, this);
 
     return 0;
 }

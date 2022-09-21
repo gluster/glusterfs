@@ -50,12 +50,12 @@ rda_local_wipe(struct rda_local *local)
 static struct rda_fd_ctx *
 get_rda_fd_ctx(fd_t *fd, xlator_t *this)
 {
-    uint64_t val;
     struct rda_fd_ctx *ctx;
 
     LOCK(&fd->lock);
 
-    if (__fd_ctx_get(fd, this, &val) < 0) {
+    ctx = __fd_ctx_get_ptr(fd, this);
+    if (!ctx) {
         ctx = GF_CALLOC(1, sizeof(struct rda_fd_ctx), gf_rda_mt_rda_fd_ctx);
         if (!ctx)
             goto out;
@@ -71,8 +71,6 @@ get_rda_fd_ctx(fd_t *fd, xlator_t *this)
             ctx = NULL;
             goto out;
         }
-    } else {
-        ctx = (struct rda_fd_ctx *)(uintptr_t)val;
     }
 out:
     UNLOCK(&fd->lock);
@@ -207,7 +205,6 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
 {
     inode_t *parent = NULL;
     fd_t *fd = NULL;
-    uint64_t val = 0;
     int32_t ret = 0;
     struct rda_fd_ctx *fd_ctx = NULL;
     char gfid[GF_UUID_BUF_SIZE] = {0};
@@ -218,12 +215,10 @@ rda_mark_inode_dirty(xlator_t *this, inode_t *inode)
         {
             list_for_each_entry(fd, &parent->fd_list, inode_list)
             {
-                val = 0;
-                fd_ctx_get(fd, this, &val);
-                if (val == 0)
+                fd_ctx = fd_ctx_get_ptr(fd, this);
+                if (!fd_ctx)
                     continue;
 
-                fd_ctx = (void *)(uintptr_t)val;
                 if (!GF_ATOMIC_GET(fd_ctx->prefetching))
                     continue;
 
@@ -1119,13 +1114,9 @@ rda_fremovexattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
 static int32_t
 rda_releasedir(xlator_t *this, fd_t *fd)
 {
-    uint64_t val;
     struct rda_fd_ctx *ctx;
 
-    if (fd_ctx_del(fd, this, &val) < 0)
-        return -1;
-
-    ctx = (struct rda_fd_ctx *)(uintptr_t)val;
+    ctx = fd_ctx_del_ptr(fd, this);
     if (!ctx)
         return 0;
 

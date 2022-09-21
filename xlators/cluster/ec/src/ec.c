@@ -1499,11 +1499,10 @@ ec_gf_forget(xlator_t *this, inode_t *inode)
 void
 ec_gf_release_fd(xlator_t *this, fd_t *fd)
 {
-    uint64_t value = 0;
     ec_fd_t *ctx = NULL;
 
-    if ((fd_ctx_del(fd, this, &value) == 0) && (value != 0)) {
-        ctx = (ec_fd_t *)(uintptr_t)value;
+    ctx = fd_ctx_del_ptr(fd, this);
+    if (ctx) {
         loc_wipe(&ctx->loc);
         GF_FREE(ctx);
     }

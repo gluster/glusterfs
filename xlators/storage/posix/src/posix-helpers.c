@@ -1819,7 +1819,6 @@ static int
 __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
                    int *op_errno_p)
 {
-    uint64_t tmp_pfd = 0;
     struct posix_fd *pfd = NULL;
     int ret = -1;
     char *real_path = NULL;
@@ -1830,11 +1829,9 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
 
     struct posix_private *priv = NULL;
 
-    priv = this->private;
-
-    ret = __fd_ctx_get(fd, this, &tmp_pfd);
-    if (ret == 0) {
-        pfd = (void *)(long)tmp_pfd;
+    pfd = __fd_ctx_get_ptr(fd, this);
+    if (pfd) {
+        ret = 0;
         goto out;
     }
     if (!fd_is_anonymous(fd)) {
@@ -1883,6 +1880,7 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
     if (fd->inode->ia_type == IA_IFREG) {
         _fd = open(real_path, fd->flags);
         if ((_fd == -1) && (errno == ENOENT)) {
+            priv = this->private;
             POSIX_GET_FILE_UNLINK_PATH(priv->base_path, fd->inode->gfid,
                                        unlink_path);
             _fd = open(unlink_path, fd->flags);

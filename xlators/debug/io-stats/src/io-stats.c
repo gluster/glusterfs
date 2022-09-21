@@ -307,21 +307,6 @@ is_fop_latency_started(call_frame_t *frame)
     } while (0)
 
 static int
-ios_fd_ctx_get(fd_t *fd, xlator_t *this, struct ios_fd **iosfd)
-{
-    uint64_t iosfd64 = 0;
-    unsigned long iosfdlong = 0;
-    int ret = 0;
-
-    ret = fd_ctx_get(fd, this, &iosfd64);
-    iosfdlong = iosfd64;
-    if (ret != -1)
-        *iosfd = (void *)iosfdlong;
-
-    return ret;
-}
-
-static int
 ios_fd_ctx_set(fd_t *fd, xlator_t *this, struct ios_fd *iosfd)
 {
     uint64_t iosfd64 = 0;
@@ -466,7 +451,6 @@ ios_bump_read(xlator_t *this, fd_t *fd, size_t len)
 
     conf = this->private;
     lb2 = log_base2(len);
-    ios_fd_ctx_get(fd, this, &iosfd);
     if (!conf)
         return;
 
@@ -475,6 +459,7 @@ ios_bump_read(xlator_t *this, fd_t *fd, size_t len)
     GF_ATOMIC_INC(conf->cumulative.block_count_read[lb2]);
     GF_ATOMIC_INC(conf->incremental.block_count_read[lb2]);
 
+    iosfd = fd_ctx_get_ptr(fd, this);
     if (iosfd) {
         GF_ATOMIC_ADD(iosfd->data_read, len);
         GF_ATOMIC_INC(iosfd->block_count_read[lb2]);
@@ -490,7 +475,6 @@ ios_bump_write(xlator_t *this, fd_t *fd, size_t len)
 
     conf = this->private;
     lb2 = log_base2(len);
-    ios_fd_ctx_get(fd, this, &iosfd);
     if (!conf)
         return;
 
@@ -499,6 +483,7 @@ ios_bump_write(xlator_t *this, fd_t *fd, size_t len)
     GF_ATOMIC_INC(conf->cumulative.block_count_write[lb2]);
     GF_ATOMIC_INC(conf->incremental.block_count_write[lb2]);
 
+    iosfd = fd_ctx_get_ptr(fd, this);
     if (iosfd) {
         GF_ATOMIC_ADD(iosfd->data_written, len);
         GF_ATOMIC_INC(iosfd->block_count_write[lb2]);
@@ -3564,7 +3549,7 @@ io_stats_release(xlator_t *this, fd_t *fd)
         UNLOCK(&conf->lock);
     }
 
-    ios_fd_ctx_get(fd, this, &iosfd);
+    iosfd = fd_ctx_get_ptr(fd, this);
     if (iosfd) {
         io_stats_dump_fd(this, iosfd);
 

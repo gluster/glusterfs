@@ -78,13 +78,10 @@ fuse_forget_cbk(xlator_t *this, inode_t *inode)
 fuse_fd_ctx_t *
 __fuse_fd_ctx_check_n_create(xlator_t *this, fd_t *fd)
 {
-    uint64_t val = 0;
     int32_t ret = 0;
     fuse_fd_ctx_t *fd_ctx = NULL;
 
-    ret = __fd_ctx_get(fd, this, &val);
-
-    fd_ctx = (fuse_fd_ctx_t *)(unsigned long)val;
+    fd_ctx = __fd_ctx_get_ptr(fd, this);
 
     if (fd_ctx == NULL) {
         fd_ctx = GF_CALLOC(1, sizeof(*fd_ctx), gf_fuse_mt_fd_ctx_t);
@@ -125,40 +122,17 @@ static void
 fuse_fd_ctx_destroy(xlator_t *this, fd_t *fd)
 {
     fd_t *activefd = NULL;
-    uint64_t val = 0;
-    int ret = 0;
     fuse_fd_ctx_t *fdctx = NULL;
 
-    ret = fd_ctx_del(fd, this, &val);
-    if (!ret) {
-        fdctx = (fuse_fd_ctx_t *)(unsigned long)val;
-        if (fdctx) {
-            activefd = fdctx->activefd;
-            if (activefd) {
-                fd_unref(activefd);
-            }
-
-            GF_FREE(fdctx);
+    fdctx = fd_ctx_del_ptr(fd, this);
+    if (fdctx) {
+        activefd = fdctx->activefd;
+        if (activefd) {
+            fd_unref(activefd);
         }
+
+        GF_FREE(fdctx);
     }
-}
-
-fuse_fd_ctx_t *
-fuse_fd_ctx_get(xlator_t *this, fd_t *fd)
-{
-    fuse_fd_ctx_t *fdctx = NULL;
-    uint64_t value = 0;
-    int ret = 0;
-
-    ret = fd_ctx_get(fd, this, &value);
-    if (ret < 0) {
-        goto out;
-    }
-
-    fdctx = (fuse_fd_ctx_t *)(unsigned long)value;
-
-out:
-    return fdctx;
 }
 
 struct fusedump_timespec {
@@ -1550,7 +1524,7 @@ fuse_fd_inherit_directio(xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
     GF_VALIDATE_OR_GOTO_WITH_ERROR("glusterfs-fuse", fd, out, ret, -EINVAL);
     GF_VALIDATE_OR_GOTO_WITH_ERROR("glusterfs-fuse", foo, out, ret, -EINVAL);
 
-    fdctx = fuse_fd_ctx_get(this, fd);
+    fdctx = fd_ctx_get_ptr(fd, this);
     if (!fdctx) {
         ret = -ENOMEM;
         goto out;
@@ -1558,7 +1532,7 @@ fuse_fd_inherit_directio(xlator_t *this, fd_t *fd, struct fuse_open_out *foo)
 
     tmp_fd = fd_lookup(fd->inode, 0);
     if (tmp_fd) {
-        tmp_fdctx = fuse_fd_ctx_get(this, tmp_fd);
+        tmp_fdctx = fd_ctx_get_ptr(tmp_fd, this);
         if (tmp_fdctx) {
             foo->open_flags &= ~FOPEN_DIRECT_IO;
             foo->open_flags |= (tmp_fdctx->open_flags & FOPEN_DIRECT_IO);
@@ -5502,7 +5476,7 @@ fuse_migrate_fd_open(xlator_t *this, fd_t *basefd, fd_t *oldfd,
         }
     }
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     newfd = fd_create(loc.inode, basefd->pid);
@@ -5587,7 +5561,7 @@ fuse_migrate_locks(xlator_t *this, fd_t *basefd, fd_t *oldfd,
     if (!oldfd->lk_ctx || fd_lk_ctx_empty(oldfd->lk_ctx))
         return 0;
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     LOCK(&basefd->lock);
@@ -5654,7 +5628,7 @@ fuse_migrate_fd(xlator_t *this, fd_t *basefd, xlator_t *old_subvol,
     fd_t *oldfd = NULL;
     dict_t *xdata = NULL;
 
-    basefd_ctx = fuse_fd_ctx_get(this, basefd);
+    basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
     LOCK(&basefd->lock);
@@ -5792,7 +5766,7 @@ fuse_handle_opened_fds(xlator_t *this, xlator_t *old_subvol,
 
             ret = fuse_migrate_fd(this, fd, old_subvol, new_subvol);
 
-            fdctx = fuse_fd_ctx_get(this, fd);
+            fdctx = fd_ctx_get_ptr(fd, this);
             if (fdctx) {
                 LOCK(&fd->lock);
                 {
@@ -6373,8 +6347,7 @@ fuse_priv_dump(xlator_t *this)
     if (!this)
         return -1;
 
-   private
-    = this->private;
+    private = this->private;
 
     if (!private)
         return -1;
@@ -6522,8 +6495,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     glusterfs_graph_t *graph = NULL;
     struct pollfd pfd = {0};
 
-   private
-    = this->private;
+    private = this->private;
 
     graph = data;
 
@@ -6548,8 +6520,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                 (event == GF_EVENT_CHILD_DOWN)) {
                 pthread_mutex_lock(&private->sync_mutex);
                 {
-                   private
-                    ->event_recvd = 1;
+                    private->event_recvd = 1;
                     pthread_cond_broadcast(&private->sync_cond);
                 }
                 pthread_mutex_unlock(&private->sync_mutex);
@@ -6558,18 +6529,16 @@ notify(xlator_t *this, int32_t event, void *data, ...)
             pthread_mutex_lock(&private->sync_mutex);
             {
                 if (!private->fuse_thread_started) {
-                   private
-                    ->fuse_thread_started = 1;
+                    private->fuse_thread_started = 1;
                     start_thread = _gf_true;
                 }
             }
             pthread_mutex_unlock(&private->sync_mutex);
 
             if (start_thread) {
-               private
-                ->fuse_thread = GF_CALLOC(private->reader_thread_count,
-                                          sizeof(pthread_t),
-                                          gf_fuse_mt_pthread_t);
+                private->fuse_thread = GF_CALLOC(private->reader_thread_count,
+                                                 sizeof(pthread_t),
+                                                 gf_fuse_mt_pthread_t);
                 for (i = 0; i < private->reader_thread_count; i++) {
                     ret = gf_thread_create(&private->fuse_thread[i], NULL,
                                            fuse_thread_proc, this, "fuseproc");
@@ -6603,8 +6572,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
                         if (fuse_get_mount_status(this) != 0) {
                             goto auth_fail_unlock;
                         }
-                       private
-                        ->mount_finished = _gf_true;
+                        private->mount_finished = _gf_true;
                     } else if (pfd.revents) {
                         gf_log(this->name, GF_LOG_ERROR,
                                "mount pipe closed without status");

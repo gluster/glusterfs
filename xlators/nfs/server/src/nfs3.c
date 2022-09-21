@@ -513,7 +513,7 @@ static void
 __nfs3_call_state_wipe(nfs3_call_state_t *cs)
 {
     if (cs->fd) {
-        gf_msg_trace(GF_NFS3, 0, "fd 0x%lx ref: %" PRId64, (long)cs->fd,
+        gf_msg_trace(GF_NFS3, 0, "fd 0x%lx ref: %" PRIu32, (long)cs->fd,
                      GF_ATOMIC_GET(cs->fd->refcount));
         fd_unref(cs->fd);
     }

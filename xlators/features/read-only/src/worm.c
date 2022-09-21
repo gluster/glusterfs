@@ -618,11 +618,9 @@ worm_release(xlator_t *this, fd_t *fd)
             goto out;
         }
 
-        ret = fd_ctx_get(fd, this, &value);
-        if (ret) {
-            gf_log(this->name, GF_LOG_DEBUG, "Failed to get the fd ctx");
-        }
+        value = fd_ctx_get(fd, this);
         if (!value) {
+            gf_log(this->name, GF_LOG_DEBUG, "Failed to get the fd ctx");
             goto out;
         }
 
