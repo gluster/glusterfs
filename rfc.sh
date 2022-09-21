@@ -6,17 +6,19 @@
 
 UPSTREAM=${GLUSTER_UPSTREAM}
 if [ "x$UPSTREAM" = "x" ]; then
-    UPSTREAM="$(\
-    git config --get-regexp 'remote\..*\.url' 'git@github.com:gluster/glusterfs.git' \
-        | while IFS='.' read -r _ rmt _ ; do echo "$rmt" ; break ; done \
-    )"
-    if [ -z "$UPSTREAM" ] ; then
+    for rmt in $(git remote); do
+	rmt_repo=$(LANGUAGE=en_US.UTF-8 git remote show $rmt -n | grep Fetch | awk '{ print $3 }');
+	if [ "${rmt_repo%.git}" = "git@github.com:gluster/glusterfs" ]; then
+	    UPSTREAM=$rmt
+	    echo "Picked ${UPSTREAM} as upstream remote"
+	    break
+	fi
+    done
+    if [ "x$UPSTREAM" = "x" ]; then
         echo "No git remote detected for git@github.com:gluster/glusterfs.git"
         echo ""
         echo "Exiting."
         exit 1
-    else
-        echo "Picked ${UPSTREAM} as upstream remote"
     fi
 fi
 
