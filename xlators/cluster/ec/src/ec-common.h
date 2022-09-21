@@ -200,8 +200,6 @@ ec_resume_parent(ec_fop_data_t *fop);
 
 void
 ec_manager(ec_fop_data_t *fop, int32_t error);
-gf_boolean_t
-ec_is_recoverable_error(int32_t op_errno);
 void
 ec_handle_healers_done(ec_fop_data_t *fop);
 
