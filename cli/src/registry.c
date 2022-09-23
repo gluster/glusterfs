@@ -48,7 +48,7 @@ __is_word(const char *word)
     return (!__is_div(*word) && !__is_spc(*word));
 }
 
-char
+static char
 counter_char(char ch)
 {
     switch (ch) {
