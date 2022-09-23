@@ -14,8 +14,7 @@
 #include "afr.h"
 
 void
-afr_transaction_fop_failed(call_frame_t *frame, xlator_t *this,
-                           int child_index);
+afr_transaction_fop_failed(afr_local_t *local, int child_index);
 
 int32_t
 afr_transaction(call_frame_t *frame, xlator_t *this, afr_transaction_type type);
@@ -56,8 +55,8 @@ void
 afr_zero_fill_stat(afr_local_t *local);
 
 void
-afr_pick_error_xdata(afr_local_t *local, afr_private_t *priv, inode_t *inode1,
-                     unsigned char *readable1, inode_t *inode2,
+afr_pick_error_xdata(afr_local_t *local, unsigned int child_count,
+                     inode_t *inode1, unsigned char *readable1, inode_t *inode2,
                      unsigned char *readable2);
 int
 afr_transaction_resume(call_frame_t *frame, xlator_t *this);
