@@ -204,7 +204,6 @@ AC_CONFIG_FILES([Makefile
                 extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
                 extras/command-completion/Makefile
-                extras/command-completion/README
                 extras/hook-scripts/Makefile
                 extras/ocf/Makefile
                 extras/ocf/glusterd

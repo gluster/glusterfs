@@ -12,7 +12,7 @@ EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
 SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM \
           $(GEOREP_EXTRAS_SUBDIR) snap_scheduler firewalld cliutils python \
-		  ganesha
+		  ganesha command-completion
 
 confdir = $(sysconfdir)/glusterfs
 if WITH_SERVER
@@ -39,7 +39,6 @@ scripts_SCRIPTS += control-mem.sh
 endif
 endif
 
-CLEANFILES = command-completion/Makefile command-completion/README
 EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.conf \
 	logger.conf.example glusterfs-georep-logrotate group-virt.example \
 	group-metadata-cache group-gluster-block group-nl-cache \
@@ -48,8 +47,6 @@ EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.co
 	backend-cleanup.sh disk_usage_sync.sh clear_xattrs.sh \
 	glusterd-sysconfig glusterd.vol post-upgrade-script-for-quota.sh \
 	pre-upgrade-script-for-quota.sh \
-	command-completion/gluster.bash command-completion/README.in \
-	command-completion/Makefile.am command-completion/Makefile.in \
 	stop-all-gluster-processes.sh clang-checker.sh mount-shared-storage.sh \
 	control-cpu-load.sh control-mem.sh group-distributed-virt \
 	thin-arbiter/thin-arbiter.vol thin-arbiter/setup-thin-arbiter.sh
