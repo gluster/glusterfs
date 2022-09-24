@@ -86,8 +86,8 @@ typedef struct clnt_conf {
     struct list_head saved_fds;
     pthread_spinlock_t fd_lock; /* protects saved_fds list
                                  * and all fdctx */
-    pthread_mutex_t lock;
     int connected;
+    pthread_mutex_t lock;
 
     rpc_clnt_prog_t *fops;
     rpc_clnt_prog_t *mgmt;
@@ -95,9 +95,16 @@ typedef struct clnt_conf {
     rpc_clnt_prog_t *dump;
 
     int client_id;
+    int event_threads; /* # of event threads
+                        * configured */
     uint64_t reopen_fd_count; /* Count of fds reopened after a
                                  connection is established */
     gf_lock_t rec_lock;
+    /* set volume is the op which results in creating/re-using
+     * the conn-id and is called once per connection, this remembers
+     * how manytimes set_volume is called
+     */
+    uint64_t setvol_count;
     int skip_notify;
 
     int last_sent_event;        /* Flag used to make sure we are
@@ -116,16 +123,7 @@ typedef struct clnt_conf {
                                   */
     gf_boolean_t filter_o_direct; /* if set, filter O_DIRECT from
                                      the flags list of open() */
-    /* set volume is the op which results in creating/re-using
-     * the conn-id and is called once per connection, this remembers
-     * how manytimes set_volume is called
-     */
-    uint64_t setvol_count;
-
     gf_boolean_t send_gids; /* let the server resolve gids */
-
-    int event_threads; /* # of event threads
-                        * configured */
 
     gf_boolean_t destroy; /* if enabled implies fini was called
                            * on @this xlator instance */
@@ -139,9 +137,6 @@ typedef struct clnt_conf {
                                       */
 
     gf_boolean_t old_protocol;         /* used only for old-protocol testing */
-    pthread_cond_t fini_complete_cond; /* Used to wait till we finsh the fini
-                                          compltely, ie client_fini_complete
-                                          to return*/
     gf_boolean_t fini_completed;
     gf_boolean_t strict_locks; /* When set, doesn't reopen saved fds after
                                   reconnect if POSIX locks are held on them.
@@ -150,9 +145,11 @@ typedef struct clnt_conf {
                                   complaince as bricks cleanup any granted
                                   locks when a client disconnects.
                                */
-
     gf_boolean_t connection_to_brick; /*True from attempt to connect to brick
                                         till disconnection to brick*/
+    pthread_cond_t fini_complete_cond; /* Used to wait till we finsh the fini
+                                          compltely, ie client_fini_complete
+                                          to return*/
 } clnt_conf_t;
 
 typedef struct _client_fd_ctx {
@@ -227,8 +224,8 @@ typedef struct client_args {
     int32_t cmd;
     size_t size;
     mode_t mode;
-    dev_t rdev;
     int32_t flags;
+    dev_t rdev;
     int32_t count;
     int32_t datasync;
     entrylk_cmd cmd_entrylk;

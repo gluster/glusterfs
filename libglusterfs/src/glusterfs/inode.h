@@ -39,22 +39,24 @@ struct _inode_table {
     char *name;             /* name of the inode table, just for gf_log() */
     inode_t *root;          /* root directory inode, with number 1 */
     xlator_t *xl;           /* xlator to be called to do purge */
-    uint32_t lru_limit;     /* maximum LRU cache size */
     struct list_head *inode_hash; /* buckets for inode hash table */
     struct list_head *name_hash;  /* buckets for dentry hash table */
     struct list_head active; /* list of inodes currently active (in an fop) */
     uint32_t active_size;    /* count of inodes in active list */
+    uint32_t lru_limit;      /* maximum LRU cache size */
     struct list_head lru;    /* list of inodes recently used.
                                 lru.next most recent */
     uint32_t lru_size;       /* count of inodes in lru list  */
-    struct list_head purge;  /* list of inodes to be purged soon */
     uint32_t purge_size;     /* count of inodes in purge list */
+    struct list_head purge;  /* list of inodes to be purged soon */
 
     struct mem_pool *inode_pool;  /* memory pool for inodes */
     struct mem_pool *dentry_pool; /* memory pool for dentrys */
     struct mem_pool *fd_mem_pool; /* memory pool for fd_t */
     int ctxcount;                 /* number of slots in inode->ctx */
 
+    uint32_t root_id; /* Save the xlator id at the time of inode table
+                         creation */
     /* This is required for 'invalidation' when 'nlookup' would be used,
        specially in case of fuse-bridge */
     int32_t (*invalidator_fn)(xlator_t *, inode_t *);
@@ -62,8 +64,6 @@ struct _inode_table {
     struct list_head invalidate; /* inodes which are in invalidation queue */
     uint32_t invalidate_size;    /* count of inodes in invalidation list */
     uint32_t root_level; /* Save the xlator level at the time of inode table
-                            creation */
-    uint32_t root_id;    /* Save the xlator id at the time of inode table
                             creation */
     /* flag to indicate whether the cleanup of the inode
        table started or not */

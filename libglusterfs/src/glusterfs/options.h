@@ -102,6 +102,13 @@ typedef struct volume_options {
     char *key[ZR_VOLUME_MAX_NUM_KEY];
     /* different key, same meaning */
     volume_option_type_t type;
+
+    /* Required for int options where only the min value
+     * is given and is 0. This will cause validation not to
+     * happen
+     */
+    opt_validate_type_t validate;
+
     double min; /* 0 means no range */
     double max; /* 0 means no range */
     char *value[ZR_OPTION_MAX_ARRAY_SIZE];
@@ -109,11 +116,6 @@ typedef struct volume_options {
        the value from this array */
     char *default_value;
     char *description; /* about the key */
-    /* Required for int options where only the min value
-     * is given and is 0. This will cause validation not to
-     * happen
-     */
-    opt_validate_type_t validate;
 
     /* The op-version at which this option was introduced.
      * This is an array to support options that get backported to supported

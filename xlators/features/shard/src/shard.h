@@ -211,10 +211,10 @@ typedef struct shard_unlink_thread {
     pthread_mutex_t mutex;
     pthread_cond_t cond;
     pthread_t thread;
+    xlator_t *this;
     gf_boolean_t running;
     gf_boolean_t rerun;
     gf_boolean_t stop;
-    xlator_t *this;
 } shard_unlink_thread_t;
 
 typedef struct shard_priv {
@@ -224,8 +224,8 @@ typedef struct shard_priv {
     inode_t *dot_shard_inode;
     inode_t *dot_shard_rm_inode;
     gf_lock_t lock;
-    int inode_count;
     struct list_head ilist_head;
+    int inode_count;
     uint32_t deletion_rate;
     shard_bg_deletion_state_t bg_del_state;
     gf_boolean_t first_lookup_done;
@@ -279,6 +279,7 @@ typedef struct shard_local {
     uint64_t block_size;
     uint64_t dst_block_size;
     int32_t datasync;
+    glusterfs_fop_t fop;
     off_t offset;
     size_t total_size;
     size_t written_size;
@@ -296,7 +297,6 @@ typedef struct shard_local {
     dict_t *xattr_req;
     dict_t *xattr_rsp;
     inode_t **inode_list;
-    glusterfs_fop_t fop;
     struct iatt prebuf;
     struct iatt postbuf;
     struct iatt preoldparent;
@@ -309,6 +309,11 @@ typedef struct shard_local {
     gf_dirent_t entries_head;
     gf_boolean_t is_set_fsid;
     gf_boolean_t list_inited;
+    gf_boolean_t first_lookup_done;
+    gf_boolean_t lookup_shards_barriered;
+    gf_boolean_t unlink_shards_barriered;
+    gf_boolean_t resolve_not;
+    gf_boolean_t cleanup_required;
     shard_post_fop_handler_t handler;
     shard_post_lookup_shards_fop_handler_t pls_fop_handler;
     shard_post_resolve_fop_handler_t post_res_handler;
@@ -317,37 +322,32 @@ typedef struct shard_local {
     shard_inodelk_t int_inodelk;
     shard_entrylk_t int_entrylk;
     inode_t *resolver_base_inode;
-    gf_boolean_t first_lookup_done;
     syncbarrier_t barrier;
-    gf_boolean_t lookup_shards_barriered;
-    gf_boolean_t unlink_shards_barriered;
-    gf_boolean_t resolve_not;
     loc_t newloc;
     call_frame_t *main_frame;
     call_frame_t *inodelk_frame;
     call_frame_t *entrylk_frame;
-    uint32_t deletion_rate;
-    gf_boolean_t cleanup_required;
-    uuid_t base_gfid;
     char *name;
+    uint32_t deletion_rate;
+    uuid_t base_gfid;
 } shard_local_t;
 
 typedef struct shard_inode_ctx {
     uint64_t block_size; /* The block size with which this inode is
                             sharded */
     struct iatt stat;
-    gf_boolean_t refresh;
     /* The following members of inode ctx will be applicable only to the
      * individual shards' ctx and never the base file ctx.
      */
     struct list_head ilist;
     uuid_t base_gfid;
     int block_num;
+    gf_boolean_t refresh;
     gf_boolean_t refreshed;
     struct list_head to_fsync_list;
     int fsync_needed;
-    inode_t *inode;
     int fsync_count;
+    inode_t *inode;
     inode_t *base_inode;
 } shard_inode_ctx_t;
 

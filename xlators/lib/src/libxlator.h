@@ -111,10 +111,10 @@ struct marker_str {
     int gauge[MCNT_MAX];
     int count[MCNT_MAX];
 
+    uint8_t retval;
     xlator_specf_unwind_t xl_specf_unwind;
     void *xl_local;
     char *vol_uuid;
-    uint8_t retval;
 };
 
 typedef struct marker_str xl_marker_local_t;

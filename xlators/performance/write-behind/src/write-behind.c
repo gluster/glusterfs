@@ -149,18 +149,16 @@ typedef struct wb_request {
     int op_ret;
     int op_errno;
 
-    int32_t refcount;
     wb_inode_t *wb_inode;
     glusterfs_fop_t fop;
     gf_lkowner_t lk_owner;
     pid_t client_pid;
+    int32_t refcount;
     struct iobref *iobref;
     uint64_t gen; /* inode liability state at the time of
                      request arrival */
 
     fd_t *fd;
-    int wind_count; /* number of sync-attempts. Only
-                       for debug purposes */
     struct {
         size_t size; /* 0 size == till infinity */
         off_t off;
@@ -177,6 +175,8 @@ typedef struct wb_request {
      */
     uint64_t unique;
     uuid_t gfid;
+    int wind_count; /* number of sync-attempts. Only
+                       for debug purposes */
 } wb_request_t;
 
 typedef struct wb_conf {

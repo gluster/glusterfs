@@ -71,23 +71,23 @@ struct glusterd_peerinfo_ {
     glusterd_friend_sm_state_t state;
     char *hostname;
     struct cds_list_head hostnames;
+    int connected;
     int port;
     struct cds_list_head uuid_list;
     struct rpc_clnt *rpc;
     rpc_clnt_prog_t *mgmt;
     rpc_clnt_prog_t *peer;
     rpc_clnt_prog_t *mgmt_v3;
-    int connected;
     gf_store_handle_t *shandle;
     glusterd_sm_tr_log_t sm_log;
-    gf_boolean_t quorum_action;
     gd_quorum_contrib_t quorum_contrib;
-    gf_boolean_t locked;
-    gf_boolean_t detaching;
+    uint32_t generation;
     /* Members required for proper cleanup using RCU */
     gd_rcu_head rcu_head;
     pthread_mutex_t delete_lock;
-    uint32_t generation;
+    gf_boolean_t locked;
+    gf_boolean_t detaching;
+    gf_boolean_t quorum_action;
 };
 
 typedef struct glusterd_peerinfo_ glusterd_peerinfo_t;

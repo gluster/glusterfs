@@ -157,18 +157,19 @@ struct ios_conf {
     gf_boolean_t dump_fd_stats;
     gf_boolean_t count_fop_hits;
     gf_boolean_t measure_latency;
+    gf_boolean_t dump_thread_should_die;
+    gf_boolean_t dump_thread_running;
     struct ios_stat_head list[IOS_STATS_TYPE_MAX];
     struct ios_stat_head thru_list[IOS_STATS_THRU_MAX];
     int32_t ios_dump_interval;
     pthread_t dump_thread;
-    gf_boolean_t dump_thread_should_die;
-    gf_boolean_t dump_thread_running;
     gf_lock_t ios_sampling_lock;
     int32_t ios_sample_interval;
     int32_t ios_sample_buf_size;
     ios_sample_buf_t *ios_sample_buf;
     struct dnscache *dnscache;
     int32_t ios_dnscache_ttl_sec;
+    ios_dump_type_t dump_format;
     /*
      * What we really need here is just a unique value to keep files
      * created by this instance distinct from those created by any other.
@@ -181,7 +182,6 @@ struct ios_conf {
      * all of the cases where "xlator_name" is used as a *variable* name.
      */
     char *unique_id;
-    ios_dump_type_t dump_format;
 };
 
 struct ios_fd {

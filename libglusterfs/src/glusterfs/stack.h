@@ -98,6 +98,7 @@ struct _call_stack {
     uint16_t ngrps;
     int8_t type;
     uint32_t groups_small[SMALL_GROUP_COUNT];
+    int32_t op;
     uint32_t *groups_large;
     uint32_t *groups;
     glusterfs_ctx_t *ctx;
@@ -105,7 +106,6 @@ struct _call_stack {
     struct list_head myframes; /* List of call_frame_t that go
                                   to make the call stack */
 
-    int32_t op;
     struct timespec tv;
     xlator_t *err_xl;
     int32_t error;

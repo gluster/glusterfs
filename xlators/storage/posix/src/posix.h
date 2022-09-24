@@ -176,9 +176,8 @@ struct posix_fd {
     DIR *dir;              /* handle returned by the kernel */
     off_t dir_eof;         /* offset at dir EOF */
     struct list_head list; /* to add to the janitor list */
-    int odirect;
     xlator_t *xl;
-    char _pad[4]; /* manual padding */
+    int odirect;
 };
 
 struct posix_diskxl {

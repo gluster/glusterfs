@@ -487,13 +487,13 @@ struct _cmd_args {
     char *volfile;
     char *log_server;
     gf_loglevel_t log_level;
+    int32_t max_connect_attempts;
     char *log_file;
     char *log_ident;
     gf_log_logger_t logger;
     gf_log_format_t log_format;
     uint32_t log_buf_size;
     uint32_t log_flush_timeout;
-    int32_t max_connect_attempts;
     char *print_exports;
     char *print_netgroups;
     int print_xlatordir;
@@ -501,12 +501,11 @@ struct _cmd_args {
     int print_logdir;
     int print_libexecdir;
     /* advanced options */
+    uint32_t log_server_port;
     uint32_t volfile_server_port;
     char *volfile_server_transport;
-    uint32_t log_server_port;
     char *pid_file;
     char *sock_file;
-    int no_daemon_mode;
     char *run_id;
     int debug_mode;
     int read_only;
@@ -518,17 +517,15 @@ struct _cmd_args {
     int mac_compat;
     int fopen_keep_cache;
     int gid_timeout;
-    char gid_timeout_set;
+    int gid_timeout_set;
     int aux_gfid_mount;
-
-    /* need a process wide timer-wheel? */
-    int global_timer_wheel;
 
     /* list of xlator_option_t */
     struct list_head xlator_options;
 
     /* fuse options */
     int fuse_direct_io_mode;
+    int congestion_threshold;
     char *use_readdirp;
     int no_root_squash;
     int volfile_check;
@@ -545,7 +542,6 @@ struct _cmd_args {
     int32_t lru_limit;
     int32_t invalidate_limit;
     int background_qlen;
-    int congestion_threshold;
     char *fuse_mountopts;
     int mem_acct;
     int resolve_gids;
@@ -553,6 +549,8 @@ struct _cmd_args {
     /* key args */
     char *mount_point;
     char *volfile_id;
+
+    int no_daemon_mode;
 
     /* required for portmap */
     int brick_port;
@@ -590,10 +588,10 @@ struct _cmd_args {
     int fuse_flush_handle_interrupt;
     int fuse_auto_inval;
 
+    uint32_t fuse_dev_eperm_ratelimit_ns;
+
     bool global_threading;
     bool brick_mux;
-
-    uint32_t fuse_dev_eperm_ratelimit_ns;
 
     char *io_engine;
 };
@@ -610,11 +608,11 @@ struct _glusterfs_graph {
                         first CHILD_UP */
     uint32_t volfile_checksum;
     uint32_t leaf_count;
+    int parent_down;
     void *last_xl; /* Stores the last xl of the graph, as of now only populated
                       in client multiplexed code path */
     pthread_mutex_t mutex;
     pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
-    int parent_down;
     char graph_uuid[128];
     char volume_id[GF_UUID_BUF_SIZE];
 };
@@ -642,6 +640,14 @@ struct _glusterfs_ctx {
     char *process_uuid;
     FILE *pidfp;
     char fin;
+    /* toggle switch for latency measurement */
+    unsigned char measure_latency;
+
+    gf_boolean_t cleanup_starting;
+    gf_boolean_t destroy_ctx;
+
+    unsigned char cleanup_started;
+
     void *timer;
     void *ib;
     struct call_pool *pool;
@@ -666,16 +672,14 @@ struct _glusterfs_ctx {
     /* listener of the commands from glusterd */
     void *listener;
 
-    /* toggle switch for latency measurement */
-    unsigned char measure_latency;
     pthread_t sigwaiter;
     char *cmdlinestr;
-    unsigned char cleanup_started;
-    int graph_id;        /* Incremented per graph, value should
-                            indicate how many times the graph has
-                            got changed */
-    pid_t mnt_pid;       /* pid of the mount agent */
-    int process_mode;    /*mode in which process is runninng*/
+    int graph_id;     /* Incremented per graph, value should
+                         indicate how many times the graph has
+                         got changed */
+    pid_t mnt_pid;    /* pid of the mount agent */
+    int process_mode; /*mode in which process is runninng*/
+    int mem_acct_enable;
     struct syncenv *env; /* The env pointer to the synctasks */
 
     struct list_head mempool_list; /* used to keep a global list of
@@ -691,11 +695,9 @@ struct _glusterfs_ctx {
                                                  call to fsd-mgmt */
     gf_log_handle_t log; /* all logging related variables */
 
-    int mem_acct_enable;
+    struct clienttable *clienttable;
 
     int daemon_pipe[2];
-
-    struct clienttable *clienttable;
 
     /*
      * Should management connections use SSL?  This is the only place we
@@ -720,13 +722,12 @@ struct _glusterfs_ctx {
      * NFS.
      */
     mgmt_ssl_t secure_srvr;
-    /* Buffer to 'save' backtrace even under OOM-kill like situations*/
-    char btbuf[GF_BACKTRACE_LEN];
+
+    int notifying;
 
     pthread_mutex_t notify_lock;
     pthread_mutex_t cleanup_lock;
     pthread_cond_t notify_cond;
-    int notifying;
 
     struct gf_ctx_tw *tw; /* refcounted timer_wheel */
 
@@ -760,10 +761,11 @@ struct _glusterfs_ctx {
     pthread_cond_t xl_cond;
     pthread_t disk_space_check;
 
-    gf_boolean_t cleanup_starting;
-    gf_boolean_t destroy_ctx;
     char *hostname;
     char volume_id[GF_UUID_BUF_SIZE]; /* Used only in protocol/client */
+
+    /* Buffer to 'save' backtrace even under OOM-kill like situations*/
+    char btbuf[GF_BACKTRACE_LEN];
 };
 typedef struct _glusterfs_ctx glusterfs_ctx_t;
 
@@ -781,9 +783,9 @@ glusterfs_ctx_new(void);
 struct gf_flock {
     short l_type;
     short l_whence;
+    pid_t l_pid;
     off_t l_start;
     off_t l_len;
-    pid_t l_pid;
     gf_lkowner_t l_owner;
 };
 

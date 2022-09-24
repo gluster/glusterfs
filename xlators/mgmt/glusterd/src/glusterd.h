@@ -238,8 +238,8 @@ struct glusterd_brickinfo {
     struct rpc_clnt *rpc;
     int decommissioned;
     gf_brick_status_t status;
-    int32_t snap_status;
     struct glusterd_snap_ops *snap;
+    int32_t snap_status;
     /*
      * The group is used to identify which bricks are part of the same
      * replica set during brick-volfile generation, so that JBR volfiles
@@ -253,11 +253,11 @@ struct glusterd_brickinfo {
 
     /* Below are used for handling the case of multiple bricks sharing
        the backend filesystem */
+    uint32_t fs_share_count;
     uint64_t statfs_fsid;
     pthread_mutex_t restart_mutex;
     glusterd_brick_proc_t *brick_proc; /* Information regarding mux bricks */
     struct cds_list_head mux_bricks; /* List to store the bricks in brick_proc*/
-    uint32_t fs_share_count;
     char hostname[NAME_MAX];
     char path[VALID_GLUSTERD_PATHMAX];
     char real_path[VALID_GLUSTERD_PATHMAX];
@@ -277,9 +277,9 @@ typedef int (*defrag_cbk_fn_t)(glusterd_volinfo_t *volinfo,
 struct glusterd_defrag_info_ {
     int refcnt;
     gf_lock_t lock;
-    gf_boolean_t connected;
     struct rpc_clnt *rpc;
     defrag_cbk_fn_t cbk_fn;
+    gf_boolean_t connected;
 };
 
 typedef struct glusterd_defrag_info_ glusterd_defrag_info_t;
