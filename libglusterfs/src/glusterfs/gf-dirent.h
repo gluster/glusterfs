@@ -56,8 +56,8 @@ struct _gf_dirent {
 static inline gf_boolean_t
 inode_dir_or_parentdir(gf_dirent_t *entry)
 {
-    return (entry->d_len <= 2 && (strcmp(entry->d_name, ".") == 0 ||
-                                  strcmp(entry->d_name, "..") == 0));
+    return ((entry->d_name[0] == '.') &&
+            ((entry->d_name[1] == 0) || (entry->d_name[1] == '.')));
 }
 
 gf_dirent_t *
