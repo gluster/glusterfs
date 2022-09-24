@@ -1832,21 +1832,8 @@ glfs_pwritev_common(struct glfs_fd *glfd, const struct iovec *iovec, int iovcnt,
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    if (prestat) {
-        if (poststat)
-            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
-                                &preiatt, &postiatt, fop_attr, NULL);
-        else
-            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
-                                &preiatt, NULL, fop_attr, NULL);
-    } else {
-        if (poststat)
-            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
-                                NULL, &postiatt, fop_attr, NULL);
-        else
-            ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags,
-                                NULL, NULL, fop_attr, NULL);
-    }
+    ret = syncop_writev(subvol, fd, &iov, 1, offset, iobref, flags, &preiatt,
+                        &postiatt, fop_attr, NULL);
     DECODE_SYNCOP_ERR(ret);
 
     if (ret >= 0) {
