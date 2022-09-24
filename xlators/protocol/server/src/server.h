@@ -123,6 +123,7 @@ struct _server_state {
     struct iatt stbuf;
     int valid;
 
+    int32_t flags;
     /*
      * this fd is used in all the fd based operations PLUS
      * as a source fd in copy_file_range
@@ -130,7 +131,6 @@ struct _server_state {
     fd_t *fd;
     fd_t *fd_out; /* destination fd in copy_file_range */
     dict_t *params;
-    int32_t flags;
     struct iovec payload_vector[MAX_IOVEC];
     int payload_count;
     struct iobref *iobref;
@@ -157,7 +157,6 @@ struct _server_state {
     dict_t *dict;
     struct gf_flock flock;
     const char *volume;
-    gf_seek_what_t what;
 
     dict_t *xdata;
     mode_t umask;
@@ -166,6 +165,8 @@ struct _server_state {
 
     struct iovec rsp_vector[MAX_IOVEC];
     int rsp_count;
+
+    gf_seek_what_t what;
 
     /* subdir mount */
     client_t *client;

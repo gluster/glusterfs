@@ -154,8 +154,8 @@ struct afr_nfsd {
 
 typedef struct _afr_lk_heal_info {
     fd_t *fd;
-    int32_t cmd;
     struct gf_flock flock;
+    int32_t cmd;
     dict_t *xdata_req;
     unsigned char *locked_nodes;
     struct list_head pos;
@@ -262,6 +262,8 @@ typedef struct _afr_private {
     afr_self_heald_t shd;
     struct afr_nfsd nfsd;
 
+    gf_boolean_t use_anon_inode;
+
     uint32_t halo_max_latency_msec;
     uint32_t halo_max_replicas;
     uint32_t halo_min_replicas;
@@ -270,7 +272,6 @@ typedef struct _afr_private {
     gf_boolean_t esh_granular;
     gf_boolean_t consistent_io;
     gf_boolean_t data_self_heal; /* on/off */
-    gf_boolean_t use_anon_inode;
 
     /*For lock healing.*/
     struct list_head saved_locks;

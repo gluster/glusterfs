@@ -42,6 +42,7 @@ typedef struct _client {
     xlator_t *bound_xl;
     xlator_t *this;
     int tbl_index;
+    int32_t opversion;
     char *client_uid;
     char *client_name;
     struct {
@@ -56,7 +57,6 @@ typedef struct _client {
     char *subdir_mount;
     inode_t *subdir_inode;
     uuid_t subdir_gfid;
-    int32_t opversion;
     /* Variable to save fd_count for detach brick */
     gf_atomic_t fd_cnt;
 } client_t;
@@ -71,9 +71,9 @@ typedef struct client_table_entry cliententry_t;
 
 struct clienttable {
     unsigned int max_clients;
+    int first_free;
     gf_lock_t lock;
     cliententry_t *cliententries;
-    int first_free;
     client_t *local;
 };
 typedef struct clienttable clienttable_t;

@@ -96,9 +96,9 @@ struct synctask {
 
     pthread_mutex_t mutex; /* for synchronous spawning of synctask */
     pthread_cond_t cond;
-    int done;
 
     struct list_head waitq; /* can wait only "once" at a time */
+    int done;
 };
 
 struct syncproc {
@@ -142,10 +142,10 @@ struct syncenv {
     int procmin;
     int procmax;
 
-    size_t stacksize;
-
     int destroy; /* FLAG to mark syncenv is in destroy mode
                     so that no more synctasks are accepted*/
+
+    size_t stacksize;
 };
 
 typedef enum { LOCK_NULL = 0, LOCK_TASK, LOCK_THREAD } lock_type_t;
@@ -204,11 +204,11 @@ struct syncargs {
     dict_t *xattr;
     struct statvfs statvfs_buf;
     struct iovec *vector;
-    int count;
     struct iobref *iobref;
     char *buffer;
     dict_t *xdata;
     struct gf_flock flock;
+    int count;
     struct gf_lease lease;
     dict_t *dict_out;
 
@@ -238,8 +238,8 @@ struct syncopctx {
     gid_t gid;
     int grpsize;
     int ngrps;
-    gid_t *groups;
     pid_t pid;
+    gid_t *groups;
     gf_lkowner_t lk_owner;
 };
 

@@ -106,8 +106,8 @@ typedef struct dht_layout dht_layout_t;
 struct dht_stat_time {
     uint64_t atime;
     uint32_t atime_nsec;
-    uint64_t ctime;
     uint32_t ctime_nsec;
+    uint64_t ctime;
     uint64_t mtime;
     uint32_t mtime_nsec;
 };
@@ -345,6 +345,8 @@ struct dht_local {
     off_t queue_offset;
     int32_t queue;
 
+    int32_t mds_heal_fresh_lookup;
+
     /* inodelks during filerename for backward compatibility */
     dht_lock_t **rename_inodelk_backward_compatible;
 
@@ -359,7 +361,6 @@ struct dht_local {
     int rename_inodelk_bc_count;
     /* This is use only for directory operation */
     int32_t valid;
-    int32_t mds_heal_fresh_lookup;
     short lock_type;
     char need_selfheal;
     char need_xattr_heal;

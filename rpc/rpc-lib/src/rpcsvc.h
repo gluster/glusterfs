@@ -116,6 +116,11 @@ struct rpcsvc_request {
 
     gf_lkowner_t lk_owner;
 
+    /* The identifier for the call from client.
+     * Needed to pair the reply with the call.
+     */
+    uint32_t xid;
+
     /* Might want to move this to AUTH_UNIX specific state since this array
      * is not available for every authentication scheme.
      */
@@ -188,20 +193,15 @@ struct rpcsvc_request {
        the one we should consider for time */
     struct timespec ctime;
 
-    /* The identifier for the call from client.
-     * Needed to pair the reply with the call.
+    /* If latency measurement is enabled, marks the request handling
+     * start time.
      */
-    uint32_t xid;
+    struct timespec begin;
 
     /* Execute this request's actor function in ownthread of program?*/
     gf_boolean_t ownthread;
 
     gf_boolean_t synctask;
-
-    /* If latency measurement is enabled, marks the request handling
-     * start time.
-     */
-    struct timespec begin;
 };
 
 #define rpcsvc_request_program(req) ((rpcsvc_program_t *)((req)->prog))

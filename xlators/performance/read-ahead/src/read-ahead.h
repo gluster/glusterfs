@@ -33,12 +33,13 @@ struct ra_fill {
     off_t offset;
     size_t size;
     struct iovec *vector;
-    int32_t count;
     struct iobref *iobref;
+    int32_t count;
 };
 
 struct ra_local {
     mode_t mode;
+    int32_t wait_count;
     struct ra_fill fill;
     off_t offset;
     size_t size;
@@ -47,7 +48,6 @@ struct ra_local {
     off_t pending_offset;
     size_t pending_size;
     fd_t *fd;
-    int32_t wait_count;
     pthread_mutex_t local_lock;
 };
 
@@ -58,13 +58,13 @@ struct ra_page {
     char dirty;    /* Internal request, not from user. */
     char poisoned; /* Pending read invalidated by write. */
     char ready;
-    struct iovec *vector;
+    char stale;
     int32_t count;
+    struct iovec *vector;
     off_t offset;
     size_t size;
     struct ra_waitq *waitq;
     struct iobref *iobref;
-    char stale;
 };
 
 struct ra_file {
@@ -73,11 +73,11 @@ struct ra_file {
     struct ra_conf *conf;
     fd_t *fd;
     int disabled;
+    int32_t refcount;
     size_t expected;
     struct ra_page pages;
     off_t offset;
     size_t size;
-    int32_t refcount;
     pthread_mutex_t file_lock;
     struct iatt stbuf;
     uint64_t page_size;
@@ -87,9 +87,9 @@ struct ra_file {
 struct ra_conf {
     uint64_t page_size;
     uint32_t page_count;
+    gf_boolean_t force_atime_update;
     void *cache_block;
     struct ra_file files;
-    gf_boolean_t force_atime_update;
     pthread_mutex_t conf_lock;
 };
 

@@ -1085,10 +1085,6 @@ parse_opts(int key, char *arg, struct argp_state *state)
 
             break;
 
-        case ARGP_GLOBAL_TIMER_WHEEL:
-            cmd_args->global_timer_wheel = 1;
-            break;
-
         case ARGP_GID_TIMEOUT_KEY:
             if (!gf_string2int(arg, &cmd_args->gid_timeout)) {
                 cmd_args->gid_timeout_set = _gf_true;

@@ -123,9 +123,9 @@ typedef struct rpc_auth_data {
 
 struct rpc_clnt_config {
     time_t rpc_timeout;
-    int remote_port;
     char *remote_host;
     time_t ping_timeout;
+    int remote_port;
 };
 
 #define rpc_auth_flavour(au) ((au).flavour)
@@ -146,10 +146,10 @@ struct rpc_clnt_connection {
     uint64_t msgcnt;
     uint64_t cleanup_gen;
     char *name;
-    int32_t ping_started;
     time_t frame_timeout;
     time_t ping_timeout;
     rpc_clnt_status_t status;
+    int32_t ping_started;
 };
 typedef struct rpc_clnt_connection rpc_clnt_connection_t;
 
@@ -157,13 +157,13 @@ struct rpc_req {
     rpc_clnt_connection_t *conn;
     struct iovec rsp[2];
     int rspcnt;
+    uint32_t xid;
     struct iobref *rsp_iobref;
     rpc_clnt_prog_t *prog;
     rpc_auth_data_t verf;
     fop_cbk_fn_t cbkfn;
     int procnum;
     int rpc_status;
-    uint32_t xid;
 };
 
 typedef struct rpc_clnt {

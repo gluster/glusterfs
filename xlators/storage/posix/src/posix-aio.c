@@ -56,8 +56,8 @@ struct posix_aio_cb {
     struct iobref *iobref;
     struct iatt prebuf;
     int _fd;
-    fd_t *fd;
     int op;
+    fd_t *fd;
     off_t offset;
 };
 

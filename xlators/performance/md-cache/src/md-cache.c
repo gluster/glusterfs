@@ -68,14 +68,14 @@ struct mdc_conf {
     gf_boolean_t cache_samba_metadata;
     gf_boolean_t mdc_invalidation;
     gf_boolean_t global_invalidation;
+    gf_boolean_t cache_statfs;
+    gf_atomic_uint32_t generation;
 
     time_t last_child_down;
     gf_lock_t lock;
     struct mdc_statistics mdc_counter;
-    gf_boolean_t cache_statfs;
     struct mdc_statfs_cache statfs_cache;
     char *mdc_xattr_str;
-    gf_atomic_uint32_t generation;
 };
 
 struct mdc_local;
@@ -99,6 +99,10 @@ struct md_cache {
     uint32_t md_nlink;
     uint32_t md_uid;
     uint32_t md_gid;
+    gf_boolean_t need_lookup;
+    gf_boolean_t valid;
+    gf_boolean_t gen_rollover;
+    gf_boolean_t invalidation_rollover;
     uint32_t md_atime_nsec;
     uint32_t md_mtime_nsec;
     uint32_t md_ctime_nsec;
@@ -113,10 +117,6 @@ struct md_cache {
     char *linkname;
     time_t ia_time;
     time_t xa_time;
-    gf_boolean_t need_lookup;
-    gf_boolean_t valid;
-    gf_boolean_t gen_rollover;
-    gf_boolean_t invalidation_rollover;
     gf_lock_t lock;
 };
 

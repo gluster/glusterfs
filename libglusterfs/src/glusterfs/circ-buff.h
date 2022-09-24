@@ -25,18 +25,16 @@ typedef struct _circular_buffer circular_buffer_t;
 
 struct _buffer {
     unsigned int w_index;
+    int used_len; /* indicates the amount of circular buffer used. */
     size_t size_buffer;
-    gf_boolean_t use_once;
-    /* This variable is assigned the proper value at the time of initing */
-    /* the buffer. It indicates, whether the buffer should be used once */
-    /*  it becomes full. */
-
-    int used_len;
-    /* indicates the amount of circular buffer used. */
 
     circular_buffer_t **cb;
     void (*destroy_buffer_data)(void *data);
     pthread_mutex_t lock;
+    /* This variable is assigned the proper value at the time of initing */
+    /* the buffer. It indicates, whether the buffer should be used once */
+    /*  it becomes full. */
+    gf_boolean_t use_once;
 };
 
 typedef struct _buffer buffer_t;
