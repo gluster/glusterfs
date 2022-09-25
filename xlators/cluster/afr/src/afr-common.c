@@ -5092,9 +5092,32 @@ afr_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     child_index = (long)cookie;
 
     afr_common_lock_cbk(frame, cookie, this, op_ret, op_errno, xdata);
-    if (op_ret < 0 && op_errno == EAGAIN) {
+
+    /* We have two options here to handle EINTR
+       1) Either Ignore EINTR and wind a call on other subvolume
+       2) or Unlock the already granted lock in the previous children and return
+       the error.
+
+       For EINTR we can't chose first option because EINTR is not a regular
+       error. The user expecation is whole lock should be clear after receive an
+       interrupt. However there is an issue if we do unlock already granted
+       locks. Locks xlator implements posix locks as they are defined by the
+       posix standard. This means that granted locks are "combined" with other
+       existing granted locks. Unfortunately, in some cases this makes it
+       impossible to revoke an already granted lock without unwanted side
+       effects. For example consider a process that takes two read locks on the
+       same file, but their ranges overlap a bit. Once both of them are granted
+       in one brick, revoking any of them because of an interrupt will cause the
+       overlapped range to be unlocked, even if one of the locks is still
+       granted (from the point of view of the user, one of the locks has never
+       been granted because it returned EINTR, so the user still expects that
+       the other lock still covers the overlapping region). For the time being
+       we have decided consider EINTR as same EAGAIN.
+    */
+
+    if (op_ret < 0 && ((op_errno == EAGAIN) || (op_errno == EINTR))) {
         local->op_ret = -1;
-        local->op_errno = EAGAIN;
+        local->op_errno = op_errno;
 
         afr_lk_unlock(frame, this);
         return 0;
