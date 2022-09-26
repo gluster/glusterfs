@@ -398,6 +398,7 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     /* setup input buffer */
     ci->stream.next_in = (unsigned char *)vec.iov_base + GF_CDC_VALIDATION_SIZE;
     ci->stream.avail_in = vec.iov_len - GF_CDC_VALIDATION_SIZE;
+iovec - and use the correct size))
 
     while (ci->stream.avail_in != 0) {
         if (ci->stream.avail_out == 0) {
@@ -427,7 +428,7 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     /* compute CRC of the uncompressed data to check for
      * correctness */
 
-    for (i = 0; i < ci->ncount; i++) {
+    for (i = 1; i < ci->ncount; i++) {
         ci->crc = crc32(ci->crc, (const Bytef *)ci->vec[i].iov_base,
                         ci->vec[i].iov_len);
     }
