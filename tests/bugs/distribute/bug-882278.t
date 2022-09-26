@@ -4,10 +4,6 @@
 . $(dirname $0)/../../volume.rc
 cleanup
 
-# Is there a good reason to require --fqdn elsewhere?  It's worse than useless
-# here.
-H0=$(hostname -s)
-
 function recreate {
 	# The rm is necessary so we don't get fooled by leftovers from old runs.
 	rm -rf $1 && mkdir -p $1
