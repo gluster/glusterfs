@@ -36,8 +36,6 @@ static const char gzip_header[10] = {'\037', '\213', Z_DEFLATED,  0, 0, 0, 0,
 static int32_t
 cdc_next_iovec(cdc_info_t *ci)
 {
-    int ret = -1;
-
     ci->ncount++;
     /* check for iovec overflow -- should not happen */
     if (caa_unlikely(ci->ncount == MAX_IOVEC)) {
@@ -45,13 +43,10 @@ cdc_next_iovec(cdc_info_t *ci)
                "Zlib output buffer overflow"
                " ->ncount (%d) | ->MAX_IOVEC (%d)",
                ci->ncount, MAX_IOVEC);
-        goto out;
+        return -1;
     }
 
-    ret = 0;
-
-out:
-    return ret;
+    return 0;
 }
 
 static void
@@ -73,28 +68,23 @@ cdc_get_long(unsigned char *buf)
 static int32_t
 cdc_init_gzip_trailer(cdc_info_t *ci)
 {
-    int ret = -1;
     char *buf = NULL;
 
-    ret = cdc_next_iovec(ci);
-    if (ret)
+    buf = ci->vec[0].iov_base = (char *)GF_MALLOC(GF_CDC_VALIDATION_SIZE,
+                                                  gf_cdc_mt_gzip_trailer_t);
+
+    if (caa_unlikely(!buf))
         goto out;
 
-    buf = CURR_VEC(ci).iov_base = (char *)GF_CALLOC(1, GF_CDC_VALIDATION_SIZE,
-                                                    gf_cdc_mt_gzip_trailer_t);
-
-    if (!CURR_VEC(ci).iov_base)
-        goto out;
-
-    CURR_VEC(ci).iov_len = GF_CDC_VALIDATION_SIZE;
+    ci->vec[0].iov_len = GF_CDC_VALIDATION_SIZE;
 
     cdc_put_long((unsigned char *)&buf[0], ci->crc);
     cdc_put_long((unsigned char *)&buf[4], ci->stream.total_in);
 
-    ret = 0;
+    return 0;
 
 out:
-    return ret;
+    return -1;
 }
 
 static int32_t
@@ -144,7 +134,6 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
 {
     int i = 0;
     int fd = 0;
-    size_t written = 0;
     size_t total_written = 0;
 
     fd = open(file, O_WRONLY | O_CREAT | O_TRUNC, 0777);
@@ -153,13 +142,14 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
         return;
     }
 
-    written = sys_write(fd, (char *)gzip_header, 10);
-    total_written += written;
-    for (i = 0; i < ci->ncount; i++) {
-        written = sys_write(fd, (char *)ci->vec[i].iov_base,
-                            ci->vec[i].iov_len);
-        total_written += written;
+    total_written += sys_write(fd, (char *)gzip_header, 10);
+    for (i = 1; i < ci->ncount; i++) {
+        total_written += sys_write(fd, (char *)ci->vec[i].iov_base,
+                                   ci->vec[i].iov_len);
     }
+    /* gzip trailer, in the 1st iovec */
+    total_written += sys_write(fd, (char *)ci->vec[0].iov_base,
+                               ci->vec[0].iov_len);
 
     gf_log(this->name, GF_LOG_DEBUG, "dump'd %zu bytes to %s", total_written,
            GF_CDC_DEBUG_DUMP_FILE);
@@ -286,6 +276,11 @@ cdc_compress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t **xdata)
         goto out;
     }
 
+    /* allocate 1st iovec for gzip trailer (CRC + len = 8 bytes overall) */
+    ret = cdc_alloc_iobuf_and_init_vec(this, ci, GF_CDC_VALIDATION_SIZE);
+    if (ret)
+        goto out;
+
     /* data */
     for (i = 0; i < ci->count; i++) {
         ret = do_cdc_compress(&ci->vector[i], this, ci);
@@ -370,8 +365,6 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
 {
     int ret = -1;
     int i = 0;
-    int len = 0;
-    char *inflte = NULL;
     char *trailer = NULL;
     struct iovec vec = {
         0,
@@ -379,10 +372,11 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     unsigned long computed_crc = 0;
     unsigned long computed_len = 0;
 
+    /* gzip trailer, which contains the CRC and uncompressed length is in the
+     * 1st vector
+     */
     vec = THIS_VEC(ci, 0);
-
-    trailer = (char *)(((char *)vec.iov_base) + vec.iov_len -
-                       GF_CDC_VALIDATION_SIZE);
+    trailer = (char *)(vec.iov_base);
 
     /* CRC of uncompressed data */
     computed_crc = cdc_extract_crc(trailer);
@@ -393,9 +387,6 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     gf_log(this->name, GF_LOG_DEBUG, "crc=%lu len=%lu buffer_size=%d",
            computed_crc, computed_len, ci->buffer_size);
 
-    inflte = vec.iov_base;
-    len = vec.iov_len - GF_CDC_VALIDATION_SIZE;
-
     /* allocate buffer of the original length of the data */
     ret = cdc_alloc_iobuf_and_init_vec(this, ci, 0);
     if (ret)
@@ -405,8 +396,8 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     cdc_init_zlib_output_stream(ci, 0);
 
     /* setup input buffer */
-    ci->stream.next_in = (unsigned char *)inflte;
-    ci->stream.avail_in = len;
+    ci->stream.next_in = (unsigned char *)vec.iov_base + GF_CDC_VALIDATION_SIZE;
+    ci->stream.avail_in = vec.iov_len - GF_CDC_VALIDATION_SIZE;
 
     while (ci->stream.avail_in != 0) {
         if (ci->stream.avail_out == 0) {
@@ -445,7 +436,10 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     ret = cdc_validate_inflate(ci, computed_crc, computed_len);
     if (ret) {
         gf_log(this->name, GF_LOG_ERROR,
-               "Checksum or length mismatched in inflated data");
+               "Checksum or length mismatched in inflated data: "
+               "pre-computed_crc: %lu, ci->crc: %lu, pre-computed_len: %lu, "
+               "len (ci->stream.total_out): %lu",
+               computed_crc, ci->crc, computed_len, ci->stream.total_out);
     }
 
 out:
