@@ -35,7 +35,7 @@ sleep 5
 TEST touch $M0/test
 TEST unlink $M0/test
 
-TEST dd if=/dev/zero of=$M0/a bs=80M count=1
+TEST dd if=/dev/zero of=$M0/a bs=70M count=1
 TEST dd if=/dev/zero of=$M0/b bs=10M count=1
 
 gfid_new=$(get_gfid_string $M0/a)
