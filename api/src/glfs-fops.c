@@ -665,10 +665,13 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     if (!is_create)
         ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
     else
-        ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, NULL, fop_attr,
-                            NULL);
+        ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, &iatt,
+                            fop_attr, NULL);
 
     DECODE_SYNCOP_ERR(ret);
+
+    if (is_create && ret == 0)
+        ret = glfs_loc_link(&loc, &iatt);
 
     /* Because it is openat(), no ESTALE expected */
 out:
