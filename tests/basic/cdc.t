@@ -58,15 +58,15 @@ TEST $GFS -s $H0 --volfile-id $V0 $M0;
 ## Testing writev ##
 ####################
 
-## Create a 1K file locally and find the md5sum
+## Create a 1K file locally and find the sha256sum
 TEST dd if=/dev/zero of=/tmp/cdc-orig count=1 bs=1k 2>/dev/null
-checksum[original-file]=`md5sum /tmp/cdc-orig | cut -d' ' -f1`
+checksum[original-file]=`sha256sum /tmp/cdc-orig | cut -d' ' -f1`
 
-## Copy the file to mountpoint and find its md5sum on brick
-TEST dd if=/tmp/cdc-orig of=$M0/cdc-server count=1 bs=1k 2>/dev/null
-checksum[brick-file]=`md5sum $B0/${V0}1/cdc-server | cut -d' ' -f1`
+## Copy the file to mountpoint and find its sha256sum on brick
+TEST cp /tmp/cdc-orig $M0/cdc-server
+checksum[brick-file]=`sha256sum $B0/${V0}1/cdc-server | cut -d' ' -f1`
 
-## Uncompress the gzip dump file and find its md5sum
+## Uncompress the gzip dump file and find its sha256sum
 # mime outputs for gzip are different for file version > 5.14
 TEST touch /tmp/gzipfile
 TEST gzip /tmp/gzipfile
@@ -77,7 +77,7 @@ TEST rm -f /tmp/gzipfile.gz
 EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
 
 TEST gunzip -f /tmp/cdcdump.gz
-checksum[dump-file-writev]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
+checksum[dump-file-writev]=`sha256sum /tmp/cdcdump | cut -d' ' -f1`
 
 ## Check if all 3 checksums are same
 TEST test ${checksum[original-file]} = ${checksum[brick-file]}
@@ -91,15 +91,15 @@ TEST rm -f /tmp/cdcdump.gz
 ###################
 
 ## Copy file from mount point to client and find checksum
-TEST dd if=$M0/cdc-server of=/tmp/cdc-client count=1 bs=1k 2>/dev/null
-checksum[client-file]=`md5sum /tmp/cdc-client | cut -d' ' -f1`
+TEST cp $M0/cdc-server /tmp/cdc-client
+checksum[client-file]=`sha256sum /tmp/cdc-client | cut -d' ' -f1`
 
-## Uncompress the gzip dump file and find its md5sum
+## Uncompress the gzip dump file and find its sha256sum
 # mime outputs for gzip are different for file version > 5.14
 EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
 
 TEST gunzip -f /tmp/cdcdump.gz
-checksum[dump-file-readv]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
+checksum[dump-file-readv]=`sha256sum /tmp/cdcdump | cut -d' ' -f1`
 
 ## Check if all 3 checksums are same
 TEST test ${checksum[brick-file]} = ${checksum[client-file]}
