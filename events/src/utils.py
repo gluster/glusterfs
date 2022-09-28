@@ -27,6 +27,7 @@ import base64
 import hmac
 from hashlib import sha256
 from calendar import timegm
+from tempfile import NamedTemporaryFile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -312,6 +313,40 @@ def plugin_webhook(message):
     logger.debug("EVENT: {0}".format(message_json))
     webhooks_pool.send(message["event"], message["ts"], message_json)
 
+
+class NamedTempOpen(object):
+    """
+        This class is used to create a temporary file which is then written to with contents.
+        The temp file is then persisted with the give name by calling os.rename().
+        This class is used to avoid the data loss or truncation in case of multiple processes
+        writing to the same file without the use of fcntl locks.
+
+        The temporary file is created in the cwd of the process.
+    """
+
+    def __init__(self, filename, open_mode, *args, **kwagrs) -> None:
+        self.filename = filename
+        self.open_mode = open_mode
+        self.open_args = args
+        self.open_kwargs = kwagrs
+        self.fileobj = None
+
+    def __enter__(self):
+        tfile = NamedTemporaryFile(mode=self.open_mode,
+                                   delete=False,
+                                   dir=".",
+                                   *self.open_args,
+                                   **self.open_kwargs)
+
+        if tfile is None:
+            raise
+
+        self.fileobj = tfile
+        return self.fileobj
+
+    def __exit__(self, ex_type, ex_val, ex_tb):
+        os.rename(self.fileobj.name, self.filename)
+        self.fileobj.close()
 
 class LockedOpen(object):
 
