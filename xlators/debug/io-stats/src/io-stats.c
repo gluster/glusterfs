@@ -151,7 +151,8 @@ typedef enum {
 
 struct ios_conf {
     gf_lock_t lock;
-    time_t last_fop_hit; /* Timestamp of last fop hit */
+    time_t last_fop_hit;  /* Timestamp of last fop hit */
+    time_t first_fop_hit; /* Timestamp of first fop hit after start latency*/
     struct ios_global_stats cumulative;
     uint64_t increment;
     struct ios_global_stats incremental;
@@ -243,6 +244,8 @@ is_fop_latency_started(call_frame_t *frame)
         if (conf && conf->measure_latency) {                                   \
             timespec_now(&frame->begin);                                       \
             conf->last_fop_hit = gf_time();                                    \
+            if (!conf->first_fop_hit)                                          \
+                conf->first_fop_hit = conf->last_fop_hit;                      \
         } else {                                                               \
             memset(&frame->begin, 0, sizeof(frame->begin));                    \
         }                                                                      \
@@ -1299,6 +1302,8 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     uint64_t block_count_read = 0;
     uint64_t block_count_write = 0;
     glusterfs_ctx_t *ctx;
+    char tdate[64];
+    struct tm *gtime = NULL;
 
     conf = this->private;
     ctx = this->ctx;
@@ -1310,11 +1315,17 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
         ios_log(this, logfp, "\n=== Cumulative stats ===");
     else
         ios_log(this, logfp, "\n=== Interval %d stats ===", interval);
-    ios_log(this, logfp, "      Start : %" PRIu64 " secs",
-            (uint64_t)(stats->started_at));
-    if (conf->last_fop_hit > stats->started_at)
-        ios_log(this, logfp, "      End : %" PRIu64 " secs",
-                (uint64_t)(conf->last_fop_hit));
+
+    gtime = gmtime(&conf->first_fop_hit);
+    strftime(tdate, sizeof(tdate), "%a, %d %b %Y %H:%M:%S +0000", gtime);
+
+    ios_log(this, logfp, "      Start : %s", tdate);
+
+    gtime = gmtime(&conf->last_fop_hit);
+    strftime(tdate, sizeof(tdate), "%a, %d %b %Y %H:%M:%S +0000", gtime);
+
+    if (conf->last_fop_hit > conf->first_fop_hit)
+        ios_log(this, logfp, "      End : %s", tdate);
     else
         ios_log(this, logfp, "      End : %" PRIu64 " secs", (uint64_t)(now));
 
@@ -1405,18 +1416,21 @@ io_stats_dump_global_to_logfp(xlator_t *this, struct ios_global_stats *stats,
     }
 
     /* To measure FOP_HITS_PER_SEC consider time difference
-       between last profile stat started and last fop hit.
+       between first fop hit after start latency and last fop hit.
        In case if last_fop_hit value is 0 then consider now
        to measure the duration
     */
-    if (conf->last_fop_hit > stats->started_at) {
-        duration = (conf->last_fop_hit - stats->started_at);
+    if (conf->last_fop_hit > conf->first_fop_hit) {
+        duration = (conf->last_fop_hit - conf->first_fop_hit);
     } else {
         duration = (now - stats->started_at);
     }
 
-    ios_log(this, logfp, "fops/s : %" PRIu64,
-            (duration != 0 ? (total_fop_hits / duration) : total_fop_hits));
+    ios_log(
+        this, logfp, "\nThroughput : %" PRIu64 " fops/s",
+        (duration != 0 ? (duration < total_fop_hits ? total_fop_hits / duration
+                                                    : total_fop_hits)
+                       : total_fop_hits));
 
     ios_log(this, logfp,
             "------ ----- ----- ----- ----- ----- ----- ----- "
@@ -1514,8 +1528,8 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
        difference between last incremental profile stat
        started and last fop hit.
     */
-    if (conf->last_fop_hit > stats->started_at) {
-        sec = (conf->last_fop_hit - stats->started_at);
+    if (conf->last_fop_hit > conf->first_fop_hit) {
+        sec = (conf->last_fop_hit - conf->first_fop_hit);
         end_time = conf->last_fop_hit;
     }
 
@@ -1661,7 +1675,10 @@ io_stats_dump_global_to_dict(xlator_t *this, struct ios_global_stats *stats,
     if (total_fop_hits) {
         snprintf(key, sizeof(key), "%d-fop-hits-per-sec", interval);
         ret = dict_set_uint64(
-            dict, key, (sec != 0 ? (total_fop_hits / sec) : (total_fop_hits)));
+            dict, key,
+            (sec != 0 ? ((sec < total_fop_hits) ? total_fop_hits / sec
+                                                : total_fop_hits)
+                      : (total_fop_hits)));
         if (ret) {
             gf_log(this->name, GF_LOG_ERROR,
                    "failed to "
@@ -1776,6 +1793,7 @@ io_stats_dump(xlator_t *this, struct ios_dump_args *args, ios_info_op_t op,
                 increment = conf->increment++;
 
                 ios_global_stats_clear(&conf->incremental, now);
+                conf->first_fop_hit = 0;
             }
         }
     }
@@ -3753,6 +3771,7 @@ io_stats_clear(struct ios_conf *conf)
         ios_global_stats_clear(&conf->cumulative, now);
         ios_global_stats_clear(&conf->incremental, now);
         conf->increment = 0;
+        conf->first_fop_hit = 0;
     }
     UNLOCK(&conf->lock);
 }

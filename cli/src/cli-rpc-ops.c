@@ -5496,6 +5496,9 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     int ret = 0;
     double total_percentage_latency = 0;
     uint64_t fop_hits_per_sec = 0;
+    time_t timestamp = 0;
+    char tdate[64];
+    struct tm *gtime = NULL;
 
     for (i = 0; i < 32; i++) {
         snprintf(key, sizeof(key), "%d-%d-read-%" PRIu32, count, interval,
@@ -5683,8 +5686,14 @@ cmd_profile_volume_brick_out(dict_t *dict, int count, int interval)
     }
 
     cli_out(" ");
-    cli_out("%12s: %" PRId64 " seconds", "Start time", start_time);
-    cli_out("%12s: %" PRId64 " seconds", "End time", end_time);
+    timestamp = start_time;
+    gtime = gmtime(&timestamp);
+    strftime(tdate, sizeof(tdate), "%a, %d %b %Y %H:%M:%S +0000", gtime);
+    cli_out("%12s: %s", "Start time", tdate);
+    timestamp = end_time;
+    gtime = gmtime(&timestamp);
+    strftime(tdate, sizeof(tdate), "%a, %d %b %Y %H:%M:%S +0000", gtime);
+    cli_out("%12s: %s", "End time", tdate);
     cli_out("%12s: %" PRId64 " bytes", "Data Read", r_count);
     cli_out("%12s: %" PRId64 " bytes", "Data Written", w_count);
     cli_out("%12s: %" PRId64 " fops/s", "Throughput", fop_hits_per_sec);
