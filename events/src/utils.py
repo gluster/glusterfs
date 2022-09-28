@@ -345,8 +345,8 @@ class NamedTempOpen(object):
         return self.fileobj
 
     def __exit__(self, ex_type, ex_val, ex_tb):
-        os.rename(self.fileobj.name, self.filename)
         self.fileobj.close()
+        os.rename(self.fileobj.name, self.filename)
 
 class LockedOpen(object):
 
