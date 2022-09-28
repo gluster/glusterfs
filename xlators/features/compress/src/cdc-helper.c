@@ -16,6 +16,10 @@
 #include "cdc.h"
 #include "cdc-mem-types.h"
 
+#ifdef HAVE_LIBZSTD
+#include <zstd.h>
+#endif  // HAVE_LIBZSTD
+
 /* gzip header looks something like this
  * (RFC 1950)
  *
@@ -330,6 +334,115 @@ out:
     return ret;
 }
 
+#ifdef HAVE_LIBZSTD
+int32_t
+cdc_zstd_compress(xlator_t *this, cdc_info_t *ci, dict_t **xdata)
+{
+    int ret = -1;
+    int i = 0;
+    size_t maxFileSize = 0;
+    ZSTD_CCtx *cctx = NULL;
+    size_t cBufferSize;
+    void *cBuffer = NULL;
+    size_t cSize;
+    struct iovec vec = {
+        0,
+    };
+
+    ci->iobref = iobref_new();
+    if (!ci->iobref)
+        goto out;
+
+    if (!*xdata) {
+        *xdata = dict_new();
+        if (!*xdata) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "Cannot allocate xdata"
+                   " dict");
+            goto out;
+        }
+    }
+
+    /* get max. size needed to be allocated for compression buffer */
+    for (i = 0; i < ci->count; i++) {
+        vec = THIS_VEC(ci, i);
+        if (maxFileSize < vec.iov_len)
+            maxFileSize = vec.iov_len;
+    }
+
+    cBufferSize = ZSTD_compressBound(maxFileSize);
+
+    cBuffer = GF_MALLOC(cBufferSize, gf_cdc_zstd_cbuffer_t);
+    if (caa_unlikely(!cBuffer)) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Cannot allocate compression buffer memory (%lu)", cBufferSize);
+        ret = Z_MEM_ERROR;
+        goto out;
+    }
+    cctx = ZSTD_createCCtx();
+    if (caa_unlikely(!cctx)) {
+        gf_log(
+            this->name, GF_LOG_ERROR,
+            "Failed to create zstd context (ZSTD_createCCtx() returned NULL)");
+        goto out;
+    }
+    /* data */
+    for (i = 0; i < ci->count; i++) {
+        vec = THIS_VEC(ci, i);
+        cSize = ZSTD_compressCCtx(cctx, cBuffer, cBufferSize,
+                                  (unsigned char *)vec.iov_base, vec.iov_len,
+                                  1);
+        if (caa_unlikely(ZSTD_isError(cSize))) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "ZSTD_compressCCtx() returned errror: %s",
+                   ZSTD_getErrorName(cSize));
+            ret = -1;
+            goto out;
+        }
+
+        ret = cdc_alloc_iobuf_and_init_vec(this, ci, cSize);
+        if (caa_unlikely(ret)) {
+            ret = Z_MEM_ERROR;
+            goto out;
+        }
+        memcpy(CURR_VEC(ci).iov_base, cBuffer, cSize);
+        CURR_VEC(ci).iov_len = cSize;
+
+        gf_log(this->name, GF_LOG_DEBUG,
+               "Compressed (using zstd) %lu to %lu bytes", vec.iov_len, cSize);
+    }
+
+    /* set zstandard canary value for identification */
+    ret = dict_set_int32(*xdata, GF_CDC_ZSTD_CANARY_VAL, 1);
+    if (ret) {
+        /* Send uncompressed data if we can't _tell_ the client
+         * that deflated data is on its way. So, we just log
+         * the failure and continue as usual.
+         */
+        gf_log(this->name, GF_LOG_ERROR,
+               "Data compressed with zstandard, but could not set canary"
+               " value in dict for identification");
+        goto out;
+    }
+
+    ret = 0;
+
+out:
+    if (cBuffer)
+        GF_FREE(cBuffer);
+    ZSTD_freeCCtx(cctx);
+    return ret;
+}
+#endif  // HAVE_LIBZSTD
+
+#ifdef HAVE_LIBZSTD
+static int32_t
+cdc_check_content_for_zstd(dict_t *xdata)
+{
+    return dict_get(xdata, GF_CDC_ZSTD_CANARY_VAL) ? -1 : 0;
+}
+#endif  // HAVE_LIBZSTD
+
 /* deflate content is checked by the presence of a canary
  * value in the dict as the key
  */
@@ -398,7 +511,6 @@ do_cdc_decompress(xlator_t *this, cdc_info_t *ci)
     /* setup input buffer */
     ci->stream.next_in = (unsigned char *)vec.iov_base + GF_CDC_VALIDATION_SIZE;
     ci->stream.avail_in = vec.iov_len - GF_CDC_VALIDATION_SIZE;
-iovec - and use the correct size))
 
     while (ci->stream.avail_in != 0) {
         if (ci->stream.avail_out == 0) {
@@ -446,6 +558,104 @@ iovec - and use the correct size))
 out:
     return ret;
 }
+
+#ifdef HAVE_LIBZSTD
+int32_t
+cdc_zstd_decompress(xlator_t *this, cdc_info_t *ci, dict_t *xdata)
+{
+    int32_t ret = -1;
+    struct iovec vec = {
+        0,
+    };
+    size_t dSize;
+    unsigned long long rSize;
+    int i;
+
+    /* check for zstandard content */
+    if (!cdc_check_content_for_zstd(xdata)) {
+        gf_log(this->name, GF_LOG_DEBUG,
+               "Content not zstandard, passing through ...");
+        goto out;
+    }
+
+    ci->iobref = iobref_new();
+    if (caa_unlikely(!ci->iobref))
+        goto out;
+
+    /* do we need to do this? can we assume that one iovec
+     * will hold per request data every time?
+     *
+     * server/client protocol seems to deal with a single
+     * iovec even if op_ret > 1M. So, it looks ok to
+     * assume that a single iovec will contain all the
+     * data (This saves us a lot from finding the trailer
+     * and the data since it could have been split-up onto
+     * two adjacent iovec's.
+     *
+     * But, in case this translator is loaded above quick-read
+     * for some reason, then it's entirely possible that we get
+     * multiple iovec's...
+     *
+     * This case (handled below) is not tested. (by loading the
+     * xlator below quick-read)
+     */
+
+    /* @@ I_HOPE_THIS_IS_NEVER_HIT */
+    if (caa_unlikely(ci->count > 1)) {
+        gf_log(this->name, GF_LOG_WARNING,
+               "unable to handle"
+               " multiple iovecs (%d in number)",
+               ci->count);
+        goto out;
+        /* TODO: coallate all iovecs in one */
+    }
+
+    for (i = 0; i < ci->count; i++) {
+        vec = THIS_VEC(ci, i);
+        rSize = ZSTD_getFrameContentSize(vec.iov_base, vec.iov_len);
+        if (caa_unlikely(ZSTD_isError(rSize))) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "ZSTD_getFrameContentSize() returned errror: %s",
+                   ZSTD_getErrorName(rSize));
+            ret = -1;
+            goto out;
+        } else if (caa_unlikely(rSize > GF_CDC_DEF_BUFFERSIZE)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "ZSTD_getFrameContentSize() frame size is too large: %llu",
+                   rSize);
+            ret = -1;
+            goto out;
+        }
+
+        ret = cdc_alloc_iobuf_and_init_vec(this, ci, rSize);
+        if (ret)
+            goto out;
+
+        dSize = ZSTD_decompress(CURR_VEC(ci).iov_base, rSize, vec.iov_base,
+                                vec.iov_len);
+        if (caa_unlikely(ZSTD_isError(dSize))) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "ZSTD_decompress() returned errror: %s",
+                   ZSTD_getErrorName(dSize));
+            ret = -1;
+            goto out;
+        } else if (caa_unlikely(rSize != dSize)) {
+            gf_log(this->name, GF_LOG_ERROR,
+                   "ZSTD_decompress() rSize != dSize");
+            ret = -1;
+            goto out;
+        }
+
+        CURR_VEC(ci).iov_len = dSize;
+        gf_log(this->name, GF_LOG_DEBUG, "Decompressed %ld to %ld bytes",
+               vec.iov_len, dSize);
+    }
+
+    ret = 0;
+out:
+    return ret;
+}
+#endif  // HAVE_LIBZSTD
 
 int32_t
 cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t *xdata)

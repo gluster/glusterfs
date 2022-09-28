@@ -55,13 +55,24 @@ cdc_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     /* A readv compresses on the server side and decompresses on the client side
      */
-    if (priv->op_mode == GF_CDC_MODE_SERVER) {
-        ret = cdc_compress(this, priv, &ci, &xdata);
-    } else if (priv->op_mode == GF_CDC_MODE_CLIENT) {
-        ret = cdc_decompress(this, priv, &ci, xdata);
-    } else {
-        gf_log(this->name, GF_LOG_ERROR, "Invalid operation mode (%d)",
-               priv->op_mode);
+    switch (priv->op_mode) {
+#ifdef HAVE_LIBZSTD
+        case GF_CDC_MODE_ZSTD_SERVER:
+            ret = cdc_zstd_compress(this, &ci, &xdata);
+            break;
+        case GF_CDC_MODE_ZSTD_CLIENT:
+            ret = cdc_zstd_decompress(this, &ci, xdata);
+            break;
+#endif  // HAVE_LIBZSTD
+        case GF_CDC_MODE_SERVER:
+            ret = cdc_compress(this, priv, &ci, &xdata);
+            break;
+        case GF_CDC_MODE_CLIENT:
+            ret = cdc_decompress(this, priv, &ci, xdata);
+            break;
+        default:
+            gf_log(this->name, GF_LOG_ERROR, "Invalid operation mode (%d)",
+                   priv->op_mode);
     }
 
     if (ret)
@@ -134,13 +145,25 @@ cdc_writev(call_frame_t *frame, xlator_t *this, fd_t *fd, struct iovec *vector,
     /* A writev compresses on the client side and decompresses on the server
      * side
      */
-    if (priv->op_mode == GF_CDC_MODE_CLIENT) {
-        ret = cdc_compress(this, priv, &ci, &xdata);
-    } else if (priv->op_mode == GF_CDC_MODE_SERVER) {
-        ret = cdc_decompress(this, priv, &ci, xdata);
-    } else {
-        gf_log(this->name, GF_LOG_ERROR, "Invalid operation mode (%d) ",
-               priv->op_mode);
+    switch (priv->op_mode) {
+#ifdef HAVE_LIBZSTD
+        case GF_CDC_MODE_ZSTD_CLIENT:
+            ret = cdc_zstd_compress(this, &ci, &xdata);
+            break;
+        case GF_CDC_MODE_ZSTD_SERVER:
+            ret = cdc_zstd_decompress(this, &ci, xdata);
+            break;
+#endif  // HAVE_LIBZSTD
+        case GF_CDC_MODE_CLIENT:
+            ret = cdc_compress(this, priv, &ci, &xdata);
+            break;
+        case GF_CDC_MODE_SERVER:
+            ret = cdc_decompress(this, priv, &ci, xdata);
+            break;
+        default:
+            gf_log(this->name, GF_LOG_ERROR, "Invalid operation mode (%d) ",
+                   priv->op_mode);
+            break;
     }
 
     if (ret)
@@ -255,6 +278,12 @@ init(xlator_t *this)
         priv->op_mode = GF_CDC_MODE_CLIENT;
     } else if (GF_CDC_MODE_IS_SERVER(temp_str)) {
         priv->op_mode = GF_CDC_MODE_SERVER;
+#ifdef HAVE_LIBZSTD
+    } else if (GF_CDC_MODE_IS_ZSTD_CLIENT(temp_str)) {
+        priv->op_mode = GF_CDC_MODE_ZSTD_CLIENT;
+    } else if (GF_CDC_MODE_IS_ZSTD_SERVER(temp_str)) {
+        priv->op_mode = GF_CDC_MODE_ZSTD_SERVER;
+#endif  // HAVE_LIBZSTD
     } else {
         gf_log(this->name, GF_LOG_CRITICAL,
                "Bogus operation mode (%s) specified", temp_str);
@@ -314,7 +343,12 @@ struct volume_options options[] = {
      .type = GF_OPTION_TYPE_INT,
      .description = "Data is compressed only when its size exceeds this."},
     {.key = {"mode"},
+#ifdef HAVE_LIBZSTD
+     .default_value = "zstd-client",
+     .value = {"server", "client", "zstd-server", "zstd-client"},
+#else
      .value = {"server", "client"},
+#endif  // HAVE_LIBZSTD
      .type = GF_OPTION_TYPE_STR,
      .description = "Set on the basis of where the xlator is loaded. "
                     "This option should NOT be configured by user."},

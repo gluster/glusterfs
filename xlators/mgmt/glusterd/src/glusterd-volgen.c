@@ -2316,7 +2316,11 @@ brick_graph_add_cdc(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
+#ifdef HAVE_LIBZSTD
+        ret = xlator_set_fixed_option(xl, "mode", "zstd-server");
+#else
         ret = xlator_set_fixed_option(xl, "mode", "server");
+#endif  // HAVE_LIBZSTD
         if (ret)
             goto out;
     }
@@ -4340,7 +4344,11 @@ client_graph_builder(volgen_graph_t *graph, glusterd_volinfo_t *volinfo,
             ret = -1;
             goto out;
         }
+#ifdef HAVE_LIBZSTD
+        ret = xlator_set_fixed_option(xl, "mode", "zstd-client");
+#else
         ret = xlator_set_fixed_option(xl, "mode", "client");
+#endif  // HAVE_LIBZSTD
         if (ret)
             goto out;
     }

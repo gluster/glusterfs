@@ -60,6 +60,8 @@ typedef struct cdc_info {
  */
 #define GF_CDC_MODE_CLIENT 0
 #define GF_CDC_MODE_SERVER 1
+#define GF_CDC_MODE_ZSTD_CLIENT 3
+#define GF_CDC_MODE_ZSTD_SERVER 4
 
 /* min size of data to do cmpression
  * 0 == compress even 1byte
@@ -70,15 +72,27 @@ typedef struct cdc_info {
 
 #define GF_CDC_OS_ID 0xFF
 #define GF_CDC_DEFLATE_CANARY_VAL "deflate"
+#define GF_CDC_ZSTD_CANARY_VAL "zstandard"
 #define GF_CDC_DEBUG_DUMP_FILE "/tmp/cdcdump.gz"
 
 #define GF_CDC_MODE_IS_CLIENT(m) (strcmp(m, "client") == 0)
 
 #define GF_CDC_MODE_IS_SERVER(m) (strcmp(m, "server") == 0)
 
+#define GF_CDC_MODE_IS_ZSTD_CLIENT(m) (strcmp(m, "zstd-client") == 0)
+
+#define GF_CDC_MODE_IS_ZSTD_SERVER(m) (strcmp(m, "zstd-server") == 0)
+
 int32_t
 cdc_compress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t **xdata);
 int32_t
 cdc_decompress(xlator_t *this, cdc_priv_t *priv, cdc_info_t *ci, dict_t *xdata);
+
+#ifdef HAVE_LIBZSTD
+int32_t
+cdc_zstd_compress(xlator_t *this, cdc_info_t *ci, dict_t **xdata);
+int32_t
+cdc_zstd_decompress(xlator_t *this, cdc_info_t *ci, dict_t *xdata);
+#endif  // HAVE_LIBZSTD
 
 #endif

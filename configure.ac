@@ -699,6 +699,14 @@ else
    AC_MSG_ERROR([zlib is required to build glusterfs])
 fi
 
+# ZSTD is used by libglusterfs cdc xlator.
+PKG_CHECK_MODULES([libzstd], [libzstd >= 1.5.0], [have_zstd=yes], [have_zstd=no])
+if test x$have_zstd = xyes; then
+   AC_DEFINE(HAVE_LIBZSTD, 1, [Define if ZSTD is found.])
+   AC_SUBST([LIBZSTD_CFLAGS])
+   AC_SUBST([LIBZSTD_LIBS])
+fi
+
 AC_CHECK_HEADERS([linux/falloc.h])
 
 AC_CHECK_HEADERS([linux/oom.h], AC_DEFINE(HAVE_LINUX_OOM_H, 1, [have linux/oom.h]))
