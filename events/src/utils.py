@@ -321,7 +321,7 @@ class NamedTempOpen(object):
         This class is used to avoid the data loss or truncation in case of multiple processes
         writing to the same file without the use of fcntl locks.
 
-        The temporary file is created in the cwd of the process.
+        The temporary file is created in the dest dir of the file.
     """
 
     def __init__(self, filename, open_mode, *args, **kwagrs) -> None:
@@ -329,17 +329,22 @@ class NamedTempOpen(object):
         self.open_mode = open_mode
         self.open_args = args
         self.open_kwargs = kwagrs
+        self.working_dir = "."
         self.fileobj = None
+
+        if os.path.dirname(self.filename) != "":
+            self.working_dir = os.path.dirname(self.filename)
 
     def __enter__(self):
         tfile = NamedTemporaryFile(mode=self.open_mode,
                                    delete=False,
-                                   dir=".",
+                                   prefix='.',
+                                   dir=self.working_dir,
                                    *self.open_args,
                                    **self.open_kwargs)
 
         if tfile is None:
-            raise
+            raise Exception("failed to create the temp file for %s" % self.filename)
 
         self.fileobj = tfile
         return self.fileobj
