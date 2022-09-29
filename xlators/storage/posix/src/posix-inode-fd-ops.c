@@ -5667,6 +5667,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         },
     };
     size_t entry_dname_len;
+    gf_boolean_t is_root_gfid = __is_root_gfid(fd->inode->gfid);
 
     if (!off) {
         rewinddir(pfd->dir);
@@ -5724,7 +5725,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             continue;
 #endif /* __NetBSD__ */
 
-        if (__is_root_gfid(fd->inode->gfid) &&
+        if (is_root_gfid &&
             (!strcmp(GF_HIDDEN_PATH, entry->d_name))) {
             continue;
         }
