@@ -130,9 +130,6 @@ server_first_lookup(xlator_t *this, client_t *client, dict_t *reply)
     loc_t loc = {
         0,
     };
-    struct iatt iatt = {
-        0,
-    };
     dict_t *dict = NULL;
     int ret = 0;
     xlator_t *xl = client->bound_xl;
@@ -149,7 +146,7 @@ server_first_lookup(xlator_t *this, client_t *client, dict_t *reply)
     loc.parent = NULL;
     gf_uuid_copy(loc.gfid, loc.inode->gfid);
 
-    ret = syncop_lookup(xl, &loc, &iatt, NULL, NULL, NULL);
+    ret = syncop_lookup(xl, &loc, NULL, NULL, NULL, NULL);
     if (ret < 0)
         gf_log(xl->name, GF_LOG_ERROR, "lookup on root failed: %s",
                strerror(errno));
