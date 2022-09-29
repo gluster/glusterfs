@@ -396,7 +396,6 @@ cdc_zstd_compress(xlator_t *this, cdc_info_t *ci, dict_t **xdata)
             gf_log(this->name, GF_LOG_ERROR,
                    "ZSTD_compressCCtx() returned errror: %s",
                    ZSTD_getErrorName(cSize));
-            ret = -1;
             goto out;
         }
 

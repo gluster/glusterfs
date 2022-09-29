@@ -5,11 +5,6 @@
 
 cleanup;
 
-function file_mime_type () {
-    mime_type=$(file --mime $1 2>/dev/null | sed '/^[^:]*: /s///')
-    echo $mime_type
-}
-
 TEST glusterd
 TEST pidof glusterd
 
@@ -62,25 +57,9 @@ checksum[original-file]=`sha256sum /tmp/cdc-orig | cut -d' ' -f1`
 TEST cp /tmp/cdc-orig $M0/cdc-server
 checksum[brick-file]=`sha256sum $B0/${V0}1/cdc-server | cut -d' ' -f1`
 
-## Uncompress the gzip dump file and find its sha256sum 
-# mime outputs for gzip are different for file version > 5.14
-# TEST touch /tmp/gzipfile
-# TEST gzip /tmp/gzipfile
-# GZIP_MIME_TYPE=$(file_mime_type /tmp/gzipfile.gz)
-
-# TEST rm -f /tmp/gzipfile.gz
-
-# EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
-
-# TEST gunzip -f /tmp/cdcdump.gz
-# checksum[dump-file-writev]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
 
 ## Check if all 3 checksums are same
 TEST test ${checksum[original-file]} = ${checksum[brick-file]}
-# TEST test ${checksum[brick-file]} = ${checksum[dump-file-writev]}
-
-## Cleanup files
-# TEST rm -f /tmp/cdcdump.gz
 
 ###################
 ## Testing readv ##
@@ -90,16 +69,9 @@ TEST test ${checksum[original-file]} = ${checksum[brick-file]}
 TEST cp $M0/cdc-server /tmp/cdc-client
 checksum[client-file]=`sha256sum /tmp/cdc-client | cut -d' ' -f1`
 
-## Uncompress the gzip dump file and find its md5sum
-# mime outputs for gzip are different for file version > 5.14
-# EXPECT "$GZIP_MIME_TYPE" echo $(file_mime_type /tmp/cdcdump.gz)
-
-# TEST gunzip -f /tmp/cdcdump.gz
-# checksum[dump-file-readv]=`md5sum /tmp/cdcdump | cut -d' ' -f1`
 
 ## Check if all 3 checksums are same
 TEST test ${checksum[brick-file]} = ${checksum[client-file]}
-# TEST test ${checksum[client-file]} = ${checksum[dump-file-readv]}
 
 ## Cleanup files and unmount
 # TEST rm -f /tmp/cdc* $M0/cdc*
@@ -125,7 +97,6 @@ TEST $GFS -s $H0 --volfile-id $V0 $M0;
 ## Create a file of size 99 bytes on mountpoint
 ## This is should not be compressed
 TEST dd if=/dev/zero of=$M0/cdc-small count=1 bs=99 2>/dev/null
-# TEST ! test -e /tmp/cdcdump.gz
 
 ## Cleanup files and unmount
 TEST rm -f /tmp/cdc* $M0/cdc*
