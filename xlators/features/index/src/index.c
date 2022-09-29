@@ -523,17 +523,22 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             break;
         }
 
-        if (!strncmp(entry->d_name, XATTROP_SUBDIR "-",
-                     strlen(XATTROP_SUBDIR "-"))) {
-            check_delete_stale_index_file(this, entry->d_name, XATTROP_SUBDIR);
-            continue;
-        } else if (!strncmp(entry->d_name, DIRTY_SUBDIR "-",
-                            strlen(DIRTY_SUBDIR "-"))) {
-            check_delete_stale_index_file(this, entry->d_name, DIRTY_SUBDIR);
-            continue;
+        entry_dname_len = strlen(entry->d_name);
+        if (entry_dname_len >= 42) {
+            /* 42 = strlen('dirty-') + UUID_CANONICAL_FORM_LEN (36) */
+            if (!strncmp(entry->d_name, XATTROP_SUBDIR "-",
+                         strlen(XATTROP_SUBDIR "-"))) {
+                check_delete_stale_index_file(this, entry->d_name,
+                                              XATTROP_SUBDIR);
+                continue;
+            } else if (!strncmp(entry->d_name, DIRTY_SUBDIR "-",
+                                strlen(DIRTY_SUBDIR "-"))) {
+                check_delete_stale_index_file(this, entry->d_name,
+                                              DIRTY_SUBDIR);
+                continue;
+            }
         }
 
-        entry_dname_len = strlen(entry->d_name);
         this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     entry_dname_len + 1;
 
