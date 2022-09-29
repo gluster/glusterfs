@@ -446,8 +446,6 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
         (len == SLEN(GF_CONTENT_KEY) && !strcmp(key, GF_CONTENT_KEY))) {
         if (!filler->real_path)
             goto out;
-        else if (filler->stbuf->ia_size == 0)
-            goto set_content_key_in_dict;
 
         /* file content request */
         req_size = data_to_uint64(data);
@@ -485,7 +483,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
                        filler->real_path);
                 goto err;
             }
-        set_content_key_in_dict:
+
             ret = dict_set_bin(filler->xattr, GF_CONTENT_KEY, databuf,
                                read_len);
             if (ret < 0) {
