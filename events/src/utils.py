@@ -331,27 +331,38 @@ class NamedTempOpen(object):
         self.open_kwargs = kwagrs
         self.working_dir = "."
         self.fileobj = None
+        self.file_persisted = False
 
         if os.path.dirname(self.filename) != "":
             self.working_dir = os.path.dirname(self.filename)
 
-    def __enter__(self):
-        tfile = NamedTemporaryFile(mode=self.open_mode,
-                                   delete=False,
-                                   prefix='.',
-                                   dir=self.working_dir,
-                                   *self.open_args,
-                                   **self.open_kwargs)
+    def persist(self):
+        os.rename(self.fileobj.name, self.filename)
+        self.file_persisted = True
 
-        if tfile is None:
-            raise Exception("failed to create the temp file for %s" % self.filename)
+    def __enter__(self):
+        try:
+            tfile = NamedTemporaryFile(mode=self.open_mode,
+                                       delete=False,
+                                       prefix='.',
+                                       dir=self.working_dir,
+                                       *self.open_args,
+                                       **self.open_kwargs)
+
+        except BaseException:
+            raise
+
+        # Monkey patch the persist function onto created temp file object
+        tfile.persist = self.persist
 
         self.fileobj = tfile
         return self.fileobj
 
     def __exit__(self, ex_type, ex_val, ex_tb):
         self.fileobj.close()
-        os.rename(self.fileobj.name, self.filename)
+
+        if not self.file_persisted:
+            os.unlink(self.fileobj.name)
 
 class LockedOpen(object):
 
