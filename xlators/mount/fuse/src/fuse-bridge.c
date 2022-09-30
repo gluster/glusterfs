@@ -3698,6 +3698,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     struct fuse_direntplus *fde = NULL;
     struct fuse_entry_out *feo = NULL;
     fuse_private_t *priv = NULL;
+    unsigned long timeout_sec, timeout_nsec, attrib_sec, attrib_nsec;
 
     state = frame->root->state;
     finh = state->finh;
@@ -3734,7 +3735,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
+    buf = GF_MALLOC(max_size, gf_fuse_mt_char);
     if (!buf) {
         gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                "%" PRIu64 ": READDIRP => -1 (%s)", frame->root->unique,
@@ -3744,27 +3745,23 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     size = 0;
+    timeout_sec = calc_timeout_sec(priv->entry_timeout);
+    timeout_nsec = calc_timeout_nsec(priv->entry_timeout);
+    attrib_sec = calc_timeout_sec(priv->attribute_timeout);
+    attrib_nsec = calc_timeout_nsec(priv->attribute_timeout);
+
     list_for_each_entry(entry, &entries->list, list)
     {
         inode_t *linked_inode;
 
         fde = (struct fuse_direntplus *)(buf + size);
-        feo = &fde->entry_out;
-
-        if (priv->enable_ino32)
-            fde->dirent.ino = GF_FUSE_SQUASH_INO(entry->d_ino);
-        else
-            fde->dirent.ino = entry->d_ino;
-
-        fde->dirent.off = entry->d_off;
-        fde->dirent.type = entry->d_type;
-        fde->dirent.namelen = entry->d_len;
-        (void)memcpy(fde->dirent.name, entry->d_name, fde->dirent.namelen);
+        gf_fuse_fill_dirent(entry, &fde->dirent, priv->enable_ino32);
         size += FUSE_DIRENTPLUS_SIZE(fde);
 
         if (!entry->inode)
             goto next_entry;
 
+        feo = &fde->entry_out;
         entry->d_stat.ia_blksize = this->ctx->page_size;
         gf_fuse_stat2attr(&entry->d_stat, &feo->attr, priv->enable_ino32);
 
@@ -3786,12 +3783,12 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         inode_unref(linked_inode);
 
-        feo->entry_valid = calc_timeout_sec(priv->entry_timeout);
-        feo->entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
+        feo->entry_valid = timeout_sec;
+        feo->entry_valid_nsec = timeout_nsec;
 
         if (entry->d_stat.ia_ctime) {
-            feo->attr_valid = calc_timeout_sec(priv->attribute_timeout);
-            feo->attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
+            feo->attr_valid = attrib_sec;
+            feo->attr_valid_nsec = attrib_nsec;
         } else {
             feo->attr_valid = feo->attr_valid_nsec = 0;
         }
