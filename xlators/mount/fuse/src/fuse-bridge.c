@@ -3734,8 +3734,8 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         send_fuse_data(this, finh, 0, 0);
         goto out;
     }
-
-    buf = GF_MALLOC(max_size, gf_fuse_mt_char);
+m
+    buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
     if (!buf) {
         gf_log("glusterfs-fuse", GF_LOG_DEBUG,
                "%" PRIu64 ": READDIRP => -1 (%s)", frame->root->unique,
