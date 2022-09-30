@@ -3993,7 +3993,7 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
             {
                 if ((!entry->inode && (!IA_ISDIR(entry->d_stat.ia_type))) ||
                     ((entry->d_stat.ia_ctime == 0) &&
-                     inode_dir_or_parentdir(entry)))
+                     !inode_dir_or_parentdir(entry)))
                     {
                         /* entry->inode for directories will be
                          * always set to null to force a lookup

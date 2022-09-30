@@ -3779,7 +3779,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         feo->nodeid = inode_to_fuse_nodeid(linked_inode);
 
-        if (!(inode_dir_or_parentdir(entry))) {
+        if (!inode_dir_or_parentdir(entry)) {
             inode_lookup(linked_inode);
         }
 
