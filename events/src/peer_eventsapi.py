@@ -80,7 +80,6 @@ def create_custom_config_file_if_not_exists(args):
     if not os.path.exists(CUSTOM_CONFIG_FILE):
         with NamedTempOpen(CUSTOM_CONFIG_FILE, "w") as f:
             f.write(json.dumps({}))
-            f.persist()
 
 
 def create_webhooks_file_if_not_exists(args):
@@ -94,7 +93,6 @@ def create_webhooks_file_if_not_exists(args):
     if not os.path.exists(WEBHOOKS_FILE):
         with NamedTempOpen(WEBHOOKS_FILE, "w") as f:
            f.write(json.dumps({}))
-           f.persist()
 
 
 def boolify(value):
