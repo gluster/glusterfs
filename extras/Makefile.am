@@ -12,7 +12,7 @@ EditorMode_DATA = glusterfs-mode.el glusterfs.vim
 
 SUBDIRS = init.d systemd benchmarking hook-scripts $(OCF_SUBDIR) LinuxRPM \
           $(GEOREP_EXTRAS_SUBDIR) snap_scheduler firewalld cliutils python \
-		  ganesha
+		  ganesha command-completion
 
 confdir = $(sysconfdir)/glusterfs
 if WITH_SERVER
@@ -46,8 +46,7 @@ EXTRA_DIST = glusterfs-logrotate gluster-rsyslog-7.2.conf gluster-rsyslog-5.8.co
 	migrate-unify-to-distribute.sh backend-xattr-sanitize.sh \
 	backend-cleanup.sh disk_usage_sync.sh clear_xattrs.sh \
 	glusterd-sysconfig glusterd.vol post-upgrade-script-for-quota.sh \
-	pre-upgrade-script-for-quota.sh command-completion/gluster.bash \
-	command-completion/Makefile command-completion/README \
+	pre-upgrade-script-for-quota.sh \
 	stop-all-gluster-processes.sh clang-checker.sh mount-shared-storage.sh \
 	control-cpu-load.sh control-mem.sh group-distributed-virt \
 	thin-arbiter/thin-arbiter.vol thin-arbiter/setup-thin-arbiter.sh

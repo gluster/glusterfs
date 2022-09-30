@@ -55,6 +55,7 @@ api/examples/setup.py
 api/src/gfapi.map
 cli/src/gluster
 contrib/fuse-util/fusermount-glusterfs
+extras/command-completion/Makefile
 extras/geo-rep/gsync-sync-gfid
 extras/geo-rep/schedule_georep.py
 extras/snap_scheduler/conf.py

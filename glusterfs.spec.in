@@ -224,6 +224,10 @@
 %global __provides_exclude_from ^%{_libdir}/glusterfs/%{version}/.*$
 %endif
 
+%global bashcompdir %(pkg-config --variable=completionsdir bash-completion 2>/dev/null)
+%if "%{bashcompdir}" == ""
+%global bashcompdir ${sysconfdir}/bash_completion.d
+%endif
 
 ##-----------------------------------------------------------------------------
 ## All package definitions should be placed here in alphabetical order
@@ -334,6 +338,13 @@ and client framework.
 
 %package cli
 Summary:          GlusterFS CLI
+%if ( ! (0%{?rhel} && 0%{?rhel} < 7) )
+BuildRequires:    pkgconfig(bash-completion)
+# bash-completion >= 1.90 satisfies this requirement.
+# If it is not available, the condition can be adapted
+# and the completion script will be installed in the backwards compatible
+# %{sysconfdir}/bash_completion.d
+%endif
 Requires:         libglusterfs0%{?_isa} = %{version}-%{release}
 
 %description cli
@@ -979,10 +990,6 @@ touch %{buildroot}%{_sharedstatedir}/glusterd/nfs/run/nfs.pid
 
 find ./tests ./run-tests.sh -type f | cpio -pd %{buildroot}%{_prefix}/share/glusterfs
 
-## Install bash completion for cli
-install -p -m 0744 -D extras/command-completion/gluster.bash \
-    %{buildroot}%{_sysconfdir}/bash_completion.d/gluster
-
 %clean
 rm -rf %{buildroot}
 
@@ -1291,7 +1298,7 @@ exit 0
 %files cli
 %{_sbindir}/gluster
 %{_mandir}/man8/gluster.8*
-%{_sysconfdir}/bash_completion.d/gluster
+%{bashcompdir}/gluster.bash
 
 %files cloudsync-plugins
 %dir %{_libdir}/glusterfs/%{version}%{?prereltag}/cloudsync-plugins

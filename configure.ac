@@ -203,6 +203,7 @@ AC_CONFIG_FILES([Makefile
                 extras/systemd/gluster-ta-volume.service
                 extras/run-gluster.tmpfiles
                 extras/benchmarking/Makefile
+                extras/command-completion/Makefile
                 extras/hook-scripts/Makefile
                 extras/ocf/Makefile
                 extras/ocf/glusterd
@@ -1608,6 +1609,14 @@ PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
 if test x$BUILD_READLINE = xyes; then
     AC_DEFINE(HAVE_READLINE, 1, [Enable CLI readline support.])
 fi
+
+# bash-completion script installation directory
+# PKG_CHECK_VAR should be used but is not available in some distributions
+bashcompdir="$(pkg-config --variable=completionsdir bash-completion 2>/dev/null)"
+if test "x${bashcompdir}" = "x"; then
+    bashcompdir="${sysconfdir}/bash_completion.d"
+fi
+AC_SUBST(bashcompdir)
 
 BUILD_LIBAIO=no
 AC_CHECK_LIB([aio],[io_setup],[LIBAIO="-laio"])
