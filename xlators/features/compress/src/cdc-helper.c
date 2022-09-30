@@ -145,8 +145,8 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
 
     written = sys_write(fd, (char *)gzip_header, 10);
     if (caa_unlikely(written != 10)) {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to write gzip_header: %ld",
-               written);
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to write gzip_header: %zd bytes written", written);
         goto out;
     }
     total_written += written;
@@ -156,7 +156,8 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
                             ci->vec[i].iov_len);
         if (caa_unlikely(written != ci->vec[i].iov_len)) {
             gf_log(this->name, GF_LOG_ERROR,
-                   "Failed to write data to gzip file: %ld", written);
+                   "Failed to write data to gzip file: %zd bytes written",
+                   written);
             goto out;
         }
         total_written += written;
@@ -164,8 +165,8 @@ cdc_dump_iovec_to_disk(xlator_t *this, cdc_info_t *ci, const char *file)
     /* gzip trailer, in the 1st iovec */
     written = sys_write(fd, (char *)ci->vec[0].iov_base, ci->vec[0].iov_len);
     if (caa_unlikely(written != ci->vec[0].iov_len)) {
-        gf_log(this->name, GF_LOG_ERROR, "Failed to write gzip_trailer: %ld",
-               written);
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to write gzip_trailer: %zd bytes written", written);
         goto out;
     }
     total_written += written;
