@@ -218,7 +218,7 @@ cli_submit_request(struct rpc_clnt *rpc, void *req, call_frame_t *frame,
 
     if (req) {
         xdr_size = xdr_sizeof(xdrproc, req);
-        iobuf = iobuf_get_from_small(xdr_size);
+        iobuf = iobuf_get_from_regular_allocation(xdr_size, _gf_false);
         if (!iobuf) {
             goto out;
         };

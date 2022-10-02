@@ -139,7 +139,7 @@ struct iobref {
 };
 
 struct iobuf *
-iobuf_get_from_small(const size_t page_size);
+iobuf_get_from_regular_allocation(const size_t page_size, bool align);
 
 struct iobref *
 iobref_new(void);

@@ -275,31 +275,6 @@ out:
     return;
 }
 
-static void
-iobuf_create_stdalloc_arena(struct iobuf_pool *iobuf_pool)
-{
-    struct iobuf_arena *iobuf_arena = NULL;
-
-    /* No locking required here as its called only once during init */
-    iobuf_arena = GF_CALLOC(sizeof(*iobuf_arena), 1, gf_common_mt_iobuf_arena);
-    if (!iobuf_arena)
-        goto err;
-
-    INIT_LIST_HEAD(&iobuf_arena->list);
-    INIT_LIST_HEAD(&iobuf_arena->passive_list);
-    INIT_LIST_HEAD(&iobuf_arena->active_list);
-
-    iobuf_arena->iobuf_pool = iobuf_pool;
-
-    iobuf_arena->page_size = 0x7fffffff;
-
-    list_add_tail(&iobuf_arena->list,
-                  &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX]);
-
-err:
-    return;
-}
-
 struct iobuf_pool *
 iobuf_pool_new(void)
 {
@@ -314,7 +289,7 @@ iobuf_pool_new(void)
         goto out;
 
     pthread_mutex_init(&iobuf_pool->mutex, NULL);
-    for (i = 0; i <= IOBUF_ARENA_MAX_INDEX; i++) {
+    for (i = 0; i < IOBUF_ARENA_MAX_INDEX; i++) {
         INIT_LIST_HEAD(&iobuf_pool->arenas[i]);
         INIT_LIST_HEAD(&iobuf_pool->filled[i]);
         INIT_LIST_HEAD(&iobuf_pool->purge[i]);
@@ -332,9 +307,6 @@ iobuf_pool_new(void)
         if (__iobuf_pool_add_arena(iobuf_pool, page_size, num_pages, i) != NULL)
             arena_size += page_size * num_pages;
     }
-
-    /* Need an arena to handle all the bigger iobuf requests */
-    iobuf_create_stdalloc_arena(iobuf_pool);
 
     iobuf_pool->arena_size = arena_size;
 out:
@@ -435,51 +407,8 @@ __iobuf_free(struct iobuf *iobuf)
     GF_FREE(iobuf);
 }
 
-static struct iobuf *
-iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
-{
-    struct iobuf *iobuf = NULL;
-    struct iobuf_arena *iobuf_arena = NULL;
-    struct iobuf_arena *trav = NULL;
-    int ret = -1;
-
-    /* The first arena in the 'MAX-INDEX' will always be used for misc */
-    list_for_each_entry(trav, &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX], list)
-    {
-        iobuf_arena = trav;
-        break;
-    }
-
-    iobuf = GF_CALLOC(1, sizeof(*iobuf), gf_common_mt_iobuf);
-    if (!iobuf)
-        goto out;
-
-    /* 4096 is the alignment */
-    iobuf->free_ptr = GF_CALLOC(1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
-                                gf_common_mt_char);
-    if (!iobuf->free_ptr)
-        goto out;
-
-    iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
-    iobuf->iobuf_arena = iobuf_arena;
-    iobuf->page_size = page_size;
-    LOCK_INIT(&iobuf->lock);
-
-    /* Hold a ref because you are allocating and using it */
-    GF_ATOMIC_INIT(iobuf->ref, 1);
-
-    ret = 0;
-out:
-    if (ret && iobuf) {
-        __iobuf_free(iobuf);
-        iobuf = NULL;
-    }
-
-    return iobuf;
-}
-
 struct iobuf *
-iobuf_get_from_small(const size_t page_size)
+iobuf_get_from_regular_allocation(const size_t page_size, bool align)
 {
     struct iobuf *iobuf = NULL;
 
@@ -487,23 +416,33 @@ iobuf_get_from_small(const size_t page_size)
     if (!iobuf)
         goto err;
 
-    iobuf->free_ptr = GF_MALLOC(page_size, gf_common_mt_iobuf_pool);
-    if (!iobuf->free_ptr)
-        goto err;
-
-    iobuf->ptr = iobuf->free_ptr;
-    iobuf->page_size = page_size;
     INIT_LIST_HEAD(&iobuf->list);
     iobuf->iobuf_arena = NULL;
     LOCK_INIT(&iobuf->lock);
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
 
+    if (!align || page_size <= 512) {
+        iobuf->free_ptr = GF_CALLOC(1, page_size, gf_common_mt_iobuf_pool);
+        if (!iobuf->free_ptr)
+            goto err;
+
+        iobuf->ptr = iobuf->free_ptr;
+    } else {
+        /* FIXME: 4096 is the alignment */
+        iobuf->free_ptr = GF_CALLOC(1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
+                                    gf_common_mt_char);
+        if (!iobuf->free_ptr)
+            goto err;
+
+        iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
+    }
+    iobuf->page_size = page_size;
+
     return iobuf;
 err:
     if (iobuf) {
-        GF_FREE(iobuf->free_ptr);
-        GF_FREE(iobuf);
+        __iobuf_free(iobuf);
     }
 
     return NULL;
@@ -525,32 +464,28 @@ iobuf_get2(struct iobuf_pool *iobuf_pool, size_t page_size)
        page size is less than equal to 128KB, the data is available
        on the link https://github.com/gluster/glusterfs/issues/2771
     */
-    if (page_size <= USE_IOBUF_POOL_IF_SIZE_GREATER_THAN) {
-        iobuf = iobuf_get_from_small(page_size);
-        if (!iobuf)
+    if (page_size < USE_IOBUF_POOL_IF_SIZE_GREATER_THAN) {
+        iobuf = iobuf_get_from_regular_allocation(page_size, _gf_true);
+        if (caa_unlikely(!iobuf))
             gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_IOBUF_NOT_FOUND,
                     NULL);
         return iobuf;
     }
 
     rounded_size = gf_iobuf_get_pagesize(page_size, &index);
-    if (rounded_size == -1) {
+    if (rounded_size < 0) {
         /* make sure to provide the requested buffer with standard
-           memory allocations */
-        iobuf = iobuf_get_from_stdalloc(iobuf_pool, page_size);
+           memory allocations, aligned */
+        iobuf = iobuf_get_from_regular_allocation(page_size, _gf_true);
 
         gf_msg_debug("iobuf", 0,
                      "request for iobuf of size %zu "
-                     "is serviced using standard calloc() (%p) as it "
+                     "is serviced using standard malloc() (%p) as it "
                      "exceeds the maximum available buffer size",
                      page_size, iobuf);
 
         iobuf_pool->request_misses++;
         return iobuf;
-    } else if (index == -1) {
-        gf_smsg("iobuf", GF_LOG_ERROR, 0, LG_MSG_PAGE_SIZE_EXCEEDED,
-                "page_size=%zu", page_size, NULL);
-        return NULL;
     }
 
     pthread_mutex_lock(&iobuf_pool->mutex);
@@ -626,10 +561,10 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
     iobuf_pool = iobuf_arena->iobuf_pool;
 
     index = gf_iobuf_get_arena_index(iobuf_arena->page_size);
-    if (index == -1) {
+    if (index < 0) {
         gf_msg_debug("iobuf", 0,
                      "freeing the iobuf (%p) "
-                     "allocated with standard calloc()",
+                     "allocated with standard malloc()",
                      iobuf);
 
         /* free up properly without bothering about lists and all */
