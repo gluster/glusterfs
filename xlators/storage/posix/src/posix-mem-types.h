@@ -13,7 +13,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_posix_mem_types_ {
-    gf_posix_mt_posix_fd = gf_common_mt_end + 1,
+    gf_posix_mt_posix_fd = GF_MEM_TYPE_START,
     gf_posix_mt_char,
     gf_posix_mt_posix_private,
     gf_posix_mt_trash_path,

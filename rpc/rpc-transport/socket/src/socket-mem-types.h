@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 typedef enum gf_sock_mem_types_ {
-    gf_sock_connect_error_state_t = gf_common_mt_end + 1,
+    gf_sock_connect_error_state_t = GF_MEM_TYPE_START,
     gf_sock_mt_end
 } gf_sock_mem_types_t;
 

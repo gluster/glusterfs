@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_utime_mem_types_ {
-    utime_mt_utime_t = gf_common_mt_end + 1,
+    utime_mt_utime_t = GF_MEM_TYPE_START,
     utime_mt_end
 };
 

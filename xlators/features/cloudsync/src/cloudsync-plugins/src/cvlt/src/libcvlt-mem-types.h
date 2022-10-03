@@ -13,7 +13,7 @@
 
 #include <glusterfs/mem-types.h>
 enum libcvlt_mem_types_ {
-    gf_libcvlt_mt_cvlt_private_t = gf_common_mt_end + 1,
+    gf_libcvlt_mt_cvlt_private_t = GF_MEM_TYPE_START,
     gf_libcvlt_mt_end
 };
 #endif /* __LIBCVLT_MEM_TYPES_H__ */

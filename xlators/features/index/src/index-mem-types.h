@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_index_mem_types_ {
-    gf_index_mt_priv_t = gf_common_mt_end + 1,
+    gf_index_mt_priv_t = GF_MEM_TYPE_START,
     gf_index_inode_ctx_t,
     gf_index_fd_ctx_t,
     gf_index_mt_end

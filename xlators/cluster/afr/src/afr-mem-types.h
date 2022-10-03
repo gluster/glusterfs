@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_afr_mem_types_ {
-    gf_afr_mt_afr_fd_ctx_t = gf_common_mt_end + 1,
+    gf_afr_mt_afr_fd_ctx_t = GF_MEM_TYPE_START,
     gf_afr_mt_afr_private_t,
     gf_afr_mt_int32_t,
     gf_afr_mt_char,

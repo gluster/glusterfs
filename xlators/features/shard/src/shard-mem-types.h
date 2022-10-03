@@ -13,7 +13,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_shard_mem_types_ {
-    gf_shard_mt_priv_t = gf_common_mt_end + 1,
+    gf_shard_mt_priv_t = GF_MEM_TYPE_START,
     gf_shard_mt_inode_list,
     gf_shard_mt_inode_ctx_t,
     gf_shard_mt_int64_t,

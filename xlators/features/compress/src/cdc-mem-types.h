@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_cdc_mem_types {
-    gf_cdc_mt_priv_t = gf_common_mt_end + 1,
+    gf_cdc_mt_priv_t = GF_MEM_TYPE_START,
     gf_cdc_mt_gzip_trailer_t,
     gf_cdc_mt_end,
 };

@@ -12,7 +12,7 @@
 #include <glusterfs/mem-types.h>
 
 typedef enum gf_ta_mem_types_ {
-    gf_ta_mt_local_t = gf_common_mt_end + 1,
+    gf_ta_mt_local_t = GF_MEM_TYPE_START,
     gf_ta_mt_char,
     gf_ta_mt_end
 } gf_ta_mem_types_t;

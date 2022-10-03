@@ -27,7 +27,7 @@ typedef struct template_private template_private_t;
 #include <glusterfs/mem-types.h>
 
 enum gf_template_mem_types_ {
-    gf_template_mt_private_t = gf_common_mt_end + 1,
+    gf_template_mt_private_t = GF_MEM_TYPE_START,
     gf_template_mt_end,
 };
 

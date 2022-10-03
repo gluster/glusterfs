@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_meta_mem_types_ {
-    gf_meta_mt_priv_t = gf_common_mt_end + 1,
+    gf_meta_mt_priv_t = GF_MEM_TYPE_START,
     gf_meta_mt_fd_t,
     gf_meta_mt_dirents_t,
     gf_meta_mt_local_t,

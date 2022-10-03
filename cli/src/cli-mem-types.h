@@ -12,10 +12,8 @@
 
 #include <glusterfs/mem-types.h>
 
-#define CLI_MEM_TYPE_START (gf_common_mt_end + 1)
-
 enum cli_mem_types_ {
-    cli_mt_xlator_t = CLI_MEM_TYPE_START,
+    cli_mt_xlator_t = GF_MEM_TYPE_START,
     cli_mt_char,
     cli_mt_call_pool_t,
     cli_mt_cli_local_t,

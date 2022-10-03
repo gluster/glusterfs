@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_nfs_mem_types_ {
-    gf_nfs_mt_mountentry = gf_common_mt_end + 1,
+    gf_nfs_mt_mountentry = GF_MEM_TYPE_START,
     gf_nfs_mt_mountbody,
     gf_nfs_mt_nfs_state,
     gf_nfs_mt_char,

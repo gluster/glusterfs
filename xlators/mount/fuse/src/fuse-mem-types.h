@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_fuse_mem_types_ {
-    gf_fuse_mt_iovec = gf_common_mt_end + 1,
+    gf_fuse_mt_iovec = GF_MEM_TYPE_START,
     gf_fuse_mt_fuse_private_t,
     gf_fuse_mt_char,
     gf_fuse_mt_iov_base,

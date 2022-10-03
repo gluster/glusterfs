@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_server_mem_types_ {
-    gf_server_mt_server_conf_t = gf_common_mt_end + 1,
+    gf_server_mt_server_conf_t = GF_MEM_TYPE_START,
     gf_server_mt_state_t,
     gf_server_mt_dirent_rsp_t,
     gf_server_mt_setvolume_rsp_t,

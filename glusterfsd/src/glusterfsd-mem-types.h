@@ -12,8 +12,6 @@
 
 #include <glusterfs/mem-types.h>
 
-#define GF_MEM_TYPE_START (gf_common_mt_end + 1)
-
 enum gfd_mem_types_ {
     gfd_mt_xlator_t = GF_MEM_TYPE_START,
     gfd_mt_xlator_cmdline_option_t,

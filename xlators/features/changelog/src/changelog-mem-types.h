@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_changelog_mem_types {
-    gf_changelog_mt_priv_t = gf_common_mt_end + 1,
+    gf_changelog_mt_priv_t = GF_MEM_TYPE_START,
     gf_changelog_mt_rt_t,
     gf_changelog_mt_inode_ctx_t,
     gf_changelog_mt_rpc_clnt_t,

@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_mdc_mem_types_ {
-    gf_mdc_mt_mdc_local_t = gf_common_mt_end + 1,
+    gf_mdc_mt_mdc_local_t = GF_MEM_TYPE_START,
     gf_mdc_mt_md_cache_t,
     gf_mdc_mt_mdc_conf_t,
     gf_mdc_mt_mdc_ipc,

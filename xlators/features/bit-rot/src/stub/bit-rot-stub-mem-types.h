@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum br_mem_types {
-    gf_br_stub_mt_private_t = gf_common_mt_end + 1,
+    gf_br_stub_mt_private_t = GF_MEM_TYPE_START,
     gf_br_stub_mt_version_t,
     gf_br_stub_mt_inode_ctx_t,
     gf_br_stub_mt_signature_t,

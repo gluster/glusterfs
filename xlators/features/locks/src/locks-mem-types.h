@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_locks_mem_types_ {
-    gf_locks_mt_pl_dom_list_t = gf_common_mt_end + 1,
+    gf_locks_mt_pl_dom_list_t = GF_MEM_TYPE_START,
     gf_locks_mt_pl_inode_t,
     gf_locks_mt_posix_lock_t,
     gf_locks_mt_pl_entry_lock_t,

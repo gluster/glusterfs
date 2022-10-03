@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_qr_mem_types_ {
-    gf_qr_mt_qr_inode_t = gf_common_mt_end + 1,
+    gf_qr_mt_qr_inode_t = GF_MEM_TYPE_START,
     gf_qr_mt_content_t,
     gf_qr_mt_qr_priority_t,
     gf_qr_mt_qr_private_t,

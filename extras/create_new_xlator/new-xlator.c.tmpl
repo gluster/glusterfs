@@ -124,7 +124,7 @@ xlator_api_t xlator_api = {
 #include <glusterfs/mem-types.h>
 
 enum gf_mdc_mem_types_ {
-    gf_@FOP_PREFIX@_mt_ = gf_common_mt_end + 1,
+    gf_@FOP_PREFIX@_mt_ = GF_MEM_TYPE_START,
     gf_@FOP_PREFIX@_mt_end
 };
 

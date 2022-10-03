@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_dht_mem_types_ {
-    gf_dht_mt_dht_du_t = gf_common_mt_end + 1,
+    gf_dht_mt_dht_du_t = GF_MEM_TYPE_START,
     gf_dht_mt_dht_conf_t,
     gf_dht_mt_char,
     gf_dht_mt_int32_t,

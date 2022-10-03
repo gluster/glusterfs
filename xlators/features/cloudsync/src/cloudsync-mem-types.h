@@ -13,7 +13,7 @@
 
 #include <glusterfs/mem-types.h>
 enum cs_mem_types_ {
-    gf_cs_mt_cs_private_t = gf_common_mt_end + 1,
+    gf_cs_mt_cs_private_t = GF_MEM_TYPE_START,
     gf_cs_mt_cs_remote_stores_t,
     gf_cs_mt_cs_inode_ctx_t,
     gf_cs_mt_cs_lxattr_t,

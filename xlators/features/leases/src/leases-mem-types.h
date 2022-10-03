@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_leases_mem_types_ {
-    gf_leases_mt_private_t = gf_common_mt_end + 1,
+    gf_leases_mt_private_t = GF_MEM_TYPE_START,
     gf_leases_mt_lease_client_t,
     gf_leases_mt_lease_inode_t,
     gf_leases_mt_fd_ctx_t,

@@ -120,4 +120,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_latency_t,
     gf_common_mt_end,
 };
+
+#define GF_MEM_TYPE_START (gf_common_mt_end)
 #endif

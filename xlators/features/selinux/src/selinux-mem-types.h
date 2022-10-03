@@ -13,7 +13,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_selinux_mem_types_ {
-    gf_selinux_mt_selinux_priv_t = gf_common_mt_end + 1,
+    gf_selinux_mt_selinux_priv_t = GF_MEM_TYPE_START,
     gf_selinux_mt_end
 };
 #endif

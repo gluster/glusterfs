@@ -13,7 +13,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_trash_mem_types_ {
-    gf_trash_mt_trash_private_t = gf_common_mt_end + 1,
+    gf_trash_mt_trash_private_t = GF_MEM_TYPE_START,
     gf_trash_mt_trash_elim_path,
     gf_trash_mt_end
 };

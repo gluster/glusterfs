@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_wb_mem_types_ {
-    gf_wb_mt_wb_request_t = gf_common_mt_end + 1,
+    gf_wb_mt_wb_request_t = GF_MEM_TYPE_START,
     gf_wb_mt_wb_conf_t,
     gf_wb_mt_wb_inode_t,
     gf_wb_mt_end

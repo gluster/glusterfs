@@ -14,7 +14,7 @@
 #include <glusterfs/mem-types.h>
 
 enum gf_iot_mem_types_ {
-    gf_iot_mt_iot_conf_t = gf_common_mt_end + 1,
+    gf_iot_mt_iot_conf_t = GF_MEM_TYPE_START,
     gf_iot_mt_client_ctx_t,
     gf_iot_mt_end
 };
