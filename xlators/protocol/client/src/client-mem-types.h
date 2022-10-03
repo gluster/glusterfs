@@ -15,7 +15,6 @@
 
 enum gf_client_mem_types_ {
     gf_client_mt_clnt_conf_t = gf_common_mt_end + 1,
-    gf_client_mt_clnt_req_buf_t,
     gf_client_mt_clnt_fdctx_t,
     gf_client_mt_clnt_lock_request_t,
     gf_client_mt_end,
