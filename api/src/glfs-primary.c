@@ -117,7 +117,7 @@ mem_acct_init(xlator_t *this)
     if (!this)
         return ret;
 
-    ret = xlator_mem_acct_init(this, glfs_mt_end + 1);
+    ret = xlator_mem_acct_init(this, glfs_mt_end);
     if (ret) {
         gf_smsg(this->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
                 NULL);

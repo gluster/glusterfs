@@ -63,7 +63,7 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto err;
     }
 
-    ret = xlator_mem_acct_init(THIS, glfs_mt_end + 1);
+    ret = xlator_mem_acct_init(THIS, glfs_mt_end);
     if (ret != 0) {
         gf_smsg(THIS->name, GF_LOG_ERROR, ENOMEM, API_MSG_MEM_ACCT_INIT_FAILED,
                 NULL);
