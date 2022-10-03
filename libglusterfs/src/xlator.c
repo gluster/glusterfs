@@ -746,10 +746,10 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     for (i = 0; i < num_types; i++) {
         memset(&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
 #ifdef DEBUG
-        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
         ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
         if (ret) {
             fprintf(stderr, "Unable to lock..errno : %d", errno);
+        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
         }
 #endif
     }
