@@ -121,6 +121,7 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
     return gf_mem_header_prepare(header, size);
 }
 
+#ifdef DEBUG
 static void *
 gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
                         size_t size)
@@ -129,7 +130,6 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 
     if (mem_acct != NULL) {
         rec = &mem_acct->rec[header->type];
-#ifdef DEBUG
         LOCK(&rec->lock);
         {
             rec->size += size - header->size;
@@ -143,11 +143,11 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
             list_move(&header->acct_list, &rec->obj_list);
         }
         UNLOCK(&rec->lock);
-#endif
     }
 
     return gf_mem_header_prepare(header, size);
 }
+#endif /* DEBUG */
 
 static bool
 gf_mem_acct_enabled(xlator_t *xl)
@@ -227,7 +227,11 @@ __gf_realloc(void *ptr, size_t size)
         return NULL;
     }
 
+#ifdef DEBUG
     return gf_mem_update_acct_info(header->mem_acct, header, size);
+#else
+    return gf_mem_header_prepare(header, size);
+#endif
 }
 
 int
