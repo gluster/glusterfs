@@ -448,6 +448,7 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
             0,
         },
     };
+    size_t entry_dname_len;
 
     this = THIS;
     if (!off) {
@@ -491,13 +492,18 @@ br_stub_fill_readdir(fd_t *fd, br_stub_fd_t *fctx, DIR *dir, off_t off,
         if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
             continue;
 
-        if (!strncmp(entry->d_name, "stub-", strlen("stub-"))) {
-            check_delete_stale_bad_file(this, entry->d_name);
-            continue;
+        entry_dname_len = strlen(entry->d_name);
+        /* skip checking for stable bad file if the file name is not
+         * exactly the length of 'stub-<uuid>'. Most file name lenghts aren't.
+         */
+        if (entry_dname_len == SLEN("stub-") + UUID_CANONICAL_FORM_LEN) {
+            if (!strncmp(entry->d_name, "stub-", SLEN("stub-"))) {
+                check_delete_stale_bad_file(this, entry->d_name);
+                continue;
+            }
         }
-
         this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
-                    strlen(entry->d_name) + 1;
+                    entry_dname_len + 1;
 
         if (this_size + filled > size) {
             seekdir(dir, in_case);

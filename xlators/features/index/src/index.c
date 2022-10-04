@@ -523,17 +523,30 @@ index_fill_readdir(fd_t *fd, index_fd_ctx_t *fctx, DIR *dir, off_t off,
             break;
         }
 
-        if (!strncmp(entry->d_name, XATTROP_SUBDIR "-",
-                     strlen(XATTROP_SUBDIR "-"))) {
-            check_delete_stale_index_file(this, entry->d_name, XATTROP_SUBDIR);
-            continue;
-        } else if (!strncmp(entry->d_name, DIRTY_SUBDIR "-",
-                            strlen(DIRTY_SUBDIR "-"))) {
-            check_delete_stale_index_file(this, entry->d_name, DIRTY_SUBDIR);
-            continue;
+        entry_dname_len = strlen(entry->d_name);
+
+        /* Skip entry name comparison unless the length is equal to either:
+         * SLEN('dirty-') + '-' + UUID_CANONICAL_FORM_LEN (36)
+         * or
+         * SLEN('xattrop') + '-' + UUID_CANONICAL_FORM_LEN (36)
+         */
+        if (entry_dname_len ==
+                (SLEN(XATTROP_SUBDIR) + 1 + UUID_CANONICAL_FORM_LEN) ||
+            entry_dname_len ==
+                (SLEN(DIRTY_SUBDIR) + 1 + UUID_CANONICAL_FORM_LEN)) {
+            if (!strncmp(entry->d_name, XATTROP_SUBDIR "-",
+                         strlen(XATTROP_SUBDIR "-"))) {
+                check_delete_stale_index_file(this, entry->d_name,
+                                              XATTROP_SUBDIR);
+                continue;
+            } else if (!strncmp(entry->d_name, DIRTY_SUBDIR "-",
+                                strlen(DIRTY_SUBDIR "-"))) {
+                check_delete_stale_index_file(this, entry->d_name,
+                                              DIRTY_SUBDIR);
+                continue;
+            }
         }
 
-        entry_dname_len = strlen(entry->d_name);
         this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
                     entry_dname_len + 1;
 
