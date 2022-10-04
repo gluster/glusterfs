@@ -93,10 +93,10 @@ enum gf_common_mem_types_ {
     gf_common_mt_rbuf_t,  /* used only in one location */
     gf_common_mt_rlist_t, /* used only in one location */
     gf_common_mt_rvec_t,  /* used only in one location */
-    /* glusterd can load the nfs-xlator dynamically and needs these two */
+/* glusterd can load the nfs-xlator dynamically and needs these two */
 #ifdef BUILD_GNFS
-    gf_common_mt_nfs_netgroups,   /* used only in one location */
-    gf_common_mt_nfs_exports,     /* used only in one location */
+    gf_common_mt_nfs_netgroups, /* used only in one location */
+    gf_common_mt_nfs_exports,   /* used only in one location */
 #endif
     gf_common_mt_gf_brick_spec_t, /* used only in one location */
     gf_common_mt_int,
