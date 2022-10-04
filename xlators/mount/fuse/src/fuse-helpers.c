@@ -578,8 +578,8 @@ gf_fuse_fill_dirent(gf_dirent_t *entry, struct fuse_dirent *fde,
         fde->ino = entry->d_ino;
 
     fde->off = entry->d_off;
-    fde->type = entry->d_type;
     fde->namelen = entry->d_len;
+    fde->type = entry->d_type;
     (void)memcpy(fde->name, entry->d_name, fde->namelen);
 }
 
