@@ -556,7 +556,8 @@ def build(commit, name):
     try:
         container = vm.cfg.get('containers/images/testing')
         with HTTPServer({'config': vm.cfg.base, 'glusterfs': root}) as httpd:
-            vm.run(f'git clone -b {commit} http://{vm.host}:{httpd.port}/glusterfs /root/glusterfs')
+            vm.run(f'git clone http://{vm.host}:{httpd.port}/glusterfs /root/glusterfs')
+            vm.run(f'git -C /root/glusterfs checkout {commit}')
             vm.run(f'podman build --squash -t glusterfs/testing -f http://{vm.host}:{httpd.port}/config/{container} /root/glusterfs')
     except:
         vm.run('rm -rf /root/glusterfs')
