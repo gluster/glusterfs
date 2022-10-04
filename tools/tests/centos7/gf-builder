@@ -3,8 +3,6 @@ FROM centos:7.9.2009
 ENV container docker
 ENV PYTHON /usr/bin/python2
 
-#RUN yum install -y --setopt=tsflags=nodocs systemd epel-release && yum clean all
-
 RUN yum install -y --disablerepo=extras --setopt=tsflags=nodocs --exclude=kernel-debug-devel --exclude=kernel-devel --exclude=systemtap-devel --exclude=systemtap --exclude=gcc-gfortran --exclude=subversion \
         @"Development Tools" systemd diffutils util-linux file \
         hostname which less e2fsprogs xfsprogs attr net-tools procps psmisc \
@@ -12,10 +10,10 @@ RUN yum install -y --disablerepo=extras --setopt=tsflags=nodocs --exclude=kernel
         libselinux-utils perl-Test-Harness yajl rsync lvm2 python3 python-devel python3-prettytable \
         pyxattr gperftools-devel openssh-server openssl openssl-devel \
         libuuid-devel libacl-devel libaio-devel libxml2-devel \
-        readline-devel && \
-    yum clean all
+        readline-devel
 
-RUN yum install -y --setopt=tsflags=nodocs --disablerepo=* --enablerepo=extras epel-release && yum clean all
+
+RUN yum install -y --setopt=tsflags=nodocs --disablerepo=* --enablerepo=extras epel-release
 
 RUN yum install -y --setopt=tsflags=nodocs --disablerepo=* --enablerepo=epel userspace-rcu userspace-rcu-devel && yum clean all
 
