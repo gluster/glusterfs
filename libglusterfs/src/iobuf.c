@@ -182,19 +182,15 @@ out:
 static struct iobuf_arena *
 __iobuf_arena_unprune(struct iobuf_pool *iobuf_pool, const int index)
 {
-    struct iobuf_arena *iobuf_arena = NULL;
     struct iobuf_arena *tmp = NULL;
-
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
 
     list_for_each_entry(tmp, &iobuf_pool->purge[index], list)
     {
         list_del_init(&tmp->list);
-        iobuf_arena = tmp;
-        break;
+        return tmp;
     }
-out:
-    return iobuf_arena;
+
+    return NULL;
 }
 
 static struct iobuf_arena *
@@ -346,16 +342,20 @@ static void
 __iobuf_arena_prune(struct iobuf_pool *iobuf_pool,
                     struct iobuf_arena *iobuf_arena, const int index)
 {
+    list_del(&iobuf_arena->list);
+
     /* code flow comes here only if the arena is in purge list and we can
      * free the arena only if we have at least one arena in 'arenas' list
      * (ie, at least few iobufs free in arena), that way, there won't
-     * be spurious mmap/unmap of buffers
+     * be spurious mmap/unmap of buffers.
+     * If the list empty, add to the purge list and return.
      */
-    if (list_empty(&iobuf_pool->arenas[index]))
+    if (list_empty(&iobuf_pool->arenas[index])) {
+        list_add_tail(&iobuf_arena->list, &iobuf_pool->purge[index]);
         goto out;
+    }
 
     /* All cases matched, destroy */
-    list_del_init(&iobuf_arena->list);
     iobuf_pool->arena_cnt--;
 
     __iobuf_arena_destroy(iobuf_arena);
@@ -623,8 +623,6 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
     struct iobuf_pool *iobuf_pool = NULL;
     int index = 0;
 
-    iobuf_pool = iobuf_arena->iobuf_pool;
-
     index = gf_iobuf_get_arena_index(iobuf_arena->page_size);
     if (index == -1) {
         gf_msg_debug("iobuf", 0,
@@ -636,6 +634,8 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
         __iobuf_free(iobuf);
         return;
     }
+
+    iobuf_pool = iobuf_arena->iobuf_pool;
 
     if (iobuf_arena->passive_cnt == 0) {
         list_del(&iobuf_arena->list);
@@ -654,13 +654,8 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
     iobuf_arena->passive_cnt++;
 
     if (iobuf_arena->active_cnt == 0) {
-        list_del(&iobuf_arena->list);
-        list_add_tail(&iobuf_arena->list, &iobuf_pool->purge[index]);
-        GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
         __iobuf_arena_prune(iobuf_pool, iobuf_arena, index);
     }
-out:
-    return;
 }
 
 static void
