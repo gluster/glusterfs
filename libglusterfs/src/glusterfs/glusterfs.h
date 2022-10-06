@@ -540,6 +540,7 @@ struct _cmd_args {
     int client_pid_set;
     unsigned uid_map_root;
     int32_t lru_limit;
+    int32_t inode_table_size;
     int32_t invalidate_limit;
     int background_qlen;
     char *fuse_mountopts;

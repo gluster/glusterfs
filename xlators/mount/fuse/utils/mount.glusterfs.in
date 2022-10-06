@@ -282,6 +282,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --lru-limit=$lru_limit");
     fi
 
+    if [ -n "$inode_table_size" ]; then
+        cmd_line=$(echo "$cmd_line --inode-table-size=$inode_table_size");
+    fi
+
     if [ -n "$invalidate_limit" ]; then
         cmd_line=$(echo "$cmd_line --invalidate-limit=$invalidate_limit");
     fi
@@ -555,6 +559,9 @@ with_options()
             ;;
         "lru-limit")
             lru_limit=$value
+            ;;
+        "inode-table-size")
+            inode_table_size=$value
             ;;
         "invalidate-limit")
             invalidate_limit=$value

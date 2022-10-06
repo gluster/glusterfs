@@ -132,6 +132,11 @@ Provide list of backup volfile servers in the following format [default: None]
 Set fuse module's limit for number of inodes kept in LRU list to N [default: 65536]
 .TP
 .TP
+\fBinode-table-size=\fRN
+Set the inode hash table size to N - this must be a power of 2 greater than or
+equal to 65536 and will be rounded up if not [default: 65536]
+.TP
+.TP
 \fBinvalidate-limit=\fRN
 Suspend fuse invalidations implied by 'lru-limit' if  number of outstanding
 invalidations reaches N
