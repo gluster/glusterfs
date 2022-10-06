@@ -722,7 +722,6 @@ int
 xlator_mem_acct_init(xlator_t *xl, int num_types)
 {
     int i = 0;
-    int ret = 0;
 
     if (!xl)
         return -1;
@@ -746,6 +745,7 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     for (i = 0; i < num_types; i++) {
         memset(&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
 #ifdef DEBUG
+        int ret = 0;
         ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
         if (ret) {
             fprintf(stderr, "Unable to lock..errno : %d", errno);
@@ -760,10 +760,9 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
 void
 xlator_mem_acct_unref(struct mem_acct *mem_acct)
 {
-    uint32_t i;
-
     if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
 #ifdef DEBUG
+        uint32_t i;
         for (i = 0; i < mem_acct->num_types; i++) {
             LOCK_DESTROY(&(mem_acct->rec[i].lock));
         }

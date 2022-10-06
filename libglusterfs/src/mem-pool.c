@@ -144,10 +144,9 @@ gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
         }
         UNLOCK(&rec->lock);
     }
-#endif /* DEBUG */
-
     return gf_mem_header_prepare(header, size);
 }
+#endif /* DEBUG */
 
 static bool
 gf_mem_acct_enabled(xlator_t *xl)
