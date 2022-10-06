@@ -15,6 +15,7 @@
 
 typedef enum gf_sock_mem_types_ {
     gf_sock_connect_error_state_t = GF_MEM_TYPE_START,
+    gf_sock_mt_lock_array,
     gf_sock_mt_end
 } gf_sock_mem_types_t;
 
