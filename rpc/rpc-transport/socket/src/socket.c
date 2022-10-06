@@ -4034,9 +4034,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
     char *optstr = NULL;
     static int session_id = 1;
     int32_t cert_depth = DEFAULT_VERIFY_DEPTH;
-    static char *cipher_list = DEFAULT_CIPHER_LIST;
-    static char *dh_param = DEFAULT_DH_PARAM;
-    static char *ec_curve = DEFAULT_EC_CURVE;
+    char *cipher_list = DEFAULT_CIPHER_LIST;
+    char *dh_param = DEFAULT_DH_PARAM;
+    char *ec_curve = DEFAULT_EC_CURVE;
     gf_boolean_t dh_flag = _gf_false;
 
     priv = this->private;
@@ -4161,8 +4161,6 @@ ssl_setup_connection_params(rpc_transport_t *this)
             }
         }
 
-/* Only needed on older than 3.0 OpenSSL. On newer one, use default values. */
-#if OPENSSL_VERSION_NUMBER < 0x030000000  // 3.0.0
         if (bio != NULL) {
 #ifdef HAVE_OPENSSL_DH_H
             DH *dh;
@@ -4219,7 +4217,6 @@ ssl_setup_connection_params(rpc_transport_t *this)
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }
-#endif /* OPENSSL_VERSION_NUMBER < 0x030000000  // 3.0.0 */
 
         /* This must be done after DH and ECDH setups */
         if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
