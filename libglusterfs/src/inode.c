@@ -1612,7 +1612,8 @@ __inode_table_init_root(inode_table_t *table)
 
     gf_uuid_copy(root->gfid, root_gfid);
     root->ia_type = IA_IFDIR;
-    list_add(&root->hash, &table->inode_hash[hash_gfid(root_gfid, table->inode_hashsize)]);
+    list_add(&root->hash,
+             &table->inode_hash[hash_gfid(root_gfid, table->inode_hashsize)]);
 
     root = __inode_ref(root, _gf_false);
 
@@ -1667,7 +1668,8 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         if (inode_hashsize > 0)
             gf_log(THIS->name, GF_LOG_WARNING,
                    "Set inode table size to minimum value of 65536 rather than "
-                   "the configured %u", inode_hashsize);
+                   "the configured %u",
+                   inode_hashsize);
         new->inode_hashsize = 65536;
     } else {
         new->inode_hashsize = inode_hashsize;
