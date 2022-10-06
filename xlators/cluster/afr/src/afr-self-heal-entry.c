@@ -949,8 +949,8 @@ afr_selfheal_entry_do_subvol(call_frame_t *frame, xlator_t *this, fd_t *fd,
         list_for_each_entry(entry, &entries.list, list)
         {
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             ret = afr_selfheal_entry_dirent(iter_frame, this, fd, entry->d_name,

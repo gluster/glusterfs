@@ -1707,7 +1707,8 @@ index_get_gfid_type(void *opaque)
 
     list_for_each_entry(entry, &args->entries->list, list)
     {
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        /* skip . and .. */
+        if (inode_dir_or_parentdir(entry))
             continue;
 
         loc_wipe(&loc);

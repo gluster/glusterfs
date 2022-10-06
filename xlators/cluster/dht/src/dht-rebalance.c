@@ -3128,7 +3128,8 @@ gf_defrag_get_entry(xlator_t *this, int i, dht_container_t **container,
         dir_dfmeta->iterator[i] = dir_dfmeta->iterator[i]->next;
 
         dir_dfmeta->offset_var[i].offset = df_entry->d_off;
-        if (!strcmp(df_entry->d_name, ".") || !strcmp(df_entry->d_name, ".."))
+        /* skip . and .. */
+        if (inode_dir_or_parentdir(df_entry))
             continue;
 
         if (IA_ISDIR(df_entry->d_stat.ia_type)) {
@@ -3676,8 +3677,8 @@ gf_defrag_fix_layout(xlator_t *this, gf_defrag_info_t *defrag, loc_t *loc,
             }
 
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             if ((DT_DIR != entry->d_type) && (DT_UNKNOWN != entry->d_type)) {

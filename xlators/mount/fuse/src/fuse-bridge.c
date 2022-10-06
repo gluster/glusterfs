@@ -3776,8 +3776,7 @@ fuse_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
         feo->nodeid = inode_to_fuse_nodeid(linked_inode);
 
-        if (!((strcmp(entry->d_name, ".") == 0) ||
-              (strcmp(entry->d_name, "..") == 0))) {
+        if (!inode_dir_or_parentdir(entry)) {
             inode_lookup(linked_inode);
         }
 

@@ -115,8 +115,8 @@ syncop_ftw(xlator_t *subvol, loc_t *loc, int pid, void *data,
         list_for_each_entry(entry, &entries.list, list)
         {
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             gf_link_inode_from_dirent(fd->inode, entry);
@@ -198,8 +198,8 @@ syncop_ftw_throttle(xlator_t *subvol, loc_t *loc, int pid, void *data,
         list_for_each_entry(entry, &entries.list, list)
         {
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             if (++tmp >= count) {
@@ -396,7 +396,8 @@ syncop_mt_dir_scan(call_frame_t *frame, xlator_t *subvol, loc_t *loc, int pid,
                 goto out;
 
             list_del_init(&entry->list);
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, "..")) {
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry)) {
                 gf_dirent_entry_free(entry);
                 continue;
             }
@@ -485,8 +486,8 @@ syncop_dir_scan(xlator_t *subvol, loc_t *loc, int pid, void *data,
         list_for_each_entry(entry, &entries.list, list)
         {
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             ret |= fn(subvol, entry, loc, data);

@@ -3086,8 +3086,8 @@ marker_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        if ((strcmp(entry->d_name, ".") == 0) ||
-            (strcmp(entry->d_name, "..") == 0) || entry->inode == NULL)
+        /* skip . and .. */
+        if (entry->inode == NULL || inode_dir_or_parentdir(entry))
             continue;
 
         if (no_found_entry)

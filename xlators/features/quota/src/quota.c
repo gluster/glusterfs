@@ -1048,7 +1048,10 @@ quota_check_limit_continuation(struct list_head *parents, inode_t *inode,
         goto out;
     }
 
-    list_for_each_entry(entry, parents, next) { parent_count++; }
+    list_for_each_entry(entry, parents, next)
+    {
+        parent_count++;
+    }
 
     LOCK(&par_local->lock);
     {
@@ -4547,8 +4550,8 @@ quota_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        if ((strcmp(entry->d_name, ".") == 0) ||
-            (strcmp(entry->d_name, "..") == 0) || entry->inode == NULL)
+        /* skip . and .. */
+        if (entry->inode == NULL || inode_dir_or_parentdir(entry))
             continue;
 
         gf_uuid_copy(loc.gfid, entry->d_stat.ia_gfid);

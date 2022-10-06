@@ -1903,8 +1903,8 @@ mq_update_dirty_inode_task(void *opaque)
         list_for_each_entry(entry, &entries.list, list)
         {
             offset = entry->d_off;
-
-            if (!strcmp(entry->d_name, ".") || !strcmp(entry->d_name, ".."))
+            /* skip . and .. */
+            if (inode_dir_or_parentdir(entry))
                 continue;
 
             memset(&contri, 0, sizeof(contri));
