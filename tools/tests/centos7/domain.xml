@@ -13,16 +13,18 @@
       <entry name="serial">$cloud_init_datasource</entry>
     </system>
   </sysinfo>
+  <iothreads>1</iothreads>
   <os>
     <type arch="$vm_arch" machine="$vm_machine">hvm</type>
     <boot dev="hd"/>
     <smbios mode="sysinfo"/>
+    <bootmenu enable='no'/>
   </os>
   <features>
     <acpi/>
     <apic/>
   </features>
-  <cpu mode="host-model"/>
+  <cpu mode="host-passthrough"/>
   <clock offset="utc">
     <timer name="rtc" tickpolicy="catchup"/>
     <timer name="pit" tickpolicy="delay"/>
@@ -33,9 +35,10 @@
     <suspend-to-disk enabled="no"/>
   </pm>
   <devices>
+    <video model="vga"/>
     <emulator>$vm_emulator</emulator>
     <disk type="file" device="disk">
-      <driver name="qemu" type="qcow2" cache="unsafe" discard="unmap"/>
+      <driver name="qemu" type="qcow2" cache="unsafe" discard="unmap" queues="1" iothread="1"/>
       <source file="$vm_disk"/>
       <target dev="vda" bus="virtio"/>
     </disk>
@@ -47,6 +50,8 @@
     <rng model="virtio">
       <backend model="random">/dev/urandom</backend>
     </rng>
+    <memballoon model='none'/>
+    <controller type='usb' model='none'/>
   </devices>
   <commandline xmlns="http://libvirt.org/schemas/domain/qemu/1.0">
     <arg value="-netdev"/>
@@ -55,4 +60,3 @@
     <arg value="virtio-net-pci,netdev=gfnet0"/>
   </commandline>
 </domain>
-
