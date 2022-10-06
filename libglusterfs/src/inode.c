@@ -967,7 +967,7 @@ __inode_link(inode_t *inode, inode_t *parent, const char *name,
             } else {
                 gf_uuid_copy(inode->gfid, iatt->ia_gfid);
                 inode->ia_type = iatt->ia_type;
-                __inode_hash(inode, ihash);
+                list_add(&inode->hash, &table->inode_hash[ihash]);
             }
         }
     } else {
@@ -1612,7 +1612,7 @@ __inode_table_init_root(inode_table_t *table)
 
     gf_uuid_copy(root->gfid, root_gfid);
     root->ia_type = IA_IFDIR;
-    __inode_hash(root, hash_gfid(root_gfid, table->inode_hashsize));
+    list_add(&root->hash, &table->inode_hash[hash_gfid(root_gfid, table->inode_hashsize)]);
 
     root = __inode_ref(root, _gf_false);
 
