@@ -4034,9 +4034,9 @@ ssl_setup_connection_params(rpc_transport_t *this)
     char *optstr = NULL;
     static int session_id = 1;
     int32_t cert_depth = DEFAULT_VERIFY_DEPTH;
-    char *cipher_list = DEFAULT_CIPHER_LIST;
-    char *dh_param = DEFAULT_DH_PARAM;
-    char *ec_curve = DEFAULT_EC_CURVE;
+    static char *cipher_list = DEFAULT_CIPHER_LIST;
+    static char *dh_param = DEFAULT_DH_PARAM;
+    static char *ec_curve = DEFAULT_EC_CURVE;
     gf_boolean_t dh_flag = _gf_false;
 
     priv = this->private;
@@ -4161,6 +4161,8 @@ ssl_setup_connection_params(rpc_transport_t *this)
             }
         }
 
+/* Only needed on older than 3.0 OpenSSL. On newer one, use default values. */
+#if OPENSSL_VERSION_NUMBER < 0x030000000  // 3.0.0
         if (bio != NULL) {
 #ifdef HAVE_OPENSSL_DH_H
             DH *dh;
@@ -4190,32 +4192,34 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
         if (ec_curve != NULL) {
 #ifdef HAVE_OPENSSL_ECDH_H
-            EC_KEY *ecdh = NULL;
             int nid;
             unsigned long err;
 
             nid = OBJ_sn2nid(ec_curve);
-            if (nid != 0)
+            if (nid != 0) {
+                EC_KEY *ecdh = NULL;
                 ecdh = EC_KEY_new_by_curve_name(nid);
 
-            if (ecdh != NULL) {
+                if (ecdh != NULL) {
 #if SSL_OP_SINGLE_ECDH_USE != 0
-                /* Has no effect in never versions of OpenSSL. */
-                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+                    /* Has no effect in never versions of OpenSSL. */
+                    SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
 #endif /* SSL_OP_SINGLE_ECDH_USE */
-                SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
-                EC_KEY_free(ecdh);
-            } else {
-                err = ERR_get_error();
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to load EC curve %s: %s. "
-                       "ECDH ciphers are disabled.",
-                       ec_curve, ERR_error_string(err, NULL));
+                    SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
+                    EC_KEY_free(ecdh);
+                } else {
+                    err = ERR_get_error();
+                    gf_log(this->name, GF_LOG_ERROR,
+                           "failed to load EC curve %s: %s. "
+                           "ECDH ciphers are disabled.",
+                           ec_curve, ERR_error_string(err, NULL));
+                }
             }
 #else  /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
         }
+#endif /* OPENSSL_VERSION_NUMBER < 0x030000000  // 3.0.0 */
 
         /* This must be done after DH and ECDH setups */
         if (SSL_CTX_set_cipher_list(priv->ssl_ctx, cipher_list) == 0) {
