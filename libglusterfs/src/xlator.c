@@ -758,7 +758,6 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
 void
 xlator_mem_acct_unref(struct mem_acct *mem_acct)
 {
-
     if (GF_ATOMIC_DEC(mem_acct->refcnt) == 0) {
 #ifdef DEBUG
         uint32_t i;
