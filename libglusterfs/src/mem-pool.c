@@ -306,8 +306,8 @@ __gf_mem_invalidate(void *ptr)
 
     /* zero out remaining (old) mem_header bytes) */
     /* and the first byte of data */
-    memset(old_ptr + sizeof(inval), 0x00, (sizeof(struct mem_header) - sizeof(inval)) + 1);
-
+    memset(old_ptr + sizeof(inval), 0x00,
+           (sizeof(struct mem_header) - sizeof(inval)) + 1);
 }
 #endif /* DEBUG */
 
@@ -369,8 +369,8 @@ __gf_free(void *free_ptr)
     }
     UNLOCK(&mem_acct->rec[header->type].lock);
 #endif
-    if (!num_allocs) {
-        xlator_mem_acct_unref(mem_acct);
+    if (!num_allocs && (GF_ATOMIC_DEC(mem_acct->refcnt) == 0)) {
+        xlator_mem_acct_destroy(mem_acct);
     }
 
 free:
