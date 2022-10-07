@@ -47,10 +47,10 @@ struct mem_acct_rec {
     const char *typestr;
     gf_atomic_t num_allocs;
 #ifdef DEBUG
+    gf_lock_t lock;
     uint64_t size;
     uint64_t max_size;
     uint32_t max_num_allocs;
-    gf_lock_t lock;
     struct list_head obj_list;
 #endif
 };

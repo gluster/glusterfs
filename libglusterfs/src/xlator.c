@@ -721,9 +721,6 @@ xlator_notify(xlator_t *xl, int event, void *data, ...)
 int
 xlator_mem_acct_init(xlator_t *xl, int num_types)
 {
-    int i = 0;
-    int ret = 0;
-
     if (!xl)
         return -1;
 
@@ -733,8 +730,8 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     if (!xl->ctx->mem_acct_enable)
         return 0;
 
-    xl->mem_acct = MALLOC(sizeof(struct mem_acct) +
-                          sizeof(struct mem_acct_rec) * num_types);
+    xl->mem_acct = CALLOC(
+        1, sizeof(struct mem_acct) + sizeof(struct mem_acct_rec) * num_types);
 
     if (!xl->mem_acct) {
         return -1;
@@ -743,16 +740,17 @@ xlator_mem_acct_init(xlator_t *xl, int num_types)
     xl->mem_acct->num_types = num_types;
     GF_ATOMIC_INIT(xl->mem_acct->refcnt, 1);
 
-    for (i = 0; i < num_types; i++) {
-        memset(&xl->mem_acct->rec[i], 0, sizeof(struct mem_acct_rec));
 #ifdef DEBUG
-        INIT_LIST_HEAD(&(xl->mem_acct->rec[i].obj_list));
-        ret = LOCK_INIT(&(xl->mem_acct->rec[i].lock));
-        if (ret) {
+    struct mem_acct_rec *rec = NULL;
+    int i;
+    for (i = 0; i < num_types; i++) {
+        rec = &xl->mem_acct->rec[i];
+        if (LOCK_INIT(&rec->lock) != 0) {
             fprintf(stderr, "Unable to lock..errno : %d", errno);
         }
-#endif
+        INIT_LIST_HEAD(&rec->obj_list);
     }
+#endif /* DEBUG */
 
     return 0;
 }
