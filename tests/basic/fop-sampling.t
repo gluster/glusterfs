@@ -39,7 +39,7 @@ cleanup;
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 replica 3 $H0:$B0/${V0}{0,1,2}
-TEST $CLI volume set $V0 nfs.disable off
+$CLI volume set $V0 nfs.disable off
 TEST $CLI volume set $V0 diagnostics.latency-measurement on
 TEST $CLI volume set $V0 diagnostics.count-fop-hits on
 TEST $CLI volume set $V0 diagnostics.stats-dump-interval 2
