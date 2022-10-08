@@ -74,14 +74,10 @@ struct iobuf_arena {
     struct list_head list;
     size_t page_size; /* size of all iobufs in this arena */
     size_t arena_size;
-    /* this is equal to rounded_size * num_iobufs.
-       (rounded_size comes with gf_iobuf_get_pagesize().) */
-    size_t page_count;
 
     struct iobuf_pool *iobuf_pool;
 
     void *mem_base;
-    struct iobuf *iobufs; /* allocated iobufs list */
 
     struct list_head passive_list;
     struct list_head active_list;
@@ -89,6 +85,8 @@ struct iobuf_arena {
     int active_cnt;
     int passive_cnt;
     int max_active; /* max active buffers at a given time */
+    uint32_t page_count;
+    struct iobuf iobufs[]; /* allocated iobufs list */
 };
 
 struct iobuf_pool {

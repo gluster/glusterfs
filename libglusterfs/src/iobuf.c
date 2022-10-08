@@ -65,11 +65,6 @@ __iobuf_arena_init_iobufs(struct iobuf_arena *iobuf_arena)
     int offset = 0;
     int i = 0;
 
-    iobuf_arena->iobufs = GF_CALLOC(sizeof(*iobuf), iobuf_cnt,
-                                    gf_common_mt_iobuf);
-    if (!iobuf_arena->iobufs)
-        return;
-
     iobuf = iobuf_arena->iobufs;
     for (i = 0; i < iobuf_cnt; i++) {
         INIT_LIST_HEAD(&iobuf->list);
@@ -94,12 +89,6 @@ __iobuf_arena_destroy_iobufs(struct iobuf_arena *iobuf_arena)
     struct iobuf *iobuf = NULL;
     int i = 0;
 
-    if (!iobuf_arena->iobufs) {
-        gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0, LG_MSG_IOBUFS_NOT_FOUND,
-                         "iobufs not found");
-        return;
-    }
-
     iobuf_cnt = iobuf_arena->page_count;
     iobuf = iobuf_arena->iobufs;
     for (i = 0; i < iobuf_cnt; i++) {
@@ -109,23 +98,17 @@ __iobuf_arena_destroy_iobufs(struct iobuf_arena *iobuf_arena)
         list_del_init(&iobuf->list);
         iobuf++;
     }
-
-    GF_FREE(iobuf_arena->iobufs);
 }
 
 static void
 __iobuf_arena_destroy(struct iobuf_arena *iobuf_arena)
 {
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf_arena, out);
-
-    __iobuf_arena_destroy_iobufs(iobuf_arena);
-
     if (iobuf_arena->mem_base && iobuf_arena->mem_base != MAP_FAILED)
         munmap(iobuf_arena->mem_base, iobuf_arena->arena_size);
 
+    __iobuf_arena_destroy_iobufs(iobuf_arena);
+
     GF_FREE(iobuf_arena);
-out:
-    return;
 }
 
 static struct iobuf_arena *
@@ -138,9 +121,11 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
 
-    iobuf_arena = GF_CALLOC(sizeof(*iobuf_arena), 1, gf_common_mt_iobuf_arena);
+    iobuf_arena = GF_CALLOC(
+        1, sizeof(struct iobuf_arena) + sizeof(struct iobuf) * num_iobufs,
+        gf_common_mt_iobuf_arena);
     if (!iobuf_arena)
-        goto err;
+        goto out;
 
     INIT_LIST_HEAD(&iobuf_arena->list);
     INIT_LIST_HEAD(&iobuf_arena->passive_list);
@@ -159,21 +144,15 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (iobuf_arena->mem_base == MAP_FAILED) {
         gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
-        goto err;
+        GF_FREE(iobuf_arena);
+        goto out;
     }
 
     __iobuf_arena_init_iobufs(iobuf_arena);
-    if (!iobuf_arena->iobufs) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_IOBUF_FAILED, NULL);
-        goto err;
-    }
 
     iobuf_pool->arena_cnt++;
 
     return iobuf_arena;
-
-err:
-    __iobuf_arena_destroy(iobuf_arena);
 
 out:
     return NULL;
