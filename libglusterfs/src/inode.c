@@ -1711,10 +1711,6 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!mem_pool_size || (mem_pool_size > DEFAULT_INODE_MEMPOOL_ENTRIES))
         mem_pool_size = DEFAULT_INODE_MEMPOOL_ENTRIES;
 
-    new->inode_pool = mem_pool_new(inode_t, mem_pool_size);
-    if (!new->inode_pool)
-        goto out;
-
     new->dentry_pool = mem_pool_new(dentry_t, mem_pool_size);
     if (!new->dentry_pool)
         goto out;
@@ -1770,8 +1766,6 @@ out:
             GF_FREE(new->name_hash);
             if (new->dentry_pool)
                 mem_pool_destroy(new->dentry_pool);
-            if (new->inode_pool)
-                mem_pool_destroy(new->inode_pool);
             GF_FREE(new);
             new = NULL;
         }
@@ -1896,8 +1890,6 @@ inode_table_destroy(inode_table_t *inode_table)
     GF_FREE(inode_table->name_hash);
     if (inode_table->dentry_pool)
         mem_pool_destroy(inode_table->dentry_pool);
-    if (inode_table->inode_pool)
-        mem_pool_destroy(inode_table->inode_pool);
     if (inode_table->fd_mem_pool)
         mem_pool_destroy(inode_table->fd_mem_pool);
 

@@ -50,7 +50,6 @@ struct _inode_table {
     uint32_t purge_size;     /* count of inodes in purge list */
     struct list_head purge;  /* list of inodes to be purged soon */
 
-    struct mem_pool *inode_pool;  /* memory pool for inodes */
     struct mem_pool *dentry_pool; /* memory pool for dentrys */
     struct mem_pool *fd_mem_pool; /* memory pool for fd_t */
     int ctxcount;                 /* number of slots in inode->ctx */
