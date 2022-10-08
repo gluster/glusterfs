@@ -112,11 +112,11 @@ typedef struct _ios_sample_t {
 } ios_sample_t;
 
 typedef struct _ios_sample_buf_t {
-    uint64_t pos;              /* Position in write buffer */
-    uint64_t size;             /* Size of ring buffer */
-    uint64_t collected;        /* Number of samples we've collected */
-    uint64_t observed;         /* Number of FOPs we've observed */
-    ios_sample_t *ios_samples; /* Our list of samples */
+    uint64_t pos;               /* Position in write buffer */
+    uint64_t size;              /* Size of ring buffer */
+    uint64_t collected;         /* Number of samples we've collected */
+    uint64_t observed;          /* Number of FOPs we've observed */
+    ios_sample_t ios_samples[]; /* Our list of samples */
 } ios_sample_buf_t;
 
 struct ios_lat {
@@ -554,39 +554,27 @@ ios_inode_ctx_get(inode_t *inode, xlator_t *this, struct ios_stat **iosstat)
  * in our dump thread.
  *
  */
-ios_sample_buf_t *
+static ios_sample_buf_t *
 ios_create_sample_buf(size_t buf_size)
 {
     ios_sample_buf_t *ios_sample_buf = NULL;
-    ios_sample_t *ios_samples = NULL;
 
-    ios_sample_buf = GF_CALLOC(1, sizeof(*ios_sample_buf),
-                               gf_io_stats_mt_ios_sample_buf);
+    ios_sample_buf = GF_CALLOC(
+        1, sizeof(*ios_sample_buf) + (buf_size * sizeof(ios_sample_t)),
+        gf_io_stats_mt_ios_sample_buf);
     if (!ios_sample_buf)
         goto err;
 
-    ios_samples = GF_CALLOC(buf_size, sizeof(*ios_samples),
-                            gf_io_stats_mt_ios_sample);
-
-    if (!ios_samples)
-        goto err;
-
-    ios_sample_buf->ios_samples = ios_samples;
     ios_sample_buf->size = buf_size;
-    ios_sample_buf->pos = 0;
-    ios_sample_buf->observed = 0;
-    ios_sample_buf->collected = 0;
 
     return ios_sample_buf;
 err:
-    GF_FREE(ios_sample_buf);
     return NULL;
 }
 
-void
+static void
 ios_destroy_sample_buf(ios_sample_buf_t *ios_sample_buf)
 {
-    GF_FREE(ios_sample_buf->ios_samples);
     GF_FREE(ios_sample_buf);
 }
 
