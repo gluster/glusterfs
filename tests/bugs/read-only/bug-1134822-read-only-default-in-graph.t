@@ -21,7 +21,7 @@ TEST $CLI volume start $V0
 TEST glusterfs -s $H0 --volfile-id $V0 $M0
 TEST touch $M0/zerobytefile1.txt
 TEST mkdir $M0/test_dir1
-TEST dd if=/dev/zero of=$M0/file1 bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/file1 bs=128k count=8
 
 # turn on read-only option through volume set
 TEST gluster volume set $V0 read-only on
@@ -48,7 +48,7 @@ TEST cat $M0/file1
 # All write operations should fail now
 TEST ! touch $M0/zerobytefile2.txt
 TEST ! mkdir $M0/test_dir2
-TEST ! dd if=/dev/zero of=$M0/file2 bs=1024 count=1024
+TEST ! dd if=/dev/zero of=$M0/file2 bs=128k count=8
 
 # turn off read-only option through volume set
 TEST gluster volume set $V0 read-only off
@@ -56,7 +56,7 @@ TEST gluster volume set $V0 read-only off
 # All write operations should succeed now
 TEST touch $M0/zerobytefile2.txt
 TEST mkdir $M0/test_dir2
-TEST dd if=/dev/zero of=$M0/file2 bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/file2 bs=128k count=8
 
 # Turn on worm
 TEST gluster volume set $V0 worm on

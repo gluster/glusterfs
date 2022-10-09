@@ -23,12 +23,12 @@ TEST touch $M0/file
 
 ############ Healing using favorite-child-policy = ctime #################
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
@@ -71,12 +71,12 @@ EXPECT "0" echo $?
 TEST $CLI volume set $V0 cluster.favorite-child-policy none
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
@@ -109,12 +109,12 @@ TEST [ "$LATEST_CTIME_MD5" == "$HEALED_MD5" ]
 TEST $CLI volume set $V0 cluster.favorite-child-policy none
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=10240
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
@@ -160,13 +160,13 @@ TEST $CLI volume set $V0 cluster.quorum-type none
 TEST $CLI volume set $V0 cluster.favorite-child-policy none
 TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST kill_brick $V0 $H0 $B0/${V0}2
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=10240
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=80
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1

@@ -27,7 +27,7 @@ TEST unlink $M0/tmp
 TEST stat $B0/${V0}0/.shard/.remove_me
 TEST stat $B0/${V0}1/.shard/.remove_me
 
-TEST dd if=/dev/zero of=$M0/dir/file bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/file bs=4096 count=2304
 gfid_file=$(get_gfid_string $M0/dir/file)
 
 # Create marker file from the backend to simulate ENODATA.
@@ -60,7 +60,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/$gfid_file
 ##############################
 
 TEST touch $M0/src
-TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/dst bs=4096 count=2304
 gfid_dst=$(get_gfid_string $M0/dir/dst)
 
 # Create marker file from the backend to simulate ENODATA.

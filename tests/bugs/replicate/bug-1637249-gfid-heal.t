@@ -25,7 +25,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 # xattrs are in split-brain or have dirty xattrs.
 
 TEST mkdir $M0/dir_pending
-TEST dd if=/dev/urandom of=$M0/dir_pending/file1 bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/dir_pending/file1 bs=128k count=8
 TEST mkdir $M0/dir_pending/dir11
 TEST mkdir $M0/dir_dirty
 TEST touch $M0/dir_dirty/file2
@@ -97,7 +97,7 @@ EXPECT "$gfid_f4" gf_get_gfid_xattr $B0/${V0}1/dir_pending/file4
 # does not have any pending or dirty xattrs.
 
 TEST mkdir $M0/dir_clean
-TEST dd if=/dev/urandom of=$M0/dir_clean/file1 bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/dir_clean/file1 bs=128k count=8
 TEST mkdir $M0/dir_clean/dir11
 
 gfid_f1=$(gf_get_gfid_xattr $B0/${V0}0/dir_clean/file1)

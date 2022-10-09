@@ -18,13 +18,13 @@ TEST touch $M0/mdata.txt
 
 #Create data and metadata split-brain
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/data.txt bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/data.txt bs=128k count=8
 TEST setfattr -n user.value -v value1 $M0/mdata.txt
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST dd if=/dev/urandom of=$M0/data.txt bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/data.txt bs=128k count=8
 TEST setfattr -n user.value -v value2 $M0/mdata.txt
 
 TEST $CLI volume start $V0 force

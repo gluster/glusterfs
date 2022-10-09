@@ -32,7 +32,7 @@ TEST unlink $M0/dir/foo
 # Now rename "new" to "bar". If the bug exists, it should fail with EINVAL.
 TEST mv -f $M0/dir/new $M0/dir/bar
 
-TEST dd if=/dev/zero of=$M0/dir/new bs=1024 count=5120
+TEST dd if=/dev/zero of=$M0/dir/new bs=128k count=40
 
 # Now test that this fix does not break unlink of files without holes
 TEST unlink $M0/dir/new

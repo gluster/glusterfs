@@ -30,7 +30,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "$DISPERSE" ec_child_up_count $V0 0
 
 TEST dd if=/dev/urandom of=$tmp/small bs=1024 count=1
-TEST dd if=/dev/urandom of=$tmp/big bs=1024 count=4096
+TEST dd if=/dev/urandom of=$tmp/big bs=128k count=32
 
 cs_small=$(sha1sum $tmp/small | awk '{ print $1 }')
 cs_big=$(sha1sum $tmp/big | awk '{ print $1 }')

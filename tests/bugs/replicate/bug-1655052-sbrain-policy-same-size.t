@@ -22,12 +22,12 @@ TEST touch $M0/file
 
 ############ Healing using favorite-child-policy = size and size of bricks is same #################
 TEST kill_brick $V0 $H0 $B0/${V0}1
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0

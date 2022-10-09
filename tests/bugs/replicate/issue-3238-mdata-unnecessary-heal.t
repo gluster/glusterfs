@@ -16,7 +16,7 @@ TEST $CLI volume profile $V0 start
 TEST $CLI volume start $V0
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M1;
-dd if=/dev/zero of=$M0/datafile bs=1024 count=1024
+dd if=/dev/zero of=$M0/datafile bs=128k count=8
 EXPECT "^0$" echo $?
 
 #Perform a lookup from second client to validate the metadata

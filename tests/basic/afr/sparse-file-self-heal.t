@@ -46,7 +46,7 @@ TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
 TEST truncate -s 1G $M0/FILE
 
 #Create a non-sparse file containing zeroes.
-TEST dd if=/dev/zero of=$M0/zeroedfile bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/zeroedfile bs=128k count=8
 
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0
@@ -132,7 +132,7 @@ TEST dd if=/dev/urandom of=$M0/FILE count=1 bs=131072
 TEST truncate -s 1G $M0/FILE
 
 #Create a non-sparse file containing zeroes.
-TEST dd if=/dev/zero of=$M0/zeroedfile bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/zeroedfile bs=128k count=8
 
 $CLI volume start $V0 force
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 0

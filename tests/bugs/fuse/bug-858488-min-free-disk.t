@@ -48,7 +48,7 @@ BRICK1FILE=0
 BRICK2FILE=0
 while [[ $CONTINUE -ne 0 ]]
 do
-        dd if=/dev/zero of=$M0/file$i.data bs=1024 count=1024 1>/dev/null 2>&1
+        dd if=/dev/zero of=$M0/file$i.data bs=128k count=8 1>/dev/null 2>&1
 
         if  [[ -e  $B0/${V0}1/file$i.data &&  $BRICK1FILE = "0" ]]
         then
@@ -69,7 +69,7 @@ done
 
 ## Bring free space on one of the bricks to less than minfree value by
 ## creating one big file.
-dd if=/dev/zero of=$M0/fillonebrick.data bs=1024 count=25600 1>/dev/null 2>&1
+dd if=/dev/zero of=$M0/fillonebrick.data bs=128k count=200 1>/dev/null 2>&1
 
 #Lets find out where it was created
 if [ -f $B0/${V0}1/fillonebrick.data ]
@@ -92,7 +92,7 @@ do
         touch $M0/dummyfile$k
 done
 
-dd if=/dev/zero of=$M0/$FILETOCREATE bs=1024 count=2048 1>/dev/null 2>&1
+dd if=/dev/zero of=$M0/$FILETOCREATE bs=128k count=16 1>/dev/null 2>&1
 TEST [ -e $OTHERBRICK/$FILETOCREATE ]
 ## Done testing, lets clean up
 TEST rm -rf $M0/*

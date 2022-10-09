@@ -141,7 +141,7 @@ TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 --direct-io-mode=yes $M0;
 # Wait until all 6 childs have been recognized by the ec xlator
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 
-TEST dd if=/dev/urandom of=$tmp/test bs=1024 count=1024
+TEST dd if=/dev/urandom of=$tmp/test bs=128k count=8
 
 cs=$(sha1sum $tmp/test | awk '{ print $1 }')
 

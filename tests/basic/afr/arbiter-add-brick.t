@@ -20,7 +20,7 @@ TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1
 #Kill second brick and perform I/O to have pending heals.
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST mkdir $M0/dir2
-TEST dd if=/dev/urandom of=$M0/file1 bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file1 bs=128k count=8
 
 
 #convert replica 2 to arbiter volume
@@ -62,7 +62,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
 TEST mkdir $M0/dir3
-TEST dd if=/dev/urandom of=$M0/file2 bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file2 bs=128k count=8
 
 # File hierarchy must be same in all 3 bricks.
 TEST diff <(ls $B0/${V0}0 | sort) <(ls $B0/${V0}2 | sort)

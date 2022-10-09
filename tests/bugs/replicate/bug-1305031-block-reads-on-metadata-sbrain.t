@@ -21,7 +21,7 @@ TEST $CLI volume set $V0 performance.open-behind off
 TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=/$V0 --volfile-server=$H0 $M0
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST chmod 700 $M0/file

@@ -53,7 +53,7 @@ TEST unlink $M0/file
 ###Punch hole test cases without fallocate
 ##With write
 #Touching starting boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 0 -l 500 $B0/test_file
 TEST fallocate -p -o 0 -l 500 $M0/test_file
@@ -62,7 +62,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Touching boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 500 -l 1548 $B0/test_file
 TEST fallocate -p -o 500 -l 1548 $M0/test_file
@@ -71,7 +71,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Not touching boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 500 -l 1000 $B0/test_file
 TEST fallocate -p -o 500 -l 1000 $M0/test_file
@@ -80,7 +80,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Over boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 1500 -l 1000 $B0/test_file
 TEST fallocate -p -o 1500 -l 1000 $M0/test_file
@@ -92,7 +92,7 @@ TEST rm -f $B0/test_file $M0/test_file
 ##Without write
 
 #Zero size
-TEST dd if=/dev/urandom of=$M0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$M0/test_file bs=8192 count=1
 TEST ! fallocate -p -o 1500 -l 0 $M0/test_file
 
 #Negative size
@@ -100,7 +100,7 @@ TEST ! fallocate -p -o 1500 -l -100 $M0/test_file
 TEST rm -f $M0/test_file
 
 #Touching boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 2048 -l 2048 $B0/test_file
 TEST fallocate -p -o 2048 -l 2048 $M0/test_file
@@ -109,7 +109,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Touching boundary,multiple stripe
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 2048 -l 4096 $B0/test_file
 TEST fallocate -p -o 2048 -l 4096 $M0/test_file
@@ -120,7 +120,7 @@ TEST rm -f $B0/test_file $M0/test_file
 ##With write
 
 #Size ends in boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 600 -l 3496 $B0/test_file
 TEST fallocate -p -o 600 -l 3496 $M0/test_file
@@ -129,7 +129,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Offset at boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 2048 -l 3072 $B0/test_file
 TEST fallocate -p -o 2048 -l 3072 $M0/test_file
@@ -138,7 +138,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Offset and Size not at boundary covering a stripe
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 1500 -l 3000 $B0/test_file
 TEST fallocate -p -o 1500 -l 3000 $M0/test_file
@@ -147,7 +147,7 @@ EXPECT $md5_sum get_md5_sum $M0/test_file
 TEST rm -f $B0/test_file $M0/test_file
 
 #Offset and Size not at boundary
-TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=8
+TEST dd if=/dev/urandom of=$B0/test_file bs=8192 count=1
 TEST cp $B0/test_file $M0/test_file
 TEST fallocate -p -o 1000 -l 3072 $B0/test_file
 TEST fallocate -p -o 1000 -l 3072 $M0/test_file

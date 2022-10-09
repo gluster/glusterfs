@@ -56,7 +56,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 ######################################################
 
 # Create a 9M sharded file
-TEST dd if=/dev/zero of=$M0/dir/new bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/new bs=4096 count=2304
 gfid_new=$(get_gfid_string $M0/dir/new)
 # Ensure its shards are created.
 TEST stat $B0/${V0}0/.shard/$gfid_new.1
@@ -95,7 +95,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 
 TEST touch $M0/dir/foo
 gfid_foo=$(get_gfid_string $M0/dir/foo)
-TEST dd if=/dev/zero of=$M0/dir/foo bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/dir/foo bs=128k count=8
 # Test to ensure that unlink of a file with only base shard works fine.
 TEST unlink $M0/dir/foo
 TEST ! stat $B0/${V0}0/dir/foo
@@ -109,7 +109,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 ########################################################
 
 # Create a 9M sharded file
-TEST dd if=/dev/zero of=$M0/dir/original bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/original bs=4096 count=2304
 gfid_original=$(get_gfid_string $M0/dir/original)
 # Ensure its shards are created.
 TEST stat $B0/${V0}0/.shard/$gfid_original.1
@@ -190,7 +190,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 # Create a 9M sharded file
-TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/dst bs=4096 count=2304
 gfid_dst=$(get_gfid_string $M0/dir/dst)
 # Ensure its shards are created.
 TEST stat $B0/${V0}0/.shard/$gfid_dst.1
@@ -234,7 +234,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
-TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/dir/dst bs=128k count=8
 gfid_dst=$(get_gfid_string $M0/dir/dst)
 # Test to ensure that rename into a file with only base shard works fine.
 TEST mv -f $M0/dir/src $M0/dir/dst
@@ -254,7 +254,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 TEST unlink $M0/dir/dst
 TEST touch $M0/dir/src
 # Create a 9M sharded file
-TEST dd if=/dev/zero of=$M0/dir/dst bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/dst bs=4096 count=2304
 gfid_dst=$(get_gfid_string $M0/dir/dst)
 # Ensure its shards are created.
 TEST stat $B0/${V0}0/.shard/$gfid_dst.1
@@ -296,7 +296,7 @@ EXPECT_WITHIN $FILE_COUNT_TIME 0 get_file_count $B0/${V0}1/.shard/.remove_me/$gf
 ##############################################################l
 
 TEST touch $M0/dir/src
-TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=9216
+TEST dd if=/dev/zero of=$M0/dir/src bs=4096 count=2304
 gfid_src=$(get_gfid_string $M0/dir/src)
 # Ensure its shards are created.
 TEST stat $B0/${V0}0/.shard/$gfid_src.1
@@ -322,7 +322,7 @@ TEST   stat $B0/${V0}1/dir/dst2
 #############################################################################
 
 TEST touch $M0/dir/src
-TEST dd if=/dev/zero of=$M0/dir/src bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/dir/src bs=128k count=8
 gfid_src=$(get_gfid_string $M0/dir/src)
 TEST ! stat $B0/${V0}0/.shard/$gfid_src.1
 TEST ! stat $B0/${V0}1/.shard/$gfid_src.1

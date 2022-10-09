@@ -22,7 +22,7 @@ TEST $CLI volume remove-brick $V0 replica 2  $H0:$B0/${V0}2 force
 EXPECT "1 x 2 = 2" volinfo_field $V0 "Number of Bricks"
 
 TEST mkdir $M0/dir
-TEST dd if=/dev/urandom of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
 TEST diff <(ls $B0/${V0}0 | sort) <(ls $B0/${V0}1 | sort)
 
 #Mount serves the correct file size

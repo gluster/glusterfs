@@ -55,7 +55,7 @@ EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "9" brick_count ${V1}
 TEST glusterfs -s $H0 --volfile-id $V1 $M0
 TEST touch $M0/zerobytefile.txt
 TEST mkdir $M0/test_dir
-TEST dd if=/dev/zero of=$M0/file bs=1024 count=1024
+TEST dd if=/dev/zero of=$M0/file bs=128k count=8
 
 function remove_brick_start {
         $CLI volume remove-brick $V1 replica 2 $H0:$B0/${V1}{1,4,7} start 2>&1|grep -oE 'success|failed'

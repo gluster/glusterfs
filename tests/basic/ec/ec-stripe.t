@@ -42,9 +42,9 @@ function mount_get_test_files {
         local stripe_count=$1
         TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0;
         EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count $V0 0
-        TEST dd if=/dev/urandom of=$B0/test_file bs=1024 count=20
+        TEST dd if=/dev/urandom of=$B0/test_file bs=4096 count=5
         TEST cp $B0/test_file $M0/test_file
-        TEST dd if=/dev/urandom of=$B0/misc_file bs=1024 count=20
+        TEST dd if=/dev/urandom of=$B0/misc_file bs=4096 count=5
         EXPECT_WITHIN $UMOUNT_TIMEOUT "$stripe_count" get_stripes_in_cache $B0/test_file $stripe_count
         EXPECT_WITHIN $UMOUNT_TIMEOUT "$stripe_count" get_stripes_in_cache $M0/test_file $stripe_count
 }
