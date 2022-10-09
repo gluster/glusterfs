@@ -51,8 +51,7 @@ struct event_slot_epoll {
 };
 
 struct event_slot_epoll_table {
-    int slots_used;
-    int _pad;
+    uint64_t slots_avail;
     struct event_slot_epoll slots[EVENT_EPOLL_SLOTS];
 };
 

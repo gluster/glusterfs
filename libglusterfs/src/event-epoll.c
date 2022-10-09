@@ -35,7 +35,7 @@ __event_newtable(struct event_pool *event_pool, int table_idx)
     if (!table)
         return NULL;
 
-    table->slots_used = 0;
+    table->slots_avail = EVENT_EPOLL_SLOTS;
 
     for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
         table->slots[i].fd = -1;
@@ -69,7 +69,7 @@ retry:
     while (table_idx < EVENT_EPOLL_TABLES) {
         table = event_pool->ereg[table_idx];
         if (table) {
-            if (table->slots_used == EVENT_EPOLL_SLOTS) {
+            if (table->slots_avail == 0) {
                 table_idx++;
                 continue;
             } else {
@@ -120,7 +120,7 @@ set_slot:
         INIT_LIST_HEAD(&table_slot->poller_death);
     }
 
-    table->slots_used++;
+    table->slots_avail--;
     *slot = table_slot;
     event_slot_ref(*slot);
     return table_idx * EVENT_EPOLL_SLOTS + j;
@@ -142,7 +142,7 @@ __event_slot_dealloc(struct event_slot_epoll_table *table, int offset)
     LOCK_DESTROY(&slot->lock);
     list_del_init(&slot->poller_death);
     if (fd != -1)
-        table->slots_used--;
+        table->slots_avail++;
 }
 
 static void
@@ -272,16 +272,12 @@ event_pool_new_epoll(int count, int eventthreadcount)
         goto err;
     }
 
-    event_pool->table0.slots_used = 0;
+    event_pool->table0.slots_avail = EVENT_EPOLL_SLOTS;
     for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
         event_pool->table0.slots[i].fd = -1;
     }
 
     event_pool->ereg[0] = &event_pool->table0;
-
-    /*if (__event_newtable(event_pool, 0) == NULL) {
-        goto err;
-    }*/
 
     event_pool->fd = epfd;
 
@@ -927,7 +923,7 @@ event_pool_destroy_epoll(struct event_pool *event_pool)
                 if (table->slots[j].fd != -1)
                     LOCK_DESTROY(&table->slots[j].lock);
             }
-            if (i)  // skip table 0
+            if (i)  // skip table 0, it's allocated with the event_pool
                 GF_FREE(table);
         }
     }
