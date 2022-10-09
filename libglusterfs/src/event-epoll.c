@@ -20,27 +20,6 @@
 #ifdef HAVE_SYS_EPOLL_H
 #include <sys/epoll.h>
 
-struct event_slot_epoll {
-    int fd;
-    int events;
-    int gen;
-    int idx;
-    gf_atomic_t ref;
-    int do_close;
-    int in_handler;
-    int handled_error;
-    void *data;
-    event_handler_t handler;
-    struct list_head poller_death;
-    gf_lock_t lock;
-};
-
-struct event_slot_epoll_table {
-    int slots_used;
-    int _pad;
-    struct event_slot_epoll slots[EVENT_EPOLL_SLOTS];
-};
-
 struct event_thread_data {
     struct event_pool *event_pool;
     int event_index;
@@ -280,6 +259,7 @@ event_pool_new_epoll(int count, int eventthreadcount)
 {
     struct event_pool *event_pool = NULL;
     int epfd;
+    int i;
 
     event_pool = GF_CALLOC(1, sizeof(*event_pool), gf_common_mt_event_pool);
 
@@ -292,9 +272,16 @@ event_pool_new_epoll(int count, int eventthreadcount)
         goto err;
     }
 
-    if (__event_newtable(event_pool, 0) == NULL) {
-        goto err;
+    event_pool->table0.slots_used = 0;
+    for (i = 0; i < EVENT_EPOLL_SLOTS; i++) {
+        event_pool->table0.slots[i].fd = -1;
     }
+
+    event_pool->ereg[0] = &event_pool->table0;
+
+    /*if (__event_newtable(event_pool, 0) == NULL) {
+        goto err;
+    }*/
 
     event_pool->fd = epfd;
 
@@ -940,7 +927,8 @@ event_pool_destroy_epoll(struct event_pool *event_pool)
                 if (table->slots[j].fd != -1)
                     LOCK_DESTROY(&table->slots[j].lock);
             }
-            GF_FREE(table);
+            if (i)  // skip table 0
+                GF_FREE(table);
         }
     }
 
