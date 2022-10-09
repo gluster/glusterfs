@@ -391,14 +391,9 @@ synctask_wrap(void)
     synctask_yield(task, NULL);
 }
 
-void
+static void
 synctask_destroy(struct synctask *task)
 {
-    if (!task)
-        return;
-
-    GF_FREE(task->stack);
-
     if (task->opframe && (task->opframe != task->frame))
         STACK_DESTROY(task->opframe->root);
 
@@ -450,7 +445,7 @@ synctask_setid(struct synctask *task, uid_t uid, gid_t gid)
     return 0;
 }
 
-struct synctask *
+static struct synctask *
 synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
                 synctask_cbk_t cbk, call_frame_t *frame, void *opaque)
 {
@@ -458,8 +453,8 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     xlator_t *this = THIS;
     int destroymode = 0;
 
-    VALIDATE_OR_GOTO(env, err);
-    VALIDATE_OR_GOTO(fn, err);
+    VALIDATE_OR_GOTO(env, out);
+    VALIDATE_OR_GOTO(fn, out);
 
     /* Check if the syncenv is in destroymode i.e. destroy is SET.
      * If YES, then don't allow any new synctasks on it. Return NULL.
@@ -474,7 +469,16 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     if (destroymode)
         return NULL;
 
-    newtask = GF_CALLOC(1, sizeof(*newtask), gf_common_mt_synctask);
+    if (stacksize <= 0) {
+        newtask = GF_CALLOC(1, sizeof(struct synctask) + env->stacksize,
+                            gf_common_mt_syncstack);
+        newtask->ctx.uc_stack.ss_size = env->stacksize;
+    } else {
+        newtask = GF_CALLOC(1, sizeof(struct synctask) + stacksize,
+                            gf_common_mt_syncstack);
+        newtask->ctx.uc_stack.ss_size = stacksize;
+    }
+
     if (!newtask)
         return NULL;
 
@@ -488,8 +492,6 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     } else {
         newtask->opframe = frame;
     }
-    if (!newtask->opframe)
-        goto err;
     newtask->env = env;
     newtask->xl = this;
     newtask->syncfn = fn;
@@ -506,18 +508,6 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     if (getcontext(&newtask->ctx) < 0) {
         gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_GETCONTEXT_FAILED,
                "getcontext failed");
-        goto err;
-    }
-
-    if (stacksize <= 0) {
-        newtask->stack = GF_CALLOC(1, env->stacksize, gf_common_mt_syncstack);
-        newtask->ctx.uc_stack.ss_size = env->stacksize;
-    } else {
-        newtask->stack = GF_CALLOC(1, stacksize, gf_common_mt_syncstack);
-        newtask->ctx.uc_stack.ss_size = stacksize;
-    }
-
-    if (!newtask->stack) {
         goto err;
     }
 
@@ -553,12 +543,11 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     return newtask;
 err:
     if (newtask) {
-        GF_FREE(newtask->stack);
         if (newtask->opframe && (newtask->opframe != newtask->frame))
             STACK_DESTROY(newtask->opframe->root);
         GF_FREE(newtask);
     }
-
+out:
     return NULL;
 }
 

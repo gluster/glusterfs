@@ -67,7 +67,6 @@ struct synctask {
     gf_timer_t *timer;
     struct synccond *synccond;
     void *opaque;
-    void *stack;
     synctask_state_t state;
     int woken;
     int slept;
@@ -99,6 +98,7 @@ struct synctask {
 
     struct list_head waitq; /* can wait only "once" at a time */
     int done;
+    char stack[];
 };
 
 struct syncproc {
@@ -353,9 +353,6 @@ synctask_new1(struct syncenv *, size_t stacksize, synctask_fn_t, synctask_cbk_t,
 int
 synctask_new(struct syncenv *, synctask_fn_t, synctask_cbk_t,
              call_frame_t *frame, void *);
-struct synctask *
-synctask_create(struct syncenv *, size_t stacksize, synctask_fn_t,
-                synctask_cbk_t, call_frame_t *, void *);
 int
 synctask_join(struct synctask *task);
 void
