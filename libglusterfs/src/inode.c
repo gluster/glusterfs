@@ -2367,7 +2367,7 @@ inode_dump(inode_t *inode, char *prefix)
             gf_proc_dump_write("namespace", "%s",
                                uuid_utoa(inode->ns_inode->gfid));
         }
-        inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
+        inode_ctx = GF_MALLOC(inode->table->ctxcount * sizeof(*inode_ctx),
                               gf_common_mt_inode_ctx);
         if (inode_ctx == NULL) {
             goto unlock;
