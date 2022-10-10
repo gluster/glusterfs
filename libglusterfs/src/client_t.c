@@ -170,7 +170,6 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             errno = ENOMEM;
             goto unlock;
         }
-        client->scratch_ctx_count = GF_CLIENTCTX_INITIAL_SIZE;
         client->scratch_ctx = GF_CALLOC(GF_CLIENTCTX_INITIAL_SIZE,
                                         sizeof(struct client_ctx),
                                         gf_common_mt_client_ctx);
@@ -404,12 +403,12 @@ __client_ctx_get_int(client_t *client, void *key, void **value)
     int index = 0;
     int ret = 0;
 
-    for (index = 0; index < client->scratch_ctx_count; index++) {
+    for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
         if (client->scratch_ctx[index].ctx_key == key)
             break;
     }
 
-    if (index == client->scratch_ctx_count) {
+    if (index == GF_CLIENTCTX_INITIAL_SIZE) {
         ret = -1;
         goto out;
     }
@@ -428,7 +427,7 @@ __client_ctx_set_int(client_t *client, void *key, void *value)
     int ret = 0;
     int set_idx = -1;
 
-    for (index = 0; index < client->scratch_ctx_count; index++) {
+    for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
         if (!client->scratch_ctx[index].ctx_key) {
             if (set_idx == -1)
                 set_idx = index;
@@ -503,12 +502,12 @@ __client_ctx_del_int(client_t *client, void *key, void **value)
     int index = 0;
     int ret = 0;
 
-    for (index = 0; index < client->scratch_ctx_count; index++) {
+    for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
         if (client->scratch_ctx[index].ctx_key == key)
             break;
     }
 
-    if (index == client->scratch_ctx_count) {
+    if (index == GF_CLIENTCTX_INITIAL_SIZE) {
         ret = -1;
         goto out;
     }

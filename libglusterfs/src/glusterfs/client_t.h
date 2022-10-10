@@ -54,7 +54,6 @@ typedef struct _client {
     /* Variable to save fd_count for detach brick */
     gf_atomic_t fd_cnt;
     gf_lock_t scratch_ctx_lock;
-    unsigned int scratch_ctx_count;
     struct client_ctx *scratch_ctx;
 } client_t;
 
