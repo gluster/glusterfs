@@ -114,7 +114,7 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}1
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
 TEST kill_brick $V0 $H0 $B0/${V0}0
-TEST dd if=/dev/urandom of=$M0/file bs=128k count=8
+TEST dd if=/dev/urandom of=$M0/file bs=128k count=80
 
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0

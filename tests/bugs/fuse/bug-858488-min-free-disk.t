@@ -69,6 +69,7 @@ done
 
 ## Bring free space on one of the bricks to less than minfree value by
 ## creating one big file.
+#TODO: use fallocate instead of 'dd' - much faster.
 dd if=/dev/zero of=$M0/fillonebrick.data bs=128k count=200 1>/dev/null 2>&1
 
 #Lets find out where it was created
