@@ -151,7 +151,10 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             }
         }
 
-        client = GF_CALLOC(1, sizeof(client_t), gf_common_mt_client_t);
+        client = GF_CALLOC(1,
+                           sizeof(client_t) + GF_CLIENTCTX_INITIAL_SIZE *
+                                                  sizeof(struct client_ctx),
+                           gf_common_mt_client_t);
         if (client == NULL) {
             errno = ENOMEM;
             goto unlock;
@@ -170,16 +173,6 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             errno = ENOMEM;
             goto unlock;
         }
-        client->scratch_ctx = GF_CALLOC(GF_CLIENTCTX_INITIAL_SIZE,
-                                        sizeof(struct client_ctx),
-                                        gf_common_mt_client_ctx);
-        if (client->scratch_ctx == NULL) {
-            GF_FREE(client->client_uid);
-            GF_FREE(client);
-            client = NULL;
-            errno = ENOMEM;
-            goto unlock;
-        }
 
         GF_ATOMIC_INIT(client->bind, 1);
         GF_ATOMIC_INIT(client->count, 1);
@@ -189,7 +182,6 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
         if (cred->flavour) {
             client->auth.data = GF_MALLOC(cred->datalen, gf_common_mt_client_t);
             if (client->auth.data == NULL) {
-                GF_FREE(client->scratch_ctx);
                 GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
@@ -207,7 +199,6 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
                 clienttable,
                 clienttable->max_clients + GF_CLIENTTABLE_INITIAL_SIZE);
             if (result != 0) {
-                GF_FREE(client->scratch_ctx);
                 GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
@@ -334,7 +325,6 @@ client_destroy(client_t *client)
     GF_FREE(client->auth.data);
     GF_FREE(client->auth.username);
     GF_FREE(client->auth.passwd);
-    GF_FREE(client->scratch_ctx);
     GF_FREE(client->client_uid);
     GF_FREE(client->subdir_mount);
     GF_FREE(client->client_name);

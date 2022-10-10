@@ -54,7 +54,7 @@ typedef struct _client {
     /* Variable to save fd_count for detach brick */
     gf_atomic_t fd_cnt;
     gf_lock_t scratch_ctx_lock;
-    struct client_ctx *scratch_ctx;
+    struct client_ctx scratch_ctx[];
 } client_t;
 
 #define GF_CLIENTCTX_INITIAL_SIZE 8
