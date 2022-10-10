@@ -99,7 +99,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_int,
     gf_common_mt_pointer,
     gf_common_mt_synctask,  /* used only in one location */
-    gf_common_mt_syncstack, /* used only in one location */
     gf_common_mt_syncenv,   /* used only in one location */
     gf_common_mt_scan_data, /* used only in one location */
     gf_common_list_node,

@@ -470,18 +470,21 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
         return NULL;
 
     if (stacksize <= 0) {
-        newtask = GF_CALLOC(1, sizeof(struct synctask) + env->stacksize,
-                            gf_common_mt_syncstack);
+        newtask = GF_MALLOC(sizeof(struct synctask) + env->stacksize,
+                            gf_common_mt_synctask);
         newtask->ctx.uc_stack.ss_size = env->stacksize;
     } else {
-        newtask = GF_CALLOC(1, sizeof(struct synctask) + stacksize,
-                            gf_common_mt_syncstack);
+        newtask = GF_MALLOC(sizeof(struct synctask) + stacksize,
+                            gf_common_mt_synctask);
         newtask->ctx.uc_stack.ss_size = stacksize;
     }
 
     if (!newtask)
         return NULL;
 
+    INIT_LIST_HEAD(&newtask->all_tasks);
+    newtask->env = env;
+    newtask->xl = this;
     newtask->frame = frame;
     if (!frame) {
         newtask->opframe = create_frame(this, this->ctx->pool);
@@ -492,28 +495,21 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     } else {
         newtask->opframe = frame;
     }
-    newtask->env = env;
-    newtask->xl = this;
-    newtask->syncfn = fn;
+
     newtask->synccbk = cbk;
+    newtask->syncfn = fn;
+    newtask->delta = NULL;
     newtask->opaque = opaque;
+    newtask->timer = NULL;
+    newtask->synccond = NULL;
+    newtask->state = SYNCTASK_INIT;
+    newtask->woken = 0;
+    newtask->slept = 1;
+    newtask->ret = 0;
 
     /* default to the uid/gid of the passed frame */
     newtask->uid = newtask->opframe->root->uid;
     newtask->gid = newtask->opframe->root->gid;
-
-    INIT_LIST_HEAD(&newtask->all_tasks);
-    INIT_LIST_HEAD(&newtask->waitq);
-
-    if (getcontext(&newtask->ctx) < 0) {
-        gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_GETCONTEXT_FAILED,
-               "getcontext failed");
-        goto err;
-    }
-
-    newtask->ctx.uc_stack.ss_sp = newtask->stack;
-
-    makecontext(&newtask->ctx, (void (*)(void))synctask_wrap, 0);
 
 #ifdef HAVE_TSAN_API
     newtask->tsan.fiber = __tsan_create_fiber(0);
@@ -522,21 +518,33 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     __tsan_set_fiber_name(newtask->tsan.fiber, newtask->tsan.name);
 #endif
 
+#ifdef HAVE_ASAN_API
+    newtask->fake_stack = NULL;
+#endif
+
 #ifdef HAVE_VALGRIND_API
     newtask->stackid = VALGRIND_STACK_REGISTER(
         newtask->ctx.uc_stack.ss_sp,
         newtask->ctx.uc_stack.ss_sp + newtask->ctx.uc_stack.ss_size);
 #endif
 
-    newtask->state = SYNCTASK_INIT;
+    if (getcontext(&newtask->ctx) < 0) {
+        gf_msg("syncop", GF_LOG_ERROR, errno, LG_MSG_GETCONTEXT_FAILED,
+               "getcontext failed");
+        goto err;
+    }
+    newtask->ctx.uc_stack.ss_sp = newtask->stack;
+    makecontext(&newtask->ctx, (void (*)(void))synctask_wrap, 0);
 
-    newtask->slept = 1;
+    newtask->proc = NULL;
 
     if (!cbk) {
         pthread_mutex_init(&newtask->mutex, NULL);
         pthread_cond_init(&newtask->cond, NULL);
-        newtask->done = 0;
     }
+
+    INIT_LIST_HEAD(&newtask->waitq);
+    newtask->done = 0;
 
     synctask_wake(newtask);
 
