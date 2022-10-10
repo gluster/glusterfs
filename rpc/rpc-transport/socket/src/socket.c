@@ -4190,27 +4190,28 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
         if (ec_curve != NULL) {
 #ifdef HAVE_OPENSSL_ECDH_H
-            EC_KEY *ecdh = NULL;
             int nid;
             unsigned long err;
 
             nid = OBJ_sn2nid(ec_curve);
-            if (nid != 0)
+            if (nid != 0) {
+                EC_KEY *ecdh = NULL;
                 ecdh = EC_KEY_new_by_curve_name(nid);
 
-            if (ecdh != NULL) {
+                if (ecdh != NULL) {
 #if SSL_OP_SINGLE_ECDH_USE != 0
-                /* Has no effect in never versions of OpenSSL. */
-                SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
+                    /* Has no effect in never versions of OpenSSL. */
+                    SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_ECDH_USE);
 #endif /* SSL_OP_SINGLE_ECDH_USE */
-                SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
-                EC_KEY_free(ecdh);
-            } else {
-                err = ERR_get_error();
-                gf_log(this->name, GF_LOG_ERROR,
-                       "failed to load EC curve %s: %s. "
-                       "ECDH ciphers are disabled.",
-                       ec_curve, ERR_error_string(err, NULL));
+                    SSL_CTX_set_tmp_ecdh(priv->ssl_ctx, ecdh);
+                    EC_KEY_free(ecdh);
+                } else {
+                    err = ERR_get_error();
+                    gf_log(this->name, GF_LOG_ERROR,
+                           "failed to load EC curve %s: %s. "
+                           "ECDH ciphers are disabled.",
+                           ec_curve, ERR_error_string(err, NULL));
+                }
             }
 #else  /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
