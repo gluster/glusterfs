@@ -103,8 +103,7 @@ __iobuf_arena_destroy_iobufs(struct iobuf_arena *iobuf_arena)
 static void
 __iobuf_arena_destroy(struct iobuf_arena *iobuf_arena)
 {
-    if (iobuf_arena->mem_base && iobuf_arena->mem_base != MAP_FAILED)
-        munmap(iobuf_arena->mem_base, iobuf_arena->arena_size);
+    munmap(iobuf_arena->mem_base, iobuf_arena->arena_size);
 
     __iobuf_arena_destroy_iobufs(iobuf_arena);
 
