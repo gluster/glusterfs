@@ -382,6 +382,14 @@ dht_check_and_open_fd_on_subvol_complete(int ret, call_frame_t *frame,
                        local->key, local->fd, local->rebalance.lock_cmd,
                        &local->rebalance.flock, local->xattr_req);
             break;
+
+        case GF_FOP_SEEK:
+            STACK_WIND_COOKIE(frame, dht_seek_cbk, subvol, subvol,
+                              subvol->fops->seek, local->fd,
+                              local->rebalance.offset, local->rebalance.flags,
+                              local->xattr_req);
+            break;
+
         default:
             gf_smsg(this->name, GF_LOG_ERROR, 0, DHT_MSG_UNKNOWN_FOP, "fd=%p",
                     fd, "gfid=%s", uuid_utoa(fd->inode->gfid), "name=%s",

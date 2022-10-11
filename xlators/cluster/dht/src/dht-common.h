@@ -589,7 +589,7 @@ struct dht_conf {
 
     char vol_uuid[UUID_SIZE + 1];
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
 
     gf_boolean_t lock_migration_enabled;
 
@@ -973,6 +973,10 @@ dht_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 int32_t
 dht_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
          fd_t *fd, dict_t *xdata);
+
+int32_t
+dht_seek(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+         gf_seek_what_t what, dict_t *xdata);
 
 int32_t
 dht_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -1382,4 +1386,8 @@ dht_dir_layout_error_check(xlator_t *this, inode_t *inode);
 
 int
 dht_inode_ctx_mdsvol_set(inode_t *inode, xlator_t *this, xlator_t *mds_subvol);
+
+int
+dht_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
+             int op_errno, off_t offset, dict_t *xdata);
 #endif /* _DHT_H */

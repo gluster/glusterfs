@@ -1543,6 +1543,10 @@ posix_truncate(call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
 
     posix_set_ctime(frame, this, real_path, -1, loc->inode, &postbuf);
 
+    if (postbuf.ia_blocks < prebuf.ia_blocks)
+        GF_ATOMIC_SUB(priv->write_value,
+                      ((prebuf.ia_blocks - postbuf.ia_blocks) * 512));
+
     op_ret = 0;
 out:
     SET_TO_OLD_FS_ID();
@@ -1983,7 +1987,7 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     priv = this->private;
 
     VALIDATE_OR_GOTO(priv, unwind);
-    DISK_SPACE_CHECK_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
+    DISK_SPACE_CHECK_WRITEV_AND_GOTO(frame, priv, xdata, op_ret, op_errno, out);
 
 overwrite:
 
@@ -2120,7 +2124,9 @@ overwrite:
         }
     }
 
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
+    if (preop.ia_blocks < postop.ia_blocks)
+        GF_ATOMIC_ADD(priv->write_value,
+                      ((postop.ia_blocks - preop.ia_blocks) * 512));
 
 out:
 
@@ -2474,7 +2480,7 @@ posix_statfs(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
         goto out;
     }
 
-    if (priv->disk_unit == 'p') {
+    if (priv->disk_unit_percent) {
         percent = priv->disk_reserve;
         reserved_blocks = (((buf.f_blocks * percent) / 100) + 0.5);
     } else {
@@ -4123,6 +4129,10 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         0,
     };
     dict_t *xattr_rsp = NULL;
+    char *path = NULL;
+    loc_t loc = {
+        0,
+    };
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -4148,6 +4158,44 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         op_ret = -1;
         op_errno = ENOMEM;
         goto out;
+    }
+
+    if (fd->inode && name &&
+        (strncmp(name, GF_XATTR_GET_REAL_FILENAME_KEY,
+                 SLEN(GF_XATTR_GET_REAL_FILENAME_KEY)) == 0)) {
+        ret = inode_path(fd->inode, NULL, &path);
+        if (ret < 0) {
+            op_ret = -1;
+            op_errno = -ret;
+            goto out;
+        }
+
+        loc.path = path;
+        loc.inode = inode_ref(fd->inode);
+        gf_uuid_copy(loc.gfid, fd->inode->gfid);
+
+        ret = posix_xattr_get_real_filename(frame, this, &loc, name, dict,
+                                            xdata);
+        if (ret < 0) {
+            op_ret = -1;
+            op_errno = -ret;
+            if (op_errno == ENOATTR) {
+                gf_msg_debug(this->name, 0,
+                             "Failed to get "
+                             "real filename (%s, %s)",
+                             loc.path, name);
+            } else {
+                gf_msg(this->name, GF_LOG_WARNING, op_errno,
+                       P_MSG_GETTING_FILENAME_FAILED,
+                       "Failed to get real filename (%s, %s):", loc.path, name);
+            }
+            loc_wipe(&loc);
+            goto out;
+        }
+
+        size = ret;
+        loc_wipe(&loc);
+        goto done;
     }
 
     if (name && !strcmp(name, GLUSTERFS_OPEN_FD_COUNT)) {

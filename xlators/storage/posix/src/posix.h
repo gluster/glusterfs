@@ -77,6 +77,41 @@
         }                                                                      \
     } while (0)
 
+#define DISK_SPACE_CHECK_WRITEV_AND_GOTO(frame, priv, xdata, op_ret, op_errno, \
+                                         out)                                  \
+    do {                                                                       \
+        gf_boolean_t flag = _gf_false;                                         \
+        int32_t buffer_size = 0;                                               \
+        int64_t write_val = 0;                                                 \
+        int64_t disk_free = 0;                                                 \
+        if (frame->root->pid >= 0 &&                                           \
+            !dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {              \
+            if (priv->disk_space_full) {                                       \
+                flag = _gf_true;                                               \
+            } else {                                                           \
+                if (dict_get_int32(xdata, "buffer-size", &buffer_size)) {      \
+                    gf_log(frame->this->name, GF_LOG_TRACE,                    \
+                           "failed to get "                                    \
+                           " buffer-size");                                    \
+                }                                                              \
+                write_val = GF_ATOMIC_GET(priv->write_value);                  \
+                disk_free = priv->disk_size_after_reserve;                     \
+                if ((buffer_size + write_val) > disk_free) {                   \
+                    flag = _gf_true;                                           \
+                }                                                              \
+            }                                                                  \
+            if (flag) {                                                        \
+                op_ret = -1;                                                   \
+                op_errno = ENOSPC;                                             \
+                gf_msg_debug("posix", ENOSPC,                                  \
+                             "disk space utilization reached limits"           \
+                             " for path %s ",                                  \
+                             priv->base_path);                                 \
+                goto out;                                                      \
+            }                                                                  \
+        }                                                                      \
+    } while (0)
+
 /* Setting microseconds or nanoseconds depending on what's supported:
    The passed in `tv` can be
        struct timespec
@@ -155,6 +190,7 @@ struct posix_private {
 
     gf_atomic_t read_value;  /* Total read, from init */
     gf_atomic_t write_value; /* Total write, from init */
+    uint64_t disk_size_after_reserve;
 
     /* janitor task which cleans up /.trash (created by replicate) */
     struct gf_tw_timer_list *janitor;
@@ -235,7 +271,7 @@ struct posix_private {
     gf_boolean_t ctime;
     gf_boolean_t janitor_task_stop;
 
-    char disk_unit;
+    gf_boolean_t disk_unit_percent;
     gf_boolean_t health_check_active;
     gf_boolean_t update_pgfid_nlinks;
     gf_boolean_t gfid2path;
