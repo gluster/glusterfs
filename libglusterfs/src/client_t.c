@@ -121,6 +121,7 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
     cliententry_t *cliententry = NULL;
     clienttable_t *clienttable = NULL;
     unsigned int i = 0;
+    unsigned int client_uid_len = 0;
 
     if (this == NULL || client_uid == NULL) {
         gf_msg_callingfn("client_t", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -151,38 +152,23 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             }
         }
 
-        client = GF_CALLOC(1,
-                           sizeof(client_t) + GF_CLIENTCTX_INITIAL_SIZE *
-                                                  sizeof(struct client_ctx),
+        client_uid_len = strlen(client_uid) + 1;
+        client = GF_CALLOC(1, sizeof(client_t) + client_uid_len,
                            gf_common_mt_client_t);
         if (client == NULL) {
             errno = ENOMEM;
             goto unlock;
         }
 
-        client->this = this;
-        if (subdir_mount != NULL)
-            client->subdir_mount = gf_strdup(subdir_mount);
-
-        LOCK_INIT(&client->scratch_ctx_lock);
-
-        client->client_uid = gf_strdup(client_uid);
-        if (client->client_uid == NULL) {
-            GF_FREE(client);
-            client = NULL;
-            errno = ENOMEM;
-            goto unlock;
-        }
-
         GF_ATOMIC_INIT(client->bind, 1);
         GF_ATOMIC_INIT(client->count, 1);
-        GF_ATOMIC_INIT(client->fd_cnt, 0);
+        client->this = this;
+        client->tbl_index = clienttable->first_free;
 
         client->auth.flavour = cred->flavour;
         if (cred->flavour) {
             client->auth.data = GF_MALLOC(cred->datalen, gf_common_mt_client_t);
             if (client->auth.data == NULL) {
-                GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
                 errno = ENOMEM;
@@ -192,14 +178,19 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             client->auth.len = cred->datalen;
         }
 
-        client->tbl_index = clienttable->first_free;
+        if (subdir_mount != NULL)
+            client->subdir_mount = gf_strdup(subdir_mount);
+
+        GF_ATOMIC_INIT(client->fd_cnt, 0);
+        LOCK_INIT(&client->scratch_ctx_lock);
+        memcpy(client->client_uid, client_uid, client_uid_len);
+
         cliententry = &clienttable->cliententries[clienttable->first_free];
         if (cliententry->next_free == GF_CLIENTTABLE_END) {
             int result = gf_client_clienttable_expand(
                 clienttable,
                 clienttable->max_clients + GF_CLIENTTABLE_INITIAL_SIZE);
             if (result != 0) {
-                GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
                 errno = result;

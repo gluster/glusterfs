@@ -30,6 +30,8 @@ struct client_ctx {
     void *ctx_value;
 };
 
+#define GF_CLIENTCTX_INITIAL_SIZE 8
+
 typedef struct _client {
     gf_atomic_t bind;
     gf_atomic_t count;
@@ -37,7 +39,6 @@ typedef struct _client {
     xlator_t *this;
     int tbl_index;
     int32_t opversion;
-    char *client_uid;
     char *client_name;
     struct {
         int flavour;
@@ -54,10 +55,9 @@ typedef struct _client {
     /* Variable to save fd_count for detach brick */
     gf_atomic_t fd_cnt;
     gf_lock_t scratch_ctx_lock;
-    struct client_ctx scratch_ctx[];
+    struct client_ctx scratch_ctx[GF_CLIENTCTX_INITIAL_SIZE];
+    char client_uid[];
 } client_t;
-
-#define GF_CLIENTCTX_INITIAL_SIZE 8
 
 struct client_table_entry {
     client_t *client;
