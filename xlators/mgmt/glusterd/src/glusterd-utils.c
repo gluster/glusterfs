@@ -3254,13 +3254,6 @@ glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count,
                     goto out;
                 }
 
-                if (!pair->key) {
-                    gf_msg("glusterd", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR,
-                           "pair->key is null!");
-                    ret = -1;
-                    goto out;
-                }
-
                 keylen = strlen(pair->key);
                 netword = htobe32(keylen);
                 memcpy(buf, &netword, sizeof(netword));

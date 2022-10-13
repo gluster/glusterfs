@@ -73,7 +73,6 @@ get_new_dict_full()
         return NULL;
     }
 
-    dict->free_pair.key = NULL;
     dict->totkvlen = 0;
     LOCK_INIT(&dict->lock);
 
@@ -325,7 +324,7 @@ dict_lookup_common(const dict_t *this, const char *key)
     data_pair_t *pair;
 
     for (pair = this->members_list; pair != NULL; pair = pair->next) {
-        if (pair->key && !strcmp(pair->key, key))
+        if (!strcmp(pair->key, key))
             return pair;
     }
 
@@ -376,24 +375,12 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         }
     }
 
-    if (this->free_pair.key) { /* the free_pair is used */
-        pair = mem_get(THIS->ctx->dict_pair_pool);
-        if (!pair) {
-            return -1;
-        }
-    } else { /* assign the pair to the free pair */
-        pair = &this->free_pair;
-    }
-
-    pair->key = (char *)GF_MALLOC(key_len + 1, gf_common_mt_char);
-    if (!pair->key) {
-        if (pair != &this->free_pair) {
-            mem_put(pair);
-        }
+    pair = GF_MALLOC(sizeof(data_pair_t) + key_len + 1, gf_common_mt_char);
+    if (caa_unlikely(!pair))
         return -1;
-    }
-    strcpy(pair->key, key);
+
     pair->value = data_ref(value);
+    strcpy(pair->key, key);
     this->totkvlen += (key_len + 1 + value->len);
 
     pair->next = this->members_list;
@@ -517,12 +504,7 @@ dict_deln(dict_t *this, char *key, const int keylen)
                 this->members_list = pair->next;
 
             this->totkvlen -= (keylen + 1);
-            GF_FREE(pair->key);
-            if (pair == &this->free_pair) {
-                this->free_pair.key = NULL;
-            } else {
-                mem_put(pair);
-            }
+            GF_FREE(pair);
             this->count--;
             rc = _gf_true;
             break;
@@ -548,12 +530,7 @@ dict_clear_data(dict_t *this)
     while (curr != NULL) {
         next = curr->next;
         data_unref(curr->value);
-        GF_FREE(curr->key);
-        if (curr == &this->free_pair) {
-            this->free_pair.key = NULL;
-        } else {
-            mem_put(curr);
-        }
+        GF_FREE(curr);
         curr = next;
     }
     this->count = this->totkvlen = 0;
@@ -1999,27 +1976,17 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             else
                 BIT_CLEAR((unsigned char *)(data->data), flag);
 
-            if (this->free_pair.key) { /* the free pair is in use */
-                pair = mem_get0(THIS->ctx->dict_pair_pool);
-                if (!pair) {
-                    gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
-                            "dict pair", NULL);
-                    ret = -ENOMEM;
-                    goto err;
-                }
-            } else { /* use the free pair */
-                pair = &this->free_pair;
-            }
-
-            pair->key = (char *)GF_MALLOC(strlen(key) + 1, gf_common_mt_char);
-            if (!pair->key) {
+            pair = GF_MALLOC(sizeof(data_pair_t) + strlen(key) + 1,
+                             gf_common_mt_char);
+            if (caa_unlikely(!pair)) {
                 gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
                         "dict pair", NULL);
                 ret = -ENOMEM;
                 goto err;
             }
-            strcpy(pair->key, key);
+
             pair->value = data_ref(data);
+            strcpy(pair->key, key);
             this->totkvlen += (strlen(key) + 1 + data->len);
 
             pair->next = this->members_list;
@@ -2038,15 +2005,8 @@ err:
     if (key && this)
         UNLOCK(&this->lock);
 
-    if (pair) {
-        if (pair->key) {
-            GF_FREE(pair->key);
-            pair->key = NULL;
-        }
-        if (pair != &this->free_pair) {
-            mem_put(pair);
-        }
-    }
+    if (pair)
+        GF_FREE(pair);
 
     if (data)
         data_destroy(data);
@@ -2779,11 +2739,6 @@ dict_serialize_lk(dict_t *this, char *buf)
         if (!pair) {
             gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_PAIRS_LESS_THAN_COUNT,
                     NULL);
-            goto out;
-        }
-
-        if (!pair->key) {
-            gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR, NULL);
             goto out;
         }
 
