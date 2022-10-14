@@ -375,7 +375,8 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         }
     }
 
-    pair = GF_MALLOC(sizeof(data_pair_t) + key_len + 1, gf_common_mt_char);
+    pair = GF_MALLOC(sizeof(data_pair_t) + key_len + 1,
+                     gf_common_mt_data_pair_t);
     if (caa_unlikely(!pair))
         return -1;
 
@@ -1978,7 +1979,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
                 BIT_CLEAR((unsigned char *)(data->data), flag);
 
             keylen = strlen(key) + 1;  // including terminating NULL char
-            pair = GF_MALLOC(sizeof(data_pair_t) + keylen, gf_common_mt_char);
+            pair = GF_MALLOC(sizeof(data_pair_t) + keylen,
+                             gf_common_mt_data_pair_t);
             if (caa_unlikely(!pair)) {
                 gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
                         "dict pair", NULL);
