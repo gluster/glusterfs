@@ -472,15 +472,20 @@ synctask_create(struct syncenv *env, size_t stacksize, synctask_fn_t fn,
     if (stacksize <= 0) {
         newtask = GF_MALLOC(sizeof(struct synctask) + env->stacksize,
                             gf_common_mt_synctask);
+        if (caa_unlikely(!newtask))
+            return NULL;
+
+        memset(newtask, 0, sizeof(struct synctask));
         newtask->ctx.uc_stack.ss_size = env->stacksize;
     } else {
         newtask = GF_MALLOC(sizeof(struct synctask) + stacksize,
                             gf_common_mt_synctask);
+        if (caa_unlikely(!newtask))
+            return NULL;
+
+        memset(newtask, 0, sizeof(struct synctask));
         newtask->ctx.uc_stack.ss_size = stacksize;
     }
-
-    if (!newtask)
-        return NULL;
 
     INIT_LIST_HEAD(&newtask->all_tasks);
     newtask->env = env;
