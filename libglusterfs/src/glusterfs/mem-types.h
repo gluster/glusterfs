@@ -75,7 +75,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_cliententry_t, /* used only in one location */
     gf_common_mt_clienttable_t, /* used only in one location */
     gf_common_mt_client_t,      /* used only in one location */
-    gf_common_mt_client_ctx,    /* used only in one location */
     gf_common_mt_auxgids,       /* used only in one location */
     gf_common_mt_syncopctx,     /* used only in one location */
     gf_common_mt_iobrefs,       /* used only in one location */
