@@ -377,59 +377,33 @@ gf_client_unref(client_t *client)
     }
 }
 
-static int
-__client_ctx_get_int(client_t *client, void *key, void **value)
+static void *
+__client_ctx_get_int(client_t *client, void *key)
 {
     int index = 0;
-    int ret = 0;
 
     for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
         if (client->scratch_ctx[index].ctx_key == key)
-            break;
+            return client->scratch_ctx[index].ctx_value;
     }
 
-    if (index == GF_CLIENTCTX_INITIAL_SIZE) {
-        ret = -1;
-        goto out;
-    }
-
-    if (value)
-        *value = client->scratch_ctx[index].ctx_value;
-
-out:
-    return ret;
+    return NULL;
 }
 
 static int
 __client_ctx_set_int(client_t *client, void *key, void *value)
 {
     int index = 0;
-    int ret = 0;
-    int set_idx = -1;
 
     for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
         if (!client->scratch_ctx[index].ctx_key) {
-            if (set_idx == -1)
-                set_idx = index;
-            /* don't break, to check if key already exists
-               further on */
-        }
-        if (client->scratch_ctx[index].ctx_key == key) {
-            set_idx = index;
-            break;
+            client->scratch_ctx[index].ctx_key = key;
+            client->scratch_ctx[index].ctx_value = value;
+            return 0;
         }
     }
 
-    if (set_idx == -1) {
-        ret = -1;
-        goto out;
-    }
-
-    client->scratch_ctx[set_idx].ctx_key = key;
-    client->scratch_ctx[set_idx].ctx_value = value;
-
-out:
-    return ret;
+    return -1;
 }
 
 /*will return success with old value if exist*/
@@ -444,8 +418,8 @@ client_ctx_set(client_t *client, void *key, void *value)
 
     LOCK(&client->scratch_ctx_lock);
     {
-        ret = __client_ctx_get_int(client, key, &ret_value);
-        if (!ret && ret_value) {
+        ret_value = __client_ctx_get_int(client, key);
+        if (ret_value) {
             UNLOCK(&client->scratch_ctx_lock);
             return ret_value;
         }
@@ -459,47 +433,40 @@ client_ctx_set(client_t *client, void *key, void *value)
     return value;
 }
 
-int
-client_ctx_get(client_t *client, void *key, void **value)
+void *
+client_ctx_get(client_t *client, void *key)
 {
-    int ret = 0;
+    void *value = NULL;
 
     if (!client || !key)
-        return -1;
+        goto out;
 
     LOCK(&client->scratch_ctx_lock);
     {
-        ret = __client_ctx_get_int(client, key, value);
+        value = __client_ctx_get_int(client, key);
     }
     UNLOCK(&client->scratch_ctx_lock);
 
-    return ret;
+out:
+    return value;
 }
 
 static int
 __client_ctx_del_int(client_t *client, void *key, void **value)
 {
     int index = 0;
-    int ret = 0;
 
     for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
-        if (client->scratch_ctx[index].ctx_key == key)
-            break;
+        if (client->scratch_ctx[index].ctx_key == key) {
+            if (value)
+                *value = client->scratch_ctx[index].ctx_value;
+            client->scratch_ctx[index].ctx_key = 0;
+            client->scratch_ctx[index].ctx_value = 0;
+            return 0;
+        }
     }
 
-    if (index == GF_CLIENTCTX_INITIAL_SIZE) {
-        ret = -1;
-        goto out;
-    }
-
-    if (value)
-        *value = client->scratch_ctx[index].ctx_value;
-
-    client->scratch_ctx[index].ctx_key = 0;
-    client->scratch_ctx[index].ctx_value = 0;
-
-out:
-    return ret;
+    return -1;
 }
 
 int

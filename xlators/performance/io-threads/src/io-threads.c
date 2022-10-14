@@ -60,7 +60,8 @@ iot_get_ctx(xlator_t *this, client_t *client)
     iot_client_ctx_t *setted_ctx = NULL;
     int i;
 
-    if (client_ctx_get(client, this, (void **)&ctx) != 0) {
+    ctx = (iot_client_ctx_t *)client_ctx_get(client, this);
+    if (ctx == NULL) {
         ctx = GF_MALLOC(GF_FOP_PRI_MAX * sizeof(*ctx), gf_iot_mt_client_ctx_t);
         if (ctx) {
             for (i = 0; i < GF_FOP_PRI_MAX; ++i) {
