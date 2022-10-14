@@ -337,11 +337,6 @@ __inode_ctx_free(inode_t *inode)
     xlator_t *xl = NULL;
     xlator_t *old_THIS = THIS;
 
-    if (!inode->_ctx) {
-        gf_smsg(old_THIS->name, GF_LOG_WARNING, 0, LG_MSG_CTX_NULL, NULL);
-        goto noctx;
-    }
-
     for (index = 0; index < inode->table->ctxcount; index++) {
         if (inode->_ctx[index].value1 || inode->_ctx[index].value2) {
             xl = (xlator_t *)(long)inode->_ctx[index].xl_key;
@@ -353,12 +348,6 @@ __inode_ctx_free(inode_t *inode)
     }
 
     THIS = old_THIS;
-
-    GF_FREE(inode->_ctx);
-    inode->_ctx = NULL;
-
-noctx:
-    return;
 }
 
 static void
@@ -369,7 +358,7 @@ __inode_destroy(inode_t *inode)
 
     LOCK_DESTROY(&inode->lock);
     //  memset (inode, 0xb, sizeof (*inode));
-    mem_put(inode);
+    GF_FREE(inode);
 }
 
 void
@@ -382,12 +371,6 @@ inode_ctx_merge(fd_t *fd, inode_t *inode, inode_t *linked_inode)
     if (!fd || !inode || !linked_inode) {
         gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "invalid inode");
-        return;
-    }
-
-    if (!inode->_ctx || !linked_inode->_ctx) {
-        gf_msg_callingfn(THIS->name, GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
-                         "invalid inode context");
         return;
     }
 
@@ -658,8 +641,11 @@ inode_create(inode_table_t *table)
 {
     inode_t *newi = NULL;
 
-    newi = mem_get0(table->inode_pool);
-    if (!newi) {
+    newi = GF_CALLOC(
+        1,
+        sizeof(struct _inode) + (sizeof(struct _inode_ctx) * table->ctxcount),
+        gf_common_mt_inode_ctx);
+    if (caa_unlikely(!newi)) {
         goto out;
     }
 
@@ -667,22 +653,13 @@ inode_create(inode_table_t *table)
 
     LOCK_INIT(&newi->lock);
 
-    INIT_LIST_HEAD(&newi->fd_list);
-    INIT_LIST_HEAD(&newi->list);
-    INIT_LIST_HEAD(&newi->hash);
-    INIT_LIST_HEAD(&newi->dentry_list);
-
-    GF_ATOMIC_INIT(newi->kids, 0);
     GF_ATOMIC_INIT(newi->nlookup, 0);
+    GF_ATOMIC_INIT(newi->kids, 0);
 
-    newi->_ctx = GF_CALLOC(1, (sizeof(struct _inode_ctx) * table->ctxcount),
-                           gf_common_mt_inode_ctx);
-    if (newi->_ctx == NULL) {
-        LOCK_DESTROY(&newi->lock);
-        mem_put(newi);
-        newi = NULL;
-        goto out;
-    }
+    INIT_LIST_HEAD(&newi->fd_list);
+    INIT_LIST_HEAD(&newi->dentry_list);
+    INIT_LIST_HEAD(&newi->hash);
+    INIT_LIST_HEAD(&newi->list);
 
 out:
     return newi;
@@ -1715,7 +1692,8 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
         if (inode_hashsize > 0)
             gf_log(THIS->name, GF_LOG_WARNING,
                    "Set inode table size to minimum value of 65536 rather than "
-                   "the configured %u", inode_hashsize);
+                   "the configured %u",
+                   inode_hashsize);
         new->inode_hashsize = 65536;
     } else {
         new->inode_hashsize = inode_hashsize;
@@ -1732,10 +1710,6 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     /* In case FUSE is initing the inode table. */
     if (!mem_pool_size || (mem_pool_size > DEFAULT_INODE_MEMPOOL_ENTRIES))
         mem_pool_size = DEFAULT_INODE_MEMPOOL_ENTRIES;
-
-    new->inode_pool = mem_pool_new(inode_t, mem_pool_size);
-    if (!new->inode_pool)
-        goto out;
 
     new->dentry_pool = mem_pool_new(dentry_t, mem_pool_size);
     if (!new->dentry_pool)
@@ -1792,8 +1766,6 @@ out:
             GF_FREE(new->name_hash);
             if (new->dentry_pool)
                 mem_pool_destroy(new->dentry_pool);
-            if (new->inode_pool)
-                mem_pool_destroy(new->inode_pool);
             GF_FREE(new);
             new = NULL;
         }
@@ -1918,8 +1890,6 @@ inode_table_destroy(inode_table_t *inode_table)
     GF_FREE(inode_table->name_hash);
     if (inode_table->dentry_pool)
         mem_pool_destroy(inode_table->dentry_pool);
-    if (inode_table->inode_pool)
-        mem_pool_destroy(inode_table->inode_pool);
     if (inode_table->fd_mem_pool)
         mem_pool_destroy(inode_table->fd_mem_pool);
 
@@ -2027,7 +1997,7 @@ __inode_ctx_set2(inode_t *inode, xlator_t *xlator, uint64_t *value1_p,
     int ret = 0;
     int set_idx = -1;
 
-    if (!inode || !xlator || !inode->_ctx)
+    if (!inode || !xlator)
         return -1;
 
     set_idx = __inode_get_xl_index(inode, xlator);
@@ -2114,7 +2084,7 @@ __inode_ctx_get2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
     int index = 0;
     int ret = -1;
 
-    if (!inode || !xlator || !inode->_ctx)
+    if (!inode || !xlator)
         goto out;
 
     index = inode_get_ctx_index(inode->table, xlator);
@@ -2228,9 +2198,6 @@ inode_ctx_del2(inode_t *inode, xlator_t *xlator, uint64_t *value1,
 
     LOCK(&inode->lock);
     {
-        if (!inode->_ctx)
-            goto unlock;
-
         index = inode_get_ctx_index(inode->table, xlator);
 
         if (inode->_ctx[index].xl_key != xlator) {
@@ -2400,21 +2367,19 @@ inode_dump(inode_t *inode, char *prefix)
             gf_proc_dump_write("namespace", "%s",
                                uuid_utoa(inode->ns_inode->gfid));
         }
-        if (inode->_ctx) {
-            inode_ctx = GF_CALLOC(inode->table->ctxcount, sizeof(*inode_ctx),
-                                  gf_common_mt_inode_ctx);
-            if (inode_ctx == NULL) {
-                goto unlock;
-            }
+        inode_ctx = GF_MALLOC(inode->table->ctxcount * sizeof(*inode_ctx),
+                              gf_common_mt_inode_ctx);
+        if (inode_ctx == NULL) {
+            goto unlock;
+        }
 
-            for (i = 0; i < inode->table->ctxcount; i++) {
-                inode_ctx[i] = inode->_ctx[i];
-                xl = inode_ctx[i].xl_key;
-                ref = inode_ctx[i].ref;
-                if (ref != 0 && xl) {
-                    gf_proc_dump_build_key(key, "ref_by_xl:", "%s", xl->name);
-                    gf_proc_dump_write(key, "%d", ref);
-                }
+        for (i = 0; i < inode->table->ctxcount; i++) {
+            inode_ctx[i] = inode->_ctx[i];
+            xl = inode_ctx[i].xl_key;
+            ref = inode_ctx[i].ref;
+            if (ref != 0 && xl) {
+                gf_proc_dump_build_key(key, "ref_by_xl:", "%s", xl->name);
+                gf_proc_dump_write(key, "%d", ref);
             }
         }
 
