@@ -380,7 +380,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
         return -1;
 
     pair->value = data_ref(value);
-    strcpy(pair->key, key);
+    memcpy(pair->key, key, key_len + 1);
     this->totkvlen += (key_len + 1 + value->len);
 
     pair->next = this->members_list;
@@ -1928,6 +1928,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
     int ret = 0;
     data_pair_t *pair = NULL;
     char *ptr = NULL;
+    size_t keylen;
 
     if (!this || !key) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
@@ -1976,8 +1977,8 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             else
                 BIT_CLEAR((unsigned char *)(data->data), flag);
 
-            pair = GF_MALLOC(sizeof(data_pair_t) + strlen(key) + 1,
-                             gf_common_mt_char);
+            keylen = strlen(key) + 1;  // including terminating NULL char
+            pair = GF_MALLOC(sizeof(data_pair_t) + keylen, gf_common_mt_char);
             if (caa_unlikely(!pair)) {
                 gf_smsg("dict", GF_LOG_ERROR, ENOMEM, LG_MSG_NO_MEMORY,
                         "dict pair", NULL);
@@ -1987,7 +1988,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
 
             pair->value = data_ref(data);
             strcpy(pair->key, key);
-            this->totkvlen += (strlen(key) + 1 + data->len);
+            this->totkvlen += (keylen + data->len);
 
             pair->next = this->members_list;
             this->members_list = pair;
