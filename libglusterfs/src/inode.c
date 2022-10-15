@@ -200,9 +200,7 @@ static void
 dentry_destroy(dentry_t *dentry)
 {
     if (dentry) {
-        GF_FREE(dentry->name);
-        dentry->name = NULL;
-        mem_put(dentry);
+        GF_FREE(dentry);
     }
 }
 
@@ -614,23 +612,21 @@ static dentry_t *
 dentry_create(inode_t *inode, inode_t *parent, const char *name)
 {
     dentry_t *newd = NULL;
+    int name_len = 0;
 
-    newd = mem_get0(parent->table->dentry_pool);
-    if (newd == NULL) {
+    name_len = strlen(name) + 1;
+
+    newd = GF_MALLOC(sizeof(dentry_t) + name_len, gf_common_mt_dentry_ctx);
+    if (caa_unlikely(newd == NULL)) {
         goto out;
     }
 
     INIT_LIST_HEAD(&newd->inode_list);
     INIT_LIST_HEAD(&newd->hash);
 
-    newd->name = gf_strdup(name);
-    if (newd->name == NULL) {
-        mem_put(newd);
-        newd = NULL;
-        goto out;
-    }
-
     newd->inode = inode;
+    newd->parent = NULL;
+    strcpy(newd->name, name);
 
 out:
     return newd;
@@ -1711,10 +1707,6 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
     if (!mem_pool_size || (mem_pool_size > DEFAULT_INODE_MEMPOOL_ENTRIES))
         mem_pool_size = DEFAULT_INODE_MEMPOOL_ENTRIES;
 
-    new->dentry_pool = mem_pool_new(dentry_t, mem_pool_size);
-    if (!new->dentry_pool)
-        goto out;
-
     new->inode_hash = (void *)GF_MALLOC(
         new->inode_hashsize * sizeof(struct list_head), gf_common_mt_list_head);
     if (!new->inode_hash)
@@ -1764,8 +1756,6 @@ out:
         if (new) {
             GF_FREE(new->inode_hash);
             GF_FREE(new->name_hash);
-            if (new->dentry_pool)
-                mem_pool_destroy(new->dentry_pool);
             GF_FREE(new);
             new = NULL;
         }
@@ -1888,8 +1878,6 @@ inode_table_destroy(inode_table_t *inode_table)
 
     GF_FREE(inode_table->inode_hash);
     GF_FREE(inode_table->name_hash);
-    if (inode_table->dentry_pool)
-        mem_pool_destroy(inode_table->dentry_pool);
     if (inode_table->fd_mem_pool)
         mem_pool_destroy(inode_table->fd_mem_pool);
 
