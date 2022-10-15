@@ -1440,7 +1440,6 @@ struct glfs_io {
     struct glfs_fd *glfd;
     int op;
     off_t offset;
-    struct iovec *iov;
     int count;
     int flags;
     gf_boolean_t oldcb;
@@ -1449,6 +1448,7 @@ struct glfs_io {
         glfs_io_cbk fn;
     };
     void *data;
+    struct iovec iov[];
 };
 
 static int
@@ -1516,7 +1516,6 @@ err:
      */
     GF_REF_PUT(glfd);
 
-    GF_FREE(gio->iov);
     GF_FREE(gio);
     STACK_DESTROY(frame->root);
     glfs_subvol_done(fs, subvol);
@@ -1578,7 +1577,8 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
 
-    gio = GF_MALLOC(sizeof(*gio), glfs_mt_glfs_io_t);
+    gio = GF_MALLOC(sizeof(*gio) + (count * sizeof(struct iovec)),
+                    glfs_mt_glfs_io_t);
     if (!gio) {
         ret = -1;
         errno = ENOMEM;
@@ -1587,19 +1587,12 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
     gio->glfd = glfd;
     gio->op = GF_FOP_READ;
     gio->offset = offset;
-
-    gio->iov = iov_dup(iovec, count);
-    if (!gio->iov) {
-        ret = -1;
-        errno = ENOMEM;
-        goto out;
-    }
-
     gio->count = count;
     gio->flags = flags;
     gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
+    memcpy(gio->iov, iovec, count);
 
     frame->local = gio;
 
@@ -1618,7 +1611,6 @@ out:
         if (glfd)
             GF_REF_PUT(glfd);
         if (gio) {
-            GF_FREE(gio->iov);
             GF_FREE(gio);
         }
         if (frame) {
@@ -2156,25 +2148,21 @@ glfs_pwritev_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
 
-    gio = GF_CALLOC(1, sizeof(*gio), glfs_mt_glfs_io_t);
-    if (!gio) {
+    gio = GF_MALLOC(sizeof(*gio) + (1 * (sizeof(struct iovec))),
+                    glfs_mt_glfs_io_t);
+    if (caa_unlikely(!gio)) {
         errno = ENOMEM;
         goto out;
     }
 
-    gio->op = GF_FOP_WRITE;
     gio->glfd = glfd;
+    gio->op = GF_FOP_WRITE;
     gio->offset = offset;
+    gio->count = 1;
     gio->flags = flags;
     gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
-    gio->count = 1;
-    gio->iov = GF_CALLOC(gio->count, sizeof(*(gio->iov)), gf_common_mt_iovec);
-    if (!gio->iov) {
-        errno = ENOMEM;
-        goto out;
-    }
 
     ret = iobuf_copy(subvol->ctx->iobuf_pool, iovec, count, &iobref, &iobuf,
                      gio->iov);
@@ -3996,21 +3984,20 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
             {
                 if ((!entry->inode && (!IA_ISDIR(entry->d_stat.ia_type))) ||
                     ((entry->d_stat.ia_ctime == 0) &&
-                     !inode_dir_or_parentdir(entry)))
-                    {
-                        /* entry->inode for directories will be
-                         * always set to null to force a lookup
-                         * on the dentry. Hence to not degrade
-                         * readdir performance, we skip lookups
-                         * for directory entries. Also we will have
-                         * proper stat if directory present on
-                         * hashed subvolume.
-                         *
-                         * In addition, if the stat is invalid, force
-                         * lookup to fetch proper stat.
-                         */
-                        gf_fill_iatt_for_dirent(entry, fd->inode, subvol);
-                    }
+                     !inode_dir_or_parentdir(entry))) {
+                    /* entry->inode for directories will be
+                     * always set to null to force a lookup
+                     * on the dentry. Hence to not degrade
+                     * readdir performance, we skip lookups
+                     * for directory entries. Also we will have
+                     * proper stat if directory present on
+                     * hashed subvolume.
+                     *
+                     * In addition, if the stat is invalid, force
+                     * lookup to fetch proper stat.
+                     */
+                    gf_fill_iatt_for_dirent(entry, fd->inode, subvol);
+                }
             }
 
             gf_link_inodes_from_dirent(fd->inode, &entries);
