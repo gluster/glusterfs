@@ -1592,7 +1592,7 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
     gio->oldcb = oldcb;
     gio->fn = fn;
     gio->data = data;
-    memcpy(gio->iov, iovec, count);
+    memcpy(gio->iov, iovec, sizeof(struct iovec) * count);
 
     frame->local = gio;
 
