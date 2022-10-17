@@ -60,7 +60,7 @@ gf_fuse_mount (const char *mountpoint, char *fsname, char *mnt_param,
         size_t version_len                 = MAXHOSTNAMELEN;
         size_t version_len_desired         = 0;
         int r                              = 0;
-        char devpath[MAXPATHLEN]           = { 0 };;
+        char devpath[MAXPATHLEN]           = { 0 };
 
         if (!mountpoint) {
                 gf_log ("glustefs-fuse", GF_LOG_ERROR,
