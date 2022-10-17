@@ -1599,6 +1599,7 @@ volfile_init(glusterfs_ctx_t *ctx)
     }
 
     ret = glusterfs_process_volfp(ctx, fp);
+    fp = NULL; /* this is freed inside the function (both success & failure) */
     if (ret)
         goto out;
 
@@ -1625,6 +1626,9 @@ volfile_init(glusterfs_ctx_t *ctx)
 
     ret = 0;
 out:
+    if (fp)
+        fclose(fp);
+
     if (volfile)
         GF_FREE(volfile);
     return ret;
