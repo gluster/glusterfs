@@ -1989,7 +1989,7 @@ _dict_modify_flag(dict_t *this, char *key, int flag, int op)
             }
 
             pair->value = data_ref(data);
-            strcpy(pair->key, key);
+            memcpy(pair->key, key, keylen);
             this->totkvlen += (keylen + data->len);
 
             pair->next = this->members_list;
