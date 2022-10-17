@@ -3910,7 +3910,7 @@ pl_ctx_get(client_t *client, xlator_t *xlator)
     pl_ctx_t *ctx = NULL;
     pl_ctx_t *setted_ctx = NULL;
 
-    client_ctx_get(client, xlator, &tmp);
+    tmp = client_ctx_get(client, xlator);
 
     ctx = tmp;
 
@@ -4025,7 +4025,7 @@ pl_client_destroy_cbk(xlator_t *this, client_t *client)
 
     pl_client_disconnect_cbk(this, client);
 
-    client_ctx_del(client, this, &tmp);
+    tmp = client_ctx_del(client, this);
 
     if (tmp == NULL)
         return 0;

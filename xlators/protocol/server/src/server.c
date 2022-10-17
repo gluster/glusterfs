@@ -1015,7 +1015,7 @@ client_destroy_cbk(xlator_t *this, client_t *client)
     void *tmp = NULL;
     server_ctx_t *ctx = NULL;
 
-    client_ctx_del(client, this, &tmp);
+    tmp = client_ctx_del(client, this);
 
     ctx = tmp;
 
