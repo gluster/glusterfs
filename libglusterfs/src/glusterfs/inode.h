@@ -50,7 +50,6 @@ struct _inode_table {
     uint32_t purge_size;     /* count of inodes in purge list */
     struct list_head purge;  /* list of inodes to be purged soon */
 
-    struct mem_pool *dentry_pool; /* memory pool for dentrys */
     struct mem_pool *fd_mem_pool; /* memory pool for fd_t */
     int ctxcount;                 /* number of slots in inode->ctx */
 
@@ -73,8 +72,8 @@ struct _dentry {
     struct list_head inode_list; /* list of dentries of inode */
     struct list_head hash;       /* hash table pointers */
     inode_t *inode;              /* inode of this directory entry */
-    char *name;                  /* name of the directory entry */
     inode_t *parent;             /* directory of the entry */
+    char name[];                  /* name of the directory entry */
 };
 
 struct _inode_ctx {

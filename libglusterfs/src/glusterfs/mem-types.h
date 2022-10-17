@@ -20,7 +20,8 @@ enum gf_common_mem_types_ {
     gf_common_mt_fdtable_t, /* used only in one location */
     gf_common_mt_fd_ctx,    /* used only in one location */
     gf_common_mt_gf_dirent_t,
-    gf_common_mt_inode_ctx, /* used only in one location */
+    gf_common_mt_inode_ctx,  /* used only in one location */
+    gf_common_mt_dentry_ctx, /* used only in one location */
     gf_common_mt_list_head,
     gf_common_mt_inode_table_t, /* used only in one location */
     gf_common_mt_xlator_t,
