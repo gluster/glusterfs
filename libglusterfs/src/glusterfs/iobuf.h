@@ -65,8 +65,7 @@ struct iobuf {
     void *ptr; /* usable memory region by the consumer */
 
     size_t page_size;
-    char free_ptr[]; /* in case of stdalloc, this is the
-                       one to be freed */
+    char allocated_buffer[];
 };
 
 struct iobuf_arena {

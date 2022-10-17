@@ -426,18 +426,18 @@ iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
         break;
     }
 
-    iobuf = GF_CALLOC(1,
-                      sizeof(*iobuf) + ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
+    iobuf = GF_MALLOC(sizeof(*iobuf) + ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
                       gf_common_mt_iobuf);
-    if (!iobuf)
+    if (caa_unlikely(!iobuf))
         return NULL;
 
+    INIT_LIST_HEAD(&iobuf->list);
     iobuf->iobuf_arena = iobuf_arena;
     LOCK_INIT(&iobuf->lock);
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
 
-    iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
+    iobuf->ptr = GF_ALIGN_BUF(iobuf->allocated_buffer, GF_IOBUF_ALIGN_SIZE);
     iobuf->page_size = page_size;
 
     return iobuf;
@@ -457,7 +457,7 @@ iobuf_get_from_small(const size_t page_size)
     LOCK_INIT(&iobuf->lock);
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
-    iobuf->ptr = iobuf->free_ptr;
+    iobuf->ptr = iobuf->allocated_buffer;
     iobuf->page_size = page_size;
     return iobuf;
 }
