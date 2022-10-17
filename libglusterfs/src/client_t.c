@@ -395,7 +395,7 @@ __client_ctx_get_int(client_t *client, void *key, void *value)
             /* don't break, check if key already exists
                further on */
         } else if (client->scratch_ctx[index].ctx_key == key) {
-            value = client->scratch_ctx[index].ctx_value = value;
+            value = client->scratch_ctx[index].ctx_value;
             return index;
         }
     }
