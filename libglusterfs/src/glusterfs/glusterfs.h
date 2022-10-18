@@ -689,7 +689,6 @@ struct _glusterfs_ctx {
     char *statedump_path;
 
     struct mem_pool *dict_pool;
-    struct mem_pool *dict_pair_pool;
     struct mem_pool *dict_data_pool;
 
     glusterfsd_mgmt_event_notify_fn_t notify; /* Used for xlators to make

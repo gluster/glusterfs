@@ -580,8 +580,6 @@ glusterfs_ctx_pool_destroy(glusterfs_ctx_t *ctx)
         mem_pool_destroy(ctx->dict_pool);
     if (ctx->dict_data_pool)
         mem_pool_destroy(ctx->dict_data_pool);
-    if (ctx->dict_pair_pool)
-        mem_pool_destroy(ctx->dict_pair_pool);
     if (ctx->logbuf_pool)
         mem_pool_destroy(ctx->logbuf_pool);
 

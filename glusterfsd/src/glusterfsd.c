@@ -1626,11 +1626,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
     if (!ctx->dict_pool)
         goto out;
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t,
-                                       GF_MEMPOOL_COUNT_OF_DATA_PAIR_T);
-    if (!ctx->dict_pair_pool)
-        goto out;
-
     ctx->dict_data_pool = mem_pool_new(data_t, GF_MEMPOOL_COUNT_OF_DATA_T);
     if (!ctx->dict_data_pool)
         goto out;
@@ -1700,7 +1695,6 @@ out:
         GF_FREE(ctx->pool);
         mem_pool_destroy(ctx->dict_pool);
         mem_pool_destroy(ctx->dict_data_pool);
-        mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->logbuf_pool);
     }
 
