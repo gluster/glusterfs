@@ -54,6 +54,7 @@ server_getspec(rpcsvc_request_t *req)
     int32_t spec_fd = -1;
     xlator_t *this = req->svc->xl;
     server_conf_t *conf = this->private;
+    gf_boolean_t need_to_free_buffer = _gf_false;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
     if (ret < 0) {
@@ -106,12 +107,13 @@ server_getspec(rpcsvc_request_t *req)
     ret = stbuf.st_size;
 
     if (ret > 0) {
-        rsp.spec = alloca((ret + 1) * sizeof(char));
+        rsp.spec = MALLOC((ret + 1) * sizeof(char));
         if (!rsp.spec) {
             gf_msg(this->name, GF_LOG_ERROR, errno, 0, "no memory");
             ret = -1;
             goto out;
         }
+        need_to_free_buffer = _gf_true;
         ret = sys_read(spec_fd, rsp.spec, ret);
         if (ret <= 0) {
             op_errno = errno;
@@ -136,6 +138,15 @@ out:
 
     server_submit_reply(NULL, req, &rsp, NULL, 0, NULL,
                         (xdrproc_t)xdr_gf_getspec_rsp);
+
+    free(args.key);
+    if (args.xdata.xdata_val)
+        free(args.xdata.xdata_val);
+
+    if (need_to_free_buffer)
+        FREE(rsp.spec);
+    if (rsp.xdata.xdata_val)
+        GF_FREE(rsp.xdata.xdata_val);
 
     return 0;
 }
