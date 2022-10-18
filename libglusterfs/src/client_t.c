@@ -383,7 +383,7 @@ gf_client_unref(client_t *client)
    or -1 in case no free slots found
 */
 static int
-__client_ctx_get_int(client_t *client, void *key, void *value)
+__client_ctx_get_int(client_t *client, void *key, void **value)
 {
     int index = 0;
     int set_idx = -1;
@@ -395,7 +395,7 @@ __client_ctx_get_int(client_t *client, void *key, void *value)
             /* don't break, check if key already exists
                further on */
         } else if (client->scratch_ctx[index].ctx_key == key) {
-            value = client->scratch_ctx[index].ctx_value;
+            *value = client->scratch_ctx[index].ctx_value;
             return index;
         }
     }
