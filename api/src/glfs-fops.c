@@ -475,7 +475,11 @@ retry:
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+    if (IA_ISDIR(iatt.ia_type))
+        ret = syncop_opendir(subvol, &loc, glfd->fd, NULL, NULL);
+    else
+        ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+
     DECODE_SYNCOP_ERR(ret);
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
@@ -662,9 +666,12 @@ pub_glfs_openat(struct glfs_fd *pglfd, const char *path, int flags, mode_t mode)
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    if (!is_create)
-        ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
-    else
+    if (!is_create) {
+        if (IA_ISDIR(iatt.ia_type))
+            ret = syncop_opendir(subvol, &loc, glfd->fd, NULL, NULL);
+        else
+            ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+    } else
         ret = syncop_create(subvol, &loc, flags, mode, glfd->fd, &iatt,
                             fop_attr, NULL);
 
