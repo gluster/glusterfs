@@ -111,11 +111,11 @@ gf_client_dump_inodes(xlator_t *this);
 void *
 client_ctx_set(client_t *client, void *key, void *value);
 
-int
-client_ctx_get(client_t *client, void *key, void **value);
+void *
+client_ctx_get(client_t *client, void *key);
 
-int
-client_ctx_del(client_t *client, void *key, void **value);
+void *
+client_ctx_del(client_t *client, void *key);
 
 void
 client_ctx_dump(client_t *client, char *prefix);
