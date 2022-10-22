@@ -424,7 +424,7 @@ _posix_xattr_get_set(dict_t *xattr_req, char *key, data_t *data,
     posix_xattr_filler_t *filler = xattrargs;
     int ret = -1;
     int len = 0;
-    char *databuf = NULL;
+    char *databuf = "";
     int _fd = -1;
     ssize_t req_size = 0;
     int32_t list_offset = 0;
