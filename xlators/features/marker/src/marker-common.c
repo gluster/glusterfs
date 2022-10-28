@@ -11,7 +11,7 @@
 #include "marker-common.h"
 
 marker_inode_ctx_t *
-marker_inode_ctx_new()
+marker_inode_ctx_new(void)
 {
     marker_inode_ctx_t *ctx = NULL;
 

@@ -103,7 +103,7 @@ out:
  *    -1: On error.
  */
 int
-gf_history_changelog_start_fresh()
+gf_history_changelog_start_fresh(void)
 {
     xlator_t *this = NULL;
     gf_changelog_journal_t *jnl = NULL;
@@ -214,7 +214,7 @@ out:
  *
  */
 ssize_t
-gf_history_changelog_scan()
+gf_history_changelog_scan(void)
 {
     int tracker_fd = 0;
     size_t off = 0;

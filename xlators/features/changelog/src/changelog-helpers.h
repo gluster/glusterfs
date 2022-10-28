@@ -427,7 +427,7 @@ int
 changelog_inject_single_event(xlator_t *this, changelog_priv_t *priv,
                               changelog_log_data_t *cld);
 size_t
-changelog_entry_length();
+changelog_entry_length(void);
 int
 changelog_write(int fd, char *buffer, size_t len);
 int
