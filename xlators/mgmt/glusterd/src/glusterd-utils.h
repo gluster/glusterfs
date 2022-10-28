@@ -347,7 +347,7 @@ glusterd_add_brick_to_dict(glusterd_volinfo_t *volinfo,
                            int32_t count);
 
 gf_boolean_t
-glusterd_is_fuse_available();
+glusterd_is_fuse_available(void);
 
 int
 glusterd_brick_statedump(glusterd_volinfo_t *volinfo,
@@ -499,7 +499,7 @@ int
 glusterd_is_bitrot_enabled(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_all_volumes_with_quota_stopped();
+glusterd_all_volumes_with_quota_stopped(void);
 
 void
 glusterd_clean_up_quota_store(glusterd_volinfo_t *volinfo);
@@ -593,11 +593,11 @@ gf_boolean_t
 glusterd_is_shd_compatible_volume(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_are_all_volumes_stopped();
+glusterd_are_all_volumes_stopped(void);
 
 #ifdef BUILD_GNFS
 void
-glusterd_nfs_pmap_deregister();
+glusterd_nfs_pmap_deregister(void);
 #endif
 
 gf_boolean_t

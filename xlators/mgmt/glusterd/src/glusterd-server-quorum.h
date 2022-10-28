@@ -20,7 +20,7 @@ gf_boolean_t
 glusterd_is_quorum_changed(dict_t *options, char *option, char *value);
 
 int
-glusterd_do_quorum_action();
+glusterd_do_quorum_action(void);
 
 int
 glusterd_get_quorum_cluster_counts(xlator_t *this, int *active_count,

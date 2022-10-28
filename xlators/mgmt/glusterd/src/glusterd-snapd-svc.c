@@ -367,7 +367,7 @@ out:
 }
 
 int
-glusterd_snapdsvc_restart()
+glusterd_snapdsvc_restart(void)
 {
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp = NULL;

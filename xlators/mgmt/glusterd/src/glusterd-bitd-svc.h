@@ -28,6 +28,6 @@ int
 glusterd_bitdsvc_stop(glusterd_svc_t *svc, int sig);
 
 int
-glusterd_bitdsvc_reconfigure();
+glusterd_bitdsvc_reconfigure(void);
 
 #endif

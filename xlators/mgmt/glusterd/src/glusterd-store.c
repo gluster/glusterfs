@@ -1270,7 +1270,7 @@ glusterd_store_create_quota_conf_sh_on_absence(glusterd_volinfo_t *volinfo)
 }
 
 static int32_t
-glusterd_store_create_missed_snaps_list_shandle_on_absence()
+glusterd_store_create_missed_snaps_list_shandle_on_absence(void)
 {
     char missed_snaps_list[PATH_MAX] = "";
     int32_t ret = -1;
@@ -2233,7 +2233,7 @@ out:
 }
 
 int32_t
-glusterd_retrieve_uuid()
+glusterd_retrieve_uuid(void)
 {
     char *uuid_str = NULL;
     int32_t ret = -1;
@@ -4214,7 +4214,7 @@ out:
 /* Adds the missed snap entries to the in-memory conf->missed_snap_list *
  * and writes them to disk */
 int32_t
-glusterd_store_update_missed_snaps()
+glusterd_store_update_missed_snaps(void)
 {
     int32_t fd = -1;
     int32_t ret = -1;
@@ -4350,7 +4350,7 @@ glusterd_store_peerinfo_dirpath_set(char *path, size_t len)
 }
 
 int32_t
-glusterd_store_create_peer_dir()
+glusterd_store_create_peer_dir(void)
 {
     int32_t ret = 0;
     char path[PATH_MAX];
@@ -4898,7 +4898,7 @@ out:
 }
 
 int32_t
-glusterd_restore()
+glusterd_restore(void)
 {
     int32_t ret = -1;
     xlator_t *this = THIS;

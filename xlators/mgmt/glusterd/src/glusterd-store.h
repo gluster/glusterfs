@@ -145,7 +145,7 @@ int32_t
 glusterd_store_delete_snap(glusterd_snap_t *snap);
 
 int32_t
-glusterd_retrieve_uuid();
+glusterd_retrieve_uuid(void);
 
 int32_t
 glusterd_store_peerinfo(glusterd_peerinfo_t *peerinfo);
@@ -157,7 +157,7 @@ int32_t
 glusterd_store_delete_brick(glusterd_brickinfo_t *brickinfo, char *delete_path);
 
 int32_t
-glusterd_restore();
+glusterd_restore(void);
 
 void
 glusterd_perform_volinfo_version_action(glusterd_volinfo_t *volinfo,
@@ -205,7 +205,7 @@ int32_t
 glusterd_store_snap(glusterd_snap_t *snap);
 
 int32_t
-glusterd_store_update_missed_snaps();
+glusterd_store_update_missed_snaps(void);
 
 glusterd_volinfo_t *
 glusterd_store_retrieve_volume(char *volname, glusterd_snap_t *snap);

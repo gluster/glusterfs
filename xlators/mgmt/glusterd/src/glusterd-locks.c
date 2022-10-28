@@ -51,7 +51,7 @@ glusterd_mgmt_v3_is_type_valid(char *type)
 /* Initialize the global mgmt_v3 lock list(dict) when
  * glusterd is spawned */
 int32_t
-glusterd_mgmt_v3_lock_init()
+glusterd_mgmt_v3_lock_init(void)
 {
     int32_t ret = -1;
     glusterd_conf_t *priv = NULL;
@@ -71,7 +71,7 @@ out:
 /* Destroy the global mgmt_v3 lock list(dict) when
  * glusterd cleanup is performed */
 void
-glusterd_mgmt_v3_lock_fini()
+glusterd_mgmt_v3_lock_fini(void)
 {
     glusterd_conf_t *priv = NULL;
 
@@ -85,7 +85,7 @@ glusterd_mgmt_v3_lock_fini()
 /* Initialize the global mgmt_v3_timer lock list(dict) when
  * glusterd is spawned */
 int32_t
-glusterd_mgmt_v3_lock_timer_init()
+glusterd_mgmt_v3_lock_timer_init(void)
 {
     int32_t ret = -1;
     xlator_t *this = THIS;
@@ -106,7 +106,7 @@ out:
 /* Destroy the global mgmt_v3_timer lock list(dict) when
  * glusterd cleanup is performed */
 void
-glusterd_mgmt_v3_lock_timer_fini()
+glusterd_mgmt_v3_lock_timer_fini(void)
 {
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;

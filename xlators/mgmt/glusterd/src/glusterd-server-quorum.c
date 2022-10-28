@@ -421,7 +421,7 @@ out:
 }
 
 int
-glusterd_do_quorum_action()
+glusterd_do_quorum_action(void)
 {
     xlator_t *this = THIS;
     glusterd_conf_t *conf = NULL;

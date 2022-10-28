@@ -1283,7 +1283,7 @@ out:
 
 /* Perform missed deletes and restores on this node */
 int32_t
-glusterd_perform_missed_snap_ops()
+glusterd_perform_missed_snap_ops(void)
 {
     int32_t ret = -1;
     int32_t op_status = -1;

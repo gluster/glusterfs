@@ -87,7 +87,7 @@ glusterd_op_info_t opinfo = {
 };
 
 int32_t
-glusterd_txn_opinfo_dict_init()
+glusterd_txn_opinfo_dict_init(void)
 {
     int32_t ret = -1;
     xlator_t *this = THIS;
@@ -111,7 +111,7 @@ out:
 }
 
 void
-glusterd_txn_opinfo_dict_fini()
+glusterd_txn_opinfo_dict_fini(void)
 {
     glusterd_conf_t *priv = NULL;
 
@@ -5715,7 +5715,7 @@ out:
 }
 
 int32_t
-glusterd_op_clear_errstr()
+glusterd_op_clear_errstr(void)
 {
     opinfo.op_errstr = NULL;
     return 0;
@@ -5730,7 +5730,7 @@ glusterd_op_set_ctx(void *ctx)
 }
 
 int32_t
-glusterd_op_reset_ctx()
+glusterd_op_reset_ctx(void)
 {
     glusterd_op_set_ctx(NULL);
 
@@ -5764,9 +5764,6 @@ glusterd_op_txn_complete(uuid_t *txn_id)
 
     opinfo.op_ret = 0;
     opinfo.op_errno = 0;
-    glusterd_op_clear_op();
-    glusterd_op_reset_ctx();
-    glusterd_op_clear_errstr();
 
     /* Based on the op-version, we release the cluster or mgmt_v3 lock */
     if (priv->op_version < GD_OP_VERSION_3_6_0) {
@@ -8185,7 +8182,7 @@ glusterd_destroy_op_event_ctx(glusterd_op_sm_event_t *event)
 }
 
 int
-glusterd_op_sm()
+glusterd_op_sm(void)
 {
     glusterd_op_sm_event_t *event = NULL;
     glusterd_op_sm_event_t *tmp = NULL;
@@ -8315,7 +8312,7 @@ glusterd_op_set_op(glusterd_op_t op)
 }
 
 int32_t
-glusterd_op_get_op()
+glusterd_op_get_op(void)
 {
     return opinfo.op;
 }
@@ -8381,7 +8378,7 @@ glusterd_op_get_ctx(void)
 }
 
 int
-glusterd_op_sm_init()
+glusterd_op_sm_init(void)
 {
     CDS_INIT_LIST_HEAD(&gd_op_sm_queue);
     synclock_init(&gd_op_sm_lock, SYNC_LOCK_DEFAULT);
