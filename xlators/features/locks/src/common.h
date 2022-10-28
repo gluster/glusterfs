@@ -232,7 +232,7 @@ entrylk_contention_notify_check(xlator_t *xl, pl_entry_lock_t *lock,
                                 struct list_head *contend);
 
 gf_boolean_t
-pl_does_monkey_want_stuck_lock();
+pl_does_monkey_want_stuck_lock(void);
 
 gf_boolean_t
 pl_is_mandatory_locking_enabled(pl_inode_t *pl_inode);

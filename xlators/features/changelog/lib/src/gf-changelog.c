@@ -43,7 +43,7 @@
 xlator_t *primary = NULL;
 
 static inline gf_private_t *
-gf_changelog_alloc_priv()
+gf_changelog_alloc_priv(void)
 {
     int ret = 0;
     gf_private_t *priv = NULL;
@@ -190,7 +190,7 @@ gf_changelog_cleanup_this(xlator_t *this)
 }
 
 static int
-gf_changelog_init_context()
+gf_changelog_init_context(void)
 {
     glusterfs_ctx_t *ctx = NULL;
 
@@ -218,7 +218,7 @@ error_return:
 }
 
 static int
-gf_changelog_init_primary()
+gf_changelog_init_primary(void)
 {
     int ret = 0;
 

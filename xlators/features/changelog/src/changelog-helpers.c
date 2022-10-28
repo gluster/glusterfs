@@ -973,7 +973,7 @@ changelog_start_next_change(xlator_t *this, changelog_priv_t *priv, time_t ts,
  * return the length of entry
  */
 size_t
-changelog_entry_length()
+changelog_entry_length(void)
 {
     return sizeof(changelog_log_data_t);
 }

@@ -587,7 +587,7 @@ pl_is_fop_allowed(pl_inode_t *pl_inode, posix_lock_t *region, fd_t *fd,
 }
 
 static pl_fdctx_t *
-pl_new_fdctx()
+pl_new_fdctx(void)
 {
     pl_fdctx_t *fdctx = GF_MALLOC(sizeof(*fdctx), gf_locks_mt_pl_fdctx_t);
     GF_VALIDATE_OR_GOTO("posix-locks", fdctx, out);

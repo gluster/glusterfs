@@ -39,7 +39,7 @@ mem_acct_init(xlator_t *this)
 }
 
 static uid_t
-r00t()
+r00t(void)
 {
     struct posix_acl_conf *conf = NULL;
 

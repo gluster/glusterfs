@@ -185,7 +185,7 @@ out:
 }
 
 static quota_local_t *
-quota_local_new()
+quota_local_new(void)
 {
     quota_local_t *local = NULL;
     local = mem_get0(THIS->local_pool);
