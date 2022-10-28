@@ -100,10 +100,10 @@ int
 cli_cmd_broadcast_response(int32_t status);
 
 int
-cli_cmd_lock();
+cli_cmd_lock(void);
 
 int
-cli_cmd_unlock();
+cli_cmd_unlock(void);
 
 int
 cli_cmd_submit(struct rpc_clnt *rpc, void *req, call_frame_t *frame,

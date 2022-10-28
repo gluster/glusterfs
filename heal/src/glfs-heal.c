@@ -80,7 +80,7 @@ typedef enum {
 } glfsh_fail_mode_t;
 
 int
-glfsh_init()
+glfsh_init(void)
 {
     return 0;
 }
@@ -146,7 +146,7 @@ glfsh_print_hr_heal_status(char *path, uuid_t gfid, char *status)
 #if (HAVE_LIB_XML)
 
 int
-glfsh_xml_init()
+glfsh_xml_init(void)
 {
     int ret = -1;
     glfsh_writer = xmlNewTextWriterDoc(&glfsh_doc, 0);

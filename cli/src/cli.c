@@ -716,7 +716,7 @@ out:
 }
 
 cli_local_t *
-cli_local_get()
+cli_local_get(void)
 {
     cli_local_t *local = NULL;
 
