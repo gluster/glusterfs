@@ -335,13 +335,13 @@ cli_cmd_volume_clrlks_opts_parse(const char **words, int wordcount,
                                  dict_t **options);
 
 cli_local_t *
-cli_local_get();
+cli_local_get(void);
 
 void
 cli_local_wipe(cli_local_t *local);
 
 gf_boolean_t
-cli_cmd_connected();
+cli_cmd_connected(void);
 
 int32_t
 cli_cmd_await_connected(unsigned timeout);

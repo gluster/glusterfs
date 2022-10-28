@@ -230,14 +230,14 @@ out:
 }
 
 int
-cli_cmd_lock()
+cli_cmd_lock(void)
 {
     pthread_mutex_lock(&cond_mutex);
     return 0;
 }
 
 int
-cli_cmd_unlock()
+cli_cmd_unlock(void)
 {
     pthread_mutex_unlock(&cond_mutex);
     return 0;

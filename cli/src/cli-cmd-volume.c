@@ -2036,7 +2036,7 @@ out:
 
 #if (SYNCDAEMON_COMPILE)
 static int
-cli_check_gsync_present()
+cli_check_gsync_present(void)
 {
     char buff[PATH_MAX] = {
         0,

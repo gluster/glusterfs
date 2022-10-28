@@ -79,7 +79,7 @@ int stats = 0;
     } while (0)
 
 void
-stats_dump()
+stats_dump(void)
 {
     if (!stats)
         return;
