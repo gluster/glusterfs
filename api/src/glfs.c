@@ -786,7 +786,7 @@ extern glusterfs_ctx_t *global_ctx;
 extern pthread_mutex_t global_ctx_mutex;
 
 static int
-glfs_init_global_ctx()
+glfs_init_global_ctx(void)
 {
     int ret = 0;
     glusterfs_ctx_t *ctx = NULL;
