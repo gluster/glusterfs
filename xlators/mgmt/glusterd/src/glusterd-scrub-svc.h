@@ -33,6 +33,6 @@ int
 glusterd_scrubsvc_stop(glusterd_svc_t *svc, int sig);
 
 int
-glusterd_scrubsvc_reconfigure();
+glusterd_scrubsvc_reconfigure(void);
 
 #endif

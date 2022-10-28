@@ -507,7 +507,7 @@ gd_peer_uuid_str(glusterd_peerinfo_t *peerinfo)
 }
 
 gf_boolean_t
-glusterd_are_all_peers_up()
+glusterd_are_all_peers_up(void)
 {
     glusterd_peerinfo_t *peerinfo = NULL;
     xlator_t *this = THIS;
@@ -1034,7 +1034,7 @@ glusterd_peerinfo_find_by_generation(uint32_t generation)
 }
 
 int
-glusterd_get_peers_count()
+glusterd_get_peers_count(void)
 {
     int count = 0;
     xlator_t *this = THIS;

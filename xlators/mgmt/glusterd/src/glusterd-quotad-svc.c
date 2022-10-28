@@ -40,7 +40,7 @@ out:
 }
 
 static int
-glusterd_quotadsvc_create_volfile()
+glusterd_quotadsvc_create_volfile(void)
 {
     char filepath[PATH_MAX] = {
         0,
@@ -150,7 +150,7 @@ out:
 }
 
 int
-glusterd_quotadsvc_reconfigure()
+glusterd_quotadsvc_reconfigure(void)
 {
     int ret = -1;
     xlator_t *this = THIS;

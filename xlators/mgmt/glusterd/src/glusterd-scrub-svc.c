@@ -32,7 +32,7 @@ glusterd_scrubsvc_init(glusterd_svc_t *svc)
 }
 
 static int
-glusterd_scrubsvc_create_volfile()
+glusterd_scrubsvc_create_volfile(void)
 {
     char filepath[PATH_MAX] = {
         0,
@@ -116,7 +116,7 @@ glusterd_scrubsvc_stop(glusterd_svc_t *svc, int sig)
 }
 
 int
-glusterd_scrubsvc_reconfigure()
+glusterd_scrubsvc_reconfigure(void)
 {
     int ret = -1;
     xlator_t *this = THIS;

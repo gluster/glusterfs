@@ -96,7 +96,7 @@ void
 glusterd_svc_build_rundir(char *server, char *workdir, char *path, size_t len);
 
 int
-glusterd_svc_reconfigure(int (*create_volfile)());
+glusterd_svc_reconfigure(int (*create_volfile)(void));
 
 int
 glusterd_svc_common_rpc_notify(glusterd_conn_t *conn, rpc_clnt_event_t event);

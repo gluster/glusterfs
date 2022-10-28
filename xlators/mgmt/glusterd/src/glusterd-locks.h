@@ -23,16 +23,16 @@ typedef struct glusterd_mgmt_v3_lock_valid_entities {
 } glusterd_valid_entities;
 
 int32_t
-glusterd_mgmt_v3_lock_init();
+glusterd_mgmt_v3_lock_init(void);
 
 void
-glusterd_mgmt_v3_lock_fini();
+glusterd_mgmt_v3_lock_fini(void);
 
 int32_t
-glusterd_mgmt_v3_lock_timer_init();
+glusterd_mgmt_v3_lock_timer_init(void);
 
 void
-glusterd_mgmt_v3_lock_timer_fini();
+glusterd_mgmt_v3_lock_timer_fini(void);
 
 int32_t
 glusterd_mgmt_v3_lock(const char *key, uuid_t uuid, uint32_t *op_errno,

@@ -2322,7 +2322,7 @@ out:
 }
 
 glusterd_snap_t *
-glusterd_new_snap_object()
+glusterd_new_snap_object(void)
 {
     glusterd_snap_t *snap = NULL;
 

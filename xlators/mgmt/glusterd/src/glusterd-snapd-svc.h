@@ -34,7 +34,7 @@ int
 glusterd_snapdsvc_start(glusterd_svc_t *svc, int flags);
 
 int
-glusterd_snapdsvc_restart();
+glusterd_snapdsvc_restart(void);
 
 int
 glusterd_snapdsvc_rpc_notify(glusterd_conn_t *conn, rpc_clnt_event_t event);
