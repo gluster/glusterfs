@@ -650,7 +650,7 @@ out:
 }
 
 struct iobref *
-iobref_new()
+iobref_new(void)
 {
     struct iobref *iobref = NULL;
 

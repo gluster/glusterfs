@@ -19,7 +19,7 @@ static int32_t gf_compat_errno_init_done;
 
 #ifdef GF_SOLARIS_HOST_OS
 static void
-init_compat_errno_arrays()
+init_compat_errno_arrays(void)
 {
     /*      ENOMSG  35      / * No message of desired type          */
     gf_error_to_errno_array[GF_ERROR_CODE_NOMSG] = ENOMSG;
@@ -330,7 +330,7 @@ init_compat_errno_arrays()
 
 #ifdef GF_DARWIN_HOST_OS
 static void
-init_compat_errno_arrays()
+init_compat_errno_arrays(void)
 {
     /*    EDEADLK         11              / * Resource deadlock would occur */
     gf_error_to_errno_array[GF_ERROR_CODE_DEADLK] = EDEADLK;
@@ -637,7 +637,7 @@ init_compat_errno_arrays()
 
 #ifdef GF_BSD_HOST_OS
 static void
-init_compat_errno_arrays()
+init_compat_errno_arrays(void)
 {
     /* Quite a bit of things changed in FreeBSD - current */
 
@@ -903,7 +903,7 @@ init_compat_errno_arrays()
 
 #ifdef GF_LINUX_HOST_OS
 static void
-init_compat_errno_arrays()
+init_compat_errno_arrays(void)
 {
     /* Things are fine. Everything should work seemlessly on GNU/Linux machines
      */
@@ -912,7 +912,7 @@ init_compat_errno_arrays()
 #endif /* GF_LINUX_HOST_OS */
 
 static void
-init_errno_arrays()
+init_errno_arrays(void)
 {
     int i;
     for (i = 0; i < GF_ERROR_CODE_UNKNOWN; i++) {

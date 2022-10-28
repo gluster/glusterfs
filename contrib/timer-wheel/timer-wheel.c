@@ -330,7 +330,7 @@ int gf_tw_cleanup_timers (struct tvec_base *base)
  * Initialize various timer wheel lists and spawn a thread that
  * invokes run_timers()
  */
-struct tvec_base *gf_tw_init_timers ()
+struct tvec_base *gf_tw_init_timers (void)
 {
         int               j    = 0;
         int               ret  = 0;

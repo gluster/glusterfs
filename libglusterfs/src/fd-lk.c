@@ -97,7 +97,7 @@ fd_lk_ctx_ref(fd_lk_ctx_t *lk_ctx)
 }
 
 fd_lk_ctx_t *
-fd_lk_ctx_create()
+fd_lk_ctx_create(void)
 {
     fd_lk_ctx_t *fd_lk_ctx = NULL;
 

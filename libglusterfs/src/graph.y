@@ -41,7 +41,7 @@ static void option_error (void);
 #define GF_CMD_BUFFER_LEN (8 * GF_UNIT_KB)
 
 int graphyyerror (const char *);
-int graphyylex ();
+int graphyylex (void);
 %}
 
 
@@ -330,7 +330,7 @@ volume_end (void)
 
 
 int
-graphyywrap ()
+graphyywrap (void)
 {
         return 1;
 }
@@ -532,7 +532,7 @@ out:
 extern FILE *graphyyin;
 
 glusterfs_graph_t *
-glusterfs_graph_new ()
+glusterfs_graph_new (void)
 {
         glusterfs_graph_t *graph = NULL;
 

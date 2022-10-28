@@ -61,7 +61,7 @@ struct gf_tw_timer_list {
 };
 
 /** The API! */
-struct tvec_base *gf_tw_init_timers ();
+struct tvec_base *gf_tw_init_timers (void);
 int gf_tw_cleanup_timers (struct tvec_base *);
 void gf_tw_add_timer (struct tvec_base *, struct gf_tw_timer_list *);
 int gf_tw_del_timer (struct tvec_base *, struct gf_tw_timer_list *);

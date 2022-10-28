@@ -15,7 +15,7 @@
 
 glusterfs_ctx_t *global_ctx = NULL;
 glusterfs_ctx_t *
-glusterfs_ctx_new()
+glusterfs_ctx_new(void)
 {
     long namelen = 0;
     glusterfs_ctx_t *ctx = NULL;

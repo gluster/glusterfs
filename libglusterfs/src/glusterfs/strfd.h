@@ -19,7 +19,7 @@ typedef struct {
 } strfd_t;
 
 strfd_t *
-strfd_open();
+strfd_open(void);
 
 int
 strprintf(strfd_t *strfd, const char *fmt, ...)

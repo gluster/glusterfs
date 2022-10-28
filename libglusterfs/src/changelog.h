@@ -93,10 +93,10 @@ int
 gf_changelog_register(char *brick_path, char *scratch_dir, char *log_file,
                       int log_levl, int max_reconnects);
 ssize_t
-gf_changelog_scan();
+gf_changelog_scan(void);
 
 int
-gf_changelog_start_fresh();
+gf_changelog_start_fresh(void);
 
 ssize_t
 gf_changelog_next_change(char *bufptr, size_t maxlen);

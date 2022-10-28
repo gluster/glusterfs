@@ -23,7 +23,7 @@ struct trienodevec {
 };
 
 trie_t *
-trie_new();
+trie_new(void);
 
 int
 trie_add(trie_t *trie, const char *word);
