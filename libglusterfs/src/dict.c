@@ -45,7 +45,7 @@ struct dict_cmp {
     } while (0)
 
 static data_t *
-get_new_data()
+get_new_data(void)
 {
     data_t *data = NULL;
 

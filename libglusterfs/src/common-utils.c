@@ -544,7 +544,7 @@ gf_log_dump_graph(FILE *specfp, glusterfs_graph_t *graph)
 }
 
 static void
-gf_dump_config_flags()
+gf_dump_config_flags(void)
 {
     gf_msg_plain_nomem(GF_LOG_ALERT, "configuration details:");
 
@@ -2294,13 +2294,13 @@ out:
 }
 
 char *
-gf_leaseid_get()
+gf_leaseid_get(void)
 {
     return glusterfs_leaseid_buf_get();
 }
 
 char *
-gf_existing_leaseid()
+gf_existing_leaseid(void)
 {
     return glusterfs_leaseid_exist();
 }
@@ -2388,7 +2388,7 @@ gf_path_strip_trailing_slashes(char *path)
 }
 
 uint64_t
-get_mem_size()
+get_mem_size(void)
 {
     uint64_t memsize = -1;
 
@@ -2484,7 +2484,7 @@ generate_glusterfs_ctx_id(void)
 }
 
 static char *
-gf_get_reserved_ports()
+gf_get_reserved_ports(void)
 {
     char *ports_info = NULL;
 #if defined GF_LINUX_HOST_OS
@@ -4297,7 +4297,7 @@ out:
 }
 
 char **
-get_xattrs_to_heal()
+get_xattrs_to_heal(void)
 {
     return xattrs_to_heal;
 }

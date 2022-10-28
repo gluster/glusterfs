@@ -63,7 +63,7 @@ __rlist_has_waiter(rbuf_list_t *rlist)
 }
 
 static void *
-rbuf_alloc_rvec()
+rbuf_alloc_rvec(void)
 {
     return GF_CALLOC(1, RLIST_IOV_MELDED_ALLOC_SIZE, gf_common_mt_rvec_t);
 }

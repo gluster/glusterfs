@@ -16,7 +16,7 @@
 #include "glusterfs/common-utils.h"
 
 strfd_t *
-strfd_open()
+strfd_open(void)
 {
     strfd_t *strfd = NULL;
 

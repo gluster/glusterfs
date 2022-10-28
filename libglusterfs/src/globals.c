@@ -204,7 +204,7 @@ struct volume_options global_xl_options[] = {
 static volume_opt_list_t global_xl_opt_list;
 
 void
-glusterfs_this_init()
+glusterfs_this_init(void)
 {
     global_xlator.name = "glusterfs";
     global_xlator.type = GF_GLOBAL_XLATOR_NAME;
@@ -222,7 +222,7 @@ glusterfs_this_init()
 }
 
 xlator_t **
-__glusterfs_this_location()
+__glusterfs_this_location(void)
 {
     xlator_t **this_location;
 
@@ -236,7 +236,7 @@ __glusterfs_this_location()
 /* SYNCOPCTX */
 
 void *
-syncopctx_getctx()
+syncopctx_getctx(void)
 {
     return &thread_syncopctx;
 }
@@ -244,7 +244,7 @@ syncopctx_getctx()
 /* SYNCTASK */
 
 void *
-synctask_get()
+synctask_get(void)
 {
     return thread_synctask;
 }
@@ -258,7 +258,7 @@ synctask_set(void *synctask)
 // UUID_BUFFER
 
 char *
-glusterfs_uuid_buf_get()
+glusterfs_uuid_buf_get(void)
 {
     return thread_uuid_buf;
 }
@@ -266,7 +266,7 @@ glusterfs_uuid_buf_get()
 /* LKOWNER_BUFFER */
 
 char *
-glusterfs_lkowner_buf_get()
+glusterfs_lkowner_buf_get(void)
 {
     return thread_lkowner_buf;
 }
@@ -274,7 +274,7 @@ glusterfs_lkowner_buf_get()
 /* Leaseid buffer */
 
 char *
-glusterfs_leaseid_buf_get()
+glusterfs_leaseid_buf_get(void)
 {
     char *buf = NULL;
 
@@ -288,7 +288,7 @@ glusterfs_leaseid_buf_get()
 }
 
 char *
-glusterfs_leaseid_exist()
+glusterfs_leaseid_exist(void)
 {
     return thread_leaseid;
 }
@@ -315,7 +315,7 @@ gf_thread_needs_cleanup(void)
 }
 
 static void
-gf_globals_init_once()
+gf_globals_init_once(void)
 {
     int ret = 0;
 

@@ -200,7 +200,7 @@ typedef enum _gf_xlator_ipc_targets _gf_xlator_ipc_targets_t;
 extern char *xattrs_to_heal[];
 
 char **
-get_xattrs_to_heal();
+get_xattrs_to_heal(void);
 
 char *
 gf_gethostname(void);

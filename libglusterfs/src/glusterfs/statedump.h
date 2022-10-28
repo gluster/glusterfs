@@ -59,7 +59,7 @@ _gf_proc_dump_build_key(char *key, const char *prefix, const char *fmt, ...)
     }
 
 void
-gf_proc_dump_init();
+gf_proc_dump_init(void);
 
 void
 gf_proc_dump_fini(void);
