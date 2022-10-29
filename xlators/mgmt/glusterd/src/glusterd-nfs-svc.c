@@ -21,7 +21,7 @@
 #include "glusterd-svc-helper.h"
 
 static gf_boolean_t
-glusterd_nfssvc_need_start()
+glusterd_nfssvc_need_start(void)
 {
     glusterd_conf_t *priv = NULL;
     gf_boolean_t start = _gf_false;
@@ -44,7 +44,7 @@ glusterd_nfssvc_need_start()
 }
 
 static int
-glusterd_nfssvc_create_volfile()
+glusterd_nfssvc_create_volfile(void)
 {
     char filepath[PATH_MAX] = {
         0,
@@ -142,7 +142,7 @@ glusterd_nfssvc_build(glusterd_svc_t *svc)
 }
 
 int
-glusterd_nfssvc_reconfigure()
+glusterd_nfssvc_reconfigure(void)
 {
     int ret = -1;
     xlator_t *this = THIS;

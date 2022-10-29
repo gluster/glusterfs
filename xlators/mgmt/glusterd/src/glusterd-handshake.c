@@ -1234,7 +1234,7 @@ out:
 }
 
 static gf_boolean_t
-glusterd_have_volumes()
+glusterd_have_volumes(void)
 {
     xlator_t *this = THIS;
     glusterd_conf_t *priv = NULL;
@@ -1249,7 +1249,7 @@ out:
 }
 
 static gf_boolean_t
-glusterd_have_peers()
+glusterd_have_peers(void)
 {
     glusterd_conf_t *conf = NULL;
 

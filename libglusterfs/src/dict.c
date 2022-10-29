@@ -65,7 +65,7 @@ get_new_data()
 }
 
 static dict_t *
-get_new_dict_full()
+get_new_dict_full(void)
 {
     dict_t *dict = mem_get0(THIS->ctx->dict_pool);
 
