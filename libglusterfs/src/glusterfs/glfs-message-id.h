@@ -153,6 +153,38 @@
 #define GLFS_APPLY(_macro, _in, _num, _fields...)                              \
     GLFS_APPLY_##_num(_macro, _in, ##_fields)
 
+#define GLFS_APPLY_ARGS_0(_macro, _in) void
+
+#define GLFS_APPLY_ARGS_1(_macro, _in, _f) _macro _f
+
+#define GLFS_APPLY_ARGS_2(_macro, _in, _f, _more)                              \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_1(_macro, _in, _more)
+
+#define GLFS_APPLY_ARGS_3(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_2(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_4(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_3(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_5(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_4(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_6(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_5(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_7(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_6(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_8(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_7(_macro, _in, ##_more)
+
+#define GLFS_APPLY_ARGS_9(_macro, _in, _f, _more...)                           \
+    _macro _f GLFS_EXPAND _in GLFS_APPLY_ARGS_8(_macro, _in, ##_more)
+
+/* Apply a macro to a variable number of fields. */
+#define GLFS_APPLY_ARGS(_macro, _in, _num, _fields...)                         \
+    GLFS_APPLY_ARGS_##_num(_macro, _in, ##_fields)
+
 /* Translate a name into an internal name to avoid variable name collisions. */
 #define GLFS_GET(_name) _glfs_var_##_name
 
@@ -190,11 +222,10 @@
 #define GLFS_NAMES(_num, _fields...) GLFS_APPLY(GLFS_NAME, (), _num, ##_fields)
 
 /* Generate a format string for all fields. */
-#define GLFS_FMTS(_num, _fields...)                                            \
-    GLFS_APPLY(GLFS_FMT, (", "), _num, ##_fields)
+#define GLFS_FMTS(_num, _fields...) GLFS_APPLY(GLFS_FMT, (", "), _num, ##_fields)
 
 /* Generate the function call argument declaration for all fields. */
-#define GLFS_ARGS(_num, _fields...) GLFS_APPLY(GLFS_ARG, (, ), _num, ##_fields)
+#define GLFS_ARGS(_num, _fields...) GLFS_APPLY_ARGS(GLFS_ARG, (, ), _num, ##_fields)
 
 /* Generate the list of variables for all fields from a structure. */
 #define GLFS_VARS(_num, _fields...) GLFS_APPLY(GLFS_VAR, (), _num, ##_fields)

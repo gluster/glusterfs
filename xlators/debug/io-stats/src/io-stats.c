@@ -1030,7 +1030,7 @@ err:
  *          FAILURE: NULL
  */
 static struct dnscache_entry *
-gf_dnscache_entry_init()
+gf_dnscache_entry_init(void)
 {
     struct dnscache_entry *entry = GF_CALLOC(1, sizeof(*entry),
                                              gf_common_mt_dnscache_entry);
