@@ -33,7 +33,7 @@ struct trash_struct {
     fd_t *newfd;      /* for the newly created file */
     loc_t loc;        /* to store the location of the existing file */
     loc_t newloc;     /* to store the location for the new file */
-    size_t fsize;     /* for keeping the size of existing file */
+    uint64_t fsize;   /* for keeping the size of existing file */
     off_t cur_offset; /* current offset for read and write ops */
     off_t fop_offset; /* original offset received with the fop */
     pid_t pid;
@@ -58,7 +58,7 @@ struct trash_priv {
     char *newtrash_dir;
     char *brick_path;
     trash_elim_path *eliminate;
-    size_t max_trash_file_size;
+    uint64_t max_trash_file_size;
     gf_boolean_t state;
     gf_boolean_t internal;
     inode_t *trash_inode;
