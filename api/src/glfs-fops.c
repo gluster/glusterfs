@@ -477,7 +477,11 @@ retry:
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+    if (IA_ISDIR(iatt.ia_type))
+        ret = syncop_opendir(subvol, &loc, glfd->fd, NULL, NULL);
+    else
+        ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+
     DECODE_SYNCOP_ERR(ret);
 
     ESTALE_RETRY(ret, errno, reval, &loc, retry);
