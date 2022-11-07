@@ -682,7 +682,11 @@ pub_glfs_h_open(struct glfs *fs, struct glfs_object *object, int flags)
     if (ret)
         gf_msg_debug("gfapi", 0, "Getting leaseid from thread failed");
 
-    ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+    if (IA_ISDIR(inode->ia_type))
+        ret = syncop_opendir(subvol, &loc, glfd->fd, NULL, NULL);
+    else
+        ret = syncop_open(subvol, &loc, flags, glfd->fd, fop_attr, NULL);
+
     DECODE_SYNCOP_ERR(ret);
 
     glfd->fd->flags = flags;
