@@ -649,6 +649,13 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
 
     gf_log_disable_suppression_before_exit(ctx);
 
+    if (!ctx || ctx->log.logger != gf_logger_glusterlog)
+        goto skip_print_trace;
+
+#ifdef GF_LINUX_HOST_OS
+    gf_log_disable_syslog(ctx);
+#endif
+
     /* Pending frames, (if any), list them in order */
     gf_msg_plain_nomem(GF_LOG_ALERT, "pending frames:");
     {
@@ -683,6 +690,10 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     sprintf(msg, "---------");
     gf_msg_plain_nomem(GF_LOG_ALERT, msg);
 
+#ifdef GF_LINUX_HOST_OS
+    gf_log_enable_syslog(ctx);
+#endif
+skip_print_trace:
     /* Send a signal to terminate the process */
     signal(signum, SIG_DFL);
     raise(signum);
