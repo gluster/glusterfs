@@ -3619,32 +3619,42 @@ ios_destroy_top_stats(struct ios_conf *conf)
         list_head = &conf->list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
         list_head = &conf->thru_list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     UNLOCK(&conf->lock);
