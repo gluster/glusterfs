@@ -1,4 +1,4 @@
-<h1 align="center"><img src="https://www.gluster.org/wp-content/uploads/2016/03/gluster-ant.png" width="320" height="240" alt="Gluster is a free and open source software scalable network filesystem."></h1>
+<h1 align="center"><img src="https://www.gluster.org/wp-content/uploads/2016/03/gluster-ant.png" width="320" alt="Gluster is a free and open source software scalable network filesystem."></h1>
 
 <h4 align="center">
     <a href="https://gluster.slack.com/"><img src=https://img.shields.io/badge/CHATON-SLACK-green></a> 
