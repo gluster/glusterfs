@@ -3541,32 +3541,42 @@ ios_destroy_top_stats(struct ios_conf *conf)
         list_head = &conf->list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
         list_head = &conf->thru_list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     UNLOCK(&conf->lock);
@@ -3765,10 +3775,10 @@ reconfigure(xlator_t *this, dict_t *options)
     GF_OPTION_RECONF("ios-dump-format", dump_format_str, options, str, out);
     ios_set_log_format_code(conf, dump_format_str);
     if (conf->ios_sample_interval) {
-        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size, options,
-                         int32, out);
+        GF_OPTION_RECONF("ios-sample-buf-size", conf->ios_sample_buf_size,
+                         options, int32, out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     GF_OPTION_RECONF("sys-log-level", sys_log_str, options, str, out);
@@ -3951,7 +3961,7 @@ init(xlator_t *this)
         GF_OPTION_INIT("ios-sample-buf-size", conf->ios_sample_buf_size, int32,
                        out);
     } else {
-        ios_sample_buf_size_configure (this->name, conf);
+        ios_sample_buf_size_configure(this->name, conf);
     }
 
     ret = ios_init_sample_buf(conf);
