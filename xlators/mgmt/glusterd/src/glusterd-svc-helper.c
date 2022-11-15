@@ -452,7 +452,7 @@ out:
 }
 
 glusterd_svc_proc_t *
-glusterd_svcprocess_new()
+glusterd_svcprocess_new(void)
 {
     glusterd_svc_proc_t *new_svcprocess = NULL;
 

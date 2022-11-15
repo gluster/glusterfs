@@ -49,7 +49,7 @@ void *
 __gf_find_compatible_svc(gd_node_type daemon);
 
 glusterd_svc_proc_t *
-glusterd_svcprocess_new();
+glusterd_svcprocess_new(void);
 
 int
 glusterd_shd_svc_mux_init(glusterd_volinfo_t *volinfo, glusterd_svc_t *svc);

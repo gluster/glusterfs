@@ -65,11 +65,6 @@ __iobuf_arena_init_iobufs(struct iobuf_arena *iobuf_arena)
     int offset = 0;
     int i = 0;
 
-    iobuf_arena->iobufs = GF_CALLOC(sizeof(*iobuf), iobuf_cnt,
-                                    gf_common_mt_iobuf);
-    if (!iobuf_arena->iobufs)
-        return;
-
     iobuf = iobuf_arena->iobufs;
     for (i = 0; i < iobuf_cnt; i++) {
         INIT_LIST_HEAD(&iobuf->list);
@@ -94,12 +89,6 @@ __iobuf_arena_destroy_iobufs(struct iobuf_arena *iobuf_arena)
     struct iobuf *iobuf = NULL;
     int i = 0;
 
-    if (!iobuf_arena->iobufs) {
-        gf_msg_callingfn(THIS->name, GF_LOG_ERROR, 0, LG_MSG_IOBUFS_NOT_FOUND,
-                         "iobufs not found");
-        return;
-    }
-
     iobuf_cnt = iobuf_arena->page_count;
     iobuf = iobuf_arena->iobufs;
     for (i = 0; i < iobuf_cnt; i++) {
@@ -109,23 +98,16 @@ __iobuf_arena_destroy_iobufs(struct iobuf_arena *iobuf_arena)
         list_del_init(&iobuf->list);
         iobuf++;
     }
-
-    GF_FREE(iobuf_arena->iobufs);
 }
 
 static void
 __iobuf_arena_destroy(struct iobuf_arena *iobuf_arena)
 {
-    GF_VALIDATE_OR_GOTO("iobuf", iobuf_arena, out);
+    munmap(iobuf_arena->mem_base, iobuf_arena->arena_size);
 
     __iobuf_arena_destroy_iobufs(iobuf_arena);
 
-    if (iobuf_arena->mem_base && iobuf_arena->mem_base != MAP_FAILED)
-        munmap(iobuf_arena->mem_base, iobuf_arena->arena_size);
-
     GF_FREE(iobuf_arena);
-out:
-    return;
 }
 
 static struct iobuf_arena *
@@ -138,9 +120,11 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
 
     GF_VALIDATE_OR_GOTO("iobuf", iobuf_pool, out);
 
-    iobuf_arena = GF_CALLOC(sizeof(*iobuf_arena), 1, gf_common_mt_iobuf_arena);
+    iobuf_arena = GF_CALLOC(
+        1, sizeof(struct iobuf_arena) + sizeof(struct iobuf) * num_iobufs,
+        gf_common_mt_iobuf_arena);
     if (!iobuf_arena)
-        goto err;
+        goto out;
 
     INIT_LIST_HEAD(&iobuf_arena->list);
     INIT_LIST_HEAD(&iobuf_arena->passive_list);
@@ -159,21 +143,15 @@ __iobuf_arena_alloc(struct iobuf_pool *iobuf_pool, size_t page_size,
                                  MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (iobuf_arena->mem_base == MAP_FAILED) {
         gf_smsg(THIS->name, GF_LOG_WARNING, 0, LG_MSG_MAPPING_FAILED, NULL);
-        goto err;
+        GF_FREE(iobuf_arena);
+        goto out;
     }
 
     __iobuf_arena_init_iobufs(iobuf_arena);
-    if (!iobuf_arena->iobufs) {
-        gf_smsg(THIS->name, GF_LOG_ERROR, 0, LG_MSG_INIT_IOBUF_FAILED, NULL);
-        goto err;
-    }
 
     iobuf_pool->arena_cnt++;
 
     return iobuf_arena;
-
-err:
-    __iobuf_arena_destroy(iobuf_arena);
 
 out:
     return NULL;
@@ -431,7 +409,6 @@ static void
 __iobuf_free(struct iobuf *iobuf)
 {
     LOCK_DESTROY(&iobuf->lock);
-    GF_FREE(iobuf->free_ptr);
     GF_FREE(iobuf);
 }
 
@@ -441,7 +418,6 @@ iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
     struct iobuf *iobuf = NULL;
     struct iobuf_arena *iobuf_arena = NULL;
     struct iobuf_arena *trav = NULL;
-    int ret = -1;
 
     /* The first arena in the 'MAX-INDEX' will always be used for misc */
     list_for_each_entry(trav, &iobuf_pool->arenas[IOBUF_ARENA_MAX_INDEX], list)
@@ -450,30 +426,19 @@ iobuf_get_from_stdalloc(struct iobuf_pool *iobuf_pool, const size_t page_size)
         break;
     }
 
-    iobuf = GF_CALLOC(1, sizeof(*iobuf), gf_common_mt_iobuf);
-    if (!iobuf)
-        goto out;
+    iobuf = GF_MALLOC(sizeof(*iobuf) + ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
+                      gf_common_mt_iobuf);
+    if (caa_unlikely(!iobuf))
+        return NULL;
 
-    /* 4096 is the alignment */
-    iobuf->free_ptr = GF_CALLOC(1, ((page_size + GF_IOBUF_ALIGN_SIZE) - 1),
-                                gf_common_mt_char);
-    if (!iobuf->free_ptr)
-        goto out;
-
-    iobuf->ptr = GF_ALIGN_BUF(iobuf->free_ptr, GF_IOBUF_ALIGN_SIZE);
+    INIT_LIST_HEAD(&iobuf->list);
     iobuf->iobuf_arena = iobuf_arena;
-    iobuf->page_size = page_size;
     LOCK_INIT(&iobuf->lock);
-
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
 
-    ret = 0;
-out:
-    if (ret && iobuf) {
-        __iobuf_free(iobuf);
-        iobuf = NULL;
-    }
+    iobuf->ptr = GF_ALIGN_BUF(iobuf->allocated_buffer, GF_IOBUF_ALIGN_SIZE);
+    iobuf->page_size = page_size;
 
     return iobuf;
 }
@@ -483,30 +448,18 @@ iobuf_get_from_small(const size_t page_size)
 {
     struct iobuf *iobuf = NULL;
 
-    iobuf = GF_MALLOC(sizeof(*iobuf), gf_common_mt_iobuf);
-    if (!iobuf)
-        goto err;
+    iobuf = GF_MALLOC(sizeof(*iobuf) + page_size, gf_common_mt_iobuf);
+    if (caa_unlikely(!iobuf))
+        return NULL;
 
-    iobuf->free_ptr = GF_MALLOC(page_size, gf_common_mt_iobuf_pool);
-    if (!iobuf->free_ptr)
-        goto err;
-
-    iobuf->ptr = iobuf->free_ptr;
-    iobuf->page_size = page_size;
     INIT_LIST_HEAD(&iobuf->list);
     iobuf->iobuf_arena = NULL;
     LOCK_INIT(&iobuf->lock);
     /* Hold a ref because you are allocating and using it */
     GF_ATOMIC_INIT(iobuf->ref, 1);
-
+    iobuf->ptr = iobuf->allocated_buffer;
+    iobuf->page_size = page_size;
     return iobuf;
-err:
-    if (iobuf) {
-        GF_FREE(iobuf->free_ptr);
-        GF_FREE(iobuf);
-    }
-
-    return NULL;
 }
 
 struct iobuf *
@@ -586,17 +539,6 @@ iobuf_get_page_aligned(struct iobuf_pool *iobuf_pool, size_t page_size,
     iobuf = iobuf_get2(iobuf_pool, req_size);
     if (!iobuf)
         return NULL;
-    /* If std allocation was used, then free_ptr will be non-NULL. In this
-     * case, we do not want to modify the original free_ptr.
-     * On the other hand, if the buf was gotten through the available
-     * arenas, then we use iobuf->free_ptr to store the original
-     * pointer to the offset into the mmap'd block of memory and in turn
-     * reuse iobuf->ptr to hold the page-aligned address. And finally, in
-     * iobuf_put(), we copy iobuf->free_ptr into iobuf->ptr - back to where
-     * it was originally when __iobuf_get() returned this iobuf.
-     */
-    if (!iobuf->free_ptr)
-        iobuf->free_ptr = iobuf->ptr;
     iobuf->ptr = GF_ALIGN_BUF(iobuf->ptr, align_size);
 
     return iobuf;
@@ -644,11 +586,6 @@ __iobuf_put(struct iobuf *iobuf, struct iobuf_arena *iobuf_arena)
 
     list_del_init(&iobuf->list);
     iobuf_arena->active_cnt--;
-
-    if (iobuf->free_ptr) {
-        iobuf->ptr = iobuf->free_ptr;
-        iobuf->free_ptr = NULL;
-    }
 
     list_add(&iobuf->list, &iobuf_arena->passive_list);
     iobuf_arena->passive_cnt++;
@@ -713,7 +650,7 @@ out:
 }
 
 struct iobref *
-iobref_new()
+iobref_new(void)
 {
     struct iobref *iobref = NULL;
 

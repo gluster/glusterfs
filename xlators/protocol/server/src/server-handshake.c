@@ -45,23 +45,108 @@ server_getspec(rpcsvc_request_t *req)
     gf_getspec_rsp rsp = {
         0,
     };
+    struct stat stbuf = {
+        0,
+    };
+    char volpath[PATH_MAX] = {
+        0,
+    };
+    int32_t spec_fd = -1;
+    xlator_t *this = req->svc->xl;
+    server_conf_t *conf = this->private;
+    gf_boolean_t need_to_free_buffer = _gf_false;
 
     ret = xdr_to_generic(req->msg[0], &args, (xdrproc_t)xdr_gf_getspec_req);
     if (ret < 0) {
         // failed to decode msg;
         req->rpc_err = GARBAGE_ARGS;
         op_errno = EINVAL;
-        goto fail;
+        rsp.spec = "<this method is not in use, use glusterd for getspec>";
+        rsp.op_errno = gf_errno_to_error(op_errno);
+        rsp.op_ret = -1;
+        goto out;
     }
 
-    op_errno = ENOSYS;
-fail:
-    rsp.spec = "<this method is not in use, use glusterd for getspec>";
-    rsp.op_errno = gf_errno_to_error(op_errno);
-    rsp.op_ret = -1;
+    /* By default, the behavior is not to return anything if specific option is
+     * not set */
+    if (!conf->volfile_dir) {
+        ret = -1;
+        op_errno = ENOTSUP;
+        rsp.spec = "<this method is not in use, use glusterd for getspec>";
+        goto out;
+    }
+    char *volid = args.key;
+    if (strstr(volid, "../")) {
+        op_errno = EINVAL;
+        rsp.spec = "having '../' in volid is not valid";
+        rsp.op_errno = gf_errno_to_error(op_errno);
+        rsp.op_ret = -1;
+        goto out;
+    }
+    ret = snprintf(volpath, PATH_MAX - 1, "%s/%s.vol", conf->volfile_dir,
+                   volid);
+    if (ret == -1) {
+        op_errno = ENOMEM;
+        gf_msg(this->name, GF_LOG_ERROR, errno, 0, "failed to copy volfile");
+        goto out;
+    }
+
+    ret = sys_stat(volpath, &stbuf);
+    if (ret < 0) {
+        op_errno = errno;
+        goto out;
+    }
+
+    spec_fd = sys_open(volpath, O_RDONLY, 0);
+    if (spec_fd < 0) {
+        op_errno = errno;
+        gf_msg("glusterd", GF_LOG_ERROR, errno, 0, "Unable to open %s (%s)",
+               volpath, strerror(errno));
+        goto out;
+    }
+    ret = stbuf.st_size;
+
+    if (ret > 0) {
+        rsp.spec = MALLOC((ret + 1) * sizeof(char));
+        if (!rsp.spec) {
+            gf_msg(this->name, GF_LOG_ERROR, errno, 0, "no memory");
+            ret = -1;
+            goto out;
+        }
+        need_to_free_buffer = _gf_true;
+        ret = sys_read(spec_fd, rsp.spec, ret);
+        if (ret <= 0) {
+            op_errno = errno;
+        }
+    }
+
+out:
+    if (spec_fd >= 0)
+        sys_close(spec_fd);
+
+    rsp.op_ret = ret;
+    if (rsp.op_ret < 0) {
+        gf_msg(this->name, GF_LOG_ERROR, op_errno, 0,
+               "Failed to mount the volume");
+    }
+
+    if (op_errno)
+        rsp.op_errno = gf_errno_to_error(op_errno);
+
+    if (!rsp.spec)
+        rsp.spec = "";
 
     server_submit_reply(NULL, req, &rsp, NULL, 0, NULL,
                         (xdrproc_t)xdr_gf_getspec_rsp);
+
+    free(args.key);
+    if (args.xdata.xdata_val)
+        free(args.xdata.xdata_val);
+
+    if (need_to_free_buffer)
+        FREE(rsp.spec);
+    if (rsp.xdata.xdata_val)
+        GF_FREE(rsp.xdata.xdata_val);
 
     return 0;
 }

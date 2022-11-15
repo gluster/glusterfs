@@ -128,7 +128,7 @@ err:
 }
 
 quota_inode_ctx_t *
-mq_alloc_inode_ctx()
+mq_alloc_inode_ctx(void)
 {
     int32_t ret = -1;
     quota_inode_ctx_t *ctx = NULL;

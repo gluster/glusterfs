@@ -134,7 +134,7 @@ const char *gd_op_list[GD_OP_MAX + 1] = {
 #define GLUSTERD_RUN_DIR "/run"
 
 static int
-glusterd_opinfo_init()
+glusterd_opinfo_init(void)
 {
     int32_t ret = -1;
 
@@ -144,7 +144,7 @@ glusterd_opinfo_init()
 }
 
 int
-glusterd_uuid_init()
+glusterd_uuid_init(void)
 {
     int ret = -1;
     xlator_t *this = THIS;
@@ -172,7 +172,7 @@ glusterd_uuid_init()
 }
 
 int
-glusterd_uuid_generate_save()
+glusterd_uuid_generate_save(void)
 {
     int ret = -1;
     glusterd_conf_t *priv = NULL;

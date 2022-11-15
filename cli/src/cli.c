@@ -129,12 +129,6 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
         goto out;
     }
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
-    if (!ctx->dict_pair_pool) {
-        gf_log("cli", GF_LOG_ERROR, "Failed to create dict pair pool.");
-        goto out;
-    }
-
     ctx->dict_data_pool = mem_pool_new(data_t, 512);
     if (!ctx->dict_data_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create dict data pool.");
@@ -171,7 +165,6 @@ out:
         pool = NULL;
         GF_FREE(ctx->process_uuid);
         mem_pool_destroy(ctx->dict_pool);
-        mem_pool_destroy(ctx->dict_pair_pool);
         mem_pool_destroy(ctx->dict_data_pool);
         mem_pool_destroy(ctx->logbuf_pool);
     }
@@ -723,7 +716,7 @@ out:
 }
 
 cli_local_t *
-cli_local_get()
+cli_local_get(void)
 {
     cli_local_t *local = NULL;
 

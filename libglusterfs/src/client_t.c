@@ -121,6 +121,7 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
     cliententry_t *cliententry = NULL;
     clienttable_t *clienttable = NULL;
     unsigned int i = 0;
+    unsigned int client_uid_len = 0;
 
     if (this == NULL || client_uid == NULL) {
         gf_msg_callingfn("client_t", GF_LOG_ERROR, EINVAL, LG_MSG_INVALID_ARG,
@@ -151,47 +152,23 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             }
         }
 
-        client = GF_CALLOC(1, sizeof(client_t), gf_common_mt_client_t);
+        client_uid_len = strlen(client_uid) + 1;
+        client = GF_CALLOC(1, sizeof(client_t) + client_uid_len,
+                           gf_common_mt_client_t);
         if (client == NULL) {
-            errno = ENOMEM;
-            goto unlock;
-        }
-
-        client->this = this;
-        if (subdir_mount != NULL)
-            client->subdir_mount = gf_strdup(subdir_mount);
-
-        LOCK_INIT(&client->scratch_ctx.lock);
-
-        client->client_uid = gf_strdup(client_uid);
-        if (client->client_uid == NULL) {
-            GF_FREE(client);
-            client = NULL;
-            errno = ENOMEM;
-            goto unlock;
-        }
-        client->scratch_ctx.count = GF_CLIENTCTX_INITIAL_SIZE;
-        client->scratch_ctx.ctx = GF_CALLOC(GF_CLIENTCTX_INITIAL_SIZE,
-                                            sizeof(struct client_ctx),
-                                            gf_common_mt_client_ctx);
-        if (client->scratch_ctx.ctx == NULL) {
-            GF_FREE(client->client_uid);
-            GF_FREE(client);
-            client = NULL;
             errno = ENOMEM;
             goto unlock;
         }
 
         GF_ATOMIC_INIT(client->bind, 1);
         GF_ATOMIC_INIT(client->count, 1);
-        GF_ATOMIC_INIT(client->fd_cnt, 0);
+        client->this = this;
+        client->tbl_index = clienttable->first_free;
 
         client->auth.flavour = cred->flavour;
         if (cred->flavour) {
             client->auth.data = GF_MALLOC(cred->datalen, gf_common_mt_client_t);
             if (client->auth.data == NULL) {
-                GF_FREE(client->scratch_ctx.ctx);
-                GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
                 errno = ENOMEM;
@@ -201,15 +178,19 @@ gf_client_get(xlator_t *this, client_auth_data_t *cred, char *client_uid,
             client->auth.len = cred->datalen;
         }
 
-        client->tbl_index = clienttable->first_free;
+        if (subdir_mount != NULL)
+            client->subdir_mount = gf_strdup(subdir_mount);
+
+        GF_ATOMIC_INIT(client->fd_cnt, 0);
+        LOCK_INIT(&client->scratch_ctx_lock);
+        memcpy(client->client_uid, client_uid, client_uid_len);
+
         cliententry = &clienttable->cliententries[clienttable->first_free];
         if (cliententry->next_free == GF_CLIENTTABLE_END) {
             int result = gf_client_clienttable_expand(
                 clienttable,
                 clienttable->max_clients + GF_CLIENTTABLE_INITIAL_SIZE);
             if (result != 0) {
-                GF_FREE(client->scratch_ctx.ctx);
-                GF_FREE(client->client_uid);
                 GF_FREE(client);
                 client = NULL;
                 errno = result;
@@ -330,13 +311,11 @@ client_destroy(client_t *client)
     if (client->subdir_inode)
         inode_unref(client->subdir_inode);
 
-    LOCK_DESTROY(&client->scratch_ctx.lock);
+    LOCK_DESTROY(&client->scratch_ctx_lock);
 
     GF_FREE(client->auth.data);
     GF_FREE(client->auth.username);
     GF_FREE(client->auth.passwd);
-    GF_FREE(client->scratch_ctx.ctx);
-    GF_FREE(client->client_uid);
     GF_FREE(client->subdir_mount);
     GF_FREE(client->client_name);
     GF_FREE(client);
@@ -398,59 +377,31 @@ gf_client_unref(client_t *client)
     }
 }
 
+/* value (assumed to be passed NULL) is returned if the key was found.
+   ret value >= 0 - the location it is found (value is non NULL)
+   or the 1st free slot (in case value is NULL)
+   or -1 in case no free slots found
+*/
 static int
 __client_ctx_get_int(client_t *client, void *key, void **value)
 {
     int index = 0;
-    int ret = 0;
-
-    for (index = 0; index < client->scratch_ctx.count; index++) {
-        if (client->scratch_ctx.ctx[index].ctx_key == key)
-            break;
-    }
-
-    if (index == client->scratch_ctx.count) {
-        ret = -1;
-        goto out;
-    }
-
-    if (value)
-        *value = client->scratch_ctx.ctx[index].ctx_value;
-
-out:
-    return ret;
-}
-
-static int
-__client_ctx_set_int(client_t *client, void *key, void *value)
-{
-    int index = 0;
-    int ret = 0;
     int set_idx = -1;
 
-    for (index = 0; index < client->scratch_ctx.count; index++) {
-        if (!client->scratch_ctx.ctx[index].ctx_key) {
+    for (index = 0; index < GF_CLIENTCTX_INITIAL_SIZE; index++) {
+        if (!client->scratch_ctx[index].ctx_key) {
             if (set_idx == -1)
                 set_idx = index;
-            /* don't break, to check if key already exists
+            /* don't break, check if key already exists
                further on */
-        }
-        if (client->scratch_ctx.ctx[index].ctx_key == key) {
-            set_idx = index;
-            break;
+        } else if (client->scratch_ctx[index].ctx_key == key) {
+            *value = client->scratch_ctx[index].ctx_value;
+            return index;
         }
     }
 
-    if (set_idx == -1) {
-        ret = -1;
-        goto out;
-    }
-
-    client->scratch_ctx.ctx[set_idx].ctx_key = key;
-    client->scratch_ctx.ctx[set_idx].ctx_value = value;
-
-out:
-    return ret;
+    // if the value was not found, return -1 or the 1st free slot.
+    return set_idx;
 }
 
 /*will return success with old value if exist*/
@@ -463,81 +414,59 @@ client_ctx_set(client_t *client, void *key, void *value)
     if (!client || !key || !value)
         return NULL;
 
-    LOCK(&client->scratch_ctx.lock);
+    LOCK(&client->scratch_ctx_lock);
     {
         ret = __client_ctx_get_int(client, key, &ret_value);
-        if (!ret && ret_value) {
-            UNLOCK(&client->scratch_ctx.lock);
-            return ret_value;
+        if (!ret_value && ret >= 0) {
+            // key was not found and ret is the location of the 1st free slot
+            client->scratch_ctx[ret].ctx_key = key;
+            client->scratch_ctx[ret].ctx_value = value;
+            ret_value = value;
         }
-
-        ret = __client_ctx_set_int(client, key, value);
     }
-    UNLOCK(&client->scratch_ctx.lock);
+    UNLOCK(&client->scratch_ctx_lock);
 
-    if (ret)
-        return NULL;
-    return value;
+    return ret_value;
 }
 
-int
-client_ctx_get(client_t *client, void *key, void **value)
+void *
+client_ctx_get(client_t *client, void *key)
 {
-    int ret = 0;
+    void *ret_value = NULL;
 
     if (!client || !key)
-        return -1;
+        return NULL;
 
-    LOCK(&client->scratch_ctx.lock);
+    LOCK(&client->scratch_ctx_lock);
     {
-        ret = __client_ctx_get_int(client, key, value);
+        (void)__client_ctx_get_int(client, key, &ret_value);
     }
-    UNLOCK(&client->scratch_ctx.lock);
+    UNLOCK(&client->scratch_ctx_lock);
 
-    return ret;
+    return ret_value;
 }
 
-static int
-__client_ctx_del_int(client_t *client, void *key, void **value)
+void *
+client_ctx_del(client_t *client, void *key)
 {
-    int index = 0;
     int ret = 0;
+    void *ret_value = NULL;
 
-    for (index = 0; index < client->scratch_ctx.count; index++) {
-        if (client->scratch_ctx.ctx[index].ctx_key == key)
-            break;
-    }
-
-    if (index == client->scratch_ctx.count) {
-        ret = -1;
+    if (!client || !key)
         goto out;
+
+    LOCK(&client->scratch_ctx_lock);
+    {
+        ret = __client_ctx_get_int(client, key, &ret_value);
+        if (ret_value) {
+            client->scratch_ctx[ret].ctx_key = 0;
+            client->scratch_ctx[ret].ctx_value = 0;
+        }
     }
-
-    if (value)
-        *value = client->scratch_ctx.ctx[index].ctx_value;
-
-    client->scratch_ctx.ctx[index].ctx_key = 0;
-    client->scratch_ctx.ctx[index].ctx_value = 0;
+    UNLOCK(&client->scratch_ctx_lock);
 
 out:
-    return ret;
-}
-
-int
-client_ctx_del(client_t *client, void *key, void **value)
-{
-    int ret = 0;
-
-    if (!client || !key)
-        return -1;
-
-    LOCK(&client->scratch_ctx.lock);
-    {
-        ret = __client_ctx_del_int(client, key, value);
-    }
-    UNLOCK(&client->scratch_ctx.lock);
-
-    return ret;
+    return ret_value;
 }
 
 void

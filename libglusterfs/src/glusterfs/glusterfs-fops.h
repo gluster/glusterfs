@@ -101,7 +101,8 @@ enum glusterfs_event_t {
     GF_EVENT_SCRUB_ONDEMAND = 9 + 13,
     GF_EVENT_SOME_DESCENDENT_UP = 9 + 14,
     GF_EVENT_CHILD_PING = 9 + 15,
-    GF_EVENT_MAXVAL = 9 + 16,
+    GF_EVENT_SIGHUP = 9 + 16,
+    GF_EVENT_MAXVAL = 9 + 17,
 };
 typedef enum glusterfs_event_t glusterfs_event_t;
 

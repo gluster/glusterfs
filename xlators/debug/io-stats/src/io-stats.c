@@ -112,11 +112,11 @@ typedef struct _ios_sample_t {
 } ios_sample_t;
 
 typedef struct _ios_sample_buf_t {
-    uint64_t pos;              /* Position in write buffer */
-    uint64_t size;             /* Size of ring buffer */
-    uint64_t collected;        /* Number of samples we've collected */
-    uint64_t observed;         /* Number of FOPs we've observed */
-    ios_sample_t *ios_samples; /* Our list of samples */
+    uint64_t pos;               /* Position in write buffer */
+    uint64_t size;              /* Size of ring buffer */
+    uint64_t collected;         /* Number of samples we've collected */
+    uint64_t observed;          /* Number of FOPs we've observed */
+    ios_sample_t ios_samples[]; /* Our list of samples */
 } ios_sample_buf_t;
 
 struct ios_lat {
@@ -554,39 +554,27 @@ ios_inode_ctx_get(inode_t *inode, xlator_t *this, struct ios_stat **iosstat)
  * in our dump thread.
  *
  */
-ios_sample_buf_t *
+static ios_sample_buf_t *
 ios_create_sample_buf(size_t buf_size)
 {
     ios_sample_buf_t *ios_sample_buf = NULL;
-    ios_sample_t *ios_samples = NULL;
 
-    ios_sample_buf = GF_CALLOC(1, sizeof(*ios_sample_buf),
-                               gf_io_stats_mt_ios_sample_buf);
+    ios_sample_buf = GF_CALLOC(
+        1, sizeof(*ios_sample_buf) + (buf_size * sizeof(ios_sample_t)),
+        gf_io_stats_mt_ios_sample_buf);
     if (!ios_sample_buf)
         goto err;
 
-    ios_samples = GF_CALLOC(buf_size, sizeof(*ios_samples),
-                            gf_io_stats_mt_ios_sample);
-
-    if (!ios_samples)
-        goto err;
-
-    ios_sample_buf->ios_samples = ios_samples;
     ios_sample_buf->size = buf_size;
-    ios_sample_buf->pos = 0;
-    ios_sample_buf->observed = 0;
-    ios_sample_buf->collected = 0;
 
     return ios_sample_buf;
 err:
-    GF_FREE(ios_sample_buf);
     return NULL;
 }
 
-void
+static void
 ios_destroy_sample_buf(ios_sample_buf_t *ios_sample_buf)
 {
-    GF_FREE(ios_sample_buf->ios_samples);
     GF_FREE(ios_sample_buf);
 }
 
@@ -1042,7 +1030,7 @@ err:
  *          FAILURE: NULL
  */
 static struct dnscache_entry *
-gf_dnscache_entry_init()
+gf_dnscache_entry_init(void)
 {
     struct dnscache_entry *entry = GF_CALLOC(1, sizeof(*entry),
                                              gf_common_mt_dnscache_entry);
@@ -3631,32 +3619,42 @@ ios_destroy_top_stats(struct ios_conf *conf)
         list_head = &conf->list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     for (i = 0; i < IOS_STATS_THRU_MAX; i++) {
         list_head = &conf->thru_list[i];
         if (!list_head)
             continue;
-        list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list, list)
+        LOCK(&list_head->lock);
         {
-            list = entry;
-            stat = list->iosstat;
-            ios_stat_unref(stat);
-            list_del(&list->list);
-            GF_FREE(list);
-            list_head->members--;
+            list_for_each_entry_safe(entry, tmp, &list_head->iosstats->list,
+                                     list)
+            {
+                list = entry;
+                stat = list->iosstat;
+                ios_stat_unref(stat);
+                list_del(&list->list);
+                GF_FREE(list);
+                list_head->members--;
+            }
+            GF_FREE(list_head->iosstats);
         }
-        GF_FREE(list_head->iosstats);
+        UNLOCK(&list_head->lock);
     }
 
     UNLOCK(&conf->lock);

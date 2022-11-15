@@ -634,15 +634,15 @@ enum glusterd_op_ret {
     pthread_mutex_unlock(&(THIS->ctx)->cleanup_lock);
 
 int
-glusterd_uuid_init();
+glusterd_uuid_init(void);
 
 int
-glusterd_uuid_generate_save();
+glusterd_uuid_generate_save(void);
 
 #define MY_UUID (__glusterd_uuid())
 
 static inline unsigned char *
-__glusterd_uuid()
+__glusterd_uuid(void)
 {
     glusterd_conf_t *priv = THIS->private;
 
@@ -893,7 +893,7 @@ ganesha_manage_export(dict_t *dict, char *value,
 int
 gd_ganesha_send_dbus(char *volname, char *value);
 gf_boolean_t
-glusterd_is_ganesha_cluster();
+glusterd_is_ganesha_cluster(void);
 gf_boolean_t
 glusterd_check_ganesha_export(glusterd_volinfo_t *volinfo);
 int
@@ -972,7 +972,7 @@ glusterd_defrag_event_notify_handle(dict_t *dict);
 
 /* snapshot */
 glusterd_snap_t *
-glusterd_new_snap_object();
+glusterd_new_snap_object(void);
 
 int32_t
 glusterd_list_add_snapvol(glusterd_volinfo_t *origin_vol,
@@ -1011,7 +1011,7 @@ int
 glusterd_snapshot_revert_restore_from_snap(glusterd_snap_t *snap);
 
 gf_boolean_t
-glusterd_should_i_stop_bitd();
+glusterd_should_i_stop_bitd(void);
 
 int
 glusterd_remove_brick_migrate_cbk(glusterd_volinfo_t *volinfo,

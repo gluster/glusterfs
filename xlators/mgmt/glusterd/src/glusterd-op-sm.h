@@ -172,10 +172,10 @@ glusterd_op_sm_inject_event(glusterd_op_sm_event_type_t event_type,
                             uuid_t *txn_id, void *ctx);
 
 int
-glusterd_op_sm_init();
+glusterd_op_sm_init(void);
 
 int
-glusterd_op_sm();
+glusterd_op_sm(void);
 
 int32_t
 glusterd_op_set_ctx(void *ctx);
@@ -212,7 +212,7 @@ glusterd_op_send_cli_response(glusterd_op_t op, int32_t op_ret,
                               int32_t op_errno, rpcsvc_request_t *req,
                               void *ctx, char *op_errstr);
 int32_t
-glusterd_op_get_op();
+glusterd_op_get_op(void);
 
 int32_t
 glusterd_op_clear_op(void);
@@ -255,7 +255,7 @@ int
 glusterd_start_bricks(glusterd_volinfo_t *volinfo);
 
 gf_boolean_t
-glusterd_are_all_volumes_stopped();
+glusterd_are_all_volumes_stopped(void);
 int
 glusterd_stop_bricks(glusterd_volinfo_t *volinfo);
 int

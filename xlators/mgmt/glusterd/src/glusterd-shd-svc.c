@@ -653,7 +653,7 @@ out:
 }
 
 int
-glusterd_shdsvc_restart()
+glusterd_shdsvc_restart(void)
 {
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp = NULL;

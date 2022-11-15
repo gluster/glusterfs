@@ -249,10 +249,10 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
 
     /* do not send all groups if they are resolved server-side */
     if (!conf->send_gids) {
-        if (frame->root->ngrps <= SMALL_GROUP_COUNT) {
-            frame->root->groups_small[0] = frame->root->gid;
-            frame->root->groups = frame->root->groups_small;
-        }
+        /* We don't need to send the gids of the user. Just reset the list to
+         * a single item with the primary gid. */
+        frame->root->groups_small[0] = frame->root->gid;
+        frame->root->groups = frame->root->groups_small;
         frame->root->ngrps = 1;
     }
 

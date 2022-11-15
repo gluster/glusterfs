@@ -1139,7 +1139,7 @@ pl_getlk(pl_inode_t *pl_inode, posix_lock_t *lock)
 }
 
 gf_boolean_t
-pl_does_monkey_want_stuck_lock()
+pl_does_monkey_want_stuck_lock(void)
 {
     long int monkey_unlock_rand = 0;
     long int monkey_unlock_rand_rem = 0;

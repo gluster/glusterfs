@@ -43,7 +43,7 @@
 xlator_t *primary = NULL;
 
 static inline gf_private_t *
-gf_changelog_alloc_priv()
+gf_changelog_alloc_priv(void)
 {
     int ret = 0;
     gf_private_t *priv = NULL;
@@ -124,10 +124,6 @@ gf_changelog_ctx_defaults_init(glusterfs_ctx_t *ctx)
     if (!ctx->dict_pool)
         goto free_pool;
 
-    ctx->dict_pair_pool = mem_pool_new(data_pair_t, 512);
-    if (!ctx->dict_pair_pool)
-        goto free_pool;
-
     ctx->dict_data_pool = mem_pool_new(data_t, 512);
     if (!ctx->dict_data_pool)
         goto free_pool;
@@ -163,8 +159,6 @@ free_pool:
 
     GF_FREE(ctx->dict_pool);
 
-    GF_FREE(ctx->dict_pair_pool);
-
     GF_FREE(ctx->dict_data_pool);
 
     GF_FREE(ctx->logbuf_pool);
@@ -196,7 +190,7 @@ gf_changelog_cleanup_this(xlator_t *this)
 }
 
 static int
-gf_changelog_init_context()
+gf_changelog_init_context(void)
 {
     glusterfs_ctx_t *ctx = NULL;
 
@@ -224,7 +218,7 @@ error_return:
 }
 
 static int
-gf_changelog_init_primary()
+gf_changelog_init_primary(void)
 {
     int ret = 0;
 

@@ -30,7 +30,7 @@ glusterd_bitdsvc_init(glusterd_svc_t *svc)
 }
 
 static int
-glusterd_bitdsvc_create_volfile()
+glusterd_bitdsvc_create_volfile(void)
 {
     char filepath[PATH_MAX] = {
         0,
@@ -112,7 +112,7 @@ glusterd_bitdsvc_stop(glusterd_svc_t *svc, int sig)
 }
 
 int
-glusterd_bitdsvc_reconfigure()
+glusterd_bitdsvc_reconfigure(void)
 {
     int ret = -1;
     xlator_t *this = THIS;

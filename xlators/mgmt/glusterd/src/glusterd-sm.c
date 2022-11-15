@@ -1429,7 +1429,7 @@ out:
 }
 
 int
-glusterd_friend_sm()
+glusterd_friend_sm(void)
 {
     glusterd_friend_sm_event_t *event = NULL;
     glusterd_friend_sm_event_t *tmp = NULL;
@@ -1595,7 +1595,7 @@ out:
 }
 
 int
-glusterd_friend_sm_init()
+glusterd_friend_sm_init(void)
 {
     CDS_INIT_LIST_HEAD(&gd_friend_sm_queue);
     return 0;

@@ -60,6 +60,7 @@ struct server_conf {
                              * (say *.allow | *.reject) are
                              * tweeked */
     char *conf_dir;
+    char *volfile_dir;
     struct _volfile_ctx *volfile;
     dict_t *auth_modules;
     struct list_head xprt_list;

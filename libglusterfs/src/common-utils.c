@@ -65,6 +65,10 @@
 #define AI_ADDRCONFIG 0
 #endif /* AI_ADDRCONFIG */
 
+#if OPENSSL_VERSION_NUMBER >= 0x030000000  // 3.0.0
+#include <openssl/evp.h>
+#endif
+
 char *vol_type_str[] = {
     "Distribute",
     "Stripe [NOT SUPPORTED from v6.0]",
@@ -540,7 +544,7 @@ gf_log_dump_graph(FILE *specfp, glusterfs_graph_t *graph)
 }
 
 static void
-gf_dump_config_flags()
+gf_dump_config_flags(void)
 {
     gf_msg_plain_nomem(GF_LOG_ALERT, "configuration details:");
 
@@ -645,6 +649,13 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
 
     gf_log_disable_suppression_before_exit(ctx);
 
+    if (!ctx || ctx->log.logger != gf_logger_glusterlog)
+        goto skip_print_trace;
+
+#ifdef GF_LINUX_HOST_OS
+    gf_log_disable_syslog(ctx);
+#endif
+
     /* Pending frames, (if any), list them in order */
     gf_msg_plain_nomem(GF_LOG_ALERT, "pending frames:");
     {
@@ -679,6 +690,10 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     sprintf(msg, "---------");
     gf_msg_plain_nomem(GF_LOG_ALERT, msg);
 
+#ifdef GF_LINUX_HOST_OS
+    gf_log_enable_syslog(ctx);
+#endif
+skip_print_trace:
     /* Send a signal to terminate the process */
     signal(signum, SIG_DFL);
     raise(signum);
@@ -2290,13 +2305,13 @@ out:
 }
 
 char *
-gf_leaseid_get()
+gf_leaseid_get(void)
 {
     return glusterfs_leaseid_buf_get();
 }
 
 char *
-gf_existing_leaseid()
+gf_existing_leaseid(void)
 {
     return glusterfs_leaseid_exist();
 }
@@ -2384,7 +2399,7 @@ gf_path_strip_trailing_slashes(char *path)
 }
 
 uint64_t
-get_mem_size()
+get_mem_size(void)
 {
     uint64_t memsize = -1;
 
@@ -2480,7 +2495,7 @@ generate_glusterfs_ctx_id(void)
 }
 
 static char *
-gf_get_reserved_ports()
+gf_get_reserved_ports(void)
 {
     char *ports_info = NULL;
 #if defined GF_LINUX_HOST_OS
@@ -3024,6 +3039,7 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
 {
     server_cmdline_t *server = NULL;
     server_cmdline_t *tmp = NULL;
+    char *duphost = NULL;
     int ret = -1;
 
     GF_VALIDATE_OR_GOTO(THIS->name, cmd_args, out);
@@ -3038,8 +3054,24 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     }
 
     INIT_LIST_HEAD(&server->list);
+    server->port = port;
 
-    server->volfile_server = gf_strdup(host);
+    duphost = gf_strdup(host);
+    if (!duphost) {
+        errno = ENOMEM;
+        goto out;
+    }
+
+    char *lastptr = rindex(duphost, ':');
+    if (lastptr) {
+        *lastptr = '\0';
+        long port_argument = strtol(lastptr + 1, NULL, 0);
+        if (!port_argument) {
+            port_argument = port;
+        }
+        server->port = port_argument;
+    }
+    server->volfile_server = gf_strdup(duphost);
     if (!server->volfile_server) {
         errno = ENOMEM;
         goto out;
@@ -3050,8 +3082,6 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
         errno = ENOMEM;
         goto out;
     }
-
-    server->port = port;
 
     if (!cmd_args->volfile_server) {
         cmd_args->volfile_server = server->volfile_server;
@@ -3084,6 +3114,8 @@ out:
             GF_FREE(server);
         }
     }
+    if (duphost)
+        GF_FREE(duphost);
 
     return ret;
 }
@@ -4164,12 +4196,18 @@ int
 glusterfs_compute_sha256(const unsigned char *content, size_t size,
                          char *sha256_hash)
 {
+#if OPENSSL_VERSION_NUMBER >= 0x030000000  // 3.0.0
+
+    EVP_Digest((const unsigned char *)(content), size, sha256_hash, NULL,
+               EVP_sha256(), NULL);
+#else
     SHA256_CTX sha256;
 
     SHA256_Init(&sha256);
     SHA256_Update(&sha256, (const unsigned char *)(content), size);
     SHA256_Final((unsigned char *)sha256_hash, &sha256);
 
+#endif
     return 0;
 }
 
@@ -4270,7 +4308,7 @@ out:
 }
 
 char **
-get_xattrs_to_heal()
+get_xattrs_to_heal(void)
 {
     return xattrs_to_heal;
 }
@@ -4288,7 +4326,7 @@ gf_set_nofile(rlim_t high, rlim_t low)
 {
     int n, ret = -1;
     struct rlimit lim;
-    rlim_t r[2] = { high, low };
+    rlim_t r[2] = {high, low};
 
     for (n = 0; n < 2; n++)
         if (r[n] != 0) {
@@ -4340,15 +4378,19 @@ gf_rebalance_thread_count(char *str, char **errmsg)
         if (count > 0 && count <= lim)
             return count;
         else {
-            if (gf_asprintf(errmsg, "number of rebalance threads should be "
-                            "in range from 1 to %d, not %d", lim, count) < 0)
+            if (gf_asprintf(errmsg,
+                            "number of rebalance threads should be "
+                            "in range from 1 to %d, not %d",
+                            lim, count) < 0)
                 *errmsg = NULL;
             return -1;
         }
     }
-    if (gf_asprintf(errmsg, "number of rebalance threads should "
+    if (gf_asprintf(errmsg,
+                    "number of rebalance threads should "
                     "be {lazy|normal|aggressive} or a number in "
-                    "range from 1 to %d, not %s", lim, str) < 0)
+                    "range from 1 to %d, not %s",
+                    lim, str) < 0)
         *errmsg = NULL;
     return -1;
 }

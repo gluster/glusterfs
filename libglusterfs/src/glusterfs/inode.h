@@ -50,8 +50,6 @@ struct _inode_table {
     uint32_t purge_size;     /* count of inodes in purge list */
     struct list_head purge;  /* list of inodes to be purged soon */
 
-    struct mem_pool *inode_pool;  /* memory pool for inodes */
-    struct mem_pool *dentry_pool; /* memory pool for dentrys */
     struct mem_pool *fd_mem_pool; /* memory pool for fd_t */
     int ctxcount;                 /* number of slots in inode->ctx */
 
@@ -74,8 +72,8 @@ struct _dentry {
     struct list_head inode_list; /* list of dentries of inode */
     struct list_head hash;       /* hash table pointers */
     inode_t *inode;              /* inode of this directory entry */
-    char *name;                  /* name of the directory entry */
     inode_t *parent;             /* directory of the entry */
+    char name[];                  /* name of the directory entry */
 };
 
 struct _inode_ctx {
@@ -114,11 +112,11 @@ struct _inode {
     struct list_head hash;        /* hash table pointers */
     struct list_head list;        /* active/lru/purge */
 
-    struct _inode *ns_inode; /* This inode would point to namespace inode */
-    struct _inode_ctx *_ctx; /* replacement for dict_t *(inode->ctx) */
-    bool in_invalidate_list; /* Set if inode is in table invalidate list */
-    bool invalidate_sent;    /* Set it if invalidator_fn is called for inode */
-    bool in_lru_list;        /* Set if inode is in table lru list */
+    struct _inode *ns_inode;  /* This inode would point to namespace inode */
+    bool in_invalidate_list;  /* Set if inode is in table invalidate list */
+    bool invalidate_sent;     /* Set it if invalidator_fn is called for inode */
+    bool in_lru_list;         /* Set if inode is in table lru list */
+    struct _inode_ctx _ctx[]; /* replacement for dict_t *(inode->ctx) */
 };
 
 #define UUID0_STR "00000000-0000-0000-0000-000000000000"

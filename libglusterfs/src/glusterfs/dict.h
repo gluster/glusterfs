@@ -97,7 +97,7 @@ struct _data {
 struct _data_pair {
     struct _data_pair *next;
     data_t *value;
-    char *key;
+    char key[];
 };
 
 struct _dict {
@@ -108,7 +108,6 @@ struct _dict {
     gf_atomic_t refcount;
     gf_lock_t lock;
     data_pair_t *members_list;
-    data_pair_t free_pair;
     char *extra_stdfree;
 };
 

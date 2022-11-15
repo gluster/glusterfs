@@ -26,6 +26,6 @@ int
 glusterd_quotadsvc_manager(glusterd_svc_t *svc, void *data, int flags);
 
 int
-glusterd_quotadsvc_reconfigure();
+glusterd_quotadsvc_reconfigure(void);
 
 #endif

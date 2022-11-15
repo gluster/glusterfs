@@ -353,7 +353,7 @@ out:
 }
 
 int
-glusterd_gfproxydsvc_restart()
+glusterd_gfproxydsvc_restart(void)
 {
     glusterd_volinfo_t *volinfo = NULL;
     glusterd_volinfo_t *tmp = NULL;

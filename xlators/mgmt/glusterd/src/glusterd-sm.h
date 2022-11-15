@@ -180,10 +180,10 @@ int
 glusterd_friend_sm_inject_event(glusterd_friend_sm_event_t *event);
 
 int
-glusterd_friend_sm_init();
+glusterd_friend_sm_init(void);
 
 int
-glusterd_friend_sm();
+glusterd_friend_sm(void);
 
 void
 glusterd_destroy_probe_ctx(glusterd_probe_ctx_t *ctx);

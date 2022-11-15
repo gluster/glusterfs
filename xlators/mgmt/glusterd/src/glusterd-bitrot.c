@@ -496,7 +496,7 @@ out:
 }
 
 gf_boolean_t
-glusterd_should_i_stop_bitd()
+glusterd_should_i_stop_bitd(void)
 {
     xlator_t *this = THIS;
     glusterd_conf_t *conf = this->private;

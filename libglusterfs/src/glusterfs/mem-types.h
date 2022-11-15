@@ -20,7 +20,8 @@ enum gf_common_mem_types_ {
     gf_common_mt_fdtable_t, /* used only in one location */
     gf_common_mt_fd_ctx,    /* used only in one location */
     gf_common_mt_gf_dirent_t,
-    gf_common_mt_inode_ctx, /* used only in one location */
+    gf_common_mt_inode_ctx,  /* used only in one location */
+    gf_common_mt_dentry_ctx, /* used only in one location */
     gf_common_mt_list_head,
     gf_common_mt_inode_table_t, /* used only in one location */
     gf_common_mt_xlator_t,
@@ -75,7 +76,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_cliententry_t, /* used only in one location */
     gf_common_mt_clienttable_t, /* used only in one location */
     gf_common_mt_client_t,      /* used only in one location */
-    gf_common_mt_client_ctx,    /* used only in one location */
     gf_common_mt_auxgids,       /* used only in one location */
     gf_common_mt_syncopctx,     /* used only in one location */
     gf_common_mt_iobrefs,       /* used only in one location */
@@ -100,7 +100,6 @@ enum gf_common_mem_types_ {
     gf_common_mt_int,
     gf_common_mt_pointer,
     gf_common_mt_synctask,  /* used only in one location */
-    gf_common_mt_syncstack, /* used only in one location */
     gf_common_mt_syncenv,   /* used only in one location */
     gf_common_mt_scan_data, /* used only in one location */
     gf_common_list_node,
@@ -117,7 +116,8 @@ enum gf_common_mem_types_ {
     gf_common_ping_local_t,      /* used only in one location */
     gf_common_volfile_t,
     gf_common_mt_server_cmdline_t, /* used only in one location */
-    gf_common_mt_latency_t,
+    gf_common_mt_latency_t,        /* used only in one location */
+    gf_common_mt_data_pair_t,      /* used only in one location */
     gf_common_mt_end,
 };
 #endif

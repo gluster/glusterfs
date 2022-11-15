@@ -74,7 +74,7 @@ out:
  *  for a set of changelogs, start from the beginning
  */
 int
-gf_changelog_start_fresh()
+gf_changelog_start_fresh(void)
 {
     xlator_t *this = NULL;
     gf_changelog_journal_t *jnl = NULL;
@@ -151,7 +151,7 @@ out:
  * This call also acts as a cancellation point for the consumer.
  */
 ssize_t
-gf_changelog_scan()
+gf_changelog_scan(void)
 {
     int tracker_fd = 0;
     size_t off = 0;

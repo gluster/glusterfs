@@ -35,6 +35,26 @@ typedef void (*event_handler_t)(int fd, int idx, int gen, void *data,
 /* See rpcsvc.h to check why. */
 GF_STATIC_ASSERT(EVENT_MAX_THREADS % __BITS_PER_LONG == 0);
 
+struct event_slot_epoll {
+    int fd;
+    int events;
+    int gen;
+    int idx;
+    gf_atomic_t ref;
+    int do_close;
+    int in_handler;
+    int handled_error;
+    void *data;
+    event_handler_t handler;
+    struct list_head poller_death;
+    gf_lock_t lock;
+};
+
+struct event_slot_epoll_table {
+    uint64_t slots_avail;
+    struct event_slot_epoll slots[EVENT_EPOLL_SLOTS];
+};
+
 struct event_pool {
     struct event_ops *ops;
 
@@ -82,6 +102,7 @@ struct event_pool {
     struct event_slot_epoll_table *ereg[EVENT_EPOLL_TABLES];
     pthread_t pollers[EVENT_MAX_THREADS]; /* poller thread_id store, and live
                                              status */
+    struct event_slot_epoll_table table0;
 };
 
 struct event_destroy_data {

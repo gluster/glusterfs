@@ -384,7 +384,7 @@ glusterd_unset_lock_owner(uuid_t owner)
 }
 
 gf_boolean_t
-glusterd_is_fuse_available()
+glusterd_is_fuse_available(void)
 {
     int fd = 0;
 
@@ -3254,13 +3254,6 @@ glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count,
                     goto out;
                 }
 
-                if (!pair->key) {
-                    gf_msg("glusterd", GF_LOG_ERROR, 0, LG_MSG_NULL_PTR,
-                           "pair->key is null!");
-                    ret = -1;
-                    goto out;
-                }
-
                 keylen = strlen(pair->key);
                 netword = htobe32(keylen);
                 memcpy(buf, &netword, sizeof(netword));
@@ -5340,7 +5333,7 @@ glusterd_pending_node_put_rpc(glusterd_pending_node_t *pending_node)
 
 #ifdef BUILD_GNFS
 void
-glusterd_nfs_pmap_deregister()
+glusterd_nfs_pmap_deregister(void)
 {
     if (pmap_unset(MOUNT_PROGRAM, MOUNTV3_VERSION))
         gf_msg("glusterd", GF_LOG_INFO, 0, GD_MSG_DEREGISTER_SUCCESS,
@@ -5425,7 +5418,7 @@ out:
 }
 
 gf_boolean_t
-glusterd_are_all_volumes_stopped()
+glusterd_are_all_volumes_stopped(void)
 {
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *voliter = NULL;
@@ -5443,7 +5436,7 @@ glusterd_are_all_volumes_stopped()
 }
 
 gf_boolean_t
-glusterd_all_volumes_with_quota_stopped()
+glusterd_all_volumes_with_quota_stopped(void)
 {
     glusterd_conf_t *priv = NULL;
     glusterd_volinfo_t *voliter = NULL;

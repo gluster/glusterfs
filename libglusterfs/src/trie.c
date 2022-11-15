@@ -35,7 +35,7 @@ struct trie {
 };
 
 trie_t *
-trie_new()
+trie_new(void)
 {
     trie_t *trie = NULL;
 

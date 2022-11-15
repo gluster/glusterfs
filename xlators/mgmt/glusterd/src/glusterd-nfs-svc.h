@@ -18,7 +18,7 @@ void
 glusterd_nfssvc_build(glusterd_svc_t *svc);
 
 int
-glusterd_nfssvc_reconfigure();
+glusterd_nfssvc_reconfigure(void);
 
 #endif /* BUILD_GNFS */
 #endif

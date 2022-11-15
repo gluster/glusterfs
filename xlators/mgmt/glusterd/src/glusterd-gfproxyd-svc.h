@@ -39,5 +39,5 @@ int
 glusterd_gfproxydsvc_reconfigure(glusterd_volinfo_t *volinfo);
 
 int
-glusterd_gfproxydsvc_restart();
+glusterd_gfproxydsvc_restart(void);
 #endif
