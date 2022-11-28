@@ -920,6 +920,12 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     gf_log_flush();
 
     gf_log_disable_suppression_before_exit(ctx);
+    if (!ctx || ctx->log.logger != gf_logger_glusterlog)
+        goto skip_print_trace;
+
+#ifdef GF_LINUX_HOST_OS
+    gf_log_disable_syslog();
+#endif
 
     /* Pending frames, (if any), list them in order */
     gf_msg_plain_nomem(GF_LOG_ALERT, "pending frames:");
@@ -955,6 +961,11 @@ gf_print_trace(int32_t signum, glusterfs_ctx_t *ctx)
     sprintf(msg, "---------");
     gf_msg_plain_nomem(GF_LOG_ALERT, msg);
 
+#ifdef GF_LINUX_HOST_OS
+    gf_log_enable_syslog();
+#endif
+
+skip_print_trace:
     /* Send a signal to terminate the process */
     signal(signum, SIG_DFL);
     raise(signum);
@@ -3324,7 +3335,7 @@ gf_process_reserved_ports(unsigned char *ports, uint32_t ceiling)
 out:
     GF_FREE(ports_info);
 
-#else /* FIXME: Non Linux Host */
+#else  /* FIXME: Non Linux Host */
     ret = 0;
 #endif /* GF_LINUX_HOST_OS */
 
@@ -5169,7 +5180,7 @@ close_fds_except_custom(int *fdv, size_t count, void *prm,
             closer(i, prm);
     }
     sys_closedir(d);
-#else /* !GF_LINUX_HOST_OS */
+#else  /* !GF_LINUX_HOST_OS */
     struct rlimit rl;
     int ret = -1;
 
