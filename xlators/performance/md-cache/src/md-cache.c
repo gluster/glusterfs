@@ -22,7 +22,7 @@
 #include "md-cache-messages.h"
 #include <glusterfs/statedump.h>
 #include <glusterfs/atomic.h>
-
+#include "glusterfs4-xdr.h"
 /* TODO:
    - cache symlink() link names and nuke symlink-cache
    - send proper postbuf in setattr_cbk even when op_ret = -1
@@ -128,8 +128,25 @@ struct mdc_local {
     char *key;
     dict_t *xattr;
     time_t incident_time;
+    int readdir_buf_size;
     bool update_cache;
 };
+
+/* This structure declaration is useful to measure
+   offset of dentry name while fuse call readdir to
+   fetch entries
+*/
+struct mdc_dirent {
+    uint64_t ino;
+    uint64_t off;
+    uint32_t namelen;
+    uint32_t type;
+    char name[];
+};
+
+#define MDC_NAME_OFFSET offsetof(struct mdc_dirent, name)
+#define MDC_DIRENT_ALIGN(x)                                                    \
+    (((x) + sizeof(uint64_t) - 1) & ~(sizeof(uint64_t) - 1))
 
 static int
 __mdc_inode_ctx_get(xlator_t *this, inode_t *inode, struct md_cache **mdc_p)
@@ -2845,16 +2862,24 @@ mdc_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    gf_dirent_t *equeue = NULL;
+    uint64_t efd = 0;
 
     local = frame->local;
     if (!local)
         goto out;
 
-    if (op_ret == 0)
+    if (op_ret == 0) {
+        equeue = GF_CALLOC(1, sizeof(gf_dirent_t), gf_common_mt_char);
+        efd = (unsigned long)equeue;
+        INIT_LIST_HEAD(&equeue->list);
+        fd_ctx_set(fd, this, efd);
         goto out;
+    }
 
-    if ((op_errno == ESTALE) || (op_errno == ENOENT))
+    if ((op_errno == ESTALE) || (op_errno == ENOENT)) {
         mdc_inode_iatt_invalidate(this, local->loc.inode);
+    }
 
 out:
     MDC_STACK_UNWIND(opendir, frame, op_ret, op_errno, fd, xdata);
@@ -2893,6 +2918,14 @@ mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     gf_dirent_t *entry = NULL;
     mdc_local_t *local = NULL;
     static struct md_cache *mdc;
+    gf_dirent_t local_entries;
+    int32_t this_size = -1;
+    int32_t filled = 0;
+    int count = 0;
+    gf_dirent_t *tmp = NULL;
+    uint64_t efd = 0;
+    gf_dirent_t *ecache = NULL;
+    int size = 0;
 
     local = frame->local;
     if (!local)
@@ -2903,7 +2936,7 @@ mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
             mdc_inode_iatt_invalidate(this, local->fd->inode);
         goto unwind;
     }
-
+    size = local->readdir_buf_size;
     list_for_each_entry(entry, &entries->list, list)
     {
         if (!entry->inode)
@@ -2913,6 +2946,31 @@ mdc_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         if (local->update_cache) {
             mdc_inode_xatt_set(this, entry->inode, entry->dict, mdc);
         }
+    }
+
+    efd = fd_ctx_get(local->fd, this);
+    if ((efd != 0) && (size < 131072)) {
+        ecache = (gf_dirent_t *)efd;
+        list_splice_init(&entries->list, &ecache->list);
+        INIT_LIST_HEAD(&local_entries.list);
+        list_for_each_entry_safe(entry, tmp, (&ecache->list), list)
+        {
+            this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
+                        entry->d_len + 1;
+            if (this_size + filled < size) {
+                list_del_init(&entry->list);
+                list_add_tail(&entry->list, &local_entries.list);
+                count++;
+            } else {
+                break;
+            }
+            filled += this_size;
+        }
+        op_ret = count;
+        MDC_STACK_UNWIND(readdir, frame, op_ret, op_errno, &local_entries,
+                         xdata);
+        gf_dirent_free(&local_entries);
+        return 0;
     }
 
 unwind:
@@ -2925,13 +2983,51 @@ mdc_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
              off_t offset, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    gf_dirent_t local_entries;
+    int32_t this_size = -1;
+    int32_t filled = 0;
+    int count = 0;
+    gf_dirent_t *entry = NULL;
+    gf_dirent_t *tmp = NULL;
+    uint64_t efd = 0;
+    gf_dirent_t *ecache = NULL;
 
     local = mdc_local_get(frame, fd->inode);
     if (!local)
         goto out;
 
     local->fd = __fd_ref(fd);
+    local->readdir_buf_size = size;
+    efd = fd_ctx_get(fd, this);
+    if (efd != 0) {
+        ecache = (gf_dirent_t *)efd;
 
+        if (list_empty(&ecache->list))
+            goto uncache;
+
+        INIT_LIST_HEAD(&local_entries.list);
+        list_for_each_entry_safe(entry, tmp, &ecache->list, list)
+        {
+            this_size = max(sizeof(gf_dirent_t), sizeof(gfx_dirplist)) +
+                        entry->d_len + 1;
+            if (this_size + filled < size) {
+                list_del_init(&entry->list);
+                list_add_tail(&entry->list, &local_entries.list);
+                count++;
+            } else {
+                break;
+            }
+            filled += this_size;
+        }
+        MDC_STACK_UNWIND(readdirp, frame, count, 0, &local_entries, xdata);
+        gf_dirent_free(&local_entries);
+        return 0;
+    }
+
+uncache:
+    if (size < 131072) {
+        size = 131072;
+    }
     xdata = mdc_prepare_request(this, local, xdata);
 
     STACK_WIND(frame, mdc_readdirp_cbk, FIRST_CHILD(this),
@@ -2952,6 +3048,15 @@ mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 int op_errno, gf_dirent_t *entries, dict_t *xdata)
 {
     mdc_local_t *local = NULL;
+    uint64_t efd = 0;
+    gf_dirent_t *ecache = NULL;
+    gf_dirent_t local_entries;
+    int32_t this_size = -1;
+    int32_t filled = 0;
+    int count = 0;
+    gf_dirent_t *entry = NULL;
+    gf_dirent_t *tmp = NULL;
+    int size = 0;
 
     local = frame->local;
     if (!local)
@@ -2962,6 +3067,34 @@ mdc_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
 
     if ((op_errno == ESTALE) || (op_errno == ENOENT))
         mdc_inode_iatt_invalidate(this, local->fd->inode);
+
+    efd = fd_ctx_get(local->fd, this);
+    size = local->readdir_buf_size;
+    if ((efd != -1) && (size < 131072)) {
+        ecache = (gf_dirent_t *)efd;
+        list_splice_init(&entries->list, &ecache->list);
+        INIT_LIST_HEAD(&local_entries.list);
+        list_for_each_entry_safe(entry, tmp, (&ecache->list), list)
+        {
+            /* The similar logic used at fuse readdir function to measure
+               the total buffer size for saving entries
+            */
+            this_size = MDC_DIRENT_ALIGN(MDC_NAME_OFFSET + (entry->d_len));
+            if (this_size + filled < size) {
+                list_del_init(&entry->list);
+                list_add_tail(&entry->list, &local_entries.list);
+                count++;
+            } else {
+                break;
+            }
+            filled += this_size;
+        }
+        op_ret = count;
+        MDC_STACK_UNWIND(readdir, frame, op_ret, op_errno, &local_entries,
+                         xdata);
+        gf_dirent_free(&local_entries);
+        return 0;
+    }
 out:
     MDC_STACK_UNWIND(readdir, frame, op_ret, op_errno, entries, xdata);
     return 0;
@@ -2973,13 +3106,58 @@ mdc_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
     mdc_local_t *local = NULL;
     struct mdc_conf *conf = this->private;
+    gf_dirent_t *ecache = NULL;
+    uint64_t efd = 0;
+    gf_dirent_t local_entries;
+    int32_t this_size = -1;
+    int32_t filled = 0;
+    int count = 0;
+    gf_dirent_t *entry = NULL;
+    gf_dirent_t *tmp = NULL;
 
     local = mdc_local_get(frame, fd->inode);
     if (!local)
         goto unwind;
 
     local->fd = __fd_ref(fd);
+    local->readdir_buf_size = size;
+    efd = fd_ctx_get(fd, this);
+    if (efd != -1) {
+        ecache = (gf_dirent_t *)efd;
 
+        if (list_empty(&ecache->list))
+            goto uncache;
+
+        INIT_LIST_HEAD(&local_entries.list);
+        list_for_each_entry_safe(entry, tmp, &ecache->list, list)
+        {
+            /* The similar logic used at fuse readdir function to measure
+               the total buffer size for saving entries, with this logic
+               md_cache can save more entries in the 4k readdir buffer
+           */
+            this_size = MDC_DIRENT_ALIGN(MDC_NAME_OFFSET + (entry->d_len));
+            if (this_size + filled < size) {
+                list_del_init(&entry->list);
+                list_add_tail(&entry->list, &local_entries.list);
+                count++;
+            } else {
+                break;
+            }
+            filled += this_size;
+        }
+        MDC_STACK_UNWIND(readdir, frame, count, 0, &local_entries, NULL);
+        gf_dirent_free(&local_entries);
+        return 0;
+    }
+
+uncache:
+    /* Only the fuse is passed the readdir(p) buffer size is 4k, others
+       are passed 128k so use 128k buffer to fetch maximum entries
+       from the brick process and save the entries in fd_ctx in cbk function.
+    */
+    if (size < 131072) {
+        size = 131072;
+    }
     if (!conf->force_readdirp) {
         STACK_WIND(frame, mdc_readdir_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->readdir, fd, size, offset, xdata);
@@ -3256,6 +3434,23 @@ mdc_access(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
 
 unwind:
     MDC_STACK_UNWIND(access, frame, -1, ENOMEM, NULL);
+    return 0;
+}
+
+int32_t
+mdc_releasedir(xlator_t *this, fd_t *fd)
+{
+    uint64_t ctx = 0;
+    gf_dirent_t *ecache = NULL;
+
+    ctx = fd_ctx_del(fd, this);
+    if (ctx < 0)
+        goto out;
+
+    ecache = (gf_dirent_t *)ctx;
+    gf_dirent_free(ecache);
+    GF_FREE(ecache);
+out:
     return 0;
 }
 
@@ -3880,6 +4075,7 @@ struct xlator_fops mdc_fops = {
 
 struct xlator_cbks mdc_cbks = {
     .forget = mdc_forget,
+    .releasedir = mdc_releasedir,
 };
 
 struct xlator_dumpops mdc_dumpops = {

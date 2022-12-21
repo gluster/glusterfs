@@ -11,6 +11,7 @@ function get_file_count {
     ls $1* | wc -l
 }
 
+
 TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}0
@@ -26,7 +27,10 @@ $CLI volume profile $V0 info clear
 TEST fallocate -l 20M $M0/foo
 
 # There should be 1+4 shards and we expect 4 lookups less than on the build without this patch
-EXPECT "5" echo `$CLI volume profile $V0 info incremental | grep -w LOOKUP | awk '{print $8}'`
+# The patch (https://github.com/gluster/glusterfs/pull/3928) reduces the lookup fop count for
+# (root /) so lookup_cnt is reduced
+lookup_cnt=$($CLI volume profile $V0 info incremental | grep -w LOOKUP | awk '{print $8}')
+TEST [ $lookup_cnt -le 5 ]
 
 gfid_new=$(get_gfid_string $M0/foo)
 

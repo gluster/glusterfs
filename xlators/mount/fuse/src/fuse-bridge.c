@@ -1498,7 +1498,13 @@ fuse_getattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
             return;
         }
 
-        fuse_gfid_set(state);
+        /* Call fuse_gfid_set for / while it has received an error
+           from POSIX layer, In case of a big directory while an
+           application is calling readdirp call this generates an
+           unnecessary lookup fop traffic for root and the performance
+           is reduced significantly.
+        */
+        /* fuse_gfid_set(state); */
 
         FUSE_FOP(state, fuse_root_lookup_cbk, GF_FOP_LOOKUP, lookup,
                  &state->loc, state->xdata);
