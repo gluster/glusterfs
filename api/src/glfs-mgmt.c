@@ -66,6 +66,9 @@ glfs_process_volfp(struct glfs *fs, FILE *fp)
         goto out;
     }
 
+    /* set vol_uuid here */
+    gf_uuid_parse(graph->volume_id, fs->vol_uuid);
+
     gf_log_dump_graph(fp, graph);
 
     ret = 0;
