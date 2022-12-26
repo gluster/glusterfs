@@ -3065,7 +3065,7 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     char *lastptr = rindex(duphost, ':');
 
     /* Handle IPV6 IP addr without port number */
-    if (lastptr && *(lastptr-1) == ':') {
+    if (lastptr && strlen(lastptr) > 1 && *(lastptr - 1) == ':') {
         lastptr = NULL;
     }
 
