@@ -147,6 +147,10 @@ struct cli_local {
 
     dict_t *dict;
     const char **words;
+
+    /* Indicates the count of gfids */
+    /* with wrong path during quota limit list acquisition*/
+    int32_t err_count;
     /* Marker for volume status all */
     gf_boolean_t all;
 #if (HAVE_LIB_XML)

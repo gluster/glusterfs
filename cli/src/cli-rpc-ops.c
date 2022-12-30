@@ -3952,6 +3952,7 @@ cli_quotad_getlimit_cbk(struct rpc_req *req, struct iovec *iov, int count,
     call_frame_t *frame = NULL;
     cli_local_t *local = NULL;
     int32_t list_count = 0;
+    int32_t err_count = 0;
     pthread_t th_id = {
         0,
     };
@@ -3983,11 +3984,35 @@ cli_quotad_getlimit_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
+    ret = dict_get_int32(local->dict, "max_count", &max_count);
+    if (ret < 0) {
+        gf_log("cli", GF_LOG_ERROR, "failed to get max_count");
+        goto out;
+    }
+
     if (-1 == req->rpc_status) {
         if (list_count == 0)
             cli_err(
                 "Connection failed. Please check if quota "
                 "daemon is operational.");
+
+        LOCK(&local->lock);
+            {
+                err_count = local->err_count;
+                err_count++;
+                local->err_count = err_count;
+            }
+        UNLOCK(&local->lock);
+
+	    if (list_count == max_count){
+             gf_log("cli", GF_LOG_WARNING,
+                "Warning :%d gfids failed to get quota limits or "
+                "they path may have been deleted,"
+                "So their quota limit information are not available!",err_count);
+             ret = -1;
+             goto last_quota_list;
+	        }
+
         ret = -1;
         goto out;
     }
@@ -4030,12 +4055,22 @@ cli_quotad_getlimit_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 
-    ret = dict_get_int32(local->dict, "max_count", &max_count);
-    if (ret < 0) {
-        gf_log("cli", GF_LOG_ERROR, "failed to get max_count");
-        goto out;
+    if (local->err_count != 0){
+        err_count =  local->err_count;
+    }else{
+        err_count =  0;
     }
+    if (err_count != 0 && list_count == max_count)
+	    gf_log("cli", GF_LOG_WARNING,
+            "Warning :%d gfids Failed to get quota limits or "
+            "they path may have been deleted,"
+            "So their quota limit information are not available!",err_count);
 
+last_quota_list:
+    /* When the last quota-limited path is not found due to deletion,
+     * this path is skipped directly,
+     * thus not affecting the output of all path quota-limited lists already found.
+     */
     if (list_count == max_count) {
         list_for_each_entry_safe(node, tmpnode, &local->dict_list, list)
         {
