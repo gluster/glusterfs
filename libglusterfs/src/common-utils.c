@@ -4198,8 +4198,8 @@ glusterfs_compute_sha256(const unsigned char *content, size_t size,
 {
 #if OPENSSL_VERSION_NUMBER >= 0x030000000  // 3.0.0
 
-    EVP_Digest((const unsigned char *)(content), size, sha256_hash, NULL,
-               EVP_sha256(), NULL);
+    EVP_Digest((const unsigned char *)(content), size,
+               (unsigned char *)sha256_hash, NULL, EVP_sha256(), NULL);
 #else
     SHA256_CTX sha256;
 
