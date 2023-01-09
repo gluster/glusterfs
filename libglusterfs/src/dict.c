@@ -2992,7 +2992,7 @@ dict_serialize_value_with_delim_lk(dict_t *this, char *buf, int32_t *serz_len,
             goto out;
         }
 
-        if (!pair->key || !pair->value) {
+        if (!pair->value) {
             gf_smsg("dict", GF_LOG_ERROR, 0, LG_MSG_KEY_OR_VALUE_NULL, NULL);
             goto out;
         }
