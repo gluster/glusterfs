@@ -4742,16 +4742,19 @@ fuse_setlk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     uint32_t op = 0;
     fuse_state_t *state = NULL;
+    fuse_private_t *priv = this->private;
     int ret = 0;
 
-    ret = fuse_interrupt_finish_fop(frame, this, _gf_true, (void **)&state);
-    if (state) {
-        GF_FREE(state->name);
-        dict_unref(state->xdata);
-        GF_FREE(state);
-    }
-    if (ret) {
-        return 0;
+    if (priv->setlk_handle_interrupt) {
+        ret = fuse_interrupt_finish_fop(frame, this, _gf_true, (void **)&state);
+        if (state) {
+            GF_FREE(state->name);
+            dict_unref(state->xdata);
+            GF_FREE(state);
+        }
+        if (ret) {
+            return 0;
+        }
     }
 
     state = frame->root->state;
@@ -4870,35 +4873,40 @@ fuse_setlk_resume(fuse_state_t *state)
 {
     fuse_interrupt_record_t *fir = NULL;
     fuse_state_t *state_clone = NULL;
+    fuse_private_t *priv = NULL;
 
-    fir = fuse_interrupt_record_new(state->finh, fuse_setlk_interrupt_handler);
-    state_clone = gf_memdup(state, sizeof(*state));
-    if (state_clone) {
-        state_clone->xdata = dict_new();
-    }
-
-    if (!fir || !state_clone || !state_clone->xdata) {
-        if (fir) {
-            GF_FREE(fir);
-        }
+    priv = state->this->private;
+    if (priv->setlk_handle_interrupt) {
+        fir = fuse_interrupt_record_new(state->finh,
+                                        fuse_setlk_interrupt_handler);
+        state_clone = gf_memdup(state, sizeof(*state));
         if (state_clone) {
-            GF_FREE(state_clone);
+            state_clone->xdata = dict_new();
         }
-        send_fuse_err(state->this, state->finh, ENOMEM);
 
-        gf_log("glusterfs-fuse", GF_LOG_ERROR,
-               "SETLK%s unique %" PRIu64
-               ":"
-               " interrupt record allocation failed",
-               state->finh->opcode == FUSE_SETLK ? "" : "W",
-               state->finh->unique);
-        free_fuse_state(state);
+        if (!fir || !state_clone || !state_clone->xdata) {
+            if (fir) {
+                GF_FREE(fir);
+            }
+            if (state_clone) {
+                GF_FREE(state_clone);
+            }
+            send_fuse_err(state->this, state->finh, ENOMEM);
 
-        return;
+            gf_log("glusterfs-fuse", GF_LOG_ERROR,
+                   "SETLK%s unique %" PRIu64
+                   ":"
+                   " interrupt record allocation failed",
+                   state->finh->opcode == FUSE_SETLK ? "" : "W",
+                   state->finh->unique);
+            free_fuse_state(state);
+
+            return;
+        }
+        state_clone->name = NULL;
+        fir->data = state_clone;
+        fuse_interrupt_record_insert(state->this, fir);
     }
-    state_clone->name = NULL;
-    fir->data = state_clone;
-    fuse_interrupt_record_insert(state->this, fir);
 
     gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": SETLK%s %p",
            state->finh->unique, state->finh->opcode == FUSE_SETLK ? "" : "W",
@@ -6880,6 +6888,8 @@ init(xlator_t *this_xl)
 
     GF_OPTION_INIT("flush-handle-interrupt", priv->flush_handle_interrupt, bool,
                    cleanup_exit);
+    GF_OPTION_INIT("setlk-handle-interrupt", priv->setlk_handle_interrupt, bool,
+                   cleanup_exit);
 
     GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
                    priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
@@ -7185,6 +7195,12 @@ struct volume_options options[] = {
         .default_value = "false",
         .description =
             "Handle iterrupts in FLUSH handler (for testing purposes).",
+    },
+    {
+        .key = {"setlk-handle-interrupt"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "false",
+        .description = "Handle iterrupts in SETLK handler.",
     },
     {
         .key = {"lru-limit"},

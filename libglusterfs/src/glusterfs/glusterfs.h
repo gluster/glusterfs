@@ -587,6 +587,7 @@ struct _cmd_args {
     uint32_t attr_times_granularity;
 
     int fuse_flush_handle_interrupt;
+    int fuse_setlk_handle_interrupt;
     int fuse_auto_inval;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
