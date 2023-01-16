@@ -297,7 +297,7 @@ typedef struct per_thread_pool_list {
      * in the implementation code so we just make it a single-element array
      * here.
      */
-    per_thread_pool_t pools[];
+    per_thread_pool_t pools[1];
 } per_thread_pool_list_t;
 
 /* actual pool structure, shared between different mem_pools */
