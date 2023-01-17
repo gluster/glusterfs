@@ -122,30 +122,40 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
 }
 
 #ifdef DEBUG
-static void *
-gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
+static struct mem_acct_rec *
+gf_mem_remove_acct_info(struct mem_acct *mem_acct, struct mem_header *header)
+{
+    struct mem_acct_rec *rec;
+
+    if (mem_acct == NULL) {
+        return NULL;
+    }
+
+    GF_ASSERT(header->type <= mem_acct->num_types);
+
+    rec = &mem_acct->rec[header->type];
+    LOCK(&rec->lock);
+    {
+        list_del_init(&header->acct_list);
+    }
+    UNLOCK(&rec->lock);
+
+    return rec;
+}
+
+static void
+gf_mem_update_acct_info(struct mem_acct_rec *rec, struct mem_header *header,
                         size_t size)
 {
-    struct mem_acct_rec *rec = NULL;
-
-    if (mem_acct != NULL) {
-        rec = &mem_acct->rec[header->type];
+    if (rec != NULL) {
         LOCK(&rec->lock);
         {
             rec->size += size - header->size;
             rec->max_size = max(rec->max_size, rec->size);
-            /* The old 'header' already was present in 'obj_list', but
-             * realloc() could have changed its address. We need to remove
-             * the old item from the list and add the new one. This can be
-             * done this way because list_move() doesn't use the pointers
-             * to the old location (which are not valid anymore) already
-             * present in the list, it simply overwrites them. */
-            list_move(&header->acct_list, &rec->obj_list);
+            list_add(&header->acct_list, &rec->obj_list);
         }
         UNLOCK(&rec->lock);
     }
-
-    return gf_mem_header_prepare(header, size);
 }
 #endif /* DEBUG */
 
@@ -210,7 +220,7 @@ void *
 __gf_realloc(void *ptr, size_t size)
 {
     size_t tot_size = 0;
-    struct mem_header *header = NULL;
+    struct mem_header *tmp, *header = NULL;
 
     if (!gf_mem_acct_enabled(THIS))
         return REALLOC(ptr, size);
@@ -221,17 +231,25 @@ __gf_realloc(void *ptr, size_t size)
     GF_ASSERT(header->magic == GF_MEM_HEADER_MAGIC);
 
     tot_size = __gf_total_alloc_size(size);
-    header = realloc(header, tot_size);
-    if (caa_unlikely(!header)) {
+#ifdef DEBUG
+    struct mem_acct_rec *rec;
+
+    rec = gf_mem_remove_acct_info(header->mem_acct, header);
+#endif
+    tmp = realloc(header, tot_size);
+    if (caa_unlikely(!tmp)) {
+#ifdef DEBUG
+        gf_mem_update_acct_info(rec, header, header->size);
+#endif
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
 
 #ifdef DEBUG
-    return gf_mem_update_acct_info(header->mem_acct, header, size);
-#else
-    return gf_mem_header_prepare(header, size);
+    gf_mem_update_acct_info(rec, tmp, size);
 #endif
+
+    return gf_mem_header_prepare(tmp, size);
 }
 
 int
