@@ -589,7 +589,7 @@ with_options()
             oom_score_adj=$value
             ;;
         "xlator-option")
-            xlator_options+=($value)
+            xlator_options+="$value"
             ;;
         "fuse-mountopts")
             fuse_mountopts=$value
