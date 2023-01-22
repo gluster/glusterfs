@@ -43,7 +43,7 @@ and compile and make install as in Readme
 		sudo groupadd mock
 		sudo useradd -g mock mock
 
-​6) mkdir /var/run/gluster
+​6) mkdir /run/gluster
 
 **Note**: redhat-rpm-config package is not found in ubuntu
 

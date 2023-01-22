@@ -21,7 +21,7 @@ import fcntl
 
 GCRON_TASKS = "/run/gluster/shared_storage/snaps/glusterfs_snap_cron_tasks"
 GCRON_CROND_TASK = "/etc/cron.d/glusterfs_snap_cron_tasks"
-GCRON_RELOAD_FLAG = "/var/run/gluster/crond_task_reload_flag"
+GCRON_RELOAD_FLAG = "/run/gluster/crond_task_reload_flag"
 LOCK_FILE_DIR = "/run/gluster/shared_storage/snaps/lock_files/"
 log = logging.getLogger("gcron-logger")
 start_time = 0.0
@@ -123,7 +123,7 @@ def main():
     global start_time
     if sys.argv[1] == "--update":
         if not os.path.exists(GCRON_TASKS):
-            # Create a flag in /var/run/gluster which indicates that this
+            # Create a flag in /run/gluster which indicates that this
             # node doesn't have access to GCRON_TASKS right now, so that
             # when the mount is available and GCRON_TASKS is available
             # the flag will tell this routine to reload GCRON_CROND_TASK

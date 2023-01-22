@@ -8,11 +8,11 @@ After=network.target network-online.target
 
 [Service]
 Type=forking
-PIDFile=@localstatedir@/run/glusterd.pid
+PIDFile=/run/glusterd.pid
 LimitNOFILE=65536
 Environment="LOG_LEVEL=INFO"
 EnvironmentFile=-@SYSCONF_DIR@/sysconfig/glusterd
-ExecStart=@prefix@/sbin/glusterd -p @localstatedir@/run/glusterd.pid  --log-level $LOG_LEVEL $GLUSTERD_OPTIONS
+ExecStart=@prefix@/sbin/glusterd -p /run/glusterd.pid  --log-level $LOG_LEVEL $GLUSTERD_OPTIONS
 KillMode=process
 TimeoutSec=300
 SuccessExitStatus=15

@@ -431,8 +431,8 @@ quotad_aggregator_init(xlator_t *this)
 
     ret = dict_set_nstrn(this->options, "transport.socket.listen-path",
                          SLEN("transport.socket.listen-path"),
-                         "/var/run/gluster/quotad.socket",
-                         SLEN("/var/run/gluster/quotad.socket"));
+                         "/run/gluster/quotad.socket",
+                         SLEN("/run/gluster/quotad.socket"));
     if (ret)
         goto out;
 

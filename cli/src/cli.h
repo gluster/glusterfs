@@ -28,7 +28,7 @@
 #define CLI_BRICK_STATUS_LINE_LEN 78
 
 // Quotad pid path.
-#define QUOTAD_PID_PATH "/var/run/gluster/quotad/quotad.pid"
+#define QUOTAD_PID_PATH "/run/gluster/quotad/quotad.pid"
 
 /* Geo-rep command positional arguments' index  */
 #define GEO_REP_CMD_INDEX 1

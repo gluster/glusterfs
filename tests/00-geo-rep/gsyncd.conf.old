@@ -15,7 +15,7 @@ gluster_params = aux-gfid-mount acl
 ssh_command = ssh -oPasswordAuthentication=no -oStrictHostKeyChecking=no -i /var/lib/glusterd/geo-replication/secret.pem
 state_detail_file = /var/lib/glusterd/geo-replication/${primaryvol}_${remotehost}_${secondaryvol}/${eSecondary}-detail.status
 state_socket_unencoded = /var/lib/glusterd/geo-replication/${primaryvol}_${remotehost}_${secondaryvol}/${eSecondary}.socket
-socketdir = /var/run/gluster
+socketdir = /run/gluster
 log_file = /var/log/glusterfs/geo-replication/${primaryvol}/${eSecondary}.log
 gluster_log_file = /var/log/glusterfs/geo-replication/${primaryvol}/${eSecondary}${local_id}.gluster.log
 special_sync_mode = partial

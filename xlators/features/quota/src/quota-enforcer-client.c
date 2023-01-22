@@ -444,7 +444,7 @@ quota_enforcer_init(xlator_t *this, dict_t *options)
         goto out;
 
     ret = dict_set_sizen_str_sizen(options, "transport.socket.connect-path",
-                                   "/var/run/gluster/quotad.socket");
+                                   "/run/gluster/quotad.socket");
     if (ret)
         goto out;
 
@@ -476,9 +476,10 @@ out:
     return rpc;
 }
 
-static struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] = {
-    [GF_AGGREGATOR_NULL] = {"NULL", NULL},
-    [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", NULL},
+static struct rpc_clnt_procedure quota_enforcer_actors[GF_AGGREGATOR_MAXVALUE] =
+    {
+        [GF_AGGREGATOR_NULL] = {"NULL", NULL},
+        [GF_AGGREGATOR_LOOKUP] = {"LOOKUP", NULL},
 };
 
 static struct rpc_clnt_program quota_enforcer_clnt = {

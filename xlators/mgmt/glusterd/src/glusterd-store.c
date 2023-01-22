@@ -3669,7 +3669,7 @@ glusterd_find_brick_mount_path(char *brick_path, char **brick_mount_path)
     }
 
     /* Finding the pointer to the end of
-     * /var/run/gluster/snaps/<snap-uuid>
+     * /run/gluster/snaps/<snap-uuid>
      */
     ptr = strstr(*brick_mount_path, "brick");
     if (!ptr) {
@@ -3683,7 +3683,7 @@ glusterd_find_brick_mount_path(char *brick_path, char **brick_mount_path)
     }
 
     /* Moving the pointer to the end of
-     * /var/run/gluster/snaps/<snap-uuid>/<brick_num>
+     * /run/gluster/snaps/<snap-uuid>/<brick_num>
      * and assigning '\0' to it.
      */
     while ((*ptr != '\0') && (*ptr != '/'))
@@ -4724,7 +4724,7 @@ out:
     return ret;
 }
 
-/* Bricks for snap volumes are hosted at /var/run/gluster/snaps
+/* Bricks for snap volumes are hosted at /run/gluster/snaps
  * When a volume is restored, it points to the bricks of the snap
  * volume it was restored from. Hence on a node restart these
  * paths need to be recreated and re-mounted

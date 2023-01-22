@@ -50,7 +50,7 @@ typedef enum {
 
 #define GLUSTERD_CKSUM_FILE "cksum"
 
-#define GLUSTERD_SOCK_DIR "/var/run/gluster"
+#define GLUSTERD_SOCK_DIR "/run/gluster"
 #define GLUSTERD_ASSIGN_BRICKID_TO_BRICKINFO(brickinfo, volinfo, brickid)      \
     do {                                                                       \
         sprintf(brickinfo->brick_id, "%s-client-%d", volinfo->volname,         \

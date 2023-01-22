@@ -111,7 +111,7 @@ function _cleanup_lvm_again() {
 
     findmnt -nRlT "${B0}" -o TARGET,SOURCE | grep "${LVM_PREFIX}" | awk '{print $2}' | xargs -r ${UMOUNT_F}
     findmnt -nRlo TARGET,SOURCE | grep "run/gluster/snaps" | awk '{print $2}' | xargs -r ${UMOUNT_F}
-    \rm -rf /var/run/gluster/snaps/*
+    \rm -rf /run/gluster/snaps/*
 
     vgremove -fyS "vg_name=~^${LVM_PREFIX}_vg"
 

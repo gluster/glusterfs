@@ -32,7 +32,7 @@ TEST touch $M0/foo
 # statedump path should be a directory, setting it to a file path should fail
 
 TEST ! $CLI v set $V0 server.statedump-path $M0/foo;
-EXPECT '/var/run/gluster' $CLI v get $V0 server.statedump-path
+EXPECT '/run/gluster' $CLI v get $V0 server.statedump-path
 
 #set the statedump path to an existing ditectory which should succeed
 TEST mkdir $D0/level;

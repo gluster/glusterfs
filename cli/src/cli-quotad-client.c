@@ -59,8 +59,8 @@ cli_quotad_clnt_init(xlator_t *this, dict_t *options)
 
     ret = dict_set_nstrn(options, "transport.socket.connect-path",
                          SLEN("transport.socket.connect-path"),
-                         "/var/run/gluster/quotad.socket",
-                         SLEN("/var/run/gluster/quotad.socket"));
+                         "/run/gluster/quotad.socket",
+                         SLEN("/run/gluster/quotad.socket"));
     if (ret)
         goto out;
 

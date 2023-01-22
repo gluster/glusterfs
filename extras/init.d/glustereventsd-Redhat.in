@@ -24,8 +24,7 @@
 BASE=glustereventsd
 
 # Fedora File System Layout dictates /run
-[ -e /run ] && RUNDIR="/run"
-PIDFILE="${RUNDIR:-/var/run}/${BASE}.pid"
+PIDFILE="/run/${BASE}.pid"
 
 PID=`test -f $PIDFILE && cat $PIDFILE`
 
