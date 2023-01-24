@@ -11,7 +11,7 @@ We follow most of the details as per the [document here](https://help.github.com
    - Fork [GlusterFS repository](https://github.com/gluster/glusterfs/fork).
 
 1. Clone Repository
-   - Clone the glusterfs repo freshly from github using below steps.
+   - Clone the glusterfs repo freshly from github using the steps below.
 
 ```
    git clone git@github.com:${username}/glusterfs.git
