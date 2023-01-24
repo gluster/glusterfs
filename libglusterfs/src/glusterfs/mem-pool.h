@@ -16,6 +16,7 @@
 #include "glusterfs/logging.h"
 #include "glusterfs/mem-types.h"
 #include "glusterfs/glusterfs.h" /* for glusterfs_ctx_t */
+#include <urcu/compiler.h>       /* for caa_likely/unlikely() */
 #include <stdlib.h>
 #include <inttypes.h>
 #include <string.h>
@@ -43,15 +44,15 @@ typedef uint32_t gf_mem_magic_t;
 #define NPOOLS (POOL_LARGEST - POOL_SMALLEST + 1)
 
 struct mem_acct_rec {
-    const char *typestr;
     gf_atomic_t num_allocs;
+    const char *typestr;
 #ifdef DEBUG
+    gf_lock_t lock;
     uint64_t size;
     uint64_t max_size;
     uint32_t max_num_allocs;
-    gf_lock_t lock;
     struct list_head obj_list;
-#endif
+#endif /* DEBUG */
 };
 
 struct mem_acct {
@@ -77,8 +78,8 @@ struct mem_header {
 #ifdef DEBUG
 struct mem_invalid {
     gf_mem_magic_t magic;
-    void *mem_acct;
     uint32_t type;
+    void *mem_acct;
     size_t size;
     void *baseaddr;
 };
@@ -109,7 +110,7 @@ __gf_default_malloc(size_t size)
     void *ptr = NULL;
 
     ptr = malloc(size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, size);
 
     return ptr;
@@ -121,7 +122,7 @@ __gf_default_calloc(int cnt, size_t size)
     void *ptr = NULL;
 
     ptr = calloc(cnt, size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, (cnt * size));
 
     return ptr;
@@ -133,7 +134,7 @@ __gf_default_realloc(void *oldptr, size_t size)
     void *ptr = NULL;
 
     ptr = realloc(oldptr, size);
-    if (!ptr)
+    if (caa_unlikely(!ptr))
         gf_msg_nomem("", GF_LOG_ALERT, size);
 
     return ptr;
@@ -181,17 +182,15 @@ gf_strndup(const char *src, size_t len)
 {
     char *dup_str = NULL;
 
-    if (!src) {
+    if (caa_unlikely(!src)) {
         goto out;
     }
 
     dup_str = GF_MALLOC(len + 1, gf_common_mt_strdup);
-    if (!dup_str) {
-        goto out;
+    if (caa_likely(dup_str)) {
+        memcpy(dup_str, src, len);
+        dup_str[len] = '\0';
     }
-
-    memcpy(dup_str, src, len);
-    dup_str[len] = '\0';
 out:
     return dup_str;
 }
@@ -199,7 +198,7 @@ out:
 static inline char *
 gf_strdup(const char *src)
 {
-    if (!src)
+    if (caa_unlikely(!src))
         return NULL;
 
     return gf_strndup(src, strlen(src));
@@ -211,12 +210,9 @@ gf_memdup(const void *src, size_t size)
     void *dup_mem = NULL;
 
     dup_mem = GF_MALLOC(size, gf_common_mt_memdup);
-    if (!dup_mem)
-        goto out;
+    if (caa_likely(dup_mem))
+        memcpy(dup_mem, src, size);
 
-    memcpy(dup_mem, src, size);
-
-out:
     return dup_mem;
 }
 

@@ -121,33 +121,43 @@ gf_mem_set_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
     return gf_mem_header_prepare(header, size);
 }
 
-static void *
-gf_mem_update_acct_info(struct mem_acct *mem_acct, struct mem_header *header,
+#ifdef DEBUG
+static struct mem_acct_rec *
+gf_mem_remove_acct_info(struct mem_acct *mem_acct, struct mem_header *header)
+{
+    struct mem_acct_rec *rec;
+
+    if (mem_acct == NULL) {
+        return NULL;
+    }
+
+    GF_ASSERT(header->type <= mem_acct->num_types);
+
+    rec = &mem_acct->rec[header->type];
+    LOCK(&rec->lock);
+    {
+        list_del_init(&header->acct_list);
+    }
+    UNLOCK(&rec->lock);
+
+    return rec;
+}
+
+static void
+gf_mem_update_acct_info(struct mem_acct_rec *rec, struct mem_header *header,
                         size_t size)
 {
-    struct mem_acct_rec *rec = NULL;
-
-    if (mem_acct != NULL) {
-        rec = &mem_acct->rec[header->type];
-#ifdef DEBUG
+    if (rec != NULL) {
         LOCK(&rec->lock);
         {
             rec->size += size - header->size;
             rec->max_size = max(rec->max_size, rec->size);
-            /* The old 'header' already was present in 'obj_list', but
-             * realloc() could have changed its address. We need to remove
-             * the old item from the list and add the new one. This can be
-             * done this way because list_move() doesn't use the pointers
-             * to the old location (which are not valid anymore) already
-             * present in the list, it simply overwrites them. */
-            list_move(&header->acct_list, &rec->obj_list);
+            list_add(&header->acct_list, &rec->obj_list);
         }
         UNLOCK(&rec->lock);
-#endif
     }
-
-    return gf_mem_header_prepare(header, size);
 }
+#endif /* DEBUG */
 
 static bool
 gf_mem_acct_enabled(void)
@@ -176,7 +186,7 @@ __gf_calloc(size_t nmemb, size_t size, uint32_t type, const char *typestr)
 
     ptr = calloc(1, tot_size);
 
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -199,7 +209,7 @@ __gf_malloc(size_t size, uint32_t type, const char *typestr)
     tot_size = __gf_total_alloc_size(size);
 
     ptr = malloc(tot_size);
-    if (!ptr) {
+    if (caa_unlikely(!ptr)) {
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
@@ -211,7 +221,7 @@ void *
 __gf_realloc(void *ptr, size_t size)
 {
     size_t tot_size = 0;
-    struct mem_header *header = NULL;
+    struct mem_header *tmp, *header = NULL;
 
     if (!gf_mem_acct_enabled())
         return REALLOC(ptr, size);
@@ -222,13 +232,25 @@ __gf_realloc(void *ptr, size_t size)
     GF_ASSERT(header->magic == GF_MEM_HEADER_MAGIC);
 
     tot_size = __gf_total_alloc_size(size);
-    header = realloc(header, tot_size);
-    if (!header) {
+#ifdef DEBUG
+    struct mem_acct_rec *rec;
+
+    rec = gf_mem_remove_acct_info(header->mem_acct, header);
+#endif
+    tmp = realloc(header, tot_size);
+    if (caa_unlikely(!tmp)) {
+#ifdef DEBUG
+        gf_mem_update_acct_info(rec, header, header->size);
+#endif
         gf_msg_nomem("", GF_LOG_ALERT, tot_size);
         return NULL;
     }
 
-    return gf_mem_update_acct_info(header->mem_acct, header, size);
+#ifdef DEBUG
+    gf_mem_update_acct_info(rec, tmp, size);
+#endif
+
+    return gf_mem_header_prepare(tmp, size);
 }
 
 int
@@ -273,16 +295,16 @@ gf_asprintf(char **string_ptr, const char *format, ...)
 }
 
 #ifdef DEBUG
-void
+static void
 __gf_mem_invalidate(void *ptr)
 {
     struct mem_header *header = ptr;
-    void *end = NULL;
+    void *end, *old_ptr = NULL;
 
     struct mem_invalid inval = {
         .magic = GF_MEM_INVALID_MAGIC,
-        .mem_acct = header->mem_acct,
         .type = header->type,
+        .mem_acct = header->mem_acct,
         .size = header->size,
         .baseaddr = ptr + GF_MEM_HEADER_SIZE,
     };
@@ -290,19 +312,9 @@ __gf_mem_invalidate(void *ptr)
     /* calculate the last byte of the allocated area */
     end = ptr + __gf_total_alloc_size(inval.size);
 
-    /* overwrite the old mem_header */
-    memcpy(ptr, &inval, sizeof(inval));
-    ptr += sizeof(inval);
+    old_ptr = ptr;
 
-    /* zero out remaining (old) mem_header bytes) */
-    memset(ptr, 0x00, sizeof(*header) - sizeof(inval));
-    ptr += sizeof(*header) - sizeof(inval);
-
-    /* zero out the first byte of data */
-    *(uint32_t *)(ptr) = 0x00;
-    ptr += 1;
-
-    /* repeated writes of invalid structurein data area */
+    /* repeated writes of invalid structure in data area */
     while ((ptr + (sizeof(inval))) < (end - 1)) {
         memcpy(ptr, &inval, sizeof(inval));
         ptr += sizeof(inval);
@@ -310,6 +322,11 @@ __gf_mem_invalidate(void *ptr)
 
     /* fill out remaining data area with 0xff */
     memset(ptr, 0xff, end - ptr);
+
+    /* zero out remaining (old) mem_header bytes) */
+    /* and the first byte of data */
+    memset(old_ptr + sizeof(inval), 0x00,
+           (sizeof(struct mem_header) - sizeof(inval)) + 1);
 }
 #endif /* DEBUG */
 
@@ -336,7 +353,7 @@ __gf_free(void *free_ptr)
     struct mem_header *header = NULL;
     uint64_t num_allocs = 0;
 
-    if (!free_ptr)
+    if (caa_unlikely(!free_ptr))
         return;
 
     if (!gf_mem_acct_enabled()) {
@@ -348,10 +365,10 @@ __gf_free(void *free_ptr)
     ptr = free_ptr - GF_MEM_HEADER_SIZE;
     header = (struct mem_header *)ptr;
 
+    mem_acct = header->mem_acct;
     // Possible corruption, assert here
     GF_ASSERT(GF_MEM_HEADER_MAGIC == header->magic);
 
-    mem_acct = header->mem_acct;
     if (!mem_acct) {
         goto free;
     }
@@ -371,8 +388,8 @@ __gf_free(void *free_ptr)
     }
     UNLOCK(&mem_acct->rec[header->type].lock);
 #endif
-    if (!num_allocs) {
-        xlator_mem_acct_unref(mem_acct);
+    if (!num_allocs && (GF_ATOMIC_DEC(mem_acct->refcnt) == 0)) {
+        xlator_mem_acct_destroy(mem_acct);
     }
 
 free:
