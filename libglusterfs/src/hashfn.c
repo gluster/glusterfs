@@ -17,7 +17,7 @@
 #include <endian.h>
 #endif
 
-#define get16bits(d) (*((const uint16_t *)(d)))
+#define get16bits(d) le16toh(*((const uint16_t *)(d)))
 
 #define DM_DELTA 0x9E3779B9
 #define DM_FULLROUNDS 10 /* 32 is overkill, 16 is strong crypto */
