@@ -35,6 +35,7 @@ typedef enum {
     GF_OPTION_TYPE_PRIORITY_LIST,
     GF_OPTION_TYPE_SIZE_LIST,
     GF_OPTION_TYPE_CLIENT_AUTH_ADDR,
+    GF_OPTION_TYPE_PERCENT_XOR_DOUBLE,
     GF_OPTION_TYPE_MAX,
 } volume_option_type_t;
 
@@ -210,6 +211,7 @@ DECLARE_INIT_OPT(uint64_t, size);
 DECLARE_INIT_OPT(uint64_t, size_uint64);
 DECLARE_INIT_OPT(double, percent);
 DECLARE_INIT_OPT(double, percent_or_size);
+DECLARE_INIT_OPT(double, percent_xor_double);
 DECLARE_INIT_OPT(gf_boolean_t, bool);
 DECLARE_INIT_OPT(xlator_t *, xlator);
 DECLARE_INIT_OPT(char *, path);
@@ -288,6 +290,7 @@ DECLARE_RECONF_OPT(uint64_t, size);
 DECLARE_RECONF_OPT(uint64_t, size_uint64);
 DECLARE_RECONF_OPT(double, percent);
 DECLARE_RECONF_OPT(double, percent_or_size);
+DECLARE_RECONF_OPT(double, percent_xor_double);
 DECLARE_RECONF_OPT(gf_boolean_t, bool);
 DECLARE_RECONF_OPT(xlator_t *, xlator);
 DECLARE_RECONF_OPT(char *, path);

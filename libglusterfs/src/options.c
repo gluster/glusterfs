@@ -445,6 +445,97 @@ out:
     return ret;
 }
 
+/*
+ * If in is a non-negative float numeral, its float value is stored in out.
+ * If in is a non-negative float numeral with a '%' appended to it,
+ * the negative of its float value, converted from percentage to ratio,
+ * is stored in out (eg. in: "30%", out: -0.3).
+ *
+ * For above inputs ret is 0, otherwise -1.
+ */
+static int
+percent_xor_double(const char *in, double *out)
+{
+    int ret = 0;
+
+    ret = gf_string2percent(in, out);
+    if (!ret) {
+        /* we don't get here with empty in */
+        if (in[strlen(in) - 1] == '%')
+            /* we don't get here with NULL out */
+            *out *= -0.01;
+    }
+
+    return ret;
+}
+
+static int
+xlator_option_validate_percent_xor_double(xlator_t *xl, const char *key,
+                                          const char *value,
+                                          volume_option_t *opt,
+                                          char **op_errstr)
+{
+    int ret = -1;
+    char errstr[256] = {
+        0,
+    };
+    double result = 0;
+
+    ret = percent_xor_double(value, &result);
+    /* result can represent either direct numeric value or ratio (percentage).
+     * So we could apply range criteria for both kind. However, volume_option_t
+     * carries only one max and one min. Therefore we compare result only with
+     * those bounds which are of the same kind as result itself (positive:
+     * direct value, negative: ratio).
+     */
+    if (ret == 0) {
+        if (result < 0) {
+            /* Comparison with min/max is made in terms of the chosen
+             * representation, ie. negative values representing ratios, but the
+             * error messages invert relations, as thee are expressed to users
+             * in terms of (positive) percentages.
+             */
+            if ((opt->max < 0) && (result > opt->max)) {
+                snprintf(errstr, sizeof(errstr),
+                         "'%lf%%' in 'option %s %s'"
+                         " is less than allowed minimum [%.0f%%]",
+                         -100 * result, key, value, -100 * opt->max);
+            } else if ((opt->min < 0) && (result < opt->min)) {
+                snprintf(errstr, sizeof(errstr),
+                         "'%lf%%' in 'option %s %s'"
+                         " is bigger than allowed maximum [%.0f%%]",
+                         -100 * result, key, value, -100 * opt->min);
+            }
+
+        } else if (result > 0) {
+            if ((opt->max > 0) && (result > opt->max)) {
+                snprintf(errstr, sizeof(errstr),
+                         "'%lf' in 'option %s %s'"
+                         " is bigger than allowed maximum [%.0f]",
+                         result, key, value, opt->max);
+            } else if ((opt->min > 0) && (result < opt->min)) {
+                snprintf(errstr, sizeof(errstr),
+                         "'%lf' in 'option %s %s'"
+                         " is less than allowed minimum [%.0f]",
+                         result, key, value, opt->min);
+            }
+        }
+        if (errstr[0])
+            ret = -1;
+    } else {
+        snprintf(errstr, 256, "invalid number format \"%s\" in \"option %s\"",
+                 value, key);
+    }
+
+    if (ret != 0) {
+        gf_smsg(xl->name, GF_LOG_ERROR, 0, LG_MSG_OUT_OF_RANGE, "error=%s",
+                errstr, NULL);
+        if (op_errstr)
+            *op_errstr = gf_strdup(errstr);
+    }
+    return ret;
+}
+
 static int
 xlator_option_validate_time(xlator_t *xl, const char *key, const char *value,
                             volume_option_t *opt, char **op_errstr)
@@ -1005,6 +1096,8 @@ xlator_option_validate(xlator_t *xl, char *key, char *value,
         [GF_OPTION_TYPE_SIZE_LIST] = xlator_option_validate_size_list,
         [GF_OPTION_TYPE_ANY] = xlator_option_validate_any,
         [GF_OPTION_TYPE_CLIENT_AUTH_ADDR] = xlator_option_validate_mntauth,
+        [GF_OPTION_TYPE_PERCENT_XOR_DOUBLE] =
+            xlator_option_validate_percent_xor_double,
         [GF_OPTION_TYPE_MAX] = NULL,
     };
 
@@ -1362,6 +1455,7 @@ DEFINE_INIT_OPT(uint64_t, size, gf_string2bytesize_uint64);
 DEFINE_INIT_OPT(uint64_t, size_uint64, gf_string2bytesize_uint64);
 DEFINE_INIT_OPT(double, percent, gf_string2percent);
 DEFINE_INIT_OPT(double, percent_or_size, pc_or_size);
+DEFINE_INIT_OPT(double, percent_xor_double, percent_xor_double);
 DEFINE_INIT_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_INIT_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_INIT_OPT(char *, path, pass);
@@ -1377,6 +1471,7 @@ DEFINE_RECONF_OPT(uint64_t, size, gf_string2bytesize_uint64);
 DEFINE_RECONF_OPT(uint64_t, size_uint64, gf_string2bytesize_uint64);
 DEFINE_RECONF_OPT(double, percent, gf_string2percent);
 DEFINE_RECONF_OPT(double, percent_or_size, pc_or_size);
+DEFINE_RECONF_OPT(double, percent_xor_double, percent_xor_double);
 DEFINE_RECONF_OPT(gf_boolean_t, bool, gf_string2boolean);
 DEFINE_RECONF_OPT(xlator_t *, xlator, xl_by_name);
 DEFINE_RECONF_OPT(char *, path, pass);

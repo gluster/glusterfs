@@ -196,13 +196,13 @@ static struct argp_option gf_options[] = {
      "Resolve all auxiliary groups in fuse translator (max 32 otherwise)"},
     {"lru-limit", ARGP_FUSE_LRU_LIMIT_KEY, "N", 0,
      "Set fuse module's limit for number of inodes kept in LRU list to N "
-     "[default: 65536]"},
+     "[default: 65000]"},
     {"inode-table-size", ARGP_FUSE_INODE_TABLESIZE_KEY, "N", 0,
      "Set the inode hash table size to N - this must be a power of 2 and "
      "will be rounded up if not [default: 65536]"},
     {"invalidate-limit", ARGP_FUSE_INVALIDATE_LIMIT_KEY, "N", 0,
      "Suspend inode invalidations implied by 'lru-limit' if the number of "
-     "outstanding invalidations reaches N"},
+     "outstanding invalidations reaches N [default: 200%]"},
     {"background-qlen", ARGP_FUSE_BACKGROUND_QLEN_KEY, "N", 0,
      "Set fuse module's background queue length to N "
      "[default: 64]"},
@@ -443,8 +443,8 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
                      cmd_args->inode_table_size, glusterfsd_msg_3);
     }
 
-    if (cmd_args->invalidate_limit >= 0) {
-        DICT_SET_VAL(dict_set_int32_sizen, options, "invalidate-limit",
+    if (cmd_args->invalidate_limit) {
+        DICT_SET_VAL(dict_set_dynstr, options, "invalidate-limit",
                      cmd_args->invalidate_limit, glusterfsd_msg_3);
     }
 
@@ -1167,11 +1167,12 @@ parse_opts(int key, char *arg, struct argp_state *state)
             break;
 
         case ARGP_FUSE_INVALIDATE_LIMIT_KEY:
-            if (!gf_string2int32(arg, &cmd_args->invalidate_limit))
-                break;
-
-            argp_failure(state, -1, 0, "unknown invalidate limit option %s",
-                         arg);
+            cmd_args->invalidate_limit = gf_strdup(arg);
+            if (cmd_args->invalidate_limit == NULL) {
+                argp_failure(state, -1, 0,
+                             "Failed to allocate memory for "
+                             "invalidate-limit");
+            }
             break;
 
         case ARGP_FUSE_BACKGROUND_QLEN_KEY:

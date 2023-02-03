@@ -378,6 +378,23 @@ send_fuse_data(xlator_t *this, fuse_in_header_t *finh, void *data, size_t size)
 #define send_fuse_obj(this, finh, obj)                                         \
     send_fuse_data(this, finh, obj, sizeof(*(obj)))
 
+static int
+check_invalidate_limit(fuse_private_t *priv)
+{
+    if (priv->invalidate_limit > 0 &&
+        (priv->invalidate_count >= priv->invalidate_limit)) {
+        return -1;
+    }
+    if (priv->invalidate_limit < 0 &&
+        /* negative value represents ratio, in terms of lru_limit */
+        (priv->invalidate_count >=
+         -1 * (priv->lru_limit * priv->invalidate_limit))) {
+        return -1;
+    }
+
+    return 0;
+}
+
 static int32_t
 fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
 {
@@ -396,10 +413,8 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
     if (!priv->reverse_fuse_thread_started)
         return -1;
 
-    if (priv->invalidate_limit &&
-        (priv->invalidate_count >= priv->invalidate_limit)) {
+    if (check_invalidate_limit(priv) != 0)
         return -1;
-    }
 
     inode = (inode_t *)(unsigned long)fuse_ino;
     if (inode == NULL)
@@ -486,10 +501,8 @@ fuse_invalidate_inode(xlator_t *this, uint64_t fuse_ino)
     if (!priv->reverse_fuse_thread_started)
         return -1;
 
-    if (priv->invalidate_limit &&
-        (priv->invalidate_count >= priv->invalidate_limit)) {
+    if (check_invalidate_limit(priv) != 0)
         return -1;
-    }
 
     inode = (inode_t *)(unsigned long)fuse_ino;
     if (inode == NULL)
@@ -6377,7 +6390,8 @@ fuse_priv_dump(xlator_t *this)
                        (int)private->timed_response_fuse_thread_started);
     gf_proc_dump_write("reverse_thread_started", "%d",
                        (int)private->reverse_fuse_thread_started);
-    gf_proc_dump_write("invalidate_limit", "%u", private->invalidate_limit);
+    gf_proc_dump_write("lru_limit", "%u", private->lru_limit);
+    gf_proc_dump_write("invalidate_limit", "%f", private->invalidate_limit);
     gf_proc_dump_write("invalidate_queue_length", "%" PRIu64,
                        private->invalidate_count);
     gf_proc_dump_write("use_readdirp", "%d", private->use_readdirp);
@@ -6888,8 +6902,8 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("inode-table-size", priv->inode_table_size, uint32,
                    cleanup_exit);
 
-    GF_OPTION_INIT("invalidate-limit", priv->invalidate_limit, uint32,
-                   cleanup_exit);
+    GF_OPTION_INIT("invalidate-limit", priv->invalidate_limit,
+                   percent_xor_double, cleanup_exit);
 
     GF_OPTION_INIT("event-history", priv->event_history, bool, cleanup_exit);
 
@@ -7237,7 +7251,7 @@ struct volume_options options[] = {
     {
         .key = {"lru-limit"},
         .type = GF_OPTION_TYPE_INT,
-        .default_value = "65536",
+        .default_value = "65000",
         .min = 0,
         .description = "makes glusterfs invalidate kernel inodes after "
                        "reaching this limit (0 means 'unlimited')",
@@ -7253,9 +7267,10 @@ struct volume_options options[] = {
     },
     {
         .key = {"invalidate-limit"},
-        .type = GF_OPTION_TYPE_INT,
-        .default_value = "0",
+        .type = GF_OPTION_TYPE_PERCENT_XOR_DOUBLE,
+        .default_value = "200%",
         .min = 0,
+        .max = -1.1, /* interpretation explained in type's validation fnc */
         .description = "suspend invalidations as of 'lru-limit' if the number "
                        "of outstanding invalidations reaches this limit "
                        "(0 means 'unlimited')",

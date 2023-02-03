@@ -27,7 +27,7 @@ TEST [ $lc -ge 9000 ]
 
 TEST umount $M0
 
-TEST glusterfs -s $H0 --volfile-id $V0 --lru-limit 1000 $M0
+TEST glusterfs -s $H0 --volfile-id $V0 --lru-limit 1000 --invalidate-limit '800%' $M0
 
 TEST find $M0
 lc=$(get_mount_lru_size_value $V0 ${M0})
