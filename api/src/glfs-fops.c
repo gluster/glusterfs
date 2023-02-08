@@ -741,8 +741,10 @@ pub_glfs_close(struct glfs_fd *glfd)
 out:
     fs = glfd->fs;
 
-    if (fd)
+    if (fd) {
+        fd_close(fd);
         fd_unref(fd);
+    }
     if (fop_attr)
         dict_unref(fop_attr);
 
