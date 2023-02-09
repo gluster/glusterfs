@@ -519,22 +519,13 @@ gd_add_brick_snap_details_to_dict(dict_t *dict, char *prefix,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[256] = {
         0,
     };
 
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (brickinfo != NULL), out);
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
-        goto out;
-    }
 
     snprintf(key, sizeof(key), "%s.snap_status", prefix);
     ret = dict_set_int32(dict, key, brickinfo->snap_status);
@@ -614,22 +605,13 @@ gd_add_vol_snap_details_to_dict(dict_t *dict, char *prefix,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[256] = {
         0,
     };
 
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (volinfo != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
-        goto out;
-    }
 
     snprintf(key, sizeof(key), "%s.restored_from_snap", prefix);
     ret = dict_set_dynstr_with_alloc(dict, key,
@@ -939,7 +921,6 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[512] = {
         0,
     };
@@ -950,17 +931,9 @@ gd_import_new_brick_snap_details(dict_t *dict, char *prefix,
     char *mnt_opts = NULL;
     char *mount_dir = NULL;
 
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (brickinfo != NULL), out);
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
-        goto out;
-    }
 
     snprintf(key, sizeof(key), "%s.snap_status", prefix);
     ret = dict_get_int32(dict, key, &brickinfo->snap_status);
@@ -1031,10 +1004,6 @@ out:
 
 /*
  * Imports the snapshot details of a volume if required and available
- *
- * Snapshot details will be imported only if cluster.op_version is greater than
- * or equal to GD_OP_VERSION_3_6_0, the op-version from which volume snapshot is
- * supported.
  */
 int
 gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
@@ -1042,7 +1011,6 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[256] = {
         0,
     };
@@ -1051,18 +1019,10 @@ gd_import_volume_snap_details(dict_t *dict, glusterd_volinfo_t *volinfo,
     char *restored_snapname = NULL;
     char *snap_plugin = NULL;
 
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (volinfo != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (prefix != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (volname != NULL), out);
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
-        goto out;
-    }
 
     snprintf(key, sizeof(key), "%s.is_snap_volume", prefix);
     uint32_t is_snap_int;

@@ -337,11 +337,7 @@ glusterd_op_stage_replace_brick(dict_t *dict, char **op_errstr,
         }
         RCU_READ_UNLOCK;
 
-    } else if (priv->op_version >= GD_OP_VERSION_3_6_0) {
-        /* A bricks mount dir is required only by snapshots which were
-         * introduced in gluster-3.6.0
-         */
-
+    } else {
         if (!(gf_uuid_compare(dst_brickinfo->uuid, MY_UUID))) {
             ret = glusterd_get_brick_mount_dir(dst_brickinfo->path,
                                                dst_brickinfo->hostname,
@@ -387,16 +383,12 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
     glusterd_brickinfo_t *new_brickinfo = NULL;
     int32_t ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     struct statvfs brickstat = {
         0,
     };
 
     GF_ASSERT(dict);
     GF_ASSERT(volinfo);
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = glusterd_brickinfo_new_from_brick(new_brick, &new_brickinfo, _gf_true,
                                             NULL);
@@ -431,20 +423,14 @@ glusterd_op_perform_replace_brick(glusterd_volinfo_t *volinfo, char *old_brick,
                    "%s", old_brickinfo->brick_id);
     new_brickinfo->port = old_brickinfo->port;
 
-    /* A bricks mount dir is required only by snapshots which were
-     * introduced in gluster-3.6.0
-     */
-    if (conf->op_version >= GD_OP_VERSION_3_6_0) {
-        ret = dict_get_str(dict, "brick1.mount_dir", &brick_mount_dir);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, errno,
-                   GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
-                   "brick1.mount_dir not present");
-            goto out;
-        }
-        (void)snprintf(new_brickinfo->mount_dir,
-                       sizeof(new_brickinfo->mount_dir), "%s", brick_mount_dir);
+    ret = dict_get_str(dict, "brick1.mount_dir", &brick_mount_dir);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, errno, GD_MSG_BRICK_MOUNTDIR_GET_FAIL,
+               "brick1.mount_dir not present");
+        goto out;
     }
+    (void)snprintf(new_brickinfo->mount_dir, sizeof(new_brickinfo->mount_dir),
+                   "%s", brick_mount_dir);
 
     cds_list_add(&new_brickinfo->brick_list, &old_brickinfo->brick_list);
 

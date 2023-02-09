@@ -669,54 +669,46 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
         goto out;
     }
 
-    /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-    if (priv->op_version < GD_OP_VERSION_3_6_0) {
-        ret = glusterd_lock(MY_UUID);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_LOCK_FAIL,
-                   "Unable to acquire lock on localhost, ret: %d", ret);
-            snprintf(err_str, err_len,
-                     "Another transaction is in progress. "
-                     "Please try again after some time.");
-            goto out;
-        }
+    /* If no volname is given as a part of the command, locks will
+     * not be held */
+    ret = dict_get_str(dict, "volname", &tmp);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
+               "No Volume name present. "
+               "Locks not being held.");
+        goto local_locking_done;
     } else {
-        /* If no volname is given as a part of the command, locks will
-         * not be held */
-        ret = dict_get_str(dict, "volname", &tmp);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_INFO, -ret, GD_MSG_DICT_GET_FAILED,
-                   "No Volume name present. "
-                   "Locks not being held.");
-            goto local_locking_done;
-        } else {
-            /* Use a copy of volname, as cli response will be
-             * sent before the unlock, and the volname in the
-             * dict, might be removed */
-            volname = gf_strdup(tmp);
-            if (!volname)
-                goto out;
-        }
-
-        /* Cli will add timeout key to dict if the default timeout is
-         * other than 2 minutes. Here we use this value to check whether
-         * mgmt_v3_lock_timeout should be set to default value or we
-         * need to change the value according to timeout value
-         * i.e, timeout + 120 seconds. */
-        ret = dict_get_time(dict, "timeout", &timeout);
-        if (!ret)
-            priv->mgmt_v3_lock_timeout = timeout + 120;
-
-        ret = glusterd_mgmt_v3_lock(volname, MY_UUID, &op_errno, "vol");
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_LOCK_GET_FAIL,
-                   "Unable to acquire lock for %s", volname);
-            snprintf(err_str, err_len,
-                     "Another transaction is in progress for %s. "
-                     "Please try again after some time.",
-                     volname);
+        /* Use a copy of volname, as cli response will be
+         * sent before the unlock, and the volname in the
+         * dict, might be removed */
+        volname = gf_strdup(tmp);
+        if (!volname)
             goto out;
-        }
+    }
+
+    /* Cli will add timeout key to dict if the default timeout is
+     * other than 2 minutes. Here we use this value to check whether
+     * mgmt_v3_lock_timeout should be set to default value or we
+     * need to change the value according to timeout value
+     * i.e, timeout + 120 seconds. */
+    ret = dict_get_time(dict, "timeout", &timeout);
+    if (!ret)
+        priv->mgmt_v3_lock_timeout = timeout + 120;
+
+    ret = glusterd_mgmt_v3_lock(volname, MY_UUID, &op_errno, "vol");
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_LOCK_GET_FAIL,
+               "Unable to acquire lock for %s", volname);
+        snprintf(err_str, err_len,
+                 "Another transaction is in progress for %s. "
+                 "Please try again after some time.",
+                 volname);
+        /* Use a copy of volname, as cli response will be
+         * sent before the unlock, and the volname in the
+         * dict, might be removed */
+        volname = gf_strdup(tmp);
+        if (!volname)
+            goto out;
     }
 
     locked = 1;
@@ -725,7 +717,7 @@ glusterd_op_txn_begin(rpcsvc_request_t *req, glusterd_op_t op, void *ctx,
 local_locking_done:
     /* If no volname is given as a part of the command, locks will
      * not be held, hence sending stage event. */
-    if (volname || (priv->op_version < GD_OP_VERSION_3_6_0))
+    if (volname)
         event_type = GD_OP_EVENT_START_LOCK;
     else {
         txn_op_info.state = GD_OP_STATE_LOCK_SENT;
@@ -754,17 +746,11 @@ local_locking_done:
 
 out:
     if (locked && ret) {
-        /* Based on the op-version, we release the
-         * cluster or mgmt_v3 lock */
-        if (priv->op_version < GD_OP_VERSION_3_6_0)
-            glusterd_unlock(MY_UUID);
-        else {
-            ret = glusterd_mgmt_v3_unlock(volname, MY_UUID, "vol");
-            if (ret)
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_UNLOCK_FAIL,
-                       "Unable to release lock for %s", volname);
-            ret = -1;
-        }
+        ret = glusterd_mgmt_v3_unlock(volname, MY_UUID, "vol");
+        if (ret)
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_UNLOCK_FAIL,
+                   "Unable to release lock for %s", volname);
+        ret = -1;
     }
 
     if (volname)
@@ -4535,16 +4521,6 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
         gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_STATUS_VOL_REQ_RCVD,
                "Received status volume req for volume %s", volname);
     }
-    if ((cmd & GF_CLI_STATUS_CLIENT_LIST) &&
-        (conf->op_version < GD_OP_VERSION_3_13_0)) {
-        snprintf(err_str, sizeof(err_str),
-                 "The cluster is operating "
-                 "at version less than %d. Getting the client-list "
-                 "is not allowed in this state.",
-                 GD_OP_VERSION_3_13_0);
-        ret = -1;
-        goto out;
-    }
 
     if ((cmd & GF_CLI_STATUS_QUOTAD) &&
         (conf->op_version == GD_OP_VERSION_MIN)) {
@@ -4552,39 +4528,6 @@ __glusterd_handle_status_volume(rpcsvc_request_t *req)
                  "The cluster is operating "
                  "at version 1. Getting the status of quotad is not "
                  "allowed in this state.");
-        ret = -1;
-        goto out;
-    }
-
-    if ((cmd & GF_CLI_STATUS_SNAPD) &&
-        (conf->op_version < GD_OP_VERSION_3_6_0)) {
-        snprintf(err_str, sizeof(err_str),
-                 "The cluster is operating "
-                 "at a lesser version than %d. Getting the status of "
-                 "snapd is not allowed in this state",
-                 GD_OP_VERSION_3_6_0);
-        ret = -1;
-        goto out;
-    }
-
-    if ((cmd & GF_CLI_STATUS_BITD) &&
-        (conf->op_version < GD_OP_VERSION_3_7_0)) {
-        snprintf(err_str, sizeof(err_str),
-                 "The cluster is operating "
-                 "at a lesser version than %d. Getting the status of "
-                 "bitd is not allowed in this state",
-                 GD_OP_VERSION_3_7_0);
-        ret = -1;
-        goto out;
-    }
-
-    if ((cmd & GF_CLI_STATUS_SCRUB) &&
-        (conf->op_version < GD_OP_VERSION_3_7_0)) {
-        snprintf(err_str, sizeof(err_str),
-                 "The cluster is operating "
-                 "at a lesser version than %d. Getting the status of "
-                 "scrub is not allowed in this state",
-                 GD_OP_VERSION_3_7_0);
         ret = -1;
         goto out;
     }
@@ -6559,11 +6502,11 @@ out:
     return ret;
 }
 
-int
+static int
 __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                            rpc_clnt_event_t event, void *data)
 {
-    xlator_t *this = THIS;
+    xlator_t *this = NULL;
     glusterd_conf_t *conf = NULL;
     int ret = 0;
     int32_t op_errno = ENOTCONN;
@@ -6573,13 +6516,9 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
     glusterd_volinfo_t *volinfo = NULL;
     glusterfs_ctx_t *ctx = NULL;
 
-    uuid_t uuid;
-
     peerctx = mydata;
     if (!peerctx)
         return 0;
-
-    conf = this->private;
 
     switch (event) {
         case RPC_CLNT_DESTROY:
@@ -6592,6 +6531,9 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
         default:
             break;
     }
+
+    this = THIS;
+    conf = this->private;
     ctx = this->ctx;
     GF_VALIDATE_OR_GOTO(this->name, ctx, out);
     if (ctx->cleanup_started) {
@@ -6666,23 +6608,16 @@ __glusterd_peer_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                      glusterd_friend_sm_state_name_get(peerinfo->state));
 
             if (peerinfo->connected) {
-                if (conf->op_version < GD_OP_VERSION_3_6_0) {
-                    glusterd_get_lock_owner(&uuid);
-                    if (!gf_uuid_is_null(uuid) &&
-                        !gf_uuid_compare(peerinfo->uuid, uuid))
-                        glusterd_unlock(peerinfo->uuid);
-                } else {
-                    cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
-                    {
-                        ret = glusterd_mgmt_v3_unlock(volinfo->volname,
-                                                      peerinfo->uuid, "vol");
-                        if (ret)
-                            gf_msg(this->name, GF_LOG_WARNING, 0,
-                                   GD_MSG_MGMTV3_UNLOCK_FAIL,
-                                   "Lock not released "
-                                   "for %s",
-                                   volinfo->volname);
-                    }
+                cds_list_for_each_entry(volinfo, &conf->volumes, vol_list)
+                {
+                    ret = glusterd_mgmt_v3_unlock(volinfo->volname,
+                                                  peerinfo->uuid, "vol");
+                    if (ret)
+                        gf_msg(this->name, GF_LOG_WARNING, 0,
+                               GD_MSG_MGMTV3_UNLOCK_FAIL,
+                               "Lock not released "
+                               "for %s",
+                               volinfo->volname);
                 }
 
                 op_errno = GF_PROBE_ANOTHER_CLUSTER;

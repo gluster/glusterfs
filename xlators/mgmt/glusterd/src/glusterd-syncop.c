@@ -2417,7 +2417,10 @@ gd_get_brick_count(struct cds_list_head *bricks)
 {
     glusterd_pending_node_t *pending_node = NULL;
     int npeers = 0;
-    cds_list_for_each_entry(pending_node, bricks, list) { npeers++; }
+    cds_list_for_each_entry(pending_node, bricks, list)
+    {
+        npeers++;
+    }
     return npeers;
 }
 
@@ -2586,9 +2589,6 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
                "Failed to set originator_uuid.");
         goto out;
     }
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0)
-        cluster_lock = _gf_true;
 
     /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
     if (cluster_lock) {

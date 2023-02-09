@@ -8672,16 +8672,12 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
     };
     glusterd_op_t cli_op = GD_OP_SNAP;
     int type = 0;
-    glusterd_conf_t *conf = NULL;
     char *host_uuid = NULL;
     char err_str[2048] = "";
     xlator_t *this = THIS;
     uint32_t op_errno = 0;
 
     GF_ASSERT(req);
-
-    conf = this->private;
-    GF_ASSERT(conf);
 
     ret = xdr_to_generic(req->msg[0], &cli_req, (xdrproc_t)xdr_gf_cli_req);
     if (ret < 0) {
@@ -8729,19 +8725,8 @@ glusterd_handle_snapshot_fn(rpcsvc_request_t *req)
         goto out;
     }
 
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        snprintf(err_str, sizeof(err_str),
-                 "Cluster operating version"
-                 " is lesser than the supported version "
-                 "for a snapshot");
-        op_errno = EG_OPNOTSUP;
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_UNSUPPORTED_VERSION,
-               "%s (%d < %d)", err_str, conf->op_version, GD_OP_VERSION_3_6_0);
-        ret = -1;
-        goto out;
-    }
-
     ret = dict_get_int32(dict, "type", &type);
+
     if (ret < 0) {
         snprintf(err_str, sizeof(err_str), "Command type not found");
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_COMMAND_NOT_FOUND, "%s",

@@ -667,9 +667,6 @@ out:
 
 /* gd_add_friend_to_dict() adds details of @friend into @dict with the given
  * @prefix. All the parameters are compulsory.
- *
- * The complete address list is added to the dict only if the cluster op-version
- * is >= GD_OP_VERSION_3_6_0
  */
 int
 gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
@@ -677,15 +674,11 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[100] = {
         0,
     };
     glusterd_peer_hostname_t *address = NULL;
     int count = 0;
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
     GF_VALIDATE_OR_GOTO(this->name, (friend != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
@@ -709,11 +702,6 @@ gd_add_friend_to_dict(glusterd_peerinfo_t *friend, dict_t *dict,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Failed to set key %s in dict", key);
-        goto out;
-    }
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
         goto out;
     }
 
@@ -753,16 +741,12 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[100] = {
         0,
     };
     char *hostname = NULL;
     int count = 0;
     int i = 0;
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
 
     GF_VALIDATE_OR_GOTO(this->name, (peerinfo != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);
@@ -782,11 +766,6 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                "Could not add address to peer");
-        goto out;
-    }
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
         goto out;
     }
 
@@ -885,20 +864,11 @@ gd_add_peer_hostnames_to_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
 {
     int ret = -1;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char key[64] = {
         0,
     };
     glusterd_peer_hostname_t *addr = NULL;
     int count = 0;
-
-    conf = this->private;
-    GF_VALIDATE_OR_GOTO(this->name, (conf != NULL), out);
-
-    if (conf->op_version < GD_OP_VERSION_3_6_0) {
-        ret = 0;
-        goto out;
-    }
 
     GF_VALIDATE_OR_GOTO(this->name, (peerinfo != NULL), out);
     GF_VALIDATE_OR_GOTO(this->name, (dict != NULL), out);

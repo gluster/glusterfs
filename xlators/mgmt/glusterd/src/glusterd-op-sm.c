@@ -158,11 +158,8 @@ int32_t
 glusterd_generate_txn_id(dict_t *dict, uuid_t **txn_id)
 {
     int32_t ret = -1;
-    glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
 
-    priv = this->private;
-    GF_ASSERT(priv);
     GF_ASSERT(dict);
 
     *txn_id = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
@@ -171,10 +168,7 @@ glusterd_generate_txn_id(dict_t *dict, uuid_t **txn_id)
         goto out;
     }
 
-    if (priv->op_version < GD_OP_VERSION_3_6_0)
-        gf_uuid_copy(**txn_id, priv->global_txn_id);
-    else
-        gf_uuid_generate(**txn_id);
+    gf_uuid_generate(**txn_id);
 
     ret = dict_set_bin(dict, "transaction_id", *txn_id, sizeof(**txn_id));
     if (ret) {
@@ -1784,19 +1778,6 @@ glusterd_op_stage_status_volume(dict_t *dict, char **op_errstr)
                  "allowed in this state.");
         gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_QUOTA_GET_STAT_FAIL,
                 msg, NULL);
-        ret = -1;
-        goto out;
-    }
-
-    if ((cmd & GF_CLI_STATUS_SNAPD) &&
-        (priv->op_version < GD_OP_VERSION_3_6_0)) {
-        snprintf(msg, sizeof(msg),
-                 "The cluster is operating at "
-                 "version less than %d. Getting the "
-                 "status of snapd is not allowed in this state.",
-                 GD_OP_VERSION_3_6_0);
-        gf_smsg(this->name, GF_LOG_ERROR, errno, GD_MSG_SNAP_STATUS_FAIL, msg,
-                NULL);
         ret = -1;
         goto out;
     }
@@ -4083,56 +4064,35 @@ glusterd_op_ac_send_lock(glusterd_op_sm_event_t *event, void *ctx)
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
 
-        /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-        if (priv->op_version < GD_OP_VERSION_3_6_0) {
-            proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_CLUSTER_LOCK];
-            if (proc->fn) {
-                ret = proc->fn(NULL, this, peerinfo);
-                if (ret) {
-                    RCU_READ_UNLOCK;
-                    gf_msg(this->name, GF_LOG_WARNING, 0,
-                           GD_MSG_LOCK_REQ_SEND_FAIL,
-                           "Failed to send lock request "
-                           "for operation 'Volume %s' to "
-                           "peer %s",
-                           gd_op_list[opinfo.op], peerinfo->hostname);
-                    goto out;
-                }
-                /* Mark the peer as locked*/
-                peerinfo->locked = _gf_true;
-                pending_count++;
-            }
-        } else {
-            dict = glusterd_op_get_ctx();
-            dict_ref(dict);
+        dict = glusterd_op_get_ctx();
+        dict_ref(dict);
 
-            proc = &peerinfo->mgmt_v3->proctable[GLUSTERD_MGMT_V3_LOCK];
-            if (proc->fn) {
-                ret = dict_set_static_ptr(dict, "peerinfo", peerinfo);
-                if (ret) {
-                    RCU_READ_UNLOCK;
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
-                           "failed to set peerinfo");
-                    dict_unref(dict);
-                    goto out;
-                }
-
-                ret = proc->fn(NULL, this, dict);
-                if (ret) {
-                    RCU_READ_UNLOCK;
-                    gf_msg(this->name, GF_LOG_WARNING, 0,
-                           GD_MSG_MGMTV3_LOCK_REQ_SEND_FAIL,
-                           "Failed to send mgmt_v3 lock "
-                           "request for operation "
-                           "'Volume %s' to peer %s",
-                           gd_op_list[opinfo.op], peerinfo->hostname);
-                    dict_unref(dict);
-                    goto out;
-                }
-                /* Mark the peer as locked*/
-                peerinfo->locked = _gf_true;
-                pending_count++;
+        proc = &peerinfo->mgmt_v3->proctable[GLUSTERD_MGMT_V3_LOCK];
+        if (proc->fn) {
+            ret = dict_set_static_ptr(dict, "peerinfo", peerinfo);
+            if (ret) {
+                RCU_READ_UNLOCK;
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
+                       "failed to set peerinfo");
+                dict_unref(dict);
+                goto out;
             }
+
+            ret = proc->fn(NULL, this, dict);
+            if (ret) {
+                RCU_READ_UNLOCK;
+                gf_msg(this->name, GF_LOG_WARNING, 0,
+                       GD_MSG_MGMTV3_LOCK_REQ_SEND_FAIL,
+                       "Failed to send mgmt_v3 lock "
+                       "request for operation "
+                       "'Volume %s' to peer %s",
+                       gd_op_list[opinfo.op], peerinfo->hostname);
+                dict_unref(dict);
+                goto out;
+            }
+            /* Mark the peer as locked*/
+            peerinfo->locked = _gf_true;
+            pending_count++;
         }
     }
     RCU_READ_UNLOCK;
@@ -4184,62 +4144,40 @@ glusterd_op_ac_send_unlock(glusterd_op_sm_event_t *event, void *ctx)
         if ((peerinfo->state != GD_FRIEND_STATE_BEFRIENDED) &&
             (glusterd_op_get_op() != GD_OP_SYNC_VOLUME))
             continue;
-        /* Based on the op_version,
-         * release the cluster or mgmt_v3 lock */
-        if (priv->op_version < GD_OP_VERSION_3_6_0) {
-            proc = &peerinfo->mgmt->proctable[GLUSTERD_MGMT_CLUSTER_UNLOCK];
-            if (proc->fn) {
-                ret = proc->fn(NULL, this, peerinfo);
-                if (ret) {
-                    opinfo.op_errstr = gf_strdup(
-                        "Unlocking failed for one of "
-                        "the peer.");
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_CLUSTER_UNLOCK_FAILED,
-                           "Unlocking failed for operation"
-                           " volume %s on peer %s",
-                           gd_op_list[opinfo.op], peerinfo->hostname);
-                    continue;
-                }
-                pending_count++;
-                peerinfo->locked = _gf_false;
-            }
-        } else {
-            dict = glusterd_op_get_ctx();
-            dict_ref(dict);
+        dict = glusterd_op_get_ctx();
+        dict_ref(dict);
 
-            proc = &peerinfo->mgmt_v3->proctable[GLUSTERD_MGMT_V3_UNLOCK];
-            if (proc->fn) {
-                ret = dict_set_static_ptr(dict, "peerinfo", peerinfo);
-                if (ret) {
-                    opinfo.op_errstr = gf_strdup(
-                        "Unlocking failed for one of the "
-                        "peer.");
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_CLUSTER_UNLOCK_FAILED,
-                           "Unlocking failed for operation"
-                           " volume %s on peer %s",
-                           gd_op_list[opinfo.op], peerinfo->hostname);
-                    dict_unref(dict);
-                    continue;
-                }
-
-                ret = proc->fn(NULL, this, dict);
-                if (ret) {
-                    opinfo.op_errstr = gf_strdup(
-                        "Unlocking failed for one of the "
-                        "peer.");
-                    gf_msg(this->name, GF_LOG_ERROR, 0,
-                           GD_MSG_CLUSTER_UNLOCK_FAILED,
-                           "Unlocking failed for operation"
-                           " volume %s on peer %s",
-                           gd_op_list[opinfo.op], peerinfo->hostname);
-                    dict_unref(dict);
-                    continue;
-                }
-                pending_count++;
-                peerinfo->locked = _gf_false;
+        proc = &peerinfo->mgmt_v3->proctable[GLUSTERD_MGMT_V3_UNLOCK];
+        if (proc->fn) {
+            ret = dict_set_static_ptr(dict, "peerinfo", peerinfo);
+            if (ret) {
+                opinfo.op_errstr = gf_strdup(
+                    "Unlocking failed for one of the "
+                    "peer.");
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_CLUSTER_UNLOCK_FAILED,
+                       "Unlocking failed for operation"
+                       " volume %s on peer %s",
+                       gd_op_list[opinfo.op], peerinfo->hostname);
+                dict_unref(dict);
+                continue;
             }
+
+            ret = proc->fn(NULL, this, dict);
+            if (ret) {
+                opinfo.op_errstr = gf_strdup(
+                    "Unlocking failed for one of the "
+                    "peer.");
+                gf_msg(this->name, GF_LOG_ERROR, 0,
+                       GD_MSG_CLUSTER_UNLOCK_FAILED,
+                       "Unlocking failed for operation"
+                       " volume %s on peer %s",
+                       gd_op_list[opinfo.op], peerinfo->hostname);
+                dict_unref(dict);
+                continue;
+            }
+            pending_count++;
+            peerinfo->locked = _gf_false;
         }
     }
     RCU_READ_UNLOCK;
@@ -5089,7 +5027,6 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
     int count = 0;
     uint32_t cmd = GF_CLI_STATUS_NONE;
     xlator_t *this = THIS;
-    glusterd_conf_t *conf = NULL;
     char *volname = NULL;
     glusterd_volinfo_t *volinfo = NULL;
     char *port = 0;
@@ -5098,8 +5035,6 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
         0,
     };
     int keylen;
-
-    conf = this->private;
 
     if (ctx)
         op_ctx = ctx;
@@ -5162,12 +5097,6 @@ glusterd_op_modify_op_ctx(glusterd_op_t op, void *ctx)
             ret = glusterd_volinfo_find(volname, &volinfo);
             if (ret)
                 goto out;
-            if (conf->op_version < GD_OP_VERSION_3_7_0 &&
-                volinfo->transport_type == GF_TRANSPORT_RDMA) {
-                ret = glusterd_op_modify_port_key(op_ctx, brick_index_max);
-                if (ret)
-                    goto out;
-            }
             /* add 'brick%d.peerid' into op_ctx with value of 'brick%d.path'.
                nfs/sshd like services have this additional uuid */
             {
@@ -5765,28 +5694,17 @@ glusterd_op_txn_complete(uuid_t *txn_id)
     opinfo.op_ret = 0;
     opinfo.op_errno = 0;
 
-    /* Based on the op-version, we release the cluster or mgmt_v3 lock */
-    if (priv->op_version < GD_OP_VERSION_3_6_0) {
-        ret = glusterd_unlock(MY_UUID);
-        /* unlock can't/shouldn't fail here!! */
-        if (ret)
-            gf_msg(this->name, GF_LOG_CRITICAL, 0, GD_MSG_GLUSTERD_UNLOCK_FAIL,
-                   "Unable to clear local lock, ret: %d", ret);
-        else
-            gf_msg_debug(this->name, 0, "Cleared local lock");
-    } else {
-        ret = dict_get_str(ctx, "volname", &volname);
-        if (ret)
-            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
-                   "No Volume name present. "
-                   "Locks have not been held.");
+    ret = dict_get_str(ctx, "volname", &volname);
+    if (ret)
+        gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_DICT_GET_FAILED,
+               "No Volume name present. "
+               "Locks have not been held.");
 
-        if (volname) {
-            ret = glusterd_mgmt_v3_unlock(volname, MY_UUID, "vol");
-            if (ret)
-                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_UNLOCK_FAIL,
-                       "Unable to release lock for %s", volname);
-        }
+    if (volname) {
+        ret = glusterd_mgmt_v3_unlock(volname, MY_UUID, "vol");
+        if (ret)
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_UNLOCK_FAIL,
+                   "Unable to release lock for %s", volname);
     }
 
     ret = glusterd_op_send_cli_response(op, op_ret, op_errno, req, ctx,
