@@ -1088,7 +1088,7 @@ quota_check_object_limit(call_frame_t *frame, quota_inode_ctx_t *ctx,
                          quota_local_t *local, gf_boolean_t *skip_check)
 {
     int32_t ret = -1;
-    uint32_t timeout = 0;
+    uint64_t timeout = 0;
     char need_validate = 0;
     gf_boolean_t hard_limit_exceeded = 0;
     int64_t object_aggr_count = 0;
@@ -1154,7 +1154,7 @@ quota_check_size_limit(call_frame_t *frame, quota_inode_ctx_t *ctx,
                        quota_local_t *local, gf_boolean_t *skip_check)
 {
     int32_t ret = -1;
-    uint32_t timeout = 0;
+    uint64_t timeout = 0;
     char need_validate = 0;
     gf_boolean_t hard_limit_exceeded = 0;
     int64_t space_available = 0;
