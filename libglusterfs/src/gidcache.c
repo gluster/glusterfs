@@ -23,7 +23,7 @@
  * Initialize the cache.
  */
 int
-gid_cache_init(gid_cache_t *cache, uint32_t timeout)
+gid_cache_init(gid_cache_t *cache, uint64_t timeout)
 {
     if (!cache)
         return -1;
@@ -40,7 +40,7 @@ gid_cache_init(gid_cache_t *cache, uint32_t timeout)
  * Reconfigure the cache timeout.
  */
 int
-gid_cache_reconf(gid_cache_t *cache, uint32_t timeout)
+gid_cache_reconf(gid_cache_t *cache, uint64_t timeout)
 {
     if (!cache)
         return -1;
