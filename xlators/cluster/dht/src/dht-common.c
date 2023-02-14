@@ -670,14 +670,15 @@ done:
     /* Delete mds xattr at the time of STACK UNWIND */
     if (local->xattr)
         GF_REMOVE_INTERNAL_XATTR(conf->mds_xattr_key, local->xattr);
-
+    if (local->inode == NULL)
+        goto out;
     DHT_STACK_UNWIND(lookup, main_frame, local->op_ret, local->op_errno,
                      local->inode, &local->stbuf, local->xattr,
                      &local->postparent);
     return 0;
 
 out:
-    DHT_STACK_UNWIND(lookup, main_frame, -1, op_errno, NULL, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(lookup, main_frame, -1, op_errno, local->loc.inode, NULL, NULL, NULL);
 
     return ret;
 }

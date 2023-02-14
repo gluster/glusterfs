@@ -3646,7 +3646,7 @@ unwind:
     return;
 
 error:
-    AFR_STACK_UNWIND(lookup, frame, local->op_ret, local->op_errno, NULL, NULL,
+    AFR_STACK_UNWIND(lookup, frame, local->op_ret, local->op_errno, local->loc.inode, NULL,
                      NULL, NULL);
 }
 
