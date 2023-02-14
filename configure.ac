@@ -1931,10 +1931,10 @@ echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo "Building with LTO    : $LTO_BUILD"
 echo
 
-# dnl Note: ${X^^} capitalization assumes bash >= 4.x
 if test "x$SANITIZER" != "xnone"; then
+        UC_SANITIZER=$(echo ${SANITIZER} | tr 'a-z' 'A-Z')
         echo "Note: since glusterfs processes are daemon processes, use"
-        echo "'export ${SANITIZER^^}_OPTIONS=log_path=/path/to/xxx.log' to collect"
+        echo "'export ${UC_SANITIZER}_OPTIONS=log_path=/path/to/xxx.log' to collect"
         echo "sanitizer output. Further details and more options can be"
         echo "found at https://github.com/google/sanitizers."
 fi
