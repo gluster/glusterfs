@@ -3232,7 +3232,7 @@ glusterd_dict_searialize(dict_t *dict_arr[], unsigned int count,
 {
     int i = 0;
     uint32_t keylen = 0;
-    uint64_t netword = 0;
+    uint32_t netword = 0;
     data_pair_t *pair = NULL;
     unsigned int dict_count = 0;
     int ret = 0;
