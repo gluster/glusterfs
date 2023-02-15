@@ -963,9 +963,6 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
 
     if ((op_ret >= 0) && ((lockinfo != NULL) || (xdata != NULL))) {
         op_ret = afr_update_local_dicts(frame, lockinfo, xdata);
-        if (lockinfo != NULL) {
-            dict_unref(lockinfo);
-        }
     }
 
     if (op_ret < 0) {
@@ -1016,6 +1013,10 @@ afr_getxattr_lockinfo_cbk_common(call_frame_t *frame, int32_t op_ret,
         if (newdict != NULL) {
             dict_unref(newdict);
         }
+    }
+
+    if (lockinfo != NULL) {
+        dict_unref(lockinfo);
     }
 }
 
