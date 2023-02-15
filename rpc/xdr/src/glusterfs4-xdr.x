@@ -763,6 +763,8 @@ struct gfx_release_req {
         gfx_dict xdata; /* Extra data */
 }  ;
 
+/* This structure cannot be modified without also modifying the corresponding
+ * functions in xdr-custom.c. */
 struct gfx_dirlist {
        u_quad_t d_ino;
        u_quad_t d_off;
@@ -772,7 +774,8 @@ struct gfx_dirlist {
        gfx_dirlist *nextentry;
 };
 
-
+/* This structure cannot be modified without also modifying the corresponding
+ * functions in xdr-custom.c. */
 struct gfx_readdir_rsp {
        int op_ret;
        int op_errno;
@@ -780,6 +783,8 @@ struct gfx_readdir_rsp {
        gfx_dirlist *reply;
 };
 
+/* This structure cannot be modified without also modifying the corresponding
+ * functions in xdr-custom.c. */
 struct gfx_dirplist {
        u_quad_t d_ino;
        u_quad_t d_off;
@@ -791,6 +796,8 @@ struct gfx_dirplist {
        gfx_dirplist *nextentry;
 };
 
+/* This structure cannot be modified without also modifying the corresponding
+ * functions in xdr-custom.c. */
 struct gfx_readdirp_rsp {
        int op_ret;
        int op_errno;
