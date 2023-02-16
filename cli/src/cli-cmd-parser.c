@@ -1219,16 +1219,16 @@ cli_cmd_quota_parse(const char **words, int wordcount, dict_t **options)
     GF_ASSERT(words);
     GF_ASSERT(options);
 
-    dict = dict_new();
-    if (!dict) {
-        gf_log("cli", GF_LOG_ERROR, "dict_new failed");
-        goto out;
-    }
-
     if (wordcount < 4) {
         if ((wordcount == 3) && !(strcmp(words[2], "help"))) {
             ret = 1;
         }
+        goto out;
+    }
+
+    dict = dict_new();
+    if (!dict) {
+        gf_log("cli", GF_LOG_ERROR, "dict_new failed");
         goto out;
     }
 
