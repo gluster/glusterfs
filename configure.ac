@@ -566,6 +566,11 @@ AC_SUBST(SIZEOF_INT)
 AC_SUBST(SIZEOF_LONG)
 AC_SUBST(SIZEOF_LONG_LONG)
 
+# size of time_t
+AC_CHECK_SIZEOF(time_t)
+SIZEOF_TIME_T=$ac_cv_sizeof_time_t
+AC_SUBST(SIZEOF_TIME_T)
+
 # YACC needs a check
 AC_PROG_YACC
 if test "x${YACC}" = "xbyacc" -o "x${YACC}" = "xyacc" -o "x${YACC}" = "x"; then
