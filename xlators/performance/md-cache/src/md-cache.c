@@ -697,15 +697,16 @@ is_mdc_key_satisfied(xlator_t *this, const char *key)
         if (fnmatch(pattern, key, 0) == 0) {
             ret = 1;
             break;
-        } else {
-            gf_msg_trace("md-cache", 0,
-                         "xattr key %s doesn't satisfy "
-                         "caching requirements",
-                         key);
         }
         pattern = strtok_r(NULL, ",", &tmp);
     }
     GF_FREE(mdc_xattr_str);
+    if (!ret) {
+        gf_msg_trace("md-cache", 0,
+                     "xattr key %s doesn't satisfy "
+                     "caching requirements",
+                     key);
+    }
 out:
     return ret;
 }
