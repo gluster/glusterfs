@@ -4570,9 +4570,9 @@ glusterd_op_build_payload(dict_t **req, char **op_errstr, dict_t *op_ctx)
             if (ret)
                 goto out;
 
-            if (gd_set_commit_hash(dict) != 0) {
+            ret = gd_set_commit_hash(dict);
+            if (ret != 0)
                 goto out;
-            }
 
             dict_unref(req_dict);
             req_dict = dict_ref(dict);
