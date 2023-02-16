@@ -65,6 +65,7 @@ struct _call_frame {
     call_frame_t *parent; /* previous BP */
     struct list_head frames;
     void *local;    /* local variables */
+    void *local_inode;  /*quotad lookup local inode*/
     xlator_t *this; /* implicit object */
     ret_fn_t ret;   /* op_return address */
     int32_t ref_count;

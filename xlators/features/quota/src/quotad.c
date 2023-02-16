@@ -69,6 +69,13 @@ out:
     lookup_cbk(this, frame, &rsp);
 
     GF_FREE(rsp.xdata.xdata_val);
+    if (inode == NULL){
+        inode_t *loc_inode = NULL;
+        loc_inode = frame->local_inode;
+        if (loc_inode != NULL)
+            inode_unref(loc_inode);
+        frame->local_inode = NULL;
+    }
 
     inode_unref(inode);
 
@@ -117,12 +124,13 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
     quotad_aggregator_state_t *state = NULL;
     xlator_t *subvol = NULL;
     char *volume_uuid = NULL;
+    inode_t *qd_inode = NULL;
 
     state = frame->root->state;
 
     frame->root->op = GF_FOP_LOOKUP;
 
-    loc.inode = inode_new(state->itable);
+    qd_inode = loc.inode = inode_new(state->itable);
     if (loc.inode == NULL) {
         op_errno = ENOMEM;
         goto out;
@@ -150,6 +158,8 @@ qd_nameless_lookup(xlator_t *this, call_frame_t *frame, char *gfid,
         op_errno = EINVAL;
         goto out;
     }
+    if (frame->local_inode == NULL )
+        frame->local_inode = qd_inode;
 
     STACK_WIND_COOKIE(frame, qd_lookup_cbk, lookup_cbk, subvol,
                       subvol->fops->lookup, &loc, xdata);
