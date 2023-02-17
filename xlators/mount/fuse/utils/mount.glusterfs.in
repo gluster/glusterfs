@@ -326,6 +326,7 @@ start_glusterfs ()
 
     if [ -n "$fuse_setlk_handle_interrupt" ]; then
         cmd_line=$(echo "$cmd_line --fuse-setlk-handle-interrupt=$fuse_setlk_handle_interrupt");
+    fi
 
     if [ -n "$fuse_handle_copy_file_range" ]; then
         cmd_line=$(echo "$cmd_line --fuse-handle-copy_file_range=$fuse_handle_copy_file_range");
