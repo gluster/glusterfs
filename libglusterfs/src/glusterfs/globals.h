@@ -45,7 +45,7 @@
     1 /* MIN is the fresh start op-version, mostly                             \
          should not change */
 #define GD_OP_VERSION_MAX                                                      \
-    GD_OP_VERSION_10_0 /* MAX VERSION is the maximum                           \
+    GD_OP_VERSION_11_0 /* MAX VERSION is the maximum                           \
                          count in VME table, should                            \
                          keep changing with                                    \
                          introduction of newer                                 \
