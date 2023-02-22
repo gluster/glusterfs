@@ -41,92 +41,62 @@
  * should allow for some gaps between two Y releases for backports of features
  * in Z releases.
  */
-#define GD_OP_VERSION_MIN                                                      \
-    1 /* MIN is the fresh start op-version, mostly                             \
-         should not change */
-#define GD_OP_VERSION_MAX                                                      \
-    GD_OP_VERSION_10_0 /* MAX VERSION is the maximum                           \
-                         count in VME table, should                            \
-                         keep changing with                                    \
-                         introduction of newer                                 \
-                         versions */
 
-#define GD_OP_VERSION_3_6_0 30600 /* Op-Version for GlusterFS 3.6.0 */
+#define GD_OP_VERSION3(_a, _b, _c) \
+    GD_OP_VERSION_##_a##_##_b##_##_c = (((_a) * 100 + (_b)) * 100 + (_c))
 
-#define GD_OP_VERSION_3_7_0 30700 /* Op-version for GlusterFS 3.7.0 */
+#define GD_OP_VERSION2(_a, _b) \
+    GD_OP_VERSION_##_a##_##_b = (((_a) * 100 + (_b)) * 100)
 
-#define GD_OP_VERSION_3_7_1 30701 /* Op-version for GlusterFS 3.7.1 */
+#define GD_OP_VERSION_END \
+        GD_OP_VERSION_NEXT, GD_OP_VERSION_MAX = GD_OP_VERSION_NEXT - 1
 
-#define GD_OP_VERSION_3_7_2 30702 /* Op-version for GlusterFS 3.7.2 */
+enum {
+    GD_OP_VERSION_MIN = 1,
+    GD_OP_VERSION3( 3,  6,  0),
+    GD_OP_VERSION3( 3,  7,  0),
+    GD_OP_VERSION3( 3,  7,  1),
+    GD_OP_VERSION3( 3,  7,  2),
+    GD_OP_VERSION3( 3,  7,  3),
+    GD_OP_VERSION3( 3,  7,  4),
+    GD_OP_VERSION3( 3,  7,  5),
+    GD_OP_VERSION3( 3,  7,  6),
+    GD_OP_VERSION3( 3,  7,  7),
+    GD_OP_VERSION3( 3,  7, 10),
+    GD_OP_VERSION3( 3,  7, 12),
+    GD_OP_VERSION3( 3,  8,  0),
+    GD_OP_VERSION3( 3,  8,  3),
+    GD_OP_VERSION3( 3,  8,  4),
+    GD_OP_VERSION3( 3,  9,  0),
+    GD_OP_VERSION3( 3,  9,  1),
+    GD_OP_VERSION3( 3, 10,  0),
+    GD_OP_VERSION3( 3, 10,  1),
+    GD_OP_VERSION3( 3, 10,  2),
+    GD_OP_VERSION3( 3, 11,  0),
+    GD_OP_VERSION3( 3, 11,  1),
+    GD_OP_VERSION3( 3, 12,  0),
+    GD_OP_VERSION3( 3, 12,  2),
+    GD_OP_VERSION3( 3, 12,  3),
+    GD_OP_VERSION3( 3, 13,  0),
+    GD_OP_VERSION3( 3, 13,  1),
+    GD_OP_VERSION3( 3, 13,  2),
+    GD_OP_VERSION3( 4,  0,  0),
+    GD_OP_VERSION3( 4,  1,  0),
+    GD_OP_VERSION2( 5,  0),
+    GD_OP_VERSION2( 5,  4),
+    GD_OP_VERSION2( 6,  0),
+    GD_OP_VERSION2( 7,  0),
+    GD_OP_VERSION2( 7,  1),
+    GD_OP_VERSION2( 7,  2),
+    GD_OP_VERSION2( 7,  3),
+    GD_OP_VERSION2( 8,  0),
+    GD_OP_VERSION2( 9,  0),
+    GD_OP_VERSION2(10,  0),
+    GD_OP_VERSION2(11,  0),
 
-#define GD_OP_VERSION_3_7_3 30703 /* Op-version for GlusterFS 3.7.3 */
-
-#define GD_OP_VERSION_3_7_4 30704 /* Op-version for GlusterFS 3.7.4 */
-
-#define GD_OP_VERSION_3_7_5 30705 /* Op-version for GlusterFS 3.7.5 */
-
-#define GD_OP_VERSION_3_7_6 30706 /* Op-version for GlusterFS 3.7.6 */
-
-#define GD_OP_VERSION_3_7_7 30707 /* Op-version for GlusterFS 3.7.7 */
-
-#define GD_OP_VERSION_3_7_10 30710 /* Op-version for GlusterFS 3.7.10 */
-
-#define GD_OP_VERSION_3_7_12 30712 /* Op-version for GlusterFS 3.7.12 */
-
-#define GD_OP_VERSION_3_8_0 30800 /* Op-version for GlusterFS 3.8.0 */
-
-#define GD_OP_VERSION_3_8_3 30803 /* Op-version for GlusterFS 3.8.3 */
-
-#define GD_OP_VERSION_3_8_4 30804 /* Op-version for GlusterFS 3.8.4 */
-
-#define GD_OP_VERSION_3_9_0 30900 /* Op-version for GlusterFS 3.9.0 */
-
-#define GD_OP_VERSION_3_9_1 30901 /* Op-version for GlusterFS 3.9.1 */
-
-#define GD_OP_VERSION_3_10_0 31000 /* Op-version for GlusterFS 3.10.0 */
-
-#define GD_OP_VERSION_3_10_1 31001 /* Op-version for GlusterFS 3.10.1 */
-
-#define GD_OP_VERSION_3_10_2 31002 /* Op-version for GlusterFS 3.10.2 */
-
-#define GD_OP_VERSION_3_11_0 31100 /* Op-version for GlusterFS 3.11.0 */
-
-#define GD_OP_VERSION_3_11_1 31101 /* Op-version for GlusterFS 3.11.1 */
-
-#define GD_OP_VERSION_3_12_0 31200 /* Op-version for GlusterFS 3.12.0 */
-
-#define GD_OP_VERSION_3_12_2 31202 /* Op-version for GlusterFS 3.12.2 */
-
-#define GD_OP_VERSION_3_12_3 31203 /* Op-version for GlusterFS 3.12.3 */
-
-#define GD_OP_VERSION_3_13_0 31300 /* Op-version for GlusterFS 3.13.0 */
-
-#define GD_OP_VERSION_3_13_1 31301 /* Op-version for GlusterFS 3.13.1 */
-
-#define GD_OP_VERSION_3_13_2 31302 /* Op-version for GlusterFS 3.13.2 */
-
-#define GD_OP_VERSION_4_0_0 40000 /* Op-version for GlusterFS 4.0.0 */
-
-#define GD_OP_VERSION_4_1_0 40100 /* Op-version for GlusterFS 4.1.0 */
-
-#define GD_OP_VERSION_5_0 50000 /* Op-version for GlusterFS 5.0 */
-
-#define GD_OP_VERSION_5_4 50400 /* Op-version for GlusterFS 5.4 */
-
-#define GD_OP_VERSION_6_0 60000 /* Op-version for GlusterFS 6.0 */
-
-#define GD_OP_VERSION_7_0 70000 /* Op-version for GlusterFS 7.0 */
-#define GD_OP_VERSION_7_1 70100 /* Op-version for GlusterFS 7.1 */
-#define GD_OP_VERSION_7_2 70200 /* Op-version for GlusterFS 7.2 */
-#define GD_OP_VERSION_7_3 70300 /* Op-version for GlusterFS 7.3 */
-
-#define GD_OP_VERSION_8_0 80000 /* Op-version for GlusterFS 8.0 */
-
-#define GD_OP_VERSION_9_0 90000 /* Op-version for GlusterFS 9.0 */
-
-#define GD_OP_VERSION_10_0 100000 /* Op-version for GlusterFS 10.0 */
-
-#define GD_OP_VERSION_11_0 110000 /* Op-version for GlusterFS 11.0 */
+/* NOTE: Add new versions above this line. */
+    GD_OP_VERSION_END
+};
 
 #include "glusterfs/xlator.h"
 #include "glusterfs/options.h"
