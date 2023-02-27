@@ -2253,7 +2253,7 @@ client4_0_readdir_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdir_rsp);
+    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdir_rsp_custom);
     if (ret < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
@@ -2311,7 +2311,7 @@ client4_0_readdirp_cbk(struct rpc_req *req, struct iovec *iov, int count,
         goto out;
     }
 
-    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdirp_rsp);
+    ret = xdr_to_generic(*iov, &rsp, (xdrproc_t)xdr_gfx_readdirp_rsp_custom);
     if (ret < 0) {
         gf_smsg(this->name, GF_LOG_ERROR, EINVAL, PC_MSG_XDR_DECODING_FAILED,
                 NULL);
@@ -4984,7 +4984,7 @@ client4_0_readdir(call_frame_t *frame, xlator_t *this, void *data)
     args = data;
     conf = this->private;
 
-    readdir_rsp_size = xdr_sizeof((xdrproc_t)xdr_gfx_readdir_rsp, &rsp) +
+    readdir_rsp_size = xdr_sizeof((xdrproc_t)xdr_gfx_readdir_rsp_custom, &rsp) +
                        args->size;
 
     local = mem_get0(this->local_pool);
@@ -5104,7 +5104,8 @@ client4_0_readdirp(call_frame_t *frame, xlator_t *this, void *data)
         goto unwind;
     }
 
-    readdirp_rsp_size = xdr_sizeof((xdrproc_t)xdr_gfx_readdirp_rsp, &rsp) +
+    readdirp_rsp_size = xdr_sizeof((xdrproc_t)xdr_gfx_readdirp_rsp_custom,
+                                   &rsp) +
                         args->size;
 
     if ((readdirp_rsp_size + GLUSTERFS_RPC_REPLY_SIZE +
