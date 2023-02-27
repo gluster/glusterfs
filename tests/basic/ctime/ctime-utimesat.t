@@ -19,10 +19,15 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 
-touch $M0/FILE
+# We can't use 'touch' command here because it does update times after creating
+# the file (at least in some versions) so the following tests may fail because
+# ctime may be newer than the other times.
+exec {fd}>"${M0}/FILE"
 
 atime=$(stat -c "%.X" $M0/FILE)
 EXPECT $atime stat -c "%.Y" $M0/FILE
 EXPECT $atime stat -c "%.Z" $M0/FILE
+
+exec {fd}>&-
 
 cleanup
