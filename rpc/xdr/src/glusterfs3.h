@@ -14,6 +14,7 @@
 #include <sys/uio.h>
 
 #include "xdr-generic.h"
+#include "xdr-custom.h"
 #include "glusterfs4-xdr.h"
 #include <glusterfs/iatt.h>
 #include "protocol-common.h"
@@ -51,7 +52,6 @@
 
 /* refer 2717 */
 #define GF_O_PATH 010000000
-
 
 #define XLATE_BIT(from, to, bit)                                               \
     do {                                                                       \

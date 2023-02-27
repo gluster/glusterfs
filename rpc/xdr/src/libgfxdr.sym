@@ -330,10 +330,10 @@ xdr_gfx_notify_req
 xdr_gfx_notify_rsp
 xdr_gfx_releasedir_req
 xdr_gfx_release_req
-xdr_gfx_dirlist
-xdr_gfx_readdir_rsp
-xdr_gfx_dirplist
-xdr_gfx_readdirp_rsp
+xdr_gfx_dirlist_custom
+xdr_gfx_readdir_rsp_custom
+xdr_gfx_dirplist_custom
+xdr_gfx_readdirp_rsp_custom
 xdr_gfx_set_lk_ver_rsp
 xdr_gfx_set_lk_ver_req
 xdr_gfx_event_notify_req
