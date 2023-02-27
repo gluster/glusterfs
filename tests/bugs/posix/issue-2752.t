@@ -17,23 +17,23 @@ gfid1="$(gf_get_gfid_backend_file_path ${B0}/${V0} /test/dir1)"
 gfid2="$(gf_get_gfid_backend_file_path ${B0}/${V0} /test/dir2)"
 
 TEST [[ -h "${gfid1}" ]]
-EXPECT "${B0}/${V0}/test/dir1" "$(realpath "${gfid1}/")"
+EXPECT "${B0}/${V0}/test/dir1" realpath "${gfid1}"
 TEST [[ -h "${gfid2}" ]]
-EXPECT "${B0}/${V0}/test/dir2" "$(realpath "${gfid2}/")"
+EXPECT "${B0}/${V0}/test/dir2" realpath "${gfid2}"
 
 TEST ! mv -T ${M0}/test/dir1 ${M0}/test/dir2
 
 TEST [[ -h "${gfid1}" ]]
-EXPECT "${B0}/${V0}/test/dir1" "$(realpath "${gfid1}/")"
+EXPECT "${B0}/${V0}/test/dir1" realpath "${gfid1}"
 TEST [[ -h "${gfid2}" ]]
-EXPECT "${B0}/${V0}/test/dir2" "$(realpath "${gfid2}/")"
+EXPECT "${B0}/${V0}/test/dir2" realpath "${gfid2}"
 
 TEST rm -f ${M0}/test/dir2/file
 
-TEST mv .T ${M0}/test/dir1 ${M0}/test/dir2
+TEST mv -T ${M0}/test/dir1 ${M0}/test/dir2
 
 TEST [[ -h "${gfid1}" ]]
-EXPECT "${B0}/${V0}/test/dir2" "$(realpath "${gfid1}")"
+EXPECT "${B0}/${V0}/test/dir2" realpath "${gfid1}"
 TEST [[ ! -e "${gfid2}" ]]
 
 cleanup
