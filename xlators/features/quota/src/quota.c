@@ -4369,7 +4369,7 @@ quota_get_limit_dir_continuation(struct list_head *parents, inode_t *inode,
         goto out;
     }
 
-    entry = list_entry(parents, quota_dentry_t, next);
+    entry = list_first_entry(parents, quota_dentry_t, next);
     parent = inode_find(inode->table, entry->par);
 
     quota_get_limit_dir(frame, parent, this);
