@@ -63,7 +63,6 @@ server_getspec(rpcsvc_request_t *req)
         op_errno = EINVAL;
         rsp.spec = "<this method is not in use, use glusterd for getspec>";
         rsp.op_errno = gf_errno_to_error(op_errno);
-        rsp.op_ret = -1;
         goto out;
     }
 
@@ -80,7 +79,7 @@ server_getspec(rpcsvc_request_t *req)
         op_errno = EINVAL;
         rsp.spec = "having '../' in volid is not valid";
         rsp.op_errno = gf_errno_to_error(op_errno);
-        rsp.op_ret = -1;
+        ret = -1;
         goto out;
     }
     ret = snprintf(volpath, PATH_MAX - 1, "%s/%s.vol", conf->volfile_dir,
