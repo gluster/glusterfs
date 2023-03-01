@@ -6606,7 +6606,7 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     }
 
     gf_log("fuse", GF_LOG_DEBUG, "got event %d on graph %d", event,
-           ((graph && event_graph) ? graph->id : 0));
+           ((graph && event_graph) ? graph->id : -1));
     return ret;
 }
 
