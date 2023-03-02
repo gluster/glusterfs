@@ -20,7 +20,12 @@
 #include "acl3.h"
 #include <glusterfs/compat-errno.h>
 #include "nfs-messages.h"
+
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
 #include <endian.h>
+#endif
 
 static int
 acl3_nfs_acl_to_xattr(aclentry *ace, void *xattrbuf, int aclcount, int defacl);
