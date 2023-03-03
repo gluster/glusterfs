@@ -21,6 +21,12 @@
 #include <glusterfs/compat-errno.h>
 #include "nfs-messages.h"
 
+#ifdef __FreeBSD__
+#include <sys/endian.h>
+#else
+#include <endian.h>
+#endif
+
 static int
 acl3_nfs_acl_to_xattr(aclentry *ace, void *xattrbuf, int aclcount, int defacl);
 
@@ -807,6 +813,7 @@ acl3_nfs_acl_to_xattr(aclentry *ace,  /* ACL entries to be read */
     int idx = 0;
     posix_acl_xattr_header *xheader = NULL;
     posix_acl_xattr_entry *xentry = NULL;
+    uint16_t type;
 
     if ((!ace) || (!xattrbuf))
         return (-EINVAL);
@@ -827,34 +834,36 @@ acl3_nfs_acl_to_xattr(aclentry *ace,  /* ACL entries to be read */
      * Which the backend File system does not understand and
      * that needs to be masked OFF.
      */
-    xheader->version = POSIX_ACL_XATTR_VERSION;
+    xheader->version = htole32(POSIX_ACL_XATTR_VERSION);
 
     for (idx = 0; idx < aclcount; idx++) {
-        xentry->tag = ace->type;
-        if (defacl)
-            xentry->tag &= ~NFS_ACL_DEFAULT;
-        xentry->perm = ace->perm;
+        type = ace->type;
+        if (defacl) {
+            type &= ~NFS_ACL_DEFAULT;
+        }
+        xentry->tag = htole16(type);
+        xentry->perm = htole16(ace->perm);
 
-        switch (xentry->tag) {
+        switch (type) {
             case POSIX_ACL_USER:
             case POSIX_ACL_GROUP:
-                if (xentry->perm & ~S_IRWXO)
+                if (ace->perm & ~S_IRWXO)
                     return (-EINVAL);
-                xentry->id = ace->uid;
+                xentry->id = htole32(ace->uid);
                 break;
             case POSIX_ACL_USER_OBJ:
             case POSIX_ACL_GROUP_OBJ:
             case POSIX_ACL_OTHER:
-                if (xentry->perm & ~S_IRWXO)
+                if (ace->perm & ~S_IRWXO)
                     return (-EINVAL);
-                xentry->id = POSIX_ACL_UNDEFINED_ID;
+                xentry->id = htole32(POSIX_ACL_UNDEFINED_ID);
                 break;
             case POSIX_ACL_MASK:
                 /* Solaris sometimes sets additional bits in
                  * the mask.
                  */
-                xentry->perm &= S_IRWXO;
-                xentry->id = POSIX_ACL_UNDEFINED_ID;
+                xentry->perm &= htole16(S_IRWXO);
+                xentry->id = htole32(POSIX_ACL_UNDEFINED_ID);
                 break;
             default:
                 return (-EINVAL);
@@ -890,11 +899,11 @@ acl3_nfs_acl_from_xattr(aclentry *ace,  /* ACL entries to be filled */
     xentry = (posix_acl_xattr_entry *)(xheader + 1);
 
     /* Check for supported POSIX ACL xattr version */
-    if (xheader->version != POSIX_ACL_XATTR_VERSION)
+    if (xheader->version != htole32(POSIX_ACL_XATTR_VERSION))
         return (-ENOSYS);
 
     for (idx = 0; idx < (int)aclcount; idx++) {
-        ace->type = xentry->tag;
+        ace->type = le16toh(xentry->tag);
         if (defacl) {
             /*
              * SET the NFS_ACL_DEFAULT flag for default
@@ -902,12 +911,12 @@ acl3_nfs_acl_from_xattr(aclentry *ace,  /* ACL entries to be filled */
              */
             ace->type |= NFS_ACL_DEFAULT;
         }
-        ace->perm = (xentry->perm & S_IRWXO);
+        ace->perm = (le16toh(xentry->perm) & S_IRWXO);
 
-        switch (xentry->tag) {
+        switch (ace->type) {
             case POSIX_ACL_USER:
             case POSIX_ACL_GROUP:
-                ace->uid = xentry->id;
+                ace->uid = le32toh(xentry->id);
                 break;
             case POSIX_ACL_USER_OBJ:
             case POSIX_ACL_GROUP_OBJ:
