@@ -90,7 +90,7 @@ acquire_mandatory_lock(glfs_t *fs, glfs_fd_t *fd)
     lock.l_start = 0;
     lock.l_len = 100;
 
-    ret = glfs_fsetxattr(fd, GF_ENFORCE_MANDATORY_LOCK, "set", 8, 0);
+    ret = glfs_fsetxattr(fd, GF_ENFORCE_MANDATORY_LOCK, "set", 4, 0);
     if (ret < 0) {
         LOG_ERR("glfs_fsetxattr", errno);
         ret = -1;
