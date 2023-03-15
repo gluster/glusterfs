@@ -11112,7 +11112,6 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
     conf = this->private;
     GF_ASSERT(conf);
 
-#ifdef GD_OP_VERSION_3_8_0
     if (conf->op_version >= GD_OP_VERSION_3_8_0) {
         /* nfs.disable needs to be enabled for new volumes with
          * >= gluster version 3.7 (for now) 3.8 later
@@ -11130,7 +11129,6 @@ glusterd_enable_default_options(glusterd_volinfo_t *volinfo, char *option)
             }
         }
     }
-#endif
 
     /* Set needed volume options in volinfo->dict
      * For ex.,
