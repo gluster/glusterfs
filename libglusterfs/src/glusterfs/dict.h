@@ -42,6 +42,12 @@ typedef struct _data_pair data_pair_t;
 #define dict_set_int32_sizen(this, key, val)                                   \
     dict_set_int32n(this, key, SLEN(key), val)
 
+#define dict_get_int64_sizen(this, key, val)                                   \
+    dict_get_int64n(this, key, SLEN(key), val)
+
+#define dict_set_int64_sizen(this, key, val)                                   \
+    dict_set_int64n(this, key, SLEN(key), val)
+
 #define GF_PROTOCOL_DICT_SERIALIZE(this, from_dict, to, len, ope, labl)        \
     do {                                                                       \
         int _ret = 0;                                                          \
@@ -309,7 +315,11 @@ dict_set_int32n(dict_t *this, char *key, const int keylen, int32_t val);
 GF_MUST_CHECK int
 dict_get_int64(dict_t *this, char *key, int64_t *val);
 GF_MUST_CHECK int
+dict_get_int64n(dict_t *this, char *key, const int keylen, int64_t *val);
+GF_MUST_CHECK int
 dict_set_int64(dict_t *this, char *key, int64_t val);
+GF_MUST_CHECK int
+dict_set_int64n(dict_t *this, char *key, const int keylen, int64_t val);
 
 GF_MUST_CHECK int
 dict_get_uint16(dict_t *this, char *key, uint16_t *val);
