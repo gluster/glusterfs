@@ -141,7 +141,7 @@ struct cli_state {
     char *remote_host;
     int remote_port;
     int mode;
-    int await_connected;
+    int64_t await_connected;
 
     time_t default_conn_timeout;
 
