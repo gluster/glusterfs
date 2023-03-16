@@ -31,6 +31,9 @@ TEST mkdir $B0/bricks
 # distributed replicate and distributed replicated sharded
 # volumes.
 TEST $CLI volume create $V0 $H0:$B0/bricks/brick1;
+TEST ${CLI} volume set ${V0} open-behind off
+TEST ${CLI} volume set ${V0} write-behind off
+TEST ${CLI} volume set ${V0} stat-prefetch off
 EXPECT 'Created' volinfo_field $V0 'Status';
 
 TEST $CLI volume start $V0;
@@ -70,7 +73,7 @@ TEST [ $SRC_SIZE == $DST_SIZE ];
 
 # Go again (test case with already existing target)
 # XXX this will fail
-TEST ./$(dirname $0)/copy-file-range $M0/file $M0/new
+TEST ${tester} $M0/file $M0/new
 
 cleanup_tester $tester
 
