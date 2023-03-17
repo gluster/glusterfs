@@ -58,8 +58,8 @@ function check_common_secret_file()
 
 function create_rename_symlink_case()
 {
-    mkdir ${primarymnt}/MUL_REN_SYMLINK
-    cd ${primarymnt}/MUL_REN_SYMLINK
+    mkdir ${primary_mnt}/MUL_REN_SYMLINK
+    cd ${primary_mnt}/MUL_REN_SYMLINK
     mkdir sym_dir1
     ln -s "sym_dir1" sym1
     mv sym1 sym2
