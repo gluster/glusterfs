@@ -515,7 +515,7 @@ afr_lock_heal_do(call_frame_t *frame, afr_private_t *priv,
         wind_on[i] = 1;
     }
 
-    current_event_gen = alloca(priv->child_count);
+    current_event_gen = alloca(priv->child_count * sizeof(*current_event_gen));
     memcpy(current_event_gen, info->child_up_event_gen,
            priv->child_count * sizeof *current_event_gen);
     AFR_ONLIST(wind_on, frame, afr_lock_heal_cbk, lk, info->fd, info->cmd,
