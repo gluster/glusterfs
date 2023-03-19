@@ -28,10 +28,10 @@ libgfxdr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
 libgfxdr_la_LDFLAGS = -version-info $(LIBGFXDR_LT_VERSION) $(GF_LDFLAGS) \
 		      -export-symbols $(top_srcdir)/rpc/xdr/src/libgfxdr.sym
 
-libgfxdr_la_SOURCES = xdr-generic.c ${NFS_SRCS}
+libgfxdr_la_SOURCES = xdr-generic.c xdr-custom.c ${NFS_SRCS}
 nodist_libgfxdr_la_SOURCES = $(XDRSOURCES)
 
-libgfxdr_la_HEADERS = xdr-generic.h glusterfs3.h rpc-pragmas.h ${NFS_HDRS}
+libgfxdr_la_HEADERS = xdr-generic.h xdr-custom.h glusterfs3.h rpc-pragmas.h ${NFS_HDRS}
 nodist_libgfxdr_la_HEADERS = $(XDRHEADERS)
 
 libgfxdr_ladir = $(includedir)/glusterfs/rpc

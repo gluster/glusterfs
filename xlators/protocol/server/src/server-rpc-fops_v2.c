@@ -630,7 +630,7 @@ out:
 
     req = frame->local;
     server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
-                        (xdrproc_t)xdr_gfx_readdir_rsp);
+                        (xdrproc_t)xdr_gfx_readdir_rsp_custom);
 
     GF_FREE(rsp.xdata.pairs.pairs_val);
 
@@ -1805,7 +1805,7 @@ out:
 
     req = frame->local;
     server_submit_reply(frame, req, &rsp, NULL, 0, NULL,
-                        (xdrproc_t)xdr_gfx_readdirp_rsp);
+                        (xdrproc_t)xdr_gfx_readdirp_rsp_custom);
 
     GF_FREE(rsp.xdata.pairs.pairs_val);
 

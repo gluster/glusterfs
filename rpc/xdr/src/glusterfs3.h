@@ -14,6 +14,7 @@
 #include <sys/uio.h>
 
 #include "xdr-generic.h"
+#include "xdr-custom.h"
 #include "glusterfs3-xdr.h"
 #include "glusterfs4-xdr.h"
 #include <glusterfs/iatt.h>
