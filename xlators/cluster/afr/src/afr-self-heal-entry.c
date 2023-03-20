@@ -181,15 +181,19 @@ out:
 static int
 afr_new_entry_mark_status(call_frame_t *frame, loc_t *loc,
                           struct afr_reply *lookup_replies,
-                          unsigned char *sources, int source, int dst)
+                          unsigned char *sources, int source, int dst,
+                          gf_boolean_t *dst_hardlink)
 {
     xlator_t *this = frame->this;
     afr_private_t *priv = this->private;
+    struct iatt *iatt = NULL;
     int pending = 0;
     int metadata_idx = 0;
     int idx = -1;
     int ret = 0;
     int i = 0;
+
+    iatt = &lookup_replies[source].poststat;
 
     if (source == -1) {
         goto lookup;
@@ -230,12 +234,25 @@ afr_new_entry_mark_status(call_frame_t *frame, loc_t *loc,
             goto lookup;
         }
     }
+    if (iatt->ia_type == IA_IFLNK && dst_hardlink) {
+        ret = syncop_lookup(priv->children[dst], loc, 0, 0, 0, 0);
+        if (ret == 0) {
+            *dst_hardlink = _gf_true;
+        }
+        /* If it is a soft link, we need to check if a hardlink to
+         * this softlink present in the dst, hence we perform a
+         * lookup here*/
+    }
     /*Pending is marked on all source bricks, we definitely know that new entry
      * marking is not needed*/
     return 0;
 
 lookup:
     ret = syncop_lookup(priv->children[dst], loc, 0, 0, 0, 0);
+    if (ret == 0 && dst_hardlink) {
+        *dst_hardlink = _gf_true;
+    }
+
     return ret;
 }
 
@@ -267,6 +284,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     unsigned char *newentry = NULL;
     char iatt_uuid_str[64] = {0};
     char dir_uuid_str[64] = {0};
+    gf_boolean_t dst_hardlink = _gf_false;
 
     priv = this->private;
     iatt = &replies[source].poststat;
@@ -302,7 +320,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
     srcloc.inode = inode_ref(inode);
     gf_uuid_copy(srcloc.gfid, iatt->ia_gfid);
     ret = afr_new_entry_mark_status(frame, &srcloc, replies, sources, source,
-                                    dst);
+                                    dst, &dst_hardlink);
     if (ret == -ENOENT || ret == -ESTALE) {
         newentry[dst] = 1;
         ret = afr_selfheal_newentry_mark(frame, this, inode, source, replies,
@@ -329,7 +347,7 @@ afr_selfheal_recreate_entry(call_frame_t *frame, int dst, int source,
             ret = syncop_mkdir(priv->children[dst], &loc, mode, 0, xdata, NULL);
             break;
         case IA_IFLNK:
-            if (!newentry[dst]) {
+            if (dst_hardlink) {
                 ret = syncop_link(priv->children[dst], &srcloc, &loc, &newent,
                                   NULL, NULL);
             } else {
