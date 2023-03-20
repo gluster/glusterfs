@@ -3,6 +3,8 @@
 . $(dirname $0)/../include.rc
 . $(dirname $0)/../volume.rc
 
+SCRIPT_TIMEOUT=300
+
 cleanup;
 
 TEST glusterd
