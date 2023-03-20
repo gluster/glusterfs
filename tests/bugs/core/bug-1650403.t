@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_TIMEOUT=500
+SCRIPT_TIMEOUT=600
 
 . $(dirname $0)/../../include.rc
 . $(dirname $0)/../../volume.rc
