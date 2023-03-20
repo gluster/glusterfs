@@ -140,10 +140,11 @@ function _create_lv() {
     local vg="VG$num"
     local thinpoolsize="200M"
     local virtualsize="150M"
+    local path="$(realpath "${dir}/${LVM_PREFIX}_loop")"
 
-    wipefs -a "${dir}/${LVM_PREFIX}_loop"
-    /sbin/pvcreate --zero n $dir/${LVM_PREFIX}_loop
-    /sbin/vgcreate --zero n ${!vg} $dir/${LVM_PREFIX}_loop
+    wipefs -a "${path}"
+    /sbin/pvcreate --zero n "${path}"
+    /sbin/vgcreate --zero n ${!vg} "${path}"
 
     /sbin/lvcreate --zero n -L ${thinpoolsize} -T ${!vg}/thinpool
     /sbin/lvcreate -V ${virtualsize} -T ${!vg}/thinpool -n brick_lvm
