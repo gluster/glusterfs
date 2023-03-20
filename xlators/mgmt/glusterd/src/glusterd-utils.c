@@ -8582,25 +8582,24 @@ int
 glusterd_get_dummy_client_filepath(char *filepath, glusterd_volinfo_t *volinfo,
                                    gf_transport_type type)
 {
-    int ret = 0;
+    char *suffix;
+    int32_t ret;
 
-    switch (type) {
-        case GF_TRANSPORT_TCP:
-        case GF_TRANSPORT_BOTH_TCP_RDMA:
-            snprintf(filepath, PATH_MAX, "/tmp/%s.tcp-fuse.vol",
-                     volinfo->volname);
-            break;
-
-        case GF_TRANSPORT_RDMA:
-            snprintf(filepath, PATH_MAX, "/tmp/%s.rdma-fuse.vol",
-                     volinfo->volname);
-            break;
-        default:
-            ret = -1;
-            break;
+    if ((type == GF_TRANSPORT_TCP) || (type == GF_TRANSPORT_BOTH_TCP_RDMA)) {
+        suffix = "tcp-fuse";
+    } else if (type == GF_TRANSPORT_RDMA) {
+        suffix = "rdma-fuse";
+    } else {
+        return -1;
     }
 
-    return ret;
+    ret = snprintf(filepath, PATH_MAX, "/tmp/%s.%s.%d.vol", volinfo->volname,
+                   suffix, getpid());
+    if ((ret < 0) || (ret >= PATH_MAX)) {
+        return -1;
+    }
+
+    return 0;
 }
 
 static int
