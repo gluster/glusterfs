@@ -555,7 +555,7 @@ out:
 
 int
 rpc_transport_unix_options_build(dict_t *dict, char *filepath,
-                                 int frame_timeout)
+                                 time_t frame_timeout)
 {
     char *fpath = NULL;
     int ret = -1;
@@ -592,7 +592,7 @@ rpc_transport_unix_options_build(dict_t *dict, char *filepath,
         goto out;
 
     if (frame_timeout > 0) {
-        ret = dict_set_int32_sizen(dict, "frame-timeout", frame_timeout);
+        ret = dict_set_time(dict, "frame-timeout", frame_timeout);
         if (ret)
             goto out;
     }
