@@ -41,15 +41,15 @@ typedef struct {
 
 typedef struct {
     gf_lock_t gc_lock;
-    uint32_t gc_max_age;
+    uint64_t gc_max_age;
     unsigned int gc_nbuckets;
     gid_list_t gc_cache[AUX_GID_CACHE_SIZE];
 } gid_cache_t;
 
 int
-gid_cache_init(gid_cache_t *, uint32_t);
+gid_cache_init(gid_cache_t *, uint64_t);
 int
-gid_cache_reconf(gid_cache_t *, uint32_t);
+gid_cache_reconf(gid_cache_t *, uint64_t);
 const gid_list_t *
 gid_cache_lookup(gid_cache_t *, uint64_t, uint64_t, uint64_t);
 void
