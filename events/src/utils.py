@@ -324,7 +324,7 @@ class NamedTempOpen(object):
         The temporary file is created in the dest dir of the file.
     """
 
-    def __init__(self, filename, open_mode, *args, **kwagrs) -> None:
+    def __init__(self, filename, open_mode, *args, **kwagrs):
         self.filename = filename
         self.open_mode = open_mode
         self.open_args = args
