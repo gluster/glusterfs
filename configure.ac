@@ -270,6 +270,9 @@ if test "x$RPCGEN" = "xno"; then
    AC_MSG_ERROR([`rpcgen` not found, glusterfs needs `rpcgen` exiting..])
 fi
 
+# Force 'char' type to be signed
+CFLAGS="${CFLAGS} -fsigned-char"
+
 # Initialize CFLAGS before usage
 AC_ARG_ENABLE([debug],
               AC_HELP_STRING([--enable-debug],
