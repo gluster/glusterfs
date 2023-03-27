@@ -1968,9 +1968,6 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         }
     }
 
-    if (IA_ISDIR(oldloc->inode->ia_type))
-        posix_handle_unset(this, oldloc->inode->gfid, NULL);
-
     pthread_mutex_lock(&ctx_old->pgfid_lock);
     {
         if (!IA_ISDIR(oldloc->inode->ia_type) && priv->update_pgfid_nlinks) {
@@ -2067,6 +2064,7 @@ unlock:
         posix_handle_unset(this, victim, NULL);
 
     if (IA_ISDIR(oldloc->inode->ia_type)) {
+        posix_handle_unset(this, oldloc->inode->gfid, NULL);
         posix_handle_soft(this, real_newpath, newloc, oldloc->inode->gfid,
                           NULL);
     }
