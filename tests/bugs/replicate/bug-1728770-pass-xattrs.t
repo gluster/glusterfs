@@ -32,9 +32,9 @@ TEST $CLI volume set $V0 health-check-interval 1000;
 TEST $CLI volume start $V0;
 
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0;
-#corrupt last disk
+# Corrupt last disk and drop the caches to force an error
 dd if=/dev/urandom of=/dev/mapper/${LVM_PREFIX}_vg_6-brick_lvm bs=512K count=200 status=progress && sync
-
+echo 3 >/proc/sys/vm/drop_caches
 
 # Test the disk is now returning EIO for touch and ls
 EXPECT_WITHIN $DISK_FAIL_TIMEOUT "^1$" fop_on_bad_disk "$L6"

@@ -5,6 +5,8 @@
 
 . $(dirname $0)/../../include.rc
 
+SCRIPT_TIMEOUT=300
+
 function keep_writing {
         cd $M0;
         while [ -f /tmp/parallel-truncate-read ]

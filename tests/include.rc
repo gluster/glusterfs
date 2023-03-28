@@ -698,7 +698,7 @@ function cleanup()
         # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
-                for l in ${DEVDIR}/loop*; do
+                for l in $(ls ${DEVDIR}/loop* 2>/dev/null); do
                         losetup -d "${l}"
                         rm -f "${l}"
                 done

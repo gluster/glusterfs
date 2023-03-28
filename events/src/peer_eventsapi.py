@@ -27,7 +27,7 @@ from gluster.cliutils import (Cmd, node_output_ok, node_output_notok,
                               sync_file_to_peers, GlusterCmdException,
                               output_error, execute_in_peers, runcli,
                               set_common_args_func)
-from gfevents.utils import LockedOpen, get_jwt_token, save_https_cert
+from gfevents.utils import LockedOpen, get_jwt_token, save_https_cert, NamedTempOpen
 
 from gfevents.eventsapiconf import (WEBHOOKS_FILE_TO_SYNC,
                                     WEBHOOKS_FILE,
@@ -78,8 +78,8 @@ def create_custom_config_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(CUSTOM_CONFIG_FILE):
-        with open(CUSTOM_CONFIG_FILE, "w") as f:
-            f.write("{}")
+        with NamedTempOpen(CUSTOM_CONFIG_FILE, "w") as f:
+            f.write(json.dumps({}))
 
 
 def create_webhooks_file_if_not_exists(args):
@@ -91,8 +91,8 @@ def create_webhooks_file_if_not_exists(args):
                             json_output=args.json)
 
     if not os.path.exists(WEBHOOKS_FILE):
-        with open(WEBHOOKS_FILE, "w") as f:
-            f.write("{}")
+        with NamedTempOpen(WEBHOOKS_FILE, "w") as f:
+           f.write(json.dumps({}))
 
 
 def boolify(value):
