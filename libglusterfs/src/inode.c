@@ -735,7 +735,19 @@ inode_forget_atomic(inode_t *inode, uint64_t nlookup)
         GF_ATOMIC_INIT(inode->nlookup, 0);
     } else {
         inode_lookup = GF_ATOMIC_FETCH_SUB(inode->nlookup, nlookup);
-        GF_ASSERT(inode_lookup >= nlookup);
+        /*
+          GF_ASSERT(inode_lookup >= nlookup) assert may fail due to kernel bug
+          more details can found on links:
+          https://github.com/gluster/glusterfs/pull/4081
+          https://github.com/gluster/glusterfs/issues/4074
+        */
+        if (inode_lookup < nlookup) {
+            GF_ATOMIC_FETCH_ADD(inode->nlookup, nlookup - inode_lookup);
+            gf_msg_callingfn(THIS->name, GF_LOG_CRITICAL, 0,
+                             LG_MSG_ASSERTION_FAILED,
+                             "GF_ASSERT(inode_lookup >= nlookup) may fail due "
+                             "to kernel bug, reset inode->nlookup to 0");
+        }
     }
 }
 
