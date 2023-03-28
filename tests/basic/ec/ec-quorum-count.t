@@ -50,7 +50,7 @@ TEST gf_rm_file_and_gfid_link $B0/${V0}0 del-file
 TEST ! dd if=/dev/zero of=$M0/del-file bs=1M count=1 oflag=direct
 TEST kill_brick $V0 $H0 $B0/${V0}0
 #Read should succeed even when quorum-count is not met
-TEST dd if=$M0/read-file of=/dev/null iflag=direct
+TEST dd if=$M0/read-file of=/dev/null bs=1M iflag=direct
 TEST ! touch $M0/a2
 TEST ! mkdir $M0/dir2
 TEST ! mknod  $M0/b2 b 4 5
@@ -162,6 +162,6 @@ TEST $CLI volume start $V0 force
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count ${V0}
 TEST kill_brick $V0 $H0 $B0/${V0}4
 TEST kill_brick $V0 $H0 $B0/${V0}5
-cksum_after_heal=$(dd if=$M0/heal-file iflag=direct | md5sum | awk '{print $1}')
+cksum_after_heal=$(dd if=$M0/heal-file bs=1M iflag=direct | md5sum | awk '{print $1}')
 TEST [[ $cksum_before_heal == $cksum_after_heal ]]
 cleanup;
