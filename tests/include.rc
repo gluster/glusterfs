@@ -764,6 +764,9 @@ function cleanup()
                 return 1;
         fi >&2
 
+        # Physically release unused space
+        fstrim /d
+
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
 	# value becomes their exit value.  While it's not great for the mkdir
