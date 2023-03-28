@@ -170,7 +170,7 @@ wc() {
 ;;
 esac
 
-testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
+testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|TEST_WITHIN|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
 expect_tests=`egrep '^[[:space:]]*TESTS_EXPECTED_IN_LOOP[[:space:]]*' $0`
 
 x_ifs=$IFS
@@ -345,6 +345,44 @@ function _TEST()
         eval "$@" >/dev/null $redirect
 
         test_footer "$TESTLINE";
+}
+
+
+function _TEST_WITHIN()
+{
+        local res output
+
+        TESTLINE=$1
+        shift;
+
+        local timeout=$1
+        shift;
+
+        G_LOG $TESTLINE "$@";
+        test_header "$@"
+
+        local endtime="$(( ${timeout}000000000 + $(date +%s%N) ))"
+
+        # We *want* this to be globally visible.
+        EW_RETRIES=0
+
+        output=""
+        res="1"
+        while [[ "$(date +%s%N)" < "$endtime" ]]; do
+                output="$("${@}" 2>/dev/null)"
+                res="${?}"
+                if [[ "${res}" == "0" ]]; then
+                        break
+                fi
+                sleep 0.25;
+                EW_RETRIES=$((EW_RETRIES+1))
+        done
+
+        ! [[ "${res}" != "0" ]]
+
+        test_footer "$TESTLINE"
+
+        TEST_OUTPUT="${output}"
 }
 
 #This function should be used carefully.
@@ -990,6 +1028,7 @@ if [ -n "$GF_INTERACTIVE" ]; then
 else
 	alias TEST='_TEST $LINENO'
 fi
+alias TEST_WITHIN='_TEST_WITHIN $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
