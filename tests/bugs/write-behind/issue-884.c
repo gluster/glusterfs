@@ -17,6 +17,9 @@
  * timing modification, so the code has been maintained as is, only with minor
  * changes. */
 
+/* Convert a number of blocks into bytes. Assuming a block size of 4 KiB. */
+#define BLOCK_SIZE(_b) ((_b) << 12)
+
 struct glfs *glfs;
 
 pthread_mutex_t the_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -71,9 +74,9 @@ init_wdata(worker_data *data, int which)
     data->cb.which = which;
     data->cb.seq = -1;
 
-    data->iov.iov_base = malloc(1024 * 1024);
+    data->iov.iov_base = malloc(8 * 1024 * 1024);
     memset(data->iov.iov_base, 6,
-           1024 * 1024); /* tail part never overwritten */
+           8 * 1024 * 1024); /* tail part never overwritten */
 }
 
 static void
@@ -163,8 +166,8 @@ doit(struct glfs_fd *fd)
             which = get_worker(IDLE, -1);
             wdata = &all_data.wdata[which];
 
-            wdata->offset = offset << 9;
-            do_write(fd, 0, gap << 9, seq++, wdata, "gap-filling");
+            wdata->offset = BLOCK_SIZE(offset);
+            do_write(fd, 0, BLOCK_SIZE(gap), seq++, wdata, "gap-filling");
 
             offset += gap;
         }
@@ -173,29 +176,29 @@ doit(struct glfs_fd *fd)
         which = get_worker(IDLE, -1);
         wdata = &all_data.wdata[which];
 
-        wdata->offset = (base + 0x42) << 9;
-        do_write(fd, 1, 62 << 9, seq++, wdata, "!8700");
+        wdata->offset = BLOCK_SIZE(base + 0x42);
+        do_write(fd, 1, BLOCK_SIZE(62), seq++, wdata, "!8700");
 
         // 8701
         which = get_worker(IDLE, -1);
         wdata = &all_data.wdata[which];
 
-        wdata->offset = (base + 0x42) << 9;
-        do_write(fd, 2, 55 << 9, seq++, wdata, "!8701");
+        wdata->offset = BLOCK_SIZE(base + 0x42);
+        do_write(fd, 2, BLOCK_SIZE(55), seq++, wdata, "!8701");
 
         // 8702
         which = get_worker(async_mode, -1);
         wdata = &all_data.wdata[which];
 
-        wdata->offset = (base + 0x79) << 9;
-        do_write(fd, 3, 54 << 9, seq++, wdata, "!8702");
+        wdata->offset = BLOCK_SIZE(base + 0x79);
+        do_write(fd, 3, BLOCK_SIZE(54), seq++, wdata, "!8702");
 
         // 8703
         which = get_worker(async_mode, -1);
         wdata = &all_data.wdata[which];
 
-        wdata->offset = (base + 0xaf) << 9;
-        do_write(fd, 4, 81 << 9, seq++, wdata, "!8703");
+        wdata->offset = BLOCK_SIZE(base + 0xaf);
+        do_write(fd, 4, BLOCK_SIZE(81), seq++, wdata, "!8703");
 
         // 8704
         // this writes both 5s and 6s
@@ -204,9 +207,9 @@ doit(struct glfs_fd *fd)
         which = get_worker(async_mode, seq - 1);
         wdata = &all_data.wdata[which];
 
-        memset(wdata->iov.iov_base, 5, 81 << 9);
-        wdata->offset = (base + 0xaf) << 9;
-        do_write(fd, -1, 1623 << 9, seq++, wdata, "!8704");
+        memset(wdata->iov.iov_base, 5, BLOCK_SIZE(81));
+        wdata->offset = BLOCK_SIZE(base + 0xaf);
+        do_write(fd, -1, BLOCK_SIZE(1623), seq++, wdata, "!8704");
 
         offset = base + 0x706;
         base += 0x1000;

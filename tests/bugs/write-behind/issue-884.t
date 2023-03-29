@@ -35,6 +35,6 @@ TEST touch $M0/testfile
 TEST run $(dirname $0)/issue-884 $V0 testfile
 
 # This is the md5sum of the expected pattern without corruption
-EXPECT "ad105f9349345a70fc697632cbb5eec8" echo "$(md5sum $B0/$V0/testfile | awk '{ print $1; }')"
+EXPECT "3e89df3fe4bbd64aaa86432a237992fa" echo "$(md5sum $B0/$V0/testfile | awk '{ print $1; }')"
 
 cleanup
