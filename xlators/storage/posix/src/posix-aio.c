@@ -354,9 +354,13 @@ posix_aio_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
 
     paiocb->iobref = iobref_ref(iobref);
     paiocb->iocb.aio_lio_opcode = IO_CMD_PWRITEV;
-    paiocb->iocb.u.v.vec = iov;
-    paiocb->iocb.u.v.nr = count;
-    paiocb->iocb.u.v.offset = offset;
+    /* There's an iocb.u.v structure that could seem more appropriate for
+     * passing an iovec. However this structure is only compatible with what
+     * the kernel expects for little-endian architectures. So, we just pass
+     * the iovec using the generic structure to avoid problems. */
+    paiocb->iocb.u.c.buf = iov;
+    paiocb->iocb.u.c.nbytes = count;
+    paiocb->iocb.u.c.offset = offset;
 
     iocb = &paiocb->iocb;
 
