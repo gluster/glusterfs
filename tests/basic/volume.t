@@ -35,21 +35,21 @@ TEST ! $CLI v set $V0 server.statedump-path $M0/foo;
 EXPECT '/var/run/gluster' $CLI v get $V0 server.statedump-path
 
 #set the statedump path to an existing ditectory which should succeed
-TEST mkdir $D0/level;
-TEST $CLI v set $V0 server.statedump-path $D0/level
-EXPECT '/level' volinfo_field $V0 'server.statedump-path'
+TEST mkdir $B0/level;
+TEST $CLI v set $V0 server.statedump-path $B0/level
+EXPECT "$B0/level" volinfo_field $V0 'server.statedump-path'
 
-ret=$(ls $D0/level | wc -l);
+ret=$(ls $B0/level | wc -l);
 TEST [ $ret == 0 ]
 TEST $CLI v statedump $V0;
-ret=$(ls $D0/level | wc -l);
+ret=$(ls $B0/level | wc -l);
 TEST ! [ $ret == 0 ]
 
 #set the statedump path to a non - existing directory which should fail
-TEST ! $CLI v set $V0 server.statedump-path /root/test
-EXPECT '/level' volinfo_field $V0 'server.statedump-path'
+TEST ! $CLI v set $V0 server.statedump-path "${B0}/$(uuidgen)"
+EXPECT "$B0/level" volinfo_field $V0 'server.statedump-path'
 
-TEST rm -rf $D0/level
+TEST rm -rf $B0/level
 
 TEST $CLI volume stop $V0
 EXPECT 'Stopped' volinfo_field $V0 'Status'

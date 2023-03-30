@@ -59,3 +59,5 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 1
 # check for the size at mount point, it should be same as previous
 total_space_new=$(df -P $M0 | tail -1 | awk '{ print $2}')
 TEST [ $total_space -eq $total_space_new ]
+
+cleanup

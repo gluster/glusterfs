@@ -80,8 +80,6 @@ TEST   $CLI1 volume add-brick $V2 $H1:$B4/$V0/brick3 force
 #FIX-ME: replace-brick does not work with the newly introduced cluster test
 #####framework
 
-rmdir /$uuid1 /$uuid2 /$uuid3;
-
 $CLI volume stop $V0
 $CLI volume stop $V1
 $CLI volume stop $V2
@@ -92,6 +90,9 @@ UMOUNT_LOOP $B3/$V0
 UMOUNT_LOOP $B4/$V0
 UMOUNT_LOOP $B5/$V0
 UMOUNT_LOOP $B6/$V0
+
+rm -rf /$uuid1/.glusterfs /$uuid2/.glusterfs /$uuid3/.glusterfs;
+rmdir /$uuid1 /$uuid2 /$uuid3;
 
 rm -f $B1/brick1
 rm -f $B2/brick2

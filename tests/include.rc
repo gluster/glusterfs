@@ -13,7 +13,8 @@ GMV0=${GMV0:=primary};	      # primary volume name to use in geo-rep tests
 GSV0=${GSV0:=secondary};      # secondary volume name to use in geo-rep tests
 GSV1=${GSV1:=secondary1}      # secondary volume name to use in geo-rep tests
 B0=${B0:=/d/backends};        # top level of brick directories
-WORKDIRS="$B0 $M0 $M1 $M2 $M3 $N0 $N1"
+DEVDIR=${DEVDIR:=/d/dev} # directory for loop device management
+WORKDIRS="$B0 $M0 $M1 $M2 $M3 $N0 $N1 $DEVDIR"
 
 ROOT_GFID="00000000-0000-0000-0000-000000000001"
 DOT_SHARD_GFID="be318638-e8a0-4c6d-977d-7a937aa84806"
@@ -23,6 +24,7 @@ META_MNT=${META_MNT:=/var/run/gluster/shared_storage}; # Mount point of shared g
 
 CC=cc
 OSTYPE=$(uname -s)
+GFREG_ID="$(hostname -s)"
 
 env_dir=$(dirname $0)
 while true; do
@@ -50,7 +52,7 @@ if [ ! -f $ENV_RC ]; then
 fi
 . $ENV_RC
 
-H0=${H0:=`hostname`}; # hostname
+H0=${H0:=`ip -o -4 addr | grep -v "\<lo\>" | awk '{print $4}' | cut -d/ -f1 | head -n 1`}; # hostname
 MOUNT_TYPE_FUSE="fuse.glusterfs"
 GREP_MOUNT_OPT_RO="grep (ro"
 GREP_MOUNT_OPT_RW="grep (rw"
@@ -170,7 +172,7 @@ wc() {
 ;;
 esac
 
-testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
+testcnt=`egrep '^[[:space:]]*(EXPECT|EXPECT_NOT|TEST|TEST_WITHIN|EXPECT_WITHIN|EXPECT_KEYWORD)[[:space:]]' $0 | wc -l`
 expect_tests=`egrep '^[[:space:]]*TESTS_EXPECTED_IN_LOOP[[:space:]]*' $0`
 
 x_ifs=$IFS
@@ -345,6 +347,44 @@ function _TEST()
         eval "$@" >/dev/null $redirect
 
         test_footer "$TESTLINE";
+}
+
+
+function _TEST_WITHIN()
+{
+        local res output
+
+        TESTLINE=$1
+        shift;
+
+        local timeout=$1
+        shift;
+
+        G_LOG $TESTLINE "$@";
+        test_header "$@"
+
+        local endtime="$(( ${timeout}000000000 + $(date +%s%N) ))"
+
+        # We *want* this to be globally visible.
+        EW_RETRIES=0
+
+        output=""
+        res="1"
+        while [[ "$(date +%s%N)" < "$endtime" ]]; do
+                output="$("${@}" 2>/dev/null)"
+                res="${?}"
+                if [[ "${res}" == "0" ]]; then
+                        break
+                fi
+                sleep 0.25;
+                EW_RETRIES=$((EW_RETRIES+1))
+        done
+
+        ! [[ "${res}" != "0" ]]
+
+        test_footer "$TESTLINE"
+
+        TEST_OUTPUT="${output}"
 }
 
 #This function should be used carefully.
@@ -645,7 +685,7 @@ function cleanup()
         rpcinfo -d 100227 3 2>/dev/null || true;
 
         # unmount brick filesystems after killing daemons
-        MOUNTPOINTS=`mount | grep "$B0/" | awk '{print $3}'`
+        MOUNTPOINTS=`findmnt -nRlT "${B0}" -o TARGET,SOURCE | grep "$B0/" | awk '{print $2}'`
         for m in $MOUNTPOINTS;
         do
                 umount $flag $m
@@ -658,11 +698,9 @@ function cleanup()
         # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
-                LOOPDEVICES=`losetup -a | grep "$B0/" | \
-                             awk '{print $1}' | tr -d :`
-                for l in $LOOPDEVICES;
-                do
-                        losetup -d $l
+                for l in $(ls ${DEVDIR}/loop* 2>/dev/null); do
+                        losetup -d "${l}"
+                        rm -f "${l}"
                 done
                 ;;
         NetBSD)
@@ -726,6 +764,9 @@ function cleanup()
                 return 1;
         fi >&2
 
+        # Physically release unused space
+        fstrim /d
+
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
 	# value becomes their exit value.  While it's not great for the mkdir
@@ -745,14 +786,6 @@ function force_terminate () {
 }
 
 trap force_terminate INT TERM HUP
-
-function volinfo_field()
-{
-    local vol=$1;
-    local field=$2;
-
-    $CLI volume info $vol | grep "^$field: " | sed 's/.*: //';
-}
 
 function cleanup_tester ()
 {
@@ -990,6 +1023,7 @@ if [ -n "$GF_INTERACTIVE" ]; then
 else
 	alias TEST='_TEST $LINENO'
 fi
+alias TEST_WITHIN='_TEST_WITHIN $LINENO'
 alias EXPECT_WITHIN='_EXPECT_WITHIN $LINENO'
 alias EXPECT_KEYWORD='_EXPECT_KEYWORD $LINENO'
 alias TEST_IN_LOOP='_TEST_IN_LOOP $LINENO'
@@ -1017,7 +1051,9 @@ function SETUP_LOOP ()
 
   case ${OSTYPE} in
   Linux)
-    losetup --find --show ${backend}
+    dev="$(losetup --find --show ${backend})"
+    ln -sf "${dev}" "${DEVDIR}/$(basename "${dev}")"
+    echo "${dev}"
     ;;
   NetBSD)
     vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
@@ -1102,156 +1138,6 @@ log_newer()
         done 2>/dev/null
         IFS=$x_ifs
         return 1
-}
-
-function MOUNT_LOOP ()
-{
-  if [ $# != 2 ] ; then
-    echo "MOUNT_LOOP usage" >&2
-    return 1;
-  fi
-
-  dev=$1
-  target=$2
-
-  case ${OSTYPE} in
-  Linux)
-    echo ${dev} | grep -q '^/dev/loop'
-    if [ $? -eq 0 ] ; then
-      mount -t xfs  ${dev} ${target}
-    else
-      mount -o loop  ${dev} ${target}
-    fi
-    ;;
-  NetBSD)
-    echo ${dev} | grep -q '^vnd'
-    if [ $? -ne 0 ] ; then
-      ino=`/usr/bin/stat -f %i ${dev}`
-      dev=`vnconfig -l | awk -v ino=${ino} -F'[: ]*' '($5 == ino) {print $1}'`
-    fi
-
-    mount /dev/${dev}a ${target} >&2
-    if [ $? -ne 0 ] ; then
-      echo "failed to mount  /dev/${dev}a on  ${target}" >&2
-      return 1;
-    fi
-
-    mkdir -p ${target}/.attribute/system  ${target}/.attribute/user
-    mount -u -o extattr ${target} >&2
-
-    ;;
-  *)
-    echo "Please define MOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    return 1;
-    ;;
-  esac
-}
-
-function UMOUNT_LOOP ()
-{
-  case ${OSTYPE} in
-  Linux)
-    force_umount $*
-    ;;
-  NetBSD)
-    for target in $* ; do
-      dev=`mount | awk -v target=${target} '($3 == target) {print $1}'`
-      force_umount ${target}
-      echo ${dev} | grep -q '^/dev/vnd'
-      if [ $? -eq 0 ] ; then
-        dev=`echo ${dev} | sed 's|^/dev/||; s|a$||'`
-        vnconfig -u ${dev}
-      else
-        ino=`/usr/bin/stat -f %i ${dev}`
-        dev=`vnconfig -l | awk -v ino=${ino} -F'[: ]*' '($5 == ino) {print $1}'`
-        if [ "x${dev}" != "x" ] ; then
-          vnconfig -u ${dev}
-        fi
-      fi
-    done
-    ;;
-  *)
-    echo "Please define UMOUNT_LOOP for ${OSTYPE} in include.rc" >&2
-    return 1;
-    ;;
-  esac
-}
-
-function SETUP_LOOP ()
-{
-  if [ $# != 1 ] ; then
-    echo "SETUP_LOOP usage" >&2
-    return 1;
-  fi
-
-  backend=$1
-
-  case ${OSTYPE} in
-  Linux)
-    losetup --find --show ${backend}
-    ;;
-  NetBSD)
-    vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
-    if [ "x${vnd}" = "x" ] ; then
-      echo "no more vnd" >&2
-      return 1;
-    fi
-    vnconfig ${vnd} ${backend}
-    echo ${vnd}
-    ;;
-  *)
-    echo "Please define SETUP_LOOP for ${OSTYPE} in include.rc" >&2
-    return 1;
-    ;;
-  esac
-}
-
-function MKFS_LOOP ()
-{
-  args=`getopt i: $*`
-  if [ $? -ne 0 ] ; then
-    echo "MKFS_LOOP usage" >&2
-    return 1;
-  fi
-  set -- ${args}
-
-  isize=""
-  while test $# -gt 0; do
-    case "$1" in
-    -i)         isize=$2; shift ;;
-    --)         shift; break ;;
-    esac
-    shift
-  done
-
-  dev=$1
-
-  case ${OSTYPE} in
-  Linux)
-    test "x${isize}" != "x" && isize="-i size=${isize}"
-    mkfs.xfs  -f ${isize} ${dev}
-    ;;
-  NetBSD)
-    test "x${isize}" != "x" && isize="-i ${isize}"
-
-    echo ${dev} | grep -q '^vnd'
-    if [ $? -ne 0 ] ; then
-      vnd=`vnconfig -l|awk -F: '/not in use/{print $1; exit}'`
-      if [ "x${vnd}" = "x" ] ; then
-        echo "no more vnd" >&2
-        return 1;
-      fi
-      vnconfig ${vnd} ${dev}
-    else
-      vnd=${dev}
-    fi
-    newfs ${isize} /dev/r${vnd}a
-    ;;
-  *)
-    echo "Please define MKFS_LOOP for ${OSTYPE} in include.rc" >&2
-    return 1;
-    ;;
-  esac
 }
 
 function MOUNT_LOOP ()

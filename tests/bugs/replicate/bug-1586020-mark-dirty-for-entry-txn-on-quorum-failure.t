@@ -9,10 +9,9 @@ function create_files {
         local i=1
         while (true)
         do
-                dd if=/dev/zero of=$M0/file$i bs=1M count=10
-                blksize1=`stat -c %b $B0/${V0}0/file$i`
-                blksize2=`stat -c %b $B0/${V0}1/file$i`
-                if [[ $blkize1 -eq 20480 ]] || [[ $blksize2 -eq 20480 ]]; then
+                touch $M0/file$i
+                if [ -e $B0/${V0}0/file$i ] || [ -e $B0/${V0}1/file$i ]; then
+                        dd if=/dev/zero of=$M0/file$i bs=1M count=10 2>/dev/null
                         ((i++))
                 else
                         break
@@ -48,8 +47,6 @@ TEST $CLI volume start $V0
 TEST $CLI volume set $V0 performance.write-behind off
 TEST $CLI volume set $V0 self-heal-daemon off
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
-
-gluster v set $V0 diagnostics.client-log-level DEBUG
 
 # Create some data on backend to test dirty xattr in case
 # while entry is created successfully on 1 node

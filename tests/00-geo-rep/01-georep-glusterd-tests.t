@@ -16,9 +16,8 @@ TEST pidof glusterd
 #Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
-secondary1=root@${SH0}::${GSV1}
+secondary=${H0}::${GSV0}
+secondary1=root@${H0}::${GSV1}
 num_active=2
 num_passive=2
 primary_mnt=$M0
@@ -65,10 +64,10 @@ TEST glusterfs -s $H0 --volfile-id $GSV0 $M1
 ############################################################
 
 #Negative testcase: Test invalid primary
-TEST ! $GEOREP_CLI primary1 ${SH0}::${GSV0} create push-pem
+TEST ! $GEOREP_CLI primary1 ${H0}::${GSV0} create push-pem
 
 #Negatvie testcase: Test invalid secondary
-TEST ! $GEOREP_CLI $primary ${SH0}::secondary3 create push-pem
+TEST ! $GEOREP_CLI $primary ${H0}::secondary3 create push-pem
 
 ##------------------- Session 1 Creation Begin-----------------##
 #Create geo-rep session
@@ -117,7 +116,7 @@ TEST $GEOREP_CLI $primary $secondary1 start force
 #With root@ prefix
 TEST ! $GEOREP_CLI $primary $secondary1 create push-pem
 #Without root@ prefix
-TEST ! $GEOREP_CLI $primary ${SH0}::${GSV1} create push-pem
+TEST ! $GEOREP_CLI $primary ${H0}::${GSV1} create push-pem
 TEST $GEOREP_CLI $primary $secondary1 create push-pem force
 
 ##------------------- Fanout status testcases Begin --------------##

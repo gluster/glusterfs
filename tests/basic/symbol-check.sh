@@ -1,117 +1,139 @@
 #!/bin/bash
 
-syscalls=$'access\nchmod\nchown\nclose\nclosedir\ncreat64\n\
-fallocate64\nfchmod\nfchown\nfdatasync\nfgetxattr\nflistxattr\n\
-fremovexattr\nfsetxattr\nfsync\nftruncate64\n__fxstat64\n\
-__fxstatat64\nlchown\nlgetxattr\nlinkat\nllistxattr\nlremovexattr\n\
-lseek64\nlsetxattr\n__lxstat64\nmkdir\nmkdirat\nopenat64\nopendir\n\
-pread64\npwrite64\npreadv64\npwritev64\nread\nreaddir64\nreadlink\n\
-readv\nrename\nrmdir\n statvfs64\nsymlink\n\truncate64\nunlink\n\
-utimeswrite\nwritev\n\__xmknod\n__xstat64'
+set -eEu
 
-syscalls32=$'creat\nfallocate\nftruncate\n__fxstat\n__fxstatat\n\
-lseek\n__lxstat\nopenat\nreaddir\nstatvfs\ntruncate\nstat\n\
-preadv\npwritev\npread\npwrite'
+declare -A syscalls
+declare -A syscalls32
+declare -A glibccalls
+declare -A exclude_files
 
-glibccalls=$'tmpfile'
+syscalls[access]="access"
+syscalls[chmod]="chmod"
+syscalls[chown]="chown"
+syscalls[close]="close"
+syscalls[closedir]="closedir"
+syscalls[creat64]="creat"
+syscalls[fallocate64]="fallocate"
+syscalls[fchmod]="fchmod"
+syscalls[fchown]="fchown"
+syscalls[fdatasync]="fdatasync"
+syscalls[fgetxattr]="fgetxattr"
+syscalls[flistxattr]="flistxattr"
+syscalls[fremovexattr]="fremovexattr"
+syscalls[fsetxattr]="fsetxattr"
+syscalls[fsync]="fsync"
+syscalls[ftruncate64]="ftruncate"
+syscalls[__fxstat64]="fstat"
+syscalls[__fxstatat64]="fstatat"
+syscalls[lchown]="lchown"
+syscalls[lgetxattr]="lgetxattr"
+syscalls[linkat]="linkat"
+syscalls[llistxattr]="llistxattr"
+syscalls[lremovexattr]="lremovexattr"
+syscalls[lseek64]="lseek"
+syscalls[lsetxattr]="lsetxattr"
+syscalls[__lxstat64]="lstat"
+syscalls[mkdir]="mkdir"
+syscalls[mkdirat]="mkdirat"
+syscalls[openat64]="openat"
+syscalls[opendir]="opendir"
+syscalls[pread64]="pread"
+syscalls[pwrite64]="pwrite"
+syscalls[preadv64]="preadv"
+syscalls[pwritev64]="pwritev"
+syscalls[read]="read"
+syscalls[readdir64]="readdir"
+syscalls[readlink]="readlink"
+syscalls[readv]="readv"
+syscalls[rename]="rename"
+syscalls[rmdir]="rmdir"
+syscalls[statvfs64]="statvfs"
+syscalls[symlink]="symlink"
+syscalls[truncate64]="truncate"
+syscalls[unlink]="unlink"
+syscalls[utimeswrite]="utimeswrite"
+syscalls[writev]="writev"
+syscalls[__xmknod]="mknod"
+syscalls[__xstat64]="stat"
 
-exclude_files=$'/libglusterfs/src/.libs/libglusterfs_la-syscall.o\n\
-/libglusterfs/src/.libs/libglusterfs_la-gen_uuid.o\n\
-/contrib/fuse-lib/mount-common.o\n
-/contrib/fuse-lib/.libs/mount.o\n
-/contrib/fuse-lib/.libs/mount-common.o\n
-/contrib/fuse-util/fusermount.o\n\
-/contrib/fuse-util/mount_util.o\n\
-/contrib/fuse-util/mount-common.o\n\
-/xlators/mount/fuse/src/.libs/mount.o\n\
-/xlators/mount/fuse/src/.libs/mount-common.o\n\
-/xlators/features/qemu-block/src/.libs/block.o\n\
-/xlators/features/qemu-block/src/.libs/cutils.o\n\
-/xlators/features/qemu-block/src/.libs/oslib-posix.o'
+syscalls32[creat]="creat"
+syscalls32[fallocate]="fallocate"
+syscalls32[ftruncate]="ftruncate"
+syscalls32[__fxstat]="stat"
+syscalls32[__fxstatat]="statat"
+syscalls32[lseek]="lseek"
+syscalls32[__lxstat]="stat"
+syscalls32[openat]="openat"
+syscalls32[readdir]="readdir"
+syscalls32[statvfs]="statvfs"
+syscalls32[truncate]="truncate"
+syscalls32[stat]="stat"
+syscalls32[preadv]="preadv"
+syscalls32[pwritev]="pwritev"
+syscalls32[pread]="pread"
+syscalls32[pwrite]="pwrite"
+
+glibccalls[tmpfile]="tmpfile"
+
+exclude_files[./libglusterfs/src/.libs/libglusterfs_la-syscall.o]=1
+exclude_files[./libglusterfs/src/.libs/libglusterfs_la-gen_uuid.o]=1
+exclude_files[./contrib/fuse-lib/mount-common.o]=1
+exclude_files[./contrib/fuse-lib/.libs/mount.o]=1
+exclude_files[./contrib/fuse-lib/.libs/mount-common.o]=1
+exclude_files[./contrib/fuse-util/fusermount.o]=1
+exclude_files[./contrib/fuse-util/mount_util.o]=1
+exclude_files[./contrib/fuse-util/mount-common.o]=1
+exclude_files[./xlators/mount/fuse/src/.libs/mount.o]=1
+exclude_files[./xlators/mount/fuse/src/.libs/mount-common.o]=1
+exclude_files[./xlators/features/qemu-block/src/.libs/block.o]=1
+exclude_files[./xlators/features/qemu-block/src/.libs/cutils.o]=1
+exclude_files[./xlators/features/qemu-block/src/.libs/oslib-posix.o]=1
 
 function main()
 {
-    for exclude_file in ${exclude_files}; do
-        if [[ ${1} = *${exclude_file} ]]; then
-            exit 0
+    local retval="0"
+
+    if [[ -n "${exclude_files[${1}]-}" ]]; then
+        return 0
+    fi
+
+    for symy in $(nm -pu "${1}" | sed 's/^.*\sU\s\+//'); do
+        sym="${syscalls[${symy}]-}"
+        if [[ -n "${sym}" ]]; then
+            echo "${1} should call sys_${sym}, not ${sym}" >&2
+            retval="1"
         fi
-    done
 
-    local retval=0
-    local t
-    t=$(nm "${1}" | grep " U " | sed -e "s/  //g" -e "s/ U //g")
+        sym="${syscalls32[${symy}]-}"
+        if [[ -n "${sym}" ]]; then
+            echo "${1} was not compiled with -D_FILE_OFFSET_BITS=64" >&2
+            retval="1"
+        fi
 
-    for symy in ${t}; do
-
-        for symx in ${syscalls}; do
-
-            if [[ ${symx} = "${symy}" ]]; then
-
-                case ${symx} in
-                "creat64") sym="creat";;
-                "fallocate64") sym="fallocate";;
-                "ftruncate64") sym="ftruncate";;
-                "lseek64") sym="lseek";;
-                "preadv64") sym="preadv";;
-                "pwritev64") sym="pwritev";;
-                "pread64") sym="pread";;
-                "pwrite64") sym="pwrite";;
-                "openat64") sym="openat";;
-                "readdir64") sym="readdir";;
-                "truncate64") sym="truncate";;
-                "__statvfs64") sym="statvfs";;
-                "__fxstat64") sym="fstat";;
-                "__fxstatat64") sym="fstatat";;
-                "__lxstat64") sym="lstat";;
-                "__xmknod") sym="mknod";;
-                "__xstat64") sym="stat";;
-                *) sym=${symx};;
-                esac
-
-	        echo "${1} should call sys_${sym}, not ${sym}" >&2
-                retval=1
-	    fi
-
-        done
-
-        for symx in ${syscalls32}; do
-
-            if [[ ${symx} = "${symy}" ]]; then
-
-                echo "${1} was not compiled with -D_FILE_OFFSET_BITS=64" >&2
-                retval=1
-            fi
-        done
-
-        symy_glibc=$(echo "${symy}" | sed -e "s/@@GLIBC.*//g")
+        symy_glibc="${symy%@@GLIBC*}"
         # Eliminate false positives, check if we have a GLIBC symbol in 'y'
         if [[ ${symy} != "${symy_glibc}" ]]; then
-            for symx in ${glibccalls}; do
-
-                if [[ ${symx} = "${symy_glibc}" ]]; then
-
-                    case ${symx} in
-                    "tmpfile") alt="mkstemp";;
-                    *) alt="none";;
-                    esac
-
-                    if [[ ${alt} = "none" ]]; then
-                        echo "${1} should not call ${symy_glibc}";
-                    else
-                        echo "${1} should use ${alt} instead of ${symy_glibc}" >&2;
-                    fi
-
-                    retval=1
+            alt="${glibccalls[${symy_glibc}]-}"
+            if [[ -n "${alt}" ]]; then
+                if [[ ${alt} = "none" ]]; then
+                    echo "${1} should not call ${symy_glibc}" >&2
+                else
+                    echo "${1} should use ${alt} instead of ${symy_glibc}" >&2
                 fi
-            done
+                retval="1"
+            fi
         fi
-
     done
 
-    if [ ${retval} = 1 ]; then
-        touch ./.symbol-check-errors
-    fi
-    exit ${retval}
+    return ${retval}
 }
 
-main "$@"
+base="$(realpath "${1}")"
+cd "${base}"
+find -name "*.o" |
+    while read path; do
+        if ! main "${path}"; then
+            touch ./.symbol-check-errors
+        fi
+    done
+

@@ -43,7 +43,7 @@ function test_interrupt {
         # If the test helper fails (which is considered a setup error, not failure of the test
         # case itself), kill will be invoked without argument, and that will be the actual
         # error which is caught.
-        TEST "./$(dirname $0)/open_and_sleep $M0/testfile-$handlebool | { sleep 0.1; xargs -n1 kill -INT; }"
+        TEST "./$(dirname $0)/open_and_sleep $M0/testfile-$handlebool | xargs -n1 -I{} bash -c 'sleep 1; kill -TERM {}'"
 
         TEST "grep -E '$logpattern' $log_file"
         # Basic sanity check, making sure filesystem has not crashed.
