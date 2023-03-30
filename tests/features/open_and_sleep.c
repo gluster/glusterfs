@@ -20,8 +20,9 @@ main(int argc, char **argv)
     printf("%d\n", pid);
     fflush(stdout);
 
-    for (;;)
-        sleep(1);
+    /* The test shouldn't take more than few seconds. If it takes too much
+     * it's better to finish with an error. */
+    sleep(30);
 
-    return 0;
+    return 1;
 }

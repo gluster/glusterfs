@@ -38,7 +38,7 @@ TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST touch $M0/lock
 for i in {1..100}; do perform_io_on_mount $M0 $i lock & done
-EXPECT_WITHIN 5 "101" count_files
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "101" count_files
 
 perform_graph_switch
 TEST rm -f $M0/lock
@@ -53,7 +53,7 @@ EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 TEST $GFS --reader-thread-count=10 --volfile-id=/$V0 --volfile-server=$H0 $M0
 TEST touch $M0/lock
 for i in {1..100}; do perform_io_on_mount $M0 $i lock & done
-EXPECT_WITHIN 5 "101" count_files
+EXPECT_WITHIN ${PROCESS_UP_TIMEOUT} "101" count_files
 
 perform_graph_switch
 TEST rm -f $M0/lock

@@ -108,7 +108,7 @@ function _cleanup_zfs_again() {
 
     /sbin/zfs list | grep $ZFS_PREFIX | awk '{print $1}' | xargs -r -L 1 zpool destroy -f
 
-    for dev in ${DEVDIR}/loop*; do
+    for dev in $(ls ${DEVDIR}/loop* 2>/dev/null); do
         losetup -d "${dev}"
         rm -f "${dev}"
     done
