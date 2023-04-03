@@ -2577,8 +2577,6 @@ afr_changelog_post_op(call_frame_t *frame, xlator_t *this)
 
         if (!afr_is_delayed_changelog_post_op_needed(frame, this,
                                                      delta.tv_sec)) {
-            if (list_empty(&lock->owners))
-                lock->release = _gf_true;
             goto unlock;
         }
 
@@ -2592,6 +2590,8 @@ afr_changelog_post_op(call_frame_t *frame, xlator_t *this)
         }
     }
 unlock:
+    if (list_empty(&lock->owners))
+        lock->release = _gf_true;
     UNLOCK(&local->inode->lock);
 
     if (!list_empty(&shared)) {
