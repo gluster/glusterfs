@@ -71,6 +71,7 @@ TEST mkdir ${M0}/gid-64
 TEST setfacl -m g:$[NEW_UID+64]:rwx ${M0}/gid-64
 TEST mkdir ${M0}/gid-120
 TEST setfacl -m g:$[NEW_UID+120]:rwx ${M0}/gid-120
+TEST mkdir ${M0}/gid-none
 
 su -m ${NEW_USER} -c "touch ${M0}/first-32-gids-1/success > /dev/null"
 TEST [ $? -eq 0 ]
@@ -84,6 +85,9 @@ TEST [ $? -eq $kernel_exports_few_gids ]
 su -m ${NEW_USER} -c "touch ${M0}/gid-120/failure > /dev/null"
 TEST [ $? -ne 0 ]
 
+su -m ${NEW_USER} -c "touch ${M0}/gid-none/failure > /dev/null"
+TEST [ $? -ne 0 ]
+
 # unmount and remount with --resolve-gids
 EXPECT_WITHIN ${UMOUNT_TIMEOUT} "Y" force_umount ${M0}
 TEST glusterfs --acl --resolve-gids --volfile-id=/${V0} --volfile-server=${H0} ${M0}
@@ -92,6 +96,9 @@ su -m ${NEW_USER} -c "touch ${M0}/gid-64/success > /dev/null"
 TEST [ $? -eq 0 ]
 
 su -m ${NEW_USER} -c "touch ${M0}/gid-120/failure > /dev/null"
+TEST [ $? -ne 0 ]
+
+su -m ${NEW_USER} -c "touch ${M0}/gid-none/failure > /dev/null"
 TEST [ $? -ne 0 ]
 
 # enable server-side resolving of the groups
@@ -107,6 +114,28 @@ TEST glusterfs --acl --resolve-gids --volfile-id=/${V0} --volfile-server=${H0} $
 
 su -m ${NEW_USER} -c "touch ${M0}/gid-120/success > /dev/null"
 TEST [ $? -eq 0 ]
+
+su -m ${NEW_USER} -c "touch ${M0}/gid-none/failure > /dev/null"
+TEST [ $? -ne 0 ]
+
+#
+# disable access control on server side
+#
+TEST $CLI volume stop ${V0}
+TEST $CLI volume set ${V0} features.acl off
+TEST $CLI volume set ${V0} server.manage-gids off
+TEST $CLI volume start ${V0}
+EXPECT_WITHIN ${NFS_EXPORT_TIMEOUT} "1" is_nfs_export_available
+
+# unmount and remount to prevent more race conditions on test systems
+EXPECT_WITHIN ${UMOUNT_TIMEOUT} "Y" force_umount ${M0}
+TEST glusterfs --acl --resolve-gids --volfile-id=/${V0} --volfile-server=${H0} ${M0}
+
+su -m ${NEW_USER} -c "touch ${M0}/gid-120/success > /dev/null"
+TEST [ $? -eq 0 ]
+
+su -m ${NEW_USER} -c "touch ${M0}/gid-none/failure > /dev/null"
+TEST [ $? -ne 0 ]
 
 # cleanup
 userdel --force ${NEW_USER}

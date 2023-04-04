@@ -7,7 +7,6 @@
 
 SCRIPT_TIMEOUT=300
 OLD_CONFIG_PATH=$(dirname $0)/gsyncd.conf.old
-WORKING_DIR=/var/lib/glusterd/geo-replication/primary_127.0.0.1_secondary
 
 ##Cleanup and start glusterd
 cleanup;
@@ -17,13 +16,13 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=2
 primary_mnt=$M0
 secondary_mnt=$M1
 
+WORKING_DIR=/var/lib/glusterd/geo-replication/primary_${H0}_secondary
 ############################################################
 #SETUP VOLUMES AND GEO-REPLICATION
 ############################################################

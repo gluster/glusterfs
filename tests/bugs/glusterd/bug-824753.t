@@ -32,7 +32,7 @@ touch $M0/file1;
 
 TEST $CC -g $(dirname $0)/bug-824753-file-locker.c -o $(dirname $0)/file-locker
 
-TEST $(dirname $0)/file-locker $V0 $H0 $B0 $M0 file1
+TEST $(dirname $0)/file-locker $V0 `hostname` $B0 $M0 file1
 
 ## Finish up
 TEST rm -f $(dirname $0)/file-locker

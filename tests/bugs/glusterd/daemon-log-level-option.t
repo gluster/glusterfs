@@ -1,25 +1,55 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
+. $(dirname $0)/../../volume.rc
 
-function Info_messages_count() {
-        local shd_log=$1
-        cat $shd_log | grep " I " | wc -l
+TESTS_EXPECTED_IN_LOOP=11
+
+function count_messages() {
+    local level="${1}"
+    local file="${2}"
+
+    grep "^\[[^]]\+\] ${level} \[" "${file}" | wc -l
 }
 
-function Warning_messages_count() {
-        local shd_log=$1
-        cat $shd_log | grep " W " | wc -l
+function wait_started() {
+    local file="${1}"
+    local count
+
+    count="$(count_messages "I" "${file}")"
+
+    if [[ ${count} -ge 1 ]]; then
+        return 0
+    fi
+
+    return 1
 }
 
-function Debug_messages_count() {
-        local shd_log=$1
-        cat $shd_log | grep " D " | wc -l
+function prepare() {
+    local level="${1}"
+    local file="${2}"
+
+    rm -f "${file}"
+    TEST ${CLI} volume set all cluster.daemon-log-level "${level}"
+    TEST ${CLI} volume start "${V0}"
+
+# Using 'online_brick_count' test only checks that the process has started,
+# but not necessarily fully initialized. To avoid spurious failures, we'll
+# use the fact that io-stats always logs an "INFO" message before configuring
+# the requested log level to determine when initialization has completed.
+#
+# WARNING: This condition could change in the future. Be aware of that in
+#          case this test fails.
+
+    TEST_WITHIN "${PROCESS_UP_TIMEOUT}" wait_started "${file}"
 }
 
-function Trace_messages_count() {
-        local shd_log=$1
-        cat $shd_log | grep " T " | wc -l
+function reconfig() {
+    local level="${1}"
+    local file="${2}"
+
+    TEST ${CLI} volume stop "${V0}"
+    prepare "${level}" "${file}"
 }
 
 cleanup;
@@ -29,65 +59,37 @@ TEST glusterd
 TEST pidof glusterd
 TEST $CLI volume info
 
-# set cluster.daemon-log-level option to DEBUG
-TEST $CLI volume set all cluster.daemon-log-level DEBUG
-
 #Create a 3X2 distributed-replicate volume
 TEST $CLI volume create $V0 replica 2 $H0:$B0/${V0}{1..6};
-TEST $CLI volume start $V0
 
-# log should not have any trace messages
-EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
+logfile="${LOGDIR}/glustershd.log"
 
-# stop the volume and remove glustershd log
-TEST $CLI volume stop $V0
-rm -f /var/log/glusterfs/glustershd.log
+prepare "DEBUG" "${logfile}"
 
-# set cluster.daemon-log-level option to INFO and start the volume
-TEST $CLI volume set all cluster.daemon-log-level INFO
-TEST $CLI volume start $V0
+# There shouldn't be any TRACE messages
+EXPECT "^0$" count_messages "T" "${logfile}"
 
-# log should not have any debug messages
-EXPECT 0 Debug_messages_count "/var/log/glusterfs/glustershd.log"
+reconfig "INFO" "${logfile}"
 
-# log should not have any trace messages
-EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
+# There shouldn't be any TRACE or DEBUG messages
+EXPECT "^0$" count_messages "T" "${logfile}"
+EXPECT "^0$" count_messages "D" "${logfile}"
 
-# stop the volume and remove glustershd log
-TEST $CLI volume stop $V0
-rm -f /var/log/glusterfs/glustershd.log
+reconfig "WARNING" "${logfile}"
 
-# set cluster.daemon-log-level option to WARNING and start the volume
-TEST $CLI volume set all cluster.daemon-log-level WARNING
-TEST $CLI volume start $V0
+# There shouldn't be any TRACE or DEBUG messages, and only one INFO message
+# from io-stats xlator.
+EXPECT "^0$" count_messages "T" "${logfile}"
+EXPECT "^0$" count_messages "D" "${logfile}"
+EXPECT "^1$" count_messages "I" "${logfile}"
 
-# log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
-EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"
+reconfig "ERROR" "${logfile}"
 
-# log should not have any debug messages
-EXPECT 0 Debug_messages_count "/var/log/glusterfs/glustershd.log"
-
-# log should not have any trace messages
-EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
-
-# stop the volume and remove glustershd log
-TEST $CLI volume stop $V0
-rm -f /var/log/glusterfs/glustershd.log
-
-# set cluster.daemon-log-level option to ERROR and start the volume
-TEST $CLI volume set all cluster.daemon-log-level ERROR
-TEST $CLI volume start $V0
-
-# log does have 1 info message specific to configure ios_sample_buf_size in io-stats xlator
-EXPECT 1 Info_messages_count "/var/log/glusterfs/glustershd.log"
-
-# log should not have any warning messages
-EXPECT 0 Warning_messages_count "/var/log/glusterfs/glustershd.log"
-
-# log should not have any debug messages
-EXPECT 0 Debug_messages_count "/var/log/glusterfs/glustershd.log"
-
-# log should not have any trace messages
-EXPECT 0 Trace_messages_count "/var/log/glusterfs/glustershd.log"
+# There shouldn't be any TRACE, DEBUG or WARNING messages, and only one INFO
+# message from io-stats xlator.
+EXPECT "^0$" count_messages "T" "${logfile}"
+EXPECT "^0$" count_messages "D" "${logfile}"
+EXPECT "^1$" count_messages "I" "${logfile}"
+EXPECT "^0$" count_messages "W" "${logfile}"
 
 cleanup

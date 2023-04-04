@@ -18,8 +18,7 @@ TEST pidof glusterd
 ##Variables
 GEOREP_CLI="$CLI volume geo-replication"
 primary=$GMV0
-SH0="127.0.0.1"
-secondary=${SH0}::${GSV0}
+secondary=${H0}::${GSV0}
 num_active=2
 num_passive=2
 primary_mnt=$M0
@@ -31,7 +30,7 @@ grp="ggroup"
 
 secondary_url=$usr@$secondary
 secondary_vol=$GSV0
-ssh_url=$usr@$SH0
+ssh_url=$usr@$H0
 
 #Cleanup stale keys
 sed -i '/^command=.*SSH_ORIGINAL_COMMAND#.*/d' /home/$usr/.ssh/authorized_keys
@@ -126,8 +125,9 @@ clean_lock_files
 userdel -r -f $usr
 TEST /usr/sbin/useradd -G $grp $usr
 
+export PASS=$( (echo $RANDOM ; date +%s) | sha256sum | base64 | head -c 32)
 ##Modify password for non-root user to have control over distributing ssh-key
-echo "$usr:pass" | chpasswd
+echo "$usr:$PASS" | chpasswd
 
 ##Set up mountbroker root
 TEST gluster-mountbroker setup /var/mountbroker-root $grp
@@ -167,12 +167,12 @@ TEST gluster-mountbroker status
 #sshpass -p "pass" ssh-copy-id -i ~/.ssh/id_rsa.pub $ssh_url
 ##Run ssh agent
 eval "$(ssh-agent -s)"
-PASS="pass"
 
 
 ##Create a temp script to echo the SSH password, used by SSH_ASKPASS
 
-SSH_ASKPASS_SCRIPT=/tmp/ssh-askpass-script
+SSH_ASKPASS_DIR=$(mktemp -d /tmp/ssh-askpass_XXXXXXXXXXXX)
+SSH_ASKPASS_SCRIPT=$SSH_ASKPASS_DIR/ssh-askpass.sh
 cat > ${SSH_ASKPASS_SCRIPT} <<EOL
 #!/bin/bash
 echo "${PASS}"
@@ -291,7 +291,7 @@ TEST userdel -r -f $usr
 EXPECT_WITHIN $GEO_REP_TIMEOUT 0 check_and_clean_group
 
 ##password script cleanup
-rm -rf /tmp/ssh-askpass-script
+rm -rf $SSH_ASKPASS_DIR
 
 
 cleanup;

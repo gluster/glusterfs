@@ -5,8 +5,26 @@
 
 cleanup;
 
+case $OSTYPE in
+Linux)
+        ;;
+*)
+        echo "Skip test: copy_file_range(2) is specific to Linux" >&2
+        SKIP_TESTS
+        exit 0
+        ;;
+esac
+
+grep -q copy_file_range /proc/kallsyms
+if [ $? -ne 0 ]; then
+    echo "Skip test: copy_file_range(2) is not supported by current kernel" >&2
+    SKIP_TESTS
+    exit 0
+fi
+
 mkfs.xfs 2>&1 | grep reflink
 if [ $? -ne 0 ]; then
+    echo "Skip test: XFS reflink feature is not supported" >&2
     SKIP_TESTS
     exit
 fi
@@ -47,15 +65,6 @@ SRC_SIZE=$(stat -c %s $M0/file);
 
 logdir=`gluster --print-logdir`
 
-# TODO:
-# For now, do not call copy-file-range utility. This is because,
-# the regression machines are centos-7 based which does not have
-# copy_file_range API available. So, instead of this testcase
-# causing regression failures, for now, this is just a dummy test
-# case. Uncomment the below tests (until volume stop) when there
-# is support for copy_file_range in the regression machines.
-#
-
 TEST build_tester $(dirname $0)/glfs-copy-file-range.c -lgfapi
 
 TEST ./$(dirname $0)/glfs-copy-file-range $H0 $V0 $logdir/gfapi-copy-file-range.log /file /new
@@ -71,6 +80,10 @@ DST_SIZE=$(stat -c %s $M0/new);
 # as expected. Whether the actual cloning happened via reflink
 # or a read/write happened is different matter.
 TEST [ $SRC_SIZE == $DST_SIZE ];
+
+# Go again (test case with already existing target)
+# XXX this will fail
+# TEST ./$(dirname $0)/glfs-copy-file-range $H0 $V0 $logdir/gfapi-copy-file-range.log /file /new
 
 cleanup_tester $(dirname $0)/glfs-copy-file-range
 

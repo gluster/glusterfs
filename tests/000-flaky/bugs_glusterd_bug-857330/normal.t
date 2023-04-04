@@ -2,6 +2,9 @@
 
 . $(dirname $0)/common.rc
 . $(dirname $0)/../../volume.rc
+
+SCRIPT_TIMEOUT=300
+
 cleanup;
 
 TEST glusterd

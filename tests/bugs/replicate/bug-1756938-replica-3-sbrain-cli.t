@@ -26,7 +26,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status $V0 2
 #file2 will have one shard which will be in data split-brain.
 #file3 will have one shard which will be in gfid split-brain.
 #file4 will have one shard which will be in data & metadata split-brain.
-TEST dd if=/dev/zero of=$M0/file1 bs=1024 count=1024 oflag=direct
+TEST dd if=/dev/zero of=$M0/file1 bs=4096 count=256 oflag=direct
 TEST dd if=/dev/zero of=$M0/file2 bs=1M count=6 oflag=direct
 TEST dd if=/dev/zero of=$M0/file3 bs=1M count=6 oflag=direct
 TEST dd if=/dev/zero of=$M0/file4 bs=1M count=6 oflag=direct

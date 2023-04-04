@@ -87,8 +87,8 @@ out:
 }
 
 void
-pwritev_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                  struct stat *poststat, void *cookie)
+pwritev_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                  struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_pwritev failed");
@@ -122,8 +122,8 @@ out:
 }
 
 void
-pwrite_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                 struct stat *poststat, void *cookie)
+pwrite_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                 struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_pwrite_cbk failed");
@@ -137,7 +137,7 @@ pwrite_async(glfs_fd_t *glfd)
 {
     ssize_t ret = -1;
     int flags = O_RDWR;
-    char buf1[10];
+    static char buf1[10];
     char *buf2 = "ten bytes!";
     void *write_cookie = strdup("write_cookie");
     ret = glfs_pwrite_async(glfd, buf1, 10, 0, flags, pwrite_async_cbk,
@@ -150,8 +150,8 @@ pwrite_async(glfs_fd_t *glfd)
 }
 
 void
-writev_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                 struct stat *poststat, void *cookie)
+writev_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                 struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_writev_cbk failed");
@@ -185,8 +185,8 @@ out:
 }
 
 void
-write_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                struct stat *poststat, void *cookie)
+write_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_write_cbk failed");
@@ -200,7 +200,7 @@ write_async(glfs_fd_t *glfd)
 {
     ssize_t ret = -1;
     int flags = O_RDWR;
-    char buf1[10];
+    static char buf1[10];
     char *buf2 = "ten bytes!";
     void *write_cookie = strdup("write_cookie");
     ret = glfs_write_async(glfd, buf1, 10, flags, write_async_cbk,
@@ -213,8 +213,8 @@ write_async(glfs_fd_t *glfd)
 }
 
 void
-preadv_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                 struct stat *poststat, void *cookie)
+preadv_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                 struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_preadv_cbk failed");
@@ -248,8 +248,8 @@ out:
 }
 
 void
-pread_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                struct stat *poststat, void *cookie)
+pread_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_pread_cbk failed");
@@ -263,7 +263,7 @@ pread_async(glfs_fd_t *glfd)
 {
     ssize_t ret = -1;
     int flags = O_RDWR;
-    char buf1[10];
+    static char buf1[10];
     void *read_cookie = strdup("read_cookie");
     ret = glfs_pread_async(glfd, buf1, 10, 0, flags, pread_async_cbk,
                            &read_cookie);
@@ -275,8 +275,8 @@ pread_async(glfs_fd_t *glfd)
 }
 
 void
-readv_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                struct stat *poststat, void *cookie)
+readv_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_readv_cbk failed");
@@ -309,8 +309,8 @@ out:
 }
 
 void
-read_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-               struct stat *poststat, void *cookie)
+read_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+               struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_read_cbk failed");
@@ -324,7 +324,7 @@ read_async(glfs_fd_t *glfd)
 {
     ssize_t ret = -1;
     int flags = O_RDWR;
-    char buf1[10];
+    static char buf1[10];
     void *read_cookie = strdup("read_cookie");
     ret = glfs_read_async(glfd, buf1, 10, flags, read_async_cbk, &read_cookie);
 
@@ -335,8 +335,8 @@ read_async(glfs_fd_t *glfd)
 }
 
 void
-fsync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                struct stat *poststat, void *cookie)
+fsync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_fsync_async_cbk failed");
@@ -346,8 +346,8 @@ fsync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
 }
 
 void
-fdatasync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                    struct stat *poststat, void *cookie)
+fdatasync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                    struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_fdatasync_async_cbk failed");
@@ -357,8 +357,8 @@ fdatasync_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
 }
 
 void
-ftruncate_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                    struct stat *poststat, void *cookie)
+ftruncate_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                    struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         LOG_ERR("glfs_ftruncate_async_cbk failed");

@@ -1,7 +1,7 @@
 #!/bin/bash
 
 . $(dirname $0)/../../include.rc
-. $(dirname $0)/../../ volume.rc
+. $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../thin-arbiter.rc
 
 #This command tests the volume create command validation for thin-arbiter volumes.

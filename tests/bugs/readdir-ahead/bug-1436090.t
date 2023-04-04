@@ -4,6 +4,8 @@
 . $(dirname $0)/../../volume.rc
 . $(dirname $0)/../../cluster.rc
 
+SCRIPT_TIMEOUT=300
+
 cleanup;
 
 TEST launch_cluster 2;
