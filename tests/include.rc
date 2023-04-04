@@ -698,7 +698,7 @@ function cleanup()
         # TODO: This should be a function DESTROY_LOOP
         case `uname -s` in
         Linux)
-                for l in ${DEVDIR}/loop*; do
+                for l in $(ls ${DEVDIR}/loop* 2>/dev/null); do
                         losetup -d "${l}"
                         rm -f "${l}"
                 done
@@ -763,6 +763,9 @@ function cleanup()
                 echo
                 return 1;
         fi >&2
+
+        # Physically release unused space
+        fstrim /d
 
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return

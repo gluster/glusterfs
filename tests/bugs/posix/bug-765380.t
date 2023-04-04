@@ -16,8 +16,8 @@ TEST $GFS -s $H0 --volfile-id $V0 $M0;
 
 function count_hostname_or_uuid_from_pathinfo()
 {
-    pathinfo=$(getfattr -n trusted.glusterfs.pathinfo $M0/f00f)
-    echo $pathinfo | grep -o $1 | wc -l
+    pathinfo=$(getfattr -n trusted.glusterfs.pathinfo $M0/f00f 2>/dev/null | sed -n 's/^trusted\.glusterfs\.pathinfo=//p')
+    echo $pathinfo | grep -Fo ":$1:" | wc -l
 }
 
 TEST touch $M0/f00f
