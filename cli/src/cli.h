@@ -344,7 +344,7 @@ gf_boolean_t
 cli_cmd_connected(void);
 
 int32_t
-cli_cmd_await_connected(unsigned timeout);
+cli_cmd_await_connected(time_t timeout);
 
 int32_t
 cli_cmd_broadcast_connected(gf_boolean_t status);

@@ -580,6 +580,8 @@ cli_cmd_copy_file_cbk(struct cli_state *state, struct cli_cmd_word *word,
         ret = proc->fn(frame, THIS, (void *)dict);
     }
 out:
+    if (dict)
+        dict_unref(dict);
     return ret;
 }
 

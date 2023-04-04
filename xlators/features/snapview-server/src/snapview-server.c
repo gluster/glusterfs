@@ -1681,12 +1681,14 @@ svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     svs_fd_t *svs_fd = NULL;
     call_stack_t *root = NULL;
 
+    /* Initialize list ptr before GF_VALIDATE to avoid coverity
+       warning
+     */
+    INIT_LIST_HEAD(&entries.list);
     GF_VALIDATE_OR_GOTO("snap-view-daemon", this, unwind);
     GF_VALIDATE_OR_GOTO(this->name, frame, unwind);
     GF_VALIDATE_OR_GOTO(this->name, fd, unwind);
     GF_VALIDATE_OR_GOTO(this->name, fd->inode, unwind);
-
-    INIT_LIST_HEAD(&entries.list);
 
     root = frame->root;
     op_ret = gf_setcredentials(&root->uid, &root->gid, root->ngrps,

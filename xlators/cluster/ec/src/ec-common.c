@@ -2719,7 +2719,7 @@ ec_eager_lock_used(ec_t *ec, ec_fop_data_t *fop)
     return ec->other_eager_lock;
 }
 
-static uint32_t
+static time_t
 ec_eager_lock_timeout(ec_t *ec, ec_lock_t *lock)
 {
     if (lock->loc.inode->ia_type == IA_IFREG) {

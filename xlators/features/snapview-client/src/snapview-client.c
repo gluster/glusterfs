@@ -1738,9 +1738,11 @@ gf_svc_readdirp_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         0,
     };
 
-    GF_VALIDATE_OR_GOTO("snapview-client", this, out);
-
+    /* Initialize list ptr before GF_VALIDATE to avoid coverity
+       warning
+    */
     INIT_LIST_HEAD(&entries.list);
+    GF_VALIDATE_OR_GOTO("snapview-client", this, out);
 
     local = frame->local;
 

@@ -297,7 +297,7 @@ out:
 }
 
 int32_t
-cli_cmd_await_connected(unsigned conn_timo)
+cli_cmd_await_connected(time_t conn_timo)
 {
     int32_t ret = 0;
     struct timespec ts = {

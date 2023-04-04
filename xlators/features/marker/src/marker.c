@@ -3178,6 +3178,8 @@ marker_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     return 0;
 unwind:
     MARKER_STACK_UNWIND(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    if (dict)
+        dict_unref(dict);
     return 0;
 }
 
