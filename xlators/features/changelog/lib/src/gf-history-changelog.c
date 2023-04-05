@@ -983,10 +983,8 @@ gf_history_changelog(char *changelog_dir, unsigned long start,
             ret = gf_thread_create(&consume_th, &attr, gf_history_consume,
                                    hist_data, "cloghcon");
             if (ret) {
-                gf_msg(this->name, GF_LOG_ERROR, ret,
-                       CHANGELOG_LIB_MSG_THREAD_CREATION_FAILED,
-                       "creation of consume parent-thread"
-                       " failed.");
+                gf_log(this->name, GF_LOG_ERROR,
+                       "creation of consume parent-thread failed.");
                 ret = -1;
                 goto out;
             }

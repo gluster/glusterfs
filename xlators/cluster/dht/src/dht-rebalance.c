@@ -4055,10 +4055,8 @@ gf_defrag_estimates_init(xlator_t *this, loc_t *loc, pthread_t *filecnt_thread)
                            (void *)defrag, "dhtfcnt");
 
     if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, ret, 0,
-               "Failed to "
-               "create the file counter thread ");
-        ret = -1;
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to create the file counter thread ");
         goto out;
     }
     ret = 0;

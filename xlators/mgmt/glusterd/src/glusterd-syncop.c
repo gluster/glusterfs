@@ -2549,7 +2549,6 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
         GD_OP_STATE_DEFAULT,
     };
     uint32_t op_errno = 0;
-    gf_boolean_t cluster_lock = _gf_false;
     time_t timeout = 0;
 
     conf = this->private;
@@ -2590,60 +2589,45 @@ gd_sync_task_begin(dict_t *op_ctx, rpcsvc_request_t *req)
         goto out;
     }
 
-    /* Based on the op_version, acquire a cluster or mgmt_v3 lock */
-    if (cluster_lock) {
-        ret = glusterd_lock(MY_UUID);
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GLUSTERD_LOCK_FAIL,
-                   "Unable to acquire lock");
-            gf_asprintf(&op_errstr,
-                        "Another transaction is in progress. "
-                        "Please try again after some time.");
-            goto out;
-        }
+    /* Cli will add timeout key to dict if the default timeout is
+     * other than 2 minutes. Here we use this value to check whether
+     * mgmt_v3_lock_timeout should be set to default value or we
+     * need to change the value according to timeout value
+     * i.e, timeout + 120 seconds. */
+    ret = dict_get_time(op_ctx, "timeout", &timeout);
+    if (!ret)
+        conf->mgmt_v3_lock_timeout = timeout + 120;
+
+    ret = dict_get_str(op_ctx, "globalname", &global);
+    if (!ret) {
+        is_global = _gf_true;
+        goto global;
+    }
+
+    /* If no volname is given as a part of the command, locks will
+     * not be held */
+    ret = dict_get_str(op_ctx, "volname", &tmp);
+    if (ret) {
+        gf_msg_debug("glusterd", 0, "Failed to get volume name");
+        goto local_locking_done;
     } else {
-        /* Cli will add timeout key to dict if the default timeout is
-         * other than 2 minutes. Here we use this value to check whether
-         * mgmt_v3_lock_timeout should be set to default value or we
-         * need to change the value according to timeout value
-         * i.e, timeout + 120 seconds. */
-        ret = dict_get_time(op_ctx, "timeout", &timeout);
-        if (!ret)
-            conf->mgmt_v3_lock_timeout = timeout + 120;
-
-        ret = dict_get_str(op_ctx, "globalname", &global);
-        if (!ret) {
-            is_global = _gf_true;
-            goto global;
-        }
-
-        /* If no volname is given as a part of the command, locks will
-         * not be held */
-        ret = dict_get_str(op_ctx, "volname", &tmp);
-        if (ret) {
-            gf_msg_debug("glusterd", 0,
-                         "Failed to get volume "
-                         "name");
-            goto local_locking_done;
-        } else {
-            /* Use a copy of volname, as cli response will be
-             * sent before the unlock, and the volname in the
-             * dict, might be removed */
-            volname = gf_strdup(tmp);
-            if (!volname)
-                goto out;
-        }
-
-        ret = glusterd_mgmt_v3_lock(volname, MY_UUID, &op_errno, "vol");
-        if (ret) {
-            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_LOCK_GET_FAIL,
-                   "Unable to acquire lock for %s", volname);
-            gf_asprintf(&op_errstr,
-                        "Another transaction is in progress "
-                        "for %s. Please try again after some time.",
-                        volname);
+        /* Use a copy of volname, as cli response will be
+         * sent before the unlock, and the volname in the
+         * dict, might be removed */
+        volname = gf_strdup(tmp);
+        if (!volname)
             goto out;
-        }
+    }
+
+    ret = glusterd_mgmt_v3_lock(volname, MY_UUID, &op_errno, "vol");
+    if (ret) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_LOCK_GET_FAIL,
+               "Unable to acquire lock for %s", volname);
+        gf_asprintf(&op_errstr,
+                    "Another transaction is in progress "
+                    "for %s. Please try again after some time.",
+                    volname);
+        goto out;
     }
 
 global:
@@ -2667,9 +2651,9 @@ local_locking_done:
 
     /* If no volname is given as a part of the command, locks will
      * not be held */
-    if (volname || cluster_lock || is_global) {
+    if (volname || is_global) {
         ret = gd_lock_op_phase(conf, op, op_ctx, &op_errstr, *txn_id,
-                               &txn_opinfo, cluster_lock);
+                               &txn_opinfo, _gf_false);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PEER_LOCK_FAIL,
                    "Locking Peers Failed.");
@@ -2705,11 +2689,11 @@ out:
         if (global)
             (void)gd_unlock_op_phase(conf, op, &op_ret, req, op_ctx, op_errstr,
                                      global, is_acquired, *txn_id, &txn_opinfo,
-                                     cluster_lock);
+                                     _gf_false);
         else
             (void)gd_unlock_op_phase(conf, op, &op_ret, req, op_ctx, op_errstr,
                                      volname, is_acquired, *txn_id, &txn_opinfo,
-                                     cluster_lock);
+                                     _gf_false);
 
         /* Clearing the transaction opinfo */
         ret = glusterd_clear_txn_opinfo(txn_id);

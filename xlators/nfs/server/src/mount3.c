@@ -1413,7 +1413,7 @@ mnt3_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     /* Resolving into absolute path */
     ret = gf_build_absolute_path(parent_path, relative_path, &absolute_path);
     if (ret < 0) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SYMLINK_ERROR,
+        gf_msg(GF_MNT, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_SYMLINK_ERROR,
                "Cannot resolve symlink, path is out of boundary "
                "from current location %s and with relative path "
                "%s pointed by symlink",
@@ -1722,7 +1722,7 @@ mnt3_resolve_export_subdir(rpcsvc_request_t *req, struct mount3_state *ms,
 
     ret = mnt3_resolve_subdir(req, ms, exp, volume_subdir, _gf_true);
     if (ret < 0) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
+        gf_msg(GF_MNT, GF_LOG_ERROR, -ret, NFS_MSG_RESOLVE_SUBDIR_FAIL,
                "Failed to resolve export dir: %s", exp->expname);
         goto err;
     }
@@ -3680,8 +3680,7 @@ __mnt3_init_volume_export(struct mount3_state *ms, dict_t *opts)
 
     ret = gf_string2boolean(optstr, &boolt);
     if (ret < 0) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_STR2BOOL_FAIL,
-               "Failed to convert string to boolean");
+        gf_log(GF_MNT, GF_LOG_ERROR, "Failed to convert string to boolean");
     }
 
 err:
@@ -4154,7 +4153,7 @@ _mnt3_init_auth_params(struct mount3_state *mstate)
 
     ret = mnt3_auth_set_netgroups_auth(mstate->auth_params, ng_file_path);
     if (ret < 0) {
-        gf_msg(GF_MNT, GF_LOG_ERROR, ret, NFS_MSG_SET_EXP_AUTH_PARAM_FAIL,
+        gf_msg(GF_MNT, GF_LOG_ERROR, -ret, NFS_MSG_SET_EXP_AUTH_PARAM_FAIL,
                "Failed to set netgroup auth params.");
         goto out;
     }

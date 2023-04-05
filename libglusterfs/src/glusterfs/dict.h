@@ -129,7 +129,7 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value);
 static inline int32_t
 dict_set(dict_t *this, char *key, data_t *value)
 {
-    return dict_setn(this, key, key ? strlen(key) : 0, value);
+    return dict_setn(this, key, strlen(key), value);
 }
 
 /* function to set a new key/value pair (without checking for duplicate) */

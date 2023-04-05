@@ -2048,8 +2048,7 @@ overwrite:
 
     ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
-               "pfd is NULL from fd=%p", fd);
+        gf_log(this->name, GF_LOG_WARNING, "pfd is NULL from fd=%p", fd);
         goto out;
     }
 
@@ -5725,8 +5724,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             continue;
 #endif /* __NetBSD__ */
 
-        if (is_root_gfid &&
-            (!strcmp(GF_HIDDEN_PATH, entry->d_name))) {
+        if (is_root_gfid && (!strcmp(GF_HIDDEN_PATH, entry->d_name))) {
             continue;
         }
 
@@ -5932,11 +5930,13 @@ posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     gf_dirent_t entries;
     int32_t skip_dirs = 0;
 
+    /* Initialize the list ptr before call VALIDATE to avoid coverity
+       warning
+     */
+    INIT_LIST_HEAD(&entries.list);
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
     VALIDATE_OR_GOTO(fd, out);
-
-    INIT_LIST_HEAD(&entries.list);
 
     ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
     if (ret < 0) {

@@ -3782,6 +3782,9 @@ glfs_discard_async_common(struct glfs_fd *glfd, off_t offset, size_t len,
 
     ret = 0;
 out:
+    if (fop_attr)
+        dict_unref(fop_attr);
+
     if (ret) {
         if (fd)
             fd_unref(fd);
