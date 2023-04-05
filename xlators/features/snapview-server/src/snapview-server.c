@@ -1403,8 +1403,9 @@ out:
     return 0;
 }
 
-int
-svs_fill_readdir(xlator_t *this, gf_dirent_t *entries, size_t size, off_t off)
+static int
+svs_fill_readdir(xlator_t *this, gf_dirent_t *entries, int32_t *op_errno,
+                 size_t size, off_t off)
 {
     gf_dirent_t *entry = NULL;
     svs_private_t *priv = NULL;
@@ -1456,6 +1457,10 @@ svs_fill_readdir(xlator_t *this, gf_dirent_t *entries, size_t size, off_t off)
     }
 unlock:
     UNLOCK(&priv->snaplist_lock);
+
+    if (count == 0) {
+        *op_errno = ENOENT;
+    }
 
 out:
     return count;
@@ -1707,7 +1712,7 @@ svs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (parent_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
         LOCK(&fd->lock);
         {
-            count = svs_fill_readdir(this, &entries, size, off);
+            count = svs_fill_readdir(this, &entries, &op_errno, size, off);
         }
         UNLOCK(&fd->lock);
 
@@ -1799,7 +1804,7 @@ svs_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     if (inode_ctx->type == SNAP_VIEW_ENTRY_POINT_INODE) {
         LOCK(&fd->lock);
         {
-            count = svs_fill_readdir(this, &entries, size, off);
+            count = svs_fill_readdir(this, &entries, &op_errno, size, off);
         }
         UNLOCK(&fd->lock);
     } else {
