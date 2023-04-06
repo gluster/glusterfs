@@ -2201,6 +2201,8 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    if (rsp_dict)
+        dict_unref(rsp_dict);
     gd_syncargs_fini(&args);
     return ret;
 }

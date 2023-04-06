@@ -2859,6 +2859,9 @@ unwind:
     if (frame->local == (void *)0x1)
         frame->local = NULL;
     STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
+
+    if (xref)
+        dict_unref(dict);
     return 0;
 
 unref_dict:

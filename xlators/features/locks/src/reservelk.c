@@ -97,6 +97,28 @@ __reservelk_conflict(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
 }
 
 int
+_pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
+                     const int can_block)
+{
+    int ret = 0;
+
+    if (__reservelk_conflict(this, pl_inode, lock)) {
+        lock->blocked = can_block;
+        list_add_tail(&lock->list, &pl_inode->blocked_calls);
+        ret = -1;
+        gf_log(this->name, GF_LOG_TRACE,
+               "Found conflicting reservelk. Blocking until reservelk is "
+               "unlocked.");
+        goto out;
+    }
+    ret = 0;
+    gf_log(this->name, GF_LOG_TRACE,
+           "no conflicting reservelk found. Call continuing");
+out:
+    return ret;
+}
+
+int
 pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                     const int can_block)
 {
@@ -104,22 +126,10 @@ pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
-        if (__reservelk_conflict(this, pl_inode, lock)) {
-            lock->blocked = can_block;
-            list_add_tail(&lock->list, &pl_inode->blocked_calls);
-            pthread_mutex_unlock(&pl_inode->mutex);
-            gf_log(this->name, GF_LOG_TRACE,
-                   "Found conflicting reservelk. Blocking until reservelk is "
-                   "unlocked.");
-            ret = -1;
-            goto out;
-        }
+        ret = _pl_verify_reservelk(this, pl_inode, lock, can_block);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
-    gf_log(this->name, GF_LOG_TRACE,
-           "no conflicting reservelk found. Call continuing");
-    ret = 0;
-out:
+
     return ret;
 }
 
@@ -263,11 +273,10 @@ __grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode,
     {
         list_del_init(&bl->list);
 
-        bl_ret = pl_verify_reservelk(this, pl_inode, bl, bl->blocked);
+        bl_ret = _pl_verify_reservelk(this, pl_inode, bl, bl->blocked);
 
-        if (bl_ret == 0) {
+        if (bl_ret == 0)
             list_add_tail(&bl->list, granted);
-        }
     }
     return;
 }

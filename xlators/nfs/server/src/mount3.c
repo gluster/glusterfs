@@ -4414,6 +4414,9 @@ mnt1svc_init(xlator_t *nfsx)
         goto err;
     }
 
+    if (options)
+        dict_unref(options);
+
     return &mnt1prog;
 err:
     return NULL;

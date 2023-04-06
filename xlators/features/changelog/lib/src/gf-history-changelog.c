@@ -520,6 +520,8 @@ gf_changelog_consume_wrap(void *data)
         goto out;
     }
 
+    ccd->changelog[nread] = '\0';
+
     /* TODO: handle short reads and EOF. */
     if (gf_is_changelog_usable(ccd->changelog) == 1) {
         ret = gf_changelog_consume(ccd->this, ccd->jnl, ccd->changelog,
