@@ -1770,7 +1770,7 @@ if test "x$enable_ec_dynamic" != "xno"; then
         fi
       fi
       ;;
-    arm*)
+    arm*|aarch64*)
       if test "x$enable_ec_dynamic_arm" != "xno"; then
         if test "x$enable_ec_dynamic_neon" != "xno"; then
           EC_DYNAMIC_SUPPORT="$EC_DYNAMIC_SUPPORT neon"
