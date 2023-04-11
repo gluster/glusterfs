@@ -1790,8 +1790,14 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
         goto out;
     }
 
+    /* convert host byte order to network byte order */
+    ip_buf = (unsigned long)htonl(ip_buf);
+    net_ip_buf = (unsigned long)htonl(net_ip_buf);
+
+    /* currently glusterfs supports only ipv4 subnets in auth.allow/reject options
+       so, the subnet mask is calculated for ipv4 only */
     /* Converts /x into a mask */
-    subnet_mask = (1 << atoi(subnet)) - 1;
+    subnet_mask = (0xffffffff << (32-atoi(subnet))) & 0xffffffff ;
 
     result = ((ip_buf & subnet_mask) == (net_ip_buf & subnet_mask));
 out:
