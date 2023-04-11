@@ -1,12 +1,11 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <errno.h>
 #include <netdb.h>
-
 
 #ifndef strdupa
 #define strdupa(s)                                                             \
@@ -17,11 +16,10 @@
         (char *)memcpy(__new, __old, __len);                                   \
     }))
 #endif
- 
 
 int
 gf_is_ip_in_net(const char *network, const char *ip_str)
-{    
+{
     unsigned long ip_buf = 0;
     unsigned long net_ip_buf = 0;
     unsigned long subnet_mask = 0;
@@ -32,8 +30,7 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     char *net_str = NULL;
     int family = AF_INET;
     int result = 0;
-            
-                    
+
     if (strchr(network, ':'))
         family = AF_INET6;
     else if (strchr(network, '.'))
@@ -41,7 +38,7 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     else {
         goto out;
     }
-    
+
     net_str = strdupa(network);
     slash = strchr(net_str, '/');
     if (!slash)
@@ -54,13 +51,13 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     /* Convert IP address to a long */
     ret = inet_pton(family, ip_str, &ip_buf);
     if (ret < 0) {
-	fprintf(stderr, "inet_pton: %s\n", strerror(errno));
+        fprintf(stderr, "inet_pton: %s\n", strerror(errno));
         goto out;
     }
     /* Convert network IP address to a long */
     ret = inet_pton(family, net_ip, &net_ip_buf);
     if (ret < 0) {
-	fprintf(stderr, "inet_pton: %s\n", strerror(errno));
+        fprintf(stderr, "inet_pton: %s\n", strerror(errno));
         goto out;
     }
 
@@ -68,15 +65,15 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     ip_buf = (unsigned long)htonl(ip_buf);
     net_ip_buf = (unsigned long)htonl(net_ip_buf);
 
-     /* Converts /x into a mask */
-    subnet_mask = (0xffffffff << (32-atoi(subnet))) & 0xffffffff ;
+    /* Converts /x into a mask */
+    subnet_mask = (0xffffffff << (32 - atoi(subnet))) & 0xffffffff;
 
     result = ((ip_buf & subnet_mask) == (net_ip_buf & subnet_mask));
 out:
     return result;
 }
 
-int 
+int
 main(int argc, char *argv[])
 {
     if (argc < 2) {
@@ -88,11 +85,10 @@ main(int argc, char *argv[])
     int result = 0;
 
     result = gf_is_ip_in_net(subnet_str, ip_addr);
-    if (result) { 
+    if (result) {
         fprintf(stdout, "YES\n");
     } else {
         fprintf(stdout, "NO\n");
     }
     return 0;
 }
-
