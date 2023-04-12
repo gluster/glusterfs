@@ -284,7 +284,6 @@ cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 {
     int ret = 0;
     int op_errno = ENOMEM;
-    gf_boolean_t xref = _gf_false;
 
     if (!xdata) {
         xdata = dict_new();
@@ -294,7 +293,8 @@ cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                    "dict");
             goto err;
         }
-        xref = _gf_true;
+    } else {
+        dict_ref(xdata);
     }
 
     ret = dict_set_uint32(xdata, GF_CS_OBJECT_STATUS, 1);
@@ -308,13 +308,13 @@ cs_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
 
     STACK_WIND(frame, default_readdirp_cbk, FIRST_CHILD(this),
                FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
-    if (xref)
-        dict_unref(xdata);
+    dict_unref(xdata);
     return 0;
 err:
     STACK_UNWIND_STRICT(readdirp, frame, -1, op_errno, NULL, NULL);
-    if (xref)
+    if (xdata) {
         dict_unref(xdata);
+    }
     return 0;
 }
 
