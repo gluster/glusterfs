@@ -15,13 +15,6 @@ Linux)
         ;;
 esac
 
-grep -q copy_file_range /proc/kallsyms
-if [ $? -ne 0 ]; then
-    echo "Skip test: copy_file_range(2) is not supported by current kernel" >&2
-    SKIP_TESTS
-    exit 0
-fi
-
 TEST glusterd
 
 TEST mkdir $B0/bricks
@@ -55,7 +48,15 @@ tester=${0%.t}
 
 TEST build_tester ${tester}.c
 
-TEST $tester $M0/file $M0/new
+$tester $M0/file $M0/new
+res="${?}"
+if [[ ${res} -eq 2 ]]; then
+    echo "Skip test: copy_file_range(2) is not supported by current kernel" >&2
+    SKIP_TESTS
+    exit 0
+fi
+
+TEST [[ ${res} -eq 0 ]]
 
 # check whether the destination file is created or not
 TEST stat $M0/new
