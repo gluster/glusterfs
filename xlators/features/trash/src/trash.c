@@ -629,6 +629,7 @@ trash_internalop_dir_lookup_cbk(call_frame_t *frame, void *cookie,
         loc_copy(&local->loc, &loc);
         STACK_WIND(frame, trash_internal_op_mkdir_cbk, FIRST_CHILD(this),
                    FIRST_CHILD(this)->fops->mkdir, &loc, 0755, 0022, dict);
+        dict_unref(dict);
         return 0;
     }
 

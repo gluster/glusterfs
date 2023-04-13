@@ -97,6 +97,23 @@ __reservelk_conflict(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock)
 }
 
 int
+_pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
+                     const int can_block)
+{
+    int ret = 0;
+
+    if (__reservelk_conflict(this, pl_inode, lock)) {
+        lock->blocked = can_block;
+        list_add_tail(&lock->list, &pl_inode->blocked_calls);
+        ret = -1;
+        goto out;
+    }
+    ret = 0;
+out:
+    return ret;
+}
+
+int
 pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
                     const int can_block)
 {
@@ -104,22 +121,19 @@ pl_verify_reservelk(xlator_t *this, pl_inode_t *pl_inode, posix_lock_t *lock,
 
     pthread_mutex_lock(&pl_inode->mutex);
     {
-        if (__reservelk_conflict(this, pl_inode, lock)) {
-            lock->blocked = can_block;
-            list_add_tail(&lock->list, &pl_inode->blocked_calls);
-            pthread_mutex_unlock(&pl_inode->mutex);
-            gf_log(this->name, GF_LOG_TRACE,
-                   "Found conflicting reservelk. Blocking until reservelk is "
-                   "unlocked.");
-            ret = -1;
-            goto out;
-        }
+        ret = _pl_verify_reservelk(this, pl_inode, lock, can_block);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
-    gf_log(this->name, GF_LOG_TRACE,
-           "no conflicting reservelk found. Call continuing");
-    ret = 0;
-out:
+
+    if (ret) {
+        gf_log(this->name, GF_LOG_TRACE,
+               "Found conflicting reservelk. Blocking until reservelk is "
+               "unlocked.");
+    } else {
+        gf_log(this->name, GF_LOG_TRACE,
+               "no conflicting reservelk found. Call continuing");
+    }
+
     return ret;
 }
 
@@ -246,7 +260,7 @@ grant_blocked_reserve_locks(xlator_t *this, pl_inode_t *pl_inode)
     }
 }
 
-static void
+static int
 __grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode,
                            struct list_head *granted)
 {
@@ -263,13 +277,13 @@ __grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode,
     {
         list_del_init(&bl->list);
 
-        bl_ret = pl_verify_reservelk(this, pl_inode, bl, bl->blocked);
-
-        if (bl_ret == 0) {
+        if (!_pl_verify_reservelk(this, pl_inode, bl, bl->blocked)) {
             list_add_tail(&bl->list, granted);
+        } else {
+            bl_ret = 1;
         }
     }
-    return;
+    return bl_ret;
 }
 
 void
@@ -293,9 +307,18 @@ grant_blocked_lock_calls(xlator_t *this, pl_inode_t *pl_inode)
     INIT_LIST_HEAD(&granted);
     pthread_mutex_lock(&pl_inode->mutex);
     {
-        __grant_blocked_lock_calls(this, pl_inode, &granted);
+        ret = __grant_blocked_lock_calls(this, pl_inode, &granted);
     }
     pthread_mutex_unlock(&pl_inode->mutex);
+
+    if (ret) {
+        gf_log(this->name, GF_LOG_TRACE,
+               "Found conflicting reservelk. Blocking until reservelk is "
+               "unlocked.");
+    } else {
+        gf_log(this->name, GF_LOG_TRACE,
+               "no conflicting reservelk found. Call continuing");
+    }
 
     list_for_each_entry_safe(lock, tmp, &granted, list)
     {

@@ -2129,6 +2129,7 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
     ret = gd_mgmt_v3_post_validate_fn(op, op_ret, req_dict, op_errstr,
                                       rsp_dict);
 
+    dict_unref(rsp_dict);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_POST_VALIDATION_FAIL,
                "Post Validation failed for "
@@ -2147,9 +2148,6 @@ glusterd_mgmt_v3_post_validate(glusterd_op_t op, int32_t op_ret, dict_t *dict,
         }
         goto out;
     }
-
-    dict_unref(rsp_dict);
-    rsp_dict = NULL;
 
     /* Sending Post Validation req to other nodes in the cluster */
     ret = gd_syncargs_init(&args, req_dict);

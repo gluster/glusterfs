@@ -4409,13 +4409,16 @@ mnt1svc_init(xlator_t *nfsx)
     if (ret == -1) {
         gf_msg(GF_NFS, GF_LOG_ERROR, errno, NFS_MSG_LISTENERS_CREATE_FAIL,
                "Unable to create listeners");
-        if (options)
-            dict_unref(options);
         goto err;
     }
 
+    dict_unref(options);
+
     return &mnt1prog;
 err:
+    if (options)
+        dict_unref(options);
+
     return NULL;
 }
 

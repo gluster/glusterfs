@@ -2304,6 +2304,9 @@ out:
     if (xdata)
         dict_unref(xdata);
 
+    if (meta_dict)
+        dict_unref(meta_dict);
+
     loc_wipe(&tmp_loc);
     loc_wipe(&parent_loc);
 
