@@ -1198,7 +1198,7 @@ out:
     if (op_errno == ENOSPC && priv->disk_space_full && !check_space_error) {
         ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
+            gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                    "pfd is NULL from fd=%p", fd);
             goto out;
         }
@@ -2193,7 +2193,7 @@ out:
     if (op_errno == ENOSPC && !check_space_error) {
         ret = posix_fd_ctx_get(fd, this, &pfd, &op_errno);
         if (ret < 0) {
-            gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
+            gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                    "pfd is NULL from fd=%p", fd);
             goto unwind;
         }
@@ -2279,7 +2279,7 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
 
     ret = posix_fd_ctx_get(fd_in, this, &pfd_in, &op_errno);
     if (ret < 0) {
-        gf_msg(this->name, GF_LOG_WARNING, ret, P_MSG_PFD_NULL,
+        gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_PFD_NULL,
                "pfd is NULL from fd=%p", fd_in);
         goto out;
     }
