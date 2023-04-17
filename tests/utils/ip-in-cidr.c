@@ -7,29 +7,16 @@
 #include <errno.h>
 #include <netdb.h>
 
-#ifndef strdupa
-#define strdupa(s)                                                             \
-    (__extension__({                                                           \
-        __const char *__old = (s);                                             \
-        size_t __len = strlen(__old) + 1;                                      \
-        char *__new = (char *)__builtin_alloca(__len);                         \
-        (char *)memcpy(__new, __old, __len);                                   \
-    }))
-#endif
-
 int
 gf_is_ip_in_net(const char *network, const char *ip_str)
 {
-    unsigned long ip_buf = 0;
-    unsigned long net_ip_buf = 0;
-    unsigned long subnet_mask = 0;
-    int ret = -1;
-    char *slash = NULL;
-    char *net_ip = NULL;
-    char *subnet = NULL;
-    char *net_str = NULL;
+    /* A buffer big enough for any socket address. */
+    uint8_t net_buff[sizeof(struct sockaddr_storage) + 1];
+    uint8_t ip_buff[sizeof(struct sockaddr_storage) + 1];
+    int32_t size;
+    uint8_t mask;
+    int ret = 0;
     int family = AF_INET;
-    int result = 0;
 
     if (strchr(network, ':'))
         family = AF_INET6;
@@ -39,38 +26,27 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
         goto out;
     }
 
-    net_str = strdupa(network);
-    slash = strchr(net_str, '/');
-    if (!slash)
-        goto out;
-    *slash = '\0';
-
-    subnet = slash + 1;
-    net_ip = net_str;
-
-    /* Convert IP address to a long */
-    ret = inet_pton(family, ip_str, &ip_buf);
-    if (ret < 0) {
-        fprintf(stderr, "inet_pton: %s\n", strerror(errno));
-        goto out;
-    }
-    /* Convert network IP address to a long */
-    ret = inet_pton(family, net_ip, &net_ip_buf);
-    if (ret < 0) {
+    size = inet_net_pton(family, network, net_buff, sizeof(net_buff));
+    if (size < 0) {
         fprintf(stderr, "inet_pton: %s\n", strerror(errno));
         goto out;
     }
 
-    /* convert host byte order to network byte order */
-    ip_buf = (unsigned long)htonl(ip_buf);
-    net_ip_buf = (unsigned long)htonl(net_ip_buf);
+    ret = inet_net_pton(family, ip_str, ip_buff, sizeof(ip_buff));
+    if (ret < 0) {
+        fprintf(stderr, "inet_net_pton: %s\n", strerror(errno));
+        goto out;
+    }
 
-    /* Converts /x into a mask */
-    subnet_mask = (0xffffffff << (32 - atoi(subnet))) & 0xffffffff;
+    mask = (0xff00 >> (size & 7)) & 0xff;
+    size /= 8;
+    net_buff[size] &= mask;
+    ip_buff[size] &= mask;
 
-    result = ((ip_buf & subnet_mask) == (net_ip_buf & subnet_mask));
+    return memcmp(net_buff, ip_buff, size + 1) == 0;
 out:
-    return result;
+    return ret;
+
 }
 
 int

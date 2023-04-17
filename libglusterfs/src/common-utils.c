@@ -1740,21 +1740,18 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b)
  * @network: The network to check the IP against.
  *
  * @return: success: _gf_true
- *          failure: -EINVAL for bad args, retval of inet_pton otherwise
+ *          failure: -EINVAL for bad args, retval of inet_net_pton otherwise
  */
 gf_boolean_t
 gf_is_ip_in_net(const char *network, const char *ip_str)
 {
-    unsigned long ip_buf = 0;
-    unsigned long net_ip_buf = 0;
-    unsigned long subnet_mask = 0;
+    /* A buffer big enough for any socket address. */
+    uint8_t net_buff[sizeof(struct sockaddr_storage) + 1];
+    uint8_t ip_buff[sizeof(struct sockaddr_storage) + 1];
+    int32_t size;
+    uint8_t mask;
     int ret = -EINVAL;
-    char *slash = NULL;
-    char *net_ip = NULL;
-    char *subnet = NULL;
-    char *net_str = NULL;
     int family = AF_INET;
-    gf_boolean_t result = _gf_false;
 
     GF_ASSERT(network);
     GF_ASSERT(ip_str);
@@ -1767,41 +1764,27 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
         goto out;
     }
 
-    net_str = strdupa(network);
-    slash = strchr(net_str, '/');
-    if (!slash)
-        goto out;
-    *slash = '\0';
-
-    subnet = slash + 1;
-    net_ip = net_str;
-
-    /* Convert IP address to a long */
-    ret = inet_pton(family, ip_str, &ip_buf);
-    if (ret < 0)
-        gf_smsg("common-utils", GF_LOG_ERROR, errno, LG_MSG_INET_PTON_FAILED,
+    size = inet_net_pton(family, network, net_buff, sizeof(net_buff));
+    if (size < 0) {
+        gf_smsg("common-utils", GF_LOG_ERROR, errno, LG_MSG_INET_NET_PTON_FAILED,
                 NULL);
-
-    /* Convert network IP address to a long */
-    ret = inet_pton(family, net_ip, &net_ip_buf);
+        goto out;
+    }
+    ret = inet_net_pton(family, ip_str, ip_buff, sizeof(ip_buff));
     if (ret < 0) {
-        gf_smsg("common-utils", GF_LOG_ERROR, errno, LG_MSG_INET_PTON_FAILED,
+        gf_smsg("common-utils", GF_LOG_ERROR, errno, LG_MSG_INET_NET_PTON_FAILED,
                 NULL);
         goto out;
     }
 
-    /* convert host byte order to network byte order */
-    ip_buf = (unsigned long)htonl(ip_buf);
-    net_ip_buf = (unsigned long)htonl(net_ip_buf);
+    mask = (0xff00 >> (size & 7)) & 0xff;
+    size /= 8;
+    net_buff[size] &= mask;
+    ip_buff[size] &= mask;
 
-    /* currently glusterfs supports only ipv4 subnets in auth.allow/reject
-       options. so, the subnet mask is calculated for ipv4 only */
-    /* Converts /x into a mask */
-    subnet_mask = (0xffffffff << (32 - atoi(subnet))) & 0xffffffff;
-
-    result = ((ip_buf & subnet_mask) == (net_ip_buf & subnet_mask));
+    return memcmp(net_buff, ip_buff, size + 1) == 0;
 out:
-    return result;
+    return _gf_false;
 }
 
 char *
