@@ -268,28 +268,17 @@ GLFS_MIG(LIBGLUSTERFS, LG_MSG_OPEN_LOGFILE_FAILED, "", 0)
 GLFS_MIG(LIBGLUSTERFS, LG_MSG_INET_NET_PTON_FAILED, "", 0)
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_CALL_FAILED, "Function call failed", 2,
-    GLFS_FUNC(function),
-    GLFS_RES(error)
-)
+         GLFS_FUNC(function), GLFS_RES(error))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_THREAD_BAD_PRIORITY,
-         "Specified priority is out of bounds", 1,
-    GLFS_I32(priority)
-)
+         "Specified priority is out of bounds", 1, GLFS_I32(priority))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_CBK_SLOW,
-         "Execution of callback took too much time", 5,
-    GLFS_FUNC(name),
-    GLFS_PTR(address),
-    GLFS_STR(file),
-    GLFS_U32(line),
-    GLFS_U64(us)
-)
+         "Execution of callback took too much time", 5, GLFS_FUNC(name),
+         GLFS_PTR(address), GLFS_STR(file), GLFS_U32(line), GLFS_U64(us))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_THREAD_NO_CPU,
-         "Cannot find a suitable CPU for a thread", 1,
-    GLFS_U32(index)
-)
+         "Cannot find a suitable CPU for a thread", 1, GLFS_U32(index))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_THREAD_NAME_INVALID,
          "Tried to construct and invalid name for a thread", 0)
@@ -307,48 +296,35 @@ GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_URING_MISSING_FEAT,
          0)
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_URING_TOO_SMALL,
-         "Maximum allowed SQ size is too small", 1,
-    GLFS_U32(max)
-)
+         "Maximum allowed SQ size is too small", 1, GLFS_U32(max))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_URING_ENTER_FAILED,
          "io_uring_enter() failed with an unrecoverable error. This could "
          "mean a critical bug or a memory corruption. The process cannot "
-         "continue in this state", 1,
-    GLFS_RES(error)
-)
+         "continue in this state",
+         1, GLFS_RES(error))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_SYNC_TIMEOUT,
-         "Time out while waiting for synchronization", 1,
-    GLFS_U32(retries)
-)
+         "Time out while waiting for synchronization", 1, GLFS_U32(retries))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_SYNC_ABORTED,
-         "Synchronization took too much time", 1,
-    GLFS_U32(retries)
-)
+         "Synchronization took too much time", 1, GLFS_U32(retries))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_SYNC_COMPLETED, "Synchronization completed", 1,
-    GLFS_U32(retries)
-)
+         GLFS_U32(retries))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_BAD_ERRNO, "Unexpected errno value", 1,
-    GLFS_I32(err)
-)
+         GLFS_I32(err))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_BAD_RETURN, "Unexpected return value", 1,
-    GLFS_I32(ret)
-)
+         GLFS_I32(ret))
 
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_NOFILE_FAILED,
-    "Failed to set maximum number of open file descriptors", 2,
-    GLFS_I64(low), GLFS_I64(high)
-)
+         "Failed to set maximum number of open file descriptors", 2,
+         GLFS_I64(low), GLFS_I64(high))
 
-GLFS_NEW(LIBGLUSTERFS, LG_MSG_UNLINK_FAILED,
-    "Failed to remove file", 1,
-    GLFS_STR(path)
-)
+GLFS_NEW(LIBGLUSTERFS, LG_MSG_UNLINK_FAILED, "Failed to remove file", 1,
+         GLFS_STR(path))
 
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"

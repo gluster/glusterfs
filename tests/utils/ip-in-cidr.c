@@ -46,7 +46,6 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
     return memcmp(net_buff, ip_buff, size + 1) == 0;
 out:
     return ret;
-
 }
 
 int
