@@ -1769,7 +1769,6 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
         gf_smsg("common-utils", GF_LOG_ERROR, errno,
                 LG_MSG_INET_NET_PTON_FAILED, NULL);
         goto out;
-
     }
     ret = inet_net_pton(family, ip_str, ip_buff, sizeof(ip_buff));
     if (ret < 0) {
