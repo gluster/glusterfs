@@ -1740,7 +1740,7 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b)
  * @network: The network to check the IP against.
  *
  * @return: success: _gf_true
- *          failure: -EINVAL for bad args, retval of inet_net_pton otherwise
+ *          failure: _gf_false
  */
 gf_boolean_t
 gf_is_ip_in_net(const char *network, const char *ip_str)
@@ -1766,14 +1766,12 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
 
     size = inet_net_pton(family, network, net_buff, sizeof(net_buff));
     if (size < 0) {
-        gf_smsg("common-utils", GF_LOG_ERROR, errno,
-                LG_MSG_INET_NET_PTON_FAILED, NULL);
+        GF_LOG_E("common-utils", LG_MSG_INET_NET_PTON_FAILED(errno));
         goto out;
     }
     ret = inet_net_pton(family, ip_str, ip_buff, sizeof(ip_buff));
     if (ret < 0) {
-        gf_smsg("common-utils", GF_LOG_ERROR, errno,
-                LG_MSG_INET_NET_PTON_FAILED, NULL);
+        GF_LOG_E("common-utils", LG_MSG_INET_NET_PTON_FAILED(errno));
         goto out;
     }
 
