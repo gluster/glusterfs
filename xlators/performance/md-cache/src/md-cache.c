@@ -1616,6 +1616,10 @@ mdc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     }
 
     if (local->loc.parent) {
+        if (postparent && postparent->ia_nlink == 0) {
+            //return from afr consistent-metadata, do not cache
+            goto out;
+        }
         mdc_inode_iatt_set(this, local->loc.parent, postparent,
                            local->incident_time);
     }
