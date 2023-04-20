@@ -6,11 +6,11 @@
 static inline int
 get_vol_type(int type, int dist_count, int brick_count)
 {
-    if ((type != GF_CLUSTER_TYPE_TIER) && (type > 0) &&
-        (dist_count < brick_count))
-        type = type + GF_CLUSTER_TYPE_MAX - 1;
+    if ((type == GF_CLUSTER_TYPE_TIER) || (type <= 0) || (dist_count <= 1) ||
+        (dist_count >= brick_count))
+        return type;
 
-    return type;
+    return (type + GF_CLUSTER_TYPE_MAX - 1);
 }
 
 static inline char *
