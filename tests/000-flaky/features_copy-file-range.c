@@ -27,7 +27,7 @@
 */
 
 /*
- * Baed on sample code from copy_file_range(2).
+ * Based on sample code from copy_file_range(2).
  */
 
 #define _GNU_SOURCE
@@ -38,6 +38,7 @@
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <errno.h>
 
 #if (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ < 27))
 /* On versions of glibc before 2.27, we must invoke copy_file_range()
@@ -86,6 +87,9 @@ main(int argc, char **argv)
     do {
         ret = copy_file_range(fd_in, NULL, fd_out, NULL, len, 0);
         if (ret == -1) {
+            if (errno == ENOSYS) {
+                exit(2);
+            }
             perror("copy_file_range");
             exit(EXIT_FAILURE);
         }
