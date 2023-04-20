@@ -1741,6 +1741,9 @@ gf_strn2boolean(const char *str, const int len, gf_boolean_t *b)
  *
  * @return: success: _gf_true
  *          failure: _gf_false
+ *
+ * Whenever this function is modified, please modify
+ * tests/utils/ip-in-cidr.c as well.
  */
 gf_boolean_t
 gf_is_ip_in_net(const char *network, const char *ip_str)
