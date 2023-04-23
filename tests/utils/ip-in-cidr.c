@@ -32,7 +32,7 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
         goto out;
     }
 
-    ret = inet_pton(family, ip_str, ip_buff, sizeof(ip_buff));
+    ret = inet_pton(family, ip_str, &ip_buff);
     if (ret < 0) {
         fprintf(stderr, "inet_pton: %s\n", strerror(errno));
         goto out;
