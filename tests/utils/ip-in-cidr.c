@@ -28,13 +28,13 @@ gf_is_ip_in_net(const char *network, const char *ip_str)
 
     size = inet_net_pton(family, network, net_buff, sizeof(net_buff));
     if (size < 0) {
-        fprintf(stderr, "inet_pton: %s\n", strerror(errno));
+        fprintf(stderr, "inet_net_pton: %s\n", strerror(errno));
         goto out;
     }
 
-    ret = inet_net_pton(family, ip_str, ip_buff, sizeof(ip_buff));
+    ret = inet_pton(family, ip_str, ip_buff, sizeof(ip_buff));
     if (ret < 0) {
-        fprintf(stderr, "inet_net_pton: %s\n", strerror(errno));
+        fprintf(stderr, "inet_pton: %s\n", strerror(errno));
         goto out;
     }
 
