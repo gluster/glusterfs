@@ -6,7 +6,7 @@
 cleanup
 
 IN_RANGE=$(dirname $0)/ip_in_cidr
-build_tester $(dirname $0)/../utils/ip-in-cidr.c -o ${IN_RANGE}
+build_tester $(dirname $0)/../utils/ip-in-cidr.c -o ${IN_RANGE} -lresolv
 
 EXPECT "YES" ${IN_RANGE} "10.57.49.248/28" "10.57.49.240"
 EXPECT "YES" ${IN_RANGE} "10.57.49.248/27" "10.57.49.224"
