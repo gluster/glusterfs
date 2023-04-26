@@ -77,6 +77,8 @@ TEST sleep 10 #Needed for client to re-open fd? Otherwise client_pre_lk_v2() fai
 
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" get_active_lock_count $B0/${V0}2 $inode1 $inode2
 
+TEST kill_brick $V0 $H0 $B0/${V0}0
+
 #------------------------------------------------------------------------------
 # Kill same brick before heal completes the first time and check it completes the second time.
 TEST $CLI volume set $V0 delay-gen locks
@@ -84,7 +86,6 @@ TEST $CLI volume set $V0 delay-gen.delay-duration 5000000
 TEST $CLI volume set $V0 delay-gen.delay-percentage 100
 TEST $CLI volume set $V0 delay-gen.enable finodelk
 
-TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST $CLI volume start $V0 force
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 TEST kill_brick $V0 $H0 $B0/${V0}0
