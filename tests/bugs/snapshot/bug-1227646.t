@@ -25,6 +25,10 @@ TEST pkill gluster
 TEST glusterd
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 'Started' volinfo_field $V0 'Status'
 
+# This is a workaround for issue https://github.com/gluster/glusterfs/issues/4123
+# Let enough time for bricks to start before stopping them to avoid a crash
+sleep 5
+
 TEST $CLI volume stop $V0
 
 cleanup  ;
