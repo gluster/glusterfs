@@ -1719,6 +1719,9 @@ esac
 AC_SUBST(UNITTEST_CFLAGS)
 AC_SUBST(UNITTEST_LDFLAGS)
 
+AC_SUBST(CFLAGS)
+# end enable debug section
+
 dnl do not add -lresolv for freebsd
 case $host_os in
   freebsd*)
@@ -1730,8 +1733,6 @@ case $host_os in
 esac
 
 AC_SUBST(LRESOLV_FLAG)
-AC_SUBST(CFLAGS)
-# end enable debug section
 
 # EC dynamic code generation section
 
