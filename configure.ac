@@ -1703,6 +1703,17 @@ AM_CONDITIONAL([UNITTEST], [test x$BUILD_UNITTEST = xyes])
 dnl Define UNIT_TESTING only for building cmocka binaries.
 UNITTEST_CFLAGS="${UNITTEST_CFLAGS} -DUNIT_TESTING=1"
 
+dnl do not add -lresolv for freebsd
+case $host_os in
+  freebsd*)
+    LRESOLV_FLAG=""
+    ;;
+  *)
+    LRESOLV_FLAG="-lresolv"
+    ;;
+esac
+
+
 dnl Add cmocka for unit tests
 case $host_os in
   freebsd*)
