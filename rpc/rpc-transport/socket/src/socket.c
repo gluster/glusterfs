@@ -56,7 +56,8 @@
 #if !defined(DEFAULT_VERIFY_DEPTH)
 #define DEFAULT_VERIFY_DEPTH 1
 #endif
-#define DEFAULT_CIPHER_LIST "AES128:EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
+#define DEFAULT_CIPHER_LIST
+    "AES128:EECDH:EDH:HIGH:!3DES:!RC4:!DES:!MD5:!aNULL:!eNULL"
 #define DEFAULT_DH_PARAM SSL_CERT_PATH "/dhparam.pem"
 #define DEFAULT_EC_CURVE "prime256v1"
 
@@ -3281,15 +3282,18 @@ socket_connect(rpc_transport_t *this, int port)
          * net.ipv6.bindv6only to 1 so that gluster services are
          * available over IPv4 & IPv6.
          */
-#ifdef IPV6_DEFAULT
         int disable_v6only = 0;
-        if (setsockopt(priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
+        int fdsock_family = 0;
+        socklen_t fdsock_size = sizeof(fdsock_family);
+        if (getsockopt(priv->sock, SOL_SOCKET, SO_DOMAIN, &fdsock_family,
+                       &fdsock_size) == 0 &&
+            fdsock_family == AF_INET6 &&
+            setsockopt(priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
                        (void *)&disable_v6only, sizeof(disable_v6only)) < 0) {
             gf_log(this->name, GF_LOG_WARNING,
                    "Error disabling sockopt IPV6_V6ONLY: \"%s\"",
                    strerror(errno));
         }
-#endif
 
         if (sa_family != AF_UNIX) {
             if (priv->nodelay) {
