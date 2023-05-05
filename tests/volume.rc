@@ -320,6 +320,15 @@ function kill_brick {
         local deadline="$(($(date +%s%N) + ${PROCESS_UP_TIMEOUT}000000000))"
         while [[ "$(date +%s%N)" < "$deadline" ]]; do
                 if [[ "$(brick_up_status $vol $host $brick)" == "0" ]]; then
+                        # The brick termination code is run from an
+                        # asynchronous thread, so even after glusterd
+                        # considers it stopped, the brick may still be
+                        # alive. We need to make sure it's stopped before
+                        # returning, otherwise an immediate restart could
+                        # fail. Unfortunately there's no easy way to know
+                        # when the brick has really been stopped. For now
+                        # just add some delay.
+                        sleep 1
                         break
                 fi
         done
