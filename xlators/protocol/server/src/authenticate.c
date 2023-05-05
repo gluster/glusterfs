@@ -42,6 +42,11 @@ init(dict_t *this, char *key, data_t *value, void *data)
         key = "addr";
     }
 
+    /* Check if the authentication module has already been initialzied. */
+    if ((dict_get_ptr(this, key, &handle) == 0) && (handle != NULL)) {
+        return 0;
+    }
+
     ret = gf_asprintf(&auth_file, "%s/%s.so", LIBDIR, key);
     if (-1 == ret) {
         dict_set(this, key, data_from_dynptr(NULL, 0));
@@ -78,17 +83,9 @@ init(dict_t *this, char *key, data_t *value, void *data)
         dlclose(handle);
         return -1;
     }
-    auth_handle->vol_opt = GF_CALLOC(1, sizeof(volume_opt_list_t),
-                                     gf_common_mt_volume_opt_list_t);
-    if (!auth_handle->vol_opt) {
-        dict_set(this, key, data_from_dynptr(NULL, 0));
-        *error = -1;
-        GF_FREE(auth_handle);
-        dlclose(handle);
-        return -1;
-    }
-    auth_handle->vol_opt->given_opt = dlsym(handle, "options");
-    if (auth_handle->vol_opt->given_opt == NULL) {
+
+    auth_handle->given_opt = dlsym(handle, "options");
+    if (auth_handle->given_opt == NULL) {
         gf_msg_debug("authenticate", 0,
                      "volume option validation "
                      "not specified");
@@ -108,11 +105,6 @@ fini(dict_t *this, char *key, data_t *value, void *data)
 
     if (handle) {
         dlclose(handle->handle);
-
-        if (handle->vol_opt) {
-            list_del_init(&handle->vol_opt->list);
-            GF_FREE(handle->vol_opt);
-        }
     }
     return 0;
 }
@@ -122,6 +114,7 @@ _gf_auth_option_validate(dict_t *d, char *k, data_t *v, void *tmp)
 {
     auth_handle_t *handle = NULL;
     xlator_t *xl = NULL;
+    volume_opt_list_t *vol_opt;
     int ret = 0;
 
     xl = tmp;
@@ -130,9 +123,25 @@ _gf_auth_option_validate(dict_t *d, char *k, data_t *v, void *tmp)
     if (!handle)
         return 0;
 
-    list_add_tail(&(handle->vol_opt->list), &(xl->volume_options));
+    /* TODO: This is very ineficient, but we must be sure that we aren't adding
+     *       the same set of options more than once. */
+    list_for_each_entry(vol_opt, &xl->volume_options, list) {
+        if (vol_opt->given_opt == handle->given_opt) {
+            goto validate;
+        }
+    }
 
-    ret = xlator_options_validate_list(xl, xl->options, handle->vol_opt, NULL);
+    vol_opt = GF_CALLOC(1, sizeof(volume_opt_list_t),
+                        gf_common_mt_volume_opt_list_t);
+    if (!vol_opt) {
+        return -1;
+    }
+
+    vol_opt->given_opt = handle->given_opt;
+    list_add_tail(&vol_opt->list, &xl->volume_options);
+
+validate:
+    ret = xlator_options_validate_list(xl, xl->options, vol_opt, NULL);
     if (ret) {
         gf_msg("authenticate", GF_LOG_ERROR, 0, PS_MSG_VOL_VALIDATE_FAILED,
                "volume option validation "
