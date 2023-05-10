@@ -1782,6 +1782,8 @@ glusterd_volume_start_glusterfs(glusterd_volinfo_t *volinfo,
 
     GLUSTERD_GET_BRICK_PIDFILE(pidfile, volinfo, brickinfo, priv);
     if (gf_is_service_running(pidfile, &pid)) {
+        wait = true;
+        ret = 0;
         goto connect;
     }
 
@@ -2059,12 +2061,14 @@ retry:
     brick_proc->brick_count++;
 
 connect:
-    ret = glusterd_brick_connect(volinfo, brickinfo, socketpath);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DISCONNECTED,
-               "Failed to connect to brick %s:%s on %s", brickinfo->hostname,
-               brickinfo->path, socketpath);
-        goto out;
+    if (wait) {
+        ret = glusterd_brick_connect(volinfo, brickinfo, socketpath);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_BRICK_DISCONNECTED,
+                   "Failed to connect to brick %s:%s on %s",
+                   brickinfo->hostname, brickinfo->path, socketpath);
+            goto out;
+        }
     }
 
 out:
