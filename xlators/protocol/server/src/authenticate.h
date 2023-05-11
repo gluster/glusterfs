@@ -29,7 +29,7 @@ typedef auth_result_t (*auth_fn_t)(dict_t *input_params, dict_t *config_params);
 typedef struct {
     void *handle;
     auth_fn_t authenticate;
-    volume_opt_list_t *vol_opt;
+    volume_option_t *given_opt;
 } auth_handle_t;
 
 int32_t

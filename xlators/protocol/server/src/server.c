@@ -301,11 +301,14 @@ get_auth_types(dict_t *this, char *key, data_t *value, void *data)
             tmp = "addr";
             gf_smsg("server", GF_LOG_WARNING, 0, PS_MSG_AUTH_IP_ERROR, NULL);
         }
-        ret = dict_set_dynptr(auth_dict, tmp, NULL, 0);
-        if (ret < 0) {
-            gf_msg_debug("server", 0,
-                         "failed to "
-                         "dict_set_dynptr");
+        /* Only add the auth type if not already present. */
+        if (dict_get(auth_dict, tmp) == NULL) {
+            ret = dict_set_dynptr(auth_dict, tmp, NULL, 0);
+            if (ret < 0) {
+                gf_msg_debug("server", 0,
+                            "failed to "
+                            "dict_set_dynptr");
+            }
         }
     }
 
@@ -875,11 +878,6 @@ server_reconfigure(xlator_t *this, dict_t *options)
         }
     }
 do_auth:
-    if (conf->auth_modules)
-        gf_auth_fini(conf->auth_modules);
-    else
-        conf->auth_modules = dict_new();
-
     dict_foreach(options, get_auth_types, conf->auth_modules);
     ret = validate_auth_options(kid, options);
     if (ret == -1) {
@@ -1104,6 +1102,7 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
     if (conf->auth_modules) {
         gf_auth_fini(conf->auth_modules);
         dict_unref(conf->auth_modules);
+        conf->auth_modules = NULL;
     }
 
     if (conf->rpc) {

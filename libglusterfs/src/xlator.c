@@ -1002,6 +1002,21 @@ xlator_mem_cleanup(xlator_t *this)
         prev = this;
         graph = ctx->active;
         pthread_mutex_lock(&graph->mutex);
+        /* TODO: is this the best way to do this ?
+         *       On a brick-mux process, it's possible that the brick we are
+         *       removing is actually the first loaded brick. In this case,
+         *       top->next will point to one of the xlators being removed. To
+         *       avoid issues when top->next is used in other places, we need
+         *       to change that pointer, but what's the best value ?
+         *       If there are other bricks, which one "deserves" being the
+         *       "next" ?
+         *       Is there any real benefit for having a "next" pointer ? if
+         *       not, probably it would be better to set it to NULL during
+         *       initialization (at list when brick-mux is enabled), or even
+         *       completely get rid of it. */
+        if (top->next == this) {
+            top->next = NULL;
+        }
         while (prev) {
             trav = prev->next;
             GF_FREE(prev);
