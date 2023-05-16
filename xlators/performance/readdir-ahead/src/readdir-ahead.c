@@ -30,7 +30,7 @@
 #include "readdir-ahead-mem-types.h"
 #include "readdir-ahead-messages.h"
 static int
-rda_fill_fd(call_frame_t *, xlator_t *, fd_t *);
+rda_fill_fd(call_frame_t *, xlator_t *, fd_t *, int op);
 
 static void
 rda_local_wipe(struct rda_local *local)
@@ -293,7 +293,7 @@ rda_inode_ctx_get_iatt(inode_t *inode, xlator_t *this, struct iatt *attr)
  */
 static int32_t
 __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
-                    struct rda_fd_ctx *ctx)
+                    struct rda_fd_ctx *ctx, int op)
 {
     gf_dirent_t *dirent, *tmp;
     size_t dirent_size, size = 0;
@@ -308,7 +308,9 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
         if (size + dirent_size > request_size)
             break;
 
-        if (dirent->inode && !inode_dir_or_parentdir(dirent)) {
+        /* In case of readdir op value will be 0 otherwise it will be 1
+         */
+        if (dirent->inode && !inode_dir_or_parentdir(dirent) && op) {
             rda_inode_ctx_get_iatt(dirent->inode, this, &dirent->d_stat);
         }
 
@@ -331,11 +333,11 @@ __rda_fill_readdirp(xlator_t *this, gf_dirent_t *entries, size_t request_size,
 
 static int32_t
 __rda_serve_readdirp(xlator_t *this, struct rda_fd_ctx *ctx, size_t size,
-                     gf_dirent_t *entries, int *op_errno)
+                     gf_dirent_t *entries, int *op_errno, int op)
 {
     int32_t ret = 0;
 
-    ret = __rda_fill_readdirp(this, entries, size, ctx);
+    ret = __rda_fill_readdirp(this, entries, size, ctx, op);
 
     if (!ret && (ctx->state & RDA_FD_ERROR)) {
         ret = -1;
@@ -357,8 +359,8 @@ __rda_serve_readdirp(xlator_t *this, struct rda_fd_ctx *ctx, size_t size,
 }
 
 static int32_t
-rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
-             off_t off, dict_t *xdata)
+rda_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+               off_t off, dict_t *xdata, int op)
 {
     struct rda_fd_ctx *ctx = NULL;
     int fill = 0;
@@ -417,14 +419,19 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
      * so is in flight...
      */
     if (rda_can_serve_readdirp(ctx, size)) {
-        ret = __rda_serve_readdirp(this, ctx, size, &entries, &op_errno);
+        ret = __rda_serve_readdirp(this, ctx, size, &entries, &op_errno, op);
         serve = _gf_true;
 
         if (op_errno == ENOENT &&
             !((ctx->state & RDA_FD_EOD) && (ctx->cur_size == 0)))
             op_errno = 0;
     } else {
-        ctx->stub = fop_readdirp_stub(frame, NULL, fd, size, off, xdata);
+        if (op) {
+            ctx->stub = fop_readdirp_stub(frame, NULL, fd, size, off, xdata);
+        } else {
+            ctx->stub = fop_readdir_stub(frame, NULL, fd, size, off, xdata);
+        }
+
         if (!ctx->stub) {
             UNLOCK(&ctx->lock);
             goto err;
@@ -441,22 +448,37 @@ rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
     UNLOCK(&ctx->lock);
 
     if (serve) {
-        STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries, xdata);
+        if (op) {
+            STACK_UNWIND_STRICT(readdirp, frame, ret, op_errno, &entries,
+                                xdata);
+        } else {
+            STACK_UNWIND_STRICT(readdir, frame, ret, op_errno, &entries, xdata);
+        }
         gf_dirent_free(&entries);
     }
 
     if (fill)
-        rda_fill_fd(frame, this, fd);
+        rda_fill_fd(frame, this, fd, op);
 
     return 0;
 
 bypass:
-    STACK_WIND(frame, default_readdirp_cbk, FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+    if (op) {
+        STACK_WIND(frame, default_readdirp_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readdirp, fd, size, off, xdata);
+    } else {
+        STACK_WIND(frame, default_readdir_cbk, FIRST_CHILD(this),
+                   FIRST_CHILD(this)->fops->readdir, fd, size, off, xdata);
+    }
+
     return 0;
 
 err:
-    STACK_UNWIND_STRICT(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    if (op) {
+        STACK_UNWIND_STRICT(readdirp, frame, -1, ENOMEM, NULL, NULL);
+    } else {
+        STACK_UNWIND_STRICT(readdir, frame, -1, ENOMEM, NULL, NULL);
+    }
     return 0;
 }
 
@@ -481,7 +503,9 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     };
     uint64_t generation = 0;
     call_frame_t *fill_frame = NULL;
+    int op = 1;
 
+    op = (int32_t)(long)cookie;
     INIT_LIST_HEAD(&serve_entries.list);
     LOCK(&ctx->lock);
 
@@ -517,10 +541,10 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         if (dict_get(ctx->writes_during_prefetch, gfid))
                             generation = 0;
                     }
-
-                    rda_inode_ctx_update_iatts(dirent->inode, this,
-                                               &dirent->d_stat, &dirent->d_stat,
-                                               generation);
+                    if (op)
+                        rda_inode_ctx_update_iatts(dirent->inode, this,
+                                                   &dirent->d_stat,
+                                                   &dirent->d_stat, generation);
                 }
             }
 
@@ -562,7 +586,7 @@ rda_fill_fd_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
      */
     if (ctx->stub && rda_can_serve_readdirp(ctx, ctx->stub->args.size)) {
         ret = __rda_serve_readdirp(this, ctx, ctx->stub->args.size,
-                                   &serve_entries, &op_errno);
+                                   &serve_entries, &op_errno, op);
         serve = _gf_true;
         stub = ctx->stub;
         ctx->stub = NULL;
@@ -604,14 +628,19 @@ out:
     }
 
     if (serve) {
-        STACK_UNWIND_STRICT(readdirp, stub->frame, ret, op_errno,
-                            &serve_entries, xdata);
+        if (op) {
+            STACK_UNWIND_STRICT(readdirp, stub->frame, ret, op_errno,
+                                &serve_entries, xdata);
+        } else {
+            STACK_UNWIND_STRICT(readdir, stub->frame, ret, op_errno,
+                                &serve_entries, xdata);
+        }
         gf_dirent_free(&serve_entries);
         call_stub_destroy(stub);
     }
 
     if (fill)
-        rda_fill_fd(frame, this, local->fd);
+        rda_fill_fd(frame, this, local->fd, op);
 
     return 0;
 }
@@ -620,7 +649,7 @@ out:
  * Start prepopulating the fd context with directory entries.
  */
 static int
-rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
+rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd, int op)
 {
     call_frame_t *nframe = NULL;
     struct rda_local *local = NULL;
@@ -677,10 +706,15 @@ rda_fill_fd(call_frame_t *frame, xlator_t *this, fd_t *fd)
 
     UNLOCK(&ctx->lock);
 
-    STACK_WIND(nframe, rda_fill_fd_cbk, FIRST_CHILD(this),
-               FIRST_CHILD(this)->fops->readdirp, fd, priv->rda_req_size,
-               offset, ctx->xattrs);
-
+    if (op) {
+        STACK_WIND_COOKIE(nframe, rda_fill_fd_cbk, (void *)(long)op,
+                          FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdirp,
+                          fd, priv->rda_req_size, offset, ctx->xattrs);
+    } else {
+        STACK_WIND_COOKIE(nframe, rda_fill_fd_cbk, (void *)(long)op,
+                          FIRST_CHILD(this), FIRST_CHILD(this)->fops->readdir,
+                          fd, priv->rda_req_size, offset, ctx->xattrs);
+    }
     return 0;
 
 err:
@@ -693,11 +727,31 @@ err:
 }
 
 static int32_t
+rda_readdirp(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+             off_t off, dict_t *xdata)
+{
+    return rda_do_readdir(frame, this, fd, size, off, xdata, 1);
+}
+
+static int32_t
+rda_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
+            off_t off, dict_t *xdata)
+{
+    return rda_do_readdir(frame, this, fd, size, off, xdata, 0);
+}
+
+static int32_t
 rda_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
+    struct rda_priv *priv = this->private;
+    int op = 1;
+
+    if (!priv->force_readdirp)
+        op = 0;
+
     if (!op_ret)
-        rda_fill_fd(frame, this, fd);
+        rda_fill_fd(frame, this, fd, op);
 
     RDA_STACK_UNWIND(opendir, frame, op_ret, op_errno, fd, xdata);
     return 0;
@@ -1185,6 +1239,9 @@ reconfigure(xlator_t *this, dict_t *options)
                      err);
     GF_OPTION_RECONF("pass-through", this->pass_through, options, bool, err);
 
+    GF_OPTION_RECONF("force-readdirp", priv->force_readdirp, options, bool,
+                     err);
+
     return 0;
 err:
     return -1;
@@ -1228,6 +1285,7 @@ init(xlator_t *this)
     GF_OPTION_INIT("rda-cache-limit", priv->rda_cache_limit, size_uint64, err);
     GF_OPTION_INIT("parallel-readdir", priv->parallel_readdir, bool, err);
     GF_OPTION_INIT("pass-through", this->pass_through, bool, err);
+    GF_OPTION_INIT("force-readdirp", priv->force_readdirp, bool, err);
 
     return 0;
 
@@ -1254,6 +1312,7 @@ out:
 struct xlator_fops fops = {
     .opendir = rda_opendir,
     .readdirp = rda_readdirp,
+    .readdir = rda_readdir,
     /* inode write */
     /* TODO: invalidate a dentry's stats if its pointing to a directory
      * when entry operations happen in that directory
@@ -1341,6 +1400,15 @@ struct volume_options options[] = {
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC | OPT_FLAG_CLIENT_OPT,
      .tags = {"readdir-ahead"},
      .description = "Enable/Disable readdir ahead translator"},
+    {
+        .key = {"force-readdirp"},
+        .type = GF_OPTION_TYPE_BOOL,
+        .default_value = "true",
+        .op_version = {GD_OP_VERSION_12_0},
+        .flags = OPT_FLAG_SETTABLE | OPT_FLAG_CLIENT_OPT | OPT_FLAG_DOC,
+        .description = "If option is disabled it means wind readdir call "
+                       "instead of readdirp",
+    },
     {.key = {NULL}},
 };
 

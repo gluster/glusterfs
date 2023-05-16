@@ -2805,6 +2805,15 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .op_version = GD_OP_VERSION_3_9_1,
      .validate_fn = validate_rda_cache_limit},
     {
+        .key = "readdir-ahead.force-readdirp",
+        .voltype = "performance/readdir-ahead",
+        .option = "force-readdirp",
+        .value = "on",
+        .flags = VOLOPT_FLAG_CLIENT_OPT,
+        .type = NO_DOC,
+        .op_version = GD_OP_VERSION_12_0,
+    },
+    {
         .key = "performance.nl-cache-positive-entry",
         .voltype = "performance/nl-cache",
         .type = DOC,

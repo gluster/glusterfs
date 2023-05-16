@@ -88,6 +88,7 @@ struct rda_priv {
     uint64_t rda_cache_limit;
     gf_atomic_t rda_cache_size;
     gf_boolean_t parallel_readdir;
+    gf_boolean_t force_readdirp;
 };
 
 typedef struct rda_inode_ctx {

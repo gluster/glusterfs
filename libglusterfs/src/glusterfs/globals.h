@@ -93,6 +93,7 @@ enum {
     GD_OP_VERSION2( 9,  0),
     GD_OP_VERSION2(10,  0),
     GD_OP_VERSION2(11,  0),
+    GD_OP_VERSION2(12,  0),
 
 /* NOTE: Add new versions above this line. */
     GD_OP_VERSION_END
