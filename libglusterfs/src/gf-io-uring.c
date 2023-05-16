@@ -393,8 +393,7 @@ gf_io_uring_setup(void)
      *       is based on the I/O framework. Then it could be easier to
      *       control which fds are used and prepare them for SQPOLL. */
 
-    fd = gf_res_errno(io_uring_setup(GF_IO_URING_QUEUE_SIZE,
-                                     &gf_io_uring.params));
+    fd = io_uring_setup(GF_IO_URING_QUEUE_SIZE, &gf_io_uring.params);
     if (caa_unlikely(fd < 0)) {
         if ((fd == -ENOSYS) || (fd == -ENOTSUP)) {
             GF_LOG_E("io", LG_MSG_IO_URING_NOT_SUPPORTED());
@@ -439,8 +438,7 @@ gf_io_uring_setup(void)
      * unnecessary memory allocation. */
     count = 256;
 
-    res = gf_res_errno0(io_uring_register(fd, IORING_REGISTER_PROBE, probe,
-                                          count));
+    res = io_uring_register(fd, IORING_REGISTER_PROBE, probe, count);
     if (caa_unlikely(res < 0)) {
         gf_check("io", GF_LOG_ERROR, "io_uring_register", res);
         goto failed_cq;
@@ -533,8 +531,7 @@ gf_io_uring_enter(uint32_t submit, bool wait)
     }
 
     do {
-        res = gf_res_errno(io_uring_enter(gf_io_uring.fd, submit, recv, flags,
-                                          NULL, 0));
+        res = io_uring_enter(gf_io_uring.fd, submit, recv, flags, NULL, 0);
         if (caa_likely(res >= 0)) {
             return submit - res;
         }
@@ -556,9 +553,9 @@ gf_io_uring_enter(uint32_t submit, bool wait)
     return res;
 }
 
-/* Tries to process an entry from CQ. Returns true if a CQE has been
- * processed. */
-static bool
+/* Tries to process an entry from CQ. Returns the current head of the ring
+ * buffer. */
+static uint32_t
 gf_io_uring_cq_process(gf_io_worker_t *worker)
 {
     struct io_uring_cqe cqe;
@@ -572,19 +569,20 @@ gf_io_uring_cq_process(gf_io_worker_t *worker)
         if (caa_likely(head == current)) {
             gf_io_cbk(worker, current, cqe.user_data, cqe.res);
 
-            return true;
+            return current + 1;
         }
 
         current = head;
     }
 
-    return false;
+    return current;
 }
 
 /* Make sure there's progress in the CQ by processing some entries or
  * checking that other threads are doing so. */
-static void
-gf_io_uring_cq_process_some(gf_io_worker_t *worker, uint32_t nr)
+static uint32_t
+gf_io_uring_cq_process_some(gf_io_worker_t *worker, uint32_t nr,
+                            uint32_t previous)
 {
     struct pollfd fds;
     uint32_t current, retries;
@@ -594,17 +592,10 @@ gf_io_uring_cq_process_some(gf_io_worker_t *worker, uint32_t nr)
     fds.events = POLL_IN;
     fds.revents = 0;
 
-    current = CMM_LOAD_SHARED(*gf_io_uring.cq.head);
-
     retries = 0;
-    while (!gf_io_uring_cq_process(worker)) {
+    while ((current = gf_io_uring_cq_process(worker)) == previous) {
         res = gf_res_errno(poll(&fds, 1, 1));
-        if (caa_likely(res > 0)) {
-            if (gf_io_uring_cq_process(worker) ||
-                (current != CMM_LOAD_SHARED(*gf_io_uring.cq.head))) {
-                break;
-            }
-        } else {
+        if (caa_unlikely(res < 0)) {
             gf_check("io", GF_LOG_ERROR, "poll", res);
         }
 
@@ -614,10 +605,13 @@ gf_io_uring_cq_process_some(gf_io_worker_t *worker, uint32_t nr)
     }
 
     while (--nr > 0) {
-        if (!gf_io_uring_cq_process(worker)) {
+        previous = current;
+        if ((current = gf_io_uring_cq_process(worker)) == previous) {
             break;
         }
     }
+
+    return current;
 }
 
 /* Mark some SQ entries to be processed. */
@@ -693,7 +687,7 @@ gf_io_uring_sq_flush(void)
 
 /* Dispatch all pending SQ entries to the kernel. */
 static void
-gf_io_uring_dispatch(gf_io_worker_t *worker, bool wait)
+gf_io_uring_dispatch(gf_io_worker_t *worker, bool wait, uint32_t current)
 {
     uint32_t submit;
     int32_t res;
@@ -704,7 +698,7 @@ gf_io_uring_dispatch(gf_io_worker_t *worker, bool wait)
             submit = res;
         }
 
-        gf_io_uring_cq_process_some(worker, submit);
+        current = gf_io_uring_cq_process_some(worker, submit, current);
 
         wait = false;
     }
@@ -758,10 +752,13 @@ gf_io_uring_worker_stop(gf_io_worker_t *worker)
 static int32_t
 gf_io_uring_worker(gf_io_worker_t *worker)
 {
+    uint32_t current, previous;
     bool wait;
 
-    wait = !gf_io_uring_cq_process(worker);
-    gf_io_uring_dispatch(worker, wait);
+    previous = CMM_LOAD_SHARED(*gf_io_uring.cq.head);
+    current = gf_io_uring_cq_process(worker);
+    wait = current == previous;
+    gf_io_uring_dispatch(worker, wait, current);
 
     return 0;
 }
@@ -770,12 +767,14 @@ static void
 gf_io_uring_flush(void)
 {
     gf_io_worker_t *worker;
+    uint32_t current;
 
     worker = gf_io_worker_get();
     if (worker == NULL) {
         gf_io_uring_dispatch_no_process();
     } else {
-        gf_io_uring_dispatch(worker, false);
+        current = CMM_LOAD_SHARED(*gf_io_uring.cq.head);
+        gf_io_uring_dispatch(worker, false, current);
     }
 }
 
