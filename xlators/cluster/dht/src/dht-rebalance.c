@@ -2619,6 +2619,7 @@ gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
     inode_t *inode = NULL;
     xlator_t *hashed_subvol = NULL;
     xlator_t *cached_subvol = NULL;
+    xlator_t *linkfile_subvol = NULL;
     call_frame_t *statfs_frame = NULL;
     xlator_t *old_THIS = NULL;
     data_t *tmp = NULL;
@@ -2750,14 +2751,38 @@ gf_defrag_migrate_single_file(xlator_t *this, dht_container_t *rebal_entry)
     }
 
     if (hashed_subvol == cached_subvol) {
-        if (is_linkfile == 1) {
-            i = rebal_entry->local_subvol_index;
-            ret = syncop_unlink(conf->local_subvols[i], &entry_loc, NULL, NULL);
+        i = rebal_entry->local_subvol_index;
+        linkfile_subvol = conf->local_subvols[i];
+        if (is_linkfile == 1 && hashed_subvol != linkfile_subvol) {
+            ret = syncop_unlink(linkfile_subvol, &entry_loc, NULL, NULL);
             gf_msg_debug(this->name, 0,
                          "Unlink linkfile"
                          " %s on subvol: %s status is %d",
-                         entry_loc.path, conf->local_subvols[i]->name, ret);
+                         entry_loc.path, linkfile_subvol->name, ret);
         }
+        ret = 0;
+        goto out;
+    }
+    if (is_linkfile == 1) {
+        linkfile_subvol = conf->local_subvols[i];
+        /* No need to migrate the linkfile. Following scenario can happen
+         *
+          if (hashed_subvol != linkfile_subvol) {
+               * This should be a stale linkfile and the above lookup
+               * should be deleted it, so we should be fine to skip it,
+               * May be we can do a verification to make sure that the
+               * linkfiles are deleted *
+          } else {
+              * This means that we have a linkfile that is valid, either the
+               * migration is still on going triggered by the actual data file,
+               * hence we don't need to migrate this file.*
+          }
+          */
+        gf_msg_debug(this->name, 0,
+                     "skipping linkfile migration"
+                     " %s on subvol: %s",
+                     entry_loc.path, linkfile_subvol->name);
+
         ret = 0;
         goto out;
     }
