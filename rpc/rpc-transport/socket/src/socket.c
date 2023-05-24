@@ -3432,7 +3432,8 @@ socket_connect(rpc_transport_t *this, int port)
          */
 #ifdef IPV6_DEFAULT
         int disable_v6only = 0;
-        if (setsockopt(priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
+        if (sa_family == AF_INET6 &&
+            setsockopt(priv->sock, IPPROTO_IPV6, IPV6_V6ONLY,
                        (void *)&disable_v6only, sizeof(disable_v6only)) < 0) {
             gf_log(this->name, GF_LOG_WARNING,
                    "Error disabling sockopt IPV6_V6ONLY: \"%s\"",
