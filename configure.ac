@@ -1725,14 +1725,14 @@ AC_SUBST(CFLAGS)
 dnl do not add -lresolv for freebsd
 case $host_os in
   freebsd*)
-    LRESOLV_FLAG=""
+    RESOLV_LIBS=""
     ;;
   *)
-    LRESOLV_FLAG="-lresolv"
+    RESOLV_LIBS="-lresolv"
     ;;
 esac
 
-AC_SUBST(LRESOLV_FLAG)
+AC_SUBST(RESOLV_LIBS)
 
 # EC dynamic code generation section
 
