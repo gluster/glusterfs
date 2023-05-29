@@ -1722,6 +1722,18 @@ AC_SUBST(UNITTEST_LDFLAGS)
 AC_SUBST(CFLAGS)
 # end enable debug section
 
+dnl do not add -lresolv for freebsd
+case $host_os in
+  freebsd*)
+    RESOLV_LIBS=""
+    ;;
+  *)
+    RESOLV_LIBS="-lresolv"
+    ;;
+esac
+
+AC_SUBST(RESOLV_LIBS)
+
 # EC dynamic code generation section
 
 EC_DYNAMIC_SUPPORT="none"

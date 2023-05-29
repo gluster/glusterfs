@@ -266,6 +266,8 @@ GLFS_MIG(LIBGLUSTERFS, LG_MSG_METHOD_MISS, "", 0)
 GLFS_MIG(LIBGLUSTERFS, LG_MSG_INPUT_DATA_NULL, "", 0)
 GLFS_MIG(LIBGLUSTERFS, LG_MSG_OPEN_LOGFILE_FAILED, "", 0)
 
+// clang-format off
+
 GLFS_NEW(LIBGLUSTERFS, LG_MSG_IO_CALL_FAILED, "Function call failed", 2,
     GLFS_FUNC(function),
     GLFS_RES(error)
@@ -348,6 +350,13 @@ GLFS_NEW(LIBGLUSTERFS, LG_MSG_UNLINK_FAILED,
     "Failed to remove file", 1,
     GLFS_STR(path)
 )
+
+GLFS_NEW(LIBGLUSTERFS, LG_MSG_INET_NET_PTON_FAILED,
+         "inet_net_pton() failed", 1,
+         GLFS_ERR(error)
+)
+
+// clang-format on
 
 #define LG_MSG_EPOLL_FD_CREATE_FAILED_STR "epoll fd creation failed"
 #define LG_MSG_INVALID_POLL_IN_STR "invalid poll_in value"
