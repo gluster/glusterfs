@@ -323,56 +323,6 @@ set_xattr_user_namespace_mode(struct posix_private *priv, const char *str)
 }
 #endif
 
-static int32_t
-posix_statfs_path(xlator_t *this, char *real_path)
-{
-    int32_t op_ret = -1;
-    struct statvfs buf = {
-        0,
-    };
-
-    struct posix_private *priv = NULL;
-    double percent = 0;
-    uint64_t reserved_blocks = 0;
-
-    priv = this->private;
-
-    op_ret = sys_statvfs(real_path, &buf);
-
-    if (op_ret == -1) {
-        gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_STATVFS_FAILED,
-               "statvfs failed on (path: %s)", real_path);
-        return op_ret;
-    }
-
-    if (priv->disk_unit_percent) {
-        percent = priv->disk_reserve;
-        reserved_blocks = (((buf.f_blocks * percent) / 100) + 0.5);
-    } else {
-        if (buf.f_bsize) {
-            reserved_blocks = ((uint64_t)(priv->disk_reserve) + buf.f_bsize -
-                               1) /
-                              buf.f_bsize;
-        }
-    }
-
-    if (buf.f_bfree > reserved_blocks) {
-        buf.f_bfree = (buf.f_bfree - reserved_blocks);
-        if (buf.f_bavail > buf.f_bfree) {
-            buf.f_bavail = buf.f_bfree;
-        }
-    } else {
-        buf.f_bfree = 0;
-        buf.f_bavail = 0;
-    }
-    reserved_blocks = (buf.f_bfree * buf.f_bsize);
-
-    priv->disk_size_after_reserve = reserved_blocks;
-    gf_log(this->name, GF_LOG_INFO, "Set disk_size_after reserve is %" PRIu64,
-           reserved_blocks);
-    return 0;
-}
-
 int
 posix_reconfigure(xlator_t *this, dict_t *options)
 {
@@ -534,14 +484,6 @@ posix_reconfigure(xlator_t *this, dict_t *options)
                      bool, out);
 
     GF_OPTION_RECONF("ctime", priv->ctime, options, bool, out);
-
-    if ((old_disk_reserve != priv->disk_reserve)) {
-        if (posix_statfs_path(this, priv->base_path)) {
-            gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
-                   "Getting disk space check failed ");
-            goto out;
-        }
-    }
 
     ret = 0;
 out:
@@ -1263,11 +1205,6 @@ posix_init(xlator_t *this)
                    out);
 
     GF_OPTION_INIT("ctime", _private->ctime, bool, out);
-    ret = posix_statfs_path(this, _private->base_path);
-    if (ret) {
-        gf_msg(this->name, GF_LOG_INFO, 0, P_MSG_DISK_SPACE_CHECK_FAILED,
-               "Getting disk space check failed ");
-    }
 
 out:
     if (ret) {
