@@ -589,8 +589,7 @@ mem_pools_preinit(void)
     }
 
     pool_list_size = sizeof(per_thread_pool_list_t) +
-                     sizeof(per_thread_pool_t) * (NPOOLS - 1);
-
+                     sizeof(per_thread_pool_t) * NPOOLS;
     init_done = GF_MEMPOOL_INIT_EARLY;
 }
 
