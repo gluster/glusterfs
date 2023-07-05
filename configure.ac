@@ -408,10 +408,6 @@ if test x$cross_compiling != xyes; then
     fi
 fi
 
-dnl On some distributions '-ldl' isn't automatically added to LIBS
-AC_CHECK_LIB([dl], [dlopen], [LIB_DL=-ldl])
-AC_SUBST(LIB_DL)
-
 AC_ARG_ENABLE([privport_tracking],
               AS_HELP_STRING([--disable-privport_tracking],[Disable internal tracking of privileged ports.]))
 TRACK_PRIVPORTS="yes"
@@ -574,13 +570,20 @@ fi
 
 AC_CHECK_TOOL([LD],[ld])
 
-AC_CHECK_LIB([crypto], [MD5], , AC_MSG_ERROR([OpenSSL crypto library is required to build glusterfs]))
-
-AC_CHECK_LIB([pthread], [pthread_mutex_init], , AC_MSG_ERROR([Posix threads library is required to build glusterfs]))
-
-AC_CHECK_FUNC([dlopen], [has_dlopen=yes], AC_CHECK_LIB([dl], [dlopen], , AC_MSG_ERROR([Dynamic linking library required to build glusterfs])))
-
-AC_CHECK_LIB([intl], [gettext])
+system_LIBS="$LIBS"
+AC_SEARCH_LIBS([SHA256], [crypto], [crypto_LIBS="-lcrypto"; LIBS="$system_LIBS"])
+AC_SUBST([crypto_LIBS])
+AC_SEARCH_LIBS([pthread_mutex_init], [pthread], [pthread_LIBS="-lpthread"; LIBS="$system_LIBS"],
+	[AC_MSG_ERROR([Posix threads library is required to build glusterfs])])
+AC_SUBST([pthread_LIBS])
+AC_SEARCH_LIBS([dlopen], [dl], [dl_LIBS="-ldl"; LIBS="$system_LIBS"],
+	[AC_MSG_ERROR([Dynamic linking library required to build glusterfs])])
+AC_SUBST([dl_LIBS])
+AC_SEARCH_LIBS([clock_gettime], [rt], [rt_LIBS="-lrt"; LIBS="$system_LIBS"],
+	[AC_MSG_WARN([System doesn't have monotonic clock using contrib])])
+AC_SUBST([rt_LIBS])
+AC_SEARCH_LIBS([gettext], [intl], [intl_LIBS="-lintl"; LIBS="$system_LIBS"])
+AC_SUBST([intl_LIBS])
 
 AC_CHECK_HEADERS([sys/xattr.h])
 
@@ -1089,10 +1092,6 @@ else
 fi
 AC_SUBST(HAVE_FUTIMENS)
 AC_SUBST(HAVE_FUTIMES)
-
-dnl check for Monotonic clock
-AC_CHECK_LIB([rt], [clock_gettime], ,
-             AC_MSG_WARN([System doesn't have monotonic clock using contrib]))
 
 dnl check for argp, FreeBSD has the header in /usr/local/include
 case $host_os in

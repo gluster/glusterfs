@@ -13,7 +13,8 @@ AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 bit_rot_la_SOURCES = bit-rot.c bit-rot-scrub.c bit-rot-ssm.c \
 		     bit-rot-scrub-status.c
 bit_rot_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-	$(top_builddir)/xlators/features/changelog/lib/src/libgfchangelog.la
+	$(top_builddir)/xlators/features/changelog/lib/src/libgfchangelog.la \
+	$(crypto_LIBS) $(pthread_LIBS)
 
 noinst_HEADERS = bit-rot.h bit-rot-scrub.h bit-rot-bitd-messages.h bit-rot-ssm.h \
 		 bit-rot-scrub-status.h

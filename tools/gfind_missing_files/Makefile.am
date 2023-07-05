@@ -13,7 +13,7 @@ gfindmissingfiles_PROGRAMS = gcrawler
 endif
 
 gcrawler_SOURCES = gcrawler.c
-gcrawler_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+gcrawler_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 gcrawler_LDFLAGS = $(GF_LDFLAGS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src

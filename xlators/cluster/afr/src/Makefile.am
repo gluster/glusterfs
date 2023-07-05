@@ -12,7 +12,7 @@ AFR_SELFHEAL_SOURCES = afr-self-heal-common.c afr-self-heal-data.c \
 
 afr_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 afr_la_SOURCES = $(afr_common_source) $(AFR_SELFHEAL_SOURCES) afr.c
-afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+afr_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = afr.h afr-transaction.h afr-inode-write.h afr-inode-read.h \
 	afr-dir-read.h afr-dir-write.h afr-self-heal.h afr-mem-types.h \

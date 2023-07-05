@@ -9,7 +9,7 @@ quotad_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 quota_la_SOURCES = quota.c quota-enforcer-client.c
 quota_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
                   $(top_builddir)/rpc/xdr/src/libgfxdr.la \
-                  $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
+                  $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la $(pthread_LIBS)
 
 quotad_la_SOURCES = quotad.c quotad-helpers.c quotad-aggregator.c
 quotad_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \

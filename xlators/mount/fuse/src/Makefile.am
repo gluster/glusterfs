@@ -27,7 +27,8 @@ fuse_la_SOURCES = fuse-helpers.c fuse-resolve.c fuse-bridge.c \
 	$(CONTRIBDIR)/fuse-lib/misc.c $(mount_source)
 
 fuse_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
-fuse_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(GF_LDADD) $(GF_FUSE_LDADD)
+fuse_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+	$(GF_LDADD) $(GF_FUSE_LDADD) $(pthread_LIBS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \

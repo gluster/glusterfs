@@ -8,7 +8,7 @@ locks_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 locks_la_SOURCES = common.c posix.c entrylk.c inodelk.c reservelk.c \
 	clear.c
 
-locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+locks_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = locks.h common.h locks-mem-types.h clear.h pl-messages.h
 
