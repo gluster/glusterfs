@@ -23,7 +23,7 @@ BUILT_SOURCES = cloudsync-autogen-fops.h
 
 cloudsync_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
-cloudsync_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(LIB_DL)
+cloudsync_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(dl_LIBS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
 	      -DCS_PLUGINDIR=\"$(libdir)/glusterfs/$(PACKAGE_VERSION)/cloudsync-plugins\"

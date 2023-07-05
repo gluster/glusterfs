@@ -5,7 +5,7 @@ scripts_SCRIPTS =  gsync-upgrade.sh generate-gfid-file.sh get-gfid.sh \
 scripts_PROGRAMS = gsync-sync-gfid
 gsync_sync_gfid_CFLAGS = $(GF_CFLAGS) -Wall -I$(top_srcdir)/libglusterfs/src
 gsync_sync_gfid_LDFLAGS = $(GF_LDFLAGS)
-gsync_sync_gfid_LDADD = $(GF_LDADD) $(top_builddir)/libglusterfs/src/libglusterfs.la
+gsync_sync_gfid_LDADD = $(GF_LDADD) $(top_builddir)/libglusterfs/src/libglusterfs.la $(crypto_LIBS)
 gsync_sync_gfid_SOURCES = gsync-sync-gfid.c
 gsync_sync_gfid_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src

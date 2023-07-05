@@ -18,7 +18,8 @@ if !HAVE_BACKTRACE
 libglusterfs_la_CPPFLAGS += -I$(CONTRIBDIR)/libexecinfo
 endif
 
-libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) $(LIB_DL) \
+libglusterfs_la_LIBADD = $(ZLIB_LIBS) $(MATH_LIB) $(UUID_LIBS) \
+	$(dl_LIBS) $(pthread_LIBS) $(rt_LIBS) \
 	$(URCU_LIBS) $(URCU_CDS_LIBS)
 libglusterfs_la_LDFLAGS = -version-info $(LIBGLUSTERFS_LT_VERSION) $(GF_LDFLAGS) \
 	-export-symbols $(top_srcdir)/libglusterfs/src/libglusterfs.sym

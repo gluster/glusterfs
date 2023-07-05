@@ -31,7 +31,8 @@ glusterd_la_SOURCES = glusterd.c glusterd-handler.c glusterd-sm.c \
 glusterd_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-	$(XML_LIBS) -lcrypto $(URCU_LIBS) $(URCU_CDS_LIBS) $(LIB_DL) $(GF_XLATOR_MGNT_LIBADD)
+	$(XML_LIBS) $(crypto_LIBS) $(pthread_LIBS) $(URCU_LIBS) $(URCU_CDS_LIBS) \
+	$(dl_LIBS) $(GF_XLATOR_MGNT_LIBADD)
 
 noinst_HEADERS = glusterd.h glusterd-utils.h glusterd-op-sm.h \
 	glusterd-sm.h glusterd-store.h glusterd-mem-types.h \

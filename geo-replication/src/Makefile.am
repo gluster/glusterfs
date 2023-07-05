@@ -13,7 +13,7 @@ gsyncd_PROGRAMS = gsyncd
 
 gsyncd_SOURCES = gsyncd.c procdiggy.c
 
-gsyncd_LDADD = $(GF_LDADD) $(top_builddir)/libglusterfs/src/libglusterfs.la
+gsyncd_LDADD = $(GF_LDADD) $(top_builddir)/libglusterfs/src/libglusterfs.la $(crypto_LIBS)
 
 gsyncd_LDFLAGS = $(GF_LDFLAGS)
 
