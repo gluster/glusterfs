@@ -5,9 +5,9 @@ EXTRA_DIST = glusterd-Debian glusterd-FreeBSD glusterd-Redhat \
 
 CLEANFILES =
 
-INIT_DIR = @initdir@
-SYSTEMD_DIR = @systemddir@
-LAUNCHD_DIR = @launchddir@
+INIT_DIR = $(initdir)
+SYSTEMD_DIR = $(systemddir)
+LAUNCHD_DIR = $(launchddir)
 
 $(GF_DISTRIBUTION):
 if WITH_SERVER
