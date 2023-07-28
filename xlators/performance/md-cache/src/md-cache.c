@@ -3272,8 +3272,10 @@ mdc_priv_dump(xlator_t *this)
 
     gf_proc_dump_write("stat_hit_count", "%" PRId64,
                        GF_ATOMIC_GET(conf->mdc_counter.stat_hit));
+    GF_ATOMIC_INIT(conf->mdc_counter.stat_hit, 0);
     gf_proc_dump_write("stat_miss_count", "%" PRId64,
                        GF_ATOMIC_GET(conf->mdc_counter.stat_miss));
+    GF_ATOMIC_INIT(conf->mdc_counter.stat_miss, 0);
     gf_proc_dump_write("xattr_hit_count", "%" PRId64,
                        GF_ATOMIC_GET(conf->mdc_counter.xattr_hit));
     gf_proc_dump_write("xattr_miss_count", "%" PRId64,

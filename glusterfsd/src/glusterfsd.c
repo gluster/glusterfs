@@ -232,6 +232,9 @@ static struct argp_option gf_options[] = {
     {"use-readdirp", ARGP_FUSE_USE_READDIRP_KEY, "BOOL", OPTION_ARG_OPTIONAL,
      "Use readdirp mode in fuse kernel module"
      " [default: \"yes\"]"},
+    {"readdir-optimize", ARGP_FUSE_USE_READDIR_OPTIMIZE, "BOOL", OPTION_ARG_OPTIONAL,
+     "Enable readdir optimize mode for fuse "
+     " [default: \"no\"]"},
     {"secure-mgmt", ARGP_SECURE_MGMT_KEY, "BOOL", OPTION_ARG_OPTIONAL,
      "Override default for secure (SSL) management connections"},
     {"localtime-logging", ARGP_LOCALTIME_LOGGING_KEY, 0, 0,
@@ -494,6 +497,12 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
         DICT_SET_VAL(dict_set_static_ptr, options, "use-readdirp",
                      cmd_args->use_readdirp, glusterfsd_msg_3);
     }
+
+    if (cmd_args->readdir_optimize) {
+        DICT_SET_VAL(dict_set_static_ptr, options, "readdir-optimize",
+                     cmd_args->readdir_optimize, glusterfsd_msg_3);
+    }
+
     if (cmd_args->event_history) {
         ret = dict_set_str(options, "event-history", cmd_args->event_history);
         DICT_SET_VAL(dict_set_static_ptr, options, "event-history",
@@ -1228,6 +1237,24 @@ parse_opts(int key, char *arg, struct argp_state *state)
             }
 
             argp_failure(state, -1, 0, "unknown use-readdirp setting \"%s\"",
+                         arg);
+            break;
+
+        case ARGP_FUSE_USE_READDIR_OPTIMIZE:
+            if (!arg)
+                arg = "no";
+
+            if (gf_string2boolean(arg, &b) == 0) {
+                if (b) {
+                    cmd_args->readdir_optimize = "yes";
+                } else {
+                    cmd_args->readdir_optimize = "no";
+                }
+
+                break;
+            }
+
+            argp_failure(state, -1, 0, "unknown readdir-optimize setting \"%s\"",
                          arg);
             break;
 

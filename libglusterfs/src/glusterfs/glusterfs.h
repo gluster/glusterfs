@@ -527,6 +527,7 @@ struct _cmd_args {
     int fuse_direct_io_mode;
     int congestion_threshold;
     char *use_readdirp;
+    char *readdir_optimize;
     int no_root_squash;
     int volfile_check;
     double fuse_entry_timeout;
