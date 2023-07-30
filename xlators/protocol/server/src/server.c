@@ -784,6 +784,7 @@ server_reconfigure(xlator_t *this, dict_t *options)
     rpc_transport_t *xprt = NULL;
     rpc_transport_t *xp_next = NULL;
     int inode_lru_limit;
+    int inode_table_size;
     gf_boolean_t trace;
     data_t *data;
     int ret = 0;
@@ -823,6 +824,22 @@ server_reconfigure(xlator_t *this, dict_t *options)
     }
     if (!kid) {
         kid = this;
+    }
+
+    if (dict_get_int32_sizen(options, "inode-table-size", &inode_table_size) ==
+        0) {
+        conf->inode_table_size = inode_table_size;
+        gf_msg_trace(this->name, 0,
+                     "Reconfigured inode-table-size to "
+                     "%d",
+                     conf->inode_table_size);
+
+        /* traverse through the xlator graph. For each xlator in the
+           graph check whether it is a bound_xl or not (bound_xl means
+           the xlator will have its itable pointer set). If so, then
+           set the lru limit for the itable.
+        */
+        xlator_foreach(this, xlator_set_inode_table_size, &inode_table_size);
     }
 
     if (dict_get_int32_sizen(options, "inode-lru-limit", &inode_lru_limit) ==
@@ -1818,6 +1835,15 @@ struct volume_options server_options[] = {
      .description = "Specifies the limit on the number of inodes "
                     "in the lru list of the inode cache.",
      .op_version = {1},
+     .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
+    {.key = {"inode-table-size"},
+     .type = GF_OPTION_TYPE_INT,
+     .min = 0,
+     .max = 67108864,
+     .default_value = "65536",
+     .description = "Specifies the size of the inode hash table, "
+                    "must be a power of two.",
+     .op_version = {GD_OP_VERSION_10_0}, /* if possible */
      .flags = OPT_FLAG_SETTABLE | OPT_FLAG_DOC},
     {.key = {"trace"}, .type = GF_OPTION_TYPE_BOOL},
     {

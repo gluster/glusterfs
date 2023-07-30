@@ -52,6 +52,7 @@ struct _child_status {
 struct server_conf {
     rpcsvc_t *rpc;
     int inode_lru_limit;
+    int inode_table_size;
     gf_boolean_t server_manage_gids; /* resolve gids on brick */
     gf_boolean_t trace;
     gf_boolean_t parent_up;

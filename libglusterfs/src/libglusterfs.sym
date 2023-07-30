@@ -1120,6 +1120,7 @@ xlator_option_validate
 xlator_option_validate_addr_list
 xlator_search_by_name
 xlator_set_inode_lru_limit
+xlator_set_inode_table_size
 xlator_set_type
 xlator_set_type_virtual
 xlator_subvolume_count
