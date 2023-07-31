@@ -4903,7 +4903,6 @@ glusterd_import_friend_volume(dict_t *peer_data, int count,
         (void)glusterd_volinfo_copy_brickinfo(old_volinfo, new_volinfo);
 
         (void)glusterd_delete_stale_volume(old_volinfo, new_volinfo);
-        glusterd_volinfo_unref(old_volinfo);
     }
 
     ret = glusterd_store_volinfo(new_volinfo, GLUSTERD_VOLINFO_VER_AC_NONE);
