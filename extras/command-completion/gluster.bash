@@ -1,15 +1,5 @@
 #!/bin/bash
 
-if pidof glusterd > /dev/null 2>&1; then
-        GLUSTER_SET_OPTIONS="
-        $(for token in `gluster volume set help 2>/dev/null | grep "^Option:" | cut -d ' ' -f 2`
-        do
-                echo "{$token},"
-        done)
-        "
-        GLUSTER_RESET_OPTIONS="$GLUSTER_SET_OPTIONS"
-fi
-
 GLUSTER_TOP_SUBOPTIONS1="
         {nfs},
         {brick},
@@ -161,12 +151,14 @@ GLUSTER_VOLUME_OPTIONS="
                 },
                 {reset
                         {__VOLNAME
-                                [ $GLUSTER_RESET_OPTIONS ]
+                                {__VOLOPTIONS
+                                },
                         }
                 },
                 {set
                         {__VOLNAME
-                                [ $GLUSTER_SET_OPTIONS ]
+                                {__VOLOPTIONS
+                                },
                         }
                 },
                 {start
@@ -277,6 +269,34 @@ __VOLNAME ()
         fi
 
         func_return=`echo $(compgen -W "$list" -- $cur_word)`
+        return 0
+}
+
+__VOLOPTIONS()
+{
+        local zero=0
+        local ret=0
+        local cur_word="$2"
+        local list=""
+
+        if [ "X$1" == "X" ]; then
+                return
+
+        elif [ "$1" == "match" ]; then
+                return 0
+
+        elif [ "$1" == "complete" ]; then
+                if ! pidof glusterd > /dev/null 2>&1; then
+                        list='';
+                else
+                        list=`gluster volume set help 2>/dev/null | grep "^Option:" | cut -d ' ' -f 2`
+                fi
+        else
+                return 0
+        fi
+
+        func_return=`echo $(compgen -W "$list" -- $cur_word)`
+
         return 0
 }
 
