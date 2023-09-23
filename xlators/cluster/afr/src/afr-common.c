@@ -2723,7 +2723,7 @@ afr_frame_return(call_frame_t *frame)
     return call_count;
 }
 
-static char *afr_ignore_xattrs[] = {GF_SELINUX_XATTR_KEY, QUOTA_SIZE_KEY, NULL};
+static char *afr_ignore_xattrs[] = {GF_SELINUX_XATTR_KEY, QUOTA_SIZE_KEY, SQUOTA_SIZE_KEY, SQUOTA_SIZE_LIMIT, NULL};
 
 gf_boolean_t
 afr_is_xattr_ignorable(char *key)
