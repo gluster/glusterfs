@@ -3963,28 +3963,29 @@ dht_setxattr_mds_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     for (i = 0; i < conf->subvolume_cnt; i++) {
         if (mds_subvol && (mds_subvol == conf->subvolumes[i]))
             continue;
-        if (local->fop == GF_FOP_SETXATTR) {
-            STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
-                       conf->subvolumes[i]->fops->setxattr, &local->loc,
-                       local->xattr, local->flags, local->xattr_req);
-        }
-
-        if (local->fop == GF_FOP_FSETXATTR) {
-            STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
-                       conf->subvolumes[i]->fops->fsetxattr, local->fd,
-                       local->xattr, local->flags, local->xattr_req);
-        }
-
-        if (local->fop == GF_FOP_REMOVEXATTR) {
-            STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
-                       conf->subvolumes[i]->fops->removexattr, &local->loc,
-                       local->key, local->xattr_req);
-        }
-
-        if (local->fop == GF_FOP_FREMOVEXATTR) {
-            STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
-                       conf->subvolumes[i]->fops->fremovexattr, local->fd,
-                       local->key, local->xattr_req);
+        switch (local->fop) {
+            case GF_FOP_SETXATTR:
+                STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
+                           conf->subvolumes[i]->fops->setxattr, &local->loc,
+                           local->xattr, local->flags, local->xattr_req);
+                break;
+            case GF_FOP_FSETXATTR:
+                STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
+                           conf->subvolumes[i]->fops->fsetxattr, local->fd,
+                           local->xattr, local->flags, local->xattr_req);
+                break;
+            case GF_FOP_REMOVEXATTR:
+                STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
+                           conf->subvolumes[i]->fops->removexattr, &local->loc,
+                           local->key, local->xattr_req);
+                break;
+            case GF_FOP_FREMOVEXATTR:
+                STACK_WIND(frame, dht_setxattr_non_mds_cbk, conf->subvolumes[i],
+                           conf->subvolumes[i]->fops->fremovexattr, local->fd,
+                           local->key, local->xattr_req);
+                break;
+            default:
+                break;
         }
     }
 
