@@ -68,7 +68,8 @@ struct ec_name_data {
     uint32_t heal_pending;
 };
 
-static char *ec_ignore_xattrs[] = {GF_SELINUX_XATTR_KEY, QUOTA_SIZE_KEY, NULL};
+static char *ec_ignore_xattrs[] = {GF_SELINUX_XATTR_KEY, QUOTA_SIZE_KEY,
+                                   SQUOTA_SIZE_KEY, SQUOTA_LIMIT_KEY, NULL};
 
 static gf_boolean_t
 ec_ignorable_key_match(dict_t *dict, char *key, data_t *val, void *mdata)
