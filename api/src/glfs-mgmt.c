@@ -196,6 +196,7 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     struct iobuf *iobuf = NULL;
     struct iobref *iobref = NULL;
     ssize_t xdr_size = 0;
+    gf_boolean_t frame_cleanup = _gf_true;
 
     iobref = iobref_new();
     if (!iobref) {
@@ -229,13 +230,15 @@ mgmt_submit_request(void *req, call_frame_t *frame, glusterfs_ctx_t *ctx,
     /* Send the msg */
     ret = rpc_clnt_submit(ctx->mgmt, prog, procnum, cbkfn, &iov, count, NULL, 0,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
-
+    frame_cleanup = _gf_false;
 out:
     if (iobref)
         iobref_unref(iobref);
 
     if (iobuf)
         iobuf_unref(iobuf);
+    if (frame_cleanup)
+        STACK_DESTROY(frame->root);
     return ret;
 }
 
