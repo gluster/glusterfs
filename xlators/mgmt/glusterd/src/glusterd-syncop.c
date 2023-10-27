@@ -221,6 +221,8 @@ gd_syncop_submit_request(struct rpc_clnt *rpc, void *req, void *local,
                           iobref, frame, NULL, 0, NULL, 0, NULL);
 
     /* TODO: do we need to start ping also? */
+    /* In case of error the frame will be destroy by rpc_clnt_submit */
+    frame = NULL;
 
 out:
     iobref_unref(iobref);
