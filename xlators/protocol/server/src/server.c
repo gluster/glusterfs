@@ -1469,6 +1469,12 @@ server_process_event_upcall(xlator_t *this, void *data)
             if (!client || strcmp(client->client_uid, client_uid))
                 continue;
 
+           /* Avoid upcall notification to client if disconnect is in
+              progress
+            */
+            if (GF_ATOMIC_GET(xprt->disconnect_progress))
+                continue;
+
             xprt_found = _gf_true;
             rpc_transport_ref(xprt);
             break;
