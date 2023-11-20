@@ -819,6 +819,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
     rpc_transport_t *rpc_trans = NULL;
     struct glfs *fs = NULL;
     int ret = 0;
+    static int log_ctr2;
     struct dnscache6 *dnscache = NULL;
 
     this = mydata;
@@ -854,13 +855,26 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 }
                 server = ctx->cmd_args.curr_server;
                 if (server->list.next == &ctx->cmd_args.volfile_servers) {
-                    errno = ENOTCONN;
-                    gf_smsg("glfs-mgmt", GF_LOG_INFO, ENOTCONN,
-                            API_MSG_VOLFILE_SERVER_EXHAUST, NULL);
-                    glfs_init_done(fs, -1);
-                    break;
+                    if (!ctx->active) {
+                        errno = ENOTCONN;
+                        gf_smsg("glfs-mgmt", GF_LOG_INFO, ENOTCONN,
+                                API_MSG_VOLFILE_SERVER_EXHAUST, NULL);
+                        glfs_init_done(fs, -1);
+                        break;
+                    } else {
+                        server = list_first_entry(
+                            &ctx->cmd_args.volfile_servers, typeof(*server),
+                            list);
+                        GF_LOG_OCCASIONALLY(log_ctr2, "glusterfsd-mgmt",
+                                            GF_LOG_INFO,
+                                            "Exhausted all volfile servers, "
+                                            "Retrying from again!");
+                    }
+
+                } else {
+                    server = list_entry(server->list.next, typeof(*server),
+                                        list);
                 }
-                server = list_entry(server->list.next, typeof(*server), list);
                 ctx->cmd_args.curr_server = server;
                 ctx->cmd_args.volfile_server_port = server->port;
                 ctx->cmd_args.volfile_server = server->volfile_server;

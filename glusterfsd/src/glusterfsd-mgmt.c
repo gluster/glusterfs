@@ -2817,13 +2817,21 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             if (server->list.next == &ctx->cmd_args.volfile_servers) {
                 if (!ctx->active) {
                     need_term = 1;
+                    gf_log("glusterfsd-mgmt", GF_LOG_INFO,
+                           "Exhausted all volfile servers, Exiting");
+                    emval = ENOTCONN;
+                    break;
+                } else {
+                    server = list_first_entry(&ctx->cmd_args.volfile_servers,
+                                              typeof(*server), list);
+                    emval = ENOTCONN;
+                    GF_LOG_OCCASIONALLY(
+                        log_ctr2, "glusterfsd-mgmt", GF_LOG_INFO,
+                        "Exhausted all volfile servers, Retrying from again!");
                 }
-                emval = ENOTCONN;
-                GF_LOG_OCCASIONALLY(log_ctr2, "glusterfsd-mgmt", GF_LOG_INFO,
-                                    "Exhausted all volfile servers");
-                break;
+            } else {
+                server = list_entry(server->list.next, typeof(*server), list);
             }
-            server = list_entry(server->list.next, typeof(*server), list);
             ctx->cmd_args.curr_server = server;
             ctx->cmd_args.volfile_server = server->volfile_server;
 
