@@ -839,7 +839,7 @@ EOF
         }
     }
 
-    grep_ret=$(echo ${mount_point} | grep '^\-o');
+    grep_ret=$(echo ${mount_point} | grep '^-o');
     [ "x" != "x${grep_ret}" ] && {
         cat <<EOF >&2
 ERROR: -o options cannot be specified in either first two arguments..
