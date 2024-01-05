@@ -707,6 +707,7 @@ glfs_fd_new(struct glfs *fs)
     glfd->fs = fs;
 
     INIT_LIST_HEAD(&glfd->openfds);
+    INIT_LIST_HEAD(&glfd->entries);
 
     GF_REF_INIT(glfd, glfs_fd_destroy);
 

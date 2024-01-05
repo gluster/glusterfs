@@ -713,6 +713,7 @@ pub_glfs_close(struct glfs_fd *glfd)
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
+    gf_dirent_free(list_entry(&glfd->entries, gf_dirent_t, list));
     subvol = glfs_active_subvol(glfd->fs);
     if (!subvol) {
         ret = -1;
@@ -3590,7 +3591,6 @@ pub_glfs_opendir(struct glfs *fs, const char *path)
     if (!glfd)
         goto out;
 
-    INIT_LIST_HEAD(&glfd->entries);
 retry:
     ret = glfs_resolve(fs, subvol, path, &loc, &iatt, reval);
 
