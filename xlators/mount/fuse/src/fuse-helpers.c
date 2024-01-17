@@ -670,6 +670,7 @@ fuse_ignore_xattr_set(fuse_private_t *priv, char *key)
           (fnmatch("*.glusterfs.volume-mark", key, FNM_PERIOD) == 0) ||
           (fnmatch("*.glusterfs.volume-mark.*", key, FNM_PERIOD) == 0) ||
           (fnmatch("system.posix_acl_access", key, FNM_PERIOD) == 0) ||
+          (fnmatch("system.posix_acl_default", key, FNM_PERIOD) == 0) ||
           (fnmatch("glusterfs.gfid.newfile", key, FNM_PERIOD) == 0) ||
           (fnmatch("*.glusterfs.shard.block-size", key, FNM_PERIOD) == 0) ||
           (fnmatch("*.glusterfs.lockinfo", key, FNM_PERIOD) == 0) ||
