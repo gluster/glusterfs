@@ -6486,15 +6486,13 @@ notify(xlator_t *this, int32_t event, void *data, ...)
     int32_t ret = 0;
     fuse_private_t *private = NULL;
     gf_boolean_t start_thread = _gf_false;
+    gf_boolean_t event_graph = _gf_true;
     glusterfs_graph_t *graph = NULL;
     struct pollfd pfd = {0};
 
     private = this->private;
 
     graph = data;
-
-    gf_log("fuse", GF_LOG_DEBUG, "got event %d on graph %d", event,
-           ((graph) ? graph->id : 0));
 
     switch (event) {
         case GF_EVENT_GRAPH_NEW:
@@ -6581,8 +6579,18 @@ notify(xlator_t *this, int32_t event, void *data, ...)
         }
 
         default:
+            /* Set the event_graph to false so that event
+               debug msg would not try to access invalid graph->id
+               while data object is not matched to graph object
+               for ex in case of upcall event data object represents
+               gf_upcall object
+            */
+            event_graph = _gf_false;
             break;
     }
+
+    gf_log("fuse", GF_LOG_DEBUG, "got event %d on graph %d", event,
+           ((graph && event_graph) ? graph->id : -1));
 
     return ret;
 }
