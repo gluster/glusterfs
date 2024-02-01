@@ -351,9 +351,19 @@ __inode_ctx_free(inode_t *inode)
 static void
 __inode_destroy(inode_t *inode)
 {
-    inode_unref(inode->ns_inode);
-    __inode_ctx_free(inode);
+    inode_table_t *table = NULL;
+    inode_t *ns_inode = inode->ns_inode;
 
+    if (ns_inode) {
+        table = ns_inode->table;
+        pthread_mutex_lock(&table->lock);
+        {
+            __inode_unref(ns_inode, false);
+        }
+        pthread_mutex_unlock(&table->lock);
+    }
+
+    __inode_ctx_free(inode);
     LOCK_DESTROY(&inode->lock);
     //  memset (inode, 0xb, sizeof (*inode));
     GF_FREE(inode);
