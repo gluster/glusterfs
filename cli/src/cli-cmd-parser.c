@@ -95,6 +95,7 @@ cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
     char *delimiter = NULL;
     cli_brick_t *brick = NULL;
     int ret = 0;
+    int ip_len;
 
     GF_ASSERT(words);
     GF_ASSERT(wordcount);
@@ -128,8 +129,9 @@ cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
         goto out;
     }
 
-    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1") &&
-          strncmp(host_name, "0.", 2))) {
+    ip_len = strlen(host_name);
+    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1")) ||
+        (valid_ipv4_address(host_name, ip_len, 0) && !strncmp(host_name, "0.", 2))) {
         cli_err(
             "Please provide a valid hostname/ip other "
             "than localhost, 127.0.0.1 or loopback "
@@ -188,6 +190,7 @@ cli_cmd_bricks_parse(const char **words, int wordcount, int brick_index,
         0,
     };
     cli_brick_t *brick = NULL;
+    int ip_len;
 
     GF_ASSERT(words);
     GF_ASSERT(wordcount);
@@ -228,8 +231,9 @@ cli_cmd_bricks_parse(const char **words, int wordcount, int brick_index,
             goto out;
         }
 
-        if (!(strcmp(host_name, "localhost") &&
-              strcmp(host_name, "127.0.0.1") && strncmp(host_name, "0.", 2))) {
+        ip_len = strlen(host_name);
+        if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1")) ||
+            (valid_ipv4_address(host_name, ip_len, 0) && !strncmp(host_name, "0.", 2))) {
             cli_err(
                 "Please provide a valid hostname/ip other "
                 "than localhost, 127.0.0.1 or loopback "
