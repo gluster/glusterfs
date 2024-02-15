@@ -87,6 +87,25 @@ validate_brick_name(char *brick)
     return ret;
 }
 
+bool
+handle_local_or_loopback_address(char *host_name)
+{
+    int ip_len;
+    ip_len = strlen(host_name);
+
+    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1")) ||
+        (valid_ipv4_address(host_name, ip_len, 0) &&
+         !strncmp(host_name, "0.", 2))) {
+        cli_err(
+            "Please provide a valid hostname/ip other "
+            "than localhost, 127.0.0.1 or loopback "
+            "address (0.0.0.0 to 0.255.255.255).");
+        return _gf_false;
+    }
+
+    return _gf_true;
+}
+
 int32_t
 cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
 {
@@ -128,15 +147,11 @@ cli_cmd_ta_brick_parse(const char **words, int wordcount, char **ta_brick)
         goto out;
     }
 
-    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1") &&
-          strncmp(host_name, "0.", 2))) {
-        cli_err(
-            "Please provide a valid hostname/ip other "
-            "than localhost, 127.0.0.1 or loopback "
-            "address (0.0.0.0 to 0.255.255.255).");
+    if (!handle_local_or_loopback_address(host_name)) {
         ret = -1;
         goto out;
     }
+
     if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
         cli_err(
             "internet address '%s' does not conform to "
@@ -228,16 +243,12 @@ cli_cmd_bricks_parse(const char **words, int wordcount, int brick_index,
             goto out;
         }
 
-        if (!(strcmp(host_name, "localhost") &&
-              strcmp(host_name, "127.0.0.1") && strncmp(host_name, "0.", 2))) {
-            cli_err(
-                "Please provide a valid hostname/ip other "
-                "than localhost, 127.0.0.1 or loopback "
-                "address (0.0.0.0 to 0.255.255.255).");
+        if (!handle_local_or_loopback_address(host_name)) {
             ret = -1;
             GF_FREE(tmp_host);
             goto out;
         }
+
         if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
             cli_err(
                 "internet address '%s' does not conform to "
@@ -3728,15 +3739,12 @@ extract_hostname_path_from_token(const char *tmp_words, char **hostname,
                "memory");
         goto out;
     }
-    if (!(strcmp(host_name, "localhost") && strcmp(host_name, "127.0.0.1") &&
-          strncmp(host_name, "0.", 2))) {
-        cli_err(
-            "Please provide a valid hostname/ip other "
-            "than localhost, 127.0.0.1 or loopback "
-            "address (0.0.0.0 to 0.255.255.255).");
+
+    if (!handle_local_or_loopback_address(host_name)) {
         ret = -1;
         goto out;
     }
+
     if (!valid_internet_address(host_name, _gf_false, _gf_false)) {
         cli_err(
             "internet address '%s' does not conform to "
