@@ -1294,16 +1294,23 @@ afr_mark_split_brain_source_sinks_by_policy(
     if (fav_child == -1) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
                "No child selected by favorite-child policy.");
-    } else if (fav_child > priv->child_count - 1) {
+    } else if (fav_child > (int)(priv->child_count - 1)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, AFR_MSG_SBRAIN_FAV_CHILD_POLICY,
                "Invalid child (%d) "
                "selected by policy %s.",
                fav_child, policy_str);
+        return -1;
     } else if (fav_child >= 0) {
         time = replies[fav_child].poststat.ia_mtime;
+        if (time < 0) {
+            time = 0;
+        }
         tm_ptr = localtime(&time);
         strftime(mtime_str, sizeof(mtime_str), "%Y-%m-%d %H:%M:%S", tm_ptr);
         time = replies[fav_child].poststat.ia_ctime;
+        if (time < 0) {
+            time = 0;
+        }
         tm_ptr = localtime(&time);
         strftime(ctime_str, sizeof(ctime_str), "%Y-%m-%d %H:%M:%S", tm_ptr);
 
