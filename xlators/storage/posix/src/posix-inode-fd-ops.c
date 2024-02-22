@@ -4862,6 +4862,7 @@ posix_fsyncdir(call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
     int32_t op_errno = 0;
     int ret = -1;
     struct posix_fd *pfd = NULL;
+    int _fd = -1;
 
     VALIDATE_OR_GOTO(frame, out);
     VALIDATE_OR_GOTO(this, out);
@@ -4874,7 +4875,28 @@ posix_fsyncdir(call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
         goto out;
     }
 
-    op_ret = 0;
+    _fd = pfd->fd;
+    if (datasync) {
+        op_ret = sys_fdatasync(_fd);
+        if (op_ret == -1) {
+            op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSYNC_FAILED,
+                   "fdatasync on fd=%p"
+                   "failed:",
+                   fd);
+            goto out;
+        }
+    } else {
+        op_ret = sys_fsync(_fd);
+        if (op_ret == -1) {
+            op_errno = errno;
+            gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_FSYNC_FAILED,
+                   "fsync on fd=%p "
+                   "failed",
+                   fd);
+            goto out;
+        }
+    }
 
 out:
     STACK_UNWIND_STRICT(fsyncdir, frame, op_ret, op_errno, NULL);
