@@ -130,6 +130,10 @@ struct fuse_private {
     /* for using fuse-kernel readdirp*/
     gf_boolean_t use_readdirp;
 
+
+    /* The option to enable/disable readdir_optimize at fuse level*/
+    gf_boolean_t readdir_optimize;
+
     /* fini started, helps prevent multiple epoll worker threads
      * firing up the fini routine */
     gf_boolean_t fini_invoked;
@@ -443,6 +447,7 @@ typedef struct {
     char *name;
     char is_revalidate;
     gf_boolean_t truncate_needed;
+    gf_boolean_t wind_from_readdir;
     gf_lock_t lock;
     uint64_t lk_owner;
 
@@ -455,9 +460,15 @@ typedef struct {
     fuse_resolve_t *resolve_now;
 
     void *resume_fn;
+    void *old_state;
+    void *main_frame;
 
     int valid;
     int mask;
+    int total_lookup;
+    int lookup_sent;
+    int lookup_recvd;
+
     dev_t rdev;
     mode_t mode;
     mode_t umask;
@@ -477,6 +488,7 @@ typedef struct {
     uint32_t open_flags;
     char migration_failed;
     fd_t *activefd;
+    gf_dirent_t *equeue;
 } fuse_fd_ctx_t;
 
 typedef void (*fuse_resume_fn_t)(fuse_state_t *state);

@@ -246,6 +246,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
     fi
 
+    if [ -n "$readdir_optimize" ]; then
+        cmd_line=$(echo "$cmd_line --readdir-optimize=$readdir_optimize");
+    fi
+
     if [ -n "$event_history" ]; then
         cmd_line=$(echo "$cmd_line --event-history=$event_history");
     fi
@@ -596,6 +600,9 @@ with_options()
             ;;
         "use-readdirp")
             use_readdirp=$value
+            ;;
+        "readdir-optimize")
+            readdir_optimize=$value
             ;;
         "event-history")
             event_history=$value

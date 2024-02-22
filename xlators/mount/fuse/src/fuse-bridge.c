@@ -1026,7 +1026,8 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             inode_ctx_set(linked_inode, this, &ctx_value);
         }
 
-        inode_lookup(linked_inode);
+        if (!state->wind_from_readdir)
+            inode_lookup(linked_inode);
 
         if (dict_get_sizen(xdata, GF_NAMESPACE_KEY)) {
             inode_set_namespace_inode(linked_inode, linked_inode);
@@ -1040,14 +1041,15 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         feo.entry_valid_nsec = calc_timeout_nsec(priv->entry_timeout);
         feo.attr_valid = calc_timeout_sec(priv->attribute_timeout);
         feo.attr_valid_nsec = calc_timeout_nsec(priv->attribute_timeout);
-
-#if FUSE_KERNEL_MINOR_VERSION >= 9
-        priv->proto_minor >= 9
-            ? send_fuse_obj(this, finh, &feo)
-            : send_fuse_data(this, finh, &feo, FUSE_COMPAT_ENTRY_OUT_SIZE);
-#else
-        send_fuse_obj(this, finh, &feo);
-#endif
+        if (!state->wind_from_readdir) {
+            #if FUSE_KERNEL_MINOR_VERSION >= 9
+                priv->proto_minor >= 9
+                  ? send_fuse_obj(this, finh, &feo)
+                  : send_fuse_data(this, finh, &feo, FUSE_COMPAT_ENTRY_OUT_SIZE);
+            #else
+                send_fuse_obj(this, finh, &feo);
+           #endif
+       }
     } else {
         gf_log("glusterfs-fuse",
                (op_errno == ENOENT ? GF_LOG_TRACE : GF_LOG_WARNING),
@@ -1055,12 +1057,14 @@ fuse_entry_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                gf_fop_list[frame->root->op], state->loc.path,
                strerror(op_errno));
 
-        if ((op_errno == ENOENT) && (priv->negative_timeout != 0)) {
-            feo.entry_valid = calc_timeout_sec(priv->negative_timeout);
-            feo.entry_valid_nsec = calc_timeout_nsec(priv->negative_timeout);
-            send_fuse_obj(this, finh, &feo);
-        } else {
-            send_fuse_err(this, state->finh, op_errno);
+        if (!state->wind_from_readdir) {
+            if ((op_errno == ENOENT) && (priv->negative_timeout != 0)) {
+                feo.entry_valid = calc_timeout_sec(priv->negative_timeout);
+                feo.entry_valid_nsec = calc_timeout_nsec(priv->negative_timeout);
+                send_fuse_obj(this, finh, &feo);
+            } else {
+                send_fuse_err(this, state->finh, op_errno);
+            }
         }
     }
 
@@ -1091,9 +1095,24 @@ fuse_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     fuse_state_t *state = NULL;
     call_frame_t *prev = NULL;
     inode_table_t *itable = NULL;
+    fuse_state_t *old_state = NULL;
+    int lkup_sent, lkup_recvd, total_lookup;
+    fuse_fd_ctx_t *fdctx = NULL;
+    gf_dirent_t *ecache = NULL;
+    gf_dirent_t *tmp = NULL;
+    gf_dirent_t *entry = NULL;
+    size_t max_size = 0;
+    gf_dirent_t local_entries;
+    char *buf = NULL;
+    call_frame_t *main_frame = NULL;
+    struct fuse_dirent *fde = NULL;
+    size_t size = 0;
+
+    fuse_private_t *priv = this->private;
 
     state = frame->root->state;
     prev = cookie;
+    old_state = state->old_state;
 
     if (op_ret == -1 && state->is_revalidate == 1) {
         itable = state->itable;
@@ -1110,9 +1129,84 @@ fuse_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
             gf_uuid_generate(state->gfid);
         fuse_gfid_set(state);
 
+        if (state->wind_from_readdir) {
+            LOCK(&old_state->lock);
+            {
+                old_state->lookup_sent++;
+                old_state->lookup_recvd++;
+            }
+            UNLOCK(&old_state->lock);
+        }
+
         STACK_WIND(frame, fuse_lookup_cbk, prev->this, prev->this->fops->lookup,
                    &state->loc, state->xdata);
         return 0;
+    }
+
+    /* It means lookup has wind by readdir fop */
+    if (state->wind_from_readdir) {
+        LOCK(&old_state->lock);
+        {
+            lkup_recvd = old_state->lookup_recvd++;
+            lkup_sent = old_state->lookup_sent;
+            total_lookup = old_state->total_lookup;
+        }
+        UNLOCK(&old_state->lock);
+        if ((lkup_recvd == (lkup_sent - 1)) && (total_lookup == lkup_sent)) {
+
+        /* The above condition is true it means this is the last lookup
+           fop wind by readdir fop
+        */
+        fdctx =  fd_ctx_get_ptr(old_state->fd, old_state->this);
+        ecache = fdctx->equeue;
+        main_frame = state->main_frame;
+        priv = old_state->this->private;
+
+        if (ecache) {
+            INIT_LIST_HEAD(&local_entries.list);
+            list_for_each_entry_safe(entry, tmp, &ecache->list, list)
+            {
+                size_t fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (entry->d_len));
+                max_size += fde_size;
+
+                if (max_size > old_state->size) {
+                    /* we received too many entries to fit in the reply */
+                    max_size -= fde_size;
+                    break;
+                }
+            }
+
+            if (max_size == 0)
+               goto skip;
+
+            buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
+            if (!buf) {
+                gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+                       ": READDIR => -1 (%s)", strerror(ENOMEM));
+                goto skip;
+            }
+
+            list_for_each_entry_safe(entry, tmp, &ecache->list, list)
+            {
+                fde = (struct fuse_dirent *)(buf + size);
+                gf_fuse_fill_dirent(entry, fde, priv->enable_ino32);
+                size += FUSE_DIRENT_SIZE(fde);
+                list_del_init(&entry->list);
+                list_add_tail(&entry->list, &local_entries.list);
+
+                if (size == max_size)
+                    break;
+            }
+
+            send_fuse_data(old_state->this, old_state->finh, buf, size);
+            gf_dirent_free(&local_entries);
+        }
+        skip:
+            state->old_state = NULL;
+            free_fuse_state(old_state);
+            STACK_DESTROY(main_frame->root);
+            GF_FREE(buf);
+        }
     }
 
     fuse_entry_cbk(frame, cookie, this, op_ret, op_errno, inode, stat, dict);
@@ -1137,15 +1231,39 @@ fuse_fop_resume(fuse_state_t *state)
     fn(state);
 }
 
+static void
+fuse_inode_unref(void *data)
+{
+    inode_t *inode = data;
+
+    if (inode)
+        inode_unref(inode);
+}
+
 void
 fuse_lookup_resume(fuse_state_t *state)
 {
+    xlator_t *this = state->this;
+    inode_t *inode = NULL;
+    fuse_state_t *old_state = state->old_state;
+    struct timespec delay = {
+        0,
+    };
+    fuse_in_header_t *finh = NULL;
+    int op_errno = 0;
+    inode_table_t *table = NULL;
+
+    if (state->wind_from_readdir) {
+        finh = old_state->finh;
+    } else {
+        finh = state->finh;
+    }
+
     if (!state->loc.parent && !state->loc.inode) {
         gf_log("fuse", GF_LOG_ERROR, "failed to resolve path %s",
                state->loc.path);
-        send_fuse_err(state->this, state->finh, state->resolve.op_errno);
-        free_fuse_state(state);
-        return;
+        op_errno = state->resolve.op_errno;
+        goto out;
     }
 
     /* parent was resolved, entry could not, may be a missing gfid?
@@ -1157,13 +1275,19 @@ fuse_lookup_resume(fuse_state_t *state)
 
     if (state->loc.inode) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": LOOKUP %s(%s)",
-               state->finh->unique, state->loc.path,
+               finh->unique, state->loc.path,
                uuid_utoa(state->loc.inode->gfid));
         state->is_revalidate = 1;
+        if (state->wind_from_readdir) {
+            LOCK(&old_state->lock);
+            {
+                old_state->lookup_sent++;
+            }
+            UNLOCK(&old_state->lock);
+        }
     } else {
         gf_log("glusterfs-fuse", GF_LOG_TRACE, "%" PRIu64 ": LOOKUP %s",
-               state->finh->unique, state->loc.path);
-        state->loc.inode = inode_new(state->loc.parent->table);
+               finh->unique, state->loc.path);
         if (gf_uuid_is_null(state->gfid)) {
             /* this is when it's all completely new lookup, send namespace key
              * here */
@@ -1174,9 +1298,8 @@ fuse_lookup_resume(fuse_state_t *state)
                 gf_log(THIS->name, GF_LOG_ERROR,
                        "%s: dict_new failed while setting namespace",
                        state->loc.path);
-                send_fuse_err(state->this, state->finh, ENOMEM);
-                free_fuse_state(state);
-                return;
+                op_errno = ENOMEM;
+                goto out;
             }
 
             int ret = dict_set_int32_sizen(state->xdata, GF_NAMESPACE_KEY, 1);
@@ -1184,18 +1307,48 @@ fuse_lookup_resume(fuse_state_t *state)
                 gf_log(THIS->name, GF_LOG_ERROR,
                        "%s: dict set failed for namespace key",
                        state->loc.path);
-                send_fuse_err(state->this, state->finh, ENOMEM);
-                free_fuse_state(state);
-                return;
+                op_errno = ENOMEM;
+                goto out;
             }
 
             gf_uuid_generate(state->gfid);
         }
         fuse_gfid_set(state);
+        /* It means the lookup operations winds from readdir */
+        if (state->wind_from_readdir) {
+            /* TODO Current value is 600s fixed but we can provide a configurable
+               option
+            */
+            delay.tv_sec = 600;
+            delay.tv_nsec = 0;
+            /* Take extra ref so that inode will be keep in active list */ 
+            inode = inode_new(state->loc.parent->table);
+            table = state->loc.parent->table;
+            if (table->active_size < 1000000) {
+            //if (table->active_size < 1000000) {
+              dict_set_int32(state->xdata, "inode-unref-delay", 600);
+                state->loc.inode = inode_ref(inode);
+                gf_timer_call_after(this->ctx, delay, fuse_inode_unref, inode);
+            } else {
+                state->loc.inode = inode;
+            }
+            LOCK(&old_state->lock);
+            {
+                old_state->lookup_sent++;
+            }
+            UNLOCK(&old_state->lock);
+        } else {
+            state->loc.inode = inode_new(state->loc.parent->table);
+        }
     }
 
     FUSE_FOP(state, fuse_lookup_cbk, GF_FOP_LOOKUP, lookup, &state->loc,
              state->xdata);
+    return;
+out:
+    if (!state->wind_from_readdir)
+        send_fuse_err(state->this, finh, op_errno);
+    free_fuse_state(state);   
 }
 
 static void
@@ -3542,6 +3695,11 @@ fuse_opendir_resume(fuse_state_t *state)
         return;
     }
 
+    if (priv->readdir_optimize) {
+        fdctx->equeue = GF_CALLOC(1, sizeof(gf_dirent_t), gf_common_mt_char);
+        INIT_LIST_HEAD(&(fdctx->equeue->list));
+    }
+
     state->fd = fd_ref(fd);
     state->fd_no = gf_fd_unused_get(priv->fdtable, fd);
 
@@ -3569,6 +3727,26 @@ fuse_opendir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fuse_resolve_and_resume(state, fuse_opendir_resume);
 }
 
+
+static void
+fuse_readdir_lookup(xlator_t *this, fuse_in_header_t *finh, void *msg, void *old_state, void *main_frame)
+{
+    char *name = msg;
+    fuse_state_t *state = NULL;
+
+    state = get_fuse_state(this, NULL);
+    if (state) {
+        state->old_state = old_state;
+        state->main_frame = main_frame;
+        state->wind_from_readdir = _gf_true; 
+        (void)fuse_resolve_entry_init(state, &state->resolve, finh->nodeid, name);
+
+        fuse_resolve_and_resume(state, fuse_lookup_resume);
+    }
+    return;
+}
+
+
 static int
 fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
@@ -3582,10 +3760,21 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     gf_dirent_t *entry = NULL;
     struct fuse_dirent *fde = NULL;
     fuse_private_t *priv = NULL;
+    fuse_fd_ctx_t *fdctx = NULL;
+    gf_dirent_t *ecache = NULL;
+    int flag = 0;
+    gf_dirent_t local_entries;
+    int total_lookup = 0;
+    gf_dirent_t *new_entry = NULL;
+    gf_dirent_t *orig_entry = NULL;
+    size_t fde_size = 0;
+    int readdir_optimize = 0;
+    inode_table_t *table = NULL;
 
     state = frame->root->state;
     finh = state->finh;
     priv = state->this->private;
+    table = state->fd->inode->table;
 
     fuse_log_eh_fop(this, state, frame, op_ret, op_errno);
 
@@ -3598,52 +3787,98 @@ fuse_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    gf_log("glusterfs-fuse", GF_LOG_TRACE,
-           "%" PRIu64 ": READDIR => %d/%" GF_PRI_SIZET ",%" PRId64,
-           frame->root->unique, op_ret, state->size, state->off);
+    readdir_optimize = priv->readdir_optimize;
+    if (readdir_optimize) {
+        fdctx =  fd_ctx_get_ptr(state->fd, this);
+        ecache = fdctx->equeue;
+        INIT_LIST_HEAD(&local_entries.list);
 
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        size_t fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (entry->d_len));
-        max_size += fde_size;
-
-        if (max_size > state->size) {
-            /* we received too many entries to fit in the reply */
-            max_size -= fde_size;
-            break;
+        list_for_each_entry(orig_entry, (&entries->list), list)
+        {
+            if (!strcmp(orig_entry->d_name, ".") || !strcmp(orig_entry->d_name, ".."))
+                continue;
+            total_lookup++;
         }
+        state->total_lookup = total_lookup;
+        if ((!total_lookup) || (table->active_size >= 1000000)) {
+        //if (!total_lookup) {
+            readdir_optimize = 0;
+            goto skip_lookup;
+        }
+
+        flag = 1;
+        list_for_each_entry(orig_entry, (&entries->list), list)
+        {
+            new_entry = gf_dirent_for_name2(orig_entry->d_name, orig_entry->d_len,
+                                            orig_entry->d_ino, orig_entry->d_off,
+                                            orig_entry->d_type, NULL);
+            list_add_tail(&new_entry->list, &ecache->list);
+            if (flag) {
+                fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + new_entry->d_len);
+                max_size += fde_size;
+            }
+
+            if (max_size > state->size) {
+                max_size -= fde_size;
+                flag = 0;
+            }
+            if (!strcmp(orig_entry->d_name, ".") || !strcmp(orig_entry->d_name, ".."))
+                continue;
+            /* Wind a lookup fop for every entry */
+            fuse_readdir_lookup(this, finh, new_entry->d_name, state, frame);
+       }
+       return 0;
     }
 
-    if (max_size == 0) {
-        send_fuse_data(this, finh, 0, 0);
-        goto out;
+skip_lookup:
+    if (!readdir_optimize) {
+
+        gf_log("glusterfs-fuse", GF_LOG_TRACE,
+               "%" PRIu64 ": READDIR => %d/%" GF_PRI_SIZET ",%" PRId64,
+               frame->root->unique, op_ret, state->size, state->off);
+
+        list_for_each_entry(entry, &entries->list, list)
+        {
+            fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (entry->d_len));
+            max_size += fde_size;
+
+            if (max_size > state->size) {
+                /* we received too many entries to fit in the reply */
+                max_size -= fde_size;
+                break;
+            }
+        }
+
+        if (max_size == 0) {
+            send_fuse_data(this, finh, 0, 0);
+            goto out;
+        }
+
+        buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
+        if (!buf) {
+            gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+                   "%" PRIu64 ": READDIR => -1 (%s)", frame->root->unique,
+                   strerror(ENOMEM));
+            send_fuse_err(this, finh, ENOMEM);
+            goto out;
+        }
+
+        size = 0;
+        list_for_each_entry(entry, &entries->list, list)
+        {
+            fde = (struct fuse_dirent *)(buf + size);
+            gf_fuse_fill_dirent(entry, fde, priv->enable_ino32);
+            size += FUSE_DIRENT_SIZE(fde);
+
+            if (size == max_size)
+                break;
+        }
+
+        send_fuse_data(this, finh, buf, size);
+
+       /* TODO: */
+       /* gf_link_inodes_from_dirent (state->fd->inode, entries); */
     }
-
-    buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
-    if (!buf) {
-        gf_log("glusterfs-fuse", GF_LOG_DEBUG,
-               "%" PRIu64 ": READDIR => -1 (%s)", frame->root->unique,
-               strerror(ENOMEM));
-        send_fuse_err(this, finh, ENOMEM);
-        goto out;
-    }
-
-    size = 0;
-    list_for_each_entry(entry, &entries->list, list)
-    {
-        fde = (struct fuse_dirent *)(buf + size);
-        gf_fuse_fill_dirent(entry, fde, priv->enable_ino32);
-        size += FUSE_DIRENT_SIZE(fde);
-
-        if (size == max_size)
-            break;
-    }
-
-    send_fuse_data(this, finh, buf, size);
-
-    /* TODO: */
-    /* gf_link_inodes_from_dirent (state->fd->inode, entries); */
-
 out:
     free_fuse_state(state);
     STACK_DESTROY(frame->root);
@@ -3654,13 +3889,86 @@ out:
 void
 fuse_readdir_resume(fuse_state_t *state)
 {
+    fuse_fd_ctx_t *fdctx = NULL;
+    gf_dirent_t *ecache = NULL;
+    size_t size = 0;
+    size_t max_size = 0;
+    char *buf = NULL;
+    gf_dirent_t *entry = NULL;
+    gf_dirent_t *tmp = NULL;
+    gf_dirent_t local_entries;
+    struct fuse_dirent *fde = NULL;
+    xlator_t *this = state->this;
+    fuse_private_t *priv = this->private;
+    size_t new_size = state->size;
+
+    if (priv->readdir_optimize) {
+        fdctx =  fd_ctx_get_ptr(state->fd, this);
+        ecache = fdctx->equeue;
+
+        new_size = 131072;
+
+        if (!ecache)
+            goto uncache;
+
+        if (list_empty(&ecache->list))
+            goto uncache;
+
+        INIT_LIST_HEAD(&local_entries.list);
+        list_for_each_entry(entry, &ecache->list, list)
+        {
+            size_t fde_size = FUSE_DIRENT_ALIGN(FUSE_NAME_OFFSET + (entry->d_len));
+            max_size += fde_size;
+
+            if (max_size > state->size) {
+                /* we received too many entries to fit in the reply */
+                max_size -= fde_size;
+                break;
+            }
+        }
+
+        if (max_size == 0)
+            goto uncache;
+
+        buf = GF_CALLOC(1, max_size, gf_fuse_mt_char);
+        if (!buf) {
+            gf_log("glusterfs-fuse", GF_LOG_DEBUG,
+                   ": READDIR => -1 (%s)", strerror(ENOMEM));
+            send_fuse_err(this, state->finh, ENOMEM);
+            goto out;
+        }
+
+        list_for_each_entry_safe(entry, tmp, &ecache->list, list)
+        {
+            fde = (struct fuse_dirent *)(buf + size);
+            gf_fuse_fill_dirent(entry, fde, priv->enable_ino32);
+            size += FUSE_DIRENT_SIZE(fde);
+            list_del_init(&entry->list);
+            list_add_tail(&entry->list, &local_entries.list);
+
+            if (size == max_size)
+                break;
+        }
+
+        send_fuse_data(this, state->finh, buf, size);
+        gf_dirent_free(&local_entries);
+        goto out;
+    }
+
+uncache:
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "%" PRIu64 ": READDIR (%p, size=%" GF_PRI_SIZET ", offset=%" PRId64
            ")",
-           state->finh->unique, state->fd, state->size, state->off);
+           state->finh->unique, state->fd, new_size, state->off);
 
     FUSE_FOP(state, fuse_readdir_cbk, GF_FOP_READDIR, readdir, state->fd,
-             state->size, state->off, state->xdata);
+             new_size, state->off, state->xdata);
+    return;
+
+out:
+    free_fuse_state(state);
+    GF_FREE(buf);
+    return;
 }
 
 static void
@@ -3891,6 +4199,8 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     struct fuse_release_in *fri = msg;
     fuse_state_t *state = NULL;
     fuse_private_t *priv = NULL;
+    gf_dirent_t *equeue = NULL;
+    fuse_fd_ctx_t *fdctx = NULL;
 
     GET_STATE(this, finh, state);
     state->fd = FH_TO_FD(fri->fh);
@@ -3905,6 +4215,15 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "finh->unique: %" PRIu64 ": RELEASEDIR %p", finh->unique, state->fd);
+
+    if (priv->readdir_optimize) {
+        fdctx = fd_ctx_get_ptr(state->fd, this);
+        equeue = fdctx->equeue;
+        if (equeue) {
+            gf_dirent_free(equeue);
+            GF_FREE(equeue);
+        }
+    }
 
     fuse_fd_ctx_destroy(this, state->fd);
     fd_unref(state->fd);
@@ -5140,6 +5459,8 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     }
 
     priv->init_recvd = 1;
+
+    gf_log("MY_LOG", GF_LOG_INFO, "readdir-optimize is %d", priv->readdir_optimize);
 
     if (fini->major != FUSE_KERNEL_VERSION) {
         gf_log("glusterfs-fuse", GF_LOG_ERROR,
@@ -6822,6 +7143,8 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("enable-ino32", priv->enable_ino32, bool, cleanup_exit);
 
     GF_OPTION_INIT("use-readdirp", priv->use_readdirp, bool, cleanup_exit);
+    if (!priv->use_readdirp)
+        GF_OPTION_INIT("readdir-optimize", priv->readdir_optimize, bool, cleanup_exit);
 
     priv->fuse_dump_fd = -1;
     ret = dict_get_str(options, "dump-fuse", &value_string);
@@ -7163,6 +7486,9 @@ struct volume_options options[] = {
     {.key = {"use-readdirp"},
      .type = GF_OPTION_TYPE_BOOL,
      .default_value = "yes"},
+    {.key = {"readdir-optimize"},
+     .type = GF_OPTION_TYPE_BOOL,
+     .default_value = "no"},
     {
         .key = {"no-root-squash"},
         .type = GF_OPTION_TYPE_BOOL,
