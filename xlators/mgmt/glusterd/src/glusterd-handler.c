@@ -6358,53 +6358,62 @@ __glusterd_brick_rpc_notify(struct rpc_clnt *rpc, void *mydata,
                                     brickinfo->path);
                 break;
             }
-            if (glusterd_is_brick_started(brickinfo)) {
-                gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_BRICK_DISCONNECTED,
-                       "Brick %s:%s has disconnected from glusterd.",
-                       brickinfo->hostname, brickinfo->path);
 
-                ret = get_volinfo_from_brickid(brickid, &volinfo);
+            if (!glusterd_is_brick_started(brickinfo)) {
+                /* If the brick is already GF_BRICK_STOPPED, there's no need to
+                 * do anything else. However, if the brick is GF_BRICK_STARTING
+                 * or GF_BRICK_STOPPING, it's better to not touch anything since
+                 * there's another thread already managing the brick.
+                 *
+                 * This may happen when, during the start of a brick, another
+                 * thread attempts to connect to it. Since the unix socket name
+                 * is already present in brickinfo, it will attempt to connect.
+                 * However the brick may still be initializing and not accepting
+                 * connections, so the connection attempt will be rejected,
+                 * triggering the RPC_CLNT_DISCONNECT event. */
+                break;
+            }
+
+            gf_msg(this->name, GF_LOG_INFO, 0, GD_MSG_BRICK_DISCONNECTED,
+                   "Brick %s:%s has disconnected from glusterd.",
+                   brickinfo->hostname, brickinfo->path);
+
+            ret = get_volinfo_from_brickid(brickid, &volinfo);
+            if (ret) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
+                       "Failed to get volinfo from brickid(%s)", brickid);
+                goto out;
+            }
+            gf_event(EVENT_BRICK_DISCONNECTED, "peer=%s;volume=%s;brick=%s",
+                     brickinfo->hostname, volinfo->volname, brickinfo->path);
+            /* In case of an abrupt shutdown of a brick PMAP_SIGNOUT
+             * event is not received by glusterd which can lead to a
+             * stale port entry in glusterd, so forcibly clean up
+             * the same if the process is not running sometime
+             * gf_is_service_running true so to ensure about brick instance
+             * call search_brick_path_from_proc
+             */
+            GLUSTERD_GET_BRICK_PIDFILE(pidfile, volinfo, brickinfo, conf);
+            is_service_running = gf_is_service_running(pidfile, &pid);
+            if (pid > 0)
+                brickpath = search_brick_path_from_proc(pid, brickinfo->path);
+            if (!is_service_running || !brickpath) {
+                ret = pmap_port_remove(this, brickinfo->port, brickinfo->path,
+                                       NULL, _gf_true);
                 if (ret) {
-                    gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_VOLINFO_GET_FAIL,
-                           "Failed to get volinfo from "
-                           "brickid(%s)",
-                           brickid);
-                    goto out;
-                }
-                gf_event(EVENT_BRICK_DISCONNECTED, "peer=%s;volume=%s;brick=%s",
-                         brickinfo->hostname, volinfo->volname,
-                         brickinfo->path);
-                /* In case of an abrupt shutdown of a brick PMAP_SIGNOUT
-                 * event is not received by glusterd which can lead to a
-                 * stale port entry in glusterd, so forcibly clean up
-                 * the same if the process is not running sometime
-                 * gf_is_service_running true so to ensure about brick instance
-                 * call search_brick_path_from_proc
-                 */
-                GLUSTERD_GET_BRICK_PIDFILE(pidfile, volinfo, brickinfo, conf);
-                is_service_running = gf_is_service_running(pidfile, &pid);
-                if (pid > 0)
-                    brickpath = search_brick_path_from_proc(pid,
-                                                            brickinfo->path);
-                if (!is_service_running || !brickpath) {
-                    ret = pmap_port_remove(this, brickinfo->port,
-                                           brickinfo->path, NULL, _gf_true);
-                    if (ret) {
-                        gf_msg(this->name, GF_LOG_WARNING,
-                               GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0,
-                               "Failed to remove pmap "
-                               "registry for port %d for "
-                               "brick %s",
-                               brickinfo->port, brickinfo->path);
-                        ret = 0;
-                    }
+                    gf_msg(this->name, GF_LOG_WARNING,
+                           GD_MSG_PMAP_REGISTRY_REMOVE_FAIL, 0,
+                           "Failed to remove pmap registry for port %d for "
+                           "brick %s",
+                           brickinfo->port, brickinfo->path);
+                    ret = 0;
                 }
             }
 
             if (brickpath)
                 GF_FREE(brickpath);
 
-            if (is_brick_mx_enabled() && glusterd_is_brick_started(brickinfo)) {
+            if (is_brick_mx_enabled()) {
                 brick_proc = brickinfo->brick_proc;
                 if (!brick_proc)
                     break;
