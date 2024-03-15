@@ -2079,8 +2079,16 @@ unlock:
     if (was_dir)
         posix_handle_unset_gfid(this, victim);
 
-    if (was_present && !was_dir && nlink == 1)
-        posix_handle_unset_gfid(this, victim);
+    if (was_present && !was_dir && nlink == 1) {
+        LOCK(&newloc->inode->lock);
+        if (newloc->inode->fd_count == 0) {
+            UNLOCK(&newloc->inode->lock);
+            posix_handle_unset_gfid(this, victim);
+        } else {
+            UNLOCK(&newloc->inode->lock);
+            posix_move_gfid_to_unlink(this, victim, newloc);
+        }
+    }
 
     if (IA_ISDIR(oldloc->inode->ia_type)) {
         posix_handle_unset_gfid(this, oldloc->inode->gfid);
