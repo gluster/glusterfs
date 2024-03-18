@@ -789,6 +789,8 @@ ioc_frame_unwind(call_frame_t *frame)
     GF_ASSERT(frame);
 
     local = frame->local;
+    /* gnfs requires op_errno to determine is_eof */
+    op_errno = local->op_errno;
     if (local == NULL) {
         gf_smsg(frame->this->name, GF_LOG_WARNING, ENOMEM,
                 IO_CACHE_MSG_LOCAL_NULL, NULL);
