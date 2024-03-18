@@ -4931,8 +4931,11 @@ shard_readv_do_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto out;
     }
 
-    if (local->op_ret >= 0)
+    if (local->op_ret >= 0) {
         local->op_ret += op_ret;
+        /* gnfs requires op_errno to determine is_eof */
+        local->op_errno = op_errno;
+    }
 
     shard_inode_ctx_get(anon_fd->inode, this, &ctx);
     block_num = ctx->block_num;
