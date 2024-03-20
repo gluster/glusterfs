@@ -6,7 +6,7 @@ client_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 client_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-	$(top_builddir)/rpc/xdr/src/libgfxdr.la
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la $(pthread_LIBS)
 
 client_la_SOURCES = client.c client-helpers.c client-rpc-fops_v2.c  \
 	client-handshake.c client-callback.c client-common.c

@@ -9,7 +9,7 @@ posix_la_SOURCES = posix.c posix-helpers.c posix-handle.c posix-aio.c \
 	posix-gfid-path.c posix-entry-ops.c posix-inode-fd-ops.c \
         posix-common.c posix-metadata.c posix-io-uring.c
 posix_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(LIBAIO) \
-	$(LIBURING) $(ACL_LIBS)
+	$(LIBURING) $(ACL_LIBS) $(pthread_LIBS)
 
 noinst_HEADERS = posix.h posix-mem-types.h posix-handle.h posix-aio.h \
 	posix-messages.h posix-gfid-path.h posix-inode-handle.h \

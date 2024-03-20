@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 read_ahead_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 read_ahead_la_SOURCES = read-ahead.c page.c
-read_ahead_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+read_ahead_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = read-ahead.h read-ahead-mem-types.h read-ahead-messages.h
 

@@ -6,7 +6,7 @@ endif
 glusterfsd_SOURCES = glusterfsd.c glusterfsd-mgmt.c
 glusterfsd_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-	$(top_builddir)/rpc/xdr/src/libgfxdr.la $(GF_LDADD) $(LIB_DL)
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la $(GF_LDADD) $(dl_LIBS) $(pthread_LIBS)
 glusterfsd_LDFLAGS = $(GF_LDFLAGS)
 
 gf_attach_SOURCES = gf_attach.c

@@ -4,7 +4,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 md_cache_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 md_cache_la_SOURCES = md-cache.c
-md_cache_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+md_cache_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = md-cache-mem-types.h md-cache-messages.h
 

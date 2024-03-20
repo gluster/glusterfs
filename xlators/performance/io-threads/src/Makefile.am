@@ -4,7 +4,8 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/performance
 io_threads_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 io_threads_la_SOURCES = io-threads.c
-io_threads_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+io_threads_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
+	$(pthread_LIBS) $(rt_LIBS)
 
 noinst_HEADERS = io-threads.h iot-mem-types.h io-threads-messages.h
 

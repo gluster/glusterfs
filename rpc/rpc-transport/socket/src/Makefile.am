@@ -9,7 +9,7 @@ socket_la_SOURCES = socket.c name.c
 socket_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
                    $(top_builddir)/rpc/xdr/src/libgfxdr.la \
                    $(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-                   -lssl
+                   $(crypto_LIBS) $(pthread_LIBS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src \

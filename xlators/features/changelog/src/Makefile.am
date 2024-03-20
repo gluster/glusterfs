@@ -14,7 +14,7 @@ changelog_la_SOURCES = changelog.c changelog-rt.c changelog-helpers.c \
 	changelog-rpc-common.c changelog-ev-handle.c
 changelog_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/xdr/src/libgfxdr.la \
-	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la
+	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la $(pthread_LIBS)
 
 AM_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \
