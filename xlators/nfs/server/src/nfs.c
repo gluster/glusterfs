@@ -1679,15 +1679,9 @@ nfs_start_rpc_poller(struct nfs_state *state)
  *     all registered services, from any thread.
  */
 #ifdef HAVE_LIBTIRPC
-#ifdef REDHAT8_OR_SLES15_ON_S390X
     if (uatomic_xchg(&state->svc_running, 1)) {
         return;
     }
-#else
-    if (uatomic_xchg(&state->svc_running, true)) {
-        return;
-    }
-#endif
 #endif
 
     svc_run();
