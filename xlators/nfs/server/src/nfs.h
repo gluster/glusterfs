@@ -103,11 +103,7 @@ struct nfs_state {
     gf_boolean_t rdirplus;
 
 #ifdef HAVE_LIBTIRPC
-#ifdef REDHAT8_OR_SLES15_ON_S390X
     int svc_running;
-#else
-    bool svc_running;
-#endif
 #endif
 };
 
