@@ -798,9 +798,11 @@ ioc_frame_unwind(call_frame_t *frame)
         goto unwind;
     }
 
+    /* gnfs requires op_errno to determine is_eof */
+    op_errno = local->op_errno;
+
     if (local->op_ret < 0) {
         op_ret = local->op_ret;
-        op_errno = local->op_errno;
         goto unwind;
     }
 
