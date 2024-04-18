@@ -3244,9 +3244,8 @@ posix_xattr_get_real_filename(call_frame_t *frame, xlator_t *this, loc_t *loc,
     fname = key + SLEN(GF_XATTR_GET_REAL_FILENAME_KEY);
 
     for (;;) {
-        errno = 0;
         entry = sys_readdir(fd, scratch);
-        if (!entry || errno != 0)
+        if (!entry)
             break;
 
         if (strcasecmp(entry->d_name, fname) == 0) {
@@ -3349,9 +3348,8 @@ posix_links_in_same_directory(char *dirpath, int count, inode_t *leaf_inode,
     }
 
     while (count > 0) {
-        errno = 0;
         entry = sys_readdir(dirp, scratch);
-        if (!entry || errno != 0)
+        if (!entry)
             break;
 
         if (entry->d_ino != stbuf->st_ino)
@@ -5735,9 +5733,9 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
          * when the cluster/dht xlator decides to distribute
          * exended attribute backing file across storage servers.
          */
-        if (__is_root_gfid(fd->inode->gfid) == 0 &&
-            (!strcmp(entry->d_name, ".attribute")))
+        if (is_root_gfid && (!strcmp(entry->d_name, ".attribute"))) {
             continue;
+        }
 #endif /* __NetBSD__ */
 
         if (is_root_gfid && (!strcmp(GF_HIDDEN_PATH, entry->d_name))) {
@@ -5748,7 +5746,6 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
             if (DT_ISDIR(entry->d_type)) {
                 continue;
             } else if (DT_UNKNOWN == entry->d_type) {
-                memset(&stbuf, 0, sizeof(stbuf));
                 stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
                                        AT_SYMLINK_NOFOLLOW);
                 if ((stat_ret == 0) && S_ISDIR(stbuf.st_mode))
@@ -5781,7 +5778,6 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
 
         if (DT_UNKNOWN == entry->d_type) {
             if (stat_ret == 1) {
-                memset(&stbuf, 0, sizeof(stbuf));
                 stat_ret = sys_fstatat(pfd->fd, entry->d_name, &stbuf,
                                        AT_SYMLINK_NOFOLLOW);
             }
@@ -5823,7 +5819,7 @@ posix_fill_readdir(fd_t *fd, struct posix_fd *pfd, off_t off, size_t size,
         count++;
     }
 
-    if ((!sys_readdir(pfd->dir, scratch) && (errno == 0))) {
+    if (!entry && (errno == 0)) {
         /* Indicate EOF */
         errno = ENOENT;
         /* Remember EOF offset for later detection */
