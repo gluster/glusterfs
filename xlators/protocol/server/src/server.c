@@ -1813,7 +1813,7 @@ struct volume_options server_options[] = {
     {.key = {"inode-lru-limit"},
      .type = GF_OPTION_TYPE_INT,
      .min = 0,
-     .max = 1048576,
+     .max = 67108864,
      .default_value = "16384",
      .description = "Specifies the limit on the number of inodes "
                     "in the lru list of the inode cache.",
