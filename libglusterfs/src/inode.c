@@ -2419,6 +2419,20 @@ unlock:
     return;
 }
 
+static
+size_t __itable_count_dentry_hash_entries(inode_table_t *itable)
+{
+    size_t ret = 0;
+    int i;
+
+    pthread_mutex_lock(&itable->lock);
+    for (i = 0; i < itable->dentry_hashsize; ++i)
+        ret += list_count(&itable->name_hash[i]);
+    pthread_mutex_unlock(&itable->lock);
+
+    return ret;
+}
+
 void
 inode_table_dump(inode_table_t *itable, char *prefix)
 {
@@ -2436,6 +2450,8 @@ inode_table_dump(inode_table_t *itable, char *prefix)
 
     gf_proc_dump_build_key(key, prefix, "dentry_hashsize");
     gf_proc_dump_write(key, "%" GF_PRI_SIZET, itable->dentry_hashsize);
+    gf_proc_dump_build_key(key, prefix, "dentry_hashentries");
+    gf_proc_dump_write(key, "%" GF_PRI_SIZET, __itable_count_dentry_hash_entries(itable));
     gf_proc_dump_build_key(key, prefix, "inode_hashsize");
     gf_proc_dump_write(key, "%" GF_PRI_SIZET, itable->inode_hashsize);
     gf_proc_dump_build_key(key, prefix, "name");
