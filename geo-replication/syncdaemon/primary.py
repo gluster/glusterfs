@@ -542,8 +542,8 @@ class GPrimaryCommon(object):
         rconf.volume_id = self.uuid
         if self.volinfo:
             if self.volinfo['retval']:
-                logging.warn(lf("primary cluster's info may not be valid",
-                                error=self.volinfo['retval']))
+                logging.warning(lf("primary cluster's info may not be valid",
+                                   error=self.volinfo['retval']))
         else:
             raise GsyncdError("primary volinfo unavailable")
         self.lastreport['time'] = time.time()
@@ -1169,9 +1169,9 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                         entries.append(
                             edct(ty, stat=st, entry=en, gfid=gfid, link=rl))
                     else:
-                        logging.warn(lf('ignoring op',
-                                        gfid=gfid,
-                                        type=ty))
+                        logging.warning(lf('ignoring op',
+                                           gfid=gfid,
+                                           type=ty))
             elif et == self.TYPE_GFID:
                 # If self.unlinked_gfids is available, then that means it is
                 # retrying the changelog second time. Do not add the GFID's
@@ -1202,8 +1202,8 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
                        (gconf.get("sync-xattrs") or gconf.get("sync-acls")):
                         datas.add(os.path.join(pfx, ec[0]))
             else:
-                logging.warn(lf('got invalid fop type',
-                                type=et))
+                logging.warning(lf('got invalid fop type',
+                                   type=et))
         logging.debug('entries: %s' % repr(entries))
 
         # Increment counters for Status
@@ -1407,8 +1407,8 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
             # entry_ops() that failed... so we retry the _whole_ changelog
             # again.
             # TODO: remove entry retries when it's gets fixed.
-            logging.warn(lf('incomplete sync, retrying changelogs',
-                            files=list(map(os.path.basename, changes))))
+            logging.warning(lf('incomplete sync, retrying changelogs',
+                               files=list(map(os.path.basename, changes))))
 
             # Reset the Data counter before Retry
             self.status.dec_value("data", self.files_in_batch)
@@ -1708,8 +1708,8 @@ class GPrimaryXsyncMixin(GPrimaryChangelogMixin):
                                      time=item[1]))
                     self.upd_stime(item[1][1], item[1][0])
                 else:
-                    logging.warn(lf('unknown tuple in comlist',
-                                    entry=item))
+                    logging.warning(lf('unknown tuple in comlist',
+                                       entry=item))
             except IndexError:
                 time.sleep(1)
 
@@ -1787,20 +1787,20 @@ class GPrimaryXsyncMixin(GPrimaryChangelogMixin):
             xtr_root = self.xtime('.', self.secondary)
             if isinstance(xtr_root, int):
                 if xtr_root != ENOENT:
-                    logging.warn(lf("secondary cluster not returning the "
-                                    "xtime for root",
-                                    error=xtr_root))
+                    logging.warning(lf("secondary cluster not returning the "
+                                       "xtime for root",
+                                       error=xtr_root))
                 xtr_root = self.minus_infinity
         xtl = self.xtime(path)
         if isinstance(xtl, int):
-            logging.warn("primary cluster's xtime not found")
+            logging.warning("primary cluster's xtime not found")
         xtr = self.xtime(path, self.secondary)
         if isinstance(xtr, int):
             if xtr != ENOENT:
-                logging.warn(lf("secondary cluster not returning the "
-                                "xtime for dir",
-                                path=path,
-                                error=xtr))
+                logging.warning(lf("secondary cluster not returning the "
+                                   "xtime for dir",
+                                   path=path,
+                                   error=xtr))
             xtr = self.minus_infinity
         xtr = max(xtr, xtr_root)
         zero_zero = (0, 0)
@@ -1815,23 +1815,23 @@ class GPrimaryXsyncMixin(GPrimaryChangelogMixin):
         dem = self.primary.server.entries(path)
         pargfid = self.primary.server.gfid(path)
         if isinstance(pargfid, int):
-            logging.warn(lf('skipping directory',
-                            path=path))
+            logging.warning(lf('skipping directory',
+                               path=path))
         for e in dem:
             bname = e
             e = os.path.join(path, e)
             xte = self.xtime(e)
             if isinstance(xte, int):
-                logging.warn(lf("irregular xtime",
-                                path=e,
-                                error=errno.errorcode[xte]))
+                logging.warning(lf("irregular xtime",
+                                   path=e,
+                                   error=errno.errorcode[xte]))
                 continue
             if not self.need_sync(e, xte, xtr):
                 continue
             st = self.primary.server.lstat(e)
             if isinstance(st, int):
-                logging.warn(lf('got purged in the interim',
-                                path=e))
+                logging.warning(lf('got purged in the interim',
+                                   path=e))
                 continue
             if self.is_sticky(e, st.st_mode):
                 logging.debug(lf('ignoring sticky bit file',
@@ -1839,8 +1839,8 @@ class GPrimaryXsyncMixin(GPrimaryChangelogMixin):
                 continue
             gfid = self.primary.server.gfid(e)
             if isinstance(gfid, int):
-                logging.warn(lf('skipping entry',
-                                path=e))
+                logging.warning(lf('skipping entry',
+                                   path=e))
                 continue
             mo = st.st_mode
             self.counter += 1 if ((stat.S_ISDIR(mo) or

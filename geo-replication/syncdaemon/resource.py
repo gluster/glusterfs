@@ -543,17 +543,17 @@ class Server(object):
                             logging.debug("Removed %s => %s/%s recursively" %
                                           (gfid, pg, bname))
                         else:
-                            logging.warn(lf("Recursive remove failed",
-                                            gfid=gfid,
-                                            pgfid=pg,
-                                            bname=bname,
-                                            error=os.strerror(er1)))
+                            logging.warning(lf("Recursive remove failed",
+                                               gfid=gfid,
+                                               pgfid=pg,
+                                               bname=bname,
+                                               error=os.strerror(er1)))
                     else:
-                        logging.warn(lf("Failed to remove",
-                                        gfid=gfid,
-                                        pgfid=pg,
-                                        bname=bname,
-                                        error=os.strerror(er)))
+                        logging.warning(lf("Failed to remove",
+                                           gfid=gfid,
+                                           pgfid=pg,
+                                           bname=bname,
+                                           error=os.strerror(er)))
             elif op in ['CREATE', 'MKNOD']:
                 slink = os.path.join(pfx, gfid)
                 st = lstat(slink)
@@ -902,8 +902,8 @@ class Mounter(object):
             if rv:
                 rv = (os.WIFEXITED(rv) and os.WEXITSTATUS(rv) or 0) - \
                      (os.WIFSIGNALED(rv) and os.WTERMSIG(rv) or 0)
-                logging.warn(lf('stale mount possibly left behind',
-                                path=d))
+                logging.warning(lf('stale mount possibly left behind',
+                                   path=d))
                 raise GsyncdError("cleaning up temp mountpoint %s "
                                   "failed with status %d" %
                                   (d, rv))
