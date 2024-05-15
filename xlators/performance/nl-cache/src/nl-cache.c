@@ -68,7 +68,7 @@ out:
         if (!IS_PEC_ENABLED(conf))                                             \
             goto disabled;                                                     \
                                                                                \
-        __local = nlc_local_init(frame, this, _op, loc1, loc2);                \
+        __local = nlc_local_init(frame, _op, loc1, loc2);                      \
         GF_VALIDATE_OR_GOTO(this->name, __local, err);                         \
                                                                                \
         STACK_WIND(frame, nlc_##_name##_cbk, FIRST_CHILD(this),                \
@@ -92,7 +92,7 @@ out:
                                                                                \
         conf = this->private;                                                  \
                                                                                \
-        if (op_ret < 0 || !IS_PEC_ENABLED(conf))                               \
+        if (!IS_PEC_ENABLED(conf))                                             \
             goto out;                                                          \
         nlc_dentry_op(frame, this, multilink);                                 \
     out:                                                                       \
@@ -187,16 +187,17 @@ nlc_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     nlc_local_t *local = NULL;
     nlc_conf_t *conf = NULL;
 
-    local = frame->local;
-    conf = this->private;
-
-    if (!local)
+    if (op_ret >= 0)
         goto out;
 
-    /* Donot add to pe, this may lead to duplicate entry and
+    /* Do not add to pe, this may lead to duplicate entry and
      * requires search before adding if list of strings */
-    if (op_ret < 0 && op_errno == ENOENT) {
+    if (op_errno == ENOENT) {
+        local = frame->local;
+        if (!local)
+            goto out;
         nlc_dir_add_ne(this, local->loc.parent, local->loc.name);
+        conf = this->private;
         GF_ATOMIC_INC(conf->nlc_counter.nlc_miss);
     }
 
@@ -216,11 +217,9 @@ nlc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     if (loc_is_nameless(loc))
         goto wind;
 
-    local = nlc_local_init(frame, this, GF_FOP_LOOKUP, loc, NULL);
+    local = nlc_local_init(frame, GF_FOP_LOOKUP, loc, NULL);
     if (!local)
         goto err;
-
-    conf = this->private;
 
     inode = inode_grep(loc->inode->table, loc->parent, loc->name);
     if (inode) {
@@ -229,6 +228,7 @@ nlc_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     }
 
     if (nlc_is_negative_lookup(this, loc)) {
+        conf = this->private;
         GF_ATOMIC_INC(conf->nlc_counter.nlc_hit);
         gf_msg_trace(this->name, 0,
                      "Serving negative lookup from "
@@ -296,7 +296,6 @@ nlc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
     int32_t op_errno = 0;
     dict_t *dict = NULL;
     nlc_local_t *local = NULL;
-    gf_boolean_t hit = _gf_false;
     const char *fname = NULL;
     nlc_conf_t *conf = NULL;
 
@@ -309,7 +308,7 @@ nlc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
                          SLEN(GF_XATTR_GET_REAL_FILENAME_KEY)) != 0))
         goto wind;
 
-    local = nlc_local_init(frame, this, GF_FOP_GETXATTR, loc, NULL);
+    local = nlc_local_init(frame, GF_FOP_GETXATTR, loc, NULL);
     if (!local)
         goto err;
 
@@ -319,9 +318,8 @@ nlc_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, const char *key,
             goto err;
 
         fname = key + SLEN(GF_XATTR_GET_REAL_FILENAME_KEY);
-        hit = nlc_get_real_file_name(this, loc, fname, &op_ret, &op_errno,
-                                     dict);
-        if (hit)
+        op_ret = nlc_get_real_file_name(this, loc, fname, &op_errno, dict);
+        if (op_ret >= 0)
             goto unwind;
         else
             dict_unref(dict);
@@ -534,7 +532,6 @@ nlc_notify(xlator_t *this, int event, void *data, ...)
             ret = nlc_invalidate(this, data);
             break;
         case GF_EVENT_PARENT_DOWN:
-            nlc_disable_cache(this);
             nlc_clear_all_cache(this);
         default:
             break;
@@ -554,8 +551,6 @@ nlc_forget(xlator_t *this, inode_t *inode)
     nlc_ctx_t *nlc_ctx = NULL;
     nlc_conf_t *conf = NULL;
 
-    conf = this->private;
-
     inode_ctx_reset1(inode, this, &pe_int);
     GF_ASSERT(pe_int == 0);
 
@@ -564,6 +559,7 @@ nlc_forget(xlator_t *this, inode_t *inode)
     nlc_ctx = (void *)(long)nlc_ctx_int;
     if (nlc_ctx) {
         GF_FREE(nlc_ctx);
+        conf = this->private;
         GF_ATOMIC_SUB(conf->current_cache_size, sizeof(*nlc_ctx));
     }
 

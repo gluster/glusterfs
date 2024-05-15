@@ -26,19 +26,16 @@
 #define IS_NE_VALID(state) ((state != NLC_INVALID) && (state & NLC_NE_VALID))
 
 #define IS_PEC_ENABLED(conf) (conf->positive_entry_cache)
-#define IS_CACHE_ENABLED(conf) ((!conf->cache_disabled))
 
 #define NLC_STACK_UNWIND(fop, frame, params...)                                \
     do {                                                                       \
         nlc_local_t *__local = NULL;                                           \
-        xlator_t *__xl = NULL;                                                 \
         if (frame) {                                                           \
-            __xl = frame->this;                                                \
             __local = frame->local;                                            \
             frame->local = NULL;                                               \
         }                                                                      \
         STACK_UNWIND_STRICT(fop, frame, params);                               \
-        nlc_local_wipe(__xl, __local);                                         \
+        nlc_local_wipe(__local);                                               \
     } while (0)
 
 enum nlc_cache_clear_reason {
@@ -48,14 +45,16 @@ enum nlc_cache_clear_reason {
 
 struct nlc_ne {
     struct list_head list;
-    char *name;
+    size_t name_len0; /* length, including terminating NULL */
+    char name[];
 };
 typedef struct nlc_ne nlc_ne_t;
 
 struct nlc_pe {
     struct list_head list;
     inode_t *inode;
-    char *name;
+    size_t name_len0; /* length, including terminating NULL */
+    char name[];
 };
 typedef struct nlc_pe nlc_pe_t;
 
@@ -110,8 +109,6 @@ struct nlc_statistics {
 struct nlc_conf {
     time_t cache_timeout;
     gf_boolean_t positive_entry_cache;
-    gf_boolean_t negative_entry_cache;
-    gf_boolean_t disable_cache;
     uint64_t cache_size;
     gf_atomic_t current_cache_size;
     uint64_t inode_limit;
@@ -124,9 +121,9 @@ struct nlc_conf {
 };
 typedef struct nlc_conf nlc_conf_t;
 
-gf_boolean_t
+int
 nlc_get_real_file_name(xlator_t *this, loc_t *loc, const char *fname,
-                       int32_t *op_ret, int32_t *op_errno, dict_t *dict);
+                       int32_t *op_errno, dict_t *dict);
 
 gf_boolean_t
 nlc_is_negative_lookup(xlator_t *this, loc_t *loc);
@@ -146,11 +143,11 @@ void
 nlc_dir_add_ne(xlator_t *this, inode_t *inode, const char *name);
 
 void
-nlc_local_wipe(xlator_t *this, nlc_local_t *local);
+nlc_local_wipe(nlc_local_t *local);
 
 nlc_local_t *
-nlc_local_init(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
-               loc_t *loc, loc_t *loc2);
+nlc_local_init(call_frame_t *frame, glusterfs_fop_t fop, loc_t *loc,
+               loc_t *loc2);
 
 void
 nlc_update_child_down_time(xlator_t *this, time_t now);
@@ -163,9 +160,6 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode);
 
 void
 nlc_clear_all_cache(xlator_t *this);
-
-void
-nlc_disable_cache(xlator_t *this);
 
 void
 nlc_lru_prune(xlator_t *this, inode_t *inode);
