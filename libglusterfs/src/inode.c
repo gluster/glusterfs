@@ -887,11 +887,15 @@ inode_grep_for_gfid(inode_table_t *table, inode_t *parent, const char *name,
     return ret;
 }
 
-/* return 1 if gfid is of root, 0 if not */
+/* return true if gfid is of root, false if not */
 gf_boolean_t
 __is_root_gfid(uuid_t gfid)
 {
     static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
+    const uint64_t *p = (uint64_t *)gfid;
+
+    if (*p) /*if it doesn't start with zero's, it's not root gfid */
+        return _gf_false;
 
     if (gf_uuid_compare(gfid, root) == 0)
         return _gf_true;
