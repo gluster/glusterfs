@@ -2594,6 +2594,7 @@ config_parse(const char **words, int wordcount, dict_t *dict, unsigned cmdi,
                 memset(&checkpoint_time, 0, sizeof(struct tm));
                 ret_chkpt = strptime(append_str, "%Y-%m-%d %H:%M:%S",
                                      &checkpoint_time);
+                checkpoint_time.tm_isdst = -1;
                 checkpoint_sec = mktime(&checkpoint_time);
 
                 if (ret_chkpt == NULL || *ret_chkpt != '\0' ||
