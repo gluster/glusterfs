@@ -249,16 +249,18 @@ err:
 
 static void
 posix_writev_fill_rsp_dict(struct posix_uring_ctx *ctx, xlator_t *this,
-                           dict_t **rsp_xdata)
+                           fd_t *fd, dict_t **rsp_xdata)
 {
     int is_append = 0;
 
-    if (ctx->xdata && dict_get(ctx->xdata, GLUSTERFS_WRITE_IS_APPEND)) {
-        if (ctx->prebuf.ia_size == ctx->fop.write.offset ||
-            (ctx->fd->flags & O_APPEND))
+    if (ctx->prebuf.ia_size == ctx->fop.write.offset ||
+        (fd->flags & O_APPEND)) {
+        if (ctx->xdata && dict_get(ctx->xdata, GLUSTERFS_WRITE_IS_APPEND))
             is_append = 1;
     }
-    *rsp_xdata = _fill_writev_xdata(ctx->fd, ctx->xdata, this, is_append);
+
+    *rsp_xdata = _fill_writev_xdata(fd->inode, ctx->xdata, this, is_append,
+                                    is_append);
 }
 
 static void
@@ -301,7 +303,7 @@ posix_io_uring_writev_complete(struct posix_uring_ctx *ctx, int32_t res)
 
     op_ret = res;
     op_errno = 0;
-    posix_writev_fill_rsp_dict(ctx, this, &rsp_xdata);
+    posix_writev_fill_rsp_dict(ctx, this, fd, &rsp_xdata);
     GF_ATOMIC_ADD(priv->write_value, op_ret);
 out:
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, &ctx->prebuf, &postbuf,
