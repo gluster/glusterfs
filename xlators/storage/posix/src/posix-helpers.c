@@ -1046,7 +1046,7 @@ verify_handle:
     if (!S_ISDIR(stat.st_mode))
         ret = posix_handle_hard(this, path, uuid_curr, &stat);
     else
-        ret = posix_handle_soft(this, path, loc, uuid_curr, &stat);
+        ret = posix_handle_soft(this, path, loc, uuid_curr);
 
 out:
     if (ret && !(*op_errno))

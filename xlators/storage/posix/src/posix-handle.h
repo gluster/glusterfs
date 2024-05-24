@@ -205,7 +205,7 @@ posix_handle_hard(xlator_t *this, const char *path, uuid_t gfid,
 
 int
 posix_handle_soft(xlator_t *this, const char *real_path, loc_t *loc,
-                  uuid_t gfid, struct stat *buf);
+                  uuid_t gfid);
 
 int
 posix_handle_unset_gfid(xlator_t *this, uuid_t gfid);
