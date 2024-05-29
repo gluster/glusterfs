@@ -125,10 +125,10 @@ is_data_equal(data_t *one, data_t *two);
 
 /* function to set a key/value pair (overwrite existing if matches the key */
 int32_t
-dict_setn(dict_t *this, char *key, const int keylen, data_t *value);
+dict_setn(dict_t *this, const char *key, const int keylen, data_t *value);
 
 static inline int32_t
-dict_set(dict_t *this, char *key, data_t *value)
+dict_set(dict_t *this, const char *key, data_t *value)
 {
     return dict_setn(this, key, strlen(key), value);
 }
@@ -369,7 +369,7 @@ dict_get_ptr(dict_t *this, char *key, void **ptr);
 GF_MUST_CHECK int
 dict_get_ptr_and_len(dict_t *this, char *key, void **ptr, int *len);
 GF_MUST_CHECK int
-dict_set_dynptr(dict_t *this, char *key, void *ptr, size_t size);
+dict_set_dynptr(dict_t *this, const char *key, void *ptr, size_t size);
 
 GF_MUST_CHECK int
 dict_get_bin(dict_t *this, char *key, void **ptr);

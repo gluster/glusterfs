@@ -4166,7 +4166,7 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
         0,
     };
 #else
-    char *key = NULL;
+    const char *key = NULL;
 #endif
     int key_len;
     char *value_buf = NULL;
