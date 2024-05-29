@@ -430,15 +430,13 @@ fuse_invalidate_entry(xlator_t *this, uint64_t fuse_ino)
         if (ENOTEMPTY < ERRNOMASK_MAX)
             MASK_ERRNO(node->errnomask, ENOTEMPTY);
 
-        if (dentry->name) {
-            nlen = strlen(dentry->name);
-            fouh->len = sizeof(*fouh) + sizeof(*fnieo) + nlen + 1;
-            fnieo->parent = inode_to_fuse_nodeid(dentry->parent);
+        nlen = strlen(dentry->name);
+        fouh->len = sizeof(*fouh) + sizeof(*fnieo) + nlen + 1;
+        fnieo->parent = inode_to_fuse_nodeid(dentry->parent);
 
-            fnieo->namelen = nlen;
-            strcpy((node->inval_buf + sizeof(*fouh) + sizeof(*fnieo)),
-                   dentry->name);
-        }
+        fnieo->namelen = nlen;
+        strcpy((node->inval_buf + sizeof(*fouh) + sizeof(*fnieo)),
+               dentry->name);
 
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
                "INVALIDATE entry: %" PRIu64 "/%s (gfid:%s)", fnieo->parent,
