@@ -3194,6 +3194,7 @@ socket_connect(rpc_transport_t *this, int port)
     char *local_addr = NULL;
     union gf_sock_union sock_union;
     struct sockaddr_in *addr = NULL;
+    struct sockaddr_in6 *addrv6 = NULL;
     gf_boolean_t refd = _gf_false;
     socket_connect_error_state_t *arg = NULL;
     pthread_t th_id = {
@@ -3318,9 +3319,14 @@ socket_connect(rpc_transport_t *this, int port)
         /* If a source addr is explicitly specified, use it */
         ret = dict_get_str_sizen(this->options, "transport.socket.source-addr",
                                  &local_addr);
-        if (!ret && SA(&this->myinfo.sockaddr)->sa_family == AF_INET) {
-            addr = (struct sockaddr_in *)(&this->myinfo.sockaddr);
-            ret = inet_pton(AF_INET, local_addr, &(addr->sin_addr.s_addr));
+        if (!ret) {
+            if (SA(&this->myinfo.sockaddr)->sa_family == AF_INET) {
+                addr = (struct sockaddr_in *)(&this->myinfo.sockaddr);
+                ret = inet_pton(AF_INET, local_addr, &(addr->sin_addr.s_addr));
+            } else if (SA(&this->myinfo.sockaddr)->sa_family == AF_INET6) {
+                addrv6 = (struct sockaddr_in6 *)(&this->myinfo.sockaddr);
+                ret = inet_pton(AF_INET6, local_addr, &(addrv6->sin6_addr));
+            }
         }
 
         /* If client wants ENOENT to be ignored */
