@@ -13,7 +13,7 @@
 #include <glusterfs/upcall-utils.h>
 
 static void
-nlc_dentry_op(call_frame_t *frame, xlator_t *this, gf_boolean_t multilink)
+nlc_dentry_op(call_frame_t *frame, xlator_t *this, gf_boolean_t multilink, ia_type_t ia_type)
 {
     nlc_local_t *local = frame->local;
 
@@ -21,7 +21,7 @@ nlc_dentry_op(call_frame_t *frame, xlator_t *this, gf_boolean_t multilink)
 
     switch (local->fop) {
         case GF_FOP_MKDIR:
-            nlc_set_dir_state(this, local->loc.inode, NLC_PE_FULL);
+            nlc_set_dir_state(this, local->loc.inode, NLC_PE_FULL, ia_type);
             /*fall-through*/
         case GF_FOP_MKNOD:
         case GF_FOP_CREATE:
@@ -83,7 +83,7 @@ out:
     } while (0)
 
 #define NLC_FOP_CBK(_name, multilink, frame, cookie, this, op_ret, op_errno,   \
-                    args...)                                                   \
+                    ia_type, args...)                                          \
     do {                                                                       \
         nlc_conf_t *conf = NULL;                                               \
                                                                                \
@@ -94,7 +94,7 @@ out:
                                                                                \
         if (op_ret < 0 || !IS_PEC_ENABLED(conf))                               \
             goto out;                                                          \
-        nlc_dentry_op(frame, this, multilink);                                 \
+        nlc_dentry_op(frame, this, multilink, ia_type);                        \
     out:                                                                       \
         NLC_STACK_UNWIND(_name, frame, op_ret, op_errno, args);                \
     } while (0)
@@ -106,8 +106,8 @@ nlc_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *prenewparent, struct iatt *postnewparent,
                dict_t *xdata)
 {
-    NLC_FOP_CBK(rename, _gf_false, frame, cookie, this, op_ret, op_errno, buf,
-                preoldparent, postoldparent, prenewparent, postnewparent,
+    NLC_FOP_CBK(rename, _gf_false, frame, cookie, this, op_ret, op_errno, buf->ia_type,
+                buf, preoldparent, postoldparent, prenewparent, postnewparent,
                 xdata);
     return 0;
 }
@@ -126,8 +126,8 @@ nlc_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, inode_t *inode, struct iatt *buf,
               struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-    NLC_FOP_CBK(mknod, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
-                buf, preparent, postparent, xdata);
+    NLC_FOP_CBK(mknod, _gf_false, frame, cookie, this, op_ret, op_errno, buf->ia_type,
+                inode, buf, preparent, postparent, xdata);
     return 0;
 }
 
@@ -146,8 +146,8 @@ nlc_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                struct iatt *buf, struct iatt *preparent,
                struct iatt *postparent, dict_t *xdata)
 {
-    NLC_FOP_CBK(create, _gf_false, frame, cookie, this, op_ret, op_errno, fd,
-                inode, buf, preparent, postparent, xdata);
+    NLC_FOP_CBK(create, _gf_false, frame, cookie, this, op_ret, op_errno, buf->ia_type,
+                fd, inode, buf, preparent, postparent, xdata);
     return 0;
 }
 
@@ -165,8 +165,8 @@ nlc_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               int32_t op_errno, inode_t *inode, struct iatt *buf,
               struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-    NLC_FOP_CBK(mkdir, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
-                buf, preparent, postparent, xdata);
+    NLC_FOP_CBK(mkdir, _gf_false, frame, cookie, this, op_ret, op_errno, buf->ia_type,
+                inode, buf, preparent, postparent, xdata);
     return 0;
 }
 
@@ -255,7 +255,7 @@ nlc_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
               dict_t *xdata)
 {
     NLC_FOP_CBK(rmdir, _gf_false, frame, cookie, this, op_ret, op_errno,
-                preparent, postparent, xdata);
+                preparent->ia_type, preparent, postparent, xdata);
     return 0;
 }
 
@@ -351,7 +351,7 @@ nlc_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 struct iatt *postparent, dict_t *xdata)
 {
     NLC_FOP_CBK(symlink, _gf_false, frame, cookie, this, op_ret, op_errno,
-                inode, buf, preparent, postparent, xdata);
+                buf->ia_type, inode, buf, preparent, postparent, xdata);
     return 0;
 }
 
@@ -369,8 +369,8 @@ nlc_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
              int32_t op_errno, inode_t *inode, struct iatt *buf,
              struct iatt *preparent, struct iatt *postparent, dict_t *xdata)
 {
-    NLC_FOP_CBK(link, _gf_false, frame, cookie, this, op_ret, op_errno, inode,
-                buf, preparent, postparent, xdata);
+    NLC_FOP_CBK(link, _gf_false, frame, cookie, this, op_ret, op_errno, buf->ia_type,
+                inode, buf, preparent, postparent, xdata);
     return 0;
 }
 
@@ -404,7 +404,7 @@ nlc_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     }
 
     NLC_FOP_CBK(unlink, multilink, frame, cookie, this, op_ret, op_errno,
-                preparent, postparent, xdata);
+                preparent->ia_type, preparent, postparent, xdata);
     return 0;
 }
 

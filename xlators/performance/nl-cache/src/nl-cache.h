@@ -87,10 +87,6 @@ typedef struct nlc_ctx nlc_ctx_t;
 struct nlc_local {
     loc_t loc;
     loc_t loc2;
-    inode_t *inode;
-    inode_t *parent;
-    fd_t *fd;
-    char *linkname;
     glusterfs_fop_t fop;
 };
 typedef struct nlc_local nlc_local_t;
@@ -132,7 +128,7 @@ gf_boolean_t
 nlc_is_negative_lookup(xlator_t *this, loc_t *loc);
 
 void
-nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state);
+nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state, ia_type_t ia_type);
 
 void
 nlc_dir_add_pe(xlator_t *this, inode_t *inode, inode_t *entry_ino,
