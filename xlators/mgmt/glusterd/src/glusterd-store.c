@@ -2338,6 +2338,10 @@ glusterd_store_retrieve_snapd(glusterd_volinfo_t *volinfo)
                      SLEN(GLUSTERD_STORE_KEY_SNAPD_PORT))) {
             volinfo->snapd.port = atoi(value);
         }
+        GF_FREE(key);
+        GF_FREE(value);
+        key = NULL;
+        value = NULL;
 
         ret = gf_store_iter_get_next(iter, &key, &value, &op_errno);
     }
@@ -2870,6 +2874,10 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
     ret = 0;
 
 out:
+    if (key)
+        GF_FREE(key);
+    if (value)
+        GF_FREE(value);
     if (gf_store_iter_destroy(&tmpiter)) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_STORE_ITER_DESTROY_FAIL,
                "Failed to destroy store iter");
@@ -3015,6 +3023,10 @@ out:
 
     if (dup_value)
         GF_FREE(dup_value);
+    if (key)
+        GF_FREE(key);
+    if (value)
+        GF_FREE(value);
     if (ret) {
         if (volinfo->rebal.dict)
             dict_unref(volinfo->rebal.dict);
@@ -4607,6 +4619,10 @@ glusterd_store_retrieve_peers(xlator_t *this)
         peerinfo = glusterd_peerinfo_new(GD_FRIEND_STATE_DEFAULT, NULL, NULL,
                                          0);
         if (peerinfo == NULL) {
+            GF_FREE(key);
+            GF_FREE(value);
+            key = NULL;
+            value = NULL;
             ret = -1;
             goto next;
         }
