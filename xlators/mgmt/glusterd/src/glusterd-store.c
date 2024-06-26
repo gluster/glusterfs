@@ -3257,7 +3257,7 @@ glusterd_store_update_volinfo(glusterd_volinfo_t *volinfo)
                      */
                     if (!strcmp(key, "features.limit-usage"))
                         break;
-                    ret = dict_set_str(volinfo->dict, key, gf_strdup(value));
+                    ret = dict_set_dynstr(volinfo->dict, key, gf_strdup(value));
                     if (ret) {
                         gf_msg(this->name, GF_LOG_ERROR, 0,
                                GD_MSG_DICT_SET_FAILED,
