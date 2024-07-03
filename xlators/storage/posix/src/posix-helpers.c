@@ -3288,6 +3288,8 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
             xattrsize = sys_fgetxattr(*fd, GF_CS_OBJECT_REMOTE, value,
                                       xattrsize + 1);
             if (xattrsize == -1) {
+                if (value)
+                    GF_FREE(value);
                 gf_msg(this->name, GF_LOG_ERROR, 0, errno,
                        " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
                 goto out;
@@ -3311,6 +3313,8 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
             xattrsize = sys_lgetxattr(path, GF_CS_OBJECT_REMOTE, value,
                                       xattrsize + 1);
             if (xattrsize == -1) {
+                if (value)
+                    GF_FREE(value);
                 gf_msg(this->name, GF_LOG_ERROR, 0, errno,
                        " getxattr failed for key %s", GF_CS_OBJECT_REMOTE);
                 goto out;
@@ -3325,7 +3329,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
     }
 
     if (ret == 0) {
-        ret = dict_set_str_sizen(*rsp, GF_CS_OBJECT_REMOTE, value);
+        ret = dict_set_dynstr_sizen(*rsp, GF_CS_OBJECT_REMOTE, value);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, 0,
                    "failed to set"

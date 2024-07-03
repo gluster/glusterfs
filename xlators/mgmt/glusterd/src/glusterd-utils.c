@@ -7754,8 +7754,11 @@ glusterd_check_and_set_brick_xattr(char *host, char *path, uuid_t uuid,
 
     ret = 0;
 out:
-    if (strlen(msg))
+    if (strlen(msg)) {
+        if (*op_errstr)
+            GF_FREE(*op_errstr);
         *op_errstr = gf_strdup(msg);
+    }
 
     return ret;
 }
