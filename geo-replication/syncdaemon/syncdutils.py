@@ -463,9 +463,9 @@ def boolify(s):
     if lstr in true_list:
         rv = True
     elif lstr not in false_list:
-        logging.warn(lf("Unknown string in \"string to boolean\" conversion, "
-                        "defaulting to False",
-                        str=s))
+        logging.warning(lf("Unknown string in \"string to boolean\" conversion, "
+                           "defaulting to False",
+                           str=s))
 
     return rv
 
@@ -578,9 +578,9 @@ def errno_wrap(call, arg=[], errnos=[], retry_errnos=[]):
             nr_tries += 1
             if nr_tries == GF_OP_RETRIES:
                 # probably a screwed state, cannot do much...
-                logging.warn(lf('reached maximum retries',
-                                args=repr(arg),
-                                error=ex))
+                logging.warning(lf('reached maximum retries',
+                                   args=repr(arg),
+                                   error=ex))
                 raise
             time.sleep(0.250)  # retry the call
 

@@ -296,7 +296,7 @@ def main():
     )
 
     if config_file_error_msg is not None:
-        logging.warn(config_file_error_msg)
+        logging.warning(config_file_error_msg)
 
     # Log message for loaded config file
     if config_file is not None:
