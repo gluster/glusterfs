@@ -19,6 +19,7 @@
 #include <glusterfs/common-utils.h>
 
 #include <glusterfs/statedump.h>
+#include <glusterfs/timer.h>
 
 #include "upcall.h"
 #include "upcall-mem-types.h"
@@ -744,17 +745,49 @@ out:
     return 0;
 }
 
+static void 
+up_inode_unref(void *data)
+{
+    inode_t *inode = data;
+
+    if (inode)
+        inode_unref(inode);
+
+}
+
 static int32_t
 up_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xattr_req)
 {
     int32_t op_errno = ENOMEM;
     upcall_local_t *local = NULL;
+    struct timespec delay = {
+        0,
+    };
+    inode_t *inode = NULL;
+    inode_table_t *table = NULL;
+    int32_t delay_time = 0;
 
     EXIT_IF_UPCALL_OFF(this, out);
 
     local = upcall_local_init(frame, this, NULL, NULL, loc->inode, NULL);
     if (!local) {
         goto err;
+    }
+
+    //delay.tv_sec = 600;
+    //delay.tv_nsec = 0;
+    if (!dict_get_int32_sizen(xattr_req, "inode-unref-delay", &delay_time)) {
+        delay.tv_sec = delay_time;
+        delay.tv_nsec = 0;
+    }
+
+    if (delay_time) {
+        table = local->inode->table;
+        if (table->active_size < 1000000) {
+            inode = inode_ref(local->inode);
+            gf_timer_call_after(this->ctx, delay, up_inode_unref, inode);
+        }
+        dict_del(xattr_req, "inode-unref-delay");
     }
 
 out:
