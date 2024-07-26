@@ -47,9 +47,7 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
     char *value = NULL;
     size_t remaining_size = 0;
     size_t bytes = 0;
-    char keybuffer[4096] = {
-        0,
-    };
+    char *keybuffer = NULL;
 
     uuid_t pargfid = {
         0,
@@ -137,8 +135,8 @@ posix_get_gfid2path(xlator_t *this, inode_t *inode, const char *real_path,
         remaining_size = size;
         list_offset = 0;
         while (remaining_size > 0) {
-            len = snprintf(keybuffer, sizeof(keybuffer), "%s",
-                           list + list_offset);
+            keybuffer = list + list_offset;
+            len = strlen(keybuffer);
 
             if (!posix_is_gfid2path_xattr(keybuffer)) {
                 goto ignore;

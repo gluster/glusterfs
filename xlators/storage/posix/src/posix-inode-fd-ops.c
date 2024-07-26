@@ -3457,9 +3457,7 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     inode_t *parent = NULL;
     loc_t *loc = NULL;
     char *leaf_path = NULL;
-    char key[4096] = {
-        0,
-    };
+    char *key;
     char dirpath[PATH_MAX] = {
         0,
     };
@@ -3533,7 +3531,8 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     }
 
     while (remaining_size > 0) {
-        len = snprintf(key, sizeof(key), "%s", list + list_offset);
+        key = list + list_offset;
+        len = strlen(key);
         if (strncmp(key, PGFID_XATTR_KEY_PREFIX,
                     SLEN(PGFID_XATTR_KEY_PREFIX)) != 0)
             goto next;
@@ -4034,10 +4033,9 @@ posix_getxattr(call_frame_t *frame, xlator_t *this, loc_t *loc,
     }
     remaining_size = size;
     list_offset = 0;
-    keybuffer = alloca(XATTR_KEY_BUF_SIZE);
     while (remaining_size > 0) {
-        keybuff_len = snprintf(keybuffer, XATTR_KEY_BUF_SIZE, "%s",
-                               list + list_offset);
+        keybuffer = list + list_offset;
+        keybuff_len = strlen(keybuffer);
 
         ret = posix_handle_georep_xattrs(frame, keybuffer, NULL, _gf_false);
         if (ret == -1)
@@ -4163,9 +4161,13 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     char *list = NULL;
     dict_t *dict = NULL;
     int ret = -1;
+#ifdef GF_DARWIN_HOST_OS
     char key[4096] = {
         0,
     };
+#else
+    const char *key = NULL;
+#endif
     int key_len;
     char *value_buf = NULL;
     gf_boolean_t have_val = _gf_false;
@@ -4279,8 +4281,11 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     value_buf = alloca(XATTR_VAL_BUF_SIZE);
 
     if (name) {
+#ifndef GF_DARWIN_HOST_OS
+        key = name;
+        key_len = strlen(key);
+#else
         key_len = snprintf(key, sizeof(key), "%s", name);
-#ifdef GF_DARWIN_HOST_OS
         struct posix_private *priv = NULL;
         priv = this->private;
         if (priv->xattr_user_namespace == XATTR_STRIP) {
@@ -4403,8 +4408,12 @@ posix_fgetxattr(call_frame_t *frame, xlator_t *this, fd_t *fd, const char *name,
     while (remaining_size > 0) {
         if (*(list + list_offset) == '\0')
             break;
-
+#ifndef GF_DARWIN_HOST_OS
+        key = list + list_offset;
+        key_len = strlen(key);
+#else
         key_len = snprintf(key, sizeof(key), "%s", list + list_offset);
+#endif
         have_val = _gf_false;
         size = sys_fgetxattr(_fd, key, value_buf, XATTR_VAL_BUF_SIZE - 1);
         if (size >= 0) {
