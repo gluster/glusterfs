@@ -2084,8 +2084,7 @@ unlock:
 
     if (IA_ISDIR(oldloc->inode->ia_type)) {
         posix_handle_unset_gfid(this, oldloc->inode->gfid);
-        posix_handle_soft(this, real_newpath, newloc, oldloc->inode->gfid,
-                          NULL);
+        posix_handle_soft(this, real_newpath, newloc, oldloc->inode->gfid);
     }
 
     op_ret = posix_pstat(this, newloc->inode, NULL, real_newpath, &stbuf,
