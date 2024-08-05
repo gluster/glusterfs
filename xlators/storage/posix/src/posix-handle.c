@@ -473,11 +473,10 @@ posix_handle_gfid_path(xlator_t *this, uuid_t gfid, char *buf, size_t buflen)
     if ((buflen < len) || !buf)
         return len;
 
-    uuid_str = uuid_utoa(gfid);
-
     if (__is_root_gfid(gfid)) {
         len = snprintf(buf, buflen, "%s", priv->base_path);
     } else {
+        uuid_str = uuid_utoa(gfid);
         len = snprintf(buf, buflen, "%s/%s/%02x/%02x/%s", priv->base_path,
                        GF_HIDDEN_PATH, gfid[0], gfid[1], uuid_str);
     }
