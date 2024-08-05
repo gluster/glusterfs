@@ -748,6 +748,12 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
         return -1;
     }
 
+    if (!buf_p)
+        /* the rest of the code fills stbuf with more data. If it's not going to
+         * be copied over to buf_p, we can return here.
+         */
+        goto out;
+
     if (!S_ISDIR(lstatbuf.st_mode))
         lstatbuf.st_nlink--;
 
@@ -770,8 +776,7 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
 
     posix_fill_ino_from_gfid(&stbuf);
 
-    if (buf_p)
-        memcpy(buf_p, &stbuf, sizeof(struct iatt));
+    memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
@@ -789,28 +794,29 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
     int op_errno = 0;
     struct posix_private *priv = NULL;
 
-    priv = this->private;
-
     ret = sys_lstat(path, &lstatbuf);
     if (ret != 0) {
-        if (errno != ENOENT) {
-            op_errno = errno;
-            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_LSTAT_FAILED,
+        op_errno = errno;
+        if (op_errno != ENOENT) {
+            gf_msg(this->name, GF_LOG_WARNING, op_errno, P_MSG_LSTAT_FAILED,
                    "lstat failed on %s", path);
-            errno = op_errno; /*gf_msg could have changed errno*/
         } else {
-            op_errno = errno;
-            gf_msg_debug(this->name, errno, "lstat failed on %s ", path);
-            errno = op_errno; /*gf_msg could have changed errno*/
+            gf_msg_debug(this->name, op_errno, "lstat failed on %s ", path);
         }
+        errno = op_errno; /*gf_msg could have changed errno*/
         goto out;
     }
+
+    priv = this->private;
 
     if ((lstatbuf.st_ino == priv->handledir_st_ino) &&
         (lstatbuf.st_dev == priv->handledir_st_dev)) {
         errno = ENOENT;
         return -1;
     }
+
+    if (!buf_p)
+        goto out;
 
     if (!S_ISDIR(lstatbuf.st_mode))
         lstatbuf.st_nlink--;
@@ -848,8 +854,7 @@ posix_pstat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *path,
 
     posix_fill_ino_from_gfid(&stbuf);
 
-    if (buf_p)
-        memcpy(buf_p, &stbuf, sizeof(struct iatt));
+    memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
 }
