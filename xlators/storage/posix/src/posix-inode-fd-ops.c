@@ -758,13 +758,12 @@ overwrite:
         goto out;
     }
 
-    ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
-    if (ret < 0) {
-        ret = -ENOMEM;
-        goto out;
-    }
-
     if (xdata && dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
+        ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
+        if (ret < 0) {
+            ret = -ENOMEM;
+            goto out;
+        }
         locked = _gf_true;
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
@@ -995,13 +994,12 @@ posix_do_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
         goto out;
     }
 
-    ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
-    if (ret < 0) {
-        ret = -ENOMEM;
-        goto out;
-    }
-
     if (dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC)) {
+        ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
+        if (ret < 0) {
+            ret = -ENOMEM;
+            goto out;
+        }
         locked = _gf_true;
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
@@ -2080,13 +2078,12 @@ overwrite:
      * as of today).
      */
 
-    op_ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
-    if (op_ret < 0) {
-        op_errno = ENOMEM;
-        goto out;
-    }
-
     if (write_append || update_atomic) {
+        op_ret = posix_inode_ctx_get_all(fd->inode, this, &ctx);
+        if (op_ret < 0) {
+            op_errno = ENOMEM;
+            goto out;
+        }
         locked = _gf_true;
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
@@ -2327,13 +2324,12 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
      * to send "GLUSTERFS_WRITE_UPDATE_ATOMIC" key in xdata.
      */
 
-    op_ret = posix_inode_ctx_get_all(fd_out->inode, this, &ctx);
-    if (op_ret < 0) {
-        op_errno = ENOMEM;
-        goto out;
-    }
-
     if (update_atomic) {
+        op_ret = posix_inode_ctx_get_all(fd_out->inode, this, &ctx);
+        if (op_ret < 0) {
+            op_errno = ENOMEM;
+            goto out;
+        }
         ret = pthread_mutex_lock(&ctx->write_atomic_lock);
         if (!ret)
             locked = _gf_true;
