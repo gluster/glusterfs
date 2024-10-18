@@ -62,41 +62,29 @@
  * - Special handling for .meta and .trashcan?
  */
 
-int
+static int
 __nlc_inode_ctx_timer_start(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx);
-int
+static int
 __nlc_add_to_lru(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx);
-void
-nlc_remove_from_lru(xlator_t *this, inode_t *inode);
-void
-__nlc_inode_ctx_timer_delete(xlator_t *this, nlc_ctx_t *nlc_ctx);
-gf_boolean_t
-__nlc_search_ne(nlc_ctx_t *nlc_ctx, const char *name);
-void
+static void
+nlc_remove_from_lru(nlc_conf_t *conf, inode_t *inode);
+static void
+__nlc_inode_ctx_timer_delete(nlc_conf_t *conf, nlc_ctx_t *nlc_ctx);
+static gf_boolean_t
+__nlc_search_ne(nlc_ctx_t *nlc_ctx, const char *name, const size_t name_len0);
+static void
 __nlc_free_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe);
-void
-__nlc_free_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne);
-
-static int32_t
-nlc_get_cache_timeout(xlator_t *this)
-{
-    nlc_conf_t *conf = NULL;
-
-    conf = this->private;
-
-    /* Cache timeout is generally not meant to be changed often,
-     * once set, hence not within locks */
-    return conf->cache_timeout;
-}
+static void
+__nlc_free_ne(nlc_conf_t *conf, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne);
 
 static gf_boolean_t
 __nlc_is_cache_valid(xlator_t *this, nlc_ctx_t *nlc_ctx)
 {
     nlc_conf_t *conf = NULL;
     time_t last_val_time;
-    gf_boolean_t ret = _gf_false;
 
-    GF_VALIDATE_OR_GOTO(this->name, nlc_ctx, out);
+    if (nlc_ctx->cache_time == 0)
+        goto out;
 
     conf = this->private;
 
@@ -106,10 +94,10 @@ __nlc_is_cache_valid(xlator_t *this, nlc_ctx_t *nlc_ctx)
     }
     UNLOCK(&conf->lock);
 
-    if ((last_val_time <= nlc_ctx->cache_time) && (nlc_ctx->cache_time != 0))
-        ret = _gf_true;
+    if (last_val_time <= nlc_ctx->cache_time)
+        return _gf_true;
 out:
-    return ret;
+    return _gf_false;
 }
 
 void
@@ -128,36 +116,17 @@ nlc_update_child_down_time(xlator_t *this, time_t now)
     return;
 }
 
-void
-nlc_disable_cache(xlator_t *this)
-{
-    nlc_conf_t *conf = NULL;
-
-    conf = this->private;
-
-    LOCK(&conf->lock);
-    {
-        conf->disable_cache = _gf_true;
-    }
-    UNLOCK(&conf->lock);
-
-    return;
-}
-
-static int
-__nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
+static nlc_ctx_t *
+__nlc_inode_ctx_get(xlator_t *this, inode_t *inode)
 {
     int ret = 0;
-    nlc_ctx_t *nlc_ctx = NULL;
     uint64_t nlc_ctx_int = 0;
-    uint64_t nlc_pe_int = 0;
 
-    ret = __inode_ctx_get2(inode, this, &nlc_ctx_int, &nlc_pe_int);
-    if (ret == 0 && nlc_ctx_p) {
-        nlc_ctx = (void *)(long)(nlc_ctx_int);
-        *nlc_ctx_p = nlc_ctx;
+    ret = __inode_ctx_get2(inode, this, &nlc_ctx_int, NULL);
+    if (ret == 0) {
+        return (void *)(long)(nlc_ctx_int);
     }
-    return ret;
+    return NULL;
 }
 
 static int
@@ -182,23 +151,24 @@ nlc_inode_ctx_set(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx,
     return ret;
 }
 
-static void
-nlc_inode_ctx_get(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
+static nlc_ctx_t *
+nlc_inode_ctx_get(xlator_t *this, inode_t *inode)
 {
-    int ret = 0;
+    nlc_ctx_t *nlc_ctx = NULL;
 
     LOCK(&inode->lock);
     {
-        ret = __nlc_inode_ctx_get(this, inode, nlc_ctx_p);
-        if (ret < 0)
-            gf_msg_debug(this->name, 0,
-                         "inode ctx get failed for "
-                         "inode:%p",
-                         inode);
+        nlc_ctx = __nlc_inode_ctx_get(this, inode);
     }
     UNLOCK(&inode->lock);
 
-    return;
+    if (nlc_ctx == NULL)
+        gf_msg_debug(this->name, 0,
+                     "inode ctx get failed for "
+                     "inode:%p",
+                     inode);
+
+    return nlc_ctx;
 }
 
 static void
@@ -208,6 +178,7 @@ __nlc_inode_clear_entries(xlator_t *this, nlc_ctx_t *nlc_ctx)
     nlc_pe_t *tmp = NULL;
     nlc_ne_t *ne = NULL;
     nlc_ne_t *tmp1 = NULL;
+    nlc_conf_t *conf = NULL;
 
     if (!nlc_ctx)
         goto out;
@@ -218,11 +189,13 @@ __nlc_inode_clear_entries(xlator_t *this, nlc_ctx_t *nlc_ctx)
             __nlc_free_pe(this, nlc_ctx, pe);
         }
 
-    if (IS_NE_VALID(nlc_ctx->state))
+    if (IS_NE_VALID(nlc_ctx->state)) {
+        conf = this->private;
         list_for_each_entry_safe(ne, tmp1, &nlc_ctx->ne, list)
         {
-            __nlc_free_ne(this, nlc_ctx, ne);
+            __nlc_free_ne(conf, nlc_ctx, ne);
         }
+    }
 
     nlc_ctx->cache_time = 0;
     nlc_ctx->state = 0;
@@ -275,7 +248,7 @@ nlc_init_invalid_ctx(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
 
         ret = __nlc_add_to_lru(this, inode, nlc_ctx);
         if (ret < 0) {
-            __nlc_inode_ctx_timer_delete(this, nlc_ctx);
+            __nlc_inode_ctx_timer_delete(conf, nlc_ctx);
             goto unlock;
         }
     }
@@ -286,7 +259,7 @@ out:
 }
 
 static nlc_ctx_t *
-nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
+nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode)
 {
     uint64_t ctx;
     int ret = 0;
@@ -297,7 +270,7 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 
     LOCK(&inode->lock);
     {
-        ret = __nlc_inode_ctx_get(this, inode, &nlc_ctx);
+        nlc_ctx = __nlc_inode_ctx_get(this, inode);
         if (nlc_ctx)
             goto unlock;
 
@@ -305,9 +278,9 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
         if (!nlc_ctx)
             goto unlock;
 
-        LOCK_INIT(&nlc_ctx->lock);
         INIT_LIST_HEAD(&nlc_ctx->pe);
         INIT_LIST_HEAD(&nlc_ctx->ne);
+        LOCK_INIT(&nlc_ctx->lock);
 
         ret = __nlc_inode_ctx_timer_start(this, inode, nlc_ctx);
         if (ret < 0)
@@ -315,7 +288,7 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 
         ret = __nlc_add_to_lru(this, inode, nlc_ctx);
         if (ret < 0) {
-            __nlc_inode_ctx_timer_delete(this, nlc_ctx);
+            __nlc_inode_ctx_timer_delete(conf, nlc_ctx);
             goto unlock;
         }
 
@@ -324,8 +297,8 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, NLC_MSG_NO_MEMORY,
                    "inode ctx set failed");
-            __nlc_inode_ctx_timer_delete(this, nlc_ctx);
-            nlc_remove_from_lru(this, inode);
+            __nlc_inode_ctx_timer_delete(conf, nlc_ctx);
+            nlc_remove_from_lru(conf, inode);
             goto unlock;
         }
 
@@ -336,8 +309,7 @@ nlc_inode_ctx_get_set(xlator_t *this, inode_t *inode, nlc_ctx_t **nlc_ctx_p)
 unlock:
     UNLOCK(&inode->lock);
 
-    if (ret == 0 && nlc_ctx_p) {
-        *nlc_ctx_p = nlc_ctx;
+    if (ret == 0) {
         nlc_init_invalid_ctx(this, inode, nlc_ctx);
     }
 
@@ -353,8 +325,8 @@ out:
 }
 
 nlc_local_t *
-nlc_local_init(call_frame_t *frame, xlator_t *this, glusterfs_fop_t fop,
-               loc_t *loc, loc_t *loc2)
+nlc_local_init(call_frame_t *frame, glusterfs_fop_t fop, loc_t *loc,
+               loc_t *loc2)
 {
     nlc_local_t *local = NULL;
 
@@ -374,18 +346,13 @@ out:
 }
 
 void
-nlc_local_wipe(xlator_t *this, nlc_local_t *local)
+nlc_local_wipe(nlc_local_t *local)
 {
-    if (!local)
-        goto out;
-
-    loc_wipe(&local->loc);
-
-    loc_wipe(&local->loc2);
-
-    GF_FREE(local);
-out:
-    return;
+    if (local) {
+        loc_wipe(&local->loc);
+        loc_wipe(&local->loc2);
+        GF_FREE(local);
+    }
 }
 
 static void
@@ -407,7 +374,7 @@ nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state, ia_type_t ia_t
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get_set(this, inode);
     if (!nlc_ctx)
         goto out;
 
@@ -427,27 +394,20 @@ nlc_cache_timeout_handler(struct gf_tw_timer_list *timer, void *data,
     nlc_timer_data_t *tmp = data;
     nlc_ctx_t *nlc_ctx = NULL;
 
-    nlc_inode_ctx_get(tmp->this, tmp->inode, &nlc_ctx);
-    if (!nlc_ctx)
-        goto out;
-
-    /* Taking nlc_ctx->lock will lead to deadlock, hence updating
-     * the cache is invalid outside of lock, instead of clear_cache.
-     * Since cache_time is assigned outside of lock, the value can
-     * be invalid for short time, this may result in false negative
-     * which is better than deadlock */
-    nlc_ctx->cache_time = 0;
-out:
-    return;
+    nlc_ctx = nlc_inode_ctx_get(tmp->this, tmp->inode);
+    if (nlc_ctx) {
+        /* Taking nlc_ctx->lock will lead to deadlock, hence updating
+         * the cache is invalid outside of lock, instead of clear_cache.
+         * Since cache_time is assigned outside of lock, the value can
+         * be invalid for short time, this may result in false negative
+         * which is better than deadlock */
+        nlc_ctx->cache_time = 0;
+    }
 }
 
-void
-__nlc_inode_ctx_timer_delete(xlator_t *this, nlc_ctx_t *nlc_ctx)
+static void
+__nlc_inode_ctx_timer_delete(nlc_conf_t *conf, nlc_ctx_t *nlc_ctx)
 {
-    nlc_conf_t *conf = NULL;
-
-    conf = this->private;
-
     if (nlc_ctx->timer)
         gf_tw_del_timer(conf->timer_wheel, nlc_ctx->timer);
 
@@ -463,7 +423,7 @@ __nlc_inode_ctx_timer_delete(xlator_t *this, nlc_ctx_t *nlc_ctx)
     return;
 }
 
-int
+static int
 __nlc_inode_ctx_timer_start(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
 {
     struct gf_tw_timer_list *timer = NULL;
@@ -489,7 +449,9 @@ __nlc_inode_ctx_timer_start(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
         goto out;
 
     INIT_LIST_HEAD(&timer->entry);
-    timer->expires = nlc_get_cache_timeout(this);
+    /* Cache timeout is generally not meant to be changed often,
+     * once set, hence not within locks */
+    timer->expires = conf->cache_timeout;
     timer->function = nlc_cache_timeout_handler;
     timer->data = tmp;
     nlc_ctx->timer = timer;
@@ -515,7 +477,7 @@ out:
     return ret;
 }
 
-int
+static int
 __nlc_add_to_lru(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
 {
     nlc_lru_node_t *lru_ino = NULL;
@@ -525,12 +487,12 @@ __nlc_add_to_lru(xlator_t *this, inode_t *inode, nlc_ctx_t *nlc_ctx)
 
     conf = this->private;
 
-    lru_ino = GF_CALLOC(1, sizeof(*lru_ino), gf_nlc_mt_nlc_lru_node);
+    lru_ino = GF_MALLOC(sizeof(*lru_ino), gf_nlc_mt_nlc_lru_node);
     if (!lru_ino)
         goto out;
 
-    INIT_LIST_HEAD(&lru_ino->list);
     lru_ino->inode = inode_ref(inode);
+    INIT_LIST_HEAD(&lru_ino->list);
     LOCK(&conf->lock);
     {
         list_add_tail(&lru_ino->list, &conf->lru);
@@ -548,15 +510,12 @@ out:
     return ret;
 }
 
-void
-nlc_remove_from_lru(xlator_t *this, inode_t *inode)
+static void
+nlc_remove_from_lru(nlc_conf_t *conf, inode_t *inode)
 {
     nlc_lru_node_t *lru_node = NULL;
     nlc_lru_node_t *tmp = NULL;
     nlc_lru_node_t *tmp1 = NULL;
-    nlc_conf_t *conf = NULL;
-
-    conf = this->private;
 
     LOCK(&conf->lock);
     {
@@ -642,12 +601,13 @@ nlc_clear_all_cache(xlator_t *this)
     return;
 }
 
-void
+static void
 __nlc_free_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe)
 {
     uint64_t pe_int = 0;
     nlc_conf_t *conf = NULL;
     uint64_t nlc_ctx_int = 0;
+    const size_t len = sizeof(*pe) + pe->name_len0;
 
     conf = this->private;
 
@@ -658,32 +618,28 @@ __nlc_free_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_pe_t *pe)
     }
     list_del(&pe->list);
 
-    nlc_ctx->cache_size -= sizeof(*pe) + sizeof(pe->name);
-    GF_ATOMIC_SUB(conf->current_cache_size, (sizeof(*pe) + sizeof(pe->name)));
+    nlc_ctx->cache_size -= len;
+    GF_ATOMIC_SUB(conf->current_cache_size, len);
 
     nlc_ctx->refd_inodes -= 1;
     if (nlc_ctx_int == 0)
         GF_ATOMIC_SUB(conf->refd_inodes, 1);
 
-    GF_FREE(pe->name);
     GF_FREE(pe);
 
     return;
 }
 
-void
-__nlc_free_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne)
+static void
+__nlc_free_ne(nlc_conf_t *conf, nlc_ctx_t *nlc_ctx, nlc_ne_t *ne)
 {
-    nlc_conf_t *conf = NULL;
-
-    conf = this->private;
+    const size_t len = sizeof(*ne) + ne->name_len0;
 
     list_del(&ne->list);
-    GF_FREE(ne->name);
     GF_FREE(ne);
 
-    nlc_ctx->cache_size -= sizeof(*ne) + sizeof(ne->name);
-    GF_ATOMIC_SUB(conf->current_cache_size, (sizeof(*ne) + sizeof(ne->name)));
+    nlc_ctx->cache_size -= len;
+    GF_ATOMIC_SUB(conf->current_cache_size, len);
 
     return;
 }
@@ -692,21 +648,24 @@ void
 nlc_inode_clear_cache(xlator_t *this, inode_t *inode, int reason)
 {
     nlc_ctx_t *nlc_ctx = NULL;
+    nlc_conf_t *conf = NULL;
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx);
+    conf = this->private;
+
+    nlc_ctx = nlc_inode_ctx_get(this, inode);
     if (!nlc_ctx)
         goto out;
 
     LOCK(&nlc_ctx->lock);
     {
-        __nlc_inode_ctx_timer_delete(this, nlc_ctx);
+        __nlc_inode_ctx_timer_delete(conf, nlc_ctx);
 
         __nlc_inode_clear_entries(this, nlc_ctx);
     }
     UNLOCK(&nlc_ctx->lock);
 
     if (reason != NLC_LRU_PRUNE)
-        nlc_remove_from_lru(this, inode);
+        nlc_remove_from_lru(conf, inode);
 
 out:
     return;
@@ -714,7 +673,7 @@ out:
 
 static void
 __nlc_del_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, inode_t *entry_ino,
-             const char *name, gf_boolean_t multilink)
+             const char *name, gf_boolean_t multilink, const size_t name_len0)
 {
     nlc_pe_t *pe = NULL;
     nlc_pe_t *tmp = NULL;
@@ -731,7 +690,8 @@ __nlc_del_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, inode_t *entry_ino,
     if (multilink) {
         list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
         {
-            if (pe->name && (strcmp(pe->name, name) == 0)) {
+            if (pe->name_len0 && (name_len0 == pe->name_len0) &&
+                (strcmp(pe->name, name) == 0)) {
                 found = _gf_true;
                 goto out;
             }
@@ -755,7 +715,8 @@ __nlc_del_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, inode_t *entry_ino,
 name_search:
     list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
     {
-        if (pe->name && (strcmp(pe->name, name) == 0)) {
+        if (pe->name_len0 && (name_len0 == pe->name_len0) &&
+            (strcmp(pe->name, name) == 0)) {
             found = _gf_true;
             break;
             /* TODO: can there be duplicates? */
@@ -770,7 +731,8 @@ out:
 }
 
 static void
-__nlc_del_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, const char *name)
+__nlc_del_ne(nlc_conf_t *conf, nlc_ctx_t *nlc_ctx, const char *name,
+             const size_t name_len0)
 {
     nlc_ne_t *ne = NULL;
     nlc_ne_t *tmp = NULL;
@@ -780,8 +742,9 @@ __nlc_del_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, const char *name)
 
     list_for_each_entry_safe(ne, tmp, &nlc_ctx->ne, list)
     {
-        if (strcmp(ne->name, name) == 0) {
-            __nlc_free_ne(this, nlc_ctx, ne);
+        if (ne->name_len0 && (name_len0 == ne->name_len0) &&
+            (strcmp(ne->name, name) == 0)) {
+            __nlc_free_ne(conf, nlc_ctx, ne);
             break;
         }
     }
@@ -791,10 +754,9 @@ out:
 
 static void
 __nlc_add_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, inode_t *entry_ino,
-             const char *name)
+             const char *name, const size_t name_len0)
 {
     nlc_pe_t *pe = NULL;
-    int ret = -1;
     nlc_conf_t *conf = NULL;
     uint64_t nlc_ctx_int = 0;
 
@@ -805,67 +767,55 @@ __nlc_add_pe(xlator_t *this, nlc_ctx_t *nlc_ctx, inode_t *entry_ino,
     found = __nlc_search (entries, name, _gf_false);
     can use bit vector to have simple search than sequential search */
 
-    pe = GF_CALLOC(sizeof(*pe), 1, gf_nlc_mt_nlc_pe_t);
+    pe = GF_CALLOC(sizeof(*pe) + name_len0, 1, gf_nlc_mt_nlc_pe_t);
     if (!pe)
         goto out;
 
+    pe->name_len0 = name_len0;
     if (entry_ino) {
         pe->inode = inode_ref(entry_ino);
         nlc_inode_ctx_set(this, entry_ino, NULL, pe);
-    } else if (name) {
-        pe->name = gf_strdup(name);
-        if (!pe->name)
-            goto out;
+    } else if (name_len0) {
+        memcpy(pe->name, name, name_len0);
     }
 
     list_add(&pe->list, &nlc_ctx->pe);
 
-    nlc_ctx->cache_size += sizeof(*pe) + sizeof(pe->name);
-    GF_ATOMIC_ADD(conf->current_cache_size, (sizeof(*pe) + sizeof(pe->name)));
+    nlc_ctx->cache_size += (sizeof(*pe) + name_len0);
+    GF_ATOMIC_ADD(conf->current_cache_size, (sizeof(*pe) + name_len0));
 
     nlc_ctx->refd_inodes += 1;
     inode_ctx_get2(entry_ino, this, &nlc_ctx_int, NULL);
     if (nlc_ctx_int == 0)
         GF_ATOMIC_ADD(conf->refd_inodes, 1);
-
-    ret = 0;
 out:
-    if (ret)
-        GF_FREE(pe);
-
     return;
 }
 
 static void
-__nlc_add_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, const char *name)
+__nlc_add_ne(xlator_t *this, nlc_ctx_t *nlc_ctx, const char *name,
+             const size_t name_len0)
 {
     nlc_ne_t *ne = NULL;
-    int ret = -1;
     nlc_conf_t *conf = NULL;
-
-    conf = this->private;
 
     /* TODO: search ne before adding to get rid of duplicate entries
     found = __nlc_search (entries, name, _gf_false);
     can use bit vector to have faster search than sequential search */
 
-    ne = GF_CALLOC(sizeof(*ne), 1, gf_nlc_mt_nlc_ne_t);
+    ne = GF_MALLOC(sizeof(*ne) + name_len0, gf_nlc_mt_nlc_ne_t);
     if (!ne)
         goto out;
 
-    ne->name = gf_strdup(name);
-    if (!ne->name)
-        goto out;
-
     list_add(&ne->list, &nlc_ctx->ne);
+    ne->name_len0 = name_len0;
+    if (name_len0 > 0)
+        memcpy(ne->name, name, name_len0);
 
-    nlc_ctx->cache_size += sizeof(*ne) + sizeof(ne->name);
-    GF_ATOMIC_ADD(conf->current_cache_size, (sizeof(*ne) + sizeof(ne->name)));
-    ret = 0;
+    nlc_ctx->cache_size += (sizeof(*ne) + name_len0);
+    conf = this->private;
+    GF_ATOMIC_ADD(conf->current_cache_size, (sizeof(*ne) + name_len0));
 out:
-    if (ret)
-        GF_FREE(ne);
-
     return;
 }
 
@@ -873,6 +823,7 @@ void
 nlc_dir_add_ne(xlator_t *this, inode_t *inode, const char *name)
 {
     nlc_ctx_t *nlc_ctx = NULL;
+    size_t name_len0;
 
     if (inode->ia_type != IA_IFDIR) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, NLC_MSG_EINVAL,
@@ -880,17 +831,18 @@ nlc_dir_add_ne(xlator_t *this, inode_t *inode, const char *name)
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get_set(this, inode);
     if (!nlc_ctx)
         goto out;
 
+    name_len0 = name ? strlen(name) + 1 : 0; /* account for '\0' */
     LOCK(&nlc_ctx->lock);
     {
         /* There is one possibility where we need to search before
          * adding NE: when there are two parallel lookups on a non
          * existent file */
-        if (!__nlc_search_ne(nlc_ctx, name)) {
-            __nlc_add_ne(this, nlc_ctx, name);
+        if (!__nlc_search_ne(nlc_ctx, name, name_len0)) {
+            __nlc_add_ne(this, nlc_ctx, name, name_len0);
             __nlc_set_dir_state(nlc_ctx, NLC_NE_VALID);
         }
     }
@@ -904,6 +856,7 @@ nlc_dir_remove_pe(xlator_t *this, inode_t *parent, inode_t *entry_ino,
                   const char *name, gf_boolean_t multilink)
 {
     nlc_ctx_t *nlc_ctx = NULL;
+    size_t name_len0;
 
     if (parent->ia_type != IA_IFDIR) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, NLC_MSG_EINVAL,
@@ -911,17 +864,18 @@ nlc_dir_remove_pe(xlator_t *this, inode_t *parent, inode_t *entry_ino,
         goto out;
     }
 
-    nlc_inode_ctx_get(this, parent, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get(this, parent);
     if (!nlc_ctx)
         goto out;
 
+    name_len0 = name ? strlen(name) + 1 : 0; /* account for '\0' */
     LOCK(&nlc_ctx->lock);
     {
         if (!__nlc_is_cache_valid(this, nlc_ctx))
             goto unlock;
 
-        __nlc_del_pe(this, nlc_ctx, entry_ino, name, multilink);
-        __nlc_add_ne(this, nlc_ctx, name);
+        __nlc_del_pe(this, nlc_ctx, entry_ino, name, multilink, name_len0);
+        __nlc_add_ne(this, nlc_ctx, name, name_len0);
         __nlc_set_dir_state(nlc_ctx, NLC_NE_VALID);
     }
 unlock:
@@ -935,6 +889,8 @@ nlc_dir_add_pe(xlator_t *this, inode_t *inode, inode_t *entry_ino,
                const char *name)
 {
     nlc_ctx_t *nlc_ctx = NULL;
+    size_t name_len0;
+    nlc_conf_t *conf = NULL;
 
     if (inode->ia_type != IA_IFDIR) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, NLC_MSG_EINVAL,
@@ -942,14 +898,16 @@ nlc_dir_add_pe(xlator_t *this, inode_t *inode, inode_t *entry_ino,
         goto out;
     }
 
-    nlc_inode_ctx_get_set(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get_set(this, inode);
     if (!nlc_ctx)
         goto out;
 
+    name_len0 = name ? strlen(name) + 1 : 0;
+    conf = this->private;
     LOCK(&nlc_ctx->lock);
     {
-        __nlc_del_ne(this, nlc_ctx, name);
-        __nlc_add_pe(this, nlc_ctx, entry_ino, name);
+        __nlc_del_ne(conf, nlc_ctx, name, name_len0);
+        __nlc_add_pe(this, nlc_ctx, entry_ino, name, name_len0);
         if (!IS_PE_VALID(nlc_ctx->state))
             __nlc_set_dir_state(nlc_ctx, NLC_PE_PARTIAL);
     }
@@ -958,8 +916,8 @@ out:
     return;
 }
 
-gf_boolean_t
-__nlc_search_ne(nlc_ctx_t *nlc_ctx, const char *name)
+static gf_boolean_t
+__nlc_search_ne(nlc_ctx_t *nlc_ctx, const char *name, const size_t name_len0)
 {
     gf_boolean_t found = _gf_false;
     nlc_ne_t *ne = NULL;
@@ -970,7 +928,8 @@ __nlc_search_ne(nlc_ctx_t *nlc_ctx, const char *name)
 
     list_for_each_entry_safe(ne, tmp, &nlc_ctx->ne, list)
     {
-        if (strcmp(ne->name, name) == 0) {
+        if (name_len0 && (name_len0 == ne->name_len0) &&
+            (strcmp(ne->name, name) == 0)) {
             found = _gf_true;
             break;
         }
@@ -980,7 +939,7 @@ out:
 }
 
 static gf_boolean_t
-__nlc_search_pe(nlc_ctx_t *nlc_ctx, const char *name)
+__nlc_search_pe(nlc_ctx_t *nlc_ctx, const char *name, const size_t name_len0)
 {
     gf_boolean_t found = _gf_false;
     nlc_pe_t *pe = NULL;
@@ -991,7 +950,8 @@ __nlc_search_pe(nlc_ctx_t *nlc_ctx, const char *name)
 
     list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
     {
-        if (pe->name && (strcmp(pe->name, name) == 0)) {
+        if (pe->name_len0 > 0 && (name_len0 == pe->name_len0) &&
+            (strcmp(pe->name, name) == 0)) {
             found = _gf_true;
             break;
         }
@@ -1000,11 +960,10 @@ out:
     return found;
 }
 
-static char *
+static nlc_pe_t *
 __nlc_get_pe(nlc_ctx_t *nlc_ctx, const char *name,
              gf_boolean_t case_insensitive)
 {
-    char *found = NULL;
     nlc_pe_t *pe = NULL;
     nlc_pe_t *tmp = NULL;
 
@@ -1014,22 +973,22 @@ __nlc_get_pe(nlc_ctx_t *nlc_ctx, const char *name,
     if (case_insensitive) {
         list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
         {
-            if (pe->name && (strcasecmp(pe->name, name) == 0)) {
-                found = pe->name;
+            if (pe->name_len0 && (strcasecmp(pe->name, name) == 0)) {
+                return pe;
                 break;
             }
         }
     } else {
         list_for_each_entry_safe(pe, tmp, &nlc_ctx->pe, list)
         {
-            if (pe->name && (strcmp(pe->name, name) == 0)) {
-                found = pe->name;
+            if (pe->name_len0 && (strcmp(pe->name, name) == 0)) {
+                return pe;
                 break;
             }
         }
     }
 out:
-    return found;
+    return NULL;
 }
 
 gf_boolean_t
@@ -1038,6 +997,7 @@ nlc_is_negative_lookup(xlator_t *this, loc_t *loc)
     nlc_ctx_t *nlc_ctx = NULL;
     inode_t *inode = NULL;
     gf_boolean_t neg_entry = _gf_false;
+    size_t name_len0;
 
     inode = loc->parent;
     GF_VALIDATE_OR_GOTO(this->name, inode, out);
@@ -1048,21 +1008,23 @@ nlc_is_negative_lookup(xlator_t *this, loc_t *loc)
         goto out;
     }
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get(this, inode);
     if (!nlc_ctx)
         goto out;
+
+    name_len0 = loc->name ? strlen(loc->name) + 1 : 0;
 
     LOCK(&nlc_ctx->lock);
     {
         if (!__nlc_is_cache_valid(this, nlc_ctx))
             goto unlock;
 
-        if (__nlc_search_ne(nlc_ctx, loc->name)) {
+        if (__nlc_search_ne(nlc_ctx, loc->name, name_len0)) {
             neg_entry = _gf_true;
             goto unlock;
         }
         if ((nlc_ctx->state & NLC_PE_FULL) &&
-            !__nlc_search_pe(nlc_ctx, loc->name)) {
+            !__nlc_search_pe(nlc_ctx, loc->name, name_len0)) {
             neg_entry = _gf_true;
             goto unlock;
         }
@@ -1074,19 +1036,17 @@ out:
     return neg_entry;
 }
 
-gf_boolean_t
+int
 nlc_get_real_file_name(xlator_t *this, loc_t *loc, const char *fname,
-                       int32_t *op_ret, int32_t *op_errno, dict_t *dict)
+                       int32_t *op_errno, dict_t *dict)
 {
     nlc_ctx_t *nlc_ctx = NULL;
     inode_t *inode = NULL;
-    gf_boolean_t hit = _gf_false;
-    char *found_file = NULL;
-    int ret = 0;
+    nlc_pe_t *found_file = NULL;
+    int ret = -1;
 
     GF_VALIDATE_OR_GOTO(this->name, loc, out);
     GF_VALIDATE_OR_GOTO(this->name, fname, out);
-    GF_VALIDATE_OR_GOTO(this->name, op_ret, out);
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
     GF_VALIDATE_OR_GOTO(this->name, dict, out);
 
@@ -1099,7 +1059,7 @@ nlc_get_real_file_name(xlator_t *this, loc_t *loc, const char *fname,
         goto out;
     }
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get(this, inode);
     if (!nlc_ctx)
         goto out;
 
@@ -1110,26 +1070,23 @@ nlc_get_real_file_name(xlator_t *this, loc_t *loc, const char *fname,
 
         found_file = __nlc_get_pe(nlc_ctx, fname, _gf_true);
         if (found_file) {
-            ret = dict_set_dynstr(dict, GF_XATTR_GET_REAL_FILENAME_KEY,
-                                  gf_strdup(found_file));
+            ret = dict_set_dynstrn(
+                dict, GF_XATTR_GET_REAL_FILENAME_KEY,
+                SLEN(GF_XATTR_GET_REAL_FILENAME_KEY),
+                gf_strndup(found_file->name, found_file->name_len0 - 1));
             if (ret < 0)
                 goto unlock;
-            *op_ret = strlen(found_file) + 1;
-            hit = _gf_true;
-            goto unlock;
-        }
-        if (!found_file && (nlc_ctx->state & NLC_PE_FULL)) {
-            *op_ret = -1;
+            ret = found_file->name_len0;
+        } else if ((nlc_ctx->state & NLC_PE_FULL)) {
+            ret = 0;
             *op_errno = ENOENT;
-            hit = _gf_true;
-            goto unlock;
         }
     }
 unlock:
     UNLOCK(&nlc_ctx->lock);
 
 out:
-    return hit;
+    return ret;
 }
 
 void
@@ -1149,7 +1106,7 @@ nlc_dump_inodectx(xlator_t *this, inode_t *inode)
     nlc_ne_t *ne = NULL;
     nlc_ne_t *tmp1 = NULL;
 
-    nlc_inode_ctx_get(this, inode, &nlc_ctx);
+    nlc_ctx = nlc_inode_ctx_get(this, inode);
 
     if (!nlc_ctx)
         goto out;
