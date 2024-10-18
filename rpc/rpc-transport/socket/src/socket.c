@@ -4448,7 +4448,10 @@ socket_init(rpc_transport_t *this)
     priv->mgmt_ssl = this->ctx->secure_mgmt;
     priv->srvr_ssl = this->ctx->secure_srvr;
 
-    ssl_setup_connection_params(this);
+    if (ssl_setup_connection_params(this)) {
+        gf_log(this->name, GF_LOG_ERROR, "ssl setup failed");
+        return -1;
+    }
 out:
     this->private = priv;
     return 0;
