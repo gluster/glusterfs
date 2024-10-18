@@ -397,11 +397,11 @@ __nlc_set_dir_state(nlc_ctx_t *nlc_ctx, uint64_t new_state)
 }
 
 void
-nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state)
+nlc_set_dir_state(xlator_t *this, inode_t *inode, uint64_t state, ia_type_t ia_type)
 {
     nlc_ctx_t *nlc_ctx = NULL;
 
-    if (inode->ia_type != IA_IFDIR) {
+    if (ia_type != IA_IFDIR) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, NLC_MSG_EINVAL,
                          "inode is not of type dir");
         goto out;
