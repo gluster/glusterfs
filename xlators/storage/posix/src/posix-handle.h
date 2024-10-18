@@ -222,5 +222,6 @@ void
 posix_disk_space_check(struct posix_private *priv);
 
 dict_t *
-_fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append);
+_fill_writev_xdata(inode_t *inode, dict_t *xdata, xlator_t *this, int is_append,
+                   gf_boolean_t skip_fetch_write_is_append);
 #endif /* !_POSIX_HANDLE_H */

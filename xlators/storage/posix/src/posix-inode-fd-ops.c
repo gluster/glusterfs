@@ -1852,16 +1852,13 @@ out:
     return 0;
 }
 
-int32_t
+static int32_t
 __posix_pwritev(int fd, struct iovec *vector, int count, off_t offset)
 {
     int32_t op_ret = 0;
     int idx = 0;
     int retval = 0;
     off_t internal_off = 0;
-
-    if (!vector)
-        return -EFAULT;
 
     internal_off = offset;
     for (idx = 0; idx < count; idx++) {
@@ -1928,20 +1925,17 @@ err:
 }
 
 dict_t *
-_fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
+_fill_writev_xdata(inode_t *inode, dict_t *xdata, xlator_t *this, int is_append,
+                   gf_boolean_t skip_fetch_write_is_append)
 {
     dict_t *rsp_xdata = NULL;
     int32_t ret = 0;
-    inode_t *inode = NULL;
 
-    if (fd)
-        inode = fd->inode;
-
-    if (!fd || !fd->inode || gf_uuid_is_null(fd->inode->gfid)) {
+    if (!inode || gf_uuid_is_null(inode->gfid)) {
         gf_msg_callingfn(this->name, GF_LOG_ERROR, EINVAL, P_MSG_XATTR_FAILED,
-                         "fd: %p inode: %p"
+                         "inode: %p"
                          "gfid:%s",
-                         fd, inode ? inode : 0,
+                         inode ? inode : 0,
                          inode ? uuid_utoa(inode->gfid) : "N/A");
         goto out;
     }
@@ -1955,33 +1949,34 @@ _fill_writev_xdata(fd_t *fd, dict_t *xdata, xlator_t *this, int is_append)
 
     if (dict_get(xdata, GLUSTERFS_OPEN_FD_COUNT)) {
         ret = dict_set_uint32(rsp_xdata, GLUSTERFS_OPEN_FD_COUNT,
-                              fd->inode->fd_count);
+                              inode->fd_count);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "%s: Failed to set "
                    "dictionary value for %s",
-                   uuid_utoa(fd->inode->gfid), GLUSTERFS_OPEN_FD_COUNT);
+                   uuid_utoa(inode->gfid), GLUSTERFS_OPEN_FD_COUNT);
         }
     }
 
     if (dict_get(xdata, GLUSTERFS_ACTIVE_FD_COUNT)) {
         ret = dict_set_uint32(rsp_xdata, GLUSTERFS_ACTIVE_FD_COUNT,
-                              fd->inode->active_fd_count);
+                              inode->active_fd_count);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "%s: Failed to set "
                    "dictionary value for %s",
-                   uuid_utoa(fd->inode->gfid), GLUSTERFS_ACTIVE_FD_COUNT);
+                   uuid_utoa(inode->gfid), GLUSTERFS_ACTIVE_FD_COUNT);
         }
     }
 
-    if (dict_get(xdata, GLUSTERFS_WRITE_IS_APPEND)) {
+    if (skip_fetch_write_is_append ||
+        dict_get(xdata, GLUSTERFS_WRITE_IS_APPEND)) {
         ret = dict_set_uint32(rsp_xdata, GLUSTERFS_WRITE_IS_APPEND, is_append);
         if (ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_DICT_SET_FAILED,
                    "%s: Failed to set "
                    "dictionary value for %s",
-                   uuid_utoa(fd->inode->gfid), GLUSTERFS_WRITE_IS_APPEND);
+                   uuid_utoa(inode->gfid), GLUSTERFS_WRITE_IS_APPEND);
         }
     }
 out:
@@ -2138,7 +2133,8 @@ overwrite:
         goto out;
     }
 
-    rsp_xdata = _fill_writev_xdata(fd, xdata, this, is_append);
+    rsp_xdata = _fill_writev_xdata(fd->inode, xdata, this, is_append,
+                                   write_append);
     /* writev successful, we also need to get the stat of
      * the file we wrote to
      */
@@ -2407,7 +2403,8 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
      * is_append does not apply to copy_file_range, for now,
      * allowing it to be recorded in the dict as _gf_false.
      */
-    rsp_xdata = _fill_writev_xdata(fd_out, xdata, this, is_append);
+    rsp_xdata = _fill_writev_xdata(fd_out->inode, xdata, this, is_append,
+                                   _gf_false);
 
     /* copy_file_range successful, we also need to get the stat of
      * the file we wrote to (i.e. destination file or fd_out).
