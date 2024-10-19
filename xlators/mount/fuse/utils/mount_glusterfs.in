@@ -35,7 +35,7 @@ _init ()
     LOG_DEBUG=DEBUG;
     LOG_TRACE=TRACE;
 
-    HOST_NAME_MAX=64;
+    HOST_NAME_MAX=255;
 
     prefix="@prefix@";
     exec_prefix=@exec_prefix@;
