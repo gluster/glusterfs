@@ -96,7 +96,7 @@ class Gconf(object):
 
         cnf = RawConfigParser()
         with open(self.custom_conf_file) as f:
-            cnf.readfp(f)
+            cnf.read_file(f)
 
             # Nothing to Reset, Not configured
             if name != "all":
@@ -140,7 +140,7 @@ class Gconf(object):
 
         cnf = RawConfigParser()
         with open(self.custom_conf_file) as f:
-            cnf.readfp(f)
+            cnf.read_file(f)
 
         if not cnf.has_section("vars"):
             cnf.add_section("vars")
@@ -181,12 +181,12 @@ class Gconf(object):
         conf = RawConfigParser()
         # Default Template config file
         with open(self.default_conf_file) as f:
-            conf.readfp(f)
+            conf.read_file(f)
 
         # Custom Config file
         if self.custom_conf_file is not None:
             with open(self.custom_conf_file) as f:
-                conf.readfp(f)
+                conf.read_file(f)
 
         # Get version from default conf file
         self.version = conf.get("__meta__", "version")
