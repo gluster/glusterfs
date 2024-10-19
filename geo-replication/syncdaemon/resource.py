@@ -1551,12 +1551,12 @@ class SSH(object):
         (host, rdir) = self.secondaryurl.split(':')
 
         tar_cmd = ["tar"] + \
-            ["--sparse", "-cf", "-", "--files-from", "-"]
+            ["--sparse", "--record-size=128K", "-cf", "-", "--files-from", "-"]
         ssh_cmd = gconf.get("ssh-command").split() + \
             gconf.get("ssh-options-tar").split() + \
             ["-p", str(gconf.get("ssh-port"))] + \
             [host, "tar"] + \
-            ["--overwrite", "-xf", "-", "-C", rdir]
+            ["--overwrite", "--record-size=128K", "-xf", "-", "-C", rdir]
         p0 = Popen(tar_cmd, stdout=subprocess.PIPE,
                    stdin=subprocess.PIPE, stderr=subprocess.PIPE,
                    universal_newlines=True)
