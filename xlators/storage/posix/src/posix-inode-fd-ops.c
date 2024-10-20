@@ -5830,9 +5830,9 @@ out:
     return count;
 }
 
-dict_t *
-posix_entry_xattr_fill(xlator_t *this, inode_t *inode, fd_t *fd,
-                       char *entry_path, dict_t *dict, struct iatt *stbuf)
+static dict_t *
+posix_entry_xattr_fill(xlator_t *this, inode_t *inode, char *entry_path,
+                       dict_t *dict, struct iatt *stbuf)
 {
     loc_t tmp_loc = {
         0,
@@ -5844,7 +5844,7 @@ posix_entry_xattr_fill(xlator_t *this, inode_t *inode, fd_t *fd,
     return posix_xattr_fill(this, entry_path, &tmp_loc, NULL, -1, dict, stbuf);
 }
 
-int
+static int
 posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
                     dict_t *dict)
 {
@@ -5856,7 +5856,7 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     struct iatt stbuf = {
         0,
     };
-    uuid_t gfid;
+    static uuid_t zero_gfid = {0};
     int ret = -1;
     gf_boolean_t do_update_iatt_buf = _gf_false;
 
@@ -5881,16 +5881,14 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
 
     list_for_each_entry(entry, &entries->list, list)
     {
-        inode = inode_grep(fd->inode->table, fd->inode, entry->d_name);
-        if (inode)
-            gf_uuid_copy(gfid, inode->gfid);
-        else
-            bzero(gfid, 16);
-
         strcpy(&hpath[len + 1], entry->d_name);
 
-        ret = posix_pstat(this, inode, gfid, hpath, &stbuf, _gf_false,
-                          _gf_true);
+        inode = inode_grep(itable, fd->inode, entry->d_name);
+        if (inode)
+            ret = posix_pstat(this, inode, inode->gfid, hpath, &stbuf,
+                              _gf_false, _gf_true);
+        else
+            ret = posix_pstat(this, inode, zero_gfid, hpath, &stbuf, _gf_false, _gf_true);
 
         if (ret == -1) {
             if (inode)
@@ -5901,16 +5899,15 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
         if (do_update_iatt_buf)
             posix_update_iatt_buf(&stbuf, -1, hpath);
 
-        if (!inode)
+        if (!inode) {
             inode = inode_find(itable, stbuf.ia_gfid);
-
-        if (!inode)
-            inode = inode_new(itable);
-
+            if (!inode)
+                inode = inode_new(itable);
+        }
         entry->inode = inode;
 
         if (dict) {
-            entry->dict = posix_entry_xattr_fill(this, entry->inode, fd, hpath,
+            entry->dict = posix_entry_xattr_fill(this, entry->inode, hpath,
                                                  dict, &stbuf);
         }
 
@@ -5931,7 +5928,7 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
     return 0;
 }
 
-int32_t
+static int32_t
 posix_do_readdir(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
                  off_t off, int whichop, dict_t *dict)
 {
