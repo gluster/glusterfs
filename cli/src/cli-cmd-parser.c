@@ -2524,7 +2524,7 @@ config_parse(const char **words, int wordcount, dict_t *dict, unsigned cmdi,
     char *subop = NULL;
     char *ret_chkpt = NULL;
     struct tm checkpoint_time;
-    char chkpt_buf[20] = "";
+    time_t checkpoint_sec;
 
     switch ((wordcount - 1) - cmdi) {
         case 0:
@@ -2594,8 +2594,11 @@ config_parse(const char **words, int wordcount, dict_t *dict, unsigned cmdi,
                 memset(&checkpoint_time, 0, sizeof(struct tm));
                 ret_chkpt = strptime(append_str, "%Y-%m-%d %H:%M:%S",
                                      &checkpoint_time);
+                checkpoint_time.tm_isdst = -1;
+                checkpoint_sec = mktime(&checkpoint_time);
 
-                if (ret_chkpt == NULL || *ret_chkpt != '\0') {
+                if (ret_chkpt == NULL || *ret_chkpt != '\0' ||
+                    checkpoint_time.tm_mday == 0) {
                     ret = -1;
                     cli_err(
                         "Invalid Checkpoint label. Use format "
@@ -2608,8 +2611,7 @@ config_parse(const char **words, int wordcount, dict_t *dict, unsigned cmdi,
                     ret = -1;
                     goto out;
                 }
-                strftime(chkpt_buf, sizeof(chkpt_buf), "%s", &checkpoint_time);
-                snprintf(append_str, 300, "%s", chkpt_buf);
+                snprintf(append_str, 300, "%lld", (long long)checkpoint_sec);
             }
 
             ret = dict_set_dynstr(dict, "op_value", append_str);
