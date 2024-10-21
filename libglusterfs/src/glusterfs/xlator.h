@@ -972,6 +972,9 @@ get_xlator_by_type(xlator_t *this, char *target);
 void
 xlator_set_inode_lru_limit(xlator_t *this, void *data);
 
+void
+xlator_set_inode_table_size(xlator_t *this, void *data);
+
 int
 loc_copy(loc_t *dst, loc_t *src);
 int
