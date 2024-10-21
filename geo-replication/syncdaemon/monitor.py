@@ -148,7 +148,7 @@ class Monitor(object):
             if (current_secondary_host, remote_id) not in secondary_up_hosts:
                 if len(secondary_up_hosts) > 0:
                     remote_new = random.choice(secondary_up_hosts)
-                    remote_host = "%s@%s" % (remote_user, remote_new[0])
+                    remote_host = remote_new[0]
                     remote_id = remote_new[1]
 
             # Spawn the worker in lock to avoid fd leak

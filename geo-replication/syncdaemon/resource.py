@@ -1396,15 +1396,10 @@ class SSH(object):
         if gconf.get("use-rsync-xattrs"):
             extra_opts.append('--use-rsync-xattrs')
 
-        if '@' in rconf.args.resource_remote or '@' not in self.remote_addr:
-            remote_host = rconf.args.resource_remote
-        else:
-            user = self.remote_addr.split("@")[0]
-            remote_host = user + '@' + rconf.args.resource_remote
         args_to_secondary = [gconf.get("ssh-command")] + \
             gconf.get("ssh-options").split() + \
             ["-p", str(gconf.get("ssh-port"))] + \
-            rconf.ssh_ctl_args + [remote_host] + \
+            rconf.ssh_ctl_args + [self.remote_addr] + \
             [remote_gsyncd, "secondary"] + \
             extra_opts + \
             [rconf.args.primary, rconf.args.secondary] + \
