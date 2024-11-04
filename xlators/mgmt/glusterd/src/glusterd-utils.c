@@ -1982,8 +1982,8 @@ retry:
     if (dict_get_str(this->options, "transport.socket.bind-address",
                      &bind_address) == 0) {
         runner_add_arg(&runner, "--xlator-option");
-        runner_argprintf(&runner, "transport.socket.bind-address=%s",
-                         bind_address);
+        runner_argprintf(&runner, "%s-server.transport.socket.bind-address=%s",
+                         volinfo->volname, bind_address);
     }
 
     if (volinfo->transport_type == GF_TRANSPORT_RDMA)
