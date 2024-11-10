@@ -264,7 +264,7 @@ Geo Replication
 M: Aravinda Vishwanathapura <aravinda@kadalu.io>
 M: Kotresh HR <khiremat@redhat.com>
 M: Sunny Kumar <sunkumar@redhat.com>
-P: Shwetha Acharya <sacharya@redhat.com>
+M: Shwetha Acharya <sacharya@redhat.com>
 S: Maintained
 F: geo-replication/
 
@@ -373,8 +373,8 @@ S: Maintained
 Debian packages on download.gluster.org
 M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
+M: Shwetha Acharya <sacharya@redhat.com>
 P: Sheetal Pamecha <spamecha@redhat.com>
-P: Shwetha Acharya <sacharya@redhat.com>
 S: Maintained
 W: http://download.gluster.org/pub/gluster/glusterfs/LATEST/Debian/Debian.README
 T: https://github.com/gluster/glusterfs-debian.git
@@ -382,8 +382,8 @@ T: https://github.com/gluster/glusterfs-debian.git
 OpenSuSE
 M: packaging@gluster.org
 M: Kaleb Keithley <kkeithle@redhat.com>
+M: Shwetha Acharya <sacharya@redhat.com>
 P: Sheetal Pamecha <spamecha@redhat.com>
-P: Shwetha Acharya <sacharya@redhat.com>
 S: Maintained
 W: https://build.opensuse.org/repositories/home:glusterfs
 W: https://download.gluster.org/pub/gluster/glusterfs/LATEST/SuSE/SuSE.README
