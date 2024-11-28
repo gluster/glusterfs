@@ -4205,6 +4205,7 @@ afr_wakeup_same_fd_delayed_op(xlator_t *this, afr_lock_t *lock, fd_t *fd)
             if (gf_timer_call_cancel(this->ctx, lock->delay_timer)) {
                 local = NULL;
             } else {
+                lock->release = _gf_true;
                 lock->delay_timer = NULL;
             }
         } else {
