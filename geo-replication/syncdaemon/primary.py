@@ -1299,6 +1299,7 @@ class GPrimaryChangelogMixin(GPrimaryCommon):
             self.batch_stats["DATA_START_TIME"] = time.time()
 
         # sync data
+        datas = datas - self.datas_in_batch
         if datas:
             self.a_syncdata(datas)
             self.datas_in_batch.update(datas)
