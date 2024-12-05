@@ -467,6 +467,7 @@ class WebhookThreadPool(object):
         # In transit messages are skipped, since webhooks monitor process
         # is terminated.
         self.proc.terminate()
+        self.proc.join()
         self.start()
 
     def send(self, event_type, event_ts, message):
