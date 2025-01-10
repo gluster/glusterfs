@@ -7672,10 +7672,14 @@ out:
                 ret = -1;
             }
         } else {
-            snprintf(msg, sizeof(msg),
-                     "parent directory %s is "
-                     "already part of a volume",
-                     curdir);
+            int z = snprintf(msg, sizeof(msg),
+                             "parent directory %s is "
+                             "already part of a volume",
+                             curdir);
+            if (z < 0 || z >= sizeof(msg)) {
+                snprintf(msg, sizeof(msg), "path too big");
+                ret = -1;
+            }
         }
     }
 
