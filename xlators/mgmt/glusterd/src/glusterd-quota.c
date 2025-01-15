@@ -32,6 +32,10 @@
 #endif
 #endif
 
+#if !defined(STAT_COMMAND)
+#define STAT_COMMAND "/usr/bin/stat"
+#endif
+
 /* Any negative pid to make it special client */
 #define QUOTA_CRAWL_PID "-100"
 
@@ -378,7 +382,7 @@ _glusterd_quota_initiate_fs_crawl(glusterd_conf_t *priv,
         if (type == GF_QUOTA_OPTION_TYPE_ENABLE ||
             type == GF_QUOTA_OPTION_TYPE_ENABLE_OBJECTS)
             runner_add_args(&runner, "/usr/bin/find", ".", "-exec",
-                            "/usr/bin/stat", "{}", "\\", ";", NULL);
+                            STAT_COMMAND, "{}", "\\", ";", NULL);
 
         else if (type == GF_QUOTA_OPTION_TYPE_DISABLE) {
 #if defined(GF_DARWIN_HOST_OS)

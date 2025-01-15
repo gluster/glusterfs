@@ -446,6 +446,7 @@ cli_cmd_get_confirmation(struct cli_state *state, const char *question)
         return GF_ANSWER_YES;
 
     printf("%s (y/n) ", question);
+    fflush(stdout);
 
     if (fgets(answer, 4, stdin) == NULL) {
         cli_out("gluster cli read error");

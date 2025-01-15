@@ -11,6 +11,7 @@
 #ifndef __AFR_H__
 #define __AFR_H__
 
+#include <libgen.h>
 #include <glusterfs/call-stub.h>
 #include <glusterfs/compat-errno.h>
 #include "afr-mem-types.h"

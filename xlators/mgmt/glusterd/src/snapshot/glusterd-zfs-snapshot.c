@@ -26,7 +26,9 @@
 #include "mntent_compat.h"
 #endif
 
+#if !defined(ZFS_COMMAND)
 #define ZFS_COMMAND "/sbin/zfs"
+#endif
 
 extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
@@ -49,7 +51,8 @@ glusterd_zfs_dataset(char *brick_path, char **pool_name)
     snprintf(msg, sizeof(msg),
              "running zfs command, "
              "for getting zfs pool name from brick path");
-    runner_add_args(&runner, "zfs", "list", "-Ho", "name", brick_path, NULL);
+    runner_add_args(&runner, ZFS_COMMAND, "list", "-Ho", "name", brick_path,
+                    NULL);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
     runner_log(&runner, "", GF_LOG_DEBUG, msg);
     ret = runner_start(&runner);
