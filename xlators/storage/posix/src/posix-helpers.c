@@ -3002,7 +3002,7 @@ posix_cs_heal_state(xlator_t *this, const char *realpath, int *fd,
     gf_boolean_t downloading = _gf_false;
     int ret = 0;
     gf_cs_obj_state state = GF_CS_ERROR;
-    size_t xattrsize = 0;
+    ssize_t xattrsize = 0;
 
     if (!buf) {
         ret = -1;
@@ -3152,7 +3152,7 @@ posix_cs_check_status(xlator_t *this, const char *realpath, int *fd,
     gf_boolean_t downloading = _gf_false;
     int ret = 0;
     gf_cs_obj_state state = GF_CS_LOCAL;
-    size_t xattrsize = 0;
+    ssize_t xattrsize = 0;
     int op_errno = 0;
 
     if (fd) {
@@ -3253,7 +3253,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
 {
     int ret = 0;
     char *value = NULL;
-    size_t xattrsize = 0;
+    ssize_t xattrsize = 0;
 
     if (!rsp) {
         ret = -1;
