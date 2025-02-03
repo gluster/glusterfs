@@ -3253,7 +3253,7 @@ posix_cs_set_state(xlator_t *this, dict_t **rsp, gf_cs_obj_state state,
 {
     int ret = 0;
     char *value = NULL;
-    size_t xattrsize = 0;
+    ssize_t xattrsize = 0;
 
     if (!rsp) {
         ret = -1;
