@@ -163,7 +163,6 @@ cli_cmd_process_line(struct cli_state *state, const char *text)
     char *token = NULL;
     char *copy = NULL;
     char *saveptr = NULL;
-    int i = 0;
     int ret = -1;
 
     count = cli_cmd_input_token_count(text);
@@ -185,7 +184,6 @@ cli_cmd_process_line(struct cli_state *state, const char *text)
         if (!*tokenp)
             goto out;
         tokenp++;
-        i++;
     }
 
     ret = cli_cmd_process(state, count, tokens);
