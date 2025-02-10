@@ -73,7 +73,7 @@ posix_mdata_from_disk(posix_mdata_t *out, posix_mdata_disk_t *in)
 static int
 posix_fetch_mdata_xattr(const char *real_path, posix_mdata_t *metadata)
 {
-    size_t size = -1;
+    ssize_t size = -1;
     char *value = NULL;
     char gfid_str[64] = {0};
 
