@@ -894,6 +894,9 @@ __is_root_gfid(uuid_t gfid)
     static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
     const uint64_t *p = (uint64_t *)gfid;
 
+    if (caa_unlikely(!p))
+        return _gf_false;
+
     if (*p) /*if it doesn't start with zero's, it's not root gfid */
         return _gf_false;
 
@@ -1674,7 +1677,6 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                              uint32_t inode_hashsize)
 {
     inode_table_t *new = NULL;
-    uint32_t mem_pool_size = lru_limit;
     size_t diff;
     int ret = -1;
     int i = 0;
@@ -1728,10 +1730,6 @@ inode_table_with_invalidator(uint32_t lru_limit, xlator_t *xl,
                    "Rounded inode table size up to %zu from %u",
                    new->inode_hashsize, inode_hashsize);
     }
-
-    /* In case FUSE is initing the inode table. */
-    if (!mem_pool_size || (mem_pool_size > DEFAULT_INODE_MEMPOOL_ENTRIES))
-        mem_pool_size = DEFAULT_INODE_MEMPOOL_ENTRIES;
 
     new->inode_hash = (void *)GF_MALLOC(
         new->inode_hashsize * sizeof(struct list_head), gf_common_mt_list_head);
