@@ -601,7 +601,6 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
                    "Failed to save "
                    "the back trace for lock %s granted to %s",
                    key_dup, uuid_utoa(uuid));
-        ret = 0;
     }
 
 #endif
@@ -627,7 +626,9 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
     char *key = NULL;
     int keylen;
     int32_t ret = -1;
-
+#ifdef DEBUG
+    int bt_key_len = 0;
+#endif
     conf = this->private;
     GF_VALIDATE_OR_GOTO(this->name, conf, out);
 
@@ -639,7 +640,6 @@ gd_mgmt_v3_unlock_timer_cbk(void *data)
 
 #ifdef DEBUG
     char bt_key[PATH_MAX] = "";
-    int bt_key_len = 0;
 
     bt_key_len = snprintf(bt_key, PATH_MAX, "debug.last-success-bt-%s", key);
     if (bt_key_len != SLEN("debug.last-success-bt-") + keylen) {
