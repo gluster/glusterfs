@@ -879,7 +879,7 @@ ec_statvfs_combine(struct statvfs *dst, struct statvfs *src)
         dst->f_bavail = src->f_bavail;
     }
 
-    if (dst->f_files < src->f_files) {
+    if (dst->f_files > src->f_files) {
         dst->f_files = src->f_files;
     }
     if (dst->f_ffree > src->f_ffree) {
