@@ -271,8 +271,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
 int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
 
-int
-client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 void
 client_default_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this);
 void
