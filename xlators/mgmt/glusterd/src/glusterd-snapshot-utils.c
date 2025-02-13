@@ -300,6 +300,12 @@ glusterd_snap_volinfo_restore(dict_t *dict, dict_t *rsp_dict,
             /* To use generic functions from the plugin */
             glusterd_snapshot_plugin_by_name(snap_volinfo->snap_plugin,
                                              &snap_ops);
+            if (caa_unlikely(!snap_ops)) {
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PLUGIN_NOT_FOUND,
+                       "Failed to find plugin for %s",
+                       snap_volinfo->snap_plugin);
+                goto out;
+            }
 
             snap_ops->brick_path(snap_mount_dir, brickinfo->origin_path, 0,
                                  snap_volinfo->snapshot->snapname,
@@ -3314,6 +3320,11 @@ glusterd_snap_unmount(xlator_t *this, glusterd_volinfo_t *volinfo)
     GF_ASSERT(volinfo);
 
     glusterd_snapshot_plugin_by_name(volinfo->snap_plugin, &snap_ops);
+    if (caa_unlikely(!snap_ops)) {
+        gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_PLUGIN_NOT_FOUND,
+               "Failed to find plugin for %s", volinfo->snap_plugin);
+        goto out;
+    }
 
     cds_list_for_each_entry(brickinfo, &volinfo->bricks, brick_list)
     {
