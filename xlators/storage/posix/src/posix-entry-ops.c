@@ -87,19 +87,13 @@ posix_unlink_stale_linkto(call_frame_t *frame, xlator_t *this,
 static gf_boolean_t
 posix_symlinks_match(xlator_t *this, loc_t *loc, uuid_t gfid)
 {
-    struct posix_private *priv = NULL;
     char linkname_actual[PATH_MAX] = {
         0,
     };
     char linkname_expected[PATH_MAX] = {0};
     char *dir_handle = NULL;
     ssize_t len = 0;
-    size_t handle_size = 0;
     gf_boolean_t ret = _gf_false;
-
-    priv = this->private;
-    handle_size = POSIX_GFID_HANDLE_SIZE(priv->base_path_length);
-    dir_handle = alloca0(handle_size);
 
     snprintf(linkname_expected, PATH_MAX, "../../%02x/%02x/%s/%s",
              loc->pargfid[0], loc->pargfid[1], uuid_utoa(loc->pargfid),
@@ -219,7 +213,7 @@ posix_lookup(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
     op_ret = -1;
     if (gf_uuid_is_null(loc->pargfid) || (loc->name == NULL)) {
         /* nameless lookup */
-        op_ret = op_errno = errno = 0;
+        errno = 0;
         MAKE_INODE_HANDLE(real_path, this, loc, &buf);
 
         /* The gfid will be renamed to ".glusterfs/unlink" in case
@@ -1214,7 +1208,6 @@ posix_unlink_gfid_handle_and_entry(call_frame_t *frame, xlator_t *this,
 err:
     if (locked) {
         UNLOCK(&loc->inode->lock);
-        locked = _gf_false;
     }
     return -1;
 }
@@ -2064,7 +2057,6 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
 unlock:
     if (locked) {
         pthread_mutex_unlock(&ctx_new->pgfid_lock);
-        locked = _gf_false;
     }
     pthread_mutex_unlock(&ctx_old->pgfid_lock);
 
@@ -2079,7 +2071,7 @@ unlock:
     if (was_dir)
         posix_handle_unset_gfid(this, victim);
 
-    if (was_present && !was_dir && nlink == 1) {
+    if (was_present && !was_dir && nlink == 1 && newloc->inode) {
         LOCK(&newloc->inode->lock);
         if (newloc->inode->fd_count == 0) {
             UNLOCK(&newloc->inode->lock);
