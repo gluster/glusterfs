@@ -11,10 +11,10 @@ TEST $CLI volume start $V0
 
 TEST glusterfs --volfile-id=$V0 --volfile-server=$H0 --entry-timeout=0 $M0;
 
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 1
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 2
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 3
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 3
 
 
 EXPECT 1 echo `$CLI volume heal $V0 statistics heal-count replica $H0:$B0/${V0}0 | grep -A 1 ${V0}0 | grep "entries" | wc -l`

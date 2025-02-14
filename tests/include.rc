@@ -1,4 +1,5 @@
 # clang-format off
+export LANG=en_US.UTF-8
 checkpoint_time="$(date +%s%N)"
 
 M0=${M0:=/mnt/glusterfs/0};   # 0th mount point for FUSE

@@ -56,6 +56,8 @@ TEST check_threads $(get_brick_pid $V0 $H0 $B0/b0) glfs_iotwr 1
 TEST check_threads $(get_brick_pid $V0 $H0 $B0/b1) glfs_iotwr 1
 
 # Self-heal should be using global threads
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
 TEST check_threads $(get_shd_process_pid) glfs_tpw 1
 TEST check_threads $(get_shd_process_pid) glfs_iotwr 0 0
 

@@ -40,17 +40,8 @@ TEST touch $M0/newfile;
 TEST stat $M0/newfile;
 TEST rm $M0/newfile;
 
-nfs_pid=$(cat $GLUSTERD_PIDFILEDIR/nfs/nfs.pid || echo -1);
-glustershd_pid=`ps auxwww | grep glustershd | grep -v grep | awk -F " " '{print $2}'`
-TEST [ $glustershd_pid != 0 ];
-pids=$(pidof glusterfs);
-for i in $pids
-do
-        if [ $i -ne $nfs_pid ] && [ $i -ne $glustershd_pid ]; then
-                mount_pid=$i;
-                break;
-        fi
-done
+mount_pid=`ps auxwww | grep glusterfs| grep $M0 | grep -v grep | awk -F " " '{print $2}'`
+TEST [ $mount_pid != 0 ];
 
 dump_dir='/tmp/gerrit_glusterfs'
 cat >$statedumpdir/glusterdump.options <<EOF

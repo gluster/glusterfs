@@ -22,6 +22,9 @@ TEST rm -f $B0/${V0}2/SOFTLINK
 TEST stat SOFTLINK
 
 # To heal and clear new-entry mark on source bricks.
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 0
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 1
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "1" afr_child_up_status_in_shd $V0 2
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 
@@ -49,6 +52,7 @@ TEST rm -f $B0/${V0}2/SOFTLINK
 TEST stat SOFTLINK
 
 # To heal and clear new-entry mark on source bricks.
+EXPECT_WITHIN $CHILD_UP_TIMEOUT "3" ec_child_up_count_shd $V0 0
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "^0$" get_pending_heal_count $V0
 

@@ -15,6 +15,8 @@ TEST $CLI volume set $V0 cluster.eager-lock off
 TEST $CLI volume set $V0 performance.flush-behind off
 TEST $CLI volume start $V0
 
+EXPECT_WITHIN $PROCESS_UP_TIMEOUT "^6$" number_healer_threads_shd $V0 "afr_shd_index_healer"
+
 for i in $(seq 1 2); do
    TEST $CLI volume create ${V0}_afr$i replica 3 $H0:$B0/${V0}_afr${i}{0,1,2,3,4,5}
    TEST $CLI volume start ${V0}_afr$i
