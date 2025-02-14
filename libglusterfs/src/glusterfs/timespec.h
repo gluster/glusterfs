@@ -23,6 +23,8 @@ timespec_now(struct timespec *ts);
 void
 timespec_now_realtime(struct timespec *ts);
 void
+timespec_now_monotonic_raw(struct timespec *ts);
+void
 timespec_adjust_delta(struct timespec *ts, struct timespec delta);
 void
 timespec_sub(const struct timespec *begin, const struct timespec *end,

@@ -92,6 +92,18 @@ timespec_now_realtime(struct timespec *ts)
 }
 
 void
+timespec_now_monotonic_raw(struct timespec *ts)
+{
+#if defined GF_LINUX_HOST_OS
+    if (0 == clock_gettime(CLOCK_MONOTONIC_RAW, ts)) {
+        return;
+    }
+#endif
+    // fallback to monotonic if monotonic_raw is not available
+    timespec_now(ts);
+}
+
+void
 timespec_adjust_delta(struct timespec *ts, struct timespec delta)
 {
     ts->tv_nsec = ((ts->tv_nsec + delta.tv_nsec) % 1000000000);

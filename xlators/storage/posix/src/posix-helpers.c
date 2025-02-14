@@ -1474,8 +1474,6 @@ posix_janitor_task(void *data)
     struct posix_private *priv = NULL;
     xlator_t *old_this = NULL;
 
-    time_t now;
-
     this = data;
     priv = this->private;
     /* We need THIS to be set for janitor_walker */
@@ -1485,7 +1483,9 @@ posix_janitor_task(void *data)
     if (!priv)
         goto out;
 
-    now = gf_time();
+    struct timespec ts = {0};
+    timespec_now_monotonic_raw(&ts);
+    time_t now = ts.tv_sec;
     if ((now - priv->last_landfill_check) > priv->janitor_sleep_duration) {
         if (priv->disable_landfill_purge) {
             gf_msg_debug(this->name, 0,

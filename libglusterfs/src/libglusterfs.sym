@@ -1060,6 +1060,7 @@ tbf_init
 tbf_throttle
 timespec_now
 timespec_now_realtime
+timespec_now_monotonic_raw
 timespec_sub
 timespec_adjust_delta
 timespec_cmp
