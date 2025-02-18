@@ -48,6 +48,7 @@ glfs_mark_glfd_for_deletion(struct glfs_fd *glfd)
     LOCK(&glfd->lock);
     {
         glfd->state = GLFD_CLOSE;
+        glfd->next = NULL;
     }
     UNLOCK(&glfd->lock);
 
@@ -4011,6 +4012,11 @@ glfd_entry_refresh(struct glfs_fd *glfd, int plus)
         }
 
         list_splice_init(&glfd->entries, &old.list);
+        /* If glfd->next is non null means, this entry is from the old
+         * list, there is no point in keeping the free'ed data. Hence
+         * set to NULL;
+         */
+        glfd->next = NULL;
         list_splice_init(&entries.list, &glfd->entries);
 
         /* spurious errno is dangerous for glfd_entry_next() */
