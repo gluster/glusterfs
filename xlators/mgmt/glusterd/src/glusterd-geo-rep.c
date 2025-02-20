@@ -770,7 +770,7 @@ _fcbk_conftodict(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!v)
             return -1;
         *v++ = '\0';
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             v++;
         v = gf_strdup(v);
         if (!v)
@@ -836,7 +836,7 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!v)
             return -1;
         *v++ = '\0';
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             v++;
         v = gf_strdup(v);
         if (!v)
