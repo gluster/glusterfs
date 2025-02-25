@@ -23,8 +23,8 @@ TEST pidof glusterd
 # We want fixed size bricks to test min-free-disk
 
 # Create 2 loop devices, one per brick.
-TEST   truncate -s 25M $B0/brick1
-TEST   truncate -s 25M $B0/brick2
+TEST   truncate -s 300M $B0/brick1
+TEST   truncate -s 300M $B0/brick2
 
 TEST   L1=`SETUP_LOOP $B0/brick1`
 TEST   MKFS_LOOP $L1
@@ -61,7 +61,7 @@ TEST dht_first_filename_with_hashsubvol "$hashed" $M0/dir1 "big-"
 firstfile=$fn_return_val
 
 #Create a large file to fill up $hashed past the min-free-disk limits
-TEST  dd if=/dev/zero of=$M0/dir1/$firstfile bs=1M count=15
+TEST  dd if=/dev/zero of=$M0/dir1/$firstfile bs=1M count=180
 
 brickpath_0=$(cat "$M0/.meta/graphs/active/$hashed/options/remote-subvolume")
 brickpath_1=$(cat "$M0/.meta/graphs/active/$V0-client-1/options/remote-subvolume")
@@ -87,7 +87,7 @@ echo $newfile
 
 # Create $newfile - it should be created on the other subvol as its hash subvol
 # has crossed the min-free-disk limit
-TEST  dd if=/dev/zero of=$M0/dir1/$newfile bs=1024 count=20
+TEST  dd if=/dev/zero of=$M0/dir1/$newfile bs=1024 count=240
 TEST stat "$brickpath_0/dir1/$newfile"
 EXPECT "1" is_dht_linkfile "$brickpath_0/dir1/$newfile"
 
@@ -103,7 +103,7 @@ EXPECT "1" is_dht_linkfile "$brickpath_0/dir1/$newfile"
 TEST dht_first_filename_with_hashsubvol $V0-client-1 $M0/dir1 "filter-"
 newfile=$fn_return_val
 echo $newfile
-TEST dd if=/dev/zero of="$M0/dir1/$newfile@$V0-dht:$hashed" bs=1024 count=20
+TEST dd if=/dev/zero of="$M0/dir1/$newfile@$V0-dht:$hashed" bs=1024 count=240
 TEST stat $M0/dir1/$newfile
 TEST stat "$brickpath_0/dir1/$newfile"
 EXPECT "1" is_dht_linkfile "$brickpath_1/dir1/$newfile"
