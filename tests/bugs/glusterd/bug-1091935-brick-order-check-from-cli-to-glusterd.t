@@ -11,10 +11,10 @@ function check_peers {
 cleanup;
 
 ## Lets create partitions for bricks
-TEST truncate -s 100M $B0/brick1
-TEST truncate -s 200M $B0/brick2
-TEST truncate -s 200M $B0/brick3
-TEST truncate -s 200M $B0/brick4
+TEST truncate -s 300M $B0/brick1
+TEST truncate -s 300M $B0/brick2
+TEST truncate -s 300M $B0/brick3
+TEST truncate -s 300M $B0/brick4
 
 
 TEST LO1=`SETUP_LOOP $B0/brick1`
