@@ -22,11 +22,11 @@ function create_files {
 TEST glusterd
 
 #Create brick partitions
-TEST truncate -s 100M $B0/brick0
-TEST truncate -s 100M $B0/brick1
+TEST truncate -s 300M $B0/brick0
+TEST truncate -s 300M $B0/brick1
 #Have the 3rd brick of a higher size to test the scenario of entry transaction
 #passing on only one brick and not on other bricks.
-TEST truncate -s 110M $B0/brick2
+TEST truncate -s 310M $B0/brick2
 LO1=`SETUP_LOOP $B0/brick0`
 TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO1
