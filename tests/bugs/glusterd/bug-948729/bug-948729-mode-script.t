@@ -23,9 +23,9 @@ EXPECT_WITHIN $PROBE_TIMEOUT 1 check_peers;
 B3=/d/backends/3
 mkdir -p $B3
 
-TEST truncate -s 16M $B1/brick1
-TEST truncate -s 16M $B2/brick2
-TEST truncate -s 16M $B3/brick3
+TEST truncate -s 300M $B1/brick1
+TEST truncate -s 300M $B2/brick2
+TEST truncate -s 300M $B3/brick3
 
 TEST LD1=`SETUP_LOOP $B1/brick1`
 TEST MKFS_LOOP $LD1
