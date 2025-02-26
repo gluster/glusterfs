@@ -69,7 +69,7 @@ done
 
 ## Bring free space on one of the bricks to less than minfree value by
 ## creating one big file.
-dd if=/dev/zero of=$M0/fillonebrick.data bs=1024 count=51200 1>/dev/null 2>&1
+dd if=/dev/zero of=$M0/fillonebrick.data bs=4096 count=25600 1>/dev/null 2>&1
 
 #Lets find out where it was created
 if [ -f $B0/${V0}1/fillonebrick.data ]
