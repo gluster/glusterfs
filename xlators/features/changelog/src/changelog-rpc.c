@@ -435,7 +435,5 @@ static struct rpcsvc_program changelog_svc_prog = {
     .synctask = _gf_true,
 };
 
-static struct rpcsvc_program *changelog_programs[] = {
-    &changelog_svc_prog,
-    NULL,
-};
+static struct rpcsvc_program *changelog_programs[] = {&changelog_svc_prog,
+                                                      NULL};
