@@ -716,61 +716,23 @@ ec_statistics_init(ec_t *ec)
 static int
 ec_assign_read_mask(ec_t *ec, char *read_mask_str)
 {
-    char *mask = NULL;
-    char *maskptr = NULL;
-    char *saveptr = NULL;
-    char *id_str = NULL;
-    int id = 0;
     int ret = 0;
+    int op_errno = 0;
     uintptr_t read_mask = 0;
 
     if (!read_mask_str) {
         ec->read_mask = 0;
-        ret = 0;
         goto out;
     }
 
-    mask = gf_strdup(read_mask_str);
-    if (!mask) {
-        ret = -1;
+    ret = ec_parse_read_mask(ec, read_mask_str, &read_mask, &op_errno,
+                             EC_MSG_XLATOR_INIT_FAIL);
+    if (ret < 0) {
         goto out;
     }
-    maskptr = mask;
 
-    for (;;) {
-        id_str = strtok_r(maskptr, ":", &saveptr);
-        if (id_str == NULL)
-            break;
-        if (gf_string2int(id_str, &id)) {
-            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
-                   "In read-mask \"%s\" id %s is not a valid integer",
-                   read_mask_str, id_str);
-            ret = -1;
-            goto out;
-        }
-
-        if ((id < 0) || (id >= ec->nodes)) {
-            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
-                   "In read-mask \"%s\" id %d is not in range [0 - %d]",
-                   read_mask_str, id, ec->nodes - 1);
-            ret = -1;
-            goto out;
-        }
-        read_mask |= (1UL << id);
-        maskptr = NULL;
-    }
-
-    if (gf_bits_count(read_mask) < ec->fragments) {
-        gf_msg(ec->xl->name, GF_LOG_ERROR, 0, EC_MSG_XLATOR_INIT_FAIL,
-               "read-mask \"%s\" should contain at least %d ids", read_mask_str,
-               ec->fragments);
-        ret = -1;
-        goto out;
-    }
     ec->read_mask = read_mask;
-    ret = 0;
 out:
-    GF_FREE(mask);
     return ret;
 }
 
@@ -1322,12 +1284,56 @@ ec_gf_fsetattr(call_frame_t *frame, xlator_t *this, fd_t *fd,
 }
 
 int32_t
+ec_handle_readmask(call_frame_t *frame, xlator_t *this, loc_t *loc,
+                   dict_t *dict, int32_t flags, dict_t *xdata)
+{
+    ec_t *ec = this->private;
+    data_t *dict_data = NULL;
+    char *read_mask_str = NULL;
+    int32_t op_ret = -1;
+    int32_t op_errno = EINVAL;
+    uintptr_t read_mask = 0;
+    int ret = 0;
+
+    if (!ec_is_readmask_xattr(dict)) {
+        return -1;
+    }
+
+    ret = dict_get_str_sizen(dict, EC_XATTR_READMASK, &read_mask_str);
+    if (ret < 0) {
+        goto out;
+    }
+
+    if (strcmp(read_mask_str, EC_DEFAULT_INODE_READ_MASK) == 0) {
+        ec_inode_readmask_set(loc->inode, this, read_mask);
+        op_ret = op_errno = 0;
+        goto out;
+    }
+
+    ret = ec_parse_read_mask(ec, read_mask_str, &read_mask, &op_errno,
+                             EC_MSG_INVALID_READMASK);
+    if (ret < 0) {
+        op_ret = -1;
+        goto out;
+    }
+    ec_inode_readmask_set(loc->inode, this, read_mask);
+    op_ret = op_errno = 0;
+
+out:
+    STACK_UNWIND_STRICT(setxattr, frame, op_ret, op_errno, xdata);
+    return 0;
+}
+
+int32_t
 ec_gf_setxattr(call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *dict,
                int32_t flags, dict_t *xdata)
 {
     int error = 0;
 
     EC_INTERNAL_XATTR_OR_GOTO("", dict, error, out);
+
+    if (ec_handle_readmask(frame, this, loc, dict, flags, xdata) == 0)
+        return 0;
 
     ec_setxattr(frame, this, -1, EC_MINIMUM_MIN, default_setxattr_cbk, NULL,
                 loc, dict, flags, xdata);

@@ -187,6 +187,7 @@ struct _ec_inode {
     struct list_head heal;
     ec_stripe_list_t stripe_cache;
     uint64_t bad_version;
+    uintptr_t read_mask;
 };
 
 typedef int32_t (*fop_heal_cbk_t)(call_frame_t *, void *, xlator_t *, int32_t,

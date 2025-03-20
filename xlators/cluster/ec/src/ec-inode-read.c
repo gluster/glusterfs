@@ -1372,9 +1372,14 @@ ec_manager_readv(ec_fop_data_t *fop, int32_t state)
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
-            if (ec->read_mask) {
+            uintptr_t inode_read_mask = ec_inode_readmask_get(fop->fd->inode,
+                                                              fop->xl);
+            if (inode_read_mask != 0) {
+                fop->mask &= inode_read_mask;
+            } else if (ec->read_mask) {
                 fop->mask &= ec->read_mask;
             }
+
             ec_dispatch_min(fop);
 
             return EC_STATE_PREPARE_ANSWER;

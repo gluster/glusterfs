@@ -20,9 +20,11 @@
 #define EC_XATTR_HEAL EC_XATTR_PREFIX "heal"
 #define EC_XATTR_HEAL_NEW EC_XATTR_PREFIX "heal-new"
 #define EC_XATTR_DIRTY EC_XATTR_PREFIX "dirty"
+#define EC_XATTR_READMASK "glusterfs.ec.readmask"
 #define EC_STRIPE_CACHE_MAX_SIZE 10
 #define EC_VERSION_SIZE 2
 #define EC_SHD_INODE_LRU_LIMIT 10
+#define EC_DEFAULT_INODE_READ_MASK ":"
 
 #define EC_MAX_FRAGMENTS EC_METHOD_MAX_FRAGMENTS
 /* The maximum number of nodes is derived from the maximum allowed fragments

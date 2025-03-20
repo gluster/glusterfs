@@ -17,7 +17,8 @@
 #define EC_IS_ERR(_x) (((uintptr_t)(_x) & ~0xfffULL) == ~0xfffULL)
 #define EC_GET_ERR(_x) ((int32_t)(intptr_t)(_x))
 
-#define EC_ALIGN_CHECK(_ptr, _align) ((((uintptr_t)(_ptr)) & ((_align)-1)) == 0)
+#define EC_ALIGN_CHECK(_ptr, _align)                                           \
+    ((((uintptr_t)(_ptr)) & ((_align) - 1)) == 0)
 
 const char *
 ec_bin(char *str, size_t size, uint64_t value, int32_t digits);
@@ -69,6 +70,11 @@ ec_fd_t *
 __ec_fd_get(fd_t *fd, xlator_t *xl);
 ec_fd_t *
 ec_fd_get(fd_t *fd, xlator_t *xl);
+
+void
+ec_inode_readmask_set(inode_t *inode, xlator_t *xl, uintptr_t read_mask);
+uintptr_t
+ec_inode_readmask_get(inode_t *inode, xlator_t *xl);
 
 static inline uint32_t
 ec_adjust_size_down(ec_t *ec, uint64_t *value, gf_boolean_t scale)
@@ -191,5 +197,12 @@ ec_filter_internal_xattrs(dict_t *xattr);
 
 int32_t
 ec_launch_replace_heal(ec_t *ec);
+
+gf_boolean_t
+ec_is_readmask_xattr(dict_t *dict);
+
+uintptr_t
+ec_parse_read_mask(ec_t *ec, char *read_mask_str, uintptr_t *read_mask_ptr,
+                   int32_t *op_errno_ptr, uint64_t msgid);
 
 #endif /* __EC_HELPERS_H__ */

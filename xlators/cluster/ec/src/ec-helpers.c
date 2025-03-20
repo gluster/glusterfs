@@ -734,6 +734,39 @@ ec_inode_get(inode_t *inode, xlator_t *xl)
     return ctx;
 }
 
+void
+ec_inode_readmask_set(inode_t *inode, xlator_t *xl, uintptr_t read_mask)
+{
+    ec_inode_t *ctx = NULL;
+
+    LOCK(&inode->lock);
+
+    ctx = __ec_inode_get(inode, xl);
+
+    if (ctx)
+        ctx->read_mask = read_mask;
+
+    UNLOCK(&inode->lock);
+}
+
+uintptr_t
+ec_inode_readmask_get(inode_t *inode, xlator_t *xl)
+{
+    ec_inode_t *ctx = NULL;
+    uintptr_t read_mask = 0;
+
+    LOCK(&inode->lock);
+
+    ctx = __ec_inode_get(inode, xl);
+
+    if (ctx)
+        read_mask = ctx->read_mask;
+
+    UNLOCK(&inode->lock);
+
+    return read_mask;
+}
+
 ec_fd_t *
 __ec_fd_get(fd_t *fd, xlator_t *xl)
 {
@@ -834,3 +867,72 @@ ec_is_metadata_fop (int32_t lock_kind, glusterfs_fop_t fop)
         }
         return _gf_false;
 }*/
+
+gf_boolean_t
+ec_is_readmask_xattr(dict_t *dict)
+{
+    data_t *dict_data = NULL;
+    if (dict_lookup(dict, EC_XATTR_READMASK, &dict_data) == 0) {
+        return _gf_true;
+    }
+    return _gf_false;
+}
+
+uintptr_t
+ec_parse_read_mask(ec_t *ec, char *read_mask_str, uintptr_t *read_mask,
+                   int32_t *op_errno, uint64_t msgid)
+{
+    char *mask = NULL;
+    char *maskptr = NULL;
+    char *saveptr = NULL;
+    char *id_str = NULL;
+    uintptr_t readmask = 0;
+    int id = 0;
+    int ret = -1;
+
+    mask = gf_strdup(read_mask_str);
+    if (!mask) {
+        *op_errno = ENOMEM;
+        goto out;
+    }
+    maskptr = mask;
+
+    for (;;) {
+        id_str = strtok_r(maskptr, ":", &saveptr);
+        if (id_str == NULL)
+            break;
+        if (gf_string2int(id_str, &id)) {
+            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, msgid,
+                   "In read-mask \"%s\" id %s is not a valid integer",
+                   read_mask_str, id_str);
+
+            *op_errno = EINVAL;
+            goto out;
+        }
+
+        if ((id < 0) || (id >= ec->nodes)) {
+            gf_msg(ec->xl->name, GF_LOG_ERROR, 0, msgid,
+                   "In read-mask \"%s\" id %d is not in range [0 - %d]",
+                   read_mask_str, id, ec->nodes - 1);
+
+            *op_errno = EINVAL;
+            goto out;
+        }
+        readmask |= (1UL << id);
+        maskptr = NULL;
+    }
+
+    if (gf_bits_count(readmask) < ec->fragments) {
+        gf_msg(ec->xl->name, GF_LOG_ERROR, 0, msgid,
+               "read-mask \"%s\" should contain at least %d ids", read_mask_str,
+               ec->fragments);
+
+        *op_errno = EINVAL;
+        goto out;
+    }
+    *read_mask = readmask;
+    ret = 0;
+out:
+    GF_FREE(mask);
+    return ret;
+}
