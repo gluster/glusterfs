@@ -271,6 +271,10 @@ static struct argp_option gf_options[] = {
     {"fuse-handle-copy_file_range", ARGP_FUSE_HANDLE_COPY_FILE_RANGE, "BOOL",
      OPTION_ARG_OPTIONAL | OPTION_HIDDEN,
      "enable the handler of the FUSE_COPY_FILE_RANGE message"},
+    {"fuse-max-write", ARGP_FUSE_MAX_WRITE_KEY, "INTEGER", OPTION_ARG_OPTIONAL,
+     "set fuse max-write bytes"},
+    {"fuse-max-read", ARGP_FUSE_MAX_READ_KEY, "INTEGER", OPTION_ARG_OPTIONAL,
+     "set fuse max-read bytes"},
     {0, 0, 0, 0, "Miscellaneous Options:"},
     {
         0,
@@ -564,6 +568,16 @@ set_fuse_mount_options(glusterfs_ctx_t *ctx, dict_t *options)
             gf_msg_debug("glusterfsd", 0, "fuse-handle-copy_file_range mode %d",
                          cmd_args->fuse_handle_copy_file_range);
             break;
+    }
+
+    if (cmd_args->fuse_max_write) {
+        DICT_SET_VAL(dict_set_uint32, options, "fuse-max-write",
+                     cmd_args->fuse_max_write, glusterfsd_msg_3);
+    }
+
+    if (cmd_args->fuse_max_read) {
+        DICT_SET_VAL(dict_set_uint32, options, "fuse-max-read",
+                     cmd_args->fuse_max_read, glusterfsd_msg_3);
     }
 
     if (cmd_args->fs_display_name) {
@@ -1463,6 +1477,33 @@ parse_opts(int key, char *arg, struct argp_state *state)
                          "unknown fuse handle copy_file_range setting \"%s\"",
                          arg);
             break;
+        case ARGP_FUSE_MAX_WRITE_KEY:
+            if (gf_string2uint32(arg, &cmd_args->fuse_max_write)) {
+                argp_failure(state, -1, 0, "unknown fuse max-write option %s",
+                             arg);
+            } else if ((cmd_args->fuse_max_write < 4096) ||
+                       (cmd_args->fuse_max_write > 1048576)) {
+                argp_failure(state, -1, 0,
+                             "Invalid fuse max-write bytes %s. "
+                             "Valid range: [\"4096, 1048576\"]",
+                             arg);
+            }
+
+            break;
+        case ARGP_FUSE_MAX_READ_KEY:
+            if (gf_string2uint32(arg, &cmd_args->fuse_max_read)) {
+                argp_failure(state, -1, 0, "unknown fuse max-read option %s",
+                             arg);
+            } else if ((cmd_args->fuse_max_read < 4096) ||
+                       (cmd_args->fuse_max_read > 1048576)) {
+                argp_failure(state, -1, 0,
+                             "Invalid fuse max-read bytes %s. "
+                             "Valid range: [\"4096, 1048576\"]",
+                             arg);
+            }
+
+            break;
+
     }
     return 0;
 }
