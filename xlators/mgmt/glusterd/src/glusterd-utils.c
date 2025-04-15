@@ -5406,8 +5406,13 @@ glusterd_remote_hostname_get(rpcsvc_request_t *req, char *remote_host, int len)
     }
 
     if ((gf_get_hostname_from_ip(hostname, &canon) == 0) && canon) {
-        GF_FREE(tmp_host);
-        tmp_host = hostname = canon;
+        if (strcmp(canon, "localhost") &&
+            strcmp(canon, "localhost.localdomain")) {
+            GF_FREE(tmp_host);
+            tmp_host = hostname = canon;
+        } else {
+            GF_FREE(canon);
+        }
     }
 
     (void)snprintf(remote_host, len, "%s", hostname);
