@@ -123,7 +123,7 @@ TEST /usr/sbin/groupadd $grp
 clean_lock_files
 ##Del if exists and create non-root user and assign it to newly created group
 userdel -r -f $usr
-TEST /usr/sbin/useradd -G $grp $usr
+TEST /usr/sbin/useradd -m -G $grp $usr
 
 export PASS=$( (echo $RANDOM ; date +%s) | sha256sum | base64 | head -c 32)
 ##Modify password for non-root user to have control over distributing ssh-key
