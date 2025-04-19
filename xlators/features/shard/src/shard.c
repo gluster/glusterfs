@@ -5572,18 +5572,13 @@ shard_common_inode_write_do_cbk(call_frame_t *frame, void *cookie,
     call_count = shard_call_count_return(frame);
     if (call_count == 0) {
         SHARD_UNSET_ROOT_FS_ID(frame, local);
-        if (local->op_ret < 0) {
-            shard_common_failure_unwind(fop, frame, local->op_ret,
-                                        local->op_errno);
-        } else {
-            shard_get_delta_size_from_inode_ctx(local, local->fd->inode, this);
-            local->hole_size = 0;
-            if (xdata)
-                local->xattr_rsp = dict_ref(xdata);
-            shard_update_file_size(
-                frame, this, local->fd, NULL,
-                shard_common_inode_write_post_update_size_handler);
-        }
+        shard_get_delta_size_from_inode_ctx(local, local->fd->inode, this);
+        local->hole_size = 0;
+        if (xdata)
+            local->xattr_rsp = dict_ref(xdata);
+        shard_update_file_size(
+            frame, this, local->fd, NULL,
+            shard_common_inode_write_post_update_size_handler);
     }
 
     return 0;
