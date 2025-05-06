@@ -30,16 +30,15 @@ TEST $CLI v set all cluster.brick-multiplex on
 TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_up_bricks
 EXPECT 1 count_brick_processes
-
 # Kill volume ungracefully
 brick_pid=`pgrep glusterfsd`
 
 # Make sure every brick root should be consumed by a brick process
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
 
 b1_pid_file=$(ls $GLUSTERD_PIDFILEDIR/vols/$V0/*d-backends-1*.pid)
@@ -61,11 +60,11 @@ EXPECT 1 count_brick_processes
 brick_pid=`pgrep glusterfsd`
 
 # Make sure only two brick root should be consumed by a brick process
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 0 ]
 
 # Mount the brick root
@@ -82,11 +81,11 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT 3 count_up_bricks
 EXPECT 1 count_brick_processes
 
 # Make sure every brick root should be consumed by a brick process
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L1 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L2 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
-n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v ".glusterfs" | wc -l`
+n=`ls -lrth /proc/$brick_pid/fd | grep -iw $L3 | grep -v "/.glusterfs" | wc -l`
 TEST [ $n -eq 1 ]
 
 cleanup
