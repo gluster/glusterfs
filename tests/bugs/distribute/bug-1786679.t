@@ -19,7 +19,7 @@ cleanup
 
 function get_layout () {
 
-layout=`getfattr -n trusted.glusterfs.dht -e hex $1 2>&1 | grep dht | gawk -F"=" '{print $2}'`
+layout=`getfattr -n trusted.glusterfs.dht -e hex $1 2>&1 | grep dht | awk -F"=" '{print $2}'`
 
 echo $layout
 
