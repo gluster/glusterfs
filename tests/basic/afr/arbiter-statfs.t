@@ -12,7 +12,7 @@ TEST glusterd
 TEST truncate -s 1G $B0/brick1
 TEST truncate -s 1G $B0/brick2
 #Arbiter brick is of a lesser size.
-TEST truncate -s 90M $B0/brick3
+TEST truncate -s 300M $B0/brick3
 LO1=`SETUP_LOOP $B0/brick1`
 TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO1

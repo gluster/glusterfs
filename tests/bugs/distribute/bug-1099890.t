@@ -18,8 +18,8 @@ TEST   glusterd;
 TEST   pidof glusterd;
 
 # Create 2 loop devices, one per brick.
-TEST   truncate -s 100M $B0/brick1
-TEST   truncate -s 100M $B0/brick2
+TEST   truncate -s 300M $B0/brick1
+TEST   truncate -s 300M $B0/brick2
 
 TEST   L1=`SETUP_LOOP $B0/brick1`
 TEST   MKFS_LOOP $L1
@@ -42,25 +42,25 @@ TEST   $CLI volume quota $V0 enable;
 
 TEST   $CLI volume set $V0 features.quota-deem-statfs on
 
-TEST   $CLI volume quota $V0 limit-usage / 150MB;
+TEST   $CLI volume quota $V0 limit-usage / 450MB;
 
 TEST   $CLI volume set $V0 cluster.min-free-disk 50%
 
 TEST   glusterfs -s $H0 --volfile-id=$V0 $M0
 
 # Make sure quota-deem-statfs is working as expected
-EXPECT "150M" echo `df -h $M0 -P | tail -1 | awk {'print $2'}`
+EXPECT "450M" echo `df -h $M0 -P | tail -1 | awk {'print $2'}`
 
 # Create a new file 'foo' under the root of the volume, which hashes to subvol-0
-# of DHT, that consumes 40M
-TEST $QDD $M0/foo 256 160
+# of DHT, that consumes 120M
+TEST $QDD $M0/foo 256 480
 
 TEST   stat $B0/${V0}1/foo
 TEST ! stat $B0/${V0}2/foo
 
 # Create a new file 'bar' under the root of the volume, which hashes to subvol-1
-# of DHT, that consumes 40M
-TEST $QDD $M0/bar 256 160
+# of DHT, that consumes 120M
+TEST $QDD $M0/bar 256 480
 
 TEST ! stat $B0/${V0}1/bar
 TEST   stat $B0/${V0}2/bar
@@ -70,15 +70,15 @@ TEST   stat $B0/${V0}2/bar
 sleep 1;
 TEST   touch $M0/empty1;
 
-# At this point, the available space on each subvol {60M,60M} is greater than
-# their min-free-disk {50M,50M}, but if this bug still exists, then
+# At this point, the available space on each subvol {160M,160M} is greater than
+# their min-free-disk {150M,150M}, but if this bug still exists, then
 # the total available space on the volume as perceived by DHT should be less
 # than min-free-disk, i.e.,
 #
-# consumed space returned per subvol by quota = (40M + 40M) = 80M
+# consumed space returned per subvol by quota = (120M + 120M) = 240M
 #
 # Therefore, consumed space per subvol computed by DHT WITHOUT the fix would be:
-# (80M/150M)*100 = 53%
+# (240M/450M)*100 = 53%
 #
 # Available space per subvol as perceived by DHT with the bug = 47%
 # which is less than min-free-disk

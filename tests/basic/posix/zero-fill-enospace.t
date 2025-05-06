@@ -9,7 +9,7 @@ cleanup;
 TEST glusterd;
 TEST pidof glusterd;
 
-TEST truncate -s 100M $B0/brick1
+TEST truncate -s 300M $B0/brick1
 
 TEST L1=`SETUP_LOOP $B0/brick1`
 TEST MKFS_LOOP $L1
@@ -25,7 +25,9 @@ TEST $CLI volume start $V0;
 TEST glusterfs -s $H0 --volfile-id=$V0 $M0
 TEST touch $M0/foo
 TEST build_tester $(dirname $0)/zero-fill-enospace.c -lgfapi -Wall -O2
-TEST ! $(dirname $0)/zero-fill-enospace $H0 $V0 /foo `gluster --print-logdir`/glfs-$V0.log 104857600
+
+# Last argument is the brick size in bytes
+TEST ! $(dirname $0)/zero-fill-enospace $H0 $V0 /foo `gluster --print-logdir`/glfs-$V0.log 314572800
 
 TEST force_umount $M0
 TEST $CLI volume stop $V0

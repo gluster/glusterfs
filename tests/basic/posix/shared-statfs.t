@@ -7,9 +7,9 @@
 cleanup;
 TEST glusterd
 
-#Create brick partitions
-TEST truncate -s 100M $B0/brick1
-TEST truncate -s 100M $B0/brick2
+#Create brick partitions - xfs min is 300M
+TEST truncate -s 300M $B0/brick1
+TEST truncate -s 300M $B0/brick2
 LO1=`SETUP_LOOP $B0/brick1`
 TEST [ $? -eq 0 ]
 TEST MKFS_LOOP $LO1
@@ -29,9 +29,9 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "2" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 total_mount_blocks=$(df -P $M0 | tail -1 | awk '{ print $2}')
-# Keeping the size less than 200M mainly because XFS will use
+# Keeping the size less than 600M mainly because XFS will use
 # some storage in brick to keep its own metadata.
-TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 200000 ]
+TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 600000 ]
 
 
 TEST force_umount $M0
@@ -45,7 +45,7 @@ TEST $CLI volume start $V0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "6" online_brick_count
 TEST $GFS --volfile-server=$H0 --volfile-id=$V0 $M0
 total_mount_blocks=$(df -P $M0 | tail -1 | awk '{ print $2}')
-TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 200000 ]
+TEST [ $total_mount_blocks -gt $brick_blocks_two_percent_less -a $total_mount_blocks -lt 600000 ]
 
 TEST force_umount $M0
 TEST $CLI volume stop $V0
