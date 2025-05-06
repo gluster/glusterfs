@@ -5,7 +5,7 @@ LVM_DEFINED=0
 # the device (it replaces '-' by '--' in /dev/mapper)
 LVM_PREFIX="patchy_snap_${GFREG_ID//-/_}"
 LVM_COUNT=0
-VHD_SIZE="300M"
+VHD_SIZE="600M"
 
 #This function will init B# bricks
 #This is used when launch_cluster is
@@ -138,8 +138,8 @@ function _create_lv() {
     local dir=$1
     local num=$2
     local vg="VG$num"
-    local thinpoolsize="200M"
-    local virtualsize="150M"
+    local thinpoolsize="400M"
+    local virtualsize="300M"
     local path="$(realpath "${dir}/${LVM_PREFIX}_loop")"
 
     wipefs -a "${path}"
