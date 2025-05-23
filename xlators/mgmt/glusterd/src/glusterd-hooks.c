@@ -428,7 +428,7 @@ glusterd_hooks_run_hooks(char *hooks_path, glusterd_op_t op, dict_t *op_ctx,
             runner_log(&runner, this->name, GF_LOG_ERROR,
                        "Failed to execute script");
         } else {
-            runner_log(&runner, this->name, GF_LOG_INFO, "Ran script");
+            runner_log(&runner, this->name, GF_LOG_INFO, "Run script");
         }
         runner_end(&runner);
     }
