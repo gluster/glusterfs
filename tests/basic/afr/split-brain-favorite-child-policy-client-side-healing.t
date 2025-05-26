@@ -25,6 +25,7 @@ TEST $CLI volume set $V0 cluster.quorum-count 1
 TEST $CLI volume set $V0 cluster.metadata-self-heal on
 TEST $CLI volume set $V0 cluster.data-self-heal on
 TEST $CLI volume set $V0 cluster.entry-self-heal on
+TEST $CLI volume set $V0 performance.quick-read off
 
 TEST $CLI volume start $V0
 TEST $GFS --volfile-id=/$V0 --volfile-server=$H0 $M0
@@ -81,6 +82,7 @@ TEST [ "$LATEST_MTIME_MD5" == "$B1_MD5" ]
 TEST $CLI volume reset $V0 cluster.favorite-child-policy
 TEST kill_brick $V0 $H0 $B0/${V0}0
 TEST touch $M0/data/test
+TEST `echo "abc" > $M0/data/test`
 files=$(count_files $M0/data)
 EXPECT "2" echo $files
 TEST $CLI volume start $V0 force
@@ -88,6 +90,7 @@ EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" brick_up_status $V0 $H0 $B0/${V0}0
 EXPECT_WITHIN $PROCESS_UP_TIMEOUT "1" afr_child_up_status $V0 0
 TEST kill_brick $V0 $H0 $B0/${V0}1
 TEST touch $M0/data/test1
+TEST `echo "abc" > $M0/data/test1`
 files=$(count_files $M0/data)
 EXPECT "2" echo $files
 

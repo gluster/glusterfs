@@ -7,11 +7,11 @@ cleanup
 TEST glusterd
 
 #Create brick partitions
-TEST truncate -s 100M $B0/brick1
-TEST truncate -s 100M $B0/brick2
-TEST truncate -s 100M $B0/brick3
-TEST truncate -s 100M $B0/brick4
-TEST truncate -s 100M $B0/brick5
+TEST truncate -s 300M $B0/brick1
+TEST truncate -s 300M $B0/brick2
+TEST truncate -s 300M $B0/brick3
+TEST truncate -s 300M $B0/brick4
+TEST truncate -s 300M $B0/brick5
 
 LO1=`SETUP_LOOP $B0/brick1`
 TEST [ $? -eq 0 ]

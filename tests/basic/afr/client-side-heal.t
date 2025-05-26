@@ -11,6 +11,7 @@ TEST $CLI volume set $V0 cluster.self-heal-daemon off
 TEST $CLI volume set $V0 cluster.entry-self-heal off
 TEST $CLI volume set $V0 cluster.data-self-heal off
 TEST $CLI volume set $V0 cluster.metadata-self-heal off
+TEST $CLI volume set $V0 performance.quick-read off
 
 TEST $CLI volume start $V0
 TEST $GFS --volfile-id=$V0 --volfile-server=$H0 $M0;
@@ -34,6 +35,12 @@ TEST chmod +x $B0/${V0}0/mdatafile-backend-direct-modify
 
 #pending entry heal. Also causes pending metadata/data heals on file{1..5}
 TEST touch $M0/dir/file{1..5}
+#Add some data so that reads will come to afr
+TEST `echo "abc" > $M0/dir/file1`
+TEST `echo "abc" > $M0/dir/file2`
+TEST `echo "abc" > $M0/dir/file3`
+TEST `echo "abc" > $M0/dir/file4`
+TEST `echo "abc" > $M0/dir/file5`
 
 EXPECT 8 get_pending_heal_count $V0
 

@@ -23,15 +23,14 @@ TEST $CLI volume set $V0 storage.reserve 40MB
 #wait 5s to reset disk_space_full flag
 sleep 5
 
-TEST dd if=/dev/zero of=$M0/a bs=100M count=1
-TEST dd if=/dev/zero of=$M0/b bs=10M count=1
+free_space_in_mb=$(df -h $L1 | grep $L1 | awk '{print $4}' | cut -f1 -d'M')
+max_writeable_space_in_mb=$((free_space_in_mb-1))
+TEST dd if=/dev/zero of=$M0/a bs=1M count=$max_writeable_space_in_mb
 
 # Wait 5s to update disk_space_full flag because thread check disk space
 # after every 5s
 
 sleep 5
-# setup_lvm create lvm partition of 150M and 40M are reserve so after
-# consuming more than 110M next dd should fail
 TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1
 TEST dd if=/dev/urandom of=$M0/a  bs=1022 count=1  oflag=seek_bytes,sync seek=102 conv=notrunc
 
@@ -41,9 +40,10 @@ rm -rf $M0/*
 TEST $CLI volume set $V0 storage.reserve 40
 
 sleep 5
+free_space_60_percent_in_mb=$((free_space_in_mb * 60 / 100))
+max_writeable_space_in_mb=$((free_space_60_percent_in_mb - 1))
 
-TEST dd if=/dev/zero of=$M0/a bs=80M count=1
-TEST dd if=/dev/zero of=$M0/b bs=10M count=1
+TEST dd if=/dev/zero of=$M0/a bs=1M count=$max_writeable_space_in_mb
 
 sleep 5
 TEST ! dd if=/dev/zero of=$M0/c bs=5M count=1

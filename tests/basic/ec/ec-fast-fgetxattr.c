@@ -30,8 +30,8 @@ fill_iov(struct iovec *iov, char fillchar, int count)
 }
 
 void
-write_async_cbk(glfs_fd_t *fd, ssize_t ret, struct stat *prestat,
-                struct stat *poststat, void *cookie)
+write_async_cbk(glfs_fd_t *fd, ssize_t ret, struct glfs_stat *prestat,
+                struct glfs_stat *poststat, void *cookie)
 {
     if (ret < 0) {
         fprintf(stderr, "glfs_write failed");
