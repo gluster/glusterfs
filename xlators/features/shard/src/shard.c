@@ -3812,8 +3812,9 @@ shard_delete_shards(void *opaque)
 
                 gf_msg_debug(this->name, 0,
                              "Initiating deletion of "
-                             "shards of gfid %s",
+                             "shards of gfid %s. Reset local->op_ret = 0",
                              entry->d_name);
+                local->op_ret = 0;
                 ret = shard_delete_shards_of_entry(cleanup_frame, this, entry,
                                                    link_inode);
                 inode_unlink(link_inode, local->fd->inode, entry->d_name);
