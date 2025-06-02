@@ -1839,8 +1839,7 @@ __ec_heal_data_prepare(call_frame_t *frame, ec_t *ec, fd_t *fd,
 
     for (i = 0; i < ec->nodes; i++) {
         if (healed_sinks[i]) {
-            if (replies[i].stat.ia_size)
-                trim[i] = 1;
+            trim[i] = 1;
         }
     }
 
@@ -2045,9 +2044,90 @@ ec_sync_heal_block(call_frame_t *frame, xlator_t *this, ec_heal_t *heal)
     return 0;
 }
 
+void
+ec_heal_seek_hole_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+    int32_t op_ret, int32_t op_errno, off_t offset, dict_t *xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    ec_heal_t *heal = fop->data;
+
+    if (op_ret < 0) {
+        heal->error = op_errno;
+        goto out;
+    }
+    heal->hole_offset = offset;
+
+out:
+    syncbarrier_wake(&heal->barrier);
+}
+
+void
+ec_heal_seek_data_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+		    int32_t op_ret, int32_t op_errno, off_t offset, dict_t * xdata)
+{
+    ec_fop_data_t *fop = cookie;
+    ec_heal_t *heal = fop->data;
+
+    if (op_ret < 0){
+        heal->done = _gf_true;
+        goto out;
+    }
+    heal->offset = offset;
+
+out:
+    syncbarrier_wake(&heal->barrier);
+}
+
+int32_t
+ec_sync_heal_sparse_region(call_frame_t *frame, ec_t *ec, ec_heal_t *heal)
+{
+    int ret = 0;
+    ec_seek(frame, ec->xl, heal->good, EC_MINIMUM_ONE,
+            ec_heal_seek_data_cbk, heal, heal->fd, heal->offset,
+            GF_SEEK_DATA, NULL);
+    syncbarrier_wait(&heal->barrier, 1);
+
+    if (heal->done)
+        goto out;
+
+    ec_seek(frame, ec->xl, heal->good, EC_MINIMUM_ONE,
+            ec_heal_seek_hole_cbk, heal, heal->fd, heal->offset,
+            GF_SEEK_HOLE, NULL);
+    syncbarrier_wait(&heal->barrier,1);
+    
+    if (heal->error != 0) {
+        ret = -heal->error;
+        goto out;
+    }
+
+    for (; (heal->offset < heal->hole_offset) && (!heal->done);
+            heal->offset += heal->size) {
+
+        uint64_t data_block_size = heal->hole_offset - heal->offset;
+        data_block_size = (data_block_size > ec->stripe_size)?
+                            data_block_size : ec->stripe_size;
+
+        uint64_t original_heal_size = heal->size;
+
+        if(data_block_size < heal->size)
+            heal->size = data_block_size;
+        
+        ret = ec_sync_heal_block(frame, ec->xl, heal);
+        if (ret < 0)
+            goto out;
+
+        heal->size = original_heal_size;
+    }
+    heal->offset = heal->hole_offset;
+
+out:
+    return ret;
+    
+}
+
 int
 ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
-                unsigned char *sources, unsigned char *healed_sinks)
+                unsigned char *sources, unsigned char *healed_sinks, int hole_exists)
 {
     ec_heal_t obj, *heal = &obj;
     int ret = 0;
@@ -2072,29 +2152,47 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     heal->ia_type = IA_IFREG;
     LOCK_INIT(&heal->lock);
 
-    for (heal->offset = 0; (heal->offset < size) && !heal->done;
-         heal->offset += heal->size) {
-        /* We immediately abort any heal if a shutdown request has been
-         * received to avoid delays. The healing of this file will be
-         * restarted by another SHD or other client that accesses the
-         * file. */
-        if (ec->shutdown) {
+    if (!hole_exists) {
+        for (heal->offset = 0; (heal->offset < size) && !heal->done;
+            heal->offset += heal->size) {
+            /* We immediately abort any heal if a shutdown request has been
+            * received to avoid delays. The healing of this file will be
+            * restarted by another SHD or other client that accesses the
+            * file. */
+            if (ec->shutdown) {
+                gf_msg_debug(ec->xl->name, 0,
+                            "Cancelling heal because "
+                            "EC is stopping.");
+                ret = -ENOTCONN;
+                break;
+            }
+
             gf_msg_debug(ec->xl->name, 0,
-                         "Cancelling heal because "
-                         "EC is stopping.");
-            ret = -ENOTCONN;
-            break;
+                        "%s: sources: %d, sinks: "
+                        "%d, offset: %" PRIu64 " bsize: %" PRIu64,
+                        uuid_utoa(fd->inode->gfid), EC_COUNT(sources, ec->nodes),
+                        EC_COUNT(healed_sinks, ec->nodes), heal->offset,
+                        heal->size);
+            ret = ec_sync_heal_block(frame, ec->xl, heal);
+            if (ret < 0)
+                break;
+        }
+    
+    } else {
+        heal->offset = 0;
+        while (!heal->done) {
+            if (ec->shutdown) {
+                gf_msg_debug(ec->xl->name, 0,
+                            "Cancelling heal because "
+                            "EC is stopping.");
+                ret = -ENOTCONN;
+    
+            }
+            ret = ec_sync_heal_sparse_region(frame, ec, heal);
+            if (ret < 0)
+                break;
         }
 
-        gf_msg_debug(ec->xl->name, 0,
-                     "%s: sources: %d, sinks: "
-                     "%d, offset: %" PRIu64 " bsize: %" PRIu64,
-                     uuid_utoa(fd->inode->gfid), EC_COUNT(sources, ec->nodes),
-                     EC_COUNT(healed_sinks, ec->nodes), heal->offset,
-                     heal->size);
-        ret = ec_sync_heal_block(frame, ec->xl, heal);
-        if (ret < 0)
-            break;
     }
     memset(healed_sinks, 0, ec->nodes);
     ec_mask_to_char_array(heal->bad, healed_sinks, ec->nodes);
@@ -2103,14 +2201,14 @@ ec_rebuild_data(call_frame_t *frame, ec_t *ec, fd_t *fd, uint64_t size,
     syncbarrier_destroy(&heal->barrier);
     if (ret < 0)
         gf_msg_debug(ec->xl->name, -ret, "%s: heal failed",
-                     uuid_utoa(fd->inode->gfid));
+                    uuid_utoa(fd->inode->gfid));
     return ret;
 }
 
 int
 __ec_heal_trim_sinks(call_frame_t *frame, ec_t *ec, fd_t *fd,
                      unsigned char *healed_sinks, unsigned char *trim,
-                     uint64_t size)
+                     uint64_t size, int file_has_holes)
 {
     default_args_cbk_t *replies = NULL;
     unsigned char *output = NULL;
@@ -2127,6 +2225,10 @@ __ec_heal_trim_sinks(call_frame_t *frame, ec_t *ec, fd_t *fd,
     }
     trim_offset = size;
     ec_adjust_offset_up(ec, &trim_offset, _gf_true);
+    if (file_has_holes) {
+        ret = cluster_ftruncate(ec->xl_list, trim, ec->nodes, replies, output,
+                                frame, ec->xl, fd, 0, NULL);
+    }
     ret = cluster_ftruncate(ec->xl_list, trim, ec->nodes, replies, output,
                             frame, ec->xl, fd, trim_offset, NULL);
     for (i = 0; i < ec->nodes; i++) {
@@ -2348,6 +2450,8 @@ __ec_heal_data(call_frame_t *frame, ec_t *ec, fd_t *fd, unsigned char *heal_on,
     default_args_cbk_t *replies = NULL;
     int ret = 0;
     int source = 0;
+    int file_has_holes = 0;
+    struct iatt source_buf = {0};
 
     locked_on = alloca0(ec->nodes);
     output = alloca0(ec->nodes);
@@ -2371,9 +2475,13 @@ __ec_heal_data(call_frame_t *frame, ec_t *ec, fd_t *fd, unsigned char *heal_on,
         }
 
         ret = __ec_heal_data_prepare(frame, ec, fd, locked_on, versions, dirty,
-                                     size, sources, healed_sinks, trim, NULL);
+                                     size, sources, healed_sinks, trim, &source_buf);
         if (ret < 0)
             goto unlock;
+        
+        if (source_buf.ia_blocks * source_buf.ia_blksize != source_buf.ia_size) {
+                file_has_holes = 1;
+        }
 
         if (EC_COUNT(healed_sinks, ec->nodes) == 0) {
             ret = __ec_fd_data_adjust_versions(
@@ -2387,7 +2495,7 @@ __ec_heal_data(call_frame_t *frame, ec_t *ec, fd_t *fd, unsigned char *heal_on,
             goto unlock;
 
         ret = __ec_heal_trim_sinks(frame, ec, fd, healed_sinks, trim,
-                                   size[source]);
+                                   size[source], file_has_holes);
     }
 unlock:
     cluster_uninodelk(ec->xl_list, locked_on, ec->nodes, replies, output, frame,
@@ -2404,7 +2512,7 @@ unlock:
                  uuid_utoa(fd->inode->gfid), EC_COUNT(sources, ec->nodes),
                  EC_COUNT(healed_sinks, ec->nodes));
 
-    ret = ec_rebuild_data(frame, ec, fd, size[source], sources, healed_sinks);
+    ret = ec_rebuild_data(frame, ec, fd, size[source], sources, healed_sinks, file_has_holes);
     if (ret < 0)
         goto out;
 
