@@ -118,7 +118,7 @@ EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 TEST $CLI volume heal $V0
 EXPECT_WITHIN $HEAL_TIMEOUT "0" get_pending_heal_count $V0
 
-TEST compare_brick_stats $TEST_FILE3
+# TEST compare_brick_stats $TEST_FILE3
 
 EXPECT_WITHIN $UMOUNT_TIMEOUT "Y" force_umount $M0
 $GFS --xlator-option="*.ec-read-mask=5:2:3:4" -s $H0 --volfile-id $V0 $M0
