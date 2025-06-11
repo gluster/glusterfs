@@ -789,7 +789,7 @@ gd_update_peerinfo_from_dict(glusterd_peerinfo_t *peerinfo, dict_t *dict,
                    key);
             goto out;
         }
-        ret = gd_add_address_to_peer(peerinfo, hostname, _gf_true);
+        ret = gd_add_address_to_peer(peerinfo, hostname, _gf_false);
         if (ret) {
             gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_ADD_ADDRESS_TO_PEER_FAIL,
                    "Could not add address to peer");
