@@ -2426,12 +2426,20 @@ dht_lookup_everywhere_done(call_frame_t *frame, xlator_t *this)
                 gf_msg_debug(this->name, 0,
                              "No Cached was found and "
                              "unlink on hashed was skipped"
-                             " so performing now: %s",
-                             local->loc.path);
-                FRAME_SU_DO(frame, dht_local_t);
-                STACK_WIND(frame, dht_lookup_unlink_stale_linkto_cbk,
-                           hashed_subvol, hashed_subvol->fops->unlink,
-                           &local->loc, 0, local->xattr_req);
+                             " so performing now: %s. fd_count = %d",
+                             local->loc.path,
+                             local->skip_unlink.opend_fd_count);
+                if (local->skip_unlink.opend_fd_count == 0) {
+                    FRAME_SU_DO(frame, dht_local_t);
+                    STACK_WIND(frame, dht_lookup_unlink_stale_linkto_cbk,
+                               hashed_subvol, hashed_subvol->fops->unlink,
+                               &local->loc, 0, local->xattr_req);
+                } else {
+                    /* Skip linkfile deletion, this linkfile may be in used
+                     * because its fd_count > 0 */
+                    DHT_STACK_UNWIND(lookup, frame, -1, ENOENT, NULL, NULL,
+                                     NULL, NULL);
+                }
             }
 
         } else {

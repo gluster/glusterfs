@@ -8,6 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
+#include <fcntl.h>
 #include <glusterfs/compat.h>
 #include "dht-common.h"
 
@@ -45,7 +46,7 @@ out:
 
 static int
 dht_linkfile_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
-                        int op_ret, int op_errno, inode_t *inode,
+                        int op_ret, int op_errno, fd_t *fd, inode_t *inode,
                         struct iatt *stbuf, struct iatt *preparent,
                         struct iatt *postparent, dict_t *xdata)
 {
@@ -147,9 +148,15 @@ dht_linkfile_create(call_frame_t *frame, fop_mknod_cbk_t linkfile_cbk,
     /* Always create as root:root. dht_linkfile_attr_heal fixes the
      * ownsership */
     FRAME_SU_DO(frame, dht_local_t);
+
+    if (!local->fd) {
+        local->fd = fd_create(loc->inode, frame->root->pid);
+        local->flags |= (O_CREAT | O_EXCL);
+    }
+
     STACK_WIND_COOKIE(frame, dht_linkfile_create_cbk, fromvol, fromvol,
-                      fromvol->fops->mknod, loc, S_IFREG | DHT_LINKFILE_MODE, 0,
-                      0, dict);
+                      fromvol->fops->create, loc, local->flags,
+                      S_IFREG | DHT_LINKFILE_MODE, 0, local->fd, dict);
 
     if (need_unref && dict)
         dict_unref(dict);
