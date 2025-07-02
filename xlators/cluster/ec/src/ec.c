@@ -1288,7 +1288,6 @@ ec_handle_readmask(call_frame_t *frame, xlator_t *this, loc_t *loc,
                    dict_t *dict, int32_t flags, dict_t *xdata)
 {
     ec_t *ec = this->private;
-    data_t *dict_data = NULL;
     char *read_mask_str = NULL;
     int32_t op_ret = -1;
     int32_t op_errno = EINVAL;
