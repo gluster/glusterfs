@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 libgfchangelog_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 	-DDATADIR=\"$(localstatedir)\"
 
