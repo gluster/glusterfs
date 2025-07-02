@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 xlator_LTLIBRARIES = changelog.la
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features

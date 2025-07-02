@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 csp_LTLIBRARIES = cloudsyncs3.la
 cspdir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/cloudsync-plugins
 

@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 if WITH_SERVER
 xlator_LTLIBRARIES = glusterd.la
 endif

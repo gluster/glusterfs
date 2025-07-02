@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 SUBDIRS = cloudsync-plugins
 
 xlator_LTLIBRARIES = cloudsync.la

@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 # The bits needed for glfsxmp
 EXTRA_PROGRAMS = glfsxmp
 glfsxmp_SOURCES = glfsxmp.c

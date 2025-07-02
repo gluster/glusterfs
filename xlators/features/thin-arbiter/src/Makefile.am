@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 xlator_LTLIBRARIES = thin-arbiter.la
 
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features

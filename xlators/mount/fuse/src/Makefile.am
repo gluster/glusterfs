@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 noinst_HEADERS_linux = $(CONTRIBDIR)/fuse-include/fuse_kernel.h\
 	$(CONTRIBDIR)/fuse-include/mount_util.h\
 	$(CONTRIBDIR)/fuse-lib/mount-gluster-compat.h

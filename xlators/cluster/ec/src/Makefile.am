@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 xlator_LTLIBRARIES = ec.la
 xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/cluster
 

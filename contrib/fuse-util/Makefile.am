@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 bin_PROGRAMS = fusermount-glusterfs
 
 fusermount_glusterfs_SOURCES = fusermount.c mount_util.c $(CONTRIBDIR)/fuse-lib/mount-common.c

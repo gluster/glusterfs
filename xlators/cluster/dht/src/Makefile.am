@@ -1,3 +1,5 @@
+AUTOMAKE_OPTIONS = subdir-objects
+
 xlator_LTLIBRARIES = dht.la nufa.la switch.la
 
 AM_CFLAGS = -Wall $(GF_CFLAGS)
