@@ -2436,11 +2436,22 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
     mode = posix_override_umask(mode, mode_bit);
+
+real_op:
     _fd = sys_open(real_path, _flags, mode);
 
     if (_fd == -1) {
         op_errno = errno;
         op_ret = -1;
+        if (op_errno == EEXIST) {
+            if (dict_get_sizen(xdata, GF_FORCE_REPLACE_KEY)) {
+                dict_del_sizen(xdata, GF_FORCE_REPLACE_KEY);
+                op_ret = posix_unlink_stale_linkto(frame, this, real_path, &op_errno, loc);
+
+                if (op_ret == 0)
+                    goto real_op;
+            }
+        }
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_OPEN_FAILED,
                "open on %s failed", real_path);
         goto out;
