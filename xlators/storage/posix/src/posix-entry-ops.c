@@ -2361,6 +2361,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     };
 
     dict_t *xdata_rsp = dict_ref(xdata);
+    gf_boolean_t linked = _gf_false;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -2437,6 +2438,32 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
     mode = posix_override_umask(mode, mode_bit);
 
+    /* Check if the 'gfid' already exists, because this create may be an
+       internal call from distribute for creating 'linkfile', and that
+       linkfile may be for a hardlinked file */
+    if (dict_get_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY)) {
+        dict_del_sizen(xdata, GLUSTERFS_INTERNAL_FOP_KEY);
+        /* trash xlator did not bring the uuid_via the call
+         * to GFID_NULL_CHECK_AND_GOTO() above.
+         * Fetch it explicitly here.
+         */
+        if (frame->root->pid == GF_SERVER_PID_TRASH) {
+            op_ret = dict_get_gfuuid(xdata, "gfid-req", &uuid_req);
+            if (op_ret) {
+                gf_msg_debug(this->name, 0,
+                             "failed to get the gfid from dict for %s",
+                             loc->path);
+                goto real_op;
+            }
+        }
+
+        op_ret = posix_create_link_if_gfid_exists(this, uuid_req, real_path,
+                                                  loc->inode->table);
+        if (!op_ret) {
+            linked = _gf_true;
+            goto post_op;
+        }
+    }
 real_op:
     _fd = sys_open(real_path, _flags, mode);
 
@@ -2472,6 +2499,8 @@ real_op:
                "chown on %s failed", real_path);
     }
 #endif
+
+post_op:
     op_ret = posix_acl_xattr_set(real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_ACL_FAILED,
@@ -2497,14 +2526,16 @@ ignore:
     }
 
 fill_stat:
-    op_ret = posix_gfid_set(this, real_path, loc, xdata, frame->root->pid,
-                            &op_errno);
-    if (op_ret) {
-        gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_GFID_FAILED,
-               "setting gfid on %s failed", real_path);
-        goto out;
-    } else {
-        gfid_set = _gf_true;
+    if (!linked) {
+        op_ret = posix_gfid_set(this, real_path, loc, xdata, frame->root->pid,
+                                &op_errno);
+        if (op_ret) {
+            gf_msg(this->name, GF_LOG_ERROR, op_errno, P_MSG_GFID_FAILED,
+                   "setting gfid on %s failed", real_path);
+            goto out;
+        } else {
+            gfid_set = _gf_true;
+        }
     }
 
     op_ret = posix_fdstat(this, loc->inode, _fd, &stbuf, _gf_true);
