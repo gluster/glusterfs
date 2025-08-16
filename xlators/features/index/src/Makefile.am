@@ -6,7 +6,7 @@ xlatordir = $(libdir)/glusterfs/$(PACKAGE_VERSION)/xlator/features
 index_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 index_la_SOURCES = index.c
-index_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+index_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = index.h index-mem-types.h index-messages.h
 

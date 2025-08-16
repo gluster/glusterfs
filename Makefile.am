@@ -12,9 +12,8 @@ EXTRA_DIST = autogen.sh \
 
 SUBDIRS = $(ARGP_STANDALONE_DIR) libglusterfs rpc api \
 	glusterfsd xlators $(FUSERMOUNT_SUBDIR) doc extras cli heal \
-	@SYNCDAEMON_SUBDIR@ @UMOUNTD_SUBDIR@ tools events
+	$(SYNCDAEMON_SUBDIR) $(UMOUNTD_SUBDIR) tools events
 
-pkgconfigdir = @pkgconfigdir@
 pkgconfig_DATA = glusterfs-api.pc libgfchangelog.pc
 
 CLEANFILES = glusterfs-api.pc libgfchangelog.pc contrib/umountd/Makefile

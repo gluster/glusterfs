@@ -6,7 +6,7 @@ endif
 
 gluster_setgfid2path_SOURCES = main.c
 
-gluster_setgfid2path_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+gluster_setgfid2path_LDADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(crypto_LIBS)
 
 gluster_setgfid2path_LDFLAGS = $(GF_LDFLAGS)
 

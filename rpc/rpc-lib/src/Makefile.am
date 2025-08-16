@@ -8,7 +8,7 @@ libgfrpc_la_SOURCES = auth-unix.c rpcsvc-auth.c rpcsvc.c auth-null.c \
 EXTRA_DIST = libgfrpc.sym
 
 libgfrpc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
-                     $(top_builddir)/rpc/xdr/src/libgfxdr.la
+                     $(top_builddir)/rpc/xdr/src/libgfxdr.la $(pthread_LIBS)
 libgfrpc_la_LDFLAGS = -version-info $(LIBGFRPC_LT_VERSION) $(GF_LDFLAGS) \
 		      -export-symbols $(top_srcdir)/rpc/rpc-lib/src/libgfrpc.sym
 

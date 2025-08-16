@@ -5,7 +5,7 @@ shard_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 shard_la_SOURCES = shard.c
 
-shard_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+shard_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = shard.h shard-mem-types.h shard-messages.h
 

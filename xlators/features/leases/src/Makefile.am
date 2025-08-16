@@ -7,7 +7,7 @@ leases_la_LDFLAGS = -module $(GF_XLATOR_DEFAULT_LDFLAGS)
 
 leases_la_SOURCES = leases.c leases-internal.c
 
-leases_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la
+leases_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la $(pthread_LIBS)
 
 noinst_HEADERS = leases.h leases-mem-types.h leases-messages.h
 
