@@ -2362,6 +2362,7 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
 
     dict_t *xdata_rsp = dict_ref(xdata);
     gf_boolean_t linked = _gf_false;
+    posix_inode_ctx_t *ctx = NULL;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -2510,15 +2511,26 @@ post_op:
     if (priv->update_pgfid_nlinks) {
         MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                              loc->pargfid);
-        nlink_samepgfid = 1;
-        SET_PGFID_XATTR(real_path, pgfid_xattr_key, nlink_samepgfid,
-                        XATTR_CREATE, op_ret, this, ignore);
+        op_ret = posix_inode_ctx_get_all (loc->inode, this, &ctx);
+        if (op_ret < 0) {
+            op_errno = ENOMEM;
+            goto out;
+        }
+
+        pthread_mutex_lock (&ctx->pgfid_lock);
+        {
+            LINK_MODIFY_PGFID_XATTR (real_path, pgfid_xattr_key,
+                                     nlink_samepgfid, 0, op_ret,
+                                     this, unlock);
+        }
+unlock:
+        pthread_mutex_unlock (&ctx->pgfid_lock);
     }
 
     if (priv->gfid2path) {
         posix_set_gfid2path_xattr(this, real_path, loc->pargfid, loc->name);
     }
-ignore:
+
     op_ret = posix_entry_create_xattr_set(this, loc, real_path, xdata);
     if (op_ret) {
         gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_XATTR_FAILED,
