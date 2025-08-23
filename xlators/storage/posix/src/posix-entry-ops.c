@@ -2462,6 +2462,17 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
                                                   loc->inode->table);
         if (!op_ret) {
             linked = _gf_true;
+            /* A vaild _fd is required in posix_fdstat, which is after post_op label.
+             * So, we should open this existing linkfile here.
+             */
+            _fd = sys_open(real_path, _flags & ~O_EXCL, mode);
+            if (_fd == -1) {
+                op_errno = errno;
+                op_ret = -1;
+                gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_OPEN_FAILED,
+                       "open on %s failed", real_path);
+                goto out;
+            }
             goto post_op;
         }
     }
