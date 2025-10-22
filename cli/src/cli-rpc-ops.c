@@ -957,6 +957,7 @@ xml_output:
         // Distributed (replicate) setups
         vol_type = get_vol_type(type, dist_count, brick_count);
 
+        cli_out("CLI Version: %s v%s", PACKAGE_NAME, PACKAGE_VERSION);
         cli_out("Volume Name: %s", volname);
         cli_out("Type: %s", vol_type_str[vol_type]);
         cli_out("Volume ID: %s", volume_id_str);
