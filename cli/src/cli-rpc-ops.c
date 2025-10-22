@@ -774,6 +774,7 @@ gf_cli_get_volume_cbk(struct rpc_req *req, struct iovec *iov, int count,
     int32_t transport = 0;
     char *volume_id_str = NULL;
     char *volname = NULL;
+    char *version_info = NULL;
     char *ta_brick = NULL;
     dict_t *dict = NULL;
     cli_local_t *local = NULL;
@@ -957,6 +958,7 @@ xml_output:
         // Distributed (replicate) setups
         vol_type = get_vol_type(type, dist_count, brick_count);
 
+        cli_out("Version Info: %s v%s", PACKAGE_NAME, PACKAGE_VERSION);
         cli_out("Volume Name: %s", volname);
         cli_out("Type: %s", vol_type_str[vol_type]);
         cli_out("Volume ID: %s", volume_id_str);
