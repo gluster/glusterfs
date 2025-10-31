@@ -6323,7 +6323,7 @@ glfs_anonymous_pwritev(struct glfs *fs, struct glfs_object *object,
     inode_t *inode = NULL;
     fd_t *fd = NULL;
     int ret = -1;
-    size_t size = -1;
+    size_t size = 0;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FS(fs, invalid_fs);
