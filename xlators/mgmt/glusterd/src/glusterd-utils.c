@@ -1143,7 +1143,7 @@ glusterd_brickinfo_new_from_brick(char *brick, glusterd_brickinfo_t **brickinfo,
     ret = 0;
 out:
     GF_FREE(tmp_host);
-    if (tmp_host)
+    if (tmp_path)
         GF_FREE(tmp_path);
 
     gf_msg_debug(this->name, 0, "Returning %d", ret);
