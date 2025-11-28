@@ -5513,8 +5513,7 @@ out:
     }
     if (args.dict)
         dict_unref(args.dict);
-    if (args.errstr)
-        GF_FREE(args.errstr);
+    gd_syncargs_fini(&args);
 
     return ret;
 }
