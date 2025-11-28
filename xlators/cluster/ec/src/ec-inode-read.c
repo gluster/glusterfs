@@ -1353,6 +1353,7 @@ ec_manager_readv(ec_fop_data_t *fop, int32_t state)
 {
     ec_cbk_data_t *cbk;
     ec_t *ec = fop->xl->private;
+    uintptr_t inode_read_mask;
 
     switch (state) {
         case EC_STATE_INIT:
@@ -1372,8 +1373,8 @@ ec_manager_readv(ec_fop_data_t *fop, int32_t state)
             return EC_STATE_DISPATCH;
 
         case EC_STATE_DISPATCH:
-            uintptr_t inode_read_mask = ec_inode_readmask_get(fop->fd->inode,
-                                                              fop->xl);
+            inode_read_mask = ec_inode_readmask_get(fop->fd->inode,
+                                                    fop->xl);
             if (inode_read_mask != 0) {
                 fop->mask &= inode_read_mask;
             } else if (ec->read_mask) {
