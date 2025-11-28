@@ -130,6 +130,10 @@ gd_syncargs_fini(struct syncargs *args)
         pthread_mutex_destroy(&args->lock_dict);
         syncbarrier_destroy(&args->barrier);
     }
+    if (args->errstr) {
+        GF_FREE(args->errstr);
+        args->errstr = NULL;
+    }
 }
 
 static void
