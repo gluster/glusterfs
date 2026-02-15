@@ -1094,6 +1094,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     char *hostname = NULL;
     int port = 0;
     int op_errno = 0;
+    gf_boolean_t need_free = _gf_true;
 
     GF_ASSERT(req);
 
@@ -1184,6 +1185,7 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
     if (ret == GLUSTERD_CONNECTION_AWAITED) {
         // fsm should be run after connection establishes
         run_fsm = _gf_false;
+        need_free = _gf_false;
         ret = 0;
 
     } else if (ret == -1) {
@@ -1194,6 +1196,9 @@ __glusterd_handle_cli_probe(rpcsvc_request_t *req)
 
 out:
     free(cli_req.dict.dict_val);
+
+    if (dict && need_free)
+        dict_unref(dict);
 
     if (run_fsm) {
         glusterd_friend_sm();
@@ -4124,8 +4129,6 @@ glusterd_xfer_cli_probe_resp(rpcsvc_request_t *req, int32_t op_ret,
     ret = glusterd_submit_reply(req, &rsp, NULL, 0, NULL,
                                 (xdrproc_t)xdr_gf_cli_rsp);
 
-    if (dict)
-        dict_unref(dict);
     gf_msg_debug(this->name, 0, "Responded to CLI, ret: %d", ret);
 
     return ret;

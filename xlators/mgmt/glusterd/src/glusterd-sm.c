@@ -87,6 +87,8 @@ glusterd_destroy_probe_ctx(glusterd_probe_ctx_t *ctx)
 {
     if (!ctx)
         return;
+    if (ctx->dict)
+        dict_unref(ctx->dict);
 
     GF_FREE(ctx->hostname);
     GF_FREE(ctx);
