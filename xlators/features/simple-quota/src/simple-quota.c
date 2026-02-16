@@ -129,7 +129,7 @@ sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
     ret = inode_ctx_put(inode, this, (uint64_t)(uintptr_t)sq_ctx);
     if (IS_ERROR(ret)) {
         GF_FREE(sq_ctx);
-	sq_ctx = NULL;
+        sq_ctx = NULL;
         goto out;
     }
 
@@ -217,7 +217,9 @@ sq_update_brick_usage(xlator_t *this, inode_t *inode)
     if (!tmp_mq) {
         goto out;
     }
-    loc_t loc = { 0, };
+    loc_t loc = {
+        0,
+    };
     loc.inode = inode_ref(inode);
     int ret = syncop_getxattr(FIRST_CHILD(this), &loc, &dict, SQUOTA_SIZE_KEY,
                               NULL, NULL);
@@ -262,7 +264,7 @@ sq_update_hard_limit(xlator_t *this, inode_t *ns, int64_t limit, int64_t size)
            limit, size);
     sq_ctx->hard_lim = limit;
 
-    //GF_ASSERT(size > 0);
+    // GF_ASSERT(size > 0);
 
 out:
     return;
@@ -529,7 +531,7 @@ sq_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         uint32_t nlink = 0;
         uint64_t blocks = 0;
         int ret = dict_get_uint32(xdata, GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
-        if ((nlink == 1)) {
+        if (nlink == 1) {
             ret = dict_get_uint64(xdata, GF_GET_FILE_BLOCK_COUNT, &blocks);
             gf_msg(this->name, GF_LOG_DEBUG, 0, 0,
                    "reduce size by %" PRIu64 " blocks (ret: %d)", blocks, ret);
@@ -1014,7 +1016,7 @@ sq_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         uint32_t nlink = 0;
         uint64_t blocks = 0;
         int ret = dict_get_uint32(xdata, GF_RESPONSE_LINK_COUNT_XDATA, &nlink);
-        if ((nlink == 1)) {
+        if (nlink == 1) {
             ret = dict_get_uint64(xdata, GF_GET_FILE_BLOCK_COUNT, &blocks);
             gf_msg(this->name, GF_LOG_DEBUG, 0, 0,
                    "reduce size by %" PRIu64 " blocks (ret: %d)", blocks, ret);

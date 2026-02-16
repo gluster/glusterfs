@@ -406,6 +406,12 @@ dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
         return -1;
     }
 
+    if (caa_unlikely(!key)) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "key is NULL");
+        return -1;
+    }
+
     LOCK(&this->lock);
 
     ret = dict_set_lk(this, key, keylen, value, 1);
@@ -423,6 +429,12 @@ dict_addn(dict_t *this, char *key, const int keylen, data_t *value)
     if (!this || !value) {
         gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
                          "!this || !value for key=%s", key);
+        return -1;
+    }
+
+    if (caa_unlikely(!key)) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "key is NULL");
         return -1;
     }
 
@@ -2694,6 +2706,12 @@ dict_rename_key(dict_t *this, char *key, char *replace_key)
     data_pair_t *pair = NULL;
     int ret = -EINVAL;
     int replacekey_len = 0;
+
+    if (caa_unlikely(!replace_key)) {
+        gf_msg_callingfn("dict", GF_LOG_WARNING, EINVAL, LG_MSG_INVALID_ARG,
+                         "key is NULL");
+        return -1;
+    }
 
     /* replacing a key by itself is a NO-OP */
     if (strcmp(key, replace_key) == 0)

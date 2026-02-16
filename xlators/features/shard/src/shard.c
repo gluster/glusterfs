@@ -1289,7 +1289,8 @@ shard_refresh_internal_dir_cbk(call_frame_t *frame, void *cookie,
 {
     shard_local_t *local = NULL;
     inode_t *linked_inode = NULL;
-    shard_internal_dir_type_t type = (shard_internal_dir_type_t)cookie;
+    shard_internal_dir_type_t type = (shard_internal_dir_type_t)(unsigned long)
+        cookie;
 
     local = frame->local;
 
@@ -1370,7 +1371,8 @@ shard_lookup_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     inode_t *link_inode = NULL;
     shard_local_t *local = NULL;
-    shard_internal_dir_type_t type = (shard_internal_dir_type_t)cookie;
+    shard_internal_dir_type_t type = (shard_internal_dir_type_t)(unsigned long)
+        cookie;
 
     local = frame->local;
 
@@ -5890,7 +5892,8 @@ shard_mkdir_internal_dir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
 {
     inode_t *link_inode = NULL;
     shard_local_t *local = NULL;
-    shard_internal_dir_type_t type = (shard_internal_dir_type_t)cookie;
+    shard_internal_dir_type_t type = (shard_internal_dir_type_t)(unsigned long)
+        cookie;
 
     local = frame->local;
 

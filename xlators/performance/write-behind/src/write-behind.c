@@ -534,7 +534,7 @@ wb_enqueue_common(wb_inode_t *wb_inode, call_stub_t *stub, int tempted)
         req->op_errno = 0;
 
         if (stub->args.fd && (stub->args.fd->flags & O_APPEND))
-            req->ordering.append = 1;
+            req->ordering.append = true;
     }
 
     lk_owner_copy(&req->lk_owner, &stub->frame->root->lk_owner);
@@ -716,7 +716,7 @@ __wb_fulfill_request(wb_request_t *req)
 
     wb_inode = req->wb_inode;
 
-    req->ordering.fulfilled = 1;
+    req->ordering.fulfilled = true;
     wb_inode->window_current -= req->total_size;
     wb_inode->transit -= req->total_size;
 
@@ -790,7 +790,7 @@ __wb_add_request_for_retry(wb_request_t *req)
     list_del_init(&req->wip);
 
     /* sanitize ordering flags to retry */
-    req->ordering.go = 0;
+    req->ordering.go = false;
 
     /* Add back to todo list to retry */
     list_add(&req->todo, &wb_inode->todo);
@@ -1267,7 +1267,7 @@ __wb_pick_unwinds(wb_inode_t *wb_inode, list_head_t *lies)
             /* burden increased */
             list_add_tail(&req->lie, &wb_inode->liability);
 
-            req->ordering.lied = 1;
+            req->ordering.lied = true;
 
             uuid_utoa_r(req->gfid, gfid);
             gf_msg_debug(wb_inode->this->name, 0,
@@ -1404,7 +1404,7 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
                 if (wb_requests_conflict(holder, req))
                     /* do not hold on write if a
                        dependent write is in queue */
-                    holder->ordering.go = 1;
+                    holder->ordering.go = true;
             }
             /* collapse only non-sync writes */
             continue;
@@ -1417,19 +1417,19 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
         offset_expected = holder->stub->args.offset + holder->write_size;
 
         if (req->stub->args.offset != offset_expected) {
-            holder->ordering.go = 1;
+            holder->ordering.go = true;
             holder = req;
             continue;
         }
 
         if (!is_same_lkowner(&req->lk_owner, &holder->lk_owner)) {
-            holder->ordering.go = 1;
+            holder->ordering.go = true;
             holder = req;
             continue;
         }
 
         if (req->fd != holder->fd) {
-            holder->ordering.go = 1;
+            holder->ordering.go = true;
             holder = req;
             continue;
         }
@@ -1437,7 +1437,7 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
         space_left = page_size - holder->write_size;
 
         if (space_left < req->write_size) {
-            holder->ordering.go = 1;
+            holder->ordering.go = true;
             holder = req;
             continue;
         }
@@ -1467,7 +1467,7 @@ __wb_preprocess_winds(wb_inode_t *wb_inode)
     */
 
     if (conf->trickling_writes && !wb_inode->transit && holder)
-        holder->ordering.go = 1;
+        holder->ordering.go = true;
 
     if (wb_inode->dontsync > 0)
         wb_inode->dontsync--;

@@ -34,14 +34,11 @@ client_filter_o_direct(clnt_conf_t *conf, int32_t *flags)
         *flags = (*flags & ~O_DIRECT);
 }
 
-static int
-client_fini_complete(xlator_t *this)
+static void
+client_fini_complete(clnt_conf_t *conf)
 {
-    GF_VALIDATE_OR_GOTO(this->name, this->private, out);
-
-    clnt_conf_t *conf = this->private;
     if (!conf->destroy)
-        return 0;
+        return;
 
     pthread_mutex_lock(&conf->lock);
     {
@@ -49,9 +46,6 @@ client_fini_complete(xlator_t *this)
         pthread_cond_broadcast(&conf->fini_complete_cond);
     }
     pthread_mutex_unlock(&conf->lock);
-
-out:
-    return 0;
 }
 
 static int
@@ -2315,7 +2309,7 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             }
             break;
         case RPC_CLNT_DESTROY:
-            ret = client_fini_complete(this);
+            client_fini_complete(conf);
             break;
 
         default:
@@ -2729,9 +2723,8 @@ fini(xlator_t *this)
 }
 
 static void
-client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
+client_fd_lk_ctx_dump(fd_lk_ctx_t *lk_ctx)
 {
-    gf_boolean_t use_try_lock = _gf_true;
     int ret = -1;
     int lock_no = 0;
     fd_lk_ctx_t *lk_ctx_ref = NULL;
@@ -2744,17 +2737,14 @@ client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
     if (!lk_ctx_ref)
         return;
 
-    ret = client_fd_lk_list_empty(lk_ctx_ref, (use_try_lock = _gf_true));
-    if (ret != 0)
-        return;
-
     gf_proc_dump_write("------", "------");
-
-    lock_no = 0;
 
     ret = TRY_LOCK(&lk_ctx_ref->lock);
     if (ret)
         return;
+
+    if (list_empty(&lk_ctx_ref->lk_list))
+        goto unlock;
 
     list_for_each_entry(plock, &lk_ctx_ref->lk_list, next)
     {
@@ -2770,6 +2760,7 @@ client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
             get_lk_type(plock->user_flock.l_type), plock->user_flock.l_start,
             plock->user_flock.l_len);
     }
+unlock:
     UNLOCK(&lk_ctx_ref->lock);
 
     gf_proc_dump_write("------", "------");
@@ -2809,7 +2800,7 @@ client_priv_dump(xlator_t *this)
     {
         sprintf(key, "fd.%d.remote_fd", i);
         gf_proc_dump_write(key, "%" PRId64, tmp->remote_fd);
-        client_fd_lk_ctx_dump(this, tmp->lk_ctx, i);
+        client_fd_lk_ctx_dump(tmp->lk_ctx);
         i++;
     }
     pthread_spin_unlock(&conf->fd_lock);

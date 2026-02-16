@@ -2256,7 +2256,7 @@ out:
     if (entrylk_locked) {
         lk_ret = syncop_entrylk(hashed_subvol, DHT_ENTRY_SYNC_DOMAIN,
                                 &parent_loc, loc->name, ENTRYLK_UNLOCK,
-                                ENTRYLK_UNLOCK, NULL, NULL);
+                                ENTRYLK_WRLCK, NULL, NULL);
         if (lk_ret < 0) {
             gf_msg(this->name, GF_LOG_WARNING, -lk_ret,
                    DHT_MSG_MIGRATE_FILE_FAILED,

@@ -322,7 +322,8 @@ GLFS_MSGID(
     GD_MSG_ADD_BRICK_MNT_INFO_FAIL, GD_MSG_GET_MNT_ENTRY_INFO_FAIL,
     GD_MSG_QUORUM_CLUSTER_COUNT_GET_FAIL, GD_MSG_POST_COMMIT_OP_FAIL,
     GD_MSG_POST_COMMIT_FROM_UUID_REJCT, GD_MSG_POST_COMMIT_REQ_SEND_FAIL,
-    GD_MSG_GRACEFUL_CLEANUP_SET_FAIL, GD_PMAP_PORT_BIND_FAILED);
+    GD_MSG_GRACEFUL_CLEANUP_SET_FAIL, GD_PMAP_PORT_BIND_FAILED,
+    GD_MSG_PLUGIN_NOT_FOUND);
 
 #define GD_MSG_INVALID_ENTRY_STR "Invalid data entry"
 #define GD_MSG_INVALID_ARGUMENT_STR                                            \
@@ -411,6 +412,7 @@ GLFS_MSGID(
 #define GD_MSG_VOLINFO_IMPORT_FAIL_STR "Volume is not yet imported"
 #define GD_MSG_BRICK_SET_INFO_FAIL_STR                                         \
     "Failed to add brick mount details to dict"
+#define GD_MSG_PLUGIN_NOT_FOUND_STR "Plugin not found"
 #define GD_MSG_SET_XATTR_BRICK_FAIL_STR                                        \
     "Glusterfs is not supported on brick. Setting extended attribute failed"
 #define GD_MSG_SET_XATTR_FAIL_STR "Failed to set extended attribute"

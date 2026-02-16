@@ -95,8 +95,8 @@ typedef struct clnt_conf {
     rpc_clnt_prog_t *dump;
 
     int client_id;
-    int event_threads; /* # of event threads
-                        * configured */
+    int event_threads;        /* # of event threads
+                               * configured */
     uint64_t reopen_fd_count; /* Count of fds reopened after a
                                  connection is established */
     gf_lock_t rec_lock;
@@ -123,7 +123,7 @@ typedef struct clnt_conf {
                                   */
     gf_boolean_t filter_o_direct; /* if set, filter O_DIRECT from
                                      the flags list of open() */
-    gf_boolean_t send_gids; /* let the server resolve gids */
+    gf_boolean_t send_gids;       /* let the server resolve gids */
 
     gf_boolean_t destroy; /* if enabled implies fini was called
                            * on @this xlator instance */
@@ -136,7 +136,7 @@ typedef struct clnt_conf {
                                       * logged
                                       */
 
-    gf_boolean_t old_protocol;         /* used only for old-protocol testing */
+    gf_boolean_t old_protocol; /* used only for old-protocol testing */
     gf_boolean_t fini_completed;
     gf_boolean_t strict_locks; /* When set, doesn't reopen saved fds after
                                   reconnect if POSIX locks are held on them.
@@ -145,8 +145,8 @@ typedef struct clnt_conf {
                                   complaince as bricks cleanup any granted
                                   locks when a client disconnects.
                                */
-    gf_boolean_t connection_to_brick; /*True from attempt to connect to brick
-                                        till disconnection to brick*/
+    gf_boolean_t connection_to_brick;  /*True from attempt to connect to brick
+                                         till disconnection to brick*/
     pthread_cond_t fini_complete_cond; /* Used to wait till we finsh the fini
                                           compltely, ie client_fini_complete
                                           to return*/
@@ -271,8 +271,6 @@ client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
 int
 client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx);
 
-int
-client_fd_lk_list_empty(fd_lk_ctx_t *lk_ctx, gf_boolean_t use_try_lock);
 void
 client_default_reopen_done(clnt_fd_ctx_t *fdctx, int64_t rfd, xlator_t *this);
 void

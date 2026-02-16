@@ -1584,7 +1584,7 @@ glusterfs_handle_node_status(rpcsvc_request_t *req)
         default:
             ret = -1;
             msg = gf_strdup("Unknown status op");
-            gf_log(THIS->name, GF_LOG_ERROR, "%s", msg);
+            gf_log(THIS->name, GF_LOG_ERROR, "Unknown status op");
             break;
     }
     rsp.op_ret = ret;

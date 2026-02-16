@@ -2454,6 +2454,7 @@ afr_frame_create(xlator_t *this, int32_t *op_errno)
     call_frame_t *frame = NULL;
     afr_local_t *local = NULL;
     pid_t pid = GF_CLIENT_PID_SELF_HEALD;
+    int ret = 0;
 
     frame = create_frame(this, this->ctx->pool);
     if (!frame) {
@@ -2462,9 +2463,11 @@ afr_frame_create(xlator_t *this, int32_t *op_errno)
         return NULL;
     }
 
-    local = AFR_FRAME_INIT(frame, (*op_errno));
+    local = AFR_FRAME_INIT(frame, ret);
     if (!local) {
         STACK_DESTROY(frame->root);
+        if (op_errno)
+            *op_errno = ret;
         return NULL;
     }
 

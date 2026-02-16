@@ -1587,7 +1587,7 @@ gf_string2percent_or_bytesize(const char *str, double *n,
     }
 
     /* Error out if we cannot store the value in uint64 */
-    if ((UINT64_MAX - value) < 0) {
+    if ((UINT64_MAX - (unsigned long)value) < 0) {
         errno = ERANGE;
         return -1;
     }
