@@ -145,6 +145,7 @@ typedef struct clnt_conf {
                                   complaince as bricks cleanup any granted
                                   locks when a client disconnects.
                                */
+    char *debug_disconnect_notify_holdfile;
     gf_boolean_t connection_to_brick; /*True from attempt to connect to brick
                                         till disconnection to brick*/
     pthread_cond_t fini_complete_cond; /* Used to wait till we finsh the fini

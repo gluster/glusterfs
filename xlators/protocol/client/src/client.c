@@ -167,6 +167,32 @@ client_notify_dispatch(xlator_t *this, int32_t event, void *data, ...)
     return ret;
 }
 
+static void
+client_debug_hold_disconnect_notify(xlator_t *this)
+{
+    clnt_conf_t *conf = NULL;
+
+    conf = this->private;
+    if (!conf || !conf->debug_disconnect_notify_holdfile)
+        return;
+
+    if (access(conf->debug_disconnect_notify_holdfile, F_OK) != 0)
+        return;
+
+    gf_log(this->name, GF_LOG_WARNING,
+           "debug-disconnect-notify-holdfile is blocking RPC_CLNT_DISCONNECT "
+           "notify on %s",
+           conf->debug_disconnect_notify_holdfile);
+
+    while (access(conf->debug_disconnect_notify_holdfile, F_OK) == 0) {
+        sleep(1);
+    }
+
+    gf_log(this->name, GF_LOG_WARNING,
+           "debug-disconnect-notify-holdfile released RPC_CLNT_DISCONNECT "
+           "notify");
+}
+
 int
 client_submit_request(xlator_t *this, void *req, call_frame_t *frame,
                       rpc_clnt_prog_t *prog, int procnum, fop_cbk_fn_t cbkfn,
@@ -2237,6 +2263,8 @@ client_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             client_mark_fd_bad(this);
 
             if (!conf->skip_notify) {
+                client_debug_hold_disconnect_notify(this);
+
                 if (conf->can_log_disconnect) {
                     if (!conf->disconnect_err_logged) {
                         gf_smsg(this->name, GF_LOG_INFO, 0,
@@ -2426,6 +2454,8 @@ build_client_config(xlator_t *this, clnt_conf_t *conf)
     GF_OPTION_INIT("ping-timeout", conf->opt.ping_timeout, time, out);
 
     GF_OPTION_INIT("remote-subvolume", conf->opt.remote_subvolume, path, out);
+    GF_OPTION_INIT("debug-disconnect-notify-holdfile",
+                   conf->debug_disconnect_notify_holdfile, path, out);
     if (!conf->opt.remote_subvolume)
         gf_smsg(this->name, GF_LOG_WARNING, EINVAL,
                 PC_MSG_REMOTE_SUBVOL_NOT_GIVEN, NULL);
@@ -2932,6 +2962,12 @@ struct volume_options options[] = {
     {.key = {"remote-subvolume"},
      .type = GF_OPTION_TYPE_ANY,
      .default_value = "{{ brick.path }}"},
+    {
+        .key = {"debug-disconnect-notify-holdfile"},
+        .type = GF_OPTION_TYPE_PATH,
+        .description = "Test-only option that blocks RPC_CLNT_DISCONNECT "
+                       "notify while the given path exists.",
+    },
     {.key = {"frame-timeout", "rpc-timeout"},
      .type = GF_OPTION_TYPE_TIME,
      .min = 0,
