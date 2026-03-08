@@ -1,0 +1,169 @@
+name: Smoke
+
+on:
+  pull_request:
+    branches:
+      - devel
+  push:
+    branches:
+      - devel
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to test
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke / ubuntu
+    runs-on: ubuntu-latest
+    env:
+      HEAL_TIMEOUT: 160
+      IO_HEAL_TIMEOUT: 240
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            acl \
+            attr \
+            automake \
+            bison \
+            build-essential \
+            dbench \
+            flex \
+            gettext \
+            libacl1-dev \
+            libaio-dev \
+            libattr1-dev \
+            libcurl4-openssl-dev \
+            libgoogle-perftools-dev \
+            libibverbs-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libssl-dev \
+            libtirpc-dev \
+            libtool \
+            liburing-dev \
+            liburcu-dev \
+            libxml2-dev \
+            libxxhash-dev \
+            lvm2 \
+            nfs-common \
+            pkg-config \
+            python3 \
+            python3-pip \
+            rpcsvc-proto \
+            sqlite3 \
+            uuid-dev \
+            xfsprogs \
+            yajl-tools
+
+      - name: Configure build
+        run: |
+          ./autogen.sh
+          ./configure --prefix=/usr/local
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Install
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            make install
+          else
+            sudo -E make install
+          fi
+
+      - name: Run smoke tests
+        run: |
+          mapfile -t smoke_tests < <(
+            for pattern in \
+              tests/basic/*.t \
+              tests/basic/afr/*.t \
+              tests/basic/distribute/*.t \
+              tests/bugs/fb*.t \
+              tests/features/brick-min-free-space.t
+            do
+              for test_file in $pattern
+              do
+                [ -f "$test_file" ] || continue
+                if grep -q '^#G_TESTDEF_TEST_STATUS_CENTOS6=NFS_TEST$' "$test_file"; then
+                  continue
+                fi
+                if grep -q 'nfs\.disable' "$test_file"; then
+                  continue
+                fi
+                if grep -q 'thin-arbiter\.rc' "$test_file"; then
+                  continue
+                fi
+                if grep -q '/tmp/cdcdump\.gz' "$test_file"; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/exports_parsing.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/afr/gfid-mismatch-resolution-with-cli.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/gfproxy.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/graph-cleanup-brick-down-shd-mux.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/ios-dump.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/multiple-volume-shd-mux.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/netgroup_parsing.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/op_errnos.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/shd-mux-afr.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/shd-mux-ec.t" ]; then
+                  continue
+                fi
+                if [ "$test_file" = "tests/basic/quick-read-with-upcall.t" ]; then
+                  continue
+                fi
+                printf '%s\n' "$test_file"
+              done
+            done | sort -u
+          )
+
+          if [ "$(id -u)" -eq 0 ]; then
+            ./run-tests.sh "${smoke_tests[@]}"
+          else
+            sudo -E ./run-tests.sh "${smoke_tests[@]}"
+          fi
+
+      - name: Collect artifacts
+        if: always()
+        run: |
+          mkdir -p ci-artifacts
+          test -f /tmp/gluster_regression.txt && cp /tmp/gluster_regression.txt ci-artifacts/ || true
+          test -d /var/log/glusterfs && cp -a /var/log/glusterfs ci-artifacts/ || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-ubuntu-artifacts
+          path: ci-artifacts/
+          if-no-files-found: ignore

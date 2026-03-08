@@ -1,0 +1,110 @@
+name: Regression
+
+on:
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to test
+        required: false
+        type: string
+      mode:
+        description: Regression mode
+        required: true
+        default: full
+        type: choice
+        options:
+          - full
+
+permissions:
+  contents: read
+
+jobs:
+  full-regression:
+    if: inputs.mode == 'full'
+    name: regression / ubuntu
+    runs-on: ubuntu-latest
+    env:
+      HEAL_TIMEOUT: 160
+      IO_HEAL_TIMEOUT: 240
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.sha }}
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            acl \
+            attr \
+            automake \
+            bison \
+            build-essential \
+            dbench \
+            flex \
+            gettext \
+            libacl1-dev \
+            libaio-dev \
+            libattr1-dev \
+            libcurl4-openssl-dev \
+            libgoogle-perftools-dev \
+            libibverbs-dev \
+            libreadline-dev \
+            libsqlite3-dev \
+            libssl-dev \
+            libtirpc-dev \
+            libtool \
+            liburing-dev \
+            liburcu-dev \
+            libxml2-dev \
+            libxxhash-dev \
+            lvm2 \
+            nfs-common \
+            pkg-config \
+            python3 \
+            python3-pip \
+            rpcsvc-proto \
+            sqlite3 \
+            uuid-dev \
+            xfsprogs \
+            yajl-tools
+
+      - name: Configure build
+        run: |
+          ./autogen.sh
+          ./configure --prefix=/usr/local
+
+      - name: Build
+        run: make -j"$(nproc)"
+
+      - name: Install
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            make install
+          else
+            sudo -E make install
+          fi
+
+      - name: Run full regression
+        run: |
+          if [ "$(id -u)" -eq 0 ]; then
+            ./run-tests.sh
+          else
+            sudo -E ./run-tests.sh
+          fi
+
+      - name: Collect artifacts
+        if: always()
+        run: |
+          mkdir -p ci-artifacts
+          test -f /tmp/gluster_regression.txt && cp /tmp/gluster_regression.txt ci-artifacts/ || true
+          test -d /var/log/glusterfs && cp -a /var/log/glusterfs ci-artifacts/ || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: regression-ubuntu-artifacts
+          path: ci-artifacts/
+          if-no-files-found: ignore

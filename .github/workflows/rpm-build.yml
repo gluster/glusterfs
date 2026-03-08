@@ -1,0 +1,96 @@
+name: RPM Build
+
+on:
+  pull_request:
+    branches:
+      - devel
+  push:
+    branches:
+      - devel
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: Git ref to test
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build-fedora-rpm:
+    name: rpm / fedora-container
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:39
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.git_ref || github.event.pull_request.head.sha || github.sha }}
+
+      - name: Locate source root
+        run: |
+          src_dir="$(dirname "$(find "${PWD}" -name configure.ac | head -n1)")"
+          test -n "$src_dir"
+          echo "GLUSTER_SRC_DIR=$src_dir" >> "$GITHUB_ENV"
+
+      - name: Install dependencies
+        run: |
+          cd "$GLUSTER_SRC_DIR"
+          dnf install -y \
+            autoconf \
+            automake \
+            bison \
+            dnf-plugins-core \
+            diffutils \
+            flex \
+            gcc \
+            gcc-c++ \
+            gperftools-devel \
+            libacl-devel \
+            libaio-devel \
+            libattr-devel \
+            libcurl-devel \
+            libtool \
+            libtirpc-devel \
+            liburing-devel \
+            libuuid-devel \
+            libxml2-devel \
+            make \
+            ncurses-devel \
+            openssl \
+            openssl-devel \
+            python3 \
+            rpm-build \
+            rpcgen \
+            readline-devel \
+            userspace-rcu-devel \
+            which
+
+      - name: Build source tarball
+        run: |
+          cd "$GLUSTER_SRC_DIR"
+          ./autogen.sh
+          ./configure --prefix=/usr/local
+          dnf builddep -y ./glusterfs.spec
+          make dist
+
+      - name: Build RPMs
+        run: |
+          cd "$GLUSTER_SRC_DIR"
+          make -C extras/LinuxRPM glusterrpms_without_autogen
+
+      - name: Collect RPM artifacts
+        if: always()
+        run: |
+          mkdir -p ci-artifacts
+          find "$GLUSTER_SRC_DIR/extras/LinuxRPM" -type f \( -name '*.rpm' -o -name '*.src.rpm' \) -exec cp {} ci-artifacts/ \; || true
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-fedora-artifacts
+          path: ci-artifacts/
+          if-no-files-found: ignore
