@@ -3089,6 +3089,9 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
             /* Duplicate option given, log and ignore */
             gf_smsg("gluster", GF_LOG_INFO, EEXIST, LG_MSG_DUPLICATE_ENTRY,
                     NULL);
+            GF_FREE(server->volfile_server);
+            GF_FREE(server->transport);
+            GF_FREE(server);
             ret = 0;
             goto out;
         }
