@@ -7475,12 +7475,18 @@ out:
         local->refresh_layout_unlock(frame, op_ret, 1);
 
         if (op_ret == 0) {
+            /* Only dht_mknod takes this lock path (decommissioned brick);
+             * dht_symlink never locks, so local->fop is always MKNOD here. */
             DHT_STACK_UNWIND(mknod, frame, op_ret, op_errno, inode, stbuf,
                              preparent, postparent, xdata);
         }
     } else {
-        DHT_STACK_UNWIND(mknod, frame, op_ret, op_errno, inode, stbuf,
-                         preparent, postparent, xdata);
+        if (local && local->fop == GF_FOP_SYMLINK)
+            DHT_STACK_UNWIND(symlink, frame, op_ret, op_errno, inode, stbuf,
+                             preparent, postparent, xdata);
+        else
+            DHT_STACK_UNWIND(mknod, frame, op_ret, op_errno, inode, stbuf,
+                             preparent, postparent, xdata);
     }
 
     return 0;
@@ -8144,7 +8150,7 @@ dht_symlink(call_frame_t *frame, xlator_t *this, const char *linkname,
 
 err:
     op_errno = (op_errno == -1) ? errno : op_errno;
-    DHT_STACK_UNWIND(link, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
+    DHT_STACK_UNWIND(symlink, frame, -1, op_errno, NULL, NULL, NULL, NULL, NULL);
 
     return 0;
 }
