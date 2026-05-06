@@ -1721,14 +1721,16 @@ dht_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     }
 
     local->op_errno = op_errno;
-    if ((op_ret == -1) && !dht_inode_missing(op_errno)) {
+    /* SEEK carries no iatt, so unlike readv/writev/attr it cannot spot an
+     * in-progress migration via IS_DHT_MIGRATION_PHASE2().  When rebalance has
+     * truncated the source to 0, SEEK_DATA/SEEK_HOLE returns ENXIO (offset >=
+     * EOF); exempt it here (as ENOENT/ESTALE already are) so it falls through to
+     * the migration redirect below instead of being returned to the client. */
+    if ((op_ret == -1) && !dht_inode_missing(op_errno) && (op_errno != ENXIO)) {
         gf_msg_debug(this->name, op_errno, "subvolume %s returned -1",
                      prev->name);
         goto out;
     }
-
-    if ((op_ret == -1) && ((op_errno == ENXIO) || (op_errno == EOVERFLOW)))
-        goto out;
 
     if (!op_ret || (local->call_cnt != 1))
         goto out;
