@@ -36,6 +36,18 @@ function delete_snapshot() {
         wait $PID_1
 }
 
+# Destroy every child dataset of the brick dataset $1: the ZFS clones behind
+# the cloned volumes (`zfs clone` places them under the origin dataset),
+# which `volume delete` leaves behind.
+function destroy_zfs_clones() {
+        local ds
+        for ds in $(zfs list -H -o name -t filesystem -r "$1" |
+                    grep -v -x -F -- "$1"); do
+                zfs destroy -f "$ds" || return 1
+        done
+        return 0
+}
+
 if ! verify_zfs_version; then
     SKIP_TESTS
     exit 0;
@@ -122,6 +134,26 @@ stop_force_volumes 2
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field_1 $V0 'Status';
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT 'Stopped' volinfo_field_1 $V1 'Status';
 
+# ${V0}_clone and ${V1}_clone are ZFS clones of ${V0}_snap and ${V1}_snap
+# (`zfs clone`, never promoted), so the snapshots cannot be deleted while the
+# clones exist: the delete is refused up front and nothing changes
+# (gluster/glusterfs#4689; glusterd used to report success, drop its snapshot
+# object and leave the backend snapshot behind).
+TEST ! delete_snapshot ${V0}_snap
+TEST ! delete_snapshot ${V1}_snap
+TEST snapshot_exists 1 ${V0}_snap
+TEST snapshot_exists 1 ${V1}_snap
+
+# Release the dependents: delete the clone volumes and destroy their backend
+# datasets, which `volume delete` leaves behind (both clone rounds left one
+# under each brick dataset; no brick serves them any more).
+TEST $CLI_1 volume delete ${V0}_clone
+TEST $CLI_1 volume delete ${V1}_clone
+TEST destroy_zfs_clones ${ZFS_PREFIX}_pool_1/bricks
+TEST destroy_zfs_clones ${ZFS_PREFIX}_pool_2/bricks
+TEST destroy_zfs_clones ${ZFS_PREFIX}_pool_3/bricks
+
+# with no dependent left the delete goes through
 TEST delete_snapshot ${V0}_snap
 TEST delete_snapshot ${V1}_snap
 

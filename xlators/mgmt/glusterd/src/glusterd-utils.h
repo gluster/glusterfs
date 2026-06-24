@@ -147,6 +147,21 @@ struct glusterd_snap_ops {
                                 char *snap_clone_volume_id,
                                 char *snap_brick_dir, int brick_num,
                                 glusterd_brickinfo_t *brickinfo, int restore);
+
+    /* Optional. Reports whether the backend snapshot of this brick still has
+     * a dependent that prevents its removal (e.g. a ZFS clone created from
+     * it). Lets a snapshot delete be refused in prevalidate rather than
+     * failing at commit time. *has_dependent is set _gf_true only on a
+     * positive, confirmed dependency; dependent_info (if non-NULL) receives a
+     * short, human-readable description of the dependent for the error
+     * message. Returns 0 when the check ran (regardless of the result) and
+     * non-zero only when the check itself could not be performed. Providers
+     * that do not track dependents leave this NULL. */
+    int32_t (*const dependents)(glusterd_brickinfo_t *snap_brickinfo,
+                                char *snapname, char *snap_volume_id,
+                                int32_t brick_num, gf_boolean_t *has_dependent,
+                                char *dependent_info,
+                                size_t dependent_info_len);
 };
 
 extern struct glusterd_snap_ops lvm_snap_ops;
