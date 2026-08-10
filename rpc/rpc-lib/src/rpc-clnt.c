@@ -44,7 +44,8 @@ _is_lock_fop(struct rpc_req *rpcreq)
     int fop = 0;
 
     if (RPCREQ_GET_PROGNUM(rpcreq) == GLUSTER_FOP_PROGRAM &&
-        RPCREQ_GET_PROGVER(rpcreq) == GLUSTER_FOP_VERSION)
+        (RPCREQ_GET_PROGVER(rpcreq) == GLUSTER_FOP_VERSION ||
+         RPCREQ_GET_PROGVER(rpcreq) == GLUSTER_FOP_VERSION_v2))
         fop = RPCREQ_GET_PROCNUM(rpcreq);
 
     return ((fop == GFS3_OP_LK) || (fop == GFS3_OP_INODELK) ||
@@ -300,7 +301,13 @@ saved_frames_unwind(struct saved_frames *saved_frames)
     };
     struct rpc_req *rpcreq;
 
-    list_splice_init(&saved_frames->lk_sf.list, &saved_frames->sf.list);
+    /*
+     * A FUSE lock interrupt sends an ordinary FGETXATTR request and then
+     * synchronously waits for it from the LK callback.  Unwind ordinary
+     * requests first so a disconnect cannot strand that dependency behind
+     * the callback that is waiting for it.
+     */
+    list_append_init(&saved_frames->lk_sf.list, &saved_frames->sf.list);
 
     list_for_each_entry_safe(trav, tmp, &saved_frames->sf.list, list)
     {
@@ -410,11 +417,17 @@ rpc_clnt_fill_request_info(rpc_clnt_connection_t *conn,
     pthread_mutex_unlock(&conn->lock);
 
     if (caa_unlikely(!saved_frame_rpcreq)) {
-        gf_log(conn->name, GF_LOG_CRITICAL,
-               "cannot lookup the saved "
-               "frame corresponding to xid (%" PRIu32 ")",
+        /*
+         * The request may have timed out while its reply was in flight.  Its
+         * record framing is still valid, so let the transport consume the
+         * reply through the non-vectored path and discard it at lookup rather
+         * than disconnecting unrelated requests on the same connection.
+         */
+        gf_log(conn->name, GF_LOG_WARNING,
+               "reply for unknown or expired xid (%" PRIu32
+               ") will be discarded",
                info->xid);
-        return -1;
+        return 0;
     }
 
     info->rpc_req = saved_frame_rpcreq;
