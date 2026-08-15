@@ -18,42 +18,34 @@ something functionally similar to follow on. OK, on with the show.
 
 The first thing you need to know is that translators are not just bags of
 functions and variables. They need to have a very definite internal structure
-so that the translator-loading code can figure out where all the pieces are.
-The way it does this is to use dlsym to look for specific names within your
-shared-object file, as follow (from `xlator.c`):
+so that the translator-loading code can find all the pieces. The loader opens
+the shared object and resolves one exported symbol named `xlator_api`. This
+symbol points to an `xlator_api_t` structure containing the translator's
+functions, dispatch tables, options, and metadata. See `xlator_dynload_apis()`
+in `libglusterfs/src/xlator.c` and the template translator in
+`xlators/playground/template/src/template.c` for the current implementation.
+
+The API structure connects the translator's functions and tables as follows:
 
 ```
-if (!(xl->fops = dlsym (handle, "fops"))) {
-    gf_log ("xlator", GF_LOG_WARNING, "dlsym(fops) on %s",
-        dlerror ());
-    goto out;
-}
-
-if (!(xl->cbks = dlsym (handle, "cbks"))) {
-    gf_log ("xlator", GF_LOG_WARNING, "dlsym(cbks) on %s",
-        dlerror ());
-    goto out;
-}
-
-if (!(xl->init = dlsym (handle, "init"))) {
-    gf_log ("xlator", GF_LOG_WARNING, "dlsym(init) on %s",
-        dlerror ());
-    goto out;
-}
-
-if (!(xl->fini = dlsym (handle, "fini"))) {
-    gf_log ("xlator", GF_LOG_WARNING, "dlsym(fini) on %s",
-        dlerror ());
-    goto out;
-}
+xlator_api_t xlator_api = {
+    .init = init,
+    .fini = fini,
+    .notify = notify,
+    .reconfigure = reconfigure,
+    .fops = &fops,
+    .cbks = &cbks,
+    .dumpops = &dumpops,
+    .options = options,
+    .identifier = "example",
+};
 ```
 
-In this example, `xl` is a pointer to the in-memory object for the translator
-we're loading. As you can see, it's looking up various symbols *by name* in the
- shared object it just loaded, and storing pointers to those symbols. Some of
-them (e.g. init) are functions, while others (e.g. fops) are dispatch tables
-containing pointers to many functions. Together, these make up the translator's
- public interface.
+The `fops`, `cbks`, `dumpops`, and `options` objects in this example are
+defined by the translator and referenced by the exported `xlator_api`
+structure. `fops` is the filesystem-operation dispatch table, while `cbks`
+contains callbacks for inode and file-descriptor lifecycle events. `dumpops`
+and `options` are optional when the translator does not provide them.
 
 Most of this glue or boilerplate can easily be found at the bottom of one of
 the source files that make up each translator. We're going to use the `rot-13`
@@ -82,16 +74,17 @@ struct volume_options options[] = {
 The `fops` table, defined in `xlator.h`, is one of the most important pieces.
 This table contains a pointer to each of the filesystem functions that your
 translator might implement -- `open`, `read`, `stat`, `chmod`, and so on. There
-are 82 such functions in all, but don't worry; any that you don't specify here
-will be see as null and filled with defaults from `defaults.c` when your
+are 55 dispatchable filesystem operations, plus three placeholder entries
+needed to preserve the operation indexes. Any operation that you don't specify
+here will be seen as null and filled with defaults from `defaults.c` when your
 translator is loaded. In this particular example, since `rot-13` is an
 exceptionally simple translator, we only fill in two entries for `readv` and
 `writev`.
 
-There are actually two other tables, also required to have predefined names,
-that are also used to find translator functions: `cbks` (which is empty in this
- snippet) and `dumpops` (which is missing entirely). The first of these specify
- entry points for when inodes are forgotten or file descriptors are released.
+There are two other tables commonly used by translators: `cbks` (which is empty
+in this snippet) and `dumpops` (which is missing entirely). The first of these
+specifies entry points for when inodes are forgotten or file descriptors are
+released.
 In other words, they're destructors for objects in which your translator might
  have an interest. Mostly you can ignore them, because the default behavior
 handles even the simpler cases of translator-specific inode/fd context
@@ -101,17 +94,15 @@ dumpops, that's just used if you want to provide functions to pretty-print
 various structures in logs. I've never used it myself, though I probably
 should. What's noteworthy here is that we don't even define dumpops. That's
 because all of the functions that might use these dispatch functions will check
- for `xl->dumpops` being `NULL` before calling through it. This is in sharp
-contrast to the behavior for `fops` and `cbks`, which *must* be present. If
-they're not, translator loading will fail because these pointers are not
-checked every time and if they're `NULL` then we'll segfault. That's why we
-provide an empty definition for cbks; it's OK for the individual function
-pointers to be NULL, but not for the whole table to be absent.
+ for `xl->dumpops` being `NULL` before calling through it. The `fops` table is
+mandatory; `cbks`, `dumpops`, and the optional hooks in `xlator_api_t` may be
+omitted when they are not needed. The loader obtains all of these pointers from
+the `xlator_api` structure rather than looking up each one as a separate symbol.
 
 The last piece I'll cover today is options. As you can see, this is a table of
 translator-specific option names and some information about their types.
 GlusterFS actually provides a pretty rich set of types (`volume_option_type_t`
-in `options.`h) which includes paths, translator names, percentages, and times
+in `options.h`) which includes paths, translator names, percentages, and times
 in addition to the obvious integers and strings. Also, the `volume_option_t`
 structure can include information about alternate names, min/max/default
 values, enumerated string values, and descriptions. We don't see any of these
@@ -142,8 +133,8 @@ then come back to `rot-13`.
 When your translator is loaded, all of this information is used to parse the
 options actually provided in the volfile, and then the result is turned into a
 dictionary and stored as `xl->options`. This dictionary is then processed by
-your init function, which you can see being looked up in the first code
-fragment above. We're only going to look at a small part of the `rot-13`'s
+your init function, which is referenced by the `xlator_api` structure. We're
+only going to look at a small part of the `rot-13`'s
 init for now.
 
 ```

@@ -539,8 +539,8 @@ typedef int32_t (*fop_copy_file_range_t)(call_frame_t *frame, xlator_t *this,
                                          size_t len, uint32_t flags,
                                          dict_t *xdata);
 
-/* WARNING: make sure the list is in order with FOP definition in
-   `rpc/xdr/src/glusterfs-fops.x`.
+/* WARNING: make sure the list is in order with the FOP definitions in
+   `glusterfs/glusterfs-fops.h`.
    If it is not in order, mainly the metrics related feature would be broken */
 struct xlator_fops {
     fop_stat_t stat;
@@ -842,9 +842,9 @@ struct _xlator {
     uint32_t child_count;
 };
 
-/* This would be the only structure which needs to be exported by
-   the translators. For the backward compatibility, in 4.x series
-   even the old exported fields will be supported */
+/* This is the structure that translators export as `xlator_api`.
+   The older separately exported fops, cbks, init, and fini symbols are not
+   supported. */
 /* XXX: This struct is in use by GD2, and hence SHOULD NOT be modified.
  * If the struct must be modified, see instructions at the comment with
  * GD2MARKER below.
