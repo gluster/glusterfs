@@ -1,6 +1,12 @@
 Translator development
 ======================
 
+> **Historical reference:** This tutorial originated as the 2013 “Translator
+> 101” series. It illustrates translator concepts, but it is not a current
+> build or implementation guide. Current translators must export the mandatory
+> `xlator_api` structure; consult an in-tree translator and the current build
+> system before using this material.
+
 Setting the Stage
 -----------------
 
