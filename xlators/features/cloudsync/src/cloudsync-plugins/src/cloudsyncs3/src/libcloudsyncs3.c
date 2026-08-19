@@ -9,7 +9,6 @@
 */
 
 #include <stdlib.h>
-#include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
@@ -298,32 +297,33 @@ aws_b64_encode(const unsigned char *input, int length)
 char *
 aws_sign_request(char *const str, char *awssekey)
 {
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
-    HMAC_CTX ctx;
-#endif
-    HMAC_CTX *pctx = NULL;
-    ;
-
     unsigned char md[256];
-    unsigned len;
+    size_t len = sizeof(md);
+    EVP_MD_CTX *ctx = NULL;
+    EVP_PKEY *key = NULL;
     char *base64 = NULL;
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
-    HMAC_CTX_init(&ctx);
-    pctx = &ctx;
-#else
-    pctx = HMAC_CTX_new();
-#endif
-    HMAC_Init_ex(pctx, awssekey, strlen(awssekey), EVP_sha1(), NULL);
-    HMAC_Update(pctx, (unsigned char *)str, strlen(str));
-    HMAC_Final(pctx, (unsigned char *)md, &len);
+    ctx = EVP_MD_CTX_new();
+    key = EVP_PKEY_new_mac_key(EVP_PKEY_HMAC, NULL,
+                               (const unsigned char *)awssekey,
+                               strlen(awssekey));
+    if (!ctx || !key)
+        goto out;
 
-#if (OPENSSL_VERSION_NUMBER < 0x1010002f)  // 1.0.1-beta2
-    HMAC_CTX_cleanup(pctx);
-#else
-    HMAC_CTX_free(pctx);
-#endif
+    if (EVP_DigestSignInit(ctx, NULL, EVP_sha1(), NULL, key) != 1)
+        goto out;
+
+    if (EVP_DigestSignUpdate(ctx, str, strlen(str)) != 1)
+        goto out;
+
+    if (EVP_DigestSignFinal(ctx, md, &len) != 1)
+        goto out;
+
     base64 = aws_b64_encode(md, len);
+
+out:
+    EVP_PKEY_free(key);
+    EVP_MD_CTX_free(ctx);
 
     return base64;
 }
