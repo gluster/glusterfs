@@ -65,9 +65,7 @@
 #define AI_ADDRCONFIG 0
 #endif /* AI_ADDRCONFIG */
 
-#if OPENSSL_VERSION_NUMBER >= 0x030000000  // 3.0.0
 #include <openssl/evp.h>
-#endif
 
 char *vol_type_str[] = {
     "Distribute",
@@ -4187,18 +4185,10 @@ int
 glusterfs_compute_sha256(const unsigned char *content, size_t size,
                          char *sha256_hash)
 {
-#if OPENSSL_VERSION_NUMBER >= 0x030000000  // 3.0.0
+    if (EVP_Digest(content, size, (unsigned char *)sha256_hash, NULL,
+                   EVP_sha256(), NULL) != 1)
+        return -1;
 
-    EVP_Digest((const unsigned char *)(content), size,
-               (unsigned char *)sha256_hash, NULL, EVP_sha256(), NULL);
-#else
-    SHA256_CTX sha256;
-
-    SHA256_Init(&sha256);
-    SHA256_Update(&sha256, (const unsigned char *)(content), size);
-    SHA256_Final((unsigned char *)sha256_hash, &sha256);
-
-#endif
     return 0;
 }
 
