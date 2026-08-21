@@ -191,6 +191,7 @@ struct posix_private {
 #endif
 
     pthread_t fsyncer;
+    gf_boolean_t fsyncer_exit;
     struct list_head fsyncs;
     pthread_mutex_t fsync_mutex;
     pthread_cond_t fsync_cond;

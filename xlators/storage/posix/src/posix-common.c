@@ -1312,7 +1312,11 @@ posix_fini(xlator_t *this)
     }
 
     if (priv->fsyncer) {
-        (void)gf_thread_cleanup_xint(priv->fsyncer);
+        pthread_mutex_lock(&priv->fsync_mutex);
+        priv->fsyncer_exit = _gf_true;
+        pthread_cond_signal(&priv->fsync_cond);
+        pthread_mutex_unlock(&priv->fsync_mutex);
+        (void)pthread_join(priv->fsyncer, NULL);
         priv->fsyncer = 0;
     }
 

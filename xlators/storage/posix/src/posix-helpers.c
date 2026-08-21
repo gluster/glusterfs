@@ -2383,8 +2383,13 @@ posix_fsyncer_pick(struct posix_private *priv, struct list_head *head)
 
     pthread_mutex_lock(&priv->fsync_mutex);
     {
-        while (list_empty(&priv->fsyncs))
+        while (list_empty(&priv->fsyncs) && !priv->fsyncer_exit)
             pthread_cond_wait(&priv->fsync_cond, &priv->fsync_mutex);
+
+        if (list_empty(&priv->fsyncs)) {
+            pthread_mutex_unlock(&priv->fsync_mutex);
+            return -1;
+        }
 
         count = priv->fsync_queue_count;
         priv->fsync_queue_count = 0;
@@ -2478,6 +2483,9 @@ posix_fsyncer(void *d)
 
         count = posix_fsyncer_pick(priv, &list);
 
+        if (count < 0)
+            break;
+
         gf_nanosleep(priv->batch_fsync_delay_usec * GF_US_IN_NS);
 
         gf_msg_debug(this->name, 0, "picked %d fsyncs", count);
@@ -2508,6 +2516,8 @@ posix_fsyncer(void *d)
                 do_fsync = _gf_false;
         }
     }
+
+    return NULL;
 }
 
 /**

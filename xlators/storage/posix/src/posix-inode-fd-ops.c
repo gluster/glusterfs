@@ -2679,6 +2679,11 @@ posix_batch_fsync(call_frame_t *frame, xlator_t *this, fd_t *fd, int datasync,
     }
 
     pthread_mutex_lock(&priv->fsync_mutex);
+    if (priv->fsyncer_exit) {
+        pthread_mutex_unlock(&priv->fsync_mutex);
+        call_unwind_error(stub, -1, ESHUTDOWN);
+        return 0;
+    }
     {
         list_add_tail(&stub->list, &priv->fsyncs);
         priv->fsync_queue_count++;
