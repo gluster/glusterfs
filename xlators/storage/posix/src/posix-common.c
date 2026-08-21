@@ -1298,18 +1298,7 @@ posix_fini(xlator_t *this)
         pthread_join(ctx->janitor, NULL);
     }
 
-    pthread_mutex_lock(&ctx->xl_lock);
-    {
-        count = --ctx->diskxl_count;
-        if (count == 0)
-            pthread_cond_signal(&ctx->xl_cond);
-    }
-    pthread_mutex_unlock(&ctx->xl_lock);
-
-    if (count == 0) {
-        pthread_join(ctx->disk_space_check, NULL);
-        ctx->disk_space_check = 0;
-    }
+    delete_posix_diskxl(priv, ctx);
 
     if (priv->fsyncer) {
         (void)gf_thread_cleanup_xint(priv->fsyncer);
