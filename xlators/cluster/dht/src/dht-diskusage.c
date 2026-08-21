@@ -26,7 +26,7 @@ dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     double percent = 0;
     double percent_inodes = 0;
     uint64_t bytes = 0;
-    uint32_t bpc; /* blocks per chunk */
+    uint64_t total_bytes = 0;
     uint32_t chunks = 0;
 
     conf = this->private;
@@ -49,9 +49,15 @@ dht_du_info_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
          * irrelevant by then.  Meanwhile, it's more important to keep
          * the chunk size small so the layout-calculation code that
          * uses this value can be tested on normal machines.
+         *
+         * Compute the chunk count from the byte size: a filesystem
+         * block can be larger than the 1MB chunk (ZFS reports
+         * f_bsize == recordsize, up to 16MB), so deriving a
+         * blocks-per-chunk divisor as (1MB / f_bsize) truncates to
+         * zero and the division below it crashes with SIGFPE.
          */
-        bpc = (1 << 20) / statvfs->f_bsize;
-        chunks = (statvfs->f_blocks + bpc - 1) / bpc;
+        total_bytes = statvfs->f_blocks * statvfs->f_frsize;
+        chunks = (total_bytes + ((1 << 20) - 1)) >> 20;
     }
 
     if (statvfs->f_files) {
