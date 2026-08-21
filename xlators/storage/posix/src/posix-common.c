@@ -154,6 +154,20 @@ delete_posix_diskxl(struct posix_private *priv, glusterfs_ctx_t *ctx)
     }
 }
 
+static void
+posix_stop_fsyncer(struct posix_private *priv)
+{
+    if (!priv->fsyncer)
+        return;
+
+    pthread_mutex_lock(&priv->fsync_mutex);
+    priv->fsyncer_exit = _gf_true;
+    pthread_cond_signal(&priv->fsync_cond);
+    pthread_mutex_unlock(&priv->fsync_mutex);
+    (void)pthread_join(priv->fsyncer, NULL);
+    priv->fsyncer = 0;
+}
+
 /**
  * notify - when parent sends PARENT_UP, send CHILD_UP event from here
  */
@@ -1209,6 +1223,8 @@ posix_init(xlator_t *this)
 out:
     if (ret) {
         if (_private) {
+            posix_stop_fsyncer(_private);
+
             if (_private->dirfd >= 0) {
                 sys_close(_private->dirfd);
                 _private->dirfd = -1;
@@ -1311,14 +1327,7 @@ posix_fini(xlator_t *this)
         ctx->disk_space_check = 0;
     }
 
-    if (priv->fsyncer) {
-        pthread_mutex_lock(&priv->fsync_mutex);
-        priv->fsyncer_exit = _gf_true;
-        pthread_cond_signal(&priv->fsync_cond);
-        pthread_mutex_unlock(&priv->fsync_mutex);
-        (void)pthread_join(priv->fsyncer, NULL);
-        priv->fsyncer = 0;
-    }
+    posix_stop_fsyncer(priv);
 
     /*unlock brick dir*/
     if (priv->mount_lock >= 0) {
