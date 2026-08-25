@@ -2789,7 +2789,7 @@ out:
     return ret;
 }
 
-posix_inode_ctx_t *
+static posix_inode_ctx_t *
 __posix_inode_ctx_get(inode_t *inode, xlator_t *this)
 {
     int ret = -1;
