@@ -130,6 +130,10 @@ gd_syncargs_fini(struct syncargs *args)
         pthread_mutex_destroy(&args->lock_dict);
         syncbarrier_destroy(&args->barrier);
     }
+    if (args->errstr) {
+        GF_FREE(args->errstr);
+        args->errstr = NULL;
+    }
 }
 
 static void
@@ -1591,8 +1595,10 @@ gd_syncop_mgmt_brick_op(struct rpc_clnt *rpc, glusterd_pending_node_t *pnode,
     if (args.errstr) {
         if ((strlen(args.errstr) > 0) && errstr)
             *errstr = args.errstr;
-        else
+        else {
             GF_FREE(args.errstr);
+            args.errstr = NULL;
+        }
     }
 
     if (GD_OP_STATUS_VOLUME == op) {
@@ -1642,6 +1648,7 @@ out:
         }
     }
     gd_brick_op_req_free(req);
+    gd_syncargs_fini(&args);
     return args.op_ret;
 }
 
@@ -1869,6 +1876,7 @@ gd_lock_op_phase(glusterd_conf_t *conf, glusterd_op_t op, dict_t *op_ctx,
                  "to %d peers. Returning %d",
                  gd_op_list[op], peer_cnt, ret);
 out:
+    gd_syncargs_fini(&args);
     return ret;
 }
 
