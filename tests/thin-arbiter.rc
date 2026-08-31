@@ -273,7 +273,6 @@ volume ${V0}-distribute
      option unhashed-sticky-bit off
      option use-readdirp on
      option readdir-optimize off
-     option xattr-name trusted.glusterfs.dht
      option read-freq-threshold 0
      option min-free-disk 10%
      option min-free-inodes 5%

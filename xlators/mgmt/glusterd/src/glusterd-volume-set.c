@@ -830,12 +830,6 @@ struct volopt_map_entry glusterd_volopt_map[] = {
      .type = NO_DOC,
      .op_version = 3,
      .flags = VOLOPT_FLAG_CLIENT_OPT},
-    {.key = "cluster.dht-xattr-name",
-     .voltype = "cluster/distribute",
-     .option = "xattr-name",
-     .type = NO_DOC,
-     .op_version = 3,
-     .flags = VOLOPT_FLAG_CLIENT_OPT},
     {
         .key = "cluster.randomize-hash-range-by-gfid",
         .voltype = "cluster/distribute",

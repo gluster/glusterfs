@@ -313,11 +313,14 @@ enum gf_internal_fop_indicator {
 #define IS_DHT_LINKFILE_MODE(iabuf)                                            \
     ((st_mode_from_ia((iabuf)->ia_prot, (iabuf)->ia_type) & ~S_IFMT) ==        \
      DHT_LINKFILE_MODE)
+/* Base name for DHT's on-disk xattrs. Derived names append the suffixes
+ * below, e.g. the linkto name is DHT_XATTR_BASE "." DHT_LINKFILE_STR.
+ * Shared so posix and DHT root their names in the same constant. */
+#define DHT_XATTR_BASE "trusted.glusterfs.dht"
 #define DHT_LINKFILE_STR "linkto"
 #define DHT_COMMITHASH_STR "commithash"
 
 #define DHT_SKIP_NON_LINKTO_UNLINK "unlink-only-if-dht-linkto-file"
-#define TIER_SKIP_NON_LINKTO_UNLINK "unlink-only-if-tier-linkto-file"
 #define DHT_SKIP_OPEN_FD_UNLINK "dont-unlink-for-open-fd"
 #define DHT_IATT_IN_XDATA_KEY "dht-get-iatt-in-xattr"
 #define DHT_MODE_IN_XDATA_KEY "dht-get-mode-in-xattr"
