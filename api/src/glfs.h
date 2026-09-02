@@ -35,8 +35,8 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifndef __USE_FILE_OFFSET64
-#define __USE_FILE_OFFSET64
+#ifndef _LARGEFILE64_SOURCE
+#define _LARGEFILE64_SOURCE
 #endif
 
 #ifndef _GNU_SOURCE
@@ -44,6 +44,7 @@
 #endif
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -54,22 +55,20 @@
 #include <sys/time.h>
 
 /*
- * For off64_t to be defined, we need both
- * __USE_LARGEFILE64 to be true and __off64_t_defnined to be
- * false. But, making __USE_LARGEFILE64 true causes other issues
- * such as redinition of stat and fstat to stat64 and fstat64
- * respectively which again causes compilation issues.
- * Without off64_t being defined, this will not compile as
- * copy_file_range uses off64_t. Hence define it here. First
- * check whether __off64_t_defined is true or not. <unistd.h>
- * sets that flag when it defines off64_t. If __off64_t_defined
- * is false and __USE_FILE_OFFSET64 is true, then go on to define
- * off64_t using __off64_t.
+ * glfs_copy_file_range() uses off64_t.  With _LARGEFILE64_SOURCE in effect
+ * (defined above) glibc provides it from <sys/types.h> and musl defines it
+ * as a macro for off_t.  If the application included libc headers before
+ * glfs.h without LFS64 enabled, neither is present; fall back per libc.
  */
 #ifndef GF_BSD_HOST_OS
-#if defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined)
+#if defined(__GLIBC__)
+#if !defined(__off64_t_defined)
 typedef __off64_t off64_t;
-#endif /* defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined) */
+#endif
+#elif !defined(off64_t)
+/* non-glibc Linux libc (musl): off_t is always 64-bit */
+typedef int64_t off64_t;
+#endif
 #else
 #include <stdio.h>
 #ifndef _OFF64_T_DECLARED
