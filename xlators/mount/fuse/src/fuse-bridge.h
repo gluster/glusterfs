@@ -424,16 +424,13 @@ typedef struct {
     int32_t flags;
 
     off_t off;
-    /*
-     * The man page of copy_file_range tells that the offset
-     * arguments are of type loff_t *. Here in fuse state, the values of
-     * those offsets are saved instead of pointers as the kernel sends
-     * the values of the offsets from those pointers instead of pointers.
-     * But the type loff_t is linux specific and is actually a typedef of
-     * off64_t. Hence using off64_t
+    /* copy_file_range(2) takes the offsets as loff_t *; the fuse
+     * kernel module sends the values rather than the pointers, so the
+     * values are what is kept here.  off_t is 64-bit (the tree is built
+     * with _FILE_OFFSET_BITS=64) and, unlike loff_t, is portable.
      */
-    off64_t off_in;  /* for copy_file_range source fd */
-    off64_t off_out; /* for copy_file_range destination fd */
+    off_t off_in;  /* for copy_file_range source fd */
+    off_t off_out; /* for copy_file_range destination fd */
     size_t size;
     unsigned long nlookup;
     fd_t *fd;

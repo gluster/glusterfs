@@ -464,8 +464,8 @@ out:
 
 int
 client_pre_copy_file_range_v2(xlator_t *this, gfx_copy_file_range_req *req,
-                              fd_t *fd_in, off64_t off_in, fd_t *fd_out,
-                              off64_t off_out, size_t size, int32_t flags,
+                              fd_t *fd_in, off_t off_in, fd_t *fd_out,
+                              off_t off_out, size_t size, int32_t flags,
                               dict_t **xdata)
 {
     int64_t remote_fd_in = -1;

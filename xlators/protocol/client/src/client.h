@@ -212,15 +212,13 @@ typedef struct client_args {
     const char *basename;
 
     off_t offset;
-    /*
-     * According to the man page of copy_file_range,
-     * the offsets for source and destination file
-     * are of type loff_t. But the type loff_t is
-     * linux specific and is actual a typedef of
-     * off64_t.
+    /* Offsets for the copy_file_range source and destination file.
+     * copy_file_range(2) types them loff_t *, which is Linux-only;
+     * off_t is 64-bit here because the whole tree is built with
+     * _FILE_OFFSET_BITS=64, and it exists on every platform.
      */
-    off64_t off_in;  /* used in copy_file_range for source fd */
-    off64_t off_out; /* used in copy_file_range for dst fd */
+    off_t off_in;  /* used in copy_file_range for source fd */
+    off_t off_out; /* used in copy_file_range for dst fd */
     int32_t mask;
     int32_t cmd;
     size_t size;

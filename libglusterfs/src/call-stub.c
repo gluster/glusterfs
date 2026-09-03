@@ -1663,8 +1663,8 @@ out:
 
 call_stub_t *
 fop_copy_file_range_stub(call_frame_t *frame, fop_copy_file_range_t fn,
-                         fd_t *fd_in, off64_t off_in, fd_t *fd_out,
-                         off64_t off_out, size_t len, uint32_t flags,
+                         fd_t *fd_in, off_t off_in, fd_t *fd_out,
+                         off_t off_out, size_t len, uint32_t flags,
                          dict_t *xdata)
 {
     call_stub_t *stub = NULL;
