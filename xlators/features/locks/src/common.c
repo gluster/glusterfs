@@ -159,23 +159,14 @@ pl_print_lock(char *str, int size, int cmd, struct gf_flock *flock,
     char *type_str = NULL;
 
     switch (cmd) {
-#if F_GETLK != F_GETLK64
-        case F_GETLK64:
-#endif
         case F_GETLK:
             cmd_str = "GETLK";
             break;
 
-#if F_SETLK != F_SETLK64
-        case F_SETLK64:
-#endif
         case F_SETLK:
             cmd_str = "SETLK";
             break;
 
-#if F_SETLKW != F_SETLKW64
-        case F_SETLKW64:
-#endif
         case F_SETLKW:
             cmd_str = "SETLKW";
             break;

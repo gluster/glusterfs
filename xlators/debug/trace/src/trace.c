@@ -1673,23 +1673,14 @@ trace_inodelk(call_frame_t *frame, xlator_t *this, const char *volume,
             0,
         };
         switch (cmd) {
-#if F_GETLK != F_GETLK64
-            case F_GETLK64:
-#endif
             case F_GETLK:
                 cmd_str = "GETLK";
                 break;
 
-#if F_SETLK != F_SETLK64
-            case F_SETLK64:
-#endif
             case F_SETLK:
                 cmd_str = "SETLK";
                 break;
 
-#if F_SETLKW != F_SETLKW64
-            case F_SETLKW64:
-#endif
             case F_SETLKW:
                 cmd_str = "SETLKW";
                 break;
@@ -1753,23 +1744,14 @@ trace_finodelk(call_frame_t *frame, xlator_t *this, const char *volume,
             0,
         };
         switch (cmd) {
-#if F_GETLK != F_GETLK64
-            case F_GETLK64:
-#endif
             case F_GETLK:
                 cmd_str = "GETLK";
                 break;
 
-#if F_SETLK != F_SETLK64
-            case F_SETLK64:
-#endif
             case F_SETLK:
                 cmd_str = "SETLK";
                 break;
 
-#if F_SETLKW != F_SETLKW64
-            case F_SETLKW64:
-#endif
             case F_SETLKW:
                 cmd_str = "SETLKW";
                 break;

@@ -80,13 +80,10 @@
 #define GET_FLAGS_LK(cmd, l_type, fd_flags)                                    \
     do {                                                                       \
         /* TODO: handle F_RESLK_LCK and other glusterfs_lk_recovery_cmds_t */  \
-        if ((cmd == F_SETLKW || cmd == F_SETLKW64 || cmd == F_SETLK ||         \
-             cmd == F_SETLK64) &&                                              \
-            l_type == F_WRLCK)                                                 \
+        if ((cmd == F_SETLKW || cmd == F_SETLK) && l_type == F_WRLCK)          \
             fop_flags = DATA_MODIFY_FOP;                                       \
                                                                                \
-        if (fd_flags & (O_NONBLOCK | O_NDELAY) &&                              \
-            (cmd == F_SETLKW || cmd == F_SETLKW64))                            \
+        if (fd_flags & (O_NONBLOCK | O_NDELAY) && cmd == F_SETLKW)             \
             fop_flags |= BLOCKING_FOP;                                         \
                                                                                \
     } while (0)
