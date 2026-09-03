@@ -9,4 +9,4 @@ Description: GlusterFS Changelog Consumer Library
 Version: @LIBGFCHANGELOG_VERSION@
 Requires: @PKGCONFIG_UUID@
 Libs: -L${libdir} -lgfchangelog -lglusterfs
-Cflags: -I${includedir} -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE
+Cflags: -I${includedir} -D_FILE_OFFSET_BITS=64

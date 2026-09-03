@@ -9,4 +9,4 @@ Description: GlusterFS API
 Version: @GFAPI_VERSION@
 Requires: @PKGCONFIG_UUID@
 Libs: -L${libdir} @GFAPI_LIBS@ -lgfapi -lglusterfs -lgfrpc -lgfxdr
-Cflags: -I${includedir} -D_FILE_OFFSET_BITS=64 -D_LARGEFILE64_SOURCE -DUSE_POSIX_ACLS=@USE_POSIX_ACLS@
+Cflags: -I${includedir} -D_FILE_OFFSET_BITS=64 -DUSE_POSIX_ACLS=@USE_POSIX_ACLS@
