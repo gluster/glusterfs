@@ -54,36 +54,6 @@
 #include <stdint.h>
 #include <sys/time.h>
 
-/*
- * glfs_copy_file_range() uses off64_t.  With _LARGEFILE64_SOURCE in effect
- * (defined above) glibc provides it from <sys/types.h> and musl defines it
- * as a macro for off_t.  If the application included libc headers before
- * glfs.h without LFS64 enabled, neither is present; fall back per libc.
- */
-#ifndef GF_BSD_HOST_OS
-#if defined(__GLIBC__)
-#if !defined(__off64_t_defined)
-typedef __off64_t off64_t;
-#endif
-#elif !defined(off64_t)
-/* non-glibc Linux libc (musl): off_t is always 64-bit */
-typedef int64_t off64_t;
-#endif
-#else
-#include <stdio.h>
-#ifndef _OFF64_T_DECLARED
-/*
- * Including <stdio.h> (done above) should actually define
- * _OFF64_T_DECLARED with off64_t data type being available
- * for consumption. But, off64_t data type is not recognizable
- * for FreeBSD versions less than 11. Hence, int64_t is typedefed
- * to off64_t.
- */
-#define _OFF64_T_DECLARED
-typedef int64_t off64_t;
-#endif /* _OFF64_T_DECLARED */
-#endif /* GF_BSD_HOST_OS */
-
 #if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
 #include <sys/acl.h>
 #else
@@ -781,8 +751,8 @@ glfs_lseek(glfs_fd_t *fd, off_t offset, int whence) __THROW
     GFAPI_PUBLIC(glfs_lseek, 3.4.0);
 
 ssize_t
-glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
-                     struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
+glfs_copy_file_range(struct glfs_fd *glfd_in, off_t *off_in,
+                     struct glfs_fd *glfd_out, off_t *off_out, size_t len,
                      unsigned int flags, struct glfs_stat *statbuf,
                      struct glfs_stat *prestat,
                      struct glfs_stat *poststat) __THROW
