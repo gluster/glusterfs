@@ -2834,6 +2834,7 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
             }
             ctx->cmd_args.curr_server = server;
             ctx->cmd_args.volfile_server = server->volfile_server;
+            ctx->cmd_args.volfile_server_port = server->port;
 
             ret = dict_set_str(rpc_trans->options, "remote-host",
                                server->volfile_server);
@@ -2846,9 +2847,24 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                 emval = ENOTCONN;
                 break;
             }
+            /* Backup volfile servers may listen on different ports
+             * (-s host:port); refresh remote-port too, else the reconnect
+             * dials the new host on the previous server's port. The gfapi
+             * failover path (api/src/glfs-mgmt.c) already does this. */
+            ret = dict_set_int32(rpc_trans->options, "remote-port",
+                                 server->port);
+            if (ret != 0) {
+                gf_log("glusterfsd-mgmt", GF_LOG_ERROR,
+                       "failed to set remote-port: %d", server->port);
+                if (!ctx->active) {
+                    need_term = 1;
+                }
+                emval = ENOTCONN;
+                break;
+            }
             gf_log("glusterfsd-mgmt", GF_LOG_INFO,
-                   "connecting to next volfile server %s",
-                   server->volfile_server);
+                   "connecting to next volfile server %s:%d",
+                   server->volfile_server, server->port);
             break;
         case RPC_CLNT_CONNECT:
             ret = glusterfs_volfile_fetch(ctx);
