@@ -2357,13 +2357,31 @@ out:
 
 /* True if 'str' is a bare (unbracketed) IPv6 address literal.  Host:port
  * splitters use this to avoid mistaking an IPv6 literal's internal ':' for a
- * port separator, which would lop off the final hextet. */
+ * port separator, which would lop off the final hextet.  A scoped
+ * literal 'fe80::1%zone' (RFC 4007) is accepted: inet_pton() rejects the
+ * '%zone' suffix, so the address part is validated on its own. */
 static gf_boolean_t
 gf_is_ipv6_addr(const char *str)
 {
     struct in6_addr addr6;
+    const char *pct = NULL;
+    char buf[INET6_ADDRSTRLEN];
 
-    return (str && inet_pton(AF_INET6, str, &addr6) == 1) ? _gf_true : _gf_false;
+    if (!str)
+        return _gf_false;
+
+    pct = strchr(str, '%');
+    if (pct) {
+        size_t len = pct - str;
+
+        if (len == 0 || len >= sizeof(buf))
+            return _gf_false;
+        memcpy(buf, str, len);
+        buf[len] = '\0';
+        str = buf;
+    }
+
+    return (inet_pton(AF_INET6, str, &addr6) == 1) ? _gf_true : _gf_false;
 }
 
 /* Split an endpoint of the form "host", "host:port", "[host]" or "[host]:port"
@@ -2374,17 +2392,19 @@ gf_is_ipv6_addr(const char *str)
  *   "<host>:<port>"   -> host=<host>,  port=<port>    (IPv4 / hostname)
  *   "<host>"          -> host=<host>,  port=0
  * *host_p receives a GF_MALLOC'd NUL-terminated host (caller frees with
- * GF_FREE); *port_p receives the parsed port, or 0 when the input carries
- * none.  Returns 0 on success, -1 (with *host_p left unset) on malformed
- * input or allocation failure. */
+ * GF_FREE); *port_p receives the parsed port when the input carries a valid
+ * one (all-digits, 1..65535), else 0.  A bracketed literal may only be
+ * followed by ":port" or end-of-string.  Returns 0 on success, -1 on malformed
+ * input or allocation failure; *host_p is set to NULL on every -1 path. */
 static int
 gf_hostname_port_split(const char *input, char **host_p, int *port_p)
 {
     char *host = NULL;
-    int port = 0;
+    const char *portstr = NULL;
 
     if (!input || !host_p || !port_p)
         return -1;
+    *host_p = NULL; /* never leave the caller's pointer indeterminate */
 
     if (input[0] == '[') {
         /* bracketed literal: [<addr>] or [<addr>]:<port> */
@@ -2392,11 +2412,14 @@ gf_hostname_port_split(const char *input, char **host_p, int *port_p)
 
         if (!close || close == input + 1)
             return -1; /* no ']' or empty "[]" */
+        /* only ":port" or end-of-string may follow the closing bracket */
+        if (*(close + 1) != '\0' && *(close + 1) != ':')
+            return -1;
         host = gf_strndup(input + 1, close - input - 1);
         if (host && *(close + 1) == ':')
-            port = (int)strtol(close + 2, NULL, 10);
+            portstr = close + 2;
     } else if (gf_is_ipv6_addr(input)) {
-        /* bare IPv6 literal: every ':' belongs to the address */
+        /* bare IPv6 literal (incl. scoped fe80::1%zone): every ':' is address */
         host = gf_strdup(input);
     } else {
         /* IPv4 / hostname with an optional trailing ":port" */
@@ -2404,7 +2427,7 @@ gf_hostname_port_split(const char *input, char **host_p, int *port_p)
 
         if (colon) {
             host = gf_strndup(input, colon - input);
-            port = (int)strtol(colon + 1, NULL, 10);
+            portstr = colon + 1;
         } else {
             host = gf_strdup(input);
         }
@@ -2412,8 +2435,20 @@ gf_hostname_port_split(const char *input, char **host_p, int *port_p)
 
     if (!host)
         return -1;
+
+    *port_p = 0;
+    if (portstr) {
+        char *endptr = NULL;
+        long port = strtol(portstr, &endptr, 10);
+
+        /* a valid port is all-digits and in the TCP range 1..65535; anything
+         * else (empty, trailing junk, out-of-range) leaves the port unset so
+         * the caller can apply its default or reject */
+        if (endptr != portstr && *endptr == '\0' && port >= 1 && port <= 65535)
+            *port_p = (int)port;
+    }
+
     *host_p = host;
-    *port_p = (port > 0) ? port : 0;
     return 0;
 }
 

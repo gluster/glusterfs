@@ -65,6 +65,12 @@ main(void)
           "2620:0000:1111:2222:dddd:cccc:bbbb:aaaa");
     check("::ffff:1.2.3.4", "::ffff:1.2.3.4"); /* IPv4-mapped is a v6 literal */
 
+    /* scoped (zone-ID) literals, RFC 4007: address kept whole, bare or
+     * bracketed (inet_pton rejects the "%zone" suffix, so this is only handled
+     * once gf_is_ipv6_addr validates the address part) */
+    check("fe80::1%lo", "fe80::1%lo");
+    check("[fe80::1%lo]", "fe80::1%lo");
+
     /* bracketed literals: brackets stripped, address intact */
     check("[ff00::1]", "ff00::1");
     check("[ff00::1]:/export/brick", "ff00::1");
