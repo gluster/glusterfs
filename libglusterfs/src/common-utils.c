@@ -2355,10 +2355,90 @@ out:
     return result;
 }
 
+/* True if 'str' is a bare (unbracketed) IPv6 address literal.  Host:port
+ * splitters use this to avoid mistaking an IPv6 literal's internal ':' for a
+ * port separator, which would lop off the final hextet. */
+static gf_boolean_t
+gf_is_ipv6_addr(const char *str)
+{
+    struct in6_addr addr6;
+
+    return (str && inet_pton(AF_INET6, str, &addr6) == 1) ? _gf_true : _gf_false;
+}
+
+/* Split an endpoint of the form "host", "host:port", "[host]" or "[host]:port"
+ * into an allocated host and a port, IPv6-literal aware:
+ *   "[<addr>]:<port>" -> host=<addr>,  port=<port>   (brackets stripped)
+ *   "[<addr>]"        -> host=<addr>,  port=0
+ *   bare "<v6-addr>"  -> host=<addr>,  port=0         (every ':' is address)
+ *   "<host>:<port>"   -> host=<host>,  port=<port>    (IPv4 / hostname)
+ *   "<host>"          -> host=<host>,  port=0
+ * *host_p receives a GF_MALLOC'd NUL-terminated host (caller frees with
+ * GF_FREE); *port_p receives the parsed port, or 0 when the input carries
+ * none.  Returns 0 on success, -1 (with *host_p left unset) on malformed
+ * input or allocation failure. */
+static int
+gf_hostname_port_split(const char *input, char **host_p, int *port_p)
+{
+    char *host = NULL;
+    int port = 0;
+
+    if (!input || !host_p || !port_p)
+        return -1;
+
+    if (input[0] == '[') {
+        /* bracketed literal: [<addr>] or [<addr>]:<port> */
+        const char *close = strchr(input, ']');
+
+        if (!close || close == input + 1)
+            return -1; /* no ']' or empty "[]" */
+        host = gf_strndup(input + 1, close - input - 1);
+        if (host && *(close + 1) == ':')
+            port = (int)strtol(close + 2, NULL, 10);
+    } else if (gf_is_ipv6_addr(input)) {
+        /* bare IPv6 literal: every ':' belongs to the address */
+        host = gf_strdup(input);
+    } else {
+        /* IPv4 / hostname with an optional trailing ":port" */
+        const char *colon = strrchr(input, ':');
+
+        if (colon) {
+            host = gf_strndup(input, colon - input);
+            port = (int)strtol(colon + 1, NULL, 10);
+        } else {
+            host = gf_strdup(input);
+        }
+    }
+
+    if (!host)
+        return -1;
+    *host_p = host;
+    *port_p = (port > 0) ? port : 0;
+    return 0;
+}
+
 char *
 get_host_name(char *word, char **host)
 {
     char *delimiter = NULL;
+
+    if (!word)
+        return NULL;
+
+    if (word[0] == '[') {
+        /* bracketed literal: [<addr>] or [<addr>]:<suffix> -> host=<addr> */
+        delimiter = strchr(word, ']');
+        if (delimiter && delimiter != word + 1) {
+            *delimiter = '\0';
+            *host = word + 1;
+            return *host;
+        }
+    } else if (gf_is_ipv6_addr(word)) {
+        /* bare IPv6 literal: keep the whole address as the host */
+        *host = word;
+        return *host;
+    }
+
     delimiter = strrchr(word, ':');
     if (delimiter)
         *delimiter = '\0';
@@ -2970,8 +3050,6 @@ gf_process_getspec_servers_list(cmd_args_t *cmd_args, const char *servers_list)
 {
     char *tmp = NULL;
     char *address = NULL;
-    char *host = NULL;
-    char *last_colon = NULL;
     char *save_ptr = NULL;
     int port = 0;
     int ret = -1;
@@ -2989,22 +3067,24 @@ gf_process_getspec_servers_list(cmd_args_t *cmd_args, const char *servers_list)
     }
 
     while (1) {
-        last_colon = strrchr(address, ':');
-        if (!last_colon) {
+        char *host = NULL;
+
+        if (gf_hostname_port_split(address, &host, &port)) {
             errno = EINVAL;
             ret = -1;
             break;
         }
-        *last_colon = '\0';
-        host = address;
-        port = atoi(last_colon + 1);
         if (port <= 0) {
+            /* the getspec server list requires an explicit host:port; an
+             * IPv6 literal must therefore be bracketed, e.g. [addr]:port */
+            GF_FREE(host);
             errno = EINVAL;
             ret = -1;
             break;
         }
         ret = gf_set_volfile_server_common(cmd_args, host,
                                            GF_DEFAULT_VOLFILE_TRANSPORT, port);
+        GF_FREE(host);
         if (ret && errno != EEXIST) {
             break;
         }
@@ -3047,20 +3127,18 @@ gf_set_volfile_server_common(cmd_args_t *cmd_args, const char *host,
     INIT_LIST_HEAD(&server->list);
     server->port = port;
 
-    duphost = gf_strdup(host);
-    if (!duphost) {
-        errno = ENOMEM;
-        goto out;
-    }
+    {
+        int parsed_port = 0;
 
-    char *lastptr = rindex(duphost, ':');
-    if (lastptr) {
-        *lastptr = '\0';
-        long port_argument = strtol(lastptr + 1, NULL, 0);
-        if (!port_argument) {
-            port_argument = port;
+        /* Split host[:port] IPv6-aware so a bare or bracketed IPv6 literal
+         * keeps every hextet.  server->port keeps the caller's
+         * default unless the string carries an explicit port. */
+        if (gf_hostname_port_split(host, &duphost, &parsed_port)) {
+            errno = EINVAL;
+            goto out;
         }
-        server->port = port_argument;
+        if (parsed_port > 0)
+            server->port = parsed_port;
     }
     server->volfile_server = gf_strdup(duphost);
     if (!server->volfile_server) {
