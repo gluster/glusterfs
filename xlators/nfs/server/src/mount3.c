@@ -2061,7 +2061,7 @@ _mnt3_get_host_from_peer(const char *peer_addr)
 {
     char *part = NULL;
     size_t host_len = 0;
-    char *colon = NULL;
+    const char *colon = NULL;
 
     colon = strrchr(peer_addr, ':');
     if (!colon) {

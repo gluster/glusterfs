@@ -174,14 +174,14 @@ static char *
 getChoices(const char *value)
 {
     int i = 0;
-    char *ptr = NULL;
+    const char *ptr = NULL;
     char *tok = NULL;
     char *result = NULL;
     char *newval = NULL;
 
     ptr = strstr(value, "Choices:");
     if (!ptr) {
-        result = ptr;
+        /* result is NULL; */
         goto out;
     }
 
@@ -733,7 +733,7 @@ dht_inode_get_hashed_subvol(inode_t *inode, xlator_t *this, loc_t *loc)
     loc_t populate_loc = {
         0,
     };
-    char *name = NULL;
+    const char *name = NULL;
     xlator_t *hash_subvol = NULL;
 
     if (!inode)

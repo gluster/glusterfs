@@ -463,7 +463,7 @@ int32_t
 ec_loc_setup_path(xlator_t *xl, loc_t *loc)
 {
     static uuid_t root = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
-    char *name;
+    const char *name;
     int32_t ret = -EINVAL;
 
     if (loc->path != NULL) {

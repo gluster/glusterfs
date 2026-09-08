@@ -941,7 +941,7 @@ out:
 int32_t
 _pl_convert_volume(const char *volume, char **res)
 {
-    char *mdata_vol = NULL;
+    const char *mdata_vol = NULL;
     int ret = 0;
 
     mdata_vol = strrchr(volume, ':');
