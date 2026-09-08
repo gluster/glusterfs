@@ -437,7 +437,7 @@ aws_download_s3(call_frame_t *frame, void *config)
     struct curl_slist *tmp = NULL;
     xlator_t *this = NULL;
     int ret = 0;
-    int debug = 1;
+    long debug = 1;
     CURLcode res;
     char errbuf[CURL_ERROR_SIZE];
     size_t len = 0;
