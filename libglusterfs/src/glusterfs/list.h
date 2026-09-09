@@ -167,6 +167,17 @@ list_append(struct list_head *list, struct list_head *head)
     __list_append(list, head);
 }
 
+static inline int
+list_count(struct list_head *list)
+{
+    int s = 0;
+    while (list != list->next) {
+        list = list->next;
+        ++s;
+    }
+    return s;
+}
+
 /* Append moves @list to the end of @head */
 static inline void
 list_append_init(struct list_head *list, struct list_head *head)
