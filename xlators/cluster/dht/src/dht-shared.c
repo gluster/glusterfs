@@ -790,7 +790,16 @@ dht_init(xlator_t *this)
         }
     }
 
-    GF_OPTION_INIT("xattr-name", conf->xattr_name, str, err);
+    /* Fixed since the removal of the "xattr-name" option (issue #4674):
+     * a non-default base name was never honored by posix's linkfile
+     * guard, geo-replication or the rebalance script. DHT_XATTR_BASE is
+     * the shared constant posix also roots DHT_LINKTO in. */
+    conf->xattr_name = DHT_XATTR_BASE;
+    if (dict_get_sizen(this->options, "xattr-name"))
+        gf_msg(this->name, GF_LOG_WARNING, 0, DHT_MSG_INVALID_OPTION,
+               "option xattr-name is removed and ignored; the on-disk "
+               "xattr base name is fixed at %s",
+               conf->xattr_name);
     gf_asprintf(&conf->mds_xattr_key, "%s." DHT_MDS_STR, conf->xattr_name);
     gf_asprintf(&conf->link_xattr_name, "%s." DHT_LINKFILE_STR,
                 conf->xattr_name);
@@ -998,17 +1007,6 @@ struct volume_options dht_options[] = {
     {
         .key = {"rebalance-filter"},
         .type = GF_OPTION_TYPE_STR,
-    },
-
-    {
-        .key = {"xattr-name"},
-        .type = GF_OPTION_TYPE_STR,
-        .default_value = "trusted.glusterfs.dht",
-        .description =
-            "Base for extended attributes used by this "
-            "translator instance, to avoid conflicts with others above or "
-            "below it.",
-        .op_version = {3},
     },
 
     {.key = {"weighted-rebalance"},
