@@ -357,7 +357,7 @@ BUILD_TCMALLOC=no
 USE_MEMPOOL=yes
 AC_ARG_WITH([tcmalloc],
         [AS_HELP_STRING([--without-tcmalloc],[Use gluster based mempool])],
-        [with_tcmalloc="no"], [with_tcmalloc="yes"])
+        [], [with_tcmalloc="yes"])
 if test "x$with_tcmalloc" = "xyes"; then
     AC_CHECK_LIB([tcmalloc_minimal], [malloc], [],
                  [AC_MSG_ERROR([tcmalloc library needs to be present])])
@@ -382,7 +382,7 @@ dnl use glibc rpc.
 dnl
 AC_ARG_WITH([libtirpc],
         [AS_HELP_STRING([--without-libtirpc],[Use legacy glibc RPC.])],
-        [with_libtirpc="no"], [with_libtirpc="yes"])
+        [], [with_libtirpc="yes"])
 
 dnl For --without-libtirpc, check whether legacy glibc rpc is available.
 if test "x$with_libtirpc" = "xno"; then
@@ -397,7 +397,7 @@ dnl ipv6-default can only be enabled if libtipc is enabled.
 dnl
 AC_ARG_WITH([ipv6-default],
         AS_HELP_STRING([--with-ipv6-default],[Set IPv6 as default.]),
-        [with_ipv6_default=${with_libtirpc}], [with_ipv6_default="no"])
+        [], [with_ipv6_default="no"])
 
 if test x$cross_compiling != xyes; then
     AC_CHECK_FILE([/etc/centos-release])
