@@ -850,7 +850,7 @@ pub_glfs_new(const char *volname)
     }
 
     for (i = 0; i < strlen(volname); i++) {
-        if (!isalnum(volname[i]) && (volname[i] != '_') &&
+        if (!isalnum((unsigned char)volname[i]) && (volname[i] != '_') &&
             (volname[i] != '-')) {
             errno = EINVAL;
             return NULL;

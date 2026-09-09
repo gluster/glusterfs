@@ -562,7 +562,7 @@ cli_validate_volname(const char *volname)
     }
 
     for (i = 0; i < volname_len; i++) {
-        if (!isalnum(volname[i]) && (volname[i] != '_') &&
+        if (!isalnum((unsigned char)volname[i]) && (volname[i] != '_') &&
             (volname[i] != '-')) {
             cli_err(
                 "Volume name should not contain \"%c\""
@@ -1702,7 +1702,7 @@ gf_strip_whitespace(char *str, int len)
         return -1;
 
     for (i = 0; i < len; i++) {
-        if (!isspace(str[i]))
+        if (!isspace((unsigned char)str[i]))
             new_str[new_len++] = str[i];
     }
     new_str[new_len] = '\0';
@@ -3087,7 +3087,7 @@ gf_is_str_int(const char *value)
     fptr = str;
 
     while (*str) {
-        if (!isdigit(*str)) {
+        if (!isdigit((unsigned char)*str)) {
             flag = 1;
             goto out;
         }
@@ -4173,7 +4173,7 @@ cli_snap_clone_parse(dict_t *dict, const char **words, int wordcount)
     clonename = (char *)words[cmdi];
     for (i = 0; i < strlen(clonename); i++) {
         /* Following volume name convention */
-        if (!isalnum(clonename[i]) &&
+        if (!isalnum((unsigned char)clonename[i]) &&
             (clonename[i] != '_' && (clonename[i] != '-'))) {
             /* TODO : Is this message enough?? */
             cli_err(
@@ -4255,7 +4255,7 @@ cli_snap_create_parse(dict_t *dict, const char **words, int wordcount)
     snapname = (char *)words[cmdi];
     for (i = 0; i < strlen(snapname); i++) {
         /* Following volume name convention */
-        if (!isalnum(snapname[i]) &&
+        if (!isalnum((unsigned char)snapname[i]) &&
             (snapname[i] != '_' && (snapname[i] != '-'))) {
             /* TODO : Is this message enough?? */
             cli_err(
@@ -5468,7 +5468,7 @@ cli_cmd_validate_volume(char *volname)
     }
 
     for (i = 0; i < volname_len; i++)
-        if (!isalnum(volname[i]) && (volname[i] != '_') &&
+        if (!isalnum((unsigned char)volname[i]) && (volname[i] != '_') &&
             (volname[i] != '-')) {
             cli_err(
                 "Volume name should not contain \"%c\""

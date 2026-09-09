@@ -209,7 +209,7 @@ string2bytesize(const char *str, unsigned long long *n)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s)) {
+        if (isspace((unsigned char)*s)) {
             continue;
         }
         if (*s == '-') {

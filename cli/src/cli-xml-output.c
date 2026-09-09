@@ -3412,7 +3412,7 @@ _output_gsync_config(FILE *fp, xmlTextWriterPtr writer, char *op_name)
             break;
 
         v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v)) {
+        while (isspace((unsigned char)*v)) {
             /* strip trailing space */
             *v-- = '\0';
         }
@@ -3434,7 +3434,7 @@ _output_gsync_config(FILE *fp, xmlTextWriterPtr writer, char *op_name)
             goto out;
         }
         *v++ = '\0';
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             v++;
         v = gf_strdup(v);
         if (!v) {

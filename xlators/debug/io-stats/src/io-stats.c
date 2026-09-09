@@ -822,7 +822,7 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
     for (i = 0; i < GF_FOP_MAXVALUE; i++) {
         lc_fop_name = strdupa(gf_fop_list[i]);
         for (j = 0; lc_fop_name[j]; j++) {
-            lc_fop_name[j] = tolower(lc_fop_name[j]);
+            lc_fop_name[j] = tolower((unsigned char)lc_fop_name[j]);
         }
 
         fop_hits = GF_ATOMIC_GET(stats->fop_hits[i]);
@@ -879,7 +879,7 @@ io_stats_dump_global_to_json_logfp(xlator_t *this,
     for (i = 0; i < GF_UPCALL_FLAGS_MAXVALUE; i++) {
         lc_fop_name = strdupa(gf_upcall_list[i]);
         for (j = 0; lc_fop_name[j]; j++) {
-            lc_fop_name[j] = tolower(lc_fop_name[j]);
+            lc_fop_name[j] = tolower((unsigned char)lc_fop_name[j]);
         }
         fop_hits = GF_ATOMIC_GET(stats->upcall_hits[i]);
         if (interval == -1) {

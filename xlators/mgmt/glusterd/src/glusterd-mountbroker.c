@@ -140,7 +140,7 @@ parse_mount_pattern_desc(gf_mount_spec_t *mspec, char *pdesc)
                 ret = SYNTAX_ERR;
                 goto out;
             }
-            while (!strchr("|&)", *c2) && !isspace(*c2))
+            while (!strchr("|&)", *c2) && !isspace((unsigned char)*c2))
                 c2++;
             skipwhite(&c2);
             switch (*c2) {
@@ -182,7 +182,7 @@ parse_mount_pattern_desc(gf_mount_spec_t *mspec, char *pdesc)
         c2 = ""; /* reset c2 */
         while (*c2 != ')') {
             c2 = curs;
-            while (!isspace(*c2) && *c2 != ')')
+            while (!isspace((unsigned char)*c2) && *c2 != ')')
                 c2++;
             sc = *c2;
             *c2 = '\0';

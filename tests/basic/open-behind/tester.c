@@ -82,7 +82,8 @@ buffer_get(context_t *ctx)
 static int32_t
 str_skip_spaces(context_t *ctx, int32_t current)
 {
-    while ((current > 0) && (current != '\n') && isspace(current)) {
+    while ((current > 0) && (current != '\n') &&
+           isspace((unsigned char)current)) {
         current = buffer_get(ctx);
     }
 
@@ -98,7 +99,7 @@ str_token(context_t *ctx, char *buffer, uint32_t size, int32_t current)
 
     len = 0;
     while ((size > 0) && (current > 0) && (current != '\n') &&
-           !isspace(current)) {
+           !isspace((unsigned char)current)) {
         len++;
         *buffer++ = current;
         size--;

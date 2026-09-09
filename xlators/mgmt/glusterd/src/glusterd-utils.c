@@ -6932,7 +6932,7 @@ glusterd_parse_inode_size(char *stream, char *pattern)
     needle = nwstrtail(needle, pattern);
 
     trail = needle;
-    while (trail && isdigit(*trail))
+    while (trail && isdigit((unsigned char)*trail))
         trail++;
     if (trail)
         *trail = '\0';

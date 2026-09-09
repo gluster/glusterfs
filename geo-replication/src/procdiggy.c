@@ -55,7 +55,7 @@ pidinfo(pid_t pid, char **name)
         if (name && !*name) {
             p = strtail(buf, "Name:");
             if (p) {
-                while (isspace(*++p))
+                while (isspace((unsigned char)*++p))
                     ;
                 *name = gf_strdup(p);
                 if (!*name) {
@@ -71,7 +71,7 @@ pidinfo(pid_t pid, char **name)
             break;
     }
 
-    while (isspace(*++p))
+    while (isspace((unsigned char)*++p))
         ;
     ret = gf_string2int(p, &lpid);
     if (ret == -1)

@@ -760,7 +760,7 @@ _fcbk_conftodict(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!ptr)
             break;
         v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             /* strip trailing space */
             *v-- = '\0';
         if (v == resbuf)
@@ -770,7 +770,7 @@ _fcbk_conftodict(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!v)
             return -1;
         *v++ = '\0';
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             v++;
         v = gf_strdup(v);
         if (!v)
@@ -826,7 +826,7 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
             break;
 
         v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             /* strip trailing space */
             *v-- = '\0';
         if (v == resbuf)
@@ -836,7 +836,7 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!v)
             return -1;
         *v++ = '\0';
-        while (isspace(*v))
+        while (isspace((unsigned char)*v))
             v++;
         v = gf_strdup(v);
         if (!v)
@@ -4427,7 +4427,7 @@ glusterd_gsync_read_frm_status(char *path, char *buf, size_t blen)
             ret = -1;
         } else {
             char *p = buf + len - 1;
-            while (isspace(*p))
+            while (isspace((unsigned char)*p))
                 *p-- = '\0';
         }
     } else if (ret == 0)
