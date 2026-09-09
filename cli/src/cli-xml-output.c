@@ -3411,10 +3411,10 @@ _output_gsync_config(FILE *fp, xmlTextWriterPtr writer, char *op_name)
         if (!ptr)
             break;
 
-        v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v)) {
+        v = resbuf + strlen(resbuf);
+        while (v > resbuf && isspace((unsigned char)v[-1])) {
             /* strip trailing space */
-            *v-- = '\0';
+            *--v = '\0';
         }
         if (v == resbuf) {
             /* skip empty line */

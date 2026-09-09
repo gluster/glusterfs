@@ -759,10 +759,10 @@ _fcbk_conftodict(char *resbuf, size_t blen, FILE *fp, void *data)
         ptr = fgets(resbuf, blen - 2, fp);
         if (!ptr)
             break;
-        v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v))
+        v = resbuf + strlen(resbuf);
+        while (v > resbuf && isspace((unsigned char)v[-1]))
             /* strip trailing space */
-            *v-- = '\0';
+            *--v = '\0';
         if (v == resbuf)
             /* skip empty line */
             continue;
@@ -825,10 +825,10 @@ _fcbk_statustostruct(char *resbuf, size_t blen, FILE *fp, void *data)
         if (!ptr)
             break;
 
-        v = resbuf + strlen(resbuf) - 1;
-        while (isspace(*v))
+        v = resbuf + strlen(resbuf);
+        while (v > resbuf && isspace((unsigned char)v[-1]))
             /* strip trailing space */
-            *v-- = '\0';
+            *--v = '\0';
         if (v == resbuf)
             /* skip empty line */
             continue;
@@ -4426,9 +4426,9 @@ glusterd_gsync_read_frm_status(char *path, char *buf, size_t blen)
         if (len == 0 || len == blen - 1) {
             ret = -1;
         } else {
-            char *p = buf + len - 1;
-            while (isspace(*p))
-                *p-- = '\0';
+            char *p = buf + len;
+            while (p > buf && isspace((unsigned char)p[-1]))
+                *--p = '\0';
         }
     } else if (ret == 0)
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_GSYNCD_ERROR,
