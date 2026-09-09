@@ -584,8 +584,10 @@ glusterd_mgmt_v3_lock(const char *name, uuid_t uuid, uint32_t *op_errno,
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Unable to set timer in mgmt_v3 lock");
+        dict_del(priv->mgmt_v3_lock, key_dup);
         GF_FREE(key_dup);
         GF_FREE(mgmt_lock_timer);
+        GF_FREE(lock_obj);
         goto out;
     }
 
