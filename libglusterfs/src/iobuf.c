@@ -981,7 +981,7 @@ iobuf_copy(struct iobuf_pool *iobuf_pool, const struct iovec *iovec_src,
            int iovcnt, struct iobref **iobref, struct iobuf **iobuf,
            struct iovec *iov_dst)
 {
-    size_t size = -1;
+    size_t size = 0;
     int ret = 0;
 
     size = iov_length(iovec_src, iovcnt);
