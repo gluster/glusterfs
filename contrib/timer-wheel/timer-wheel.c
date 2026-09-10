@@ -56,7 +56,7 @@ __gf_tw_add_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
         } else if (idx < 1 << (TVR_BITS + 3*TVN_BITS)) {
                 i = (expires >> (TVR_BITS + 2*TVN_BITS)) & TVN_MASK;
                 vec = base->tv4.vec + i;
-        } else if (idx < 0) {
+        } else if ((long)idx < 0) {
                 vec = base->tv1.vec + (base->timer_sec & TVR_MASK);
         } else {
                 i = (expires >> (TVR_BITS + 3*TVN_BITS)) & TVN_MASK;
