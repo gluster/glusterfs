@@ -68,14 +68,10 @@ __gf_tw_add_timer (struct tvec_base *base, struct gf_tw_timer_list *timer)
 
 unsigned long gf_tw_find_last_bit(const unsigned long *, unsigned long);
 
-#if defined(__GNUC__) || defined(__clang__)
 static inline unsigned long gf_tw_fls (unsigned long word)
 {
         return BITS_PER_LONG - __builtin_clzl(word);
 }
-#else
-extern unsigned long gf_tw_fls (unsigned long);
-#endif
 
 static inline unsigned long
 apply_slack(struct tvec_base *base, struct gf_tw_timer_list *timer)
