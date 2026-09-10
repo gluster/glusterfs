@@ -1638,7 +1638,7 @@ case $host_os in
 
             AC_CHECK_HEADER([linux/io_uring.h],
                             [
-                                AC_DEFINE([HAVE_IO_URING], [1], "io_uring support")
+                                AC_DEFINE([HAVE_IO_URING], [1], [io_uring support])
                                 BUILD_LINUX_IO_URING="yes"
                             ])
         fi
