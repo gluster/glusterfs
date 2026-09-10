@@ -1141,7 +1141,7 @@ if test "x${have_llistxattr}" = "xyes"; then
    AC_DEFINE(HAVE_LLISTXATTR, 1, [define if llistxattr exists])
 fi
 
-AC_CHECK_FUNC([fdatasync], [have_fdatasync=no])
+AC_CHECK_FUNC([fdatasync], [have_fdatasync=yes])
 if test "x${have_fdatasync}" = "xyes"; then
    AC_DEFINE(HAVE_FDATASYNC, 1, [define if fdatasync exists])
 fi
