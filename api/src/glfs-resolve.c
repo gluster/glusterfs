@@ -1204,7 +1204,6 @@ glfs_h_resolve_symlink(struct glfs *fs, struct glfs_object *object)
 
     subvol = glfs_active_subvol(fs);
     if (!subvol) {
-        ret = -1;
         errno = EIO;
         goto out;
     }
