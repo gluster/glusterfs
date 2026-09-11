@@ -56,15 +56,13 @@ typedef struct {
     fd_t *fd;     /* for all the fd based ops */
     fd_t *fd_dst; /* Only for copy_file_range destination */
     off_t offset;
-    /*
-     * According to the man page of copy_file_range,
-     * the offsets for source and destination file
-     * are of type loff_t. But the type loff_t is
-     * linux specific and is actual a typedef of
-     * off64_t.
+    /* Offsets for the copy_file_range source and destination file.
+     * copy_file_range(2) types them loff_t *, which is Linux-only;
+     * off_t is 64-bit here because the whole tree is built with
+     * _FILE_OFFSET_BITS=64, and it exists on every platform.
      */
-    off64_t off_in;  /* For copy_file_range source fd */
-    off64_t off_out; /* For copy_file_range destination fd only */
+    off_t off_in;  /* For copy_file_range source fd */
+    off_t off_out; /* For copy_file_range destination fd only */
     int mask;
     size_t size;
     mode_t mode;
@@ -322,7 +320,7 @@ default_namelink(call_frame_t *frame, xlator_t *this, loc_t *loc,
 
 int32_t
 default_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
-                        off64_t off_in, fd_t *fd_out, off64_t off_out,
+                        off_t off_in, fd_t *fd_out, off_t off_out,
                         size_t len, uint32_t flags, dict_t *xdata);
 
 /* Resume */
@@ -546,7 +544,7 @@ default_put_resume(call_frame_t *frame, xlator_t *this, loc_t *loc, mode_t mode,
 
 int32_t
 default_copy_file_range_resume(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
-                               off_t off64_in, fd_t *fd_out, off64_t off_out,
+                               off_t off_in, fd_t *fd_out, off_t off_out,
                                size_t len, uint32_t flags, dict_t *xdata);
 
 /* _cbk_resume */

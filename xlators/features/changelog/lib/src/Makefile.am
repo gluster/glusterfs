@@ -3,7 +3,7 @@ AUTOMAKE_OPTIONS = subdir-objects
 libgfchangelog_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS) \
 	-DDATADIR=\"$(localstatedir)\"
 
-libgfchangelog_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 -D__USE_LARGEFILE64 -fpic \
+libgfchangelog_la_CPPFLAGS = $(GF_CPPFLAGS) -fpic \
 	-I../../../src/ -I$(top_srcdir)/libglusterfs/src \
 	-I$(top_srcdir)/xlators/features/changelog/src \
 	-I$(top_srcdir)/rpc/xdr/src -I$(top_builddir)/rpc/xdr/src \

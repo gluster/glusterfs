@@ -8,7 +8,6 @@
    cases as published by the Free Software Foundation.
 */
 #define _GNU_SOURCE
-#define __USE_FILE_OFFSET64
 #define _FILE_OFFSET_BITS 64
 
 #include <stdio.h>

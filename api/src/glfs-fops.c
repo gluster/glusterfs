@@ -1873,8 +1873,8 @@ invalid_fs:
 
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_copy_file_range, 6.0)
 ssize_t
-pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
-                         struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
+pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off_t *off_in,
+                         struct glfs_fd *glfd_out, off_t *off_out, size_t len,
                          unsigned int flags, struct glfs_stat *statbuf,
                          struct glfs_stat *prestat, struct glfs_stat *poststat)
 {
@@ -1894,8 +1894,8 @@ pub_glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
                     0,
                 };
     dict_t *fop_attr = NULL;
-    off64_t pos_in;
-    off64_t pos_out;
+    off_t pos_in;
+    off_t pos_out;
 
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd_in, invalid_fs);

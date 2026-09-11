@@ -249,32 +249,15 @@ sys_socket(int domain, int type, int protocol);
 int
 sys_accept(int sock, struct sockaddr *sockaddr, socklen_t *socklen, int flags);
 
-#ifdef GF_BSD_HOST_OS
-#ifndef _OFF64_T_DECLARED
 /*
- * Including <stdio.h> (done above) should actually define
- * _OFF64_T_DECLARED with off64_t data type being available
- * for consumption. But, off64_t data type is not recognizable
- * for FreeBSD versions less than 11. Hence, int64_t is typedefed
- * to off64_t.
- */
-#define _OFF64_T_DECLARED
-typedef int64_t off64_t;
-#endif /* _OFF64_T_DECLARED */
-#endif /* GF_BSD_HOST_OS */
-
-/*
- * According to the man page of copy_file_range, both off_in and off_out are
- * pointers to the data type loff_t (i.e. loff_t *). But, freebsd does not
- * have (and recognize) loff_t. Since loff_t is 64 bits, use off64_t
- * instead.  Since it's a pointer type it should be okay. It just needs
- * to be a pointer-to-64-bit pointer for both 32- and 64-bit platforms.
- * off64_t is recognized by freebsd.
- * TODO: In future, when freebsd can recognize loff_t, probably revisit this
- *       and change the off_in and off_out to (loff_t *).
+ * copy_file_range(2) is declared with loff_t * offsets on Linux, which is
+ * a 64-bit type.  off_t is that same 64-bit type here: every translation
+ * unit is built with _FILE_OFFSET_BITS=64 (see GF_CPPDEFINES), FreeBSD and
+ * musl have a 64-bit off_t unconditionally, and glibc's copy_file_range()
+ * takes __off64_t *, which _FILE_OFFSET_BITS=64 makes identical to off_t *.
  */
 ssize_t
-sys_copy_file_range(int fd_in, off64_t *off_in, int fd_out, off64_t *off_out,
+sys_copy_file_range(int fd_in, off_t *off_in, int fd_out, off_t *off_out,
                     size_t len, unsigned int flags);
 
 int
