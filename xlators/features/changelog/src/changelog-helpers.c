@@ -20,6 +20,7 @@
 #include "changelog-rpc-common.h"
 #include <pthread.h>
 #include <time.h>
+#include <libgen.h>
 
 static void
 changelog_cleanup_free_mutex(void *arg_mutex)
