@@ -328,7 +328,6 @@ dht_rename_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         goto err;
     }
 
-    fd_bind(fd);
     STACK_WIND_COOKIE(frame, dht_rename_readdir_cbk, prev, prev,
                       prev->fops->readdir, local->fd, 4096, 0, NULL);
 
@@ -387,6 +386,8 @@ dht_rename_dir_lock2_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         dht_rename_dir_do(frame, this);
         return 0;
     }
+
+    fd_bind(local->fd);
 
     for (i = 0; i < conf->subvolume_cnt; i++) {
         STACK_WIND_COOKIE(frame, dht_rename_opendir_cbk, conf->subvolumes[i],
