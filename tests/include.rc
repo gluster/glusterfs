@@ -147,7 +147,18 @@ _GFS () {
 }
 GFS="_GFS --attribute-timeout=0 --entry-timeout=0";
 
-mkdir -p $WORKDIRS
+# Do not mkdir a workdir that is already a mountpoint: if it is mounted the
+# directory exists by definition, and the path lookup implied by mkdir -p
+# can hang in the kernel (D state) on a stale fuse mount left behind by an
+# earlier killed test - which then wedges every subsequent run before its
+# first test line executes (see issue #4610).  Live mounts are deliberately
+# not touched here: cleanup() is the place that unmounts.
+for _d in $WORKDIRS; do
+        awk -v d="$_d" '$2 == d { found = 1 } END { exit !found }' \
+                /proc/mounts 2>/dev/null && continue
+        mkdir -p "$_d"
+done
+unset _d
 
 case $OSTYPE in
 FreeBSD | Darwin)
@@ -196,7 +207,11 @@ function dbg()
 function G_LOG()
 {
      local g_log_logdir;
-     g_log_logdir=`$CLI --print-logdir`
+     # LOGDIR is computed once at source time with this same command.
+     # G_LOG runs for every TEST/EXPECT line in the suite (~21000 per
+     # full regression run), so re-executing the CLI here cost minutes
+     # of pure fork/exec per run for a value that cannot change.
+     g_log_logdir=${LOGDIR}
      test -d $g_log_logdir
      if [ $? != 0 ]; then
         return
@@ -719,7 +734,7 @@ function cleanup()
                         fs=${tmp%%:*}
                         inode=${tmp#*:}
                         file=`find -x ${fs} -inum ${inode} -print -exit`
-                        echo ${file} | grep "$B0/" && \
+                        echo ${file} | grep -q "$B0/" && \
                             LOOPDEVICES="${LOOPDEVICES} $dev"
                 done
                 for l in $LOOPDEVICES;
@@ -728,22 +743,23 @@ function cleanup()
                 done
                 ;;
         *)
-                echo "`uname -s` loopback device supportmissing"
+                echo "`uname -s` loopback device support missing" >&2
                 ;;
         esac
 
         # remove contents of "GLUSTERD_WORKDIR" except hooks and groups
-        # directories.
-        if [ -n $GLUSTERD_WORKDIR ]
+        # directories.  The -n test MUST be quoted: unquoted, [ -n $VAR ]
+        # is true even for an unset VAR, and the find below would then
+        # expand to 'find /* ... -exec rm -rf' and erase the machine.
+        if [ -n "$GLUSTERD_WORKDIR" ]
         then
                 find  $GLUSTERD_WORKDIR/* -maxdepth 0 -name 'hooks' -prune \
                 -o -name 'groups' -prune -o -exec rm -rf '{}' ';'
         else
-                echo "GLUSTERD_WORKDIR is not set"
+                echo "GLUSTERD_WORKDIR is not set" >&2
         fi
 
         # Complete cleanup time
-        rm -rf "$B0/*" "/etc/glusterd/*";
         rm -rf $WORKDIRS
         find $GLUSTERD_PIDFILEDIR -name "*.pid" | xargs rm -rf
         leftover=""
@@ -765,8 +781,10 @@ function cleanup()
                 return 1;
         fi >&2
 
-        # Physically release unused space
-        fstrim /d
+        # NB: the fstrim that used to run here lives in run-tests.sh now:
+        # cleanup() runs at both test entry and exit, and fstrim's duration
+        # is unbounded on some devices, which stalled every path that waits
+        # for a cleanup to finish.
 
         mkdir -p $WORKDIRS
 	# This is usually the last thing a test script calls, so our return
@@ -780,7 +798,20 @@ function cleanup()
 
 function force_terminate () {
         local ret=$?;
-        >&2 echo -e "\nreceived external"\
+        # Disarm: a second signal (impatient Ctrl-C, timeout's -k escalation
+        # racing us) must not re-enter this handler and restart cleanup.
+        trap '' INT TERM HUP;
+        # The TAP consumer reading our stdout (prove) usually dies of the
+        # same signal that got us here, so a write to stdout - or to both
+        # streams, under a harness that merges them into one pipe - would
+        # kill this handler with SIGPIPE in the middle of cleanup.  With
+        # SIGPIPE ignored such writes fail benignly with EPIPE instead,
+        # and cleanup runs to the end.
+        trap '' PIPE;
+        # Cleanup chatter is diagnostics, not TAP - route it to stderr for
+        # the rest of the handler.
+        exec 1>&2;
+        echo -e "\nreceived external"\
                         "signal --`kill -l $ret`--, calling 'cleanup' ...\n";
         cleanup;
         exit $ret;
