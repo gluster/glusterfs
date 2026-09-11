@@ -400,7 +400,6 @@ glfs_resolve_component(struct glfs *fs, xlator_t *subvol, inode_t *parent,
 
     glret = priv_glfs_loc_touchup(&loc);
     if (glret < 0) {
-        ret = -1;
         goto out;
     }
 
