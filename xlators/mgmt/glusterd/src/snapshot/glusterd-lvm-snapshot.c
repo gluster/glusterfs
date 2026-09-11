@@ -52,7 +52,7 @@ glusterd_origin_device(char *device, char **origin_device)
 
     runinit(&runner);
 
-    runner_add_args(&runner, "/sbin/lvs", "--noheadings", "-o", "origin",
+    runner_add_args(&runner, LVS, "--noheadings", "-o", "origin",
                     device, NULL);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
     runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
@@ -134,7 +134,7 @@ glusterd_lvm_probe(char *brick_path)
         goto out;
     }
 
-    if (!glusterd_is_cmd_available("/sbin/lvs")) {
+    if (!glusterd_is_cmd_available(LVS)) {
         gf_msg(this->name, GF_LOG_DEBUG, 0, GD_MSG_COMMAND_NOT_FOUND,
                "LVM commands not found");
         ret = -1;
@@ -145,7 +145,7 @@ glusterd_lvm_probe(char *brick_path)
 
     runinit(&runner);
 
-    runner_add_args(&runner, "/sbin/lvs", "--noheadings", "-o", "pool_lv",
+    runner_add_args(&runner, LVS, "--noheadings", "-o", "pool_lv",
                     device, NULL);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
     runner_log(&runner, this->name, GF_LOG_DEBUG, msg);
@@ -236,7 +236,7 @@ glusterd_lvm_snapshot_device(char *brick_path, char *snapname)
     }
 
     runinit(&runner);
-    runner_add_args(&runner, "/sbin/lvs", "--noheadings", "-o", "vg_name",
+    runner_add_args(&runner, LVS, "--noheadings", "-o", "vg_name",
                     device, NULL);
     runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
     snprintf(msg, sizeof(msg), "Get volume group for device %s", device);
