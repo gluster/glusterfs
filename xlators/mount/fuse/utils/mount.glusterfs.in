@@ -332,6 +332,14 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --fuse-handle-copy_file_range=$fuse_handle_copy_file_range");
     fi
 
+    if [ -n "$fuse_max_write" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-max-write=$fuse_max_write");
+    fi
+
+    if [ -n "$fuse_max_read" ]; then
+        cmd_line=$(echo "$cmd_line --fuse-max-read=$fuse_max_read");
+    fi
+
     if [ -n "$process_name" ]; then
         cmd_line=$(echo "$cmd_line --process-name fuse.$process_name");
     else
@@ -640,6 +648,12 @@ with_options()
             ;;
         "fuse-dev-eperm-ratelimit-ns")
             fuse_dev_eperm_ratelimit_ns=$value
+            ;;
+        "fuse-max-write")
+            fuse_max_write=$value
+            ;;
+        "fuse-max-read")
+            fuse_max_read=$value
             ;;
         "context"|"fscontext"|"defcontext"|"rootcontext")
             # standard SElinux mount options to pass to the kernel
