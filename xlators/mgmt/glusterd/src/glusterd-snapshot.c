@@ -7414,6 +7414,47 @@ out:
     return ret;
 }
 
+/* Does this snapshot have a dependent clone?
+ *
+ * A `snapshot clone` (and a `snapshot restore`) creates a regular volume
+ * whose backend is a clone of the snapshot's brick(s); that volume records
+ * the source snapshot in its replicated `restored_from_snap` field (== the
+ * snapshot's snap_id). While such a volume exists, the snapshot's backend
+ * cannot be freed (e.g. ZFS refuses `zfs destroy` of a snapshot that still
+ * has a dependent clone), so deleting the snapshot would orphan its backend.
+ *
+ * The check scans glusterd's replicated volume list, so every peer reaches
+ * the same verdict for a snapshot regardless of which peers host its bricks.
+ * That matters because soft-limit auto-delete runs on every peer in the
+ * create postvalidate phase with no cross-peer aggregation: a local-only
+ * check (probing only this peer's bricks) would make peers reach different
+ * verdicts and diverge the snapshot catalog.
+ *
+ * This tracks glusterd-managed clones/restores only; a backend clone left
+ * orphaned by a different defect is not visible here and is out of scope. */
+static gf_boolean_t
+glusterd_snapshot_has_dependent_clone(glusterd_snap_t *snap)
+{
+    glusterd_conf_t *priv = NULL;
+    glusterd_volinfo_t *voliter = NULL;
+    xlator_t *this = THIS;
+
+    if (!snap)
+        return _gf_false;
+
+    priv = this->private;
+    GF_ASSERT(priv);
+
+    cds_list_for_each_entry(voliter, &priv->volumes, vol_list)
+    {
+        if (!gf_uuid_is_null(voliter->restored_from_snap) &&
+            gf_uuid_compare(voliter->restored_from_snap, snap->snap_id) == 0)
+            return _gf_true;
+    }
+
+    return _gf_false;
+}
+
 static int32_t
 glusterd_handle_snap_limit(dict_t *dict, dict_t *rsp_dict)
 {
@@ -7430,6 +7471,7 @@ glusterd_handle_snap_limit(dict_t *dict, dict_t *rsp_dict)
     glusterd_volinfo_t *volinfo = NULL;
     uint64_t limit = 0;
     int64_t count = 0;
+    int64_t scanned = 0;
     glusterd_snap_t *snap = NULL;
     glusterd_volinfo_t *tmp_volinfo = NULL;
     uint64_t opt_max_hard = GLUSTERD_SNAPS_MAX_HARD_LIMIT;
@@ -7488,9 +7530,36 @@ glusterd_handle_snap_limit(dict_t *dict, dict_t *rsp_dict)
         if (count <= 0)
             goto out;
 
-        tmp_volinfo = cds_list_entry(volinfo->snap_volumes.next,
-                                     glusterd_volinfo_t, snapvol_list);
-        snap = tmp_volinfo->snapshot;
+        /* Select the oldest snapshot that can actually be removed. Walk
+         * only the over-limit (oldest `count`) snapshots -- never the newest
+         * `limit`, which are kept -- and skip any whose backend still has a
+         * dependent clone (un-removable; deleting it would silently orphan
+         * the backend). If every over-limit snapshot is un-removable,
+         * reclaim nothing this round and let snap_count rise toward the hard
+         * limit (where snapshot creation is refused), rather than orphaning a
+         * snapshot or deleting a newer one. The dependency check is over
+         * replicated metadata, so every peer selects the same snapshot. */
+        snap = NULL;
+        scanned = 0;
+        cds_list_for_each_entry(tmp_volinfo, &volinfo->snap_volumes,
+                                snapvol_list)
+        {
+            if (scanned++ >= count)
+                break;
+            if (!glusterd_snapshot_has_dependent_clone(tmp_volinfo->snapshot)) {
+                snap = tmp_volinfo->snapshot;
+                break;
+            }
+        }
+        if (!snap) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_SOFT_LIMIT_REACHED,
+                   "Soft-limit reached for volume %s, but the oldest "
+                   "over-limit snapshot(s) have dependent clones and cannot "
+                   "be reclaimed; snap_count will rise toward the hard limit "
+                   "until a dependent clone is removed.",
+                   volinfo->volname);
+            continue;
+        }
         GF_ASSERT(snap);
 
         gf_msg(this->name, GF_LOG_WARNING, 0, GD_MSG_SOFT_LIMIT_REACHED,
