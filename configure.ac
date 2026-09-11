@@ -761,19 +761,6 @@ if test -n "${PYTHON}"; then
 fi
 AM_CONDITIONAL(HAVE_PYTHON, test "x$have_python" = "xyes")
 
-dnl Use pkg-config to get runtime search path missing from ${PYTHON}-config
-dnl Just do "true" on failure so that configure does not bail out
-dnl Note: python 2.6's devel pkg (e.g. in CentOS/RHEL 6) does not have
-dnl pkg-config files, so this work-around instead
-if test "x${PYTHON_VERSION}" = "x2.6"; then
-  PYTHON_CFLAGS=$(python-config --includes)
-  PYTHON_LIBS=$(python-config --libs)
-else
-  PKG_CHECK_MODULES([PYTHON], "python-${PYTHON_VERSION}",,true)
-fi
-
-PYTHON_CFLAGS=$(echo ${PYTHON_CFLAGS} | sed -e 's|-I|-isystem |')
-
 BUILD_PYTHON_SITE_PACKAGES=${pythondir}
 AC_SUBST(BUILD_PYTHON_SITE_PACKAGES)
 
