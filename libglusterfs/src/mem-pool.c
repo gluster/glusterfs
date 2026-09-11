@@ -384,6 +384,7 @@ __gf_free(void *free_ptr)
     LOCK(&mem_acct->rec[header->type].lock);
     {
         list_del(&header->acct_list);
+        mem_acct->rec[header->type].size -= header->size;
     }
     UNLOCK(&mem_acct->rec[header->type].lock);
 #endif
