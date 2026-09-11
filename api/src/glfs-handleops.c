@@ -2116,7 +2116,6 @@ glfs_h_poll_cache_invalidation(struct glfs *fs, struct glfs_upcall *up_arg,
              * have got removed. We still need to send upcall
              * for the file/dir and current parent handles. */
             up_inode_arg->oldp_object = NULL;
-            ret = 0;
         }
 
         glfs_iatt_to_stat(fs, &ca_data->oldp_stat, &up_inode_arg->oldp_buf);
