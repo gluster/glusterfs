@@ -1272,6 +1272,22 @@ pub_glfs_fini(struct glfs *fs)
 
     call_pool = fs->ctx->pool;
 
+    /* Prevent new operations from entering the xlator stack.
+     * Without this, glfs_open() and other entry points can create
+     * file descriptors on a graph that is about to be torn down,
+     * leading to use-after-free.  The flag is checked (without the
+     * mutex) in __GLFS_ENTRY_VALIDATE_FS for fast rejection and
+     * (under the mutex) in priv_glfs_active_subvol as the
+     * authoritative gate.
+     */
+    pthread_mutex_lock(&fs->mutex);
+    {
+        fs->shutting_down = _gf_true;
+        pthread_cond_broadcast(&fs->cond);
+        __GLFS_SYNCTASK_WAKE(fs);
+    }
+    pthread_mutex_unlock(&fs->mutex);
+
     /* Wake up any suspended synctasks */
     while (!list_empty(&fs->waitq)) {
         waittask = list_entry(fs->waitq.next, struct synctask, waitq);
@@ -1313,7 +1329,32 @@ pub_glfs_fini(struct glfs *fs)
     pthread_mutex_unlock(&fs->mutex);
 
     if (fs_init != 0) {
-        subvol = glfs_active_subvol(fs);
+        /* Read active_subvol directly — priv_glfs_active_subvol
+         * would reject us because shutting_down is set.  We only
+         * need the current graph for teardown, not a graph switch.
+         * Mirror the old_subvol handling from priv_glfs_active_subvol
+         * so a pending old graph still gets its PARENT_DOWN.
+         */
+        {
+            xlator_t *old_subvol = NULL;
+
+            pthread_mutex_lock(&fs->mutex);
+            {
+                subvol = fs->active_subvol;
+                if (subvol)
+                    subvol->winds++;
+                if (fs->old_subvol) {
+                    old_subvol = fs->old_subvol;
+                    fs->old_subvol = NULL;
+                    old_subvol->switched = 1;
+                }
+            }
+            pthread_mutex_unlock(&fs->mutex);
+
+            if (old_subvol)
+                glfs_subvol_done(fs, old_subvol);
+        }
+
         if (subvol) {
             /* PARENT_DOWN within glfs_subvol_done() is issued
                only on graph switch (new graph should activiate
