@@ -578,6 +578,7 @@ struct _ec_heal {
     uint64_t offset;
     uint64_t size;
     uint64_t total_size;
+    uint64_t hole_offset;
 };
 
 struct subvol_healer {
