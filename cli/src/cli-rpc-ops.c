@@ -7601,8 +7601,12 @@ gf_cli_status_cbk(struct rpc_req *req, struct iovec *iov, int count,
             cli_print_brick_status(&status);
         }
 
-        /* Allocatated memory using gf_asprintf*/
         GF_FREE(status.pid_str);
+        status.pid_str = NULL;
+        GF_FREE(status.free);
+        status.free = NULL;
+        GF_FREE(status.total);
+        status.total = NULL;
     }
     cli_out(" ");
 
@@ -7615,6 +7619,9 @@ out:
     if (dict)
         dict_unref(dict);
     GF_FREE(status.brick);
+    GF_FREE(status.pid_str);
+    GF_FREE(status.free);
+    GF_FREE(status.total);
     if (local && wipe_local) {
         cli_local_wipe(local);
     }
