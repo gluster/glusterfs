@@ -531,10 +531,12 @@ AC_ARG_WITH(tmpfilesdir,
 AC_SUBST(tmpfilesdir)
 
 AC_ARG_WITH([ocf],
-            [AS_HELP_STRING([--without-ocf], [build OCF-compliant cluster resource agents])],
-            ,
-            [OCF_SUBDIR='ocf'],
-            )
+            [AS_HELP_STRING([--without-ocf], [do not build OCF-compliant cluster resource agents])],
+            [with_ocf=$withval],
+            [with_ocf=yes])
+if test "x$with_ocf" != "xno"; then
+   OCF_SUBDIR='ocf'
+fi
 AC_SUBST(OCF_SUBDIR)
 
 AC_ARG_WITH([server],
