@@ -58,45 +58,56 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
 
         switch (op_code) {
             case GLUSTERD_MGMT_V3_LOCK: {
-                snprintf(op_err, sizeof(op_err), "Locking failed on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Locking failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_PRE_VALIDATE: {
-                snprintf(op_err, sizeof(op_err),
-                         "Pre Validation failed on %s. %s", peer_str,
-                         err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Pre Validation failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_BRICK_OP: {
-                snprintf(op_err, sizeof(op_err), "Brick ops failed on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Brick ops failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_COMMIT: {
-                snprintf(op_err, sizeof(op_err), "Commit failed on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Commit failed on %s. %s", peer_str, err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_POST_COMMIT: {
-                snprintf(op_err, sizeof(op_err), "Post commit failed on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Post commit failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_POST_VALIDATE: {
-                snprintf(op_err, sizeof(op_err),
-                         "Post Validation failed on %s. %s", peer_str,
-                         err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Post Validation failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             case GLUSTERD_MGMT_V3_UNLOCK: {
-                snprintf(op_err, sizeof(op_err), "Unlocking failed on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Unlocking failed on %s. %s", peer_str,
+                               err_string);
                 break;
             }
             default:
-                snprintf(op_err, sizeof(op_err), "Unknown error! on %s. %s",
-                         peer_str, err_string);
+                len = snprintf(op_err, sizeof(op_err),
+                               "Unknown error! on %s. %s", peer_str,
+                               err_string);
+        }
+
+        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_OP_FAIL, "%s",
+               op_err);
+        if (len >= sizeof(op_err)) {
+            strcpy(op_err, "Truncated error message, check logfile");
         }
 
         if (args->errstr) {
@@ -110,8 +121,6 @@ gd_mgmt_v3_collate_errors(struct syncargs *args, int op_ret, int op_errno,
         } else
             snprintf(err_str, sizeof(err_str), "%s", op_err);
 
-        gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_MGMTV3_OP_FAIL, "%s",
-               op_err);
         args->errstr = gf_strdup(err_str);
     }
 
