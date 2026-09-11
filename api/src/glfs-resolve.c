@@ -1042,6 +1042,17 @@ priv_glfs_active_subvol(struct glfs *fs)
 
     glfs_lock(fs, _gf_true);
     {
+        /* Authoritative shutdown check under mutex.  The early check
+         * in __GLFS_ENTRY_VALIDATE_FS is racy (no mutex); this one
+         * is the gate that prevents any operation from proceeding
+         * after glfs_fini sets shutting_down.
+         */
+        if (fs->shutting_down) {
+            glfs_unlock(fs);
+            errno = ESHUTDOWN;
+            return NULL;
+        }
+
         subvol = __glfs_active_subvol(fs);
 
         if (subvol)
