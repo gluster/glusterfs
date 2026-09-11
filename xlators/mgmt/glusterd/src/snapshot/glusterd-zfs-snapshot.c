@@ -370,6 +370,108 @@ out:
     return ret;
 }
 
+/* Report whether the backend ZFS snapshot of this brick still has a dependent
+ * clone (a dataset created from it via `zfs clone`, e.g. by snapshot clone or
+ * restore). Such a snapshot cannot be removed by the provider's plain
+ * `zfs destroy`, so a delete that proceeds would silently leave it behind. Used
+ * by the delete prevalidate to refuse the operation up front.
+ *
+ * *has_dependent is set _gf_true only on a positive, confirmed dependency. Any
+ * inconclusive result -- dataset not resolvable, snapshot already gone, zfs not
+ * runnable -- is treated as "no confirmed dependent" so the check never becomes
+ * a new way to block a legitimate delete (this preserves the existing tolerant
+ * behaviour for an already-removed backend snapshot).
+ */
+int32_t
+glusterd_zfs_snapshot_dependents(glusterd_brickinfo_t *snap_brickinfo,
+                                 char *snapname, char *snap_volume_id,
+                                 int32_t brick_num, gf_boolean_t *has_dependent,
+                                 char *dependent_info, size_t dependent_info_len)
+{
+    int32_t ret = -1;
+    xlator_t *this = THIS;
+    runner_t runner = {
+        0,
+    };
+    char msg[1024] = "";
+    int len;
+    char snap_device[NAME_MAX] = "";
+    char *dataset = NULL;
+    char clones[4096] = "";
+    char *ptr = NULL;
+
+    GF_ASSERT(snap_brickinfo);
+    GF_VALIDATE_OR_GOTO(this->name, has_dependent, out);
+
+    *has_dependent = _gf_false;
+
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
+    if (ret) {
+        /* Cannot resolve the dataset (e.g. the brick/backend is already
+         * gone). Do not block the delete on an inconclusive check. */
+        ret = 0;
+        goto out;
+    }
+
+    /* glusterd_zfs_dataset() returns a pointer into a stack buffer, so the
+     * dataset name must be consumed immediately, before any other call can
+     * clobber it (mirrors glusterd_zfs_snapshot_remove). */
+    len = snprintf(snap_device, sizeof(snap_device), "%s@%s_%d", dataset,
+                   snap_volume_id, brick_num);
+    if ((len < 0) || (len >= sizeof(snap_device))) {
+        ret = 0;
+        goto out;
+    }
+
+    runinit(&runner);
+    len = snprintf(msg, sizeof(msg),
+                   "check dependent clones of the snapshot of brick %s, "
+                   "snap name: %s",
+                   snap_brickinfo->origin_path, snapname);
+    if (len < 0) {
+        strcpy(msg, "<error>");
+    }
+    runner_add_args(&runner, ZFS_COMMAND, "get", "-H", "-o", "value", "clones",
+                    snap_device, NULL);
+    runner_redir(&runner, STDOUT_FILENO, RUN_PIPE);
+    runner_log(&runner, "", GF_LOG_DEBUG, msg);
+
+    ret = runner_start(&runner);
+    if (ret == -1) {
+        /* zfs could not be run, or the snapshot does not exist. Treat as
+         * "no confirmed dependent" and let the delete proceed. */
+        runner_end(&runner);
+        ret = 0;
+        goto out;
+    }
+
+    ptr = fgets(clones, sizeof(clones), runner_chio(&runner, STDOUT_FILENO));
+    (void)runner_end(&runner); /* reap the child */
+
+    if (!ptr) {
+        /* No output -> no clones reported. */
+        ret = 0;
+        goto out;
+    }
+
+    /* Drop the trailing newline. */
+    clones[strcspn(clones, "\n")] = '\0';
+
+    /* ZFS prints "-" (or nothing) for the `clones` property when the snapshot
+     * has no clones. Only a non-empty, non-"-" value is a confirmed dependent.
+     */
+    if (clones[0] != '\0' && strcmp(clones, "-") != 0) {
+        *has_dependent = _gf_true;
+        if (dependent_info && dependent_info_len > 0)
+            snprintf(dependent_info, dependent_info_len, "%s", clones);
+    }
+
+    ret = 0;
+
+out:
+    return ret;
+}
+
 /* No op since .zfs directory is used */
 int32_t
 glusterd_zfs_snapshot_activate(glusterd_brickinfo_t *snap_brickinfo,
@@ -542,4 +644,5 @@ struct glusterd_snap_ops zfs_snap_ops = {
     .activate = glusterd_zfs_snapshot_activate,
     .deactivate = glusterd_zfs_snapshot_deactivate,
     .restore = glusterd_zfs_snapshot_restore,
-    .brick_path = glusterd_zfs_snap_clone_brick_path};
+    .brick_path = glusterd_zfs_snap_clone_brick_path,
+    .dependents = glusterd_zfs_snapshot_dependents};
