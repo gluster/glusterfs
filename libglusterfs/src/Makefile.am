@@ -134,7 +134,7 @@ y.tab.h: graph.y
 	$(YACC) -p graphyy -d $(srcdir)/graph.y
 
 defaults.c: defaults-tmpl.c generator.py gen-defaults.py
-	$(PYTHON) $(srcdir)/gen-defaults.py $(srcdir)/defaults-tmpl.c > $@
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(srcdir)/gen-defaults.py $(srcdir)/defaults-tmpl.c > $@
 
 CLEANFILES = $(nodist_libglusterfs_la_SOURCES) \
 	$(nodist_libglusterfs_la_HEADERS) *.pyc

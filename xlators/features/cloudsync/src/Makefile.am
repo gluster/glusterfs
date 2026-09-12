@@ -35,11 +35,11 @@ noinst_PYTHON = cloudsync-fops-c.py cloudsync-fops-h.py
 EXTRA_DIST = cloudsync-autogen-fops-tmpl.c cloudsync-autogen-fops-tmpl.h
 
 cloudsync-autogen-fops.c: cloudsync-fops-c.py cloudsync-autogen-fops-tmpl.c
-	$(PYTHON) $(CLOUDSYNC_SRC)/cloudsync-fops-c.py \
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(CLOUDSYNC_SRC)/cloudsync-fops-c.py \
 	$(CLOUDSYNC_SRC)/cloudsync-autogen-fops-tmpl.c > $@
 
 cloudsync-autogen-fops.h: cloudsync-fops-h.py cloudsync-autogen-fops-tmpl.h
-	$(PYTHON) $(CLOUDSYNC_SRC)/cloudsync-fops-h.py \
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(CLOUDSYNC_SRC)/cloudsync-fops-h.py \
 	$(CLOUDSYNC_SRC)/cloudsync-autogen-fops-tmpl.h > $@
 
 CLEANFILES = $(nodist_cloudsync_la_SOURCES)

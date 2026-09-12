@@ -33,6 +33,6 @@ AM_CFLAGS = -Wall $(GF_CFLAGS)
 
 fops.c: fops-tmpl.c $(top_srcdir)/libglusterfs/src/generator.py gen-fops.py
 	PYTHONPATH=$(top_srcdir)/libglusterfs/src \
-	$(PYTHON) $(srcdir)/gen-fops.py $(srcdir)/fops-tmpl.c > $@
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(srcdir)/gen-fops.py $(srcdir)/fops-tmpl.c > $@
 
 CLEANFILES = $(nodist_metadisp_la_SOURCES)
