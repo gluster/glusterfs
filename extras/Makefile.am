@@ -74,3 +74,18 @@ if WITH_SERVER
 	$(INSTALL_DATA) $(top_srcdir)/extras/group-samba \
 		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/samba
 endif
+
+uninstall-local:
+	if [ -n "$(tmpfilesdir)" ]; then \
+		rm -f $(DESTDIR)$(tmpfilesdir)/gluster.conf; \
+	fi
+if WITH_SERVER
+	rm -f $(DESTDIR)$(GLUSTERD_WORKDIR)/groups/virt \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/metadata-cache \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/gluster-block \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/nl-cache \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/db-workload \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/distributed-virt \
+		$(DESTDIR)$(GLUSTERD_WORKDIR)/groups/samba
+	rmdir $(DESTDIR)$(GLUSTERD_WORKDIR)/groups 2>/dev/null || :
+endif
