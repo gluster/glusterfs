@@ -4557,6 +4557,13 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
             old_volinfo, &old_brickinfo);
         if (ret == 0) {
             new_brickinfo->port = old_brickinfo->port;
+            /* statfs_fsid is observed locally (create/add-brick/restart) and
+             * is not carried in the peer payload, so an imported brickinfo
+             * arrives with fsid 0. Copy it from the old brickinfo, like the
+             * port and real_path above, so shared-brick-count stays correct
+             * across a volume sync. See gluster#4640.
+             */
+            new_brickinfo->statfs_fsid = old_brickinfo->statfs_fsid;
 
             if (old_brickinfo->real_path[0] == '\0') {
                 if (!realpath(new_brickinfo->path, abspath)) {
@@ -4595,6 +4602,7 @@ glusterd_volinfo_copy_brickinfo(glusterd_volinfo_t *old_volinfo,
                 new_ta_brickinfo->path, old_volinfo, &old_ta_brickinfo);
             if (ret == 0) {
                 new_ta_brickinfo->port = old_ta_brickinfo->port;
+                new_ta_brickinfo->statfs_fsid = old_ta_brickinfo->statfs_fsid;
 
                 if (old_ta_brickinfo->real_path[0] == '\0') {
                     if (!realpath(new_ta_brickinfo->path, abspath)) {

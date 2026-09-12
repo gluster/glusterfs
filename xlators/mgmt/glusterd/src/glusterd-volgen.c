@@ -5474,8 +5474,19 @@ gd_set_shared_brick_count(glusterd_volinfo_t *volinfo)
         brickinfo->fs_share_count = 0;
         cds_list_for_each_entry(trav, &volinfo->bricks, brick_list)
         {
-            if (!gf_uuid_compare(trav->uuid, uuid) &&
-                (trav->statfs_fsid == brickinfo->statfs_fsid)) {
+            if (gf_uuid_compare(trav->uuid, uuid))
+                continue;
+            /* A brick always shares a filesystem with itself. Two distinct
+             * bricks are only known to share one when both carry the same
+             * non-zero fsid; fsid 0 means "not observed" (e.g. left behind
+             * by an import or an upgrade), and must never be treated as a
+             * match, or every local brick with an unknown fsid would be
+             * counted as sharing and statvfs would be wrongly divided down.
+             * See gluster#4640.
+             */
+            if (trav == brickinfo ||
+                (brickinfo->statfs_fsid != 0 &&
+                 trav->statfs_fsid == brickinfo->statfs_fsid)) {
                 brickinfo->fs_share_count++;
             }
         }
