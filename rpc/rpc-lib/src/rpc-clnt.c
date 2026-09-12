@@ -453,9 +453,9 @@ rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn)
     pthread_mutex_lock(&conn->lock);
     {
         if (conn->reconnect) {
-            gf_timer_call_cancel(clnt->ctx, conn->reconnect);
+            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->cleanup_gen++;
-            reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
     }
@@ -495,13 +495,13 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
 
         /* bailout logic cleanup */
         if (conn->timer) {
-            gf_timer_call_cancel(clnt->ctx, conn->timer);
-            timer_unref = _gf_true;
+            if (!gf_timer_call_cancel(clnt->ctx, conn->timer))
+                timer_unref = _gf_true;
             conn->timer = NULL;
         }
         if (conn->reconnect) {
-            gf_timer_call_cancel(clnt->ctx, conn->reconnect);
-            reconnect_unref = _gf_true;
+            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
 
@@ -1823,18 +1823,18 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
         rpc->disabled = 1;
 
         if (conn->timer) {
-            gf_timer_call_cancel(rpc->ctx, conn->timer);
             /* If the event is not fired and it actually cancelled
              * the timer, do the unref else registered call back
              * function will take care of it.
              */
-            timer_unref = _gf_true;
+            if (!gf_timer_call_cancel(rpc->ctx, conn->timer))
+                timer_unref = _gf_true;
             conn->timer = NULL;
         }
 
         if (conn->reconnect) {
-            gf_timer_call_cancel(rpc->ctx, conn->reconnect);
-            reconnect_unref = _gf_true;
+            if (!gf_timer_call_cancel(rpc->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
         conn->status = RPC_STATUS_INITIALIZED;
