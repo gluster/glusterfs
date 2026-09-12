@@ -1055,11 +1055,15 @@ gf_server_check_setxattr_cmd(call_frame_t *frame, dict_t *dict)
 
     if (dict_foreach_fnmatch(dict, "*io*stat*dump", dict_null_foreach_fn,
                              NULL) > 0) {
-        list_for_each_entry(xprt, &conf->xprt_list, list)
+        pthread_mutex_lock(&conf->mutex);
         {
-            total_read += xprt->total_bytes_read;
-            total_write += xprt->total_bytes_write;
+            list_for_each_entry(xprt, &conf->xprt_list, list)
+            {
+                total_read += xprt->total_bytes_read;
+                total_write += xprt->total_bytes_write;
+            }
         }
+        pthread_mutex_unlock(&conf->mutex);
         gf_smsg("stats", GF_LOG_INFO, 0, PS_MSG_RW_STAT, "total-read=%" PRIu64,
                 total_read, "total-write=%" PRIu64, total_write, NULL);
     }
