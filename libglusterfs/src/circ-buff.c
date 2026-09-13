@@ -11,7 +11,7 @@
 #include "glusterfs/circ-buff.h"
 #include "glusterfs/libglusterfs-messages.h"
 
-void
+static void
 cb_destroy_data(circular_buffer_t *cb, void (*destroy_buffer_data)(void *data))
 {
     if (destroy_buffer_data)
@@ -21,7 +21,7 @@ cb_destroy_data(circular_buffer_t *cb, void (*destroy_buffer_data)(void *data))
 }
 
 /* hold lock while calling this function */
-int
+static int
 __cb_add_entry_buffer(buffer_t *buffer, void *item)
 {
     circular_buffer_t *ptr = NULL;
