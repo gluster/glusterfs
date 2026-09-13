@@ -167,9 +167,6 @@ struct posix_private {
 
     time_t last_landfill_check;
 
-    gf_atomic_t read_value;  /* Total read, from init */
-    gf_atomic_t write_value; /* Total write, from init */
-
     /* janitor task which cleans up /.trash (created by replicate) */
     struct gf_tw_timer_list *janitor;
 

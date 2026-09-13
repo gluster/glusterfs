@@ -1809,8 +1809,6 @@ posix_readv(call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
         goto out;
     }
 
-    GF_ATOMIC_ADD(priv->read_value, op_ret);
-
     vec.iov_base = iobuf->ptr;
     vec.iov_len = op_ret;
 
@@ -2166,8 +2164,6 @@ overwrite:
         }
     }
 
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
-
 out:
 
     if (locked) {
@@ -2466,14 +2462,6 @@ posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
         pthread_mutex_unlock(&ctx->write_atomic_lock);
         locked = _gf_false;
     }
-
-    /*
-     * Record copy_file_range in priv->write_value for now.
-     * If not needed, remove below section of code along with
-     * this comment (or add comment to explain why it is not
-     * needed).
-     */
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
 
 out:
 
@@ -5893,7 +5881,8 @@ posix_readdirp_fill(xlator_t *this, fd_t *fd, gf_dirent_t *entries,
             ret = posix_pstat(this, inode, inode->gfid, hpath, &stbuf,
                               _gf_false, _gf_true);
         else
-            ret = posix_pstat(this, inode, zero_gfid, hpath, &stbuf, _gf_false, _gf_true);
+            ret = posix_pstat(this, inode, zero_gfid, hpath, &stbuf, _gf_false,
+                              _gf_true);
 
         if (ret == -1) {
             if (inode)
