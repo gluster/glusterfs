@@ -277,7 +277,13 @@ AC_ARG_ENABLE([debug],
               AS_HELP_STRING([--enable-debug],[Enable debug build options.]))
 if test "x$enable_debug" = "xyes"; then
         BUILD_DEBUG=yes
-        GF_CFLAGS="${GF_CFLAGS} -g -O0 -DDEBUG"
+        GF_CFLAGS="${GF_CFLAGS} -g -DDEBUG"
+        dnl -O0 must go into CFLAGS, not GF_CFLAGS: automake emits the compile
+        dnl line as "... $(AM_CFLAGS) $(CFLAGS)", so a -O0 carried by GF_CFLAGS
+        dnl (via AM_CFLAGS) is overridden by the default/distro -O2 that lands in
+        dnl CFLAGS last. Appending here keeps -O0 last (so it wins) while leaving
+        dnl the rest of CFLAGS -- e.g. distro hardening flags -- untouched.
+        CFLAGS="${CFLAGS} -O0"
 else
         BUILD_DEBUG=no
 fi
