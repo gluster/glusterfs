@@ -132,7 +132,7 @@ out:
     return cert_depth;
 }
 
-xlator_t *
+static xlator_t *
 glusterfs_get_last_xlator(glusterfs_graph_t *graph)
 {
     xlator_t *trav = graph->first;
@@ -145,7 +145,7 @@ glusterfs_get_last_xlator(glusterfs_graph_t *graph)
     return trav;
 }
 
-xlator_t *
+static xlator_t *
 glusterfs_mux_xlator_unlink(xlator_t *pxl, xlator_t *cxl)
 {
     xlator_list_t *unlink = NULL;
@@ -224,7 +224,7 @@ glusterfs_graph_set_first(glusterfs_graph_t *graph, xlator_t *xl)
     xl->xl_id = graph->xl_count;
 }
 
-int
+static int
 glusterfs_graph_insert(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx,
                        const char *type, const char *name,
                        gf_boolean_t autoload)
@@ -273,7 +273,7 @@ err:
     return -1;
 }
 
-int
+static int
 glusterfs_graph_acl(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -289,7 +289,7 @@ glusterfs_graph_acl(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int
+static int
 glusterfs_graph_worm(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -305,7 +305,7 @@ glusterfs_graph_worm(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int
+static int
 glusterfs_graph_meta(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -317,7 +317,7 @@ glusterfs_graph_meta(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int
+static int
 glusterfs_graph_mac_compat(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -334,7 +334,7 @@ glusterfs_graph_mac_compat(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     return ret;
 }
 
-int
+static int
 glusterfs_graph_gfid_access(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
 {
     int ret = 0;
@@ -383,7 +383,7 @@ gf_add_cmdline_options(glusterfs_graph_t *graph, cmd_args_t *cmd_args)
     }
 }
 
-int
+static int
 glusterfs_graph_validate_options(glusterfs_graph_t *graph)
 {
     xlator_t *trav = NULL;
@@ -862,7 +862,7 @@ glusterfs_graph_activate(glusterfs_graph_t *graph, glusterfs_ctx_t *ctx)
     return 0;
 }
 
-int
+static int
 xlator_equal_rec(xlator_t *xl1, xlator_t *xl2)
 {
     xlator_list_t *trav1 = NULL;
@@ -1386,7 +1386,7 @@ glusterfs_graph_attach(glusterfs_graph_t *orig_graph, char *path,
 
     return 0;
 }
-int
+static int
 glusterfs_muxsvc_cleanup_parent(glusterfs_ctx_t *ctx,
                                 glusterfs_graph_t *parent_graph)
 {
@@ -1401,7 +1401,7 @@ glusterfs_muxsvc_cleanup_parent(glusterfs_ctx_t *ctx,
     return 0;
 }
 
-void *
+static void *
 glusterfs_graph_cleanup(void *arg)
 {
     glusterfs_graph_t *graph = NULL;
@@ -1464,7 +1464,7 @@ out:
     return NULL;
 }
 
-glusterfs_graph_t *
+static glusterfs_graph_t *
 glusterfs_muxsvc_setup_parent_graph(glusterfs_ctx_t *ctx, char *name,
                                     char *type)
 {
@@ -1525,7 +1525,7 @@ out:
     return parent_graph;
 }
 
-int
+static int
 glusterfs_svc_mux_pidfile_cleanup(gf_volfile_t *volfile_obj)
 {
     if (!volfile_obj || !volfile_obj->pidfp)
@@ -1605,7 +1605,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_svc_mux_pidfile_setup(gf_volfile_t *volfile_obj, const char *pid_file)
 {
     int ret = -1;
@@ -1633,7 +1633,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_svc_mux_pidfile_update(gf_volfile_t *volfile_obj,
                                  const char *pid_file, pid_t pid)
 {
@@ -1688,7 +1688,7 @@ out:
     return ret;
 }
 
-int
+static int
 glusterfs_update_mux_pid(dict_t *dict, gf_volfile_t *volfile_obj)
 {
     char *file = NULL;
