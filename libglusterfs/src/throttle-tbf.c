@@ -57,7 +57,7 @@ tbf_init_throttle(unsigned long tokens_required)
     return throttle;
 }
 
-void
+static void
 _tbf_dispatch_queued(tbf_bucket_t *bucket)
 {
     gf_boolean_t xcont = _gf_false;
@@ -87,7 +87,7 @@ _tbf_dispatch_queued(tbf_bucket_t *bucket)
     }
 }
 
-void *
+static void *
 tbf_tokengenerator(void *arg)
 {
     unsigned long tokenrate = 0;
