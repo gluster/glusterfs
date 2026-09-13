@@ -1088,7 +1088,7 @@ out:
     return;
 }
 
-void
+static void
 fdentry_dump_to_dict(fdentry_t *fdentry, char *prefix, dict_t *dict,
                      int *openfds)
 {
