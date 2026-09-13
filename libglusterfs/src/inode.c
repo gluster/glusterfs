@@ -761,7 +761,7 @@ inode_forget_atomic(inode_t *inode, uint64_t nlookup)
     }
 }
 
-dentry_t *
+static dentry_t *
 __dentry_grep(inode_table_t *table, inode_t *parent, const char *name,
               const int hash)
 {
