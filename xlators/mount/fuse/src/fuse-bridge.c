@@ -128,6 +128,13 @@ fuse_fd_ctx_destroy(xlator_t *this, fd_t *fd)
     if (fdctx) {
         activefd = fdctx->activefd;
         if (activefd) {
+            /* The application's handle is going away. fuse_release()
+             * delivers fdclose to the base fd's graph only; the active
+             * fd lives on the graph it was migrated to, so tell that
+             * graph's xlators as well before dropping the reference.
+             * open-behind needs it to cancel a still deferred open and
+             * release the fd and stub references it holds. */
+            fd_close(activefd);
             fd_unref(activefd);
         }
 
@@ -5530,6 +5537,9 @@ fuse_migrate_fd_open(xlator_t *this, fd_t *basefd, fd_t *oldfd,
     UNLOCK(&basefd->lock);
 
     if (old_activefd != NULL) {
+        /* The previous active fd is abandoned on its graph: deliver
+         * fdclose there too before the reference goes. */
+        fd_close(old_activefd);
         fd_unref(old_activefd);
     }
 
