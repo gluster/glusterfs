@@ -5475,6 +5475,11 @@ fuse_migrate_fd_open(xlator_t *this, fd_t *basefd, fd_t *oldfd,
         }
     }
 
+    /* From here on every early exit is a failed migration: the
+     * GF_VALIDATE_OR_GOTO() exits below do not set ret, and a stale
+     * ret >= 0 from inode_path() would report success to the caller. */
+    ret = -1;
+
     basefd_ctx = fd_ctx_get_ptr(basefd, this);
     GF_VALIDATE_OR_GOTO("glusterfs-fuse", basefd_ctx, out);
 
@@ -5542,6 +5547,17 @@ fuse_migrate_fd_open(xlator_t *this, fd_t *basefd, fd_t *oldfd,
     ret = 0;
 
 out:
+    if ((ret < 0) && (newfd != NULL)) {
+        /* The migration failed after fd_create(): newfd never became
+         * basefd_ctx->activefd, so nobody else will release it. Drop the
+         * fuse fd ctx created above explicitly (fd_destroy() only reaches
+         * it through the .release cbk, which is registered for regular
+         * files but not for directories) and then the fd itself, which
+         * takes the inode and lk_ctx references with it. */
+        fuse_fd_ctx_destroy(this, newfd);
+        fd_unref(newfd);
+    }
+
     loc_wipe(&loc);
 
     return ret;
