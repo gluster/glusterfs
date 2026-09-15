@@ -674,16 +674,38 @@ pub_glfs_from_glfd(struct glfs_fd *glfd)
 static void
 glfs_fd_destroy(struct glfs_fd *glfd)
 {
+    struct glfs_fd *other = NULL;
+    gf_boolean_t shared = _gf_false;
+
     if (!glfd)
         return;
 
     glfs_lock(glfd->fs, _gf_true);
     {
         list_del_init(&glfd->openfds);
+
+        /* glfs_dup() makes several glfds share one fd_t; fdclose must be
+         * delivered once, when the last of them goes away. */
+        if (glfd->fd) {
+            list_for_each_entry(other, &glfd->fs->openfds, openfds)
+            {
+                if (other->fd == glfd->fd) {
+                    shared = _gf_true;
+                    break;
+                }
+            }
+        }
     }
     glfs_unlock(glfd->fs);
 
     if (glfd->fd) {
+        /* The application's handle is closing: tell the xlators of the
+         * graph the fd belongs to before dropping the last gfapi
+         * reference, exactly as fuse_release() does. open-behind relies
+         * on this to cancel a still deferred open and release the fd and
+         * stub references it holds for it. */
+        if (!shared)
+            fd_close(glfd->fd);
         fd_unref(glfd->fd);
         glfd->fd = NULL;
     }
