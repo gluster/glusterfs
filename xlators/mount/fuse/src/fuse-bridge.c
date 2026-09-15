@@ -3452,12 +3452,7 @@ fuse_release(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     fd_close(state->fd);
 
-    fuse_fd_ctx_destroy(this, state->fd);
-    fd_unref(fd);
-
     gf_fdptr_put(priv->fdtable, fd);
-
-    state->fd = NULL;
 
 out:
     send_fuse_err(this, finh, 0);
@@ -3904,12 +3899,7 @@ fuse_releasedir(xlator_t *this, fuse_in_header_t *finh, void *msg,
     gf_log("glusterfs-fuse", GF_LOG_TRACE,
            "finh->unique: %" PRIu64 ": RELEASEDIR %p", finh->unique, state->fd);
 
-    fuse_fd_ctx_destroy(this, state->fd);
-    fd_unref(state->fd);
-
     gf_fdptr_put(priv->fdtable, state->fd);
-
-    state->fd = NULL;
 
 out:
     send_fuse_err(this, finh, 0);
@@ -7101,7 +7091,8 @@ struct xlator_fops fops;
 
 struct xlator_cbks cbks = {.invalidate = fuse_invalidate,
                            .forget = fuse_forget_cbk,
-                           .release = fuse_internal_release};
+                           .release = fuse_internal_release,
+                           .releasedir = fuse_internal_release};
 
 struct xlator_dumpops dumpops = {
     .priv = fuse_priv_dump,
