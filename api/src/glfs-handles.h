@@ -172,11 +172,6 @@ int
 glfs_h_close(glfs_object_t *object) __THROW GFAPI_PUBLIC(glfs_h_close, 3.4.2);
 
 int
-glfs_caller_specific_init(void *uid_caller_key, void *gid_caller_key,
-                          void *future) __THROW
-    GFAPI_PUBLIC(glfs_caller_specific_init, 3.5.0);
-
-int
 glfs_h_truncate(glfs_t *fs, glfs_object_t *object, off_t offset) __THROW
     GFAPI_PUBLIC(glfs_h_truncate, 3.4.2);
 

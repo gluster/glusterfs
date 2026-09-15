@@ -107,7 +107,6 @@ _pub_glfs_readdirplus _glfs_readdirplus$GFAPI_3.5.0
 _pub_glfs_fallocate _glfs_fallocate$GFAPI_3.5.0
 _pub_glfs_discard _glfs_discard$GFAPI_3.5.0
 _pub_glfs_zerofill _glfs_zerofill$GFAPI_3.5.0
-_pub_glfs_caller_specific_init _glfs_caller_specific_init$GFAPI_3.5.0
 _pub_glfs_h_setxattrs _glfs_h_setxattrs$GFAPI_3.5.0
 
 _pub_glfs_unset_volfile_server _glfs_unset_volfile_server$GFAPI_3.5.1

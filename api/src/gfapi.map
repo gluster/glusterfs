@@ -127,7 +127,6 @@ GFAPI_3.5.0 {
 		glfs_discard_async;
 		glfs_zerofill;
 		glfs_zerofill_async;
-		glfs_caller_specific_init;
 		glfs_h_setxattrs;
 } GFAPI_3.4.2;
 
