@@ -655,6 +655,15 @@ glfs_anonymous_pwritev(struct glfs *fs, struct glfs_object *object,
 struct glfs_object *
 glfs_h_resolve_symlink(struct glfs *fs, struct glfs_object *object);
 
+/*
+ * Given a handle/gfid, find if the corresponding inode is present in the
+ * inode table; if so, create and return the corresponding glfs_object (the
+ * caller releases it with glfs_h_close()). Internal helper for upcall and
+ * lease-recall processing; not part of the public gfapi surface.
+ */
+struct glfs_object *
+glfs_h_find_handle(struct glfs *fs, unsigned char *handle, int len);
+
 /* Deprecated structures that were passed to client applications, replaced by
  * accessor functions. Do not use these in new applications, and update older
  * usage.

@@ -327,10 +327,6 @@ int
 glfs_h_lease(glfs_t *fs, glfs_object_t *object, glfs_lease_t *lease) __THROW
     GFAPI_PUBLIC(glfs_h_lease, 4.0.0);
 
-glfs_object_t *
-glfs_h_find_handle(glfs_t *fs, unsigned char *handle, int len) __THROW
-    GFAPI_PUBLIC(glfs_h_lease, 4.0.0);
-
 /* Functions for getting details about the glfs_upcall_lease
  *
  * None of the pointers returned by the below functions should be free()'d,
