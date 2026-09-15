@@ -1,0 +1,17 @@
+# https://packit.dev/docs/configuration/
+
+specfile_path: packaging/fedora/glusterfs.spec
+
+notifications:
+  failure_comment:
+    message: "One of the tests failed for {commit_sha}. @admin check logs {logs_url}, packit dashboard {packit_dashboard_url} and external service dashboard {external_dashboard_url}"
+
+jobs:
+- job: copr_build
+  trigger: pull_request
+  targets:
+  - fedora-rawhide-aarch64
+  - fedora-rawhide-i386
+  - fedora-rawhide-ppc64le
+  - fedora-rawhide-s390x
+  - fedora-rawhide-x86_64
