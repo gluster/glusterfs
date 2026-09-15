@@ -1190,6 +1190,8 @@ __dht_rebalance_open_src_file(xlator_t *this, xlator_t *from, xlator_t *to,
         gf_msg(this->name, GF_LOG_ERROR, -ret, DHT_MSG_MIGRATE_FILE_FAILED,
                "failed to open file %s on %s", loc->path, from->name);
         *fop_errno = -ret;
+        /* Not handed to the caller through *src_fd yet: release it. */
+        fd_unref(fd);
         ret = -1;
         goto out;
     }
