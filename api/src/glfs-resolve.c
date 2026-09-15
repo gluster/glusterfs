@@ -821,7 +821,6 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
                           oldfd->flags & ~(O_TRUNC | O_EXCL | O_CREAT), newfd,
                           NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
-    loc_wipe(&loc);
 
     if (ret) {
         gf_smsg(fs->volname, GF_LOG_WARNING, errno, API_MSG_SYNCOP_OPEN_FAILED,
@@ -845,6 +844,8 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
     newfd->flags = oldfd->flags;
     fd_bind(newfd);
 out:
+    loc_wipe(&loc);
+
     if (newinode)
         inode_unref(newinode);
 
