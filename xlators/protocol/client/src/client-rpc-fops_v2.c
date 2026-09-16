@@ -2838,12 +2838,15 @@ client4_0_releasedir(call_frame_t *frame, xlator_t *this, void *data)
         if (fdctx != NULL) {
             remote_fd = fdctx->remote_fd;
 
-            /* fdctx->remote_fd == -1 indicates a reopen attempt
-               in progress. Just mark ->released = 1 and let
-               reopen_cbk handle releasing
+            /* A reopen in progress owns the fdctx (it is off
+               saved_fds): mark it released and let reopen_done()
+               destroy it. A bad fd that nobody is reopening is
+               destroyed right away: the application has closed it,
+               so there is nothing to reopen, and on a graph that
+               received PARENT_DOWN no reopen can ever run.
             */
 
-            if (remote_fd == -1) {
+            if (remote_fd == -1 && __is_fd_reopen_in_progress(fdctx)) {
                 fdctx->released = 1;
             } else {
                 list_del_init(&fdctx->sfd_pos);
@@ -2882,11 +2885,14 @@ client4_0_release(call_frame_t *frame, xlator_t *this, void *data)
         if (fdctx != NULL) {
             remote_fd = fdctx->remote_fd;
 
-            /* fdctx->remote_fd == -1 indicates a reopen attempt
-               in progress. Just mark ->released = 1 and let
-               reopen_cbk handle releasing
+            /* A reopen in progress owns the fdctx (it is off
+               saved_fds): mark it released and let reopen_done()
+               destroy it. A bad fd that nobody is reopening is
+               destroyed right away: the application has closed it,
+               so there is nothing to reopen, and on a graph that
+               received PARENT_DOWN no reopen can ever run.
             */
-            if (remote_fd == -1) {
+            if (remote_fd == -1 && __is_fd_reopen_in_progress(fdctx)) {
                 fdctx->released = 1;
             } else {
                 list_del_init(&fdctx->sfd_pos);

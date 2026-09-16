@@ -531,6 +531,14 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
 
     conf = (clnt_conf_t *)this->private;
 
+    /* The lock context reference is ours whether or not the fd is
+       still open on the brick. */
+    lk_ctx = fdctx->lk_ctx;
+    fdctx->lk_ctx = NULL;
+
+    if (lk_ctx)
+        fd_lk_ctx_unref(lk_ctx);
+
     if (fdctx->remote_fd == -1) {
         gf_msg_debug(this->name, 0, "not a valid fd");
         goto out;
@@ -541,11 +549,6 @@ client_fdctx_destroy(xlator_t *this, clnt_fd_ctx_t *fdctx)
         parent_down = conf->parent_down;
     }
     pthread_mutex_unlock(&conf->lock);
-    lk_ctx = fdctx->lk_ctx;
-    fdctx->lk_ctx = NULL;
-
-    if (lk_ctx)
-        fd_lk_ctx_unref(lk_ctx);
 
     if (!parent_down)
         rpc_clnt_ref(conf->rpc);
