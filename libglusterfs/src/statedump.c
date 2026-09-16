@@ -531,9 +531,6 @@ static void
 gf_proc_dump_single_xlator_info(xlator_t *trav)
 {
     glusterfs_ctx_t *ctx = trav->ctx;
-    char itable_key[1024] = {
-        0,
-    };
 
     if (trav->cleanup_starting)
         return;
@@ -542,11 +539,6 @@ gf_proc_dump_single_xlator_info(xlator_t *trav)
         gf_proc_dump_xl_latency_info(trav);
 
     gf_proc_dump_xlator_mem_info(trav);
-
-    if (GF_PROC_DUMP_IS_XL_OPTION_ENABLED(inode) && (trav->itable)) {
-        snprintf(itable_key, sizeof(itable_key), "%d.%s.itable", ctx->graph_id,
-                 trav->name);
-    }
 
     if (!trav->dumpops) {
         return;
