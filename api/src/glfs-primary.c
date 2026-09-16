@@ -13,6 +13,7 @@
 #include "glfs-internal.h"
 #include "glfs-mem-types.h"
 #include "gfapi-messages.h"
+#include <glusterfs/statedump.h>
 
 int
 graph_setup(struct glfs *fs, glusterfs_graph_t *graph)
@@ -157,7 +158,34 @@ glfs_releasedir(xlator_t *this, fd_t *fd)
     return 0;
 }
 
-struct xlator_dumpops dumpops;
+/* Like fuse_itable_dump(): the inode table belongs to the active graph's top
+ * xlator, which has no dumper of its own, so without this a gfapi process's
+ * statedump never shows its inodes or fds. */
+static int
+glfs_itable_dump(xlator_t *this)
+{
+    struct glfs *fs = NULL;
+    xlator_t *subvol = NULL;
+
+    if (!this)
+        return -1;
+
+    fs = this->private;
+    if (!fs)
+        return 0;
+
+    subvol = fs->active_subvol;
+    if (subvol && subvol->itable) {
+        gf_proc_dump_add_section("xlator.mount.api.itable");
+        inode_table_dump(subvol->itable, "xlator.mount.api.itable");
+    }
+
+    return 0;
+}
+
+struct xlator_dumpops dumpops = {
+    .inode = glfs_itable_dump,
+};
 
 struct xlator_fops fops;
 
