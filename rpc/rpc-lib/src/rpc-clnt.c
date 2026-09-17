@@ -102,6 +102,7 @@ call_bail(void *data)
     };
     char peerid[UNIX_PATH_MAX] = {0};
     gf_boolean_t need_unref = _gf_false;
+    gf_boolean_t bail_out = _gf_false;
     glusterfs_ctx_t *ctx = NULL;
 
     GF_VALIDATE_OR_GOTO("client", data, out);
@@ -117,11 +118,18 @@ call_bail(void *data)
             (void)snprintf(peerid, sizeof(peerid), "%s",
                            conn->trans->peerinfo.identifier);
         }
+        /* rpc_clnt_connection_cleanup will be unwinding all saved frames,
+         * bailed or otherwise. When we bail out we do not re-arm, and
+         * gf_timer_proc() frees the event we are running from as soon as
+         * we return: conn->timer must not keep pointing at it, or a later
+         * gf_timer_call_cancel() would touch freed memory. The ref this
+         * event held is dropped at out:. */
+        bail_out = (!trans || ctx->cleanup_started);
+        if (bail_out)
+            conn->timer = NULL;
     }
     pthread_mutex_unlock(&conn->lock);
-    /*rpc_clnt_connection_cleanup will be unwinding all saved frames,
-     * bailed or otherwise*/
-    if (!trans || ctx->cleanup_started)
+    if (bail_out)
         goto out;
 
     current = gf_time();
@@ -365,14 +373,20 @@ rpc_clnt_reconnect(void *conn_ptr)
     pthread_mutex_lock(&conn->lock);
     {
         trans = conn->trans;
-        if (!trans || ctx->cleanup_started)
-            goto out_unlock;
 
+        /* Whether or not we re-arm below, gf_timer_proc() frees the event
+         * we are running from as soon as we return: conn->reconnect must
+         * not keep pointing at it, or a later gf_timer_call_cancel() would
+         * touch freed memory. If it points at a newer, still queued event
+         * the cancel succeeds and we release that event's ref. */
         if (conn->reconnect) {
             if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
                 canceled_unref = _gf_true;
         }
         conn->reconnect = 0;
+
+        if (!trans || ctx->cleanup_started)
+            goto out_unlock;
 
         if ((conn->status != RPC_STATUS_CONNECTED) && !clnt->disabled) {
             ts.tv_sec = 3;
@@ -453,9 +467,9 @@ rpc_clnt_reconnect_cleanup(rpc_clnt_connection_t *conn)
     pthread_mutex_lock(&conn->lock);
     {
         if (conn->reconnect) {
-            gf_timer_call_cancel(clnt->ctx, conn->reconnect);
+            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->cleanup_gen++;
-            reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
     }
@@ -495,13 +509,13 @@ rpc_clnt_connection_cleanup(rpc_clnt_connection_t *conn)
 
         /* bailout logic cleanup */
         if (conn->timer) {
-            gf_timer_call_cancel(clnt->ctx, conn->timer);
-            timer_unref = _gf_true;
+            if (!gf_timer_call_cancel(clnt->ctx, conn->timer))
+                timer_unref = _gf_true;
             conn->timer = NULL;
         }
         if (conn->reconnect) {
-            gf_timer_call_cancel(clnt->ctx, conn->reconnect);
-            reconnect_unref = _gf_true;
+            if (!gf_timer_call_cancel(clnt->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
 
@@ -1823,18 +1837,18 @@ rpc_clnt_disable(struct rpc_clnt *rpc)
         rpc->disabled = 1;
 
         if (conn->timer) {
-            gf_timer_call_cancel(rpc->ctx, conn->timer);
             /* If the event is not fired and it actually cancelled
              * the timer, do the unref else registered call back
              * function will take care of it.
              */
-            timer_unref = _gf_true;
+            if (!gf_timer_call_cancel(rpc->ctx, conn->timer))
+                timer_unref = _gf_true;
             conn->timer = NULL;
         }
 
         if (conn->reconnect) {
-            gf_timer_call_cancel(rpc->ctx, conn->reconnect);
-            reconnect_unref = _gf_true;
+            if (!gf_timer_call_cancel(rpc->ctx, conn->reconnect))
+                reconnect_unref = _gf_true;
             conn->reconnect = NULL;
         }
         conn->status = RPC_STATUS_INITIALIZED;
