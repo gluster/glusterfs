@@ -760,9 +760,6 @@ glfs_new_fs(const char *volname)
 
     PTHREAD_COND_INIT(&fs->cond, NULL, fs->pthread_flags, GLFS_INIT_COND, err);
 
-    PTHREAD_COND_INIT(&fs->child_down_cond, NULL, fs->pthread_flags,
-                      GLFS_INIT_COND_CHILD, err);
-
     PTHREAD_MUTEX_INIT(&fs->upcall_list_mutex, NULL, fs->pthread_flags,
                        GLFS_INIT_MUTEX_UPCALL, err);
 
@@ -971,9 +968,6 @@ priv_glfs_free_from_ctx(struct glfs *fs)
     PTHREAD_MUTEX_DESTROY(&fs->mutex, fs->pthread_flags, GLFS_INIT_MUTEX);
 
     PTHREAD_COND_DESTROY(&fs->cond, fs->pthread_flags, GLFS_INIT_COND);
-
-    PTHREAD_COND_DESTROY(&fs->child_down_cond, fs->pthread_flags,
-                         GLFS_INIT_COND_CHILD);
 
     PTHREAD_MUTEX_DESTROY(&fs->upcall_list_mutex, fs->pthread_flags,
                           GLFS_INIT_MUTEX_UPCALL);

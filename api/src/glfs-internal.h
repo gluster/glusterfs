@@ -69,7 +69,6 @@
 
 #define GLFS_INIT_MUTEX 0x00000001        /* pthread_mutex_flag */
 #define GLFS_INIT_COND 0x00000002         /* pthread_cond_flag */
-#define GLFS_INIT_COND_CHILD 0x00000004   /* pthread_cond_child_down_flag */
 #define GLFS_INIT_MUTEX_UPCALL 0x00000008 /* pthread_mutex_upcall_flag */
 
 #ifndef GF_DARWIN_HOST_OS
@@ -180,7 +179,6 @@ struct glfs {
     glfs_init_cbk init_cbk;
     pthread_mutex_t mutex;
     pthread_cond_t cond;
-    pthread_cond_t child_down_cond; /* for broadcasting CHILD_DOWN */
     int init;
     int ret;
     int err;
