@@ -511,10 +511,17 @@ cleanup_fopat_args(struct glfs_fd *pglfd, xlator_t *subvol, int ret, loc_t *loc)
     if (loc)
         loc_wipe(loc);
 
-    if (subvol)
+    /* setup_fopat_args() takes the reference on @pglfd together with the
+     * graph reference it returns as @subvol, and releases both itself when
+     * it fails.  A NULL @subvol here therefore means "nothing to release":
+     * either setup_fopat_args() failed (and already released), or it was
+     * never reached (renameat/linkat bailing out before the second
+     * parent).  Releasing @pglfd unconditionally freed the caller's parent
+     * glfd from under it (double GF_REF_PUT). */
+    if (subvol) {
         glfs_subvol_done(pglfd->fs, subvol);
-
-    GF_REF_PUT(pglfd);
+        GF_REF_PUT(pglfd);
+    }
 }
 
 static xlator_t *
@@ -547,8 +554,14 @@ setup_fopat_args(struct glfs_fd *pglfd, const char *path, gf_boolean_t follow,
     ret = 0;
 out:
     if (ret < 0 && errno != ENOENT) {
-        cleanup_fopat_args(pglfd, subvol, ret, loc);
+        int saved_errno = errno;
+
+        if (subvol)
+            cleanup_fopat_args(pglfd, subvol, ret, loc);
+        else
+            GF_REF_PUT(pglfd); /* no graph reference was taken */
         subvol = NULL;
+        errno = saved_errno;
     }
 
     return subvol;
@@ -872,6 +885,8 @@ retry:
 
         subvol = glfs_active_subvol(pglfd->fs);
         if (!subvol) {
+            /* cleanup_fopat_args() releases only with a subvol */
+            GF_REF_PUT(pglfd);
             ret = -1;
             errno = EIO;
             goto out;
@@ -6954,6 +6969,8 @@ pub_glfs_fchownat(struct glfs_fd *pglfd, const char *path, uid_t uid, gid_t gid,
 
         subvol = glfs_active_subvol(pglfd->fs);
         if (!subvol) {
+            /* cleanup_fopat_args() releases only with a subvol */
+            GF_REF_PUT(pglfd);
             ret = -1;
             errno = EIO;
             goto out;
@@ -7041,6 +7058,8 @@ retry:
 
         oldsubvol = glfs_active_subvol(oldpglfd->fs);
         if (!oldsubvol) {
+            /* cleanup_fopat_args() releases only with a subvol */
+            GF_REF_PUT(oldpglfd);
             ret = -1;
             errno = EIO;
             goto out;
