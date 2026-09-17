@@ -57,7 +57,8 @@ GLFS_MSGID(API, API_MSG_MEM_ACCT_INIT_FAILED,
            API_MSG_INVALID_SYSRQ, API_MSG_DECODE_XDR_FAILED, API_MSG_NULL,
            API_MSG_CALL_NOT_SUCCESSFUL, API_MSG_CALL_NOT_VALID,
            API_MSG_UNABLE_TO_DEL, API_MSG_REMOTE_HOST_DISCONN,
-           API_MSG_HANDLE_NOT_SET);
+           API_MSG_HANDLE_NOT_SET, API_MSG_GRAPH_MUTEX_LOCK_FAILED,
+           API_MSG_GRAPH_MUTEX_UNLOCK_FAILED);
 
 #define API_MSG_ALLOC_FAILED_STR "Upcall allocation failed"
 #define API_MSG_LOCK_INSERT_MERGE_FAILED_STR                                   \
@@ -145,4 +146,8 @@ GLFS_MSGID(API, API_MSG_MEM_ACCT_INIT_FAILED,
 #define API_MSG_REG_CBK_FUNC_FAILED_STR "failed to register callback function"
 #define API_MSG_NEW_GRAPH_STR "New graph coming up"
 #define API_MSG_HANDLE_NOT_SET_STR "handle not set. Flags handled for xstat are"
+#define API_MSG_GRAPH_MUTEX_LOCK_FAILED_STR                                    \
+    "pthread lock on graph mutex, returned error"
+#define API_MSG_GRAPH_MUTEX_UNLOCK_FAILED_STR                                  \
+    "pthread unlock on graph mutex, returned error"
 #endif /* !_GFAPI_MESSAGES_H__ */
