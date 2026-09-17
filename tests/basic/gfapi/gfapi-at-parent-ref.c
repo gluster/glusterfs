@@ -120,7 +120,20 @@ main(int argc, char **argv)
     if (!parent_alive(pglfd, "renameat ENOENT"))
         return 1;
 
-    /* 4. the control: a missing name in openat is the one failure the
+    /* 4. linkat whose destination lookup fails (ENOTDIR): must fail with
+     *    -1/ENOTDIR instead of dereferencing a NULL subvol, and must leave
+     *    both parent references alone */
+    errno = 0;
+    ret = glfs_linkat(pglfd, CHILD, pglfd, CHILD "/x", 0);
+    if (ret == 0 || errno != ENOTDIR) {
+        fprintf(stderr, "linkat(%s -> %s/x): expected ENOTDIR, got %d %s\n",
+                CHILD, CHILD, ret, strerror(errno));
+        return 1;
+    }
+    if (!parent_alive(pglfd, "linkat destination ENOTDIR"))
+        return 1;
+
+    /* 5. the control: a missing name in openat is the one failure the
      *    library handled correctly all along */
     errno = 0;
     fd = glfs_openat(pglfd, "does-not-exist", O_RDONLY, 0);
