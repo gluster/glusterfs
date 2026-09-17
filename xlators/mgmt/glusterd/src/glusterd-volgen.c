@@ -2558,7 +2558,7 @@ get_server_xlator(char *xlator)
     for (i = 0; i < size; i++) {
         if (!server_graph_table[i].dbg_key)
             continue;
-        if (strcmp(xlator, server_graph_table[i].dbg_key))
+        if (strcmp(xlator, server_graph_table[i].dbg_key) == 0)
             return GF_XLATOR_SERVER;
     }
 
