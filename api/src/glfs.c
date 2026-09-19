@@ -688,6 +688,12 @@ glfs_fd_destroy(struct glfs_fd *glfd)
         glfd->fd = NULL;
     }
 
+    /* The readdir cache is otherwise freed only by glfs_close() and
+     * glfs_closedir(); a handle whose last reference goes without passing
+     * through them would leak every cached entry. Harmless on an empty
+     * list. */
+    gf_dirent_free(list_entry(&glfd->entries, gf_dirent_t, list));
+
     GF_FREE(glfd->readdirbuf);
 
     LOCK_DESTROY(&glfd->lock);
