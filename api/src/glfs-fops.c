@@ -1472,6 +1472,7 @@ struct glfs_io {
         glfs_io_cbk fn;
     };
     void *data;
+    fd_t *fd; /* the fd_t the fop was wound on; released in glfs_io_async_cbk */
     struct iovec iov[];
 };
 
@@ -1533,7 +1534,11 @@ out:
         gio->fn(gio->glfd, op_ret, prestatp, poststatp, gio->data);
     }
 err:
-    fd_unref(glfd->fd);
+    /* Release the fd_t this fop was wound on, not whatever glfd->fd points
+     * at now: a graph switch during the fop swaps glfd->fd to the new
+     * graph's fd_t, and releasing that one would drop the handle's own
+     * reference while leaking the old fd_t. */
+    fd_unref(gio->fd);
     /* Since the async operation is complete
      * release the ref taken during the start
      * of async operation
@@ -1609,6 +1614,7 @@ glfs_preadv_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
         goto out;
     }
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->op = GF_FOP_READ;
     gio->offset = offset;
     gio->count = count;
@@ -2180,6 +2186,7 @@ glfs_pwritev_async_common(struct glfs_fd *glfd, const struct iovec *iovec,
     }
 
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->op = GF_FOP_WRITE;
     gio->offset = offset;
     gio->count = 1;
@@ -2513,6 +2520,7 @@ glfs_fsync_async_common(struct glfs_fd *glfd, gf_boolean_t oldcb,
 
     gio->op = GF_FOP_FSYNC;
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->flags = dataonly;
     gio->oldcb = oldcb;
     gio->fn = fn;
@@ -2866,6 +2874,7 @@ glfs_ftruncate_async_common(struct glfs_fd *glfd, off_t offset,
 
     gio->op = GF_FOP_FTRUNCATE;
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->offset = offset;
     gio->oldcb = oldcb;
     gio->fn = fn;
@@ -3782,6 +3791,7 @@ glfs_discard_async_common(struct glfs_fd *glfd, off_t offset, size_t len,
 
     gio->op = GF_FOP_DISCARD;
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->offset = offset;
     gio->count = len;
     gio->oldcb = oldcb;
@@ -3892,6 +3902,7 @@ glfs_zerofill_async_common(struct glfs_fd *glfd, off_t offset, off_t len,
 
     gio->op = GF_FOP_ZEROFILL;
     gio->glfd = glfd;
+    gio->fd = fd;
     gio->offset = offset;
     gio->count = len;
     gio->oldcb = oldcb;
