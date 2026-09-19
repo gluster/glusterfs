@@ -5693,9 +5693,13 @@ pub_glfs_fd_set_lkowner(struct glfs_fd *glfd, void *data, int len)
     DECLARE_OLD_THIS;
     __GLFS_ENTRY_VALIDATE_FD(glfd, invalid_fs);
 
-    if (!GF_REF_GET(glfd)) {
-        goto invalid_fs;
-    }
+    /* Take the per-call reference the way every other fd fop does. The
+     * return value of GF_REF_GET() is not a guard: _gf_ref_get() increments
+     * before it tests, so a NULL return only means the count was already
+     * zero and the object is being freed -- nothing is safe to do with it
+     * either way, and bailing out here left the incremented count behind
+     * without its PUT. The entry validation above is the actual gate. */
+    GF_REF_GET(glfd);
 
     GF_VALIDATE_OR_GOTO(THIS->name, data, out);
 
