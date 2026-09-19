@@ -5985,6 +5985,13 @@ out:
         /* Set reason to prevent applications from using ->event */
         up_arg->reason = GF_UPCALL_EVENT_NULL;
     }
+    /* The graph reference taken above is handed to nobody: the consumer
+     * receives the object (its own inode reference), never the subvol.
+     * Release it on every exit, or the graph keeps a wind forever and can
+     * never receive its PARENT_DOWN after a graph switch. */
+    if (subvol)
+        glfs_subvol_done(fs, subvol);
+
     return ret;
 }
 
