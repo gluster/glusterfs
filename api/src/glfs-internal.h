@@ -634,9 +634,6 @@ void
 glfs_free_from_ctx(struct glfs *fs) GFAPI_PRIVATE(glfs_free_from_ctx, 3.7.0);
 
 int
-glfs_recall_lease_fd(struct glfs *fs, struct gf_upcall *up_data);
-
-int
 glfs_get_upcall_cache_invalidation(struct gf_upcall *to_up_data,
                                    struct gf_upcall *from_up_data);
 int
