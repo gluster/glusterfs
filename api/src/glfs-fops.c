@@ -571,6 +571,7 @@ static int
 setup_entry_fopat_args(uuid_t gfid, dict_t **xattr_req, loc_t *loc)
 {
     int ret = 0;
+    uuid_t *gfid_ptr = NULL;
 
     if (loc->inode) {
         errno = EEXIST;
@@ -604,9 +605,21 @@ setup_entry_fopat_args(uuid_t gfid, dict_t **xattr_req, loc_t *loc)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
-    ret = dict_set_gfuuid(*xattr_req, "gfid-req", gfid, true);
+    /* The dict must own its copy of the gfid: when the file exists the
+     * xattr_req goes to an open, which open-behind may perform after the
+     * caller has returned, so it cannot point into the caller's frame. */
+    gfid_ptr = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
+    if (!gfid_ptr) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(*gfid_ptr);
+    gf_uuid_copy(gfid, *gfid_ptr);
+    ret = dict_set_gfuuid(*xattr_req, "gfid-req", *gfid_ptr, false);
     if (ret) {
+        GF_FREE(gfid_ptr);
         ret = -1;
         errno = ENOMEM;
         goto out;
@@ -1053,7 +1066,7 @@ pub_glfs_creat(struct glfs *fs, const char *path, int flags, mode_t mode)
     struct iatt iatt = {
         0,
     };
-    uuid_t gfid;
+    uuid_t *gfid = NULL;
     dict_t *xattr_req = NULL;
     int reval = 0;
 
@@ -1074,9 +1087,20 @@ pub_glfs_creat(struct glfs *fs, const char *path, int flags, mode_t mode)
         goto out;
     }
 
-    gf_uuid_generate(gfid);
-    ret = dict_set_gfuuid(xattr_req, "gfid-req", gfid, true);
+    /* Owned by the dict: when the file exists this xattr_req goes to the
+     * open, which open-behind may perform after we have returned, so the
+     * gfid cannot live in this frame. */
+    gfid = GF_MALLOC(sizeof(uuid_t), gf_common_mt_uuid_t);
+    if (!gfid) {
+        ret = -1;
+        errno = ENOMEM;
+        goto out;
+    }
+
+    gf_uuid_generate(*gfid);
+    ret = dict_set_gfuuid(xattr_req, "gfid-req", *gfid, false);
     if (ret) {
+        GF_FREE(gfid);
         ret = -1;
         errno = ENOMEM;
         goto out;
