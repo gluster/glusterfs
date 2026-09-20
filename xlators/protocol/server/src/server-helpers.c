@@ -543,6 +543,12 @@ server_build_config(xlator_t *this, server_conf_t *conf)
         conf->inode_lru_limit = 16384;
     }
 
+    ret = dict_get_int32(this->options, "inode-table-size",
+                         &conf->inode_table_size);
+    if (ret < 0) {
+        conf->inode_table_size = 65536;
+    }
+
     data = dict_get(this->options, "trace");
     if (data) {
         ret = gf_string2boolean(data->data, &conf->trace);
