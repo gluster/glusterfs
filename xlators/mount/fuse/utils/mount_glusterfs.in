@@ -206,6 +206,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
 
+    if [ -n "$secure_mgmt" ]; then
+        cmd_line=$(echo "$cmd_line --secure-mgmt=$secure_mgmt");
+    fi
+
     if [ -n "$mac_compat" ]; then
         cmd_line=$(echo "$cmd_line --mac-compat=$mac_compat");
     fi
@@ -351,6 +355,9 @@ with_options()
             ;;
         "direct-io-mode")
             direct_io_mode=$value
+            ;;
+        "secure-mgmt")
+            secure_mgmt=$value
             ;;
         "mac-compat")
             mac_compat=$value
