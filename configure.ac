@@ -12,11 +12,13 @@ AC_INIT([glusterfs],[m4_esyscmd([build-aux/pkg-version --version])],[gluster-use
 AC_SUBST([PACKAGE_RELEASE],
          [m4_esyscmd([build-aux/pkg-version --release])])
 
-AM_INIT_AUTOMAKE([tar-pax foreign])
-
-# Removes warnings when using automake 1.14 around (...but option 'subdir-objects' is disabled )
-#but libglusterfs fails to build with contrib (Then are not set up that way?)
-#AM_INIT_AUTOMAKE([subdir-objects])
+dnl automake 1.16 is the floor: libglusterfs/src/Makefile.am sets subdir-objects
+dnl (0dbca87d5f, #4593) and compiles $(CONTRIBDIR)/xxhash/xxhash.c out of tree.
+dnl Older automake does not create the .deps directory for such objects, and the
+dnl build dies with
+dnl   ../../contrib/xxhash/.deps/libglusterfs_la-xxhash.Plo: No such file or directory
+dnl Declaring the requirement turns that into a clear message from configure.
+AM_INIT_AUTOMAKE([1.16 tar-pax foreign])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES(yes)])
 
