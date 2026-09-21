@@ -115,7 +115,7 @@ main(int argc, char *argv[])
     for (i = 0; i < 20; i++) {
         ret = system(
             "[ $(gluster --mode=script volume status patchy | "
-            "grep \" Y \" | awk '{print $(NF-1)}' | wc -l) == 3 ]");
+            "grep \" Y \" | awk '{print $(NF-1)}' | wc -l) -eq 3 ]");
         if (WIFEXITED(ret) && WEXITSTATUS(ret)) {
             printf("Ret value of system: %d\n, ifexited: %d, exitstatus: %d",
                    ret, WIFEXITED(ret), WEXITSTATUS(ret));
@@ -151,7 +151,7 @@ main(int argc, char *argv[])
         ret = system(
             "[ $(for i in $(pgrep glusterfsd); do ls -l /proc/$i/fd | grep "
             "\"[.]glusterfs\" | grep -v \".glusterfs/[0-9a-f][0-9a-f]\" | grep "
-            "-v health_check; done | wc -l) == 3 ]");
+            "-v health_check; done | wc -l) -eq 3 ]");
         if (WIFEXITED(ret) && WEXITSTATUS(ret)) {
             printf("Ret value of system: %d\n, ifexited: %d, exitstatus: %d",
                    ret, WIFEXITED(ret), WEXITSTATUS(ret));
