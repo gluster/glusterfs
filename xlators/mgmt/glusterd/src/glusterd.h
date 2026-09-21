@@ -574,6 +574,16 @@ enum glusterd_op_ret {
         }                                                                      \
     } while (0)
 
+#define GLUSTERD_GET_SNAP_PID_DIR(path, snapname, priv)                        \
+    do {                                                                       \
+        int32_t _snap_pid_len;                                                 \
+        _snap_pid_len = snprintf(path, PATH_MAX, "%s/snaps/%s", priv->rundir,  \
+                                 snapname);                                    \
+        if ((_snap_pid_len < 0) || (_snap_pid_len >= PATH_MAX)) {              \
+            path[0] = 0;                                                       \
+        }                                                                      \
+    } while (0)
+
 #define GLUSTERD_GET_SNAP_GEO_REP_DIR(path, snap, priv)                        \
     do {                                                                       \
         int32_t _snap_geo_len;                                                 \

@@ -2651,6 +2651,52 @@ out:
     return ret;
 }
 
+/* Remove the directory glusterd keeps the pid files of a snapshot volume's
+ * bricks in, <run-directory>/snaps/<snapname>/<volname> (see
+ * GLUSTERD_GET_VOLUME_PID_DIR), and the <snapname> directory above it once
+ * that is empty. It is the same directory as
+ * <snap_mount_dir>/<snapname>/<volname> only when localstatedir is /var;
+ * there the callers have already removed the mount-dir tree and this is a
+ * no-op (recursive_rmdir() returns 0 for a missing directory). Call it only
+ * once every brick of the volume on this node is stopped: the directory
+ * holds the pid files brick stop looks the processes up by.
+ * glusterd_brick_start() recreates it on activate. Best effort - it never
+ * fails the caller. Clones keep their pid directory under vols/ and are
+ * left alone.
+ */
+static void
+glusterd_snap_volume_pid_dir_remove(glusterd_volinfo_t *snap_vol)
+{
+    xlator_t *this = THIS;
+    glusterd_conf_t *priv = this->private;
+    char pid_dir[PATH_MAX] = "";
+    int ret = -1;
+
+    if (!snap_vol->is_snap_volume || !snap_vol->snapshot)
+        return;
+
+    GLUSTERD_GET_VOLUME_PID_DIR(pid_dir, snap_vol, priv);
+    if (!pid_dir[0])
+        return;
+
+    ret = recursive_rmdir(pid_dir);
+    if (ret) {
+        gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_DIR_OP_FAILED,
+               "Failed to remove %s directory", pid_dir);
+        return;
+    }
+
+    GLUSTERD_GET_SNAP_PID_DIR(pid_dir, snap_vol->snapshot->snapname, priv);
+    if (!pid_dir[0])
+        return;
+
+    ret = sys_rmdir(pid_dir);
+    if (ret && (errno != ENOENT) && (errno != ENOTEMPTY)) {
+        gf_msg(this->name, GF_LOG_WARNING, errno, GD_MSG_DIR_OP_FAILED,
+               "Failed to remove %s directory", pid_dir);
+    }
+}
+
 int32_t
 glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
                             gf_boolean_t remove_snapshot, gf_boolean_t force)
@@ -2707,6 +2753,11 @@ glusterd_snap_volume_remove(dict_t *rsp_dict, glusterd_volinfo_t *snap_vol,
             }
         }
     }
+
+    /* Every brick of this node is stopped now (or a stop failed under
+     * force, in which case leave the pid files alone). */
+    if (!save_ret)
+        glusterd_snap_volume_pid_dir_remove(snap_vol);
 
     ret = glusterd_store_delete_volume(snap_vol);
     if (ret) {
@@ -5798,6 +5849,10 @@ glusterd_snapshot_deactivate_commit(dict_t *dict, char **op_errstr,
                snap_path, strerror(errno));
         goto out;
     }
+
+    /* The bricks' pid files live under the run directory, which is that
+     * same tree only when localstatedir is /var. */
+    glusterd_snap_volume_pid_dir_remove(snap_volinfo);
 
     ret = dict_set_dynstr_with_alloc(rsp_dict, "snapuuid",
                                      uuid_utoa(snap->snap_id));
