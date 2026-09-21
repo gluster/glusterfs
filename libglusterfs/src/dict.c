@@ -357,7 +357,7 @@ dict_lookup(dict_t *this, char *key, data_t **data)
 }
 
 static int32_t
-dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
+dict_set_lk(dict_t *this, const char *key, const int key_len, data_t *value,
             gf_boolean_t replace)
 {
     data_pair_t *pair;
@@ -394,7 +394,7 @@ dict_set_lk(dict_t *this, char *key, const int key_len, data_t *value,
 }
 
 int32_t
-dict_setn(dict_t *this, char *key, const int keylen, data_t *value)
+dict_setn(dict_t *this, const char *key, const int keylen, data_t *value)
 {
     int32_t ret;
 
@@ -2151,7 +2151,7 @@ err:
 }
 
 int
-dict_set_dynptr(dict_t *this, char *key, void *ptr, size_t len)
+dict_set_dynptr(dict_t *this, const char *key, void *ptr, size_t len)
 {
     data_t *data = data_from_dynptr(ptr, len);
     int ret = 0;
