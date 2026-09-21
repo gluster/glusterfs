@@ -550,14 +550,20 @@ def edit_schedules(jobname, schedule, volname):
 def get_bool_val():
     getsebool_cli = ["getsebool",
                      "-a"]
-    p1 = subprocess.Popen(getsebool_cli, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
-
     grep_cmd = ["grep",
                 "cron_system_cronjob_use_shares"]
-    p2 = subprocess.Popen(grep_cmd, stdin=p1.stdout,
-                          stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
+    try:
+        p1 = subprocess.Popen(getsebool_cli, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE)
+        p2 = subprocess.Popen(grep_cmd, stdin=p1.stdout,
+                              stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              universal_newlines=True)
+    except OSError as oserr:
+        # No SELinux userspace on this host: there is no boolean to read.
+        log.info("Failed to run the command \"getsebool\" (%s); "
+                 "treating SELinux as not present", oserr)
+        return -1
 
     p1.stdout.close()
     output, err = p2.communicate()
@@ -568,7 +574,12 @@ def get_bool_val():
         log.error(err)
         return -1
 
-    bool_val = output.split()[2]
+    fields = output.split()
+    if len(fields) < 3:
+        log.error("Unexpected getsebool output: '%s'", output.rstrip())
+        return -1
+
+    bool_val = fields[2]
     log.debug("Bool value = '%s'", bool_val)
 
     return bool_val
@@ -579,11 +590,14 @@ def get_selinux_status():
 
     try:
         p1 = subprocess.Popen(getenforce_cli, stdout=subprocess.PIPE,
-                              stderr=subprocess.PIPE)
+                              stderr=subprocess.PIPE,
+                              universal_newlines=True)
     except OSError as oserr:
-        log.error("Failed to run the command \"getenforce\". Error: %s" %\
-                  oserr)
-        return -1
+        # No SELinux userspace on this host (Debian and derivatives ship
+        # none by default): behave as if SELinux were disabled.
+        log.info("Failed to run the command \"getenforce\" (%s); "
+                 "treating SELinux as not present", oserr)
+        return "Disabled"
 
     output, err = p1.communicate()
     rv = p1.returncode
@@ -618,8 +632,14 @@ def set_cronjob_user_share():
                      "on"]
     log.debug("Running command '%s'", " ".join(setsebool_cli))
 
-    p1 = subprocess.Popen(setsebool_cli, stdout=subprocess.PIPE,
-                          stderr=subprocess.PIPE)
+    try:
+        p1 = subprocess.Popen(setsebool_cli, stdout=subprocess.PIPE,
+                              stderr=subprocess.PIPE,
+                              universal_newlines=True)
+    except OSError as oserr:
+        log.info("Failed to run the command \"setsebool\" (%s); "
+                 "treating SELinux as not present", oserr)
+        return 0
 
     output, err = p1.communicate()
     rv = p1.returncode
@@ -919,20 +939,32 @@ def main(argv):
 
     try:
         f = os.open(LOCK_FILE, os.O_CREAT | os.O_RDWR | os.O_NONBLOCK, 0o644)
-        try:
-            fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            ret = perform_operation(args)
-            fcntl.flock(f, fcntl.LOCK_UN)
-        except IOError:
-            log.info("%s is being processed by another agent.", LOCK_FILE)
-            output("Another snap_scheduler command is running. "
-                   "Please try again after some time.")
-            return ANOTHER_TRANSACTION_IN_PROGRESS
-        os.close(f)
     except OSError as e:
         log.error("Failed to open %s : %s", LOCK_FILE, e)
         output("Failed to open %s. Error: %s" % (LOCK_FILE, e))
         return INTERNAL_ERROR
+
+    # Only the lock acquisition means "someone else is running"; an error
+    # raised by the operation itself is a failure of that operation and must
+    # be reported as such, not mistaken for a held lock.
+    try:
+        fcntl.flock(f, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except (IOError, OSError):
+        os.close(f)
+        log.info("%s is being processed by another agent.", LOCK_FILE)
+        output("Another snap_scheduler command is running. "
+               "Please try again after some time.")
+        return ANOTHER_TRANSACTION_IN_PROGRESS
+
+    try:
+        ret = perform_operation(args)
+    except (IOError, OSError) as e:
+        log.error("%s failed: %s", args.action, e)
+        output("Failed: %s" % e)
+        ret = INTERNAL_ERROR
+    finally:
+        fcntl.flock(f, fcntl.LOCK_UN)
+        os.close(f)
 
     return ret
 
