@@ -50,8 +50,8 @@ sleep 1
 TEST $CLI snapshot create $S1 $V0 no-timestamp
 TEST snapshot_exists 0 $S1
 
-TEST grep '"Enabled changelog barrier"' /var/log/glusterfs/bricks/$BRICK_LOG.log
-TEST grep '"Disabled changelog barrier"' /var/log/glusterfs/bricks/$BRICK_LOG.log
+TEST grep '"Enabled changelog barrier"' $LOGDIR/bricks/$BRICK_LOG.log
+TEST grep '"Disabled changelog barrier"' $LOGDIR/bricks/$BRICK_LOG.log
 
 TEST glusterfs -s $H0 --volfile-id=/snaps/$S1/$V0 $M1
 

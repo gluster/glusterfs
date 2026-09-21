@@ -85,15 +85,15 @@ TEST $CLI volume start $V0
 TEST $GFS --subdir-mount /subdir1/subdir1.1/subdir1.2 -s $H0 --volfile-id $V0 $M2
 TEST stat $M2
 
-initcnt=`grep -i create-subdir-mounts /var/log/glusterfs/glusterd.log  | wc -l`
+initcnt=`grep -i create-subdir-mounts $LOGDIR/glusterd.log  | wc -l`
 # mount shouldn't fail even after add-brick
 TEST $CLI volume add-brick $V0 replica 2 $H0:$B0/${V0}{5,6};
 
 # Wait to execute create-subdir-mounts.sh script by glusterd
-newcnt=`grep -i create-subdir-mounts /var/log/glusterfs/glusterd.log  | wc -l`
+newcnt=`grep -i create-subdir-mounts $LOGDIR/glusterd.log  | wc -l`
 while [ $newcnt -eq $initcnt ]
 do
-   newcnt=`grep -i create-subdir-mounts /var/log/glusterfs/glusterd.log  | wc -l`
+   newcnt=`grep -i create-subdir-mounts $LOGDIR/glusterd.log  | wc -l`
    sleep 1
 done
 

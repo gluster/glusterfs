@@ -14,7 +14,7 @@ NAMESPACE3_HASH=3493960770
 
 function check_brick_multiplex() {
         local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
-        local cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+        local cnt="$(ls $LOGDIR/bricks|wc -l)"
         local bcnt="$(brick_count)"
 
         if [ $bcnt -ne 1 ]; then
@@ -44,7 +44,7 @@ function check_samples() {
            BRICK="${V0}0"
         fi
 
-        grep -i "ns_$OP" /var/log/glusterfs/bricks/d-backends-$BRICK.log |
+        grep -i "ns_$OP" $LOGDIR/bricks/d-backends-$BRICK.log |
              grep -- $NS_HASH | sed 's/\-//g' | grep -- $GFID
         if [ $? -eq 0 ]; then
           echo "Y"

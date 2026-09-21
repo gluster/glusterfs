@@ -844,7 +844,7 @@ function count_sh_entries()
 }
 
 function check_brick_multiplex() {
-        cnt="$(ls /var/log/glusterfs/bricks|wc -l)"
+        cnt="$(ls $LOGDIR/bricks|wc -l)"
         local ret=$($CLI volume info|grep "cluster.brick-multiplex"|cut -d" " -f2)
         local bcnt="$(brick_count)"
 

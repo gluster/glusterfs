@@ -67,7 +67,7 @@ TEST $CLI volume rebalance $volname stop;
 sleep 5
 
 # Examine the logfile for errors
-cd /var/log/glusterfs;
+cd $LOGDIR;
 failures=`grep "failures:" ${volname}-rebalance.log | tail -1 | sed 's/.*failures: //; s/,.*//'`;
 
 TEST [ $failures == 0 ];
