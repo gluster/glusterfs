@@ -2282,6 +2282,9 @@ out:
     if (ret && frame)
         STACK_DESTROY(frame->root);
 
+    if (req.hndsk.hndsk_val)
+        GF_FREE(req.hndsk.hndsk_val);
+
     return ret;
 }
 
