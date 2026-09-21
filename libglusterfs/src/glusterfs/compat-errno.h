@@ -12,6 +12,7 @@
 #define __COMPAT_ERRNO_H__
 
 #include <errno.h>
+#include <stdint.h>
 
 #define GF_ERROR_CODE_SUCCESS 0
 #define GF_ERROR_CODE_UNKNOWN 1024

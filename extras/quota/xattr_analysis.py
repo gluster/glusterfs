@@ -21,7 +21,7 @@ if len(sys.argv) < 2:
 LOG_FILE=sys.argv[1]
 
 def get_quota_xattr_brick():
-    out = subprocess.check_output (["/usr/bin/cat", LOG_FILE])
+    out = subprocess.check_output (["/bin/cat", LOG_FILE])
     pairs = out.splitlines()
 
     xdict = {}

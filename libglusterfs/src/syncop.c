@@ -23,6 +23,14 @@
 #include <valgrind/valgrind.h>
 #endif
 
+#ifdef USE_LIBUCONTEXT
+#include <libucontext/libucontext.h>
+#define getcontext libucontext_getcontext
+#define makecontext libucontext_makecontext
+#define setcontext libucontext_setcontext
+#define swapcontext libucontext_swapcontext
+#endif
+
 int
 syncopctx_setfsuid(void *uid)
 {

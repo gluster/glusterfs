@@ -1108,6 +1108,9 @@ case $host_os in
     *netbsd*)
     ARGP_LDADD=-largp
     ;;
+    linux-musl*)
+    ARGP_LDADD=-largp
+    ;;
 esac
 dnl argp-standalone does not provide a pkg-config file
 AC_CHECK_HEADER([argp.h], AC_DEFINE(HAVE_ARGP, 1, [have argp]))
@@ -1441,6 +1444,14 @@ prefix=$old_prefix
 
 GFAPI_EXTRA_LDFLAGS='-Wl,--version-script=$(top_srcdir)/api/src/gfapi.map'
 case $host_os in
+     linux-musl*)
+        GF_HOST_OS="GF_LINUX_HOST_OS"
+        GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
+        GLUSTERD_WORKDIR="${LOCALSTATEDIR}/lib/glusterd"
+        GF_CFLAGS="${GF_CFLAGS} -I/usr/include/arch/common -DREDEFINE_QUAD_T -Doff64_t=int64_t -D__off64_t=int64_t -DF_SETLK64=F_SETLK -DF_SETLKW64=F_SETLKW -DF_GETLK64=F_GETLK -DUSE_LIBUCONTEXT=1"
+        GF_LDFLAGS="-lbsd -lucontext ${GF_LDFLAGS}"
+        GF_LDADD="${ARGP_LDADD}"
+        ;;
      linux*)
         GF_HOST_OS="GF_LINUX_HOST_OS"
         GF_FUSE_CFLAGS="-DFUSERMOUNT_DIR=\\\"\$(bindir)\\\""
