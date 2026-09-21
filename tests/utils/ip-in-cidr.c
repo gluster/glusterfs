@@ -6,6 +6,7 @@
 #include <netinet/in.h>
 #include <errno.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 
 int
 gf_is_ip_in_net(const char *network, const char *ip_str)

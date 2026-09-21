@@ -4,6 +4,7 @@
 #include <sys/xattr.h>
 #include <fcntl.h>
 #include <string.h>
+#include <unistd.h>
 
 #define MY_XATTR_NAME "user.ftest"
 #define MY_XATTR_VAL "ftestval"

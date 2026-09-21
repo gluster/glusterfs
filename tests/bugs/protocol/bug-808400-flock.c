@@ -6,10 +6,8 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/wait.h>
-
-#ifndef linux
-#define fstat64(fd, st) fstat(fd, st)
-#endif
+#include <stdlib.h>
+#include <unistd.h>
 
 int
 run_child(char *filename)
@@ -71,9 +69,9 @@ main(int argc, char *argv[])
     system(cmd);
 
     /* wait till graph switch completes */
-    ret = fstat64(fd, &stbuf);
+    ret = fstat(fd, &stbuf);
     if (ret < 0) {
-        fprintf(stderr, "fstat64 failure (%s)\n", strerror(errno));
+        fprintf(stderr, "fstat failure (%s)\n", strerror(errno));
         goto out;
     }
 

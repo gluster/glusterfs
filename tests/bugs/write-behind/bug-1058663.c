@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <signal.h>
+#include <unistd.h>
 
 #define FILE_SIZE 1048576
 

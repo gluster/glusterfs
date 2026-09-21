@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/sysmacros.h>
 
 #include <glusterfs/glusterfs.h>
 #include <glusterfs/globals.h>

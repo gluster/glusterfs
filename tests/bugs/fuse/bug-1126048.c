@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 /*
  * This function opens a file and to trigger migration failure, unlinks the
