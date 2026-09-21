@@ -2663,16 +2663,37 @@ glusterd_store_retrieve_bricks(glusterd_volinfo_t *volinfo)
             struct statvfs brickstat = {
                 0,
             };
-            ret = sys_statvfs(brickinfo->path, &brickstat);
-            if (ret) {
-                gf_msg(this->name, GF_LOG_WARNING, errno,
-                       GD_MSG_BRICKINFO_CREATE_FAIL,
-                       "failed to get statfs() call on brick %s",
-                       brickinfo->path);
-                /* No need for treating it as an error, lets continue
-                   with just a message */
+            uuid_t volid = {
+                0,
+            };
+            /* Only observe the fsid when this path really is the brick, i.e.
+             * it carries the volume-id xattr (the same check brick start
+             * makes). If glusterd is (re)started with the brick filesystem
+             * not mounted, brickinfo->path is an empty directory on the
+             * parent filesystem; observing its fsid here would persist one
+             * shared fsid for every local brick and wrongly divide statvfs
+             * down. Leave the fsid unknown (0) instead - a later restart
+             * with the brick mounted, or a peer import from a node that has
+             * it, will supply the real value. See gluster#4640.
+             */
+            if (sys_lgetxattr(brickinfo->path, GF_XATTR_VOL_ID_KEY, volid,
+                              sizeof(volid)) != sizeof(volid)) {
+                gf_msg_debug(this->name, 0,
+                             "brick %s has no %s xattr (not mounted?); "
+                             "leaving statfs_fsid unset",
+                             brickinfo->path, GF_XATTR_VOL_ID_KEY);
             } else {
-                brickinfo->statfs_fsid = brickstat.f_fsid;
+                ret = sys_statvfs(brickinfo->path, &brickstat);
+                if (ret) {
+                    gf_msg(this->name, GF_LOG_WARNING, errno,
+                           GD_MSG_BRICKINFO_CREATE_FAIL,
+                           "failed to get statfs() call on brick %s",
+                           brickinfo->path);
+                    /* No need for treating it as an error, lets continue
+                       with just a message */
+                } else {
+                    brickinfo->statfs_fsid = brickstat.f_fsid;
+                }
             }
         }
 
