@@ -19,7 +19,7 @@ lib_LTLIBRARIES = libgfxdr.la
 
 libgfxdr_la_CFLAGS = -Wall $(GF_CFLAGS) $(GF_DARWIN_LIBGLUSTERFS_CFLAGS)
 
-libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) -D__USE_FILE_OFFSET64 \
+libgfxdr_la_CPPFLAGS = $(GF_CPPFLAGS) \
 	-I$(top_srcdir)/libglusterfs/src -I$(top_srcdir)/rpc/rpc-lib/src \
 	-I$(top_builddir)/rpc/xdr/src
 

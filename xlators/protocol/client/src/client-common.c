@@ -16,11 +16,11 @@ client_cmd_to_gf_cmd(int32_t cmd, int32_t *gf_cmd)
 {
     int ret = 0;
 
-    if (cmd == F_GETLK || cmd == F_GETLK64)
+    if (cmd == F_GETLK)
         *gf_cmd = GF_LK_GETLK;
-    else if (cmd == F_SETLK || cmd == F_SETLK64)
+    else if (cmd == F_SETLK)
         *gf_cmd = GF_LK_SETLK;
-    else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+    else if (cmd == F_SETLKW)
         *gf_cmd = GF_LK_SETLKW;
     else if (cmd == F_RESLK_LCK)
         *gf_cmd = GF_LK_RESLK_LCK;
@@ -464,8 +464,8 @@ out:
 
 int
 client_pre_copy_file_range_v2(xlator_t *this, gfx_copy_file_range_req *req,
-                              fd_t *fd_in, off64_t off_in, fd_t *fd_out,
-                              off64_t off_out, size_t size, int32_t flags,
+                              fd_t *fd_in, off_t off_in, fd_t *fd_out,
+                              off_t off_out, size_t size, int32_t flags,
                               dict_t **xdata)
 {
     int64_t remote_fd_in = -1;
@@ -902,11 +902,11 @@ client_pre_inodelk_v2(gfx_inodelk_req *req, loc_t *loc, int cmd,
 
     GF_ASSERT_AND_GOTO_WITH_ERROR(!gf_uuid_is_null(*((uuid_t *)req->gfid)), out,
                                   op_errno, EINVAL);
-    if (cmd == F_GETLK || cmd == F_GETLK64)
+    if (cmd == F_GETLK)
         gf_cmd = GF_LK_GETLK;
-    else if (cmd == F_SETLK || cmd == F_SETLK64)
+    else if (cmd == F_SETLK)
         gf_cmd = GF_LK_SETLK;
-    else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+    else if (cmd == F_SETLKW)
         gf_cmd = GF_LK_SETLKW;
     else {
         gf_smsg(THIS->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,
@@ -952,11 +952,11 @@ client_pre_finodelk_v2(xlator_t *this, gfx_finodelk_req *req, fd_t *fd, int cmd,
     CLIENT_GET_REMOTE_FD(this, fd, FALLBACK_TO_ANON_FD, remote_fd, op_errno,
                          GFS3_OP_FINODELK, out);
 
-    if (cmd == F_GETLK || cmd == F_GETLK64)
+    if (cmd == F_GETLK)
         gf_cmd = GF_LK_GETLK;
-    else if (cmd == F_SETLK || cmd == F_SETLK64)
+    else if (cmd == F_SETLK)
         gf_cmd = GF_LK_SETLK;
-    else if (cmd == F_SETLKW || cmd == F_SETLKW64)
+    else if (cmd == F_SETLKW)
         gf_cmd = GF_LK_SETLKW;
     else {
         gf_smsg(this->name, GF_LOG_WARNING, EINVAL, PC_MSG_UNKNOWN_CMD,

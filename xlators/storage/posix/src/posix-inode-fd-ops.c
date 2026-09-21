@@ -2220,7 +2220,7 @@ unwind:
 
 int32_t
 posix_copy_file_range(call_frame_t *frame, xlator_t *this, fd_t *fd_in,
-                      off64_t off_in, fd_t *fd_out, off64_t off_out, size_t len,
+                      off_t off_in, fd_t *fd_out, off_t off_out, size_t len,
                       uint32_t flags, dict_t *xdata)
 {
     int32_t op_ret = -1;

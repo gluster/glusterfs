@@ -35,15 +35,12 @@
 #define _FILE_OFFSET_BITS 64
 #endif
 
-#ifndef __USE_FILE_OFFSET64
-#define __USE_FILE_OFFSET64
-#endif
-
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/uio.h>
 #include <unistd.h>
@@ -54,36 +51,33 @@
 #include <sys/time.h>
 
 /*
- * For off64_t to be defined, we need both
- * __USE_LARGEFILE64 to be true and __off64_t_defnined to be
- * false. But, making __USE_LARGEFILE64 true causes other issues
- * such as redinition of stat and fstat to stat64 and fstat64
- * respectively which again causes compilation issues.
- * Without off64_t being defined, this will not compile as
- * copy_file_range uses off64_t. Hence define it here. First
- * check whether __off64_t_defined is true or not. <unistd.h>
- * sets that flag when it defines off64_t. If __off64_t_defined
- * is false and __USE_FILE_OFFSET64 is true, then go on to define
- * off64_t using __off64_t.
+ * The feature-test defines above only take effect if glfs.h is the first
+ * header in the translation unit.  If a libc header came first, glibc's
+ * <features.h> has already run and will not run again, so the define
+ * arrives too late and is ignored; and a consumer is free to set
+ * _FILE_OFFSET_BITS to something other than 64 itself, which the block
+ * above deliberately does not override.
+ *
+ * On an ABI whose off_t is 32-bit by default, either case leaves the
+ * application with a 4-byte off_t and an 88-byte struct stat while
+ * libgfapi -- always built with _FILE_OFFSET_BITS=64 -- has 8 and 96.
+ * Every glfs_* entry point taking an off_t or a struct stat is then
+ * called with a layout the library does not agree on, and nothing says
+ * so: it compiles, links, and misbehaves at run time.
+ *
+ * The system headers have been included by this point, so glibc's own
+ * conclusion can be read back rather than guessed at.  Both macros below
+ * are glibc's, read here and never defined by us: __USE_FILE_OFFSET64
+ * says <features.h> selected 64-bit offsets, and __OFF_T_MATCHES_OFF64_T
+ * says this ABI has a 64-bit off_t regardless (x86_64, x32 and the other
+ * 64-bit-off_t ABIs).  The non-glibc libcs this tree builds on -- musl
+ * and the BSDs -- have a 64-bit off_t unconditionally.
  */
-#ifndef GF_BSD_HOST_OS
-#if defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined)
-typedef __off64_t off64_t;
-#endif /* defined(__USE_FILE_OFFSET64) && !defined(__off64_t_defined) */
-#else
-#include <stdio.h>
-#ifndef _OFF64_T_DECLARED
-/*
- * Including <stdio.h> (done above) should actually define
- * _OFF64_T_DECLARED with off64_t data type being available
- * for consumption. But, off64_t data type is not recognizable
- * for FreeBSD versions less than 11. Hence, int64_t is typedefed
- * to off64_t.
- */
-#define _OFF64_T_DECLARED
-typedef int64_t off64_t;
-#endif /* _OFF64_T_DECLARED */
-#endif /* GF_BSD_HOST_OS */
+#if defined(__GLIBC__) && !defined(__USE_FILE_OFFSET64) &&                     \
+    !defined(__OFF_T_MATCHES_OFF64_T)
+#error                                                                         \
+    "libgfapi is built with _FILE_OFFSET_BITS=64: compile with -D_FILE_OFFSET_BITS=64 (pkg-config --cflags glusterfs-api), or include glfs.h before any libc header"
+#endif
 
 #if defined(HAVE_SYS_ACL_H) || (defined(USE_POSIX_ACLS) && USE_POSIX_ACLS)
 #include <sys/acl.h>
@@ -782,8 +776,8 @@ glfs_lseek(glfs_fd_t *fd, off_t offset, int whence) __THROW
     GFAPI_PUBLIC(glfs_lseek, 3.4.0);
 
 ssize_t
-glfs_copy_file_range(struct glfs_fd *glfd_in, off64_t *off_in,
-                     struct glfs_fd *glfd_out, off64_t *off_out, size_t len,
+glfs_copy_file_range(struct glfs_fd *glfd_in, off_t *off_in,
+                     struct glfs_fd *glfd_out, off_t *off_out, size_t len,
                      unsigned int flags, struct glfs_stat *statbuf,
                      struct glfs_stat *prestat,
                      struct glfs_stat *poststat) __THROW

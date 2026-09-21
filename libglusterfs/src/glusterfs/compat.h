@@ -86,25 +86,7 @@
 #include <limits.h>
 
 #include <libgen.h>
-/*
- * This is where things like off64_t are defined.
- * So include it before declaring _OFF64_T_DECLARED.
- * If the freebsd version has support for off64_t
- * including stdio.h should be sufficient.
- */
 #include <stdio.h>
-
-#ifndef _OFF64_T_DECLARED
-/*
- * Including <stdio.h> (done above) should actually define
- * _OFF64_T_DECLARED with off64_t data type being available
- * for consumption. But, off64_t data type is not recognizable
- * for FreeBSD versions less than 11. Hence, int64_t is typedefed
- * to off64_t.
- */
-#define _OFF64_T_DECLARED
-typedef int64_t off64_t;
-#endif /* _OFF64_T_DECLARED */
 
 #ifndef XATTR_CREATE
 enum {
@@ -163,9 +145,6 @@ enum {
 #endif
 #endif
 
-#define F_GETLK64 F_GETLK
-#define F_SETLK64 F_SETLK
-#define F_SETLKW64 F_SETLKW
 #define FALLOC_FL_KEEP_SIZE 0x01      /* default is extend size */
 #define FALLOC_FL_PUNCH_HOLE 0x02     /* de-allocates range */
 #define FALLOC_FL_ZERO_RANGE 0x10     /* zeroes out range */
@@ -245,10 +224,6 @@ gf_extattr_list_reshape(char *list, ssize_t size);
 #define NAME_MAX 255
 #endif
 #endif
-
-#define F_GETLK64 F_GETLK
-#define F_SETLK64 F_SETLK
-#define F_SETLKW64 F_SETLKW
 
 #ifndef FTW_CONTINUE
 #define FTW_CONTINUE 0

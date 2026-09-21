@@ -2734,9 +2734,6 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
             break;
 
-#if F_GETLK != F_GETLK64
-        case F_GETLK64:
-#endif
         case F_GETLK:
             conf = pl_getlk(pl_inode, reqlock);
             posix_lock_to_flock(conf, flock);
@@ -2744,18 +2741,12 @@ pl_lk(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
 
             break;
 
-#if F_SETLKW != F_SETLKW64
-        case F_SETLKW64:
-#endif
         case F_SETLKW:
             can_block = 1;
             reqlock->frame = frame;
             reqlock->blocking = can_block;
             /* fall through */
 
-#if F_SETLK != F_SETLK64
-        case F_SETLK64:
-#endif
         case F_SETLK:
             reqlock->frame = frame;
             lock_type = flock->l_type;

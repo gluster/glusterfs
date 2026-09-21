@@ -12,7 +12,7 @@
 #define _XLATOR_H
 
 #include <stdint.h>                    // for int32_t
-#include <sys/types.h>                 // for off_t, mode_t, off64_t, dev_t
+#include <sys/types.h>                 // for off_t, mode_t, dev_t
 #include <urcu/arch.h>                 // CAA_CACHE_LINE_SIZE
 #include "glusterfs/glusterfs-fops.h"  // for GF_FOP_MAXVALUE, entrylk_cmd
 #include "glusterfs/atomic.h"          // for gf_atomic_t
@@ -534,8 +534,8 @@ typedef int32_t (*fop_icreate_t)(call_frame_t *frame, xlator_t *this,
 typedef int32_t (*fop_namelink_t)(call_frame_t *frame, xlator_t *this,
                                   loc_t *loc, dict_t *xdata);
 typedef int32_t (*fop_copy_file_range_t)(call_frame_t *frame, xlator_t *this,
-                                         fd_t *fd_in, off64_t off_in,
-                                         fd_t *fd_out, off64_t off_out,
+                                         fd_t *fd_in, off_t off_in,
+                                         fd_t *fd_out, off_t off_out,
                                          size_t len, uint32_t flags,
                                          dict_t *xdata);
 

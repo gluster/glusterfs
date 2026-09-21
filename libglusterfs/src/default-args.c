@@ -1535,8 +1535,8 @@ args_namelink_store(default_args_t *args, loc_t *loc, dict_t *xdata)
 }
 
 int
-args_copy_file_range_store(default_args_t *args, fd_t *fd_in, off64_t off_in,
-                           fd_t *fd_out, off64_t off_out, size_t len,
+args_copy_file_range_store(default_args_t *args, fd_t *fd_in, off_t off_in,
+                           fd_t *fd_out, off_t off_out, size_t len,
                            uint32_t flags, dict_t *xdata)
 {
     if (fd_in)

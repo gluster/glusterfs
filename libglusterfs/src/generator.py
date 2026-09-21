@@ -601,9 +601,9 @@ ops['namelink'] = (
 
 ops['copy_file_range'] = (
         ('fop-arg',     'fd_in',                 'fd_t *'),
-        ('fop-arg',     'off_in',                'off64_t '),
+        ('fop-arg',     'off_in',                'off_t'),
         ('fop-arg',     'fd_out',                'fd_t *'),
-        ('fop-arg',     'off_out',               'off64_t '),
+        ('fop-arg',     'off_out',               'off_t'),
         ('fop-arg',     'len',                   'size_t'),
         ('fop-arg',     'flags',                 'uint32_t'),
         ('fop-arg',     'xdata',                 'dict_t *'),

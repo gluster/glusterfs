@@ -20,8 +20,7 @@ client3_getspec(call_frame_t *frame, xlator_t *this, void *data);
 int
 client_is_setlk(int32_t cmd)
 {
-    if ((cmd == F_SETLK) || (cmd == F_SETLK64) || (cmd == F_SETLKW) ||
-        (cmd == F_SETLKW64)) {
+    if ((cmd == F_SETLK) || (cmd == F_SETLKW)) {
         return 1;
     }
 

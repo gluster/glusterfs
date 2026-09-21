@@ -718,8 +718,8 @@ syncop_entrylk(xlator_t *subvol, const char *volume, loc_t *loc,
                dict_t *xdata_in, dict_t **xdata_out);
 
 int
-syncop_copy_file_range(xlator_t *subvol, fd_t *fd_in, off64_t off_in,
-                       fd_t *fd_out, off64_t off_out, size_t len,
+syncop_copy_file_range(xlator_t *subvol, fd_t *fd_in, off_t off_in,
+                       fd_t *fd_out, off_t off_out, size_t len,
                        uint32_t flags, struct iatt *stbuf,
                        struct iatt *preiatt_dst, struct iatt *postiatt_dst,
                        dict_t *xdata_in, dict_t **xdata_out);

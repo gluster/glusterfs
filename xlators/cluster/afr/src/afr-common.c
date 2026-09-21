@@ -2497,14 +2497,7 @@ afr_lk_is_unlock(int32_t cmd, struct gf_flock *flock)
             return _gf_true;
             break;
 
-#if F_SETLKW != F_SETLKW64
-        case F_SETLKW64:
-#endif
         case F_SETLKW:
-
-#if F_SETLK != F_SETLK64
-        case F_SETLK64:
-#endif
         case F_SETLK:
             if (F_UNLCK == flock->l_type)
                 return _gf_true;
