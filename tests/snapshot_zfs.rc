@@ -64,6 +64,10 @@ function cleanup_zfs() {
 
     _cleanup_zfs_again >/dev/null 2>&1
     \rm -rf /var/run/gluster/snaps/*
+    # the pid files of snapshot bricks live under glusterd's run directory
+    if [ -n "${GLUSTERD_PIDFILEDIR}" ]; then
+        \rm -rf ${GLUSTERD_PIDFILEDIR}/snaps/*
+    fi
     zfs list | grep "${ZFS_PREFIX}" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
     return 0
 }

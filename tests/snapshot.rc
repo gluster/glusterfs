@@ -112,6 +112,10 @@ function _cleanup_lvm_again() {
     findmnt -nRlT "${B0}" -o TARGET,SOURCE | grep "${LVM_PREFIX}" | awk '{print $2}' | xargs -r ${UMOUNT_F}
     findmnt -nRlo TARGET,SOURCE | grep "run/gluster/snaps" | awk '{print $2}' | xargs -r ${UMOUNT_F}
     \rm -rf /var/run/gluster/snaps/*
+    # the pid files of snapshot bricks live under glusterd's run directory
+    if [ -n "${GLUSTERD_PIDFILEDIR}" ]; then
+        \rm -rf ${GLUSTERD_PIDFILEDIR}/snaps/*
+    fi
 
     vgremove -fyS "vg_name=~^${LVM_PREFIX}_vg"
 

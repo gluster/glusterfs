@@ -20,7 +20,10 @@ TEST pidof glusterd;
 TEST $CLI volume create $V0 $H0:$L1 $H0:$L2 $H0:$L3;
 TEST $CLI volume start $V0;
 
-snap_path=/var/run/gluster/snaps
+# glusterd keeps the pid files of a snapshot volume's bricks under
+# <run-directory>/snaps/<snap-name>; env.rc exports that directory
+# as GLUSTERD_PIDFILEDIR.
+snap_path=$GLUSTERD_PIDFILEDIR/snaps
 
 TEST $CLI snapshot create snap1 $V0 no-timestamp;
 
@@ -28,7 +31,7 @@ $CLI snapshot activate snap1;
 
 EXPECT 'Started' snapshot_status snap1;
 
-# This Function will check for entry /var/run/gluster/snaps/<snap-name>
+# This Function will check for entry $snap_path/<snap-name>
 # against snap-name
 
 function is_snap_path
