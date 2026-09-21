@@ -286,15 +286,15 @@ pkill glusterfsd;
 TEST glusterd
 TEST $CLI volume status $V1
 
-#bug-853601 - Avoid using /var/lib/glusterd as a brick
-TEST ! $CLI volume create "test" $H0:/var/lib/glusterd
-TEST ! $CLI volume create "test" $H0:/var/lib/glusterd force
-TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc
-TEST ! $CLI volume create "test" $H0:/var/lib/glusterd/abc force
-mkdir -p /xyz/var/lib/glusterd/abc
+#bug-853601 - Avoid using the glusterd working directory as a brick
+TEST ! $CLI volume create "test" $H0:$GLUSTERD_WORKDIR
+TEST ! $CLI volume create "test" $H0:$GLUSTERD_WORKDIR force
+TEST ! $CLI volume create "test" $H0:$GLUSTERD_WORKDIR/abc
+TEST ! $CLI volume create "test" $H0:$GLUSTERD_WORKDIR/abc force
+mkdir -p /xyz$GLUSTERD_WORKDIR/abc
 
 #bug 1716812 - volfile should be created with transport type both
-TEST  $CLI volume create "test" transport tcp,rdma $H0:/xyz/var/lib/glusterd/abc
+TEST  $CLI volume create "test" transport tcp,rdma $H0:/xyz$GLUSTERD_WORKDIR/abc
 EXPECT 'Created' volinfo_field "test" 'Status';
 
 #While taking a statedump, there is a TRY_LOCK on call_frame, which might may cause

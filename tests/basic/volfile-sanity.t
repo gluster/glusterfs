@@ -16,8 +16,8 @@ killall glusterd
 # So, start server on that port, and you can see
 # client successfully working.
 TEST $GFS --xlator-option "${V0}-server.transport.socket.listen-port=24007" \
-     -f /var/lib/glusterd/vols/${V0}/${V0}.${H0}.*.vol
-TEST $GFS -f /var/lib/glusterd/vols/${V0}/${V0}.tcp-fuse.vol $M0
+     -f $GLUSTERD_WORKDIR/vols/${V0}/${V0}.${H0}.*.vol
+TEST $GFS -f $GLUSTERD_WORKDIR/vols/${V0}/${V0}.tcp-fuse.vol $M0
 
 TEST $(df -h $M0 | grep -q ${V0})
 TEST $(cat /proc/mounts | grep -q $M0)

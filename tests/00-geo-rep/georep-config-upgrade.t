@@ -22,7 +22,7 @@ num_passive=2
 primary_mnt=$M0
 secondary_mnt=$M1
 
-WORKING_DIR=/var/lib/glusterd/geo-replication/primary_${H0}_secondary
+WORKING_DIR=$GLUSTERD_WORKDIR/geo-replication/primary_${H0}_secondary
 ############################################################
 #SETUP VOLUMES AND GEO-REPLICATION
 ############################################################

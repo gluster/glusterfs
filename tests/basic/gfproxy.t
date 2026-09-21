@@ -21,9 +21,9 @@ TEST $CLI volume start $V0
 
 sleep 2
 
-REGULAR_CLIENT_VOLFILE="/var/lib/glusterd/vols/${V0}/trusted-${V0}.tcp-fuse.vol"
-GFPROXY_CLIENT_VOLFILE="/var/lib/glusterd/vols/${V0}/trusted-${V0}.tcp-gfproxy-fuse.vol"
-GFPROXYD_VOLFILE="/var/lib/glusterd/vols/${V0}/${V0}.gfproxyd.vol"
+REGULAR_CLIENT_VOLFILE="$GLUSTERD_WORKDIR/vols/${V0}/trusted-${V0}.tcp-fuse.vol"
+GFPROXY_CLIENT_VOLFILE="$GLUSTERD_WORKDIR/vols/${V0}/trusted-${V0}.tcp-gfproxy-fuse.vol"
+GFPROXYD_VOLFILE="$GLUSTERD_WORKDIR/vols/${V0}/${V0}.gfproxyd.vol"
 
 # Client volfile must exist
 TEST [ -f $GFPROXY_CLIENT_VOLFILE ]

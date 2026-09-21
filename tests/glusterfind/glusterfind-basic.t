@@ -12,7 +12,7 @@ TEST glusterd;
 TEST pidof glusterd
 
 ##create .keys
-mkdir -p /var/lib/glusterd/glusterfind/.keys
+mkdir -p $GLUSTERD_WORKDIR/glusterfind/.keys
 
 #create_and_start test_volume
 TEST $CLI volume create test-vol $H0:$B0/b1 $H0:$B0/b2 $H0:$B0/b3

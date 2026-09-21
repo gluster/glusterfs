@@ -18,7 +18,7 @@ EXPECT '6' brick_count $V0
 TEST $CLI volume start $V0;
 EXPECT 'Started' volinfo_field $V0 'Status';
 
-file="/var/lib/glusterd/vols/$V0/trusted-$V0.tcp-fuse.vol"
+file="$GLUSTERD_WORKDIR/vols/$V0/trusted-$V0.tcp-fuse.vol"
 
 cat >> ${file} <<EOF
 

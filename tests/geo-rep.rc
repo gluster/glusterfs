@@ -45,14 +45,14 @@ function verify_checkpoint_met()
 
 function check_keys_distributed()
 {
-    local search_key=$(cat /var/lib/glusterd/geo-replication/primary_secondary_common_secret.pem.pub)
+    local search_key=$(cat $GLUSTERD_WORKDIR/geo-replication/primary_secondary_common_secret.pem.pub)
     grep -F "$search_key" ~/.ssh/authorized_keys > /dev/null
     echo $?
 }
 
 function check_common_secret_file()
 {
-    stat /var/lib/glusterd/geo-replication/primary_secondary_common_secret.pem.pub
+    stat $GLUSTERD_WORKDIR/geo-replication/primary_secondary_common_secret.pem.pub
     echo $?
 }
 

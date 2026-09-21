@@ -175,13 +175,13 @@ TEST ! $GEOREP_CLI  $primary $secondary1 resume
 
 ##-----------------glusterd secondary key/value upgrade testcase Begin ---------##
 #Upgrade test of secondary key stored in glusterd info file
-src=$(grep secondary2 /var/lib/glusterd/vols/$primary/info)
+src=$(grep secondary2 $GLUSTERD_WORKDIR/vols/$primary/info)
 #Remove secondary uuuid (last part after divided by : )
 dst=${src%:*}
 
 #Update glusterd info file with old secondary format
-sed -i "s|$src|$dst|g" /var/lib/glusterd/vols/$primary/info
-TEST ! grep $src /var/lib/glusterd/vols/$primary/info
+sed -i "s|$src|$dst|g" $GLUSTERD_WORKDIR/vols/$primary/info
+TEST ! grep $src $GLUSTERD_WORKDIR/vols/$primary/info
 
 #Restart glusterd to update in-memory volinfo
 TEST pkill glusterd
@@ -190,7 +190,7 @@ TEST pidof glusterd
 
 #Start geo-rep and validate secondary format is updated
 TEST $GEOREP_CLI $primary $secondary1 start force
-TEST grep $src /var/lib/glusterd/vols/$primary/info
+TEST grep $src $GLUSTERD_WORKDIR/vols/$primary/info
 ##-----------------glusted secondary key/value upgrade testcase End ---------##
 
 #Negative testcase: Delete Geo-rep 2 fails as geo-rep is running

@@ -48,7 +48,7 @@ EXPECT_WITHIN $CHECK_MOUNT_TIMEOUT 0 check_mounted $M0
 $CLI system getspec $V0 > fubar.vol
 TEST $CLI volume stop $V0
 
-sed -i -e '/password /d' /var/lib/glusterd/vols/$V0/$V0.*$V0.vol
+sed -i -e '/password /d' $GLUSTERD_WORKDIR/vols/$V0/$V0.*$V0.vol
 
 TEST $CLI volume start $V0
 

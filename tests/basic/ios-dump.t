@@ -10,7 +10,7 @@ function check_brick_inter_stats() {
   local inter_cnt=""
 
   inter_cnt=$(grep -h "\".*inter.*$counter\"" \
-    /var/lib/glusterd/stats/glusterfsd*.dump 2>/dev/null |
+    $GLUSTERD_WORKDIR/stats/glusterfsd*.dump 2>/dev/null |
     grep -v '\"0.0000\"' | wc -l)
   if (( $inter_cnt == 3 )); then
     echo "Y"
