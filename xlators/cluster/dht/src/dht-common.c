@@ -7429,10 +7429,11 @@ dht_newfile_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
     int ret = -1;
     dht_local_t *local = NULL;
 
+    local = frame->local;
+
     if (op_ret == -1)
         goto out;
 
-    local = frame->local;
     if (!local) {
         op_ret = -1;
         op_errno = EINVAL;
