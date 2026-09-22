@@ -226,6 +226,7 @@ error_gen(xlator_t *this, int op_no)
     int error_no_list_size = 0;
 
     egp = this->private;
+    error_no_int = egp->error_no_int;
 
     if (egp->random_failure) {
         /*
@@ -239,7 +240,6 @@ error_gen(xlator_t *this, int op_no)
         LOCK(&egp->lock);
         {
             count = ++(egp->op_count);
-            error_no_int = egp->error_no_int;
             if ((count % egp->failure_iter_no) == 0) {
                 egp->op_count = 0;
                 /* coverity[DC.WEAK_CRYPTO] */
