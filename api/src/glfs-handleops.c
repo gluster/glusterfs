@@ -1415,6 +1415,7 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
     struct glfs_object *object = NULL;
     uint64_t ctx_value = LOOKUP_NOT_NEEDED;
     gf_boolean_t lookup_needed = _gf_false;
+    gf_boolean_t inode_looked_up = _gf_false;
 
     /* validate in args */
     if ((fs == NULL) || (handle == NULL) || (len != GFAPI_HANDLE_LENGTH)) {
@@ -1487,6 +1488,7 @@ pub_glfs_h_create_from_handle(struct glfs *fs, unsigned char *handle, int len,
             inode_ctx_set(newinode, THIS, &ctx_value);
         }
         inode_lookup(newinode);
+        inode_looked_up = _gf_true;
     } else {
         gf_smsg(subvol->name, GF_LOG_WARNING, errno, API_MSG_INODE_LINK_FAILED,
                 "gfid=%s", uuid_utoa(loc.gfid), NULL);
@@ -1501,6 +1503,10 @@ found:
     object = GF_CALLOC(1, sizeof(struct glfs_object), glfs_mt_glfs_object_t);
     if (object == NULL) {
         errno = ENOMEM;
+        if (inode_looked_up) {
+            inode_forget(newinode, 1);
+        }
+        inode_unref(newinode);
         goto out;
     }
 
@@ -1509,7 +1515,6 @@ found:
     gf_uuid_copy(object->gfid, object->inode->gfid);
 
 out:
-    /* TODO: Check where the inode ref is being held? */
     loc_wipe(&loc);
 
     glfs_subvol_done(fs, subvol);
