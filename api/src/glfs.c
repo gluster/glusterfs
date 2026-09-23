@@ -1238,6 +1238,98 @@ glusterfs_ctx_destroy(glusterfs_ctx_t *ctx)
     return ret;
 }
 
+/*
+ * Close all open file descriptors before graph teardown.
+ *
+ * glfs_fini does not iterate fs->openfds — if a consumer fails to
+ * close all fds before calling fini, inode_table_destroy_all will
+ * force-free inodes while fd_t objects still hold references,
+ * causing dangling pointers and leaked glfs_fd_t objects.
+ *
+ * This function pops each glfs_fd_t from the openfds list and
+ * triggers its destruction via GF_REF_PUT.  The destroy callback
+ * (glfs_fd_destroy) calls fd_unref, releasing the fd_t's ref on
+ * the inode so inode_table_destroy finds no active refs.
+ *
+ * Lock discipline: pop one entry under glfs_lock, process it
+ * outside the lock.  glfs_fd_destroy takes glfs_lock internally,
+ * so we must not hold it during GF_REF_PUT.
+ *
+ * State check: if another thread already called glfs_close (which
+ * sets state to GLFD_CLOSE and does its own GF_REF_PUT), we skip
+ * the fd to avoid a double-PUT.
+ */
+static void
+glfs_drain_openfds(struct glfs *fs)
+{
+    struct glfs_fd *glfd = NULL;
+    int count = 0;
+    gf_boolean_t need_put;
+
+    for (;;) {
+        glfd = NULL;
+
+        glfs_lock(fs, _gf_true);
+        {
+            if (!list_empty(&fs->openfds)) {
+                glfd = list_first_entry(&fs->openfds, struct glfs_fd,
+                                        openfds);
+                list_del_init(&glfd->openfds);
+            }
+        }
+        glfs_unlock(fs);
+
+        if (!glfd)
+            break;
+
+        need_put = _gf_false;
+
+        LOCK(&glfd->lock);
+        {
+            if (glfd->state != GLFD_CLOSE) {
+                glfd->state = GLFD_CLOSE;
+                glfd->next = NULL;
+                need_put = _gf_true;
+            }
+        }
+        UNLOCK(&glfd->lock);
+
+        if (need_put) {
+            gf_dirent_free(list_entry(&glfd->entries, gf_dirent_t, list));
+
+            /* Release the internal fd_t ref NOW, while the inode
+             * table is still alive.  This does two things:
+             *
+             * 1. Releases the fd_t's ref on the inode, so
+             *    inode_table_destroy_all finds fewer active refs.
+             *
+             * 2. NULLs glfd->fd so that if a leaked frame's
+             *    GF_REF_PUT later triggers glfs_fd_destroy (after
+             *    inode_table_destroy_all has freed fd_mem_pool),
+             *    the destroy skips fd_unref instead of crashing
+             *    on freed memory.
+             *
+             * Without this, the drain converts a silent leak into
+             * a use-after-free for the leaked-frames edge case:
+             * drain PUT (2->1), destroy PUT (1->0) triggers
+             * fd_unref on a freed fd_t.
+             */
+            if (glfd->fd) {
+                fd_unref(glfd->fd);
+                glfd->fd = NULL;
+            }
+
+            GF_REF_PUT(glfd);
+            count++;
+        }
+    }
+
+    if (count) {
+        gf_smsg("glfs", GF_LOG_WARNING, 0, API_MSG_FINI_FD_DRAIN, "count=%d",
+                count, NULL);
+    }
+}
+
 GFAPI_SYMVER_PUBLIC_DEFAULT(glfs_fini, 3.4.0)
 int
 pub_glfs_fini(struct glfs *fs)
@@ -1357,6 +1449,21 @@ pub_glfs_fini(struct glfs *fs)
     }
 
     ctx->cleanup_started = 1;
+
+    /* Drain any open fds before destroying the inode table.
+     * Without this, inode_table_destroy_all force-frees inodes
+     * (inode.c "approach 2") while fd_t objects still hold
+     * references, leaving dangling pointers and leaked glfs_fd_t
+     * objects.  The requirement to close all fds before calling
+     * glfs_fini is not documented in glfs.h — this drain makes
+     * the library resilient to consumers that violate it.
+     *
+     * Only when glfs_init() ran: without it nothing can have been
+     * opened, and glfs_lock() inside the drain would wait for
+     * fs->init forever (tests/basic/gfapi/libgfapi-fini-hang.t).
+     */
+    if (fs_init != 0)
+        glfs_drain_openfds(fs);
 
     if (fs_init != 0) {
         /* Destroy all the inode tables of all the graphs.
