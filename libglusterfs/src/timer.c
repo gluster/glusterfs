@@ -124,6 +124,7 @@ gf_timer_proc(void *data)
     gf_timer_t *event = NULL;
     gf_timer_t *tmp = NULL;
     xlator_t *old_THIS = NULL;
+    glusterfs_ctx_t *ctx = NULL;
 
     pthread_mutex_lock(&reg->lock);
 
@@ -148,11 +149,15 @@ gf_timer_proc(void *data)
                 if (event->xl) {
                     old_THIS = THIS;
                     THIS = event->xl;
+                    ctx = event->xl->ctx;
                 }
-                event->callbk(event->data);
+                if (!ctx || !ctx->cleanup_started) {
+                    event->callbk(event->data);
+                }
                 GF_FREE(event);
                 if (old_THIS) {
                     THIS = old_THIS;
+                    ctx = NULL;
                 }
 
                 pthread_mutex_lock(&reg->lock);
