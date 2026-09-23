@@ -208,6 +208,7 @@ struct glfs {
     struct list_head openfds;
 
     gf_boolean_t migration_in_progress;
+    gf_boolean_t shutting_down; /* set at glfs_fini entry, before drain */
 
     gf_boolean_t cache_upcalls; /* add upcalls to the upcall_list? */
     struct list_head upcall_list;
@@ -435,6 +436,10 @@ glfs_process_upcall_event(struct glfs *fs, void *data)
     do {                                                                       \
         if (!fs) {                                                             \
             errno = EINVAL;                                                    \
+            goto label;                                                        \
+        }                                                                      \
+        if (fs->shutting_down) {                                               \
+            errno = ESHUTDOWN;                                                 \
             goto label;                                                        \
         }                                                                      \
         old_THIS = THIS;                                                       \
