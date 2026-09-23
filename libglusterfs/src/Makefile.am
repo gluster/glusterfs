@@ -43,7 +43,7 @@ libglusterfs_la_SOURCES = dict.c xlator.c logging.c \
 	strfd.c parse-utils.c $(CONTRIBDIR)/mount/mntent.c \
 	quota-common-utils.c rot-buffs.c \
 	$(CONTRIBDIR)/timer-wheel/timer-wheel.c \
-	$(CONTRIBDIR)/timer-wheel/find_last_bit.c default-args.c \
+	default-args.c \
 	throttle-tbf.c monitoring.c async.c gf-io.c gf-io-common.c gf-io-legacy.c
 
 if !HAVE_LIBXXHASH
