@@ -9,9 +9,10 @@ libgfapi_la_SOURCES = glfs.c glfs-mgmt.c glfs-fops.c glfs-resolve.c \
 	glfs-handleops.c
 libgfapi_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
 	$(top_builddir)/rpc/rpc-lib/src/libgfrpc.la \
-	$(top_builddir)/rpc/xdr/src/libgfxdr.la
+	$(top_builddir)/rpc/xdr/src/libgfxdr.la $(UUID_LIBS)
 
 libgfapi_la_LDFLAGS = -version-info $(GFAPI_LT_VERSION) $(GF_LDFLAGS) \
+	$(GF_NO_UNDEFINED) \
 	$(GFAPI_EXTRA_LDFLAGS) $(ACL_LIBS)
 
 libgfapi_la_CPPFLAGS = $(GF_CPPFLAGS) -I$(top_srcdir)/libglusterfs/src \

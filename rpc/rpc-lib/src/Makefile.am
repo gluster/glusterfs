@@ -10,6 +10,7 @@ EXTRA_DIST = libgfrpc.sym
 libgfrpc_la_LIBADD = $(top_builddir)/libglusterfs/src/libglusterfs.la \
                      $(top_builddir)/rpc/xdr/src/libgfxdr.la
 libgfrpc_la_LDFLAGS = -version-info $(LIBGFRPC_LT_VERSION) $(GF_LDFLAGS) \
+		      $(GF_NO_UNDEFINED) \
 		      -export-symbols $(top_srcdir)/rpc/rpc-lib/src/libgfrpc.sym
 
 libgfrpc_la_HEADERS = rpcsvc.h rpc-transport.h xdr-common.h xdr-rpc.h xdr-rpcclnt.h \
