@@ -68,6 +68,43 @@ gf_timer_call_after(glusterfs_ctx_t *ctx, struct timespec delta,
     return event;
 }
 
+/*
+ * Cancel a pending timer event.
+ *
+ * Returns 0 when the event was still queued and has now been removed and
+ * freed: its callback will never run, and whatever the event carried
+ * (typically a reference on the object the callback would have acted on)
+ * is the caller's to release.
+ *
+ * Returns -1 when this call does not prevent the callback:
+ *  - the event has already been dequeued for dispatch (event->fired): the
+ *    callback is running or about to run, and it owns what the event
+ *    carried -- the caller must not release it;
+ *  - the timer registry is being or has been destroyed (ctx->timer == NULL,
+ *    set by gf_timer_registry_destroy() before it joins the timer thread):
+ *    an event that had already been dequeued is being run by the thread
+ *    being joined and its callback owns what it carried; an event still
+ *    queued is freed by gf_timer_proc()'s shutdown loop without invoking
+ *    the callback, and nobody releases what it carried. In glfs_fini()
+ *    the registry is destroyed only after every xlator has been finalized,
+ *    so only a cancel issued at that point meets this case; it is
+ *    process-exit territory.
+ *
+ * ctx->cleanup_started does not change any of this. The registry stays
+ * alive until gf_timer_registry_destroy(), which glfs_fini() reaches only
+ * after xlator fini, so a cancel issued during teardown is an ordinary
+ * cancel: the event is really removed and its callback really never runs.
+ *
+ * ctx->lock is held from the read of ctx->timer to the end of the
+ * reg->lock section. gf_timer_registry_destroy() nulls ctx->timer under
+ * ctx->lock and frees the registry only after that, so a registry seen
+ * non-NULL here cannot be freed until this function has released
+ * ctx->lock: a cancel concurrent with the destroy either finds ctx->timer
+ * already NULL and returns -1, or completes against a live registry. The
+ * lock order is ctx->lock -> reg->lock; reg->lock is private to this file
+ * and is never held while ctx->lock is taken (gf_timer_proc() drops it
+ * before running a callback), so the nesting adds no cycle.
+ */
 int32_t
 gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
 {
@@ -80,35 +117,32 @@ gf_timer_call_cancel(glusterfs_ctx_t *ctx, gf_timer_t *event)
         return -1;
     }
 
-    if (ctx->cleanup_started) {
-        gf_msg_callingfn("timer", GF_LOG_INFO, 0, LG_MSG_CTX_CLEANUP_STARTED,
-                         "ctx cleanup started");
-        return -1;
-    }
-
     LOCK(&ctx->lock);
     {
         reg = ctx->timer;
+        if (!reg) {
+            /* gf_timer_registry_destroy() has taken the registry away
+             * (ctx->timer is nulled under ctx->lock); the event is, or
+             * will be, freed by gf_timer_proc() -- by its shutdown loop
+             * if still queued, after its callback if already dequeued --
+             * and must not be touched here.
+             */
+            UNLOCK(&ctx->lock);
+            return -1;
+        }
+
+        /* Keep ctx->lock while working under reg->lock: the destroy
+         * cannot free reg before we release ctx->lock (see above).
+         */
+        pthread_mutex_lock(&reg->lock);
+        {
+            fired = event->fired;
+            if (!fired)
+                list_del(&event->list);
+        }
+        pthread_mutex_unlock(&reg->lock);
     }
     UNLOCK(&ctx->lock);
-
-    if (!reg) {
-        /* This can happen when cleanup may have just started and
-         * gf_timer_registry_destroy() sets ctx->timer to NULL.
-         * gf_timer_proc() takes care of cleaning up the events.
-         */
-        return -1;
-    }
-
-    pthread_mutex_lock(&reg->lock);
-    {
-        fired = event->fired;
-        if (fired)
-            goto unlock;
-        list_del(&event->list);
-    }
-unlock:
-    pthread_mutex_unlock(&reg->lock);
 
     if (!fired) {
         GF_FREE(event);
@@ -166,12 +200,17 @@ gf_timer_proc(void *data)
     list_for_each_entry_safe(event, tmp, &reg->active, list)
     {
         list_del(&event->list);
-        /* TODO Possible resource leak
-         * Before freeing the event, we need to call the respective
-         * event functions and free any resources.
-         * For example, In case of rpc_clnt_reconnect, we need to
-         * unref rpc object which was taken when added to timer
-         * wheel.
+        /* Events still queued here belong to owners that never cancelled
+         * them. Their callbacks are deliberately not run: the ctx is being
+         * destroyed and the objects they would act on are gone or going.
+         * Whatever such an event carried (e.g. the rpc_clnt ref taken by
+         * rpc_clnt_reconnect / call_bail when arming) is released by
+         * nobody -- a pre-existing leak that only a cancel issued after
+         * gf_timer_registry_destroy() can produce (in glfs_fini() nothing
+         * cancels after that point; in a daemon this is process exit).
+         * TODO(timer): a per-event release hook would let this loop release
+         * what a queued event carries. Owners cancel during their fini, while
+         * the registry is alive, and get a truthful 0 back.
          */
         GF_FREE(event);
     }
