@@ -175,7 +175,8 @@ validate_uss_dir(glusterd_volinfo_t *volinfo, dict_t *dict, char *key,
     }
 
     for (i = 1; value[i]; i++) {
-        if (isalnum(value[i]) || value[i] == '_' || value[i] == '-')
+        if (isalnum((unsigned char)value[i]) || value[i] == '_' ||
+            value[i] == '-')
             continue;
 
         snprintf(errstr, sizeof(errstr),

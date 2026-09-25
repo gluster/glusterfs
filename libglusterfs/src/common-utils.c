@@ -713,14 +713,14 @@ gf_trim(char *string)
         return NULL;
     }
 
-    for (s = string; isspace(*s); s++)
+    for (s = string; isspace((unsigned char)*s); s++)
         ;
 
     if (*s == 0)
         return s;
 
     t = s + strlen(s) - 1;
-    while (t > s && isspace(*t))
+    while (t > s && isspace((unsigned char)*t))
         t--;
     *++t = '\0';
 
@@ -778,7 +778,7 @@ gf_string2time(const char *str, time_t *n)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -852,7 +852,7 @@ gf_string2percent(const char *str, double *n)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -928,7 +928,7 @@ _gf_string2ulong(const char *str, unsigned long *n, int base)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -971,7 +971,7 @@ _gf_string2uint(const char *str, unsigned int *n, int base)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -1082,7 +1082,7 @@ _gf_string2ulonglong(const char *str, unsigned long long *n, int base)
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -1450,7 +1450,7 @@ gf_string2bytesize_range(const char *str, uint64_t *n, uint64_t umax)
     max = umax & 0x7fffffffffffffffLL;
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -1549,7 +1549,7 @@ gf_string2percent_or_bytesize(const char *str, double *n,
     }
 
     for (s = str; *s != '\0'; s++) {
-        if (isspace(*s))
+        if (isspace((unsigned char)*s))
             continue;
         if (*s == '-')
             return -1;
@@ -1806,7 +1806,7 @@ strtail(char *str, const char *pattern)
 void
 skipwhite(char **s)
 {
-    while (isspace(**s))
+    while (isspace((unsigned char)**s))
         (*s)++;
 }
 
@@ -1995,7 +1995,8 @@ valid_host_name(char *address, int length)
         goto out;
     }
 
-    if (!isalnum(dup_addr[length - 1]) && (dup_addr[length - 1] != '*')) {
+    if (!isalnum((unsigned char)dup_addr[length - 1]) &&
+        (dup_addr[length - 1] != '*')) {
         ret = 0;
         goto out;
     }
@@ -2013,12 +2014,13 @@ valid_host_name(char *address, int length)
     do {
         str_len = strlen(temp_str);
 
-        if (!isalnum(temp_str[0]) || !isalnum(temp_str[str_len - 1])) {
+        if (!isalnum((unsigned char)temp_str[0]) ||
+            !isalnum((unsigned char)temp_str[str_len - 1])) {
             ret = 0;
             goto out;
         }
         for (i = 1; i < str_len; i++) {
-            if (!isalnum(temp_str[i]) && (temp_str[i] != '-')) {
+            if (!isalnum((unsigned char)temp_str[i]) && (temp_str[i] != '-')) {
                 ret = 0;
                 goto out;
             }
@@ -2049,7 +2051,8 @@ valid_ipv4_address(char *address, int length, gf_boolean_t wildcard_acc)
      * delimiters.
      */
     if (length <= 0 || (strstr(address, "..")) ||
-        (!isdigit(tmp[length - 1]) && (tmp[length - 1] != '*'))) {
+        (!isdigit((unsigned char)tmp[length - 1]) &&
+         (tmp[length - 1] != '*'))) {
         ret = 0;
         goto out;
     }

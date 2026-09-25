@@ -55,7 +55,7 @@ parsing_ganesha_ha_conf(const char *key)
         if (*pointer == '#') {
             continue;
         }
-        while (isblank(*pointer)) {
+        while (isblank((unsigned char)*pointer)) {
             pointer++;
         }
         if (strncmp(pointer, key, strlen(key))) {
@@ -83,7 +83,8 @@ parsing_ganesha_ha_conf(const char *key)
         do {
             end_pointer++;
         } while (!(*end_pointer == '\'' || *end_pointer == '"' ||
-                   isspace(*end_pointer) || *end_pointer == '\0'));
+                   isspace((unsigned char)*end_pointer) ||
+                   *end_pointer == '\0'));
         *end_pointer = '\0';
 
         /* got it. copy it and return */

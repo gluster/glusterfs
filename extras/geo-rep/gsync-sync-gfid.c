@@ -62,7 +62,7 @@ main(int argc, char *argv[])
 
         path += UUID_CANONICAL_FORM_LEN + 1;
 
-        while (isspace(*path))
+        while (isspace((unsigned char)*path))
             path++;
 
         len = strlen(line);

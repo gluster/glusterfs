@@ -662,7 +662,7 @@ gf_strTrim(char **s)
 
     *(end + 1) = '\0';
 
-    while (isspace(**s))
+    while (isspace((unsigned char)**s))
         (*s)++;
 
     return;

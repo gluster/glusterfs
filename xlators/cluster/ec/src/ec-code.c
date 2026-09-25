@@ -838,7 +838,7 @@ ec_code_proc_trim_left(char *text, ssize_t *length)
 {
     ssize_t len;
 
-    for (len = *length; (len > 0) && isspace(*text); len--) {
+    for (len = *length; (len > 0) && isspace((unsigned char)*text); len--) {
         text++;
     }
     *length = len;
@@ -856,7 +856,7 @@ ec_code_proc_trim_right(char *text, ssize_t *length, char sep)
 
     last = text;
     for (len = *length; (len > 0) && (*text != sep); len--) {
-        if (!isspace(*text)) {
+        if (!isspace((unsigned char)*text)) {
             last = text + 1;
         }
         text++;

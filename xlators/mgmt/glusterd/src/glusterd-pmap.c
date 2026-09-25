@@ -150,7 +150,7 @@ pmap_registry_search(xlator_t *this, char *brickname, gf_boolean_t destroy)
     {
         brck = tmp_port->brickname;
         for (;;) {
-            for (i = 0; brck[i] && !isspace(brck[i]); ++i)
+            for (i = 0; brck[i] && !isspace((unsigned char)brck[i]); ++i)
                 ;
             if (i == 0 && brck[i] == '\0')
                 break;
@@ -175,7 +175,7 @@ pmap_registry_search(xlator_t *this, char *brickname, gf_boolean_t destroy)
              * Skip over *any* amount of whitespace, including
              * none (if we're already at the end of the string).
              */
-            while (isspace(*brck))
+            while (isspace((unsigned char)*brck))
                 ++brck;
             /*
              * We're either at the end of the string (which will be
