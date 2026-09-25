@@ -32,10 +32,10 @@ noinst_PYTHON	= utime-gen-fops-c.py utime-gen-fops-h.py
 EXTRA_DIST	= utime-autogen-fops-tmpl.c utime-autogen-fops-tmpl.h
 
 utime-autogen-fops.c: utime-gen-fops-c.py utime-autogen-fops-tmpl.c
-	$(PYTHON) $(UTIME_SRC)/utime-gen-fops-c.py $(UTIME_SRC)/utime-autogen-fops-tmpl.c > $@
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(UTIME_SRC)/utime-gen-fops-c.py $(UTIME_SRC)/utime-autogen-fops-tmpl.c > $@
 
 utime-autogen-fops.h: utime-gen-fops-h.py utime-autogen-fops-tmpl.h
-	$(PYTHON) $(UTIME_SRC)/utime-gen-fops-h.py $(UTIME_SRC)/utime-autogen-fops-tmpl.h > $@
+	PYTHONDONTWRITEBYTECODE=1 $(PYTHON) $(UTIME_SRC)/utime-gen-fops-h.py $(UTIME_SRC)/utime-autogen-fops-tmpl.h > $@
 
 CLEANFILES = $(nodist_utime_la_SOURCES)
 
