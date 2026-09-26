@@ -760,9 +760,6 @@ glfs_new_fs(const char *volname)
 
     PTHREAD_COND_INIT(&fs->cond, NULL, fs->pthread_flags, GLFS_INIT_COND, err);
 
-    PTHREAD_COND_INIT(&fs->child_down_cond, NULL, fs->pthread_flags,
-                      GLFS_INIT_COND_CHILD, err);
-
     PTHREAD_MUTEX_INIT(&fs->upcall_list_mutex, NULL, fs->pthread_flags,
                        GLFS_INIT_MUTEX_UPCALL, err);
 
@@ -971,9 +968,6 @@ priv_glfs_free_from_ctx(struct glfs *fs)
     PTHREAD_MUTEX_DESTROY(&fs->mutex, fs->pthread_flags, GLFS_INIT_MUTEX);
 
     PTHREAD_COND_DESTROY(&fs->cond, fs->pthread_flags, GLFS_INIT_COND);
-
-    PTHREAD_COND_DESTROY(&fs->child_down_cond, fs->pthread_flags,
-                         GLFS_INIT_COND_CHILD);
 
     PTHREAD_MUTEX_DESTROY(&fs->upcall_list_mutex, fs->pthread_flags,
                           GLFS_INIT_MUTEX_UPCALL);
@@ -1328,16 +1322,27 @@ pub_glfs_fini(struct glfs *fs)
                in case of asynchrnous cleanup
             */
             graph = subvol->graph;
-            err = pthread_mutex_lock(&fs->mutex);
+            /* Wait for CHILD_DOWN on the graph's own handshake, the way
+             * glusterfs_graph_cleanup() does: protocol/client clears
+             * graph->used and broadcasts graph->child_down_cond under
+             * graph->mutex once the last client is down (client.c), and the
+             * top xlator's CHILD_DOWN handler (glfs-primary.c) does the
+             * same.  Waiting on fs->mutex / fs->child_down_cond read the
+             * flag under a lock the writer does not hold (a data race) and
+             * on a condvar the client's broadcast never signals.
+             */
+            err = pthread_mutex_lock(&graph->mutex);
             if (err != 0) {
-                gf_smsg("glfs", GF_LOG_ERROR, err, API_MSG_FSMUTEX_LOCK_FAILED,
-                        "error=%s", strerror(err), NULL);
+                gf_smsg("glfs", GF_LOG_ERROR, err,
+                        API_MSG_GRAPH_MUTEX_LOCK_FAILED, "error=%s",
+                        strerror(err), NULL);
                 goto fail;
             }
             /* check and wait for CHILD_DOWN for active subvol*/
             {
                 while (graph->used) {
-                    err = pthread_cond_wait(&fs->child_down_cond, &fs->mutex);
+                    err = pthread_cond_wait(&graph->child_down_cond,
+                                            &graph->mutex);
                     if (err != 0)
                         gf_smsg("glfs", GF_LOG_INFO, err,
                                 API_MSG_COND_WAIT_FAILED, "name=%s",
@@ -1345,13 +1350,25 @@ pub_glfs_fini(struct glfs *fs)
                 }
             }
 
-            err = pthread_mutex_unlock(&fs->mutex);
+            err = pthread_mutex_unlock(&graph->mutex);
             if (err != 0) {
                 gf_smsg("glfs", GF_LOG_ERROR, err,
-                        API_MSG_FSMUTEX_UNLOCK_FAILED, "error=%s",
+                        API_MSG_GRAPH_MUTEX_UNLOCK_FAILED, "error=%s",
                         strerror(err), NULL);
                 goto fail;
             }
+
+            /* The client that cleared graph->used flips it before it walks
+             * the CHILD_DOWN notification up the graph on its poller
+             * thread.  Like glusterfs_graph_cleanup(), do not start tearing
+             * the xlators down while a notification is still in flight.
+             */
+            pthread_mutex_lock(&ctx->notify_lock);
+            {
+                while (ctx->notifying)
+                    pthread_cond_wait(&ctx->notify_cond, &ctx->notify_lock);
+            }
+            pthread_mutex_unlock(&ctx->notify_lock);
         }
         glfs_subvol_done(fs, subvol);
     }

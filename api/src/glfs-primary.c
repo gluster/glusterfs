@@ -79,21 +79,27 @@ notify(xlator_t *this, int event, void *data, ...)
                     graph->id, NULL);
             break;
         case GF_EVENT_CHILD_UP:
-            pthread_mutex_lock(&fs->mutex);
+            pthread_mutex_lock(&graph->mutex);
             {
                 graph->used = 1;
             }
-            pthread_mutex_unlock(&fs->mutex);
+            pthread_mutex_unlock(&graph->mutex);
             graph_setup(fs, graph);
             glfs_init_done(fs, 0);
             break;
         case GF_EVENT_CHILD_DOWN:
-            pthread_mutex_lock(&fs->mutex);
+            /* graph->used is the graph's CHILD_DOWN handshake flag: it is
+             * written by protocol/client under graph->mutex and waited for
+             * on graph->child_down_cond (glusterfs_graph_cleanup(), and
+             * glfs_fini() since the same fix).  Use the same lock and
+             * condvar here so the flag is never written under one lock
+             * and read under another. */
+            pthread_mutex_lock(&graph->mutex);
             {
                 graph->used = 0;
-                pthread_cond_broadcast(&fs->child_down_cond);
+                pthread_cond_broadcast(&graph->child_down_cond);
             }
-            pthread_mutex_unlock(&fs->mutex);
+            pthread_mutex_unlock(&graph->mutex);
             glfs_init_done(fs, 1);
             break;
         case GF_EVENT_CHILD_CONNECTING:
