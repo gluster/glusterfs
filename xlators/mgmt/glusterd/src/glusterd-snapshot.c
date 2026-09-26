@@ -5479,6 +5479,13 @@ glusterd_snapshot_remove_prevalidate(dict_t *dict, char **op_errstr,
     char *snapname = NULL;
     xlator_t *this = THIS;
     glusterd_snap_t *snap = NULL;
+    glusterd_volinfo_t *snap_vol = NULL;
+    glusterd_brickinfo_t *brickinfo = NULL;
+    struct glusterd_snap_ops *snap_ops = NULL;
+    int32_t brick_count = -1;
+    gf_boolean_t has_dependent = _gf_false;
+    char dependent_info[4096] = "";
+    char err_str[4096] = "";
 
     GF_VALIDATE_OR_GOTO(this->name, op_errno, out);
 
@@ -5503,6 +5510,50 @@ glusterd_snapshot_remove_prevalidate(dict_t *dict, char **op_errstr,
         *op_errno = EG_NOSNAP;
         ret = -1;
         goto out;
+    }
+
+    /* A backend snapshot that still has a dependent clone (created via
+     * `zfs clone` for snapshot clone/restore) cannot be removed by the
+     * provider's plain `zfs destroy`. Refuse the delete here, before any
+     * decommission state is written, rather than letting it fail at commit
+     * time and report success. Providers that do not track dependents (e.g.
+     * LVM) leave .dependents NULL and are skipped, so their behaviour is
+     * unchanged. The check is per-brick and only the node owning a brick can
+     * query its backend, so each peer validates its local bricks. */
+    cds_list_for_each_entry(snap_vol, &snap->volumes, vol_list)
+    {
+        snap_ops = NULL;
+        glusterd_snapshot_plugin_by_name(snap_vol->snap_plugin, &snap_ops);
+        if (!snap_ops || !snap_ops->dependents)
+            continue;
+
+        brick_count = -1;
+        cds_list_for_each_entry(brickinfo, &snap_vol->bricks, brick_list)
+        {
+            brick_count++;
+            if (gf_uuid_compare(brickinfo->uuid, MY_UUID))
+                continue;
+
+            has_dependent = _gf_false;
+            dependent_info[0] = '\0';
+            ret = snap_ops->dependents(brickinfo, snap_vol->snapshot->snapname,
+                                       snap_vol->volname, brick_count,
+                                       &has_dependent, dependent_info,
+                                       sizeof(dependent_info));
+            if (ret == 0 && has_dependent) {
+                snprintf(err_str, sizeof(err_str),
+                         "Snapshot %s cannot be deleted: its backend snapshot "
+                         "still has a dependent clone (%s). Remove the "
+                         "dependent clone before deleting this snapshot.",
+                         snapname, dependent_info);
+                gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_SNAP_REMOVE_FAIL,
+                       "%s", err_str);
+                *op_errstr = gf_strdup(err_str);
+                *op_errno = EG_OPNOTSUP;
+                ret = -1;
+                goto out;
+            }
+        }
     }
 
     ret = dict_set_dynstr_with_alloc(dict, "snapuuid",
