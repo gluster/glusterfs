@@ -595,6 +595,8 @@ struct _cmd_args {
     int fuse_auto_inval;
 
     uint32_t fuse_dev_eperm_ratelimit_ns;
+    uint32_t fuse_max_write;
+    uint32_t fuse_max_read;
 
     bool global_threading;
     bool brick_mux;

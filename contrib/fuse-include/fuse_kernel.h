@@ -285,6 +285,8 @@ struct fuse_file_lock {
 #define FUSE_MAX_PAGES		(1 << 22)
 #define FUSE_CACHE_SYMLINKS	(1 << 23)
 
+#define FUSE_MAX_MAX_PAGES 256
+
 /**
  * CUSE INIT request/reply flags
  *

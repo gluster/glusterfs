@@ -176,6 +176,8 @@ struct fuse_private {
     uint32_t inode_table_size;
     uint32_t invalidate_limit;
     uint32_t fuse_dev_eperm_ratelimit_ns;
+    uint32_t fuse_max_write;
+    uint32_t fuse_max_read;
 
     /* counters for fusdev errnos */
     uint8_t fusedev_errno_cnt[FUSEDEV_EMAXPLUS];

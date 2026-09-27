@@ -5154,6 +5154,15 @@ fuse_init(xlator_t *this, fuse_in_header_t *finh, void *msg,
     fino.max_readahead = 1 << 17;
     fino.max_write = 1 << 17;
     fino.flags = FUSE_ASYNC_READ | FUSE_POSIX_LOCKS;
+#if FUSE_KERNEL_MINOR_VERSION >= 28
+    if (fini->minor >= 28) {
+        fino.max_readahead = priv->fuse_max_read;
+        fino.max_write = priv->fuse_max_write;
+        fino.max_pages = max(priv->fuse_max_write, priv->fuse_max_read) / sysconf(_SC_PAGESIZE);
+        if (fino.max_pages == FUSE_MAX_MAX_PAGES)
+            fino.flags |= FUSE_MAX_PAGES;
+    }
+#endif
 #if FUSE_KERNEL_MINOR_VERSION >= 17
     if (fini->minor >= 17)
         fino.flags |= FUSE_FLOCK_LOCKS;
@@ -6090,14 +6099,12 @@ fuse_thread_proc(void *data)
     struct pollfd pfd[2] = {{
         0,
     }};
-    uint32_t psize;
 
     this = data;
     priv = this->private;
 
     THIS = this;
 
-    psize = ((struct iobuf_pool *)this->ctx->iobuf_pool)->default_page_size;
     priv->msg0_len_p = &msg0_size;
 
     for (;;) {
@@ -6153,7 +6160,8 @@ fuse_thread_proc(void *data)
            size from 'fuse', which is as of today 128KB. If we bring in
            support for higher block sizes support, then we should be
            changing this one too */
-        iobuf = iobuf_get(this->ctx->iobuf_pool);
+        iobuf = iobuf_get2(this->ctx->iobuf_pool,
+                           max(priv->fuse_max_write, priv->fuse_max_read));
 
         /* Add extra 512 byte to the first iov so that it can
          * accommodate "ordinary" non-write requests. It's not
@@ -6177,7 +6185,7 @@ fuse_thread_proc(void *data)
         iov_in[1].iov_base = iobuf->ptr;
 
         iov_in[0].iov_len = msg0_size;
-        iov_in[1].iov_len = psize;
+        iov_in[1].iov_len = max(priv->fuse_max_write, priv->fuse_max_read);
 
         res = sys_readv(priv->fd, iov_in, 2);
 
@@ -6910,6 +6918,12 @@ init(xlator_t *this_xl)
     GF_OPTION_INIT("fuse-dev-eperm-ratelimit-ns",
                    priv->fuse_dev_eperm_ratelimit_ns, uint32, cleanup_exit);
 
+    GF_OPTION_INIT("fuse-max-write", priv->fuse_max_write, uint32,
+                   cleanup_exit);
+
+    GF_OPTION_INIT("fuse-max-read", priv->fuse_max_read, uint32,
+                   cleanup_exit);
+
     /* user has set only background-qlen, not congestion-threshold,
        use the fuse kernel driver formula to set congestion. ie, 75% */
     if (dict_get(this_xl->options, "background-qlen") &&
@@ -6954,11 +6968,11 @@ init(xlator_t *this_xl)
         goto cleanup_exit;
     }
 
-    gf_asprintf(&mnt_args, "%s%s%s%sallow_other,max_read=131072",
+    gf_asprintf(&mnt_args, "%s%s%s%sallow_other,max_read=%lu",
                 priv->acl ? "" : "default_permissions,",
                 priv->read_only ? "ro," : "",
                 priv->fuse_mountopts ? priv->fuse_mountopts : "",
-                priv->fuse_mountopts ? "," : "");
+                priv->fuse_mountopts ? "," : "", priv->fuse_max_read);
     if (!mnt_args)
         goto cleanup_exit;
 
@@ -7197,6 +7211,22 @@ struct volume_options options[] = {
         .min = 1,
         .max = 64,
         .description = "Sets fuse reader thread count.",
+    },
+    {
+        .key = {"fuse-max-write"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "131072",
+        .min = 4096,
+        .max = 1048576,
+        .description = "Sets fuse max-write bytes.",
+    },
+    {
+        .key = {"fuse-max-read"},
+        .type = GF_OPTION_TYPE_INT,
+        .default_value = "131072",
+        .min = 4096,
+        .max = 1048576,
+        .description = "Sets fuse max-read bytes.",
     },
     {
         .key = {"kernel-writeback-cache"},
