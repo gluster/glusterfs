@@ -3107,12 +3107,55 @@ afr_higher_errno(int32_t old_errno, int32_t new_errno)
     return new_errno;
 }
 
+/*
+ * Compute the errno that a strict majority of the failed subvols agree on.
+ * Only a strict majority (> child_count/2) is considered, which guarantees
+ * the result is unambiguous.  Returns 0 when no strict majority exists.
+ */
+static int
+afr_majority_errno(afr_local_t *local, afr_private_t *priv)
+{
+    int i = 0;
+    int j = 0;
+    int count = 0;
+    int majority_count = 0;
+    int majority_errno = 0;
+
+    for (i = 0; i < priv->child_count; i++) {
+        if (!local->replies[i].valid)
+            continue;
+        if (local->replies[i].op_ret >= 0)
+            continue;
+
+        count = 0;
+        for (j = 0; j < priv->child_count; j++) {
+            if (!local->replies[j].valid)
+                continue;
+            if (local->replies[j].op_ret >= 0)
+                continue;
+            if (local->replies[i].op_errno == local->replies[j].op_errno)
+                count++;
+        }
+
+        if (count > majority_count) {
+            majority_count = count;
+            majority_errno = local->replies[i].op_errno;
+        }
+    }
+
+    if (majority_count <= priv->child_count / 2)
+        return 0;
+
+    return majority_errno;
+}
+
 int
 afr_final_errno(afr_local_t *local, afr_private_t *priv)
 {
     int i = 0;
     int op_errno = 0;
     int tmp_errno = 0;
+    int majority_errno = 0;
 
     for (i = 0; i < priv->child_count; i++) {
         if (!local->replies[i].valid)
@@ -3122,6 +3165,10 @@ afr_final_errno(afr_local_t *local, afr_private_t *priv)
         tmp_errno = local->replies[i].op_errno;
         op_errno = afr_higher_errno(op_errno, tmp_errno);
     }
+
+    majority_errno = afr_majority_errno(local, priv);
+    if (majority_errno)
+        op_errno = afr_higher_errno(op_errno, majority_errno);
 
     return op_errno;
 }
