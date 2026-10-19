@@ -1591,10 +1591,6 @@ fi
 AC_SUBST(UMOUNTD_SUBDIR)
 
 
-# enable debug section
-AC_ARG_ENABLE([debug],
-              AS_HELP_STRING([--enable-debug],[Enable debug build options.]))
-
 dnl Add readline support in CLI if available.
 PKG_CHECK_MODULES([READLINE], [readline], [BUILD_READLINE="yes"],
                   [BUILD_READLINE="no"])
@@ -1704,7 +1700,6 @@ AC_SUBST(UNITTEST_CFLAGS)
 AC_SUBST(UNITTEST_LDFLAGS)
 
 AC_SUBST(CFLAGS)
-# end enable debug section
 
 dnl do not add -lresolv for freebsd
 case $host_os in
