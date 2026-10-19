@@ -2641,6 +2641,32 @@ out:
     return ret;
 }
 
+/* debug.trace / debug.error-gen / debug.delay-gen take the *name* of the
+ * translator to insert the debug xlator above (a brick-graph xlator such as
+ * "posix" or "locks", or "client"), or "off" to disable it -- not a boolean.
+ * The graph builder (check_and_add_debug_xl / debugxl_option_handler) silently
+ * ignores any value that is not an xlator name, so without this check a typo
+ * such as "on" is accepted, stored, and does nothing.  Reject it up front with
+ * a hint. */
+int
+glusterd_validate_debug_xlator(glusterd_volinfo_t *volinfo, dict_t *dict,
+                               char *key, char *value, char **op_errstr)
+{
+    if (strcmp(value, "off") == 0)
+        return 0;
+    if (get_server_xlator(value) != GF_XLATOR_NONE ||
+        get_client_xlator(value) != GF_CLNT_XLATOR_NONE)
+        return 0;
+
+    gf_asprintf(op_errstr,
+                "'%s' is not a valid value for '%s'. It takes the name of the "
+                "translator to debug (e.g. 'posix', 'locks', 'client'), or "
+                "'off' to disable.",
+                value, key);
+    gf_msg(THIS->name, GF_LOG_ERROR, 0, GD_MSG_INVALID_ENTRY, "%s", *op_errstr);
+    return -1;
+}
+
 static gf_boolean_t
 check_user_xlator_position(dict_t *dict, char *key, data_t *value,
                            void *prev_xlname)

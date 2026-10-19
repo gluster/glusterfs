@@ -321,4 +321,8 @@ int
 glusterd_shdsvc_generate_volfile(glusterd_volinfo_t *volinfo, char *filename,
                                  dict_t *mode_dict);
 
+int
+glusterd_validate_debug_xlator(glusterd_volinfo_t *volinfo, dict_t *dict,
+                               char *key, char *value, char **op_errstr);
+
 #endif
