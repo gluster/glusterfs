@@ -428,7 +428,10 @@ void
 gf_assert(void);
 
 #ifdef DEBUG
-#define GF_ASSERT(x) assert(x);
+#define GF_ASSERT(x)                                                           \
+    do {                                                                       \
+        assert(x);                                                             \
+    } while (0)
 #else
 #define GF_ASSERT(x)                                                           \
     do {                                                                       \
