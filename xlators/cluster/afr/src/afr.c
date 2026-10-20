@@ -682,6 +682,14 @@ afr_destroy_healer_object(xlator_t *this, struct subvol_healer *healer)
             gf_msg(this->name, GF_LOG_WARNING, 0, AFR_MSG_SELF_HEAL_FAILED,
                    "Failed to clean up healer threads.");
         healer->thread = 0;
+    } else if (healer->thread) {
+        /* The healer thread has already exited on its own: it clears
+         * healer->running via safe_break() (or the idle timeout) before
+         * returning. It is a joinable thread, so join it here to release
+         * its stack instead of leaving it held by glibc forever.
+         */
+        pthread_join(healer->thread, NULL);
+        healer->thread = 0;
     }
     pthread_cond_destroy(&healer->cond);
     pthread_mutex_destroy(&healer->mutex);

@@ -1164,6 +1164,16 @@ afr_shd_healer_spawn(xlator_t *this, struct subvol_healer *healer,
         if (healer->running) {
             pthread_cond_signal(&healer->cond);
         } else {
+            /* A healer thread can exit on its own: a remote subvolume's
+             * index healer breaks out through safe_break(), which also
+             * clears healer->running. Such a thread is joinable and was
+             * never joined, so glibc still holds its stack. Reap it before
+             * reusing the slot, otherwise every spawn leaks a thread stack.
+             */
+            if (healer->thread) {
+                pthread_join(healer->thread, NULL);
+                healer->thread = 0;
+            }
             ret = gf_thread_create(&healer->thread, NULL, threadfn, healer,
                                    "shdheal");
             if (ret)
