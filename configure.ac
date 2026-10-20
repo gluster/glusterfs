@@ -1503,7 +1503,8 @@ AC_ARG_ENABLE([lto],
               AS_HELP_STRING([--disable-lto],[Disable buidling with LTO]))
 
 LTO_BUILD=no
-AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$enable_lto" != "xno" ], [
+dnl Debug and sanitizer builds are diagnostic builds: do not add LTO to them.
+AS_IF([ test "x$BUILD_DEBUG" = "xno" && test "x$SANITIZER" = "xnone" && test "x$enable_lto" != "xno" ], [
     CC_VER=`$CC -dumpversion 2>/dev/null | cut -f 1 -d '.'`
     AS_IF([ test -n "$CC_VER" && test "$CC_VER" -ge "10" ], [
         GF_CFLAGS="${GF_CFLAGS} -flto"
