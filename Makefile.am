@@ -35,8 +35,6 @@ dist-hook: gen-VERSION gen-ChangeLog
 	-rm -fr $(distdir)/contrib/umountd/.deps
 	-rm -f $(distdir)/events/src/eventtypes.py
 	-rm -f $(distdir)/tests/env.rc
-	-cp -f $(top_srcdir)/build-aux/config.sub.dist $(distdir)/config.sub
-	-cp -f $(top_srcdir)/build-aux/config.guess.dist $(distdir)/config.guess
 
 .PHONY: gen-VERSION gen-ChangeLog clang-check
 
