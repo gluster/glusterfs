@@ -7,6 +7,7 @@ force="no"
 head="yes"
 retry="yes"
 tests=""
+interruptible="no"
 exit_on_failure="yes"
 skip_bad_tests="yes"
 skip_known_bugs="yes"
@@ -395,13 +396,17 @@ function run_tests()
             echo "[$(date +%H:%M:%S)] Running tests in file $t"
             starttime="$(date +%s)"
 
+            local timeout_cmd="timeout"
+            if [ ${interruptible} == "yes" ]; then
+                timeout_cmd=$(echo "$timeout_cmd --foreground")
+            fi
             local cmd_timeout=$run_timeout;
             if [ ${timeout_cmd_exists} == "yes" ]; then
                 if [ $(grep -c "SCRIPT_TIMEOUT=" ${t}) == 1 ] ; then
                     cmd_timeout=$(grep "SCRIPT_TIMEOUT=" ${t} | cut -f2 -d'=');
                     echo "Timeout set is ${cmd_timeout}, default ${run_timeout}"
                 fi
-                timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                $timeout_cmd -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
             else
                 prove -vmfe '/bin/bash' ${t}
             fi
@@ -425,7 +430,7 @@ function run_tests()
                 echo ""
 
                 if [ ${timeout_cmd_exists} == "yes" ]; then
-                    timeout --foreground -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
+                    $timeout_cmd -k ${kill_after_time} ${cmd_timeout} prove -vmfe '/bin/bash' ${t}
                 else
                     prove -vmfe '/bin/bash' ${t}
                 fi
@@ -559,6 +564,7 @@ Options:
 -t  TIMEOUT
 -n  skip NFS tests
 -l  list tests that should be executed
+-i  make the running test interruptible
 --help
 EOF
 }
@@ -567,7 +573,7 @@ usage="no"
 
 function parse_args ()
 {
-    args=`getopt -u -l help frRcbkphHnlo:t: "$@"`
+    args=`getopt -u -l help frRcbkphHnlio:t: "$@"`
     if ! [ $? -eq 0 ]; then
 	show_usage
 	exit 1
@@ -588,6 +594,7 @@ function parse_args ()
         -t)    run_timeout="$2"; shift;;
         -n)    nfs_tests="no";;
         -l)    list_only="yes";;
+        -i)    interruptible="yes" ;;
         --help) usage="yes" ;;
         --)    shift; break;;
         esac

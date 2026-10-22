@@ -780,8 +780,11 @@ function cleanup()
 
 function force_terminate () {
         local ret=$?;
-        >&2 echo -e "\nreceived external"\
-                        "signal --`kill -l $ret`--, calling 'cleanup' ...\n";
+
+        # Run this cmd as a subshell and flush stdout buffer to stderr
+        # immediately.
+        (>&2 echo -e "\nreceived external"\
+                        "signal --`kill -l $ret`--, calling 'cleanup' ...\n");
         cleanup;
         exit $ret;
 }
