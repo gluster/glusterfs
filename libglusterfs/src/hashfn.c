@@ -108,7 +108,7 @@ dm_round(int rounds, uint32_t *array, uint32_t *h0, uint32_t *h1)
     return 0;
 }
 
-uint32_t
+static uint32_t
 __pad(int len)
 {
     uint32_t pad = 0;

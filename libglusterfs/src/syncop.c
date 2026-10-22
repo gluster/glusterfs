@@ -368,7 +368,7 @@ unlock:
     pthread_mutex_unlock(&env->mutex);
 }
 
-void
+static void
 synctask_wrap(void)
 {
     struct synctask *task = NULL;
@@ -413,7 +413,7 @@ synctask_destroy(struct synctask *task)
     GF_FREE(task);
 }
 
-void
+static void
 synctask_done(struct synctask *task)
 {
     if (task->synccbk) {
@@ -607,7 +607,7 @@ synctask_new(struct syncenv *env, synctask_fn_t fn, synctask_cbk_t cbk,
     return synctask_new1(env, 0, fn, cbk, frame, opaque);
 }
 
-struct synctask *
+static struct synctask *
 syncenv_task(struct syncproc *proc)
 {
     struct syncenv *env = NULL;
@@ -696,7 +696,7 @@ synctask_timer(void *data)
     pthread_mutex_unlock(&task->env->mutex);
 }
 
-void
+static void
 synctask_switchto(struct synctask *task)
 {
     struct syncenv *env = NULL;
@@ -1401,7 +1401,7 @@ syncbarrier_wake(struct syncbarrier *barrier)
 
 /* FOPS */
 
-int
+static int
 syncop_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, inode_t *inode, struct iatt *iatt,
                   dict_t *xdata, struct iatt *parent)
@@ -1450,7 +1450,7 @@ syncop_lookup(xlator_t *subvol, loc_t *loc, struct iatt *iatt,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                     dict_t *xdata)
@@ -1520,7 +1520,7 @@ syncop_readdirp(xlator_t *subvol, fd_t *fd, size_t size, off_t off,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                    dict_t *xdata)
@@ -1592,7 +1592,7 @@ syncop_readdir(xlator_t *subvol, fd_t *fd, size_t size, off_t off,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -1631,7 +1631,7 @@ syncop_opendir(xlator_t *subvol, loc_t *loc, fd_t *fd, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, dict_t *xdata)
 {
@@ -1670,7 +1670,7 @@ syncop_fsyncdir(xlator_t *subvol, fd_t *fd, int datasync, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int op_ret, int op_errno, dict_t *xdata)
 {
@@ -1709,7 +1709,7 @@ syncop_removexattr(xlator_t *subvol, loc_t *loc, const char *name,
     return args.op_ret;
 }
 
-int
+static int
 syncop_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int op_ret, int op_errno, dict_t *xdata)
 {
@@ -1748,7 +1748,7 @@ syncop_fremovexattr(xlator_t *subvol, fd_t *fd, const char *name,
     return args.op_ret;
 }
 
-int
+static int
 syncop_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, dict_t *xdata)
 {
@@ -1787,7 +1787,7 @@ syncop_setxattr(xlator_t *subvol, loc_t *loc, dict_t *dict, int32_t flags,
     return args.op_ret;
 }
 
-int
+static int
 syncop_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, dict_t *xdata)
 {
@@ -1826,7 +1826,7 @@ syncop_fsetxattr(xlator_t *subvol, fd_t *fd, dict_t *dict, int32_t flags,
     return args.op_ret;
 }
 
-int
+static int
 syncop_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, dict_t *dict, dict_t *xdata)
 {
@@ -1925,7 +1925,7 @@ syncop_fgetxattr(xlator_t *subvol, fd_t *fd, dict_t **dict, const char *key,
     return args.op_ret;
 }
 
-int
+static int
 syncop_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct statvfs *buf,
                   dict_t *xdata)
@@ -1973,7 +1973,7 @@ syncop_statfs(xlator_t *subvol, loc_t *loc, struct statvfs *buf,
     return args.op_ret;
 }
 
-int
+static int
 syncop_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, struct iatt *preop,
                    struct iatt *postop, dict_t *xdata)
@@ -2051,7 +2051,7 @@ syncop_fsetattr(xlator_t *subvol, fd_t *fd, struct iatt *iatt, int valid,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -2090,7 +2090,7 @@ syncop_open(xlator_t *subvol, loc_t *loc, int32_t flags, fd_t *fd,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iovec *vector,
                  int32_t count, struct iatt *stbuf, struct iobref *iobref,
@@ -2163,7 +2163,7 @@ out:
     return args.op_ret;
 }
 
-int
+static int
 syncop_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, struct iatt *prebuf, struct iatt *postbuf,
                   dict_t *xdata)
@@ -2251,7 +2251,7 @@ syncop_close(fd_t *fd)
     return 0;
 }
 
-int32_t
+static int32_t
 syncop_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
@@ -2298,7 +2298,7 @@ syncop_create(xlator_t *subvol, loc_t *loc, int32_t flags, mode_t mode,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, inode_t *inode,
                struct iatt *buf, struct iatt *preparent,
@@ -2348,7 +2348,7 @@ syncop_put(xlator_t *subvol, loc_t *loc, mode_t mode, mode_t umask,
     return args.op_ret;
 }
 
-int
+static int
 syncop_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                   int op_errno, struct iatt *preparent, struct iatt *postparent,
                   dict_t *xdata)
@@ -2388,7 +2388,7 @@ syncop_unlink(xlator_t *subvol, loc_t *loc, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, struct iatt *preparent, struct iatt *postparent,
                  dict_t *xdata)
@@ -2428,7 +2428,7 @@ syncop_rmdir(xlator_t *subvol, loc_t *loc, int flags, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
@@ -2476,7 +2476,7 @@ syncop_link(xlator_t *subvol, loc_t *oldloc, loc_t *newloc, struct iatt *iatt,
     return args.op_ret;
 }
 
-int
+static int
 syncop_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
                   struct iatt *preoldparent, struct iatt *postoldparent,
@@ -2519,7 +2519,7 @@ syncop_rename(xlator_t *subvol, loc_t *oldloc, loc_t *newloc, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -2590,7 +2590,7 @@ syncop_truncate(xlator_t *subvol, loc_t *loc, off_t offset, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int
+static int
 syncop_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                  struct iatt *postbuf, dict_t *xdata)
@@ -2640,7 +2640,7 @@ syncop_fsync(xlator_t *subvol, fd_t *fd, int dataonly, struct iatt *preiatt,
     return args.op_ret;
 }
 
-int
+static int
 syncop_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -2676,7 +2676,7 @@ syncop_flush(xlator_t *subvol, fd_t *fd, dict_t *xdata_in, dict_t **xdata_out)
     return args.op_ret;
 }
 
-int
+static int
 syncop_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *stbuf,
                  dict_t *xdata)
@@ -2746,7 +2746,7 @@ syncop_stat(xlator_t *subvol, loc_t *loc, struct iatt *stbuf, dict_t *xdata_in,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
@@ -2793,7 +2793,7 @@ syncop_symlink(xlator_t *subvol, loc_t *loc, const char *newpath,
     return args.op_ret;
 }
 
-int
+static int
 syncop_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, const char *path,
                     struct iatt *stbuf, dict_t *xdata)
@@ -2841,7 +2841,7 @@ syncop_readlink(xlator_t *subvol, loc_t *loc, char **buffer, size_t size,
     return args.op_ret;
 }
 
-int
+static int
 syncop_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
@@ -2888,7 +2888,7 @@ syncop_mknod(xlator_t *subvol, loc_t *loc, mode_t mode, dev_t rdev,
     return args.op_ret;
 }
 
-int
+static int
 syncop_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
@@ -2935,7 +2935,7 @@ syncop_mkdir(xlator_t *subvol, loc_t *loc, mode_t mode, struct iatt *iatt,
     return args.op_ret;
 }
 
-int
+static int
 syncop_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -2989,7 +2989,7 @@ syncop_access(xlator_t *subvol, loc_t *loc, int32_t mask, dict_t *xdata_in,
     return args.op_errno;
 }
 
-int
+static int
 syncop_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int op_ret, int op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -3029,7 +3029,7 @@ syncop_fallocate(xlator_t *subvol, fd_t *fd, int32_t keep_size, off_t offset,
     return args.op_ret;
 }
 
-int
+static int
 syncop_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int op_ret, int op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
@@ -3069,7 +3069,7 @@ syncop_discard(xlator_t *subvol, fd_t *fd, off_t offset, size_t len,
     return args.op_ret;
 }
 
-int
+static int
 syncop_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int op_ret, int op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
@@ -3109,7 +3109,7 @@ syncop_zerofill(xlator_t *subvol, fd_t *fd, off_t offset, off_t len,
     return args.op_ret;
 }
 
-int
+static int
 syncop_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                int op_errno, dict_t *xdata)
 {
@@ -3154,7 +3154,7 @@ syncop_ipc(xlator_t *subvol, int32_t op, dict_t *xdata_in, dict_t **xdata_out)
     return args.op_ret;
 }
 
-int
+static int
 syncop_seek_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                 int op_errno, off_t offset, dict_t *xdata)
 {
@@ -3193,7 +3193,7 @@ syncop_seek(xlator_t *subvol, fd_t *fd, off_t offset, gf_seek_what_t what,
     }
 }
 
-int
+static int
 syncop_lease_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
                  int op_errno, struct gf_lease *lease, dict_t *xdata)
 {
@@ -3244,7 +3244,7 @@ syncop_lease(xlator_t *subvol, loc_t *loc, struct gf_lease *lease,
     return args.op_ret;
 }
 
-int
+static int
 syncop_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
               int op_errno, struct gf_flock *flock, dict_t *xdata)
 {
@@ -3287,7 +3287,7 @@ syncop_lk(xlator_t *subvol, fd_t *fd, int cmd, struct gf_flock *flock,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -3327,7 +3327,7 @@ syncop_inodelk(xlator_t *subvol, const char *volume, loc_t *loc, int32_t cmd,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -3366,7 +3366,7 @@ syncop_entrylk(xlator_t *subvol, const char *volume, loc_t *loc,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *dict,
                    dict_t *xdata)
@@ -3443,7 +3443,7 @@ syncop_fxattrop(xlator_t *subvol, fd_t *fd, gf_xattrop_flags_t flags,
     return args.op_ret;
 }
 
-int32_t
+static int32_t
 syncop_getactivelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                        int32_t op_ret, int32_t op_errno,
                        lock_migration_info_t *locklist, dict_t *xdata)
@@ -3564,7 +3564,7 @@ syncop_setactivelk(xlator_t *subvol, loc_t *loc,
     return args.op_ret;
 }
 
-int
+static int
 syncop_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xdata)
@@ -3586,7 +3586,7 @@ syncop_icreate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int
+static int
 syncop_namelink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                     struct iatt *postbuf, dict_t *xdata)
