@@ -44,13 +44,13 @@ clang-check:
 	@$(top_srcdir)/extras/clang-checker.sh
 
 gen-ChangeLog:
-	if test -d $(srcdir)/.git; then            	\
+	if test -e $(srcdir)/.git && git -C $(srcdir) rev-parse --git-dir >/dev/null 2>&1; then            	\
 	  (cd $(srcdir) && git diff && echo ===== git log ==== && git log) > $(distdir)/ChangeLog; \
 	fi
 
 .PHONY : gen-VERSION
 gen-VERSION:
-	if test -d $(top_srcdir)/.git; then             \
+	if test -e $(top_srcdir)/.git && git -C $(top_srcdir) rev-parse --git-dir >/dev/null 2>&1; then             \
 	  cd $(top_srcdir);                             \
 	  ./build-aux/pkg-version --full                \
 	    > $(abs_top_builddir)/$(distdir)/VERSION;   \
