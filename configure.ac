@@ -360,19 +360,53 @@ if test "x$enable_ubsan" = "xyes"; then
 fi
 
 # Initialize CFLAGS before usage
+dnl Allocator: tcmalloc (the default), the gluster memory pool on top of libc
+dnl malloc (--without-tcmalloc or --enable-mempool), or plain libc malloc with
+dnl neither (--disable-mempool). tcmalloc builds compile the pool out, so
+dnl --enable-mempool and --disable-mempool each contradict an explicit
+dnl --with-tcmalloc. Sanitizers and valgrind want --disable-mempool: both
+dnl tcmalloc and the pool hide object boundaries and free-state from them.
 BUILD_TCMALLOC=no
 USE_MEMPOOL=yes
+AC_ARG_ENABLE([mempool],
+              AS_HELP_STRING([--disable-mempool],[Allocate objects with libc
+                              malloc directly: no gluster memory pool and no
+                              tcmalloc. Lets AddressSanitizer see use-after-free
+                              and overflow of otherwise-pooled objects.
+                              --enable-mempool selects the pool, like
+                              --without-tcmalloc.]))
 AC_ARG_WITH([tcmalloc],
         [AS_HELP_STRING([--without-tcmalloc],[Use gluster based mempool])],
-        [], [with_tcmalloc="yes"])
-if test "x$with_tcmalloc" = "xyes"; then
+        [], [with_tcmalloc="auto"])
+if test "x$enable_mempool" = "xno" && test "x$with_tcmalloc" = "xyes"; then
+    AC_MSG_ERROR([--disable-mempool (plain libc malloc) contradicts --with-tcmalloc])
+fi
+if test "x$enable_mempool" = "xyes" && test "x$with_tcmalloc" = "xyes"; then
+    AC_MSG_ERROR([--enable-mempool contradicts --with-tcmalloc: tcmalloc builds compile the gluster memory pool out])
+fi
+if test "x$enable_mempool" = "xno" || test "x$enable_mempool" = "xyes"; then
+    with_tcmalloc="no"
+fi
+if test "x$with_tcmalloc" != "xno"; then
     AC_CHECK_LIB([tcmalloc_minimal], [malloc], [],
                  [AC_MSG_ERROR([tcmalloc library needs to be present])])
     BUILD_TCMALLOC=yes
     GF_CFLAGS="${GF_CFLAGS} -fno-builtin-malloc -fno-builtin-calloc -fno-builtin-realloc -fno-builtin-free"
     GF_LDFLAGS="-ltcmalloc_minimal ${GF_LDFLAGS}"
-    AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
     USE_MEMPOOL=no
+fi
+if test "x$enable_mempool" = "xno"; then
+    USE_MEMPOOL=no
+fi
+if test "x$USE_MEMPOOL" = "xno"; then
+    AC_DEFINE(GF_DISABLE_MEMPOOL, 1, [Disable the Gluster memory pooler.])
+fi
+if test "x$BUILD_TCMALLOC" = "xyes"; then
+    ALLOCATOR="tcmalloc (gluster memory pool compiled out)"
+elif test "x$USE_MEMPOOL" = "xyes"; then
+    ALLOCATOR="gluster memory pool on libc malloc"
+else
+    ALLOCATOR="libc malloc (--disable-mempool)"
 fi
 
 
@@ -1931,6 +1965,7 @@ echo "With Python          : ${PYTHON_VERSION}"
 echo "Cloudsync            : $BUILD_CLOUDSYNC"
 echo "Metadata dispersal   : $BUILD_METADISP"
 echo "Link with TCMALLOC   : $BUILD_TCMALLOC"
+echo "Allocator            : $ALLOCATOR"
 echo "Enable Brick Mux     : $USE_BRICKMUX"
 echo "Building with LTO    : $LTO_BUILD"
 echo
