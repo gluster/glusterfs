@@ -7,13 +7,13 @@ import sys
 import threading
 
 
-def exercise(directory):
+def exercise(directory, reader_directory):
     stop = threading.Event()
     payload = b"x" * (1024 * 1024)
 
-    def statfs():
+    def statfs(path):
         while not stop.is_set():
-            os.statvfs(directory)
+            os.statvfs(path)
 
     def churn(index):
         path = os.path.join(directory, "file-" + str(index))
@@ -23,7 +23,8 @@ def exercise(directory):
             os.unlink(path)
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=12) as executor:
-        readers = [executor.submit(statfs) for _ in range(8)]
+        readers = [executor.submit(statfs, directory if index % 2
+                                   else reader_directory) for index in range(8)]
         try:
             writers = [executor.submit(churn, index) for index in range(4)]
             for writer in writers:
@@ -40,4 +41,4 @@ def exercise(directory):
 
 
 if __name__ == "__main__":
-    exercise(sys.argv[1])
+    exercise(sys.argv[1], sys.argv[2])
