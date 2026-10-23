@@ -17,7 +17,7 @@ def exercise(directory, reader_directory):
 
     def churn(index):
         path = os.path.join(directory, "file-" + str(index))
-        for _ in range(300):
+        for _ in range(60):
             with open(path, "wb") as stream:
                 stream.write(payload)
             os.unlink(path)

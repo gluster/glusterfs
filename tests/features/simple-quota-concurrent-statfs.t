@@ -6,6 +6,18 @@
 cleanup
 trap cleanup EXIT
 
+source_root=$(cd $(dirname $0)/../.. && pwd)
+host_os=$(sed -n 's/^GF_HOST_OS = //p' $source_root/Makefile)
+TEST build_tester $(dirname $0)/simple-quota-concurrent-sync.c \
+    -I$source_root -I$source_root/libglusterfs/src -include $source_root/config.h \
+    -include $source_root/site.h -D$host_os -D_GNU_SOURCE -D_FILE_OFFSET_BITS=64 \
+    $(pkg-config --cflags --libs glusterfs-api) -lglusterfs -lpthread \
+    -ffunction-sections -fdata-sections -Wl,--gc-sections \
+    -Wno-unused-variable -Wno-unused-but-set-variable
+TEST env LD_LIBRARY_PATH=$(pkg-config --variable=libdir glusterfs-api):${LD_LIBRARY_PATH} \
+    $(dirname $0)/simple-quota-concurrent-sync
+cleanup_tester $(dirname $0)/simple-quota-concurrent-sync
+
 TEST glusterd
 TEST $CLI volume create $V0 $H0:$B0/${V0}1
 TEST $CLI volume set $V0 feature.simple-quota-pass-through false
