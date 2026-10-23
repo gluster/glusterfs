@@ -47,7 +47,7 @@ TEST [ $(get_text_xattr trusted.gfs.squota.size $B0/${V0}1/quota) -ge 1048576 ]
 mount_used() {
     df -B1 --output=used "$1" | tail -n1 | tr -d ' '
 }
-original=$(get_text_xattr trusted.gfs.squota.size $B0/${V0}1/quota)
+original=$(get_text_xattr trusted.gfs.squota.size $B0/${V0}1/quota | tr -d '"')
 TEST setfattr -n trusted.gfs.squota.size -v $((original + 1048576)) $B0/${V0}1/quota
 TEST setfattr -n glusterfs.quota.reset -v 1 $M0/quota
 EXPECT $((original / 4096 * 4096 + 1048576)) mount_used $M0/quota
