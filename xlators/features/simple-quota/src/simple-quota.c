@@ -26,30 +26,34 @@ sync_data_to_disk(xlator_t *this, sq_inode_t *ictx)
 {
     sq_private_t *priv = this->private;
     loc_t loc = {0};
+    dict_t *dict = NULL;
     int ret = -1;
+    int64_t size = 0;
+    int64_t total_consumption = 0;
 
-    if (priv->use_backend)
+    if (priv->use_backend || !ictx)
         return 0;
 
-    if (!ictx || !ictx->ns) {
-        return 0;
+    /* Keep the read/modify/persist sequence together across syncop yields.
+     * Atomic consumption of pending_update alone does not protect xattr_size.
+     */
+    synclock_lock(&ictx->sync_lock);
+    LOCK(&ictx->lock);
+    if (ictx->ns) {
+        loc.inode = inode_ref(ictx->ns);
+        size = GF_ATOMIC_FETCH_AND(ictx->pending_update, 0);
+        ictx->in_flight = size;
     }
+    total_consumption = ictx->xattr_size + size;
+    UNLOCK(&ictx->lock);
+    if (!loc.inode || !size)
+        goto out;
 
-    int64_t size = GF_ATOMIC_FETCH_AND(ictx->pending_update, 0);
-    int64_t total_consumption = (ictx->xattr_size + size);
-    if (!size) {
-        /* No changes since last update, no need to update */
-        return total_consumption;
-    }
-
-    dict_t *dict = dict_new();
-    if (!dict) {
-        GF_ATOMIC_ADD(ictx->pending_update, size);
-        return total_consumption;
-    }
+    dict = dict_new();
+    if (!dict)
+        goto out;
 
     if (total_consumption < 0) {
-        /* Some bug, this should have not happened */
         gf_msg(this->name, GF_LOG_INFO, 0, 0,
                "quota usage is below zero (%" PRId64 "), resetting to 0",
                total_consumption);
@@ -57,34 +61,37 @@ sync_data_to_disk(xlator_t *this, sq_inode_t *ictx)
     }
 
     ret = dict_set_int64(dict, SQUOTA_SIZE_KEY, total_consumption);
-    if (IS_ERROR(ret)) {
-        dict_unref(dict);
-        GF_ATOMIC_ADD(ictx->pending_update, size);
-        return total_consumption;
-    }
+    if (IS_ERROR(ret))
+        goto out;
 
-    /* Send the request to actual gfid */
-    loc.inode = inode_ref(ictx->ns);
-    gf_uuid_copy(loc.gfid, ictx->ns->gfid);
-
+    gf_uuid_copy(loc.gfid, loc.inode->gfid);
     gf_msg(this->name, GF_LOG_DEBUG, 0, 0, "%s: Writing size of %" PRId64,
-           uuid_utoa(ictx->ns->gfid), total_consumption);
+           uuid_utoa(loc.inode->gfid), total_consumption);
 
-    /* As we are doing only operation from server side */
     ret = syncop_setxattr(FIRST_CHILD(this), &loc, dict, 0, NULL, NULL);
     if (IS_SUCCESS(ret)) {
+        LOCK(&ictx->lock);
         ictx->xattr_size = total_consumption;
         if (priv->no_distribute)
             ictx->total_size = total_consumption;
+        ictx->in_flight = 0;
+        UNLOCK(&ictx->lock);
+        size = 0;
     } else {
-        GF_ATOMIC_ADD(ictx->pending_update, size);
         gf_log(this->name, GF_LOG_ERROR, "%s: Quota value update failed %d %s",
-               uuid_utoa(ictx->ns->gfid), ret, strerror(ret));
+               uuid_utoa(loc.inode->gfid), ret, strerror(ret));
     }
 
-    inode_unref(ictx->ns);
-    dict_unref(dict);
-
+out:
+    LOCK(&ictx->lock);
+    GF_ATOMIC_ADD(ictx->pending_update, size);
+    ictx->in_flight = 0;
+    UNLOCK(&ictx->lock);
+    synclock_unlock(&ictx->sync_lock);
+    if (loc.inode)
+        inode_unref(loc.inode);
+    if (dict)
+        dict_unref(dict);
     return total_consumption;
 }
 
@@ -116,10 +123,18 @@ sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
     sq_ctx = GF_MALLOC(sizeof(sq_inode_t), gf_common_mt_char);
     if (!sq_ctx)
         goto out;
+    ret = synclock_init(&sq_ctx->sync_lock, SYNC_LOCK_DEFAULT);
+    if (ret) {
+        GF_FREE(sq_ctx);
+        sq_ctx = NULL;
+        goto out;
+    }
+    LOCK_INIT(&sq_ctx->lock);
     INIT_LIST_HEAD(&sq_ctx->priv_list);
     sq_ctx->hard_lim = limit;
     sq_ctx->xattr_size = size;
     sq_ctx->total_size = size; /* Initialize it to this number for now */
+    sq_ctx->in_flight = 0;
     GF_ATOMIC_INIT(sq_ctx->pending_update, 0);
 
     sq_ctx->ns = NULL;
@@ -128,6 +143,8 @@ sq_set_ns_hardlimit(xlator_t *this, inode_t *inode, int64_t limit, int64_t size,
 
     ret = inode_ctx_put(inode, this, (uint64_t)(uintptr_t)sq_ctx);
     if (IS_ERROR(ret)) {
+        LOCK_DESTROY(&sq_ctx->lock);
+        synclock_destroy(&sq_ctx->sync_lock);
         GF_FREE(sq_ctx);
 	sq_ctx = NULL;
         goto out;
@@ -173,6 +190,7 @@ sq_update_namespace(xlator_t *this, inode_t *ns, struct iatt *prebuf,
             goto out;
     }
 
+    LOCK(&sq_ctx->lock);
     if (ns != sq_ctx->ns) {
         /* Set this, as it is possible to have linked a wrong
            inode pointer in lookup */
@@ -184,6 +202,7 @@ sq_update_namespace(xlator_t *this, inode_t *ns, struct iatt *prebuf,
     if (size) {
         GF_ATOMIC_ADD(sq_ctx->pending_update, size);
     }
+    UNLOCK(&sq_ctx->lock);
 
 out:
     return;
@@ -202,7 +221,9 @@ sq_update_total_usage(xlator_t *this, inode_t *inode, int64_t val)
             goto out;
     }
 
+    LOCK(&sq_ctx->lock);
     sq_ctx->total_size = val;
+    UNLOCK(&sq_ctx->lock);
 out:
     return;
 }
@@ -217,22 +238,27 @@ sq_update_brick_usage(xlator_t *this, inode_t *inode)
     if (!tmp_mq) {
         goto out;
     }
+    sq_inode_t *sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    synclock_lock(&sq_ctx->sync_lock);
     loc_t loc = { 0, };
     loc.inode = inode_ref(inode);
     int ret = syncop_getxattr(FIRST_CHILD(this), &loc, &dict, SQUOTA_SIZE_KEY,
                               NULL, NULL);
     inode_unref(inode);
     if (IS_ERROR(ret)) {
-        goto out;
+        goto unlock;
     }
     ret = dict_get_int64(dict, SQUOTA_SIZE_KEY, &val);
     if (IS_ERROR(ret)) {
-        goto out;
+        goto unlock;
     }
 
-    sq_inode_t *sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    LOCK(&sq_ctx->lock);
     sq_ctx->xattr_size = val;
     GF_ATOMIC_INIT(sq_ctx->pending_update, 0);
+    UNLOCK(&sq_ctx->lock);
+unlock:
+    synclock_unlock(&sq_ctx->sync_lock);
 out:
     if (dict)
         dict_unref(dict);
@@ -260,7 +286,9 @@ sq_update_hard_limit(xlator_t *this, inode_t *ns, int64_t limit, int64_t size)
     gf_msg(this->name, GF_LOG_INFO, 0, 0,
            "hardlimit update: %s %" PRId64 " %" PRId64, uuid_utoa(ns->gfid),
            limit, size);
+    LOCK(&sq_ctx->lock);
     sq_ctx->hard_lim = limit;
+    UNLOCK(&sq_ctx->lock);
 
     //GF_ASSERT(size > 0);
 
@@ -280,17 +308,20 @@ sq_check_usage(xlator_t *this, inode_t *inode, size_t new_size)
         return 0;
 
     sq_ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
+    int ret = 0;
+    LOCK(&sq_ctx->lock);
     /* If hardlimit is not set, allow writes */
     if (!sq_ctx->hard_lim)
-        return 0;
+        goto out;
 
-    /* FIXME: lock? */
-    int64_t compare_size = sq_ctx->total_size + new_size +
+    int64_t compare_size = sq_ctx->total_size + sq_ctx->in_flight + new_size +
                            GF_ATOMIC_GET(sq_ctx->pending_update);
     if ((sq_ctx->hard_lim < compare_size) && !priv->allow_fops)
-        return EDQUOT;
+        ret = EDQUOT;
 
-    return 0;
+out:
+    UNLOCK(&sq_ctx->lock);
+    return ret;
 }
 
 /* ====================================== */
@@ -317,6 +348,8 @@ sq_forget(xlator_t *this, inode_t *inode)
     }
     UNLOCK(&priv->lock);
 
+    LOCK_DESTROY(&sq_ctx->lock);
+    synclock_destroy(&sq_ctx->sync_lock);
     GF_FREE(sq_ctx);
     return 0;
 }
@@ -333,6 +366,7 @@ sq_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
     int64_t avail = -1;
     int64_t blocks = 0;
     int64_t used = 0;
+    int64_t hard_limit = 0;
 
     inode = frame->local;
 
@@ -348,9 +382,13 @@ sq_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
 
     inode_ctx_get(inode, this, &tmp_mq);
     ctx = (sq_inode_t *)(uintptr_t)tmp_mq;
-    if (!ctx || ctx->hard_lim <= 0) {
+    if (!ctx)
         goto unwind;
-    }
+    LOCK(&ctx->lock);
+    hard_limit = ctx->hard_lim;
+    UNLOCK(&ctx->lock);
+    if (hard_limit <= 0)
+        goto unwind;
 
     xdata = xdata ? dict_ref(xdata) : dict_new();
     if (!xdata) {
@@ -374,13 +412,16 @@ sq_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int32_t op_ret,
         priv->take_cmd_from_all_client) {
         used = sync_data_to_disk(this, ctx);
     } else {
-        used = ctx->xattr_size + GF_ATOMIC_GET(ctx->pending_update);
+        LOCK(&ctx->lock);
+        used = ctx->xattr_size + ctx->in_flight +
+               GF_ATOMIC_GET(ctx->pending_update);
+        UNLOCK(&ctx->lock);
     }
 
     { /* statfs is adjusted in this code block */
         usage = (used) / buf->f_bsize;
 
-        blocks = (ctx->hard_lim / buf->f_bsize) + 1;
+        blocks = (hard_limit / buf->f_bsize) + 1;
         buf->f_blocks = blocks;
 
         avail = buf->f_blocks - usage;
