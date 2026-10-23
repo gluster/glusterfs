@@ -19,6 +19,8 @@ def exercise(directory, reader_directory):
         path = os.path.join(directory, "file-" + str(index))
         for _ in range(60):
             with open(path, "wb") as stream:
+                if index % 2:
+                    os.posix_fallocate(stream.fileno(), 0, len(payload))
                 stream.write(payload)
             os.unlink(path)
 

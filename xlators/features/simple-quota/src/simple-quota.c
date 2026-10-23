@@ -242,6 +242,7 @@ sq_update_brick_usage(xlator_t *this, inode_t *inode)
     synclock_lock(&sq_ctx->sync_lock);
     loc_t loc = { 0, };
     loc.inode = inode_ref(inode);
+    gf_uuid_copy(loc.gfid, inode->gfid);
     int ret = syncop_getxattr(FIRST_CHILD(this), &loc, &dict, SQUOTA_SIZE_KEY,
                               NULL, NULL);
     inode_unref(inode);
