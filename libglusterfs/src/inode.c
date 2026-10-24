@@ -504,6 +504,10 @@ __inode_unref(inode_t *inode, bool clear)
 
     this = THIS;
 
+    if (clear && inode->invalidate_sent) {
+        inode->invalidate_sent = false;
+    }
+
     if (clear && inode->in_invalidate_list) {
         inode->in_invalidate_list = false;
         inode->table->invalidate_size--;
@@ -549,6 +553,9 @@ __inode_ref(inode_t *inode, bool is_invalidate)
         if (__is_root_gfid(inode->gfid))
             return inode;
     } else {
+        if (inode->invalidate_sent) {
+            inode->invalidate_sent = false;
+        }
         if (inode->in_invalidate_list) {
             inode->in_invalidate_list = false;
             inode->table->invalidate_size--;
