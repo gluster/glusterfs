@@ -14,6 +14,7 @@
 #include <glusterfs/statedump.h>
 #include <glusterfs/compat-errno.h>
 #include <glusterfs/gf-event.h>
+#include <glusterfs/syscall.h>
 
 #include "glusterfs3.h"
 #include "client-messages.h"
@@ -176,7 +177,7 @@ client_debug_hold_disconnect_notify(xlator_t *this)
     if (!conf || !conf->debug_disconnect_notify_holdfile)
         return;
 
-    if (access(conf->debug_disconnect_notify_holdfile, F_OK) != 0)
+    if (sys_access(conf->debug_disconnect_notify_holdfile, F_OK) != 0)
         return;
 
     gf_log(this->name, GF_LOG_WARNING,
@@ -184,7 +185,7 @@ client_debug_hold_disconnect_notify(xlator_t *this)
            "notify on %s",
            conf->debug_disconnect_notify_holdfile);
 
-    while (access(conf->debug_disconnect_notify_holdfile, F_OK) == 0) {
+    while (sys_access(conf->debug_disconnect_notify_holdfile, F_OK) == 0) {
         sleep(1);
     }
 
