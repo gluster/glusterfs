@@ -1082,6 +1082,7 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
     if (this->ctx->event_pool) {
         /* Free the event pool */
         (void)gf_event_pool_destroy(this->ctx->event_pool);
+	this->ctx->event_pool = NULL;
     }
 
     if (dict_get_sizen(this->options, "config-directory")) {
