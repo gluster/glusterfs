@@ -1248,7 +1248,7 @@ out:
     return stub;
 }
 
-call_stub_t *
+static call_stub_t *
 fop_xattrop_cbk_stub(call_frame_t *frame, fop_xattrop_cbk_t fn, int32_t op_ret,
                      int32_t op_errno, dict_t *xattr, dict_t *xdata)
 {
@@ -1263,7 +1263,7 @@ out:
     return stub;
 }
 
-call_stub_t *
+static call_stub_t *
 fop_fxattrop_cbk_stub(call_frame_t *frame, fop_fxattrop_cbk_t fn,
                       int32_t op_ret, int32_t op_errno, dict_t *xattr,
                       dict_t *xdata)

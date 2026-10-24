@@ -850,7 +850,7 @@ out:
     return size;
 }
 
-void
+static void
 iobuf_info_dump(struct iobuf *iobuf, const char *key_prefix)
 {
     char key[GF_DUMP_MAX_BUF_LEN];
@@ -875,7 +875,7 @@ out:
     return;
 }
 
-void
+static void
 iobuf_arena_info_dump(struct iobuf_arena *iobuf_arena, const char *key_prefix)
 {
     char key[GF_DUMP_MAX_BUF_LEN];

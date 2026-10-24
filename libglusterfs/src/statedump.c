@@ -222,7 +222,7 @@ gf_latency_statedump_and_reset(char *key, gf_latency_t *lat)
     gf_latency_reset(lat);
 }
 
-void
+static void
 gf_proc_dump_xl_latency_info(xlator_t *xl)
 {
     char key_prefix[GF_DUMP_MAX_BUF_LEN];
@@ -510,7 +510,7 @@ out:
 void
 gf_proc_dump_latency_info(xlator_t *xl);
 
-void
+static void
 gf_proc_dump_dict_info(glusterfs_ctx_t *ctx)
 {
     int64_t total_dicts = 0;
@@ -651,7 +651,7 @@ gf_proc_dump_enable_all_options(void)
     return 0;
 }
 
-gf_boolean_t
+static gf_boolean_t
 is_gf_proc_dump_all_disabled(void)
 {
     gf_boolean_t all_disabled = _gf_true;
@@ -1042,7 +1042,7 @@ gf_proc_dump_xlator_history(xlator_t *this, strfd_t *strfd)
     gf_proc_dump_unlock();
 }
 
-void
+static void
 gf_proc_dump_xlator_itable(xlator_t *this, strfd_t *strfd)
 {
     gf_proc_dump_lock();

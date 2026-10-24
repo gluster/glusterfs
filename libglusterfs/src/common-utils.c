@@ -210,7 +210,7 @@ out:
  *   the next hash (and any other purpose which might require canonical form
  *   of the hash).
  **/
-XXH64_hash_t
+static XXH64_hash_t
 gf_xxh64_hash_wrapper(const unsigned char *data, size_t const len,
                       unsigned long long const seed, char *xxh64)
 {
@@ -1428,7 +1428,7 @@ err:
     return NULL;
 }
 
-int
+static int
 gf_string2bytesize_range(const char *str, uint64_t *n, uint64_t umax)
 {
     double value = 0.0;
@@ -1597,7 +1597,7 @@ gf_string2percent_or_bytesize(const char *str, double *n,
     return 0;
 }
 
-int64_t
+static int64_t
 gf_str_to_long_long(const char *number)
 {
     int64_t unit = 1;
@@ -2828,7 +2828,7 @@ out:
     return ret;
 }
 
-gf_boolean_t
+static gf_boolean_t
 gf_interface_search(char *ip)
 {
     int32_t ret = -1;
@@ -2933,7 +2933,7 @@ get_ip_from_addrinfo(struct addrinfo *addr, char **ip)
     return *ip;
 }
 
-gf_boolean_t
+static gf_boolean_t
 gf_is_loopback_localhost(const struct sockaddr *sa, char *hostname)
 {
     GF_ASSERT(sa);

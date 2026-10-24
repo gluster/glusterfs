@@ -376,7 +376,7 @@ gf_log_rotate(gf_log_handle_t *log)
     return;
 }
 
-void
+static void
 gf_log_globals_fini(void)
 {
     xlator_t *this = THIS;

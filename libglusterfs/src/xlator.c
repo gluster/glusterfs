@@ -781,7 +781,7 @@ out:
     return;
 }
 
-int
+static int
 xlator_list_destroy(xlator_list_t *list)
 {
     xlator_list_t *next = NULL;

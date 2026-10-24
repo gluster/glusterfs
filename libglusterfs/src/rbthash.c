@@ -17,7 +17,7 @@
 #include <pthread.h>
 #include <string.h>
 
-int
+static int
 rbthash_comparator(void *entry1, void *entry2, void *param)
 {
     int ret = 0;
@@ -41,7 +41,7 @@ rbthash_comparator(void *entry1, void *entry2, void *param)
     return ret;
 }
 
-int
+static int
 __rbthash_init_buckets(rbthash_table_t *tbl, int buckets)
 {
     int i = 0;
@@ -154,7 +154,7 @@ free_newtab:
     return newtab;
 }
 
-rbthash_entry_t *
+static rbthash_entry_t *
 rbthash_init_entry(rbthash_table_t *tbl, void *data, void *key, int keylen)
 {
     int ret = -1;
@@ -193,7 +193,7 @@ ret:
     return entry;
 }
 
-void
+static void
 rbthash_deinit_entry(rbthash_table_t *tbl, rbthash_entry_t *entry)
 {
     if (!entry)
@@ -227,7 +227,7 @@ rbthash_entry_bucket(rbthash_table_t *tbl, rbthash_entry_t *entry)
     return &tbl->buckets[nbucket];
 }
 
-int
+static int
 rbthash_insert_entry(rbthash_table_t *tbl, rbthash_entry_t *entry)
 {
     struct rbthash_bucket *bucket = NULL;
@@ -391,7 +391,7 @@ rbthash_remove(rbthash_table_t *tbl, void *key, int keylen)
     return dataref;
 }
 
-void
+static void
 rbthash_entry_deiniter(void *entry, void *rbparam)
 {
     if (!entry)
@@ -400,7 +400,7 @@ rbthash_entry_deiniter(void *entry, void *rbparam)
     rbthash_deinit_entry(rbparam, entry);
 }
 
-void
+static void
 rbthash_table_destroy_buckets(rbthash_table_t *tbl)
 {
     int x = 0;

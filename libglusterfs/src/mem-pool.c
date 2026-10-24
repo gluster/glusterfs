@@ -755,7 +755,7 @@ mem_pool_new_fn(glusterfs_ctx_t *ctx, unsigned long sizeof_type,
     return new;
 }
 
-per_thread_pool_list_t *
+static per_thread_pool_list_t *
 mem_get_pool_list(void)
 {
     per_thread_pool_list_t *pool_list;
