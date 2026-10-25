@@ -289,15 +289,41 @@ else
         BUILD_DEBUG=no
 fi
 
+dnl GF_SANITIZER_LINK_CHECK(FSANITIZE-ARG, RUNTIME-NAME): can the compiler link a
+dnl program with -fsanitize=ARG? Sets gf_cv_sanitizer_link_ARG, errors out when
+dnl not. The compiler driver puts the sanitizer runtime first on the link line,
+dnl which an AC_CHECK_LIB probe cannot do: AC_CHECK_LIB would also leave -lRUNTIME
+dnl in LIBS for every later check, and any library probe that then prepends to
+dnl LIBS (tcmalloc is the first) makes every subsequent run test abort with
+dnl "ASan runtime does not come first in initial library list", so
+dnl AC_CHECK_SIZEOF silently records 0 for every type. The runtime libraries
+dnl export no _init symbol either; the old probe only proved that -lRUNTIME links.
+AC_DEFUN([GF_SANITIZER_LINK_CHECK], [
+        AC_CACHE_CHECK([whether the compiler can link with -fsanitize=$1],
+                       [gf_cv_sanitizer_link_$1], [
+                gf_save_CFLAGS=${CFLAGS}
+                gf_save_LDFLAGS=${LDFLAGS}
+                CFLAGS="${CFLAGS} -fsanitize=$1"
+                LDFLAGS="${LDFLAGS} -fsanitize=$1"
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([], [])],
+                               [gf_cv_sanitizer_link_$1=yes],
+                               [gf_cv_sanitizer_link_$1=no])
+                CFLAGS=${gf_save_CFLAGS}
+                LDFLAGS=${gf_save_LDFLAGS}
+        ])
+        if test "x$gf_cv_sanitizer_link_$1" != xyes; then
+                AC_MSG_ERROR([--enable-$2 requires a compiler and runtime that support -fsanitize=$1 (lib$2), exiting])
+        fi
+])
+
 SANITIZER=none
 
 AC_ARG_ENABLE([asan],
               AS_HELP_STRING([--enable-asan],[Enable Address Sanitizer support]))
 if test "x$enable_asan" = "xyes"; then
         SANITIZER=asan
-        AC_CHECK_LIB([asan], [_init], ,
-                [AC_MSG_ERROR([--enable-asan requires libasan.so, exiting])])
-        if test "x$ac_cv_lib_asan__init" = xyes; then
+        GF_SANITIZER_LINK_CHECK([address], [asan])
+        if test "x$gf_cv_sanitizer_link_address" = xyes; then
                 AC_MSG_CHECKING([whether asan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=address"
@@ -325,9 +351,8 @@ if test "x$enable_tsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=tsan
-        AC_CHECK_LIB([tsan], [_init], ,
-                [AC_MSG_ERROR([--enable-tsan requires libtsan.so, exiting])])
-        if test "x$ac_cv_lib_tsan__init" = xyes; then
+        GF_SANITIZER_LINK_CHECK([thread], [tsan])
+        if test "x$gf_cv_sanitizer_link_thread" = xyes; then
                 AC_MSG_CHECKING([whether tsan API can be used])
                 saved_CFLAGS=${CFLAGS}
                 CFLAGS="${CFLAGS} -fsanitize=thread"
@@ -353,8 +378,7 @@ if test "x$enable_ubsan" = "xyes"; then
                 AC_MSG_ERROR([only one sanitizer can be enabled at once])
         fi
         SANITIZER=ubsan
-        AC_CHECK_LIB([ubsan], [_init], ,
-                [AC_MSG_ERROR([--enable-ubsan requires libubsan.so, exiting])])
+        GF_SANITIZER_LINK_CHECK([undefined], [ubsan])
         GF_CFLAGS="${GF_CFLAGS} -O2 -g -fsanitize=undefined -fno-omit-frame-pointer"
         GF_LDFLAGS="${GF_LDFLAGS} -fsanitize=undefined"
 fi
