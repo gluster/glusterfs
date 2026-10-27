@@ -4170,18 +4170,30 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
         if (bio != NULL) {
 #ifdef HAVE_OPENSSL_DH_H
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            EVP_PKEY *dh = NULL;
+#else
             DH *dh;
+#endif
             unsigned long err;
 
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            dh = PEM_read_bio_Parameters(bio, NULL);
+#else
             dh = PEM_read_bio_DHparams(bio, NULL, NULL, NULL);
+#endif
             BIO_free(bio);
             if (dh != NULL) {
 #if SSL_OP_SINGLE_DH_USE != 0
                 /* Has no effect in never versions of OpenSSL. */
                 SSL_CTX_set_options(priv->ssl_ctx, SSL_OP_SINGLE_DH_USE);
 #endif /* SSL_OP_SINGLE_DH_USE */
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+                SSL_CTX_set0_tmp_dh_pkey(priv->ssl_ctx, dh);
+#else
                 SSL_CTX_set_tmp_dh(priv->ssl_ctx, dh);
                 DH_free(dh);
+#endif
             } else {
                 err = ERR_get_error();
                 gf_log(this->name, GF_LOG_ERROR,
@@ -4197,8 +4209,18 @@ ssl_setup_connection_params(rpc_transport_t *this)
 
         if (ec_curve != NULL) {
 #ifdef HAVE_OPENSSL_ECDH_H
-            int nid;
             unsigned long err;
+
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+            if (SSL_CTX_set1_curves_list(priv->ssl_ctx, ec_curve) != 1) {
+                err = ERR_get_error();
+                gf_log(this->name, GF_LOG_ERROR,
+                       "failed to load EC curve %s: %s. "
+                       "ECDH ciphers are disabled.",
+                       ec_curve, ERR_error_string(err, NULL));
+            }
+#else
+            int nid;
 
             nid = OBJ_sn2nid(ec_curve);
             if (nid != 0) {
@@ -4220,6 +4242,7 @@ ssl_setup_connection_params(rpc_transport_t *this)
                            ec_curve, ERR_error_string(err, NULL));
                 }
             }
+#endif
 #else  /* HAVE_OPENSSL_ECDH_H */
             gf_log(this->name, GF_LOG_ERROR, "OpenSSL has no ECDH support");
 #endif /* HAVE_OPENSSL_ECDH_H */
