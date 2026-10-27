@@ -543,13 +543,29 @@ __socket_ssl_readv(rpc_transport_t *this, struct iovec *opvector, int opcount)
     socket_private_t *priv = NULL;
     int sock = -1;
     int ret = -1;
+    gf_boolean_t locked = _gf_false;
 
     priv = this->private;
     sock = priv->sock;
 
     if (priv->use_ssl) {
         gf_log(this->name, GF_LOG_TRACE, "***** reading over SSL");
-        ret = ssl_read_one(priv, opvector->iov_base, opvector->iov_len);
+        /* socket_disconnect(), socket_event_poll_err() and fini() free
+         * priv->ssl_ssl under out_lock, from other threads than this
+         * epoll worker; use it only under the same lock. Not on a
+         * blocking socket (non-blocking-io off): there SSL_read() can wait
+         * for the rest of a record, and holding out_lock would keep
+         * socket_disconnect() from the shutdown() that wakes it. */
+        locked = !priv->bio;
+        if (locked)
+            pthread_mutex_lock(&priv->out_lock);
+        if (priv->use_ssl && priv->ssl_ssl) {
+            ret = ssl_read_one(priv, opvector->iov_base, opvector->iov_len);
+        } else {
+            errno = ENOTCONN;
+        }
+        if (locked)
+            pthread_mutex_unlock(&priv->out_lock);
     } else {
         gf_log(this->name, GF_LOG_TRACE, "***** reading over non-SSL");
         ret = sys_readv(sock, opvector, IOV_MIN(opcount));
