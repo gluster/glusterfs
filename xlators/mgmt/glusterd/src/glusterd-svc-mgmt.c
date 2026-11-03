@@ -271,7 +271,7 @@ void
 glusterd_svc_build_pidfile_path(char *server, char *workdir, char *path,
                                 size_t len)
 {
-    char dir[PATH_MAX] = {0};
+    char dir[VALID_GLUSTERD_PATHMAX] = {0};
 
     GF_ASSERT(len == PATH_MAX);
 
@@ -283,7 +283,7 @@ void
 glusterd_svc_build_volfile_path(char *server, char *workdir, char *volfile,
                                 size_t len)
 {
-    char dir[PATH_MAX] = {
+    char dir[VALID_GLUSTERD_PATHMAX] = {
         0,
     };
 
@@ -301,7 +301,7 @@ glusterd_svc_build_volfile_path(char *server, char *workdir, char *volfile,
 void
 glusterd_svc_build_svcdir(char *server, char *workdir, char *path, size_t len)
 {
-    GF_ASSERT(len == PATH_MAX);
+    GF_ASSERT(len == VALID_GLUSTERD_PATHMAX);
 
     snprintf(path, len, "%s/%s", workdir, server);
 }
@@ -309,7 +309,7 @@ glusterd_svc_build_svcdir(char *server, char *workdir, char *path, size_t len)
 void
 glusterd_svc_build_rundir(char *server, char *workdir, char *path, size_t len)
 {
-    char dir[PATH_MAX] = {0};
+    char dir[VALID_GLUSTERD_PATHMAX] = {0};
 
     GF_ASSERT(len == PATH_MAX);
 
