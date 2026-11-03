@@ -8,7 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <zlib.h>
 #include <stdint.h>
@@ -40,5 +40,13 @@ gf_rsync_strong_checksum(unsigned char *data, size_t len,
 void
 gf_rsync_md5_checksum(unsigned char *data, size_t len, unsigned char *md5)
 {
-    MD5(data, len, md5);
+    EVP_MD_CTX *mdctx;
+    // Use the MD5 digest algorithm
+    const EVP_MD *md = EVP_md5();
+
+    mdctx = EVP_MD_CTX_new();
+    EVP_DigestInit_ex(mdctx, md, NULL);
+    EVP_DigestUpdate(mdctx, data, len);
+    EVP_DigestFinal_ex(mdctx, md5, NULL);
+    EVP_MD_CTX_free(mdctx);
 }

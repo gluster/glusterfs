@@ -598,7 +598,7 @@ gf_client_dump_fdtables(xlator_t *this)
                 clienttable->cliententries[count].next_free)
                 continue;
             client = clienttable->cliententries[count].client;
-            if (client->client_uid) {
+            if (client) {
                 gf_proc_dump_build_key(key, "conn", "%d.id", count);
                 gf_proc_dump_write(key, "%s", client->client_uid);
             }
