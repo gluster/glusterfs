@@ -8,7 +8,7 @@
   cases as published by the Free Software Foundation.
 */
 
-#include <openssl/md5.h>
+#include <openssl/evp.h>
 #include <openssl/sha.h>
 #include <zlib.h>
 #include <stdint.h>
@@ -37,8 +37,38 @@ gf_rsync_strong_checksum(unsigned char *data, size_t len,
     SHA256((const unsigned char *)data, len, sha256_md);
 }
 
-void
+int
 gf_rsync_md5_checksum(unsigned char *data, size_t len, unsigned char *md5)
 {
-    MD5(data, len, md5);
+    EVP_MD_CTX *ctx = NULL;
+    const EVP_MD *md = EVP_md5();
+    unsigned int md_len = 0;
+    int md_size = 0;
+    int ret = -1;
+
+    ctx = EVP_MD_CTX_new();
+    if (!ctx || !md) {
+        EVP_MD_CTX_free(ctx);
+        return -1;
+    }
+
+    md_size = EVP_MD_size(md);
+    if (md_size <= 0)
+        goto out;
+
+    if (EVP_DigestInit_ex(ctx, md, NULL) != 1)
+        goto out;
+
+    if (EVP_DigestUpdate(ctx, data, len) != 1)
+        goto out;
+
+    if (EVP_DigestFinal_ex(ctx, md5, &md_len) != 1 ||
+        md_len != (unsigned int)md_size)
+        goto out;
+
+    ret = 0;
+
+out:
+    EVP_MD_CTX_free(ctx);
+    return ret;
 }

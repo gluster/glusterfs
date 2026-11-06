@@ -91,6 +91,8 @@ __afr_can_skip_data_block_heal(call_frame_t *frame, xlator_t *this, fd_t *fd,
         if (i == source)
             continue;
         if (replies[i].valid) {
+            if (replies[i].op_ret != 0)
+                return _gf_false;
             if (memcmp(replies[source].checksum, replies[i].checksum,
                        replies[source].fips_mode_rchecksum
                            ? SHA256_DIGEST_LENGTH

@@ -6180,8 +6180,16 @@ posix_rchecksum(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
                                  (unsigned char *)checksum);
     } else {
         checksum = md5_checksum;
-        gf_rsync_md5_checksum((unsigned char *)buf, (size_t)bytes_read,
-                              (unsigned char *)checksum);
+        ret = gf_rsync_md5_checksum((unsigned char *)buf, (size_t)bytes_read,
+                                    (unsigned char *)checksum);
+        if (ret != 0) {
+            gf_msg(this->name, GF_LOG_ERROR, 0, 0,
+                   "MD5 checksum calculation failed for fd=%p", fd);
+            checksum = NULL;
+            op_ret = -1;
+            op_errno = EIO;
+            goto out;
+        }
     }
     op_ret = 0;
 
