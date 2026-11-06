@@ -2052,6 +2052,20 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         }
 
         if (!IA_ISDIR(oldloc->inode->ia_type) && priv->gfid2path) {
+            /* If the rename overwrites an existing destination entry, the
+             * victim inode loses this name implicitly (rename(2) does not
+             * go through posix_unlink()), so its gfid2path entry for
+             * (newloc->pargfid, newloc->name) must be removed before the
+             * source inode's entry is updated below. The victim may even
+             * be the same inode (renaming between two hard links of one
+             * file), and the entry is created with XATTR_CREATE, which
+             * would fail with EEXIST on a stale entry otherwise. */
+            if (was_present && (nlink > 1)) {
+                MAKE_HANDLE_ABSPATH(gfid_path, this, victim);
+                posix_remove_gfid2path_xattr(this, gfid_path, newloc->pargfid,
+                                             newloc->name);
+            }
+
             MAKE_HANDLE_ABSPATH(gfid_path, this, oldloc->inode->gfid);
 
             posix_remove_gfid2path_xattr(this, gfid_path, oldloc->pargfid,
