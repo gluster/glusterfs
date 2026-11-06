@@ -31,7 +31,7 @@
 extern char snap_mount_dir[VALID_GLUSTERD_PATHMAX];
 
 int32_t
-glusterd_zfs_dataset(char *brick_path, char **pool_name)
+glusterd_zfs_dataset(char *brick_path, char *pool_name, size_t pool_name_size)
 {
     char msg[1024] = "";
     char dataset[PATH_MAX] = "";
@@ -40,7 +40,9 @@ glusterd_zfs_dataset(char *brick_path, char **pool_name)
         0,
     };
     char *ptr = NULL;
+    char *token = NULL;
     int32_t ret = 0;
+    int len = 0;
 
     this = THIS;
     GF_ASSERT(this);
@@ -74,7 +76,27 @@ glusterd_zfs_dataset(char *brick_path, char **pool_name)
     }
     runner_end(&runner);
 
-    *pool_name = strtok(dataset, "\n");
+    token = strtok(dataset, "\n");
+    if (!token) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "Failed to parse dataset name "
+               "for the brick_path %s",
+               brick_path);
+        ret = -1;
+        goto out;
+    }
+
+    /* Copy into the caller-owned buffer: the previous code returned a pointer
+       into the function-local `dataset`, which is out of scope on return. */
+    len = snprintf(pool_name, pool_name_size, "%s", token);
+    if (len < 0 || (size_t)len >= pool_name_size) {
+        gf_log(this->name, GF_LOG_ERROR,
+               "dataset name too long "
+               "for the brick_path %s",
+               brick_path);
+        ret = -1;
+        goto out;
+    }
 
 out:
     return ret;
@@ -149,12 +171,13 @@ glusterd_zfs_snapshot_create_or_clone(glusterd_brickinfo_t *snap_brickinfo,
     xlator_t *this = THIS;
     char snap_device[NAME_MAX] = "";
     char clone_device[NAME_MAX] = "";
-    char *dataset = NULL;
+    char dataset[PATH_MAX] = "";
     int32_t len = 0;
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, dataset,
+                               sizeof(dataset));
     if (ret)
         goto out;
 
@@ -236,7 +259,7 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
     glusterd_conf_t *priv = NULL;
     xlator_t *this = THIS;
     char key[160] = ""; /* key_prefix is 128 bytes at most */
-    char *dataset = NULL;
+    char dataset[PATH_MAX] = "";
 
     GF_ASSERT(rsp_dict);
     GF_ASSERT(snap_brickinfo);
@@ -244,7 +267,8 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
     priv = this->private;
     GF_ASSERT(priv);
 
-    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, dataset,
+                               sizeof(dataset));
     if (ret)
         goto out;
 
@@ -253,7 +277,7 @@ glusterd_zfs_brick_details(dict_t *rsp_dict,
         goto out;
     }
 
-    ret = dict_set_str(rsp_dict, key, dataset);
+    ret = dict_set_dynstr_with_alloc(rsp_dict, key, dataset);
     if (ret) {
         gf_msg(this->name, GF_LOG_ERROR, 0, GD_MSG_DICT_SET_FAILED,
                "Could not save vgname ");
@@ -304,14 +328,15 @@ glusterd_zfs_snapshot_remove(glusterd_brickinfo_t *snap_brickinfo,
     char msg[1024] = "";
     int len;
     char snap_device[NAME_MAX] = "";
-    char *dataset = NULL;
+    char dataset[PATH_MAX] = "";
 
     priv = this->private;
     GF_ASSERT(priv);
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, dataset,
+                               sizeof(dataset));
     if (ret)
         goto out;
 
@@ -396,14 +421,15 @@ glusterd_zfs_snapshot_restore(glusterd_brickinfo_t *snap_brickinfo,
     char snap_device[NAME_MAX] = "";
     char clone_device[NAME_MAX] = "";
     char mnt_pt[PATH_MAX] = "";
-    char *dataset = NULL;
+    char dataset[PATH_MAX] = "";
 
     priv = this->private;
     GF_ASSERT(priv);
 
     GF_ASSERT(snap_brickinfo);
 
-    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, &dataset);
+    ret = glusterd_zfs_dataset(snap_brickinfo->origin_path, dataset,
+                               sizeof(dataset));
     if (ret)
         goto out;
 
