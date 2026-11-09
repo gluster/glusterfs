@@ -3152,9 +3152,29 @@ fuse_write(xlator_t *this, fuse_in_header_t *finh, void *msg,
 #else
     state->io_flags = fwi->write_flags;
 #endif
-    /* TODO: may need to handle below flag
-       (fwi->write_flags & FUSE_WRITE_CACHE);
-    */
+    /* Writes through an mmap'ed shared mapping are written back by the
+     * kernel with FUSE_WRITE_CACHE set and the page offset. The VFS does
+     * not apply O_APPEND to such writeback, so the offset is
+     * authoritative. Mark them positional to prevent posix from
+     * appending them at EOF (on the brick, pwrite() on an O_APPEND fd
+     * appends regardless of the given offset on GNU/Linux, which would
+     * otherwise relocate these writes and double the file size).
+     * Without the FUSE_WRITE_CACHE flag the write is append-intended and
+     * is left unmarked. */
+    if ((fwi->write_flags & FUSE_WRITE_CACHE) && state->fd &&
+        (state->fd->flags & O_APPEND)) {
+        if (!state->xdata) {
+            state->xdata = dict_new();
+        }
+        if (state->xdata &&
+            dict_set_int32_sizen(state->xdata, GLUSTERFS_WRITE_IS_POSITIONAL,
+                                 1)) {
+            gf_log(this->name, GF_LOG_WARNING,
+                   "%" PRIu64 ": WRITE: failed to mark the write as"
+                   " positional, it will be treated as an append",
+                   finh->unique);
+        }
+    }
 
     fuse_resolve_fd_init(state, &state->resolve, fd);
 

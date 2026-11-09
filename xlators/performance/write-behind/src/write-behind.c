@@ -1098,6 +1098,16 @@ wb_fulfill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
         head->total_size += req->write_size;                                   \
     } while (0)
 
+static gf_boolean_t
+wb_writev_is_positional(wb_request_t *req)
+{
+    dict_t *xdata = req->stub->args.xdata;
+
+    return (xdata && dict_get_sizen(xdata, GLUSTERFS_WRITE_IS_POSITIONAL))
+               ? _gf_true
+               : _gf_false;
+}
+
 int
 wb_fulfill_head(wb_inode_t *wb_inode, wb_request_t *head)
 {
@@ -1134,10 +1144,15 @@ wb_fulfill_head(wb_inode_t *wb_inode, wb_request_t *head)
     }
     UNLOCK(&wb_inode->lock);
 
+    /* Preserve the request xdata of the head request. Dropping it here
+     * would lose request-side flags such as GLUSTERFS_WRITE_IS_POSITIONAL
+     * (mmap writeback on an O_APPEND fd, marked by fuse), which posix
+     * needs to decide between writing at the given offset and appending
+     * at EOF. */
     STACK_WIND(frame, wb_fulfill_cbk, FIRST_CHILD(frame->this),
                FIRST_CHILD(frame->this)->fops->writev, head->fd, vector, count,
                head->stub->args.offset, head->stub->args.flags,
-               head->stub->args.iobref, NULL);
+               head->stub->args.iobref, head->stub->args.xdata);
 
     return 0;
 err:
@@ -1186,6 +1201,16 @@ wb_fulfill(wb_inode_t *wb_inode, list_head_t *liabilities)
         }
 
         if (!is_same_lkowner(&req->lk_owner, &head->lk_owner)) {
+            NEXT_HEAD(head, req);
+            continue;
+        }
+
+        /* Do not aggregate writes with different positional/append
+         * classes: the aggregated wind carries the head request's
+         * xdata, so a positional request (e.g. mmap writeback marked
+         * GLUSTERFS_WRITE_IS_POSITIONAL) must not inherit append
+         * semantics from an unmarked head, or vice versa. */
+        if (wb_writev_is_positional(req) != wb_writev_is_positional(head)) {
             NEXT_HEAD(head, req);
             continue;
         }

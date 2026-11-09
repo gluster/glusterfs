@@ -202,6 +202,11 @@ enum gf_internal_fop_indicator {
 
 #define GLUSTERFS_WRITE_IS_APPEND "glusterfs.write-is-append"
 #define GLUSTERFS_WRITE_UPDATE_ATOMIC "glusterfs.write-update-atomic"
+/* Request-side flag: the write carries an authoritative offset (e.g. mmap
+ * writeback marked with FUSE_WRITE_CACHE, or shard chunk writes) and posix
+ * must not apply append semantics to it. Absence of this key means an
+ * append-intended write on an O_APPEND fd. */
+#define GLUSTERFS_WRITE_IS_POSITIONAL "glusterfs.write-is-positional"
 #define GLUSTERFS_OPEN_FD_COUNT "glusterfs.open-fd-count"
 #define GLUSTERFS_ACTIVE_FD_COUNT "glusterfs.open-active-fd-count"
 #define GLUSTERFS_INODELK_COUNT "glusterfs.inodelk-count"
