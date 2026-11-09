@@ -329,6 +329,18 @@ posix_io_uring_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     int32_t op_errno = ENOMEM;
     int ret = 0;
 
+    /* Append-intended writes must go through posix_writev(), which
+     * places them at EOF atomically under the inode's
+     * write_atomic_lock; io_uring cannot provide that pre-stat +
+     * write sequence. Writes marked GLUSTERFS_WRITE_IS_POSITIONAL
+     * (e.g. mmap writeback) carry an authoritative offset and keep
+     * the io_uring fast path. */
+    if ((fd->flags & O_APPEND) &&
+        !(xdata && dict_get_sizen(xdata, GLUSTERFS_WRITE_IS_POSITIONAL))) {
+        return posix_writev(frame, this, fd, iov, count, offset, flags, iobref,
+                            xdata);
+    }
+
     ctx = posix_io_uring_ctx_init(
         frame, this, fd, GF_FOP_WRITE, posix_prep_writev,
         posix_io_uring_writev_complete, &op_errno, xdata);

@@ -5486,8 +5486,16 @@ shard_is_appending_write(shard_local_t *local)
         return _gf_false;
     if (local->flags & O_APPEND)
         return _gf_true;
-    if (local->fd->flags & O_APPEND)
+    if (local->fd->flags & O_APPEND) {
+        /* A write marked GLUSTERFS_WRITE_IS_POSITIONAL (e.g. mmap
+         * writeback) carries an authoritative offset; it must keep
+         * that offset instead of being adjusted to EOF like an
+         * append-intended write. */
+        if (local->xattr_req &&
+            dict_get_sizen(local->xattr_req, GLUSTERFS_WRITE_IS_POSITIONAL))
+            return _gf_false;
         return _gf_true;
+    }
     return _gf_false;
 }
 
@@ -7193,6 +7201,21 @@ shard_common_inode_write_begin(call_frame_t *frame, xlator_t *this,
     local->xattr_req = (xdata) ? dict_ref(xdata) : dict_new();
     if (!local->xattr_req)
         goto out;
+
+    if (fop == GF_FOP_WRITE) {
+        /* Chunk writes always carry offsets computed by shard itself,
+         * so they are positional. This includes the first chunk, which
+         * is written through the original fd and may carry O_APPEND.
+         * The marker keeps posix from appending such writes at EOF
+         * (which would corrupt the chunk layout). */
+        ret = dict_set_int32_sizen(local->xattr_req,
+                                   GLUSTERFS_WRITE_IS_POSITIONAL, 1);
+        if (ret) {
+            gf_msg(this->name, GF_LOG_WARNING, 0, SHARD_MSG_DICT_OP_FAILED,
+                   "Failed to mark the write as positional");
+            goto out;
+        }
+    }
 
     if (vector) {
         local->vector = iov_dup(vector, count);
