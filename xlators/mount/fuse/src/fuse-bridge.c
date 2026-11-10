@@ -1804,24 +1804,44 @@ fuse_setattr_resume(fuse_state_t *state)
            "%" PRIu64 ": SETATTR (%" PRIu64 ")%s", state->finh->unique,
            state->finh->nodeid, state->loc.path);
 
-#ifdef GF_TEST_FFOP
-    /* this is for calls like 'fchmod()' */
-    if (!state->fd)
+    /*
+     * The kernel FUSE protocol carries no file handle for metadata-only
+     * setattr requests (e.g. fchmod(), fchown() and futimens() are all
+     * sent as plain FUSE_SETATTR by nodeid), so an fd the caller may
+     * have open on the inode can only be found here. Use it when
+     * available, so that metadata operations on writable fds keep
+     * working even when the name of the file is gone (unlink,
+     * rename-over), like on a local filesystem.
+     *
+     * Two requests must NOT be routed through the looked-up fd:
+     * - anything carrying FATTR_SIZE: truncate() by path on a
+     *   read-only fd is legal, but ftruncate() on that fd is not
+     *   (EINVAL) -- this exact hazard got the pid lookup removed from
+     *   setattr in the past (commit 8c0cb7c);
+     * - a read-only fd when only permissions/ownership/times are set
+     *   is fine for fchmod()/fchown(), but keep the plain path-based
+     *   SETATTR for anything else to stay on the safe side, matching
+     *   the getattr() behaviour introduced by 3f827c2 (which also
+     *   looks the fd up with pid 0 for other threads).
+     */
+    if (!state->fd && !(state->valid & FATTR_SIZE)) {
         state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
+        if (!state->fd)
+            state->fd = fd_lookup(state->loc.inode, 0);
+        if (state->fd &&
+            ((state->fd->flags & O_ACCMODE) == O_RDONLY) &&
+            !IA_ISDIR(state->loc.inode->ia_type)) {
+            /* A read-only fd on a regular file: chmod/chown would
+             * still work through it, but futimens() with explicit
+             * times would fail (EINVAL), and the equivalent
+             * path-based request succeeds -- so route by path. */
+            fd_unref(state->fd);
+            state->fd = NULL;
+        }
+    }
 
     if ((state->valid & (FATTR_MASK)) != FATTR_SIZE) {
-        if (state->fd &&
-            !((state->valid & FATTR_ATIME) || (state->valid & FATTR_MTIME)
-#if FUSE_KERNEL_MINOR_VERSION >= 23
-              || (state->valid & FATTR_CTIME)
-#endif
-                  )) {
-            /*
-                there is no "futimes" call, so don't send
-                fsetattr if ATIME or MTIME is set
-             */
-
+        if (state->fd) {
             FUSE_FOP(state, fuse_setattr_cbk, GF_FOP_FSETATTR, fsetattr,
                      state->fd, &state->attr,
                      fattr_to_gf_set_attr(state->valid), state->xdata);
@@ -1848,9 +1868,10 @@ fuse_setattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     GET_STATE(this, finh, state);
 
-    if (fsi->valid & FATTR_FH && !(fsi->valid & (FATTR_ATIME | FATTR_MTIME))) {
-        /* We need no loc if kernel sent us an fd and
-         * we are not fiddling with times */
+    if (fsi->valid & FATTR_FH) {
+        /* We need no loc if kernel sent us an fd: use it for the fop
+         * regardless of the attributes being set (posix_fsetattr
+         * handles time updates too). */
         state->fd = FH_TO_FD(fsi->fh);
         fuse_resolve_fd_init(state, &state->resolve, state->fd);
     } else {
@@ -4056,9 +4077,21 @@ fuse_setxattr_resume(fuse_state_t *state)
         return;
     }
 
-#ifdef GF_TEST_FFOP
+    /*
+     * The kernel FUSE SETXATTR request carries no file handle, so an
+     * fd open on the inode can only be found here. fsetxattr()
+     * through a read-only fd of a regular file would fail with EPERM
+     * while the equivalent path-based setxattr() can succeed, so
+     * route only writable fds (or directory fds, which have no
+     * write-mode) through the fd (same reasoning as the FATTR_SIZE
+     * guard in setattr() for truncate()).
+     */
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
+    if (state->fd && ((state->fd->flags & O_ACCMODE) == O_RDONLY) &&
+        !IA_ISDIR(state->loc.inode->ia_type)) {
+        fd_unref(state->fd);
+        state->fd = NULL;
+    }
 
     if (dict_get_sizen(state->xattr, GF_NAMESPACE_KEY)) {
         inode_t *inode = state->loc.inode ? state->loc.inode : state->fd->inode;
@@ -4381,9 +4414,13 @@ fuse_getxattr_resume(fuse_state_t *state)
         return;
     }
 
-#ifdef GF_TEST_FFOP
+    /*
+     * The kernel FUSE GETXATTR request carries no file handle, so an
+     * fd open on the inode can only be found here. Reads through a
+     * read-only fd are perfectly legal, so route unconditionally:
+     * fgetxattr() keeps working for unlinked-but-open inodes.
+     */
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
 
     if (state->name && (strcmp(state->name, VIRTUAL_GFID_XATTR_KEY) == 0)) {
         /* send glusterfs gfid in binary form */
@@ -4527,9 +4564,12 @@ fuse_listxattr_resume(fuse_state_t *state)
         return;
     }
 
-#ifdef GF_TEST_FFOP
+    /*
+     * Same as GETXATTR: the kernel request carries no file handle;
+     * flistxattr() through a read-only fd is legal, so route
+     * unconditionally.
+     */
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
 
     if (state->fd) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE,
@@ -4586,9 +4626,18 @@ fuse_removexattr_resume(fuse_state_t *state)
         return;
     }
 
-#ifdef GF_TEST_FFOP
+    /*
+     * fremovexattr() through a read-only fd of a regular file would
+     * fail with EPERM while the path-based removexattr() can succeed
+     * -- route only writable fds (or directory fds) through the fd,
+     * like in setxattr().
+     */
     state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
+    if (state->fd && ((state->fd->flags & O_ACCMODE) == O_RDONLY) &&
+        !IA_ISDIR(state->loc.inode->ia_type)) {
+        fd_unref(state->fd);
+        state->fd = NULL;
+    }
 
     if (state->fd) {
         gf_log("glusterfs-fuse", GF_LOG_TRACE,

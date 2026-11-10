@@ -212,50 +212,46 @@ fd_based_fops_1(char *filename)
     }
 
     /*
-     *      These metadata operations fail at the moment because kernel doesn't
-     *      pass the client fd in the operation.
-     *      The following bug tracks this change.
-     *      https://bugzilla.redhat.com/show_bug.cgi?id=1084422
-     *      ret = fchmod (fd, 0640);
-     *      if (ret < 0) {
-     *              fprintf (stderr, "fchmod failed : %s\n", strerror (errno));
-     *              result |= ret;
-     *      }
-
-     *      ret = fchown (fd, 10001, 10001);
-     *      if (ret < 0) {
-     *              fprintf (stderr, "fchown failed : %s\n", strerror (errno));
-     *              result |= ret;
-     *      }
-
-     *      ret = fsetxattr (fd, "trusted.xattr-test", "working", 8, 0);
-     *      if (ret < 0) {
-     *              fprintf (stderr, "fsetxattr failed : %s\n", strerror
-     (errno));
-     *              result |= ret;
-     *      }
-
-     *      ret = flistxattr (fd, NULL, 0);
-     *      if (ret <= 0) {
-     *              fprintf (stderr, "flistxattr failed : %s\n", strerror
-     (errno));
-     *              result |= ret;
-     *      }
-
-     *      ret = fgetxattr (fd, "trusted.xattr-test", NULL, 0);
-     *      if (ret <= 0) {
-     *              fprintf (stderr, "fgetxattr failed : %s\n", strerror
-     (errno));
-     *              result |= ret;
-     *      }
-
-     *      ret = fremovexattr (fd, "trusted.xattr-test");
-     *      if (ret < 0) {
-     *              fprintf (stderr, "fremovexattr failed : %s\n", strerror
-     (errno));
-     *              result |= ret;
-     *      }
+     *      These metadata operations used to fail because the kernel
+     *      does not pass the client fd in these requests (see
+     *      https://bugzilla.redhat.com/show_bug.cgi?id=1084422);
+     *      fuse-bridge now looks the fd up on the inode instead.
      */
+    ret = fchmod(fd, 0640);
+    if (ret < 0) {
+        fprintf(stderr, "fchmod failed : %s\n", strerror(errno));
+        result |= ret;
+    }
+
+    ret = fchown(fd, 10001, 10001);
+    if (ret < 0) {
+        fprintf(stderr, "fchown failed : %s\n", strerror(errno));
+        result |= ret;
+    }
+
+    ret = fsetxattr(fd, "trusted.xattr-test", "working", 8, 0);
+    if (ret < 0) {
+        fprintf(stderr, "fsetxattr failed : %s\n", strerror(errno));
+        result |= ret;
+    }
+
+    ret = flistxattr(fd, NULL, 0);
+    if (ret <= 0) {
+        fprintf(stderr, "flistxattr failed : %s\n", strerror(errno));
+        result |= ret;
+    }
+
+    ret = fgetxattr(fd, "trusted.xattr-test", NULL, 0);
+    if (ret <= 0) {
+        fprintf(stderr, "fgetxattr failed : %s\n", strerror(errno));
+        result |= ret;
+    }
+
+    ret = fremovexattr(fd, "trusted.xattr-test");
+    if (ret < 0) {
+        fprintf(stderr, "fremovexattr failed : %s\n", strerror(errno));
+        result |= ret;
+    }
 
     if (fd)
         close(fd);
