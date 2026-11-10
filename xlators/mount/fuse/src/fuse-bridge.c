@@ -1804,24 +1804,20 @@ fuse_setattr_resume(fuse_state_t *state)
            "%" PRIu64 ": SETATTR (%" PRIu64 ")%s", state->finh->unique,
            state->finh->nodeid, state->loc.path);
 
-#ifdef GF_TEST_FFOP
-    /* this is for calls like 'fchmod()' */
+    /*
+     * The kernel FUSE protocol carries no file handle for metadata-only
+     * setattr requests (e.g. fchmod(), fchown() and futimens() are all
+     * sent as plain FUSE_SETATTR by nodeid), so an fd the caller may
+     * have open on the inode can only be found here. Use it when
+     * available, so that metadata operations on open fds keep working
+     * even when the name of the file is gone (unlink, rename-over),
+     * like on a local filesystem.
+     */
     if (!state->fd)
         state->fd = fd_lookup(state->loc.inode, state->finh->pid);
-#endif /* GF_TEST_FFOP */
 
     if ((state->valid & (FATTR_MASK)) != FATTR_SIZE) {
-        if (state->fd &&
-            !((state->valid & FATTR_ATIME) || (state->valid & FATTR_MTIME)
-#if FUSE_KERNEL_MINOR_VERSION >= 23
-              || (state->valid & FATTR_CTIME)
-#endif
-                  )) {
-            /*
-                there is no "futimes" call, so don't send
-                fsetattr if ATIME or MTIME is set
-             */
-
+        if (state->fd) {
             FUSE_FOP(state, fuse_setattr_cbk, GF_FOP_FSETATTR, fsetattr,
                      state->fd, &state->attr,
                      fattr_to_gf_set_attr(state->valid), state->xdata);
@@ -1848,9 +1844,10 @@ fuse_setattr(xlator_t *this, fuse_in_header_t *finh, void *msg,
 
     GET_STATE(this, finh, state);
 
-    if (fsi->valid & FATTR_FH && !(fsi->valid & (FATTR_ATIME | FATTR_MTIME))) {
-        /* We need no loc if kernel sent us an fd and
-         * we are not fiddling with times */
+    if (fsi->valid & FATTR_FH) {
+        /* We need no loc if kernel sent us an fd: use it for the fop
+         * regardless of the attributes being set (posix_fsetattr
+         * handles time updates too). */
         state->fd = FH_TO_FD(fsi->fh);
         fuse_resolve_fd_init(state, &state->resolve, state->fd);
     } else {

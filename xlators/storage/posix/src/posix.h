@@ -362,6 +362,9 @@ int
 __posix_inode_ctx_get_all(inode_t *inode, xlator_t *this,
                           posix_inode_ctx_t **ctx);
 
+gf_boolean_t
+posix_is_unlinked_open_inode(xlator_t *this, inode_t *inode);
+
 int
 posix_gfid_set(xlator_t *this, const char *path, loc_t *loc, dict_t *xattr_req,
                pid_t pid, int *op_errno);

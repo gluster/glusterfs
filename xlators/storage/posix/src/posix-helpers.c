@@ -671,6 +671,14 @@ posix_fdstat(xlator_t *this, inode_t *inode, int fd, struct iatt *stbuf_p,
     if (fstatbuf.st_nlink && !S_ISDIR(fstatbuf.st_mode))
         fstatbuf.st_nlink--;
 
+    if (posix_is_unlinked_open_inode(this, inode))
+        /* The inode was unlinked/rmdir'ed while an fd was open on it
+         * (its gfid-handle is parked in the unlink directory). Report
+         * no namespace links, like a local filesystem would. This also
+         * covers directories, which the decrement above intentionally
+         * skips. */
+        fstatbuf.st_nlink = 0;
+
     iatt_from_stat(stbuf_p, &fstatbuf);
 
     priv = this->private;
@@ -701,6 +709,8 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
             struct iatt *buf_p, gf_boolean_t fetch_time)
 {
     char *real_path = NULL;
+    char *unlink_path = NULL;
+    gf_boolean_t unlinked = _gf_false;
     struct stat lstatbuf = {
         0,
     };
@@ -723,6 +733,22 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     }
 
     ret = sys_lstat(real_path, &lstatbuf);
+
+    if ((ret == -1) && (errno == ENOENT) && (basename == NULL) &&
+        posix_is_unlinked_open_inode(this, inode)) {
+        /* The file was unlinked while an fd was open on it, so its
+         * gfid-handle is parked in the unlink directory. Resolve to
+         * the parked copy instead of failing. Entry (basename)
+         * resolutions never take this path, as a parked inode has no
+         * name left in the namespace. */
+        POSIX_GET_FILE_UNLINK_PATH(priv->base_path, gfid, unlink_path);
+        errno = 0;
+        ret = sys_lstat(unlink_path, &lstatbuf);
+        if (ret == 0) {
+            unlinked = _gf_true;
+            real_path = unlink_path;
+        }
+    }
 
     if (ret != 0) {
         if (ret == -1) {
@@ -754,8 +780,14 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
          */
         goto out;
 
-    if (!S_ISDIR(lstatbuf.st_mode))
+    if (unlinked) {
+        /* The inode has no namespace links left. Report nlink as 0,
+         * like a local filesystem would for an unlinked-but-open file
+         * (the parked copy's on-disk nlink is 1). */
+        lstatbuf.st_nlink = 0;
+    } else if (!S_ISDIR(lstatbuf.st_mode)) {
         lstatbuf.st_nlink--;
+    }
 
     iatt_from_stat(&stbuf, &lstatbuf);
 
@@ -779,6 +811,31 @@ posix_istat(xlator_t *this, inode_t *inode, uuid_t gfid, const char *basename,
     memcpy(buf_p, &stbuf, sizeof(struct iatt));
 out:
     return ret;
+}
+
+/*
+ * Returns _gf_true if the given inode was unlinked while an fd was open
+ * on it, in which case its gfid-handle is parked in the unlink directory
+ * (<export>/.glusterfs/unlink/<gfid>) until the last fd on it is closed.
+ * The caller can resolve the parked copy using POSIX_GET_FILE_UNLINK_PATH().
+ */
+gf_boolean_t
+posix_is_unlinked_open_inode(xlator_t *this, inode_t *inode)
+{
+    uint64_t ctx_uint = 0;
+    posix_inode_ctx_t *ctx = NULL;
+
+    if (!inode)
+        return _gf_false;
+
+    if (inode_ctx_get(inode, this, &ctx_uint) != 0)
+        return _gf_false;
+
+    ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
+    if (!ctx || (ctx->unlink_flag != GF_UNLINK_TRUE))
+        return _gf_false;
+
+    return _gf_true;
 }
 
 int

@@ -1549,6 +1549,50 @@ out:
     return 0;
 }
 
+/* Returns 1 if the directory at @real_path contains no entries besides
+ * "." and "..", 0 if it is not empty and -1 if it could not be examined
+ * (e.g. out of fds). Used to preserve rmdir()'s ENOTEMPTY semantics when
+ * parking a directory with open fds into the unlink directory, as
+ * rename() does not enforce emptiness. The caller falls back to
+ * rmdir() on -1, so that the kernel reports the real error. */
+static int
+posix_dir_is_empty(const char *real_path)
+{
+    DIR *dirp = NULL;
+    struct dirent *entry = NULL;
+    struct dirent scratch[2] = {
+        {0},
+    };
+
+    dirp = sys_opendir(real_path);
+    if (!dirp)
+        return -1;
+
+    for (;;) {
+        errno = 0;
+        entry = sys_readdir(dirp, scratch);
+        if (!entry) {
+            if (errno != 0) {
+                /* readdir error: let the caller fall back to rmdir()
+                 * rather than guess the directory is empty. */
+                (void)sys_closedir(dirp);
+                return -1;
+            }
+            break; /* end of directory */
+        }
+
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        (void)sys_closedir(dirp);
+        return 0;
+    }
+
+    (void)sys_closedir(dirp);
+
+    return 1;
+}
+
 int
 posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
             dict_t *xdata)
@@ -1571,6 +1615,9 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
     char tmp_path[PATH_MAX] = {
         0,
     };
+    char *unlink_path = NULL;
+    int fd_count = 0;
+    gf_boolean_t parked = _gf_false;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -1637,13 +1684,81 @@ posix_rmdir(call_frame_t *frame, xlator_t *this, loc_t *loc, int flags,
             op_ret = sys_rename(real_path, tmp_path);
         }
     } else {
-        op_ret = sys_rmdir(real_path);
+        if (loc->inode) {
+            LOCK(&loc->inode->lock);
+            {
+                fd_count = loc->inode->fd_count;
+            }
+            UNLOCK(&loc->inode->lock);
+        }
+
+        if (fd_count > 0) {
+            /* The directory has open fds on this brick. Like on a
+             * local filesystem, rmdir() must remove it from the
+             * namespace while keeping the inode alive for those fds.
+             * Park the empty directory in the unlink directory
+             * instead of destroying it, so that resolutions by gfid
+             * keep working until the last fd on it is closed (see
+             * posix_unlink_renamed_file() for the cleanup). */
+            if (posix_dir_is_empty(real_path) == 1) {
+                POSIX_GET_FILE_UNLINK_PATH(priv->base_path, stbuf.ia_gfid,
+                                           unlink_path);
+                op_ret = sys_rename(real_path, unlink_path);
+                if (op_ret == 0) {
+                    parked = _gf_true;
+                    /* An entry could have been created in the
+                     * directory between the emptiness check above and
+                     * the rename; verify the parked directory is
+                     * really empty and roll back if it is not, so
+                     * that rmdir() never reports success for a
+                     * non-empty directory. */
+                    if (posix_dir_is_empty(unlink_path) != 1) {
+                        if (sys_rename(unlink_path, real_path) == 0) {
+                            parked = _gf_false;
+                            op_ret = -1;
+                            errno = ENOTEMPTY;
+                        } else {
+                            gf_msg(this->name, GF_LOG_WARNING, errno,
+                                   P_MSG_RMDIR_FAILED,
+                                   "failed to restore non-empty "
+                                   "directory parked at %s back to "
+                                   "%s; it will stay parked in the "
+                                   "unlink directory",
+                                   unlink_path, real_path);
+                        }
+                    }
+                } else {
+                    /* Parking failed (e.g. a stray parked entry with
+                     * the same gfid exists); fall back to the plain
+                     * rmdir(). */
+                    op_ret = sys_rmdir(real_path);
+                }
+            } else {
+                /* The directory is not empty (or could not be
+                 * examined): let rmdir() handle it and report the
+                 * real error, usually ENOTEMPTY. */
+                op_ret = sys_rmdir(real_path);
+            }
+        } else {
+            op_ret = sys_rmdir(real_path);
+        }
     }
     op_errno = errno;
 
     if (op_ret == 0) {
         if (posix_symlinks_match(this, loc, stbuf.ia_gfid))
             posix_handle_unset_gfid(this, stbuf.ia_gfid);
+
+        if (parked) {
+            /* Mark the inode as parked so that inode resolutions
+             * (posix_istat/MAKE_INODE_HANDLE) operate on the parked
+             * copy, and so that the cleanup on closing the last fd
+             * finds it. */
+            if (posix_add_unlink_to_ctx(loc->inode, this, unlink_path) < 0)
+                gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
+                       "failed to mark parked directory %s as unlinked",
+                       unlink_path);
+        }
     }
 
     if (op_errno == EEXIST)
@@ -1887,8 +2002,11 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     dict_t *unwind_dict = NULL;
     gf_boolean_t locked = _gf_false;
     gf_boolean_t get_link_count = _gf_false;
+    gf_boolean_t victim_parked = _gf_false;
+    int victim_fd_count = 0;
     posix_inode_ctx_t *ctx_old = NULL;
     posix_inode_ctx_t *ctx_new = NULL;
+    char *victim_unlink_path = NULL;
 
     DECLARE_OLD_FS_ID_VAR;
 
@@ -2011,6 +2129,42 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
             }
         }
 
+        if (was_dir && newloc->inode &&
+            IA_ISDIR(oldloc->inode->ia_type)) {
+            /* Replacing an empty directory with open fds, like
+             * rmdir(), must keep the inode alive for those fds while
+             * removing it from the namespace: park the victim in the
+             * unlink directory before the rename replaces it (the
+             * kernel would otherwise destroy it for good). Only
+             * directory-to-directory renames replace a directory
+             * target; leaving any other source in place lets the
+             * kernel report its real error (e.g. EISDIR). The kernel
+             * would normally also enforce target emptiness, so if the
+             * main rename below fails for any reason, the park is
+             * rolled back. */
+            LOCK(&newloc->inode->lock);
+            {
+                victim_fd_count = newloc->inode->fd_count;
+            }
+            UNLOCK(&newloc->inode->lock);
+
+            if (victim_fd_count > 0 &&
+                (posix_dir_is_empty(real_newpath) == 1)) {
+                POSIX_GET_FILE_UNLINK_PATH(priv->base_path, victim,
+                                           victim_unlink_path);
+                if (sys_rename(real_newpath, victim_unlink_path) == 0) {
+                    victim_parked = _gf_true;
+                    if (posix_add_unlink_to_ctx(newloc->inode, this,
+                                                victim_unlink_path) < 0)
+                        gf_msg(this->name, GF_LOG_ERROR, ENOMEM,
+                               P_MSG_UNLINK_FAILED,
+                               "failed to mark parked directory %s as "
+                               "unlinked",
+                               victim_unlink_path);
+                }
+            }
+        }
+
         op_ret = sys_rename(real_oldpath, real_newpath);
         if (op_ret == -1) {
             op_errno = errno;
@@ -2022,6 +2176,21 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
             } else {
                 gf_msg(this->name, GF_LOG_ERROR, errno, P_MSG_RENAME_FAILED,
                        "rename of %s to %s failed", real_oldpath, real_newpath);
+            }
+
+            if (victim_parked) {
+                /* The replacement did not happen: restore the parked
+                 * directory to its place. */
+                if (sys_rename(victim_unlink_path, real_newpath) == 0) {
+                    victim_parked = _gf_false;
+                } else {
+                    gf_msg(this->name, GF_LOG_WARNING, errno,
+                           P_MSG_RENAME_FAILED,
+                           "failed to restore parked directory %s back "
+                           "to %s; it will stay parked in the unlink "
+                           "directory",
+                           victim_unlink_path, real_newpath);
+                }
             }
 
             if (priv->update_pgfid_nlinks &&

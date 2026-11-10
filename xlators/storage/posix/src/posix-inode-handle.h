@@ -79,7 +79,24 @@
                              _gf_true);                                        \
         if (errno != ELOOP) {                                                  \
             MAKE_HANDLE_PATH(rpath, this, (loc)->gfid, NULL);                  \
-            if (!rpath) {                                                      \
+            if (rpath && op_ret == 0 &&                                        \
+                posix_is_unlinked_open_inode(this, (loc)->inode)) {            \
+                /* posix_handle_path() builds the canonical handle path        \
+                 * even when the handle itself is absent. If the inode         \
+                 * was parked in the unlink directory (it was                  \
+                 * unlinked/rmdir'ed while an fd was open on it) and the       \
+                 * canonical path does not resolve, operate on the parked      \
+                 * copy instead. */                                            \
+                struct stat __pih_stbuf = {                                    \
+                    0,                                                         \
+                };                                                             \
+                if ((sys_lstat(rpath, &__pih_stbuf) == -1) &&                  \
+                    (errno == ENOENT)) {                                       \
+                    POSIX_GET_FILE_UNLINK_PATH(                                \
+                        ((struct posix_private *)this->private)->base_path,    \
+                        (loc)->gfid, (rpath));                                 \
+                }                                                              \
+            } else if (!rpath) {                                               \
                 op_ret = -1;                                                   \
                 gf_msg(this->name, GF_LOG_ERROR, errno,                        \
                        P_MSG_INODE_HANDLE_CREATE,                              \

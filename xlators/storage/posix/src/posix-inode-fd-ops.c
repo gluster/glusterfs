@@ -2648,15 +2648,32 @@ posix_unlink_renamed_file(xlator_t *this, inode_t *inode)
     ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint;
 
     if (ctx->unlink_flag == GF_UNLINK_TRUE) {
+        struct stat stbuf = {
+            0,
+        };
+
         POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
         if (!unlink_path) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
                    "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
             ret = -1;
         } else {
-            ret = sys_unlink(unlink_path);
-            if (!ret)
+            ret = sys_lstat(unlink_path, &stbuf);
+            if ((ret == -1) && (errno == ENOENT)) {
+                /* Nothing to clean up anymore. */
                 ctx->unlink_flag = GF_UNLINK_FALSE;
+                ret = 0;
+            } else if ((ret == 0) && S_ISDIR(stbuf.st_mode)) {
+                /* A directory parked by posix_rmdir() needs rmdir(),
+                 * not unlink(). */
+                ret = sys_rmdir(unlink_path);
+                if (!ret)
+                    ctx->unlink_flag = GF_UNLINK_FALSE;
+            } else {
+                ret = sys_unlink(unlink_path);
+                if (!ret)
+                    ctx->unlink_flag = GF_UNLINK_FALSE;
+            }
         }
     }
 
@@ -3498,6 +3515,17 @@ posix_get_ancestry_non_directory(xlator_t *this, inode_t *leaf_inode,
     int len;
 
     priv = this->private;
+
+    if (posix_is_unlinked_open_inode(this, leaf_inode)) {
+        /* The leaf inode was unlinked while an fd was open on it, so
+         * its gfid-handle is parked in the unlink directory. It has no
+         * namespace path left to report, so preserve the pre-existing
+         * behavior of returning ESTALE for such inodes rather than
+         * building a bogus ancestry from the parked copy. */
+        op_ret = -1;
+        *op_errno = ESTALE;
+        goto out;
+    }
 
     loc = GF_CALLOC(1, sizeof(*loc), gf_posix_mt_char);
     if (loc == NULL) {
@@ -6248,13 +6276,27 @@ posix_forget(xlator_t *this, inode_t *inode)
     ctx = (posix_inode_ctx_t *)(uintptr_t)ctx_uint1;
 
     if (ctx->unlink_flag == GF_UNLINK_TRUE) {
+        struct stat stbuf = {
+            0,
+        };
+
         POSIX_GET_FILE_UNLINK_PATH(priv->base_path, inode->gfid, unlink_path);
         if (!unlink_path) {
             gf_msg(this->name, GF_LOG_ERROR, ENOMEM, P_MSG_UNLINK_FAILED,
                    "Failed to remove gfid :%s", uuid_utoa(inode->gfid));
             ret = -1;
         } else {
-            ret = sys_unlink(unlink_path);
+            ret = sys_lstat(unlink_path, &stbuf);
+            if ((ret == -1) && (errno == ENOENT)) {
+                /* Nothing to clean up anymore. */
+                ret = 0;
+            } else if ((ret == 0) && S_ISDIR(stbuf.st_mode)) {
+                /* A directory parked by posix_rmdir() needs rmdir(),
+                 * not unlink(). */
+                ret = sys_rmdir(unlink_path);
+            } else {
+                ret = sys_unlink(unlink_path);
+            }
         }
     }
 
