@@ -2436,6 +2436,12 @@ posix_create(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     if (priv->o_direct)
         _flags |= O_DIRECT;
 
+    /* Append semantics are implemented by posix_writev(); see the
+       comment in posix_open(). The backend fd must not carry
+       O_APPEND, or the kernel would append pwrite() calls (including
+       positional writes like mmap writeback) at EOF on GNU/Linux. */
+    _flags &= ~O_APPEND;
+
     mode_bit = (priv->create_mask & mode) | priv->force_create_mode;
     mode = posix_override_umask(mode, mode_bit);
 
