@@ -22,9 +22,14 @@ typedef struct {
 
 typedef struct {
     struct list_head priv_list; /* list of ns entris in private */
-    inode_t *ns;                /* namespace inode */
+    /* syncop can yield, so persistence needs a synctask-aware lock. */
+    synclock_t sync_lock;
+    gf_lock_t lock;
+    inode_t *ns; /* namespace inode */
     gf_atomic_t pending_update;
     int64_t xattr_size;
+    /* Delta being persisted, still visible to quota checks. */
+    int64_t in_flight;
     int64_t hard_lim;
     int64_t total_size;
 
