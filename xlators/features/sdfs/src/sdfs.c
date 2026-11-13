@@ -874,6 +874,7 @@ sdfs_link(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     /*Set unique lk-owner for the fop*/
     set_lk_owner_from_ptr(&new_frame->root->lk_owner, new_frame->root);
 
+    client = frame->root->client;
     gf_client_ref(client);
     new_frame->root->client = client;
     local = sdfs_local_init(new_frame, this);
@@ -1129,6 +1130,7 @@ sdfs_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     /*Set unique lk-owner for the fop*/
     set_lk_owner_from_ptr(&new_frame->root->lk_owner, new_frame->root);
 
+    client = frame->root->client;
     gf_client_ref(client);
     new_frame->root->client = client;
     local = sdfs_local_init(new_frame, this);
