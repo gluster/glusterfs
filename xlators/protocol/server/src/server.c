@@ -1079,11 +1079,13 @@ server_cleanup(xlator_t *this, server_conf_t *conf)
     LOCK_DESTROY(&conf->itable_lock);
     pthread_mutex_destroy(&conf->mutex);
 
-    if (this->ctx->event_pool) {
-        /* Free the event pool */
-        (void)gf_event_pool_destroy(this->ctx->event_pool);
-	this->ctx->event_pool = NULL;
-    }
+    /* ctx->event_pool belongs to the glusterfs_ctx, not to this xlator.
+     * server_cleanup() also runs from server_init()'s error path while an
+     * older graph is still live on the same ctx (a volfile reload whose
+     * listener cannot bind), so it must neither destroy nor clear the
+     * pool. On the graceful last-brick exit path the janitor destroys it,
+     * once, in glusterfs_ctx_pool_destroy() after gf_event_dispatch_destroy()
+     * has put it in destroy mode; cleanup_and_exit() leaves it to exit(). */
 
     if (dict_get_sizen(this->options, "config-directory")) {
         GF_FREE(conf->conf_dir);
