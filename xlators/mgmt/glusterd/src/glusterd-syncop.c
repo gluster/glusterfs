@@ -1424,6 +1424,9 @@ out:
     gd_collate_errors(args, op_ret, op_errno, rsp.op_errstr,
                       GLUSTERD_MGMT_STAGE_OP, *peerid, rsp.uuid);
 
+    /* op_errstr is allocated by xdr_string() during decoding. */
+    if (rsp.op_errstr)
+        free(rsp.op_errstr);
     if (rsp_dict)
         dict_unref(rsp_dict);
     GF_FREE(peerid);
@@ -1735,6 +1738,9 @@ _gd_syncop_commit_op_cbk(struct rpc_req *req, struct iovec *iov, int count,
 out:
     gd_collate_errors(args, op_ret, op_errno, rsp.op_errstr,
                       GLUSTERD_MGMT_COMMIT_OP, *peerid, rsp.uuid);
+    /* op_errstr is allocated by xdr_string() during decoding. */
+    if (rsp.op_errstr)
+        free(rsp.op_errstr);
     if (rsp_dict)
         dict_unref(rsp_dict);
     GF_FREE(peerid);

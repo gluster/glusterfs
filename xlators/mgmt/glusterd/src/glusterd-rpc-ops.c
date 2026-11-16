@@ -396,6 +396,8 @@ unlock:
 
 out:
     free(rsp.hostname);  // malloced by xdr
+    if (rsp.op_errstr)
+        free(rsp.op_errstr);  // malloced by xdr
     GLUSTERD_STACK_DESTROY(((call_frame_t *)myframe));
 
     /* Attempt to start the state machine. Needed as no state machine could
