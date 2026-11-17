@@ -634,12 +634,14 @@ pl_inodelk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
     struct list_head released;
     struct list_head unwind;
     struct list_head contend;
+    struct list_head wake;
     struct timespec now = {};
 
     priv = this->private;
 
     INIT_LIST_HEAD(&released);
     INIT_LIST_HEAD(&unwind);
+    INIT_LIST_HEAD(&wake);
 
     if (priv->notify_contention) {
         pcontend = &contend;
@@ -693,6 +695,11 @@ pl_inodelk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
                 if (!list_empty(&l->list)) {
                     __delete_inode_lock(l);
                     list_add_tail(&l->client_list, &released);
+                    /* An unlink, rmdir or rename delayed by
+                     * pl_inode_remove_prepare() may have been waiting
+                     * for this lock. As in an explicit unlock, collect
+                     * the ones that can proceed now. */
+                    pl_inode_remove_unlocked(this, pl_inode, &wake);
                 } else {
                     list_del_init(&l->blocked_locks);
                     list_add_tail(&l->client_list, &unwind);
@@ -702,6 +709,8 @@ pl_inodelk_client_cleanup(xlator_t *this, pl_ctx_t *ctx)
         }
     }
     pthread_mutex_unlock(&ctx->lock);
+
+    pl_inode_remove_wake(&wake);
 
     if (!list_empty(&unwind)) {
         list_for_each_entry_safe(l, tmp, &unwind, client_list)
