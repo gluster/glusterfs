@@ -340,8 +340,23 @@ __shard_inode_ctx_invalidate(inode_t *inode, xlator_t *this, struct iatt *stbuf)
         return ret;
 
     if ((stbuf->ia_size != ctx->stat.ia_size) ||
-        (stbuf->ia_blocks != ctx->stat.ia_blocks))
-        ctx->refresh = _gf_true;
+        (stbuf->ia_blocks != ctx->stat.ia_blocks)) {
+        /* If a size-update xattrop is still in flight for this inode,
+         * the discrepancy in size (or block count) is caused by this
+         * pending update and not by an external modification of the
+         * file. Marking the ctx stale in such a case would cause the
+         * next write to overwrite the ctx size with this stale stat
+         * (see issue #4401). With no size updates in flight, a size
+         * smaller than the one cached in the ctx can only be the
+         * result of an external modification (like a truncate from
+         * another client or geo-rep syncing the file), in which case
+         * the ctx is marked stale as before.
+         */
+        if (!ctx->size_update_inflight ||
+            (stbuf->ia_size > ctx->stat.ia_size) ||
+            (stbuf->ia_blocks > ctx->stat.ia_blocks))
+            ctx->refresh = _gf_true;
+    }
 
     return 0;
 }
@@ -1727,6 +1742,19 @@ shard_set_iattr_invoke_post_handler(call_frame_t *frame, xlator_t *this,
 
     if (shard_inode_ctx_get_all(inode, this, &ctx))
         mask = SHARD_ALL_MASK;
+
+    /* If there are size-update xattrops in flight for this inode, the
+     * stat received here can be stale with respect to size (and block
+     * count). Overwriting the inode-ctx with this stale value would
+     * make the next write compute its delta from a regressed size and
+     * send the pending delta again, corrupting the file-size xattr
+     * (see issue #4401). The remaining attributes (times, protection,
+     * etc.) are not affected by the in-flight update and are updated
+     * as before. The ctx is marked refreshed so that we don't end up
+     * looking up the base file on every subsequent write.
+     */
+    if (ctx.size_update_inflight > 0)
+        mask &= ~(SHARD_MASK_SIZE | SHARD_MASK_BLOCKS);
 
     ret = shard_inode_ctx_set(inode, this, &local->prebuf, 0,
                               (mask | SHARD_MASK_REFRESH_RESET));
@@ -5461,6 +5489,22 @@ err:
     return 0;
 }
 
+static void
+shard_inode_ctx_dec_size_update_inflight(inode_t *inode, xlator_t *this)
+{
+    shard_inode_ctx_t *ctx = NULL;
+
+    if (!inode)
+        return;
+
+    LOCK(&inode->lock);
+    {
+        if (__shard_inode_ctx_get(inode, this, &ctx) == 0)
+            ctx->size_update_inflight--;
+    }
+    UNLOCK(&inode->lock);
+}
+
 static int
 shard_common_inode_write_post_update_size_handler(call_frame_t *frame,
                                                   xlator_t *this)
@@ -5468,6 +5512,12 @@ shard_common_inode_write_post_update_size_handler(call_frame_t *frame,
     shard_local_t *local = NULL;
 
     local = frame->local;
+
+    /* The size-update xattrop for this write has either completed or
+     * was skipped (as there was no size change to be accounted), so the
+     * size in the inode-ctx is no longer ahead of the bricks.
+     */
+    shard_inode_ctx_dec_size_update_inflight(local->fd->inode, this);
 
     if (local->op_ret < 0) {
         shard_common_failure_unwind(local->fop, frame, local->op_ret,
@@ -5514,6 +5564,13 @@ __shard_get_delta_size_from_inode_ctx(shard_local_t *local, inode_t *inode,
         local->delta_size = 0;
     }
     ctx->stat.ia_size += (local->delta_size);
+    /* The size in the ctx is now ahead of what the bricks have persisted
+     * until the size-update xattrop initiated by shard_update_file_size()
+     * completes. Track this so that stale stats coming in from the bricks
+     * (via a lookup/fstat/readdirp) do not overwrite the size in the ctx
+     * while the update is in flight. See issue #4401.
+     */
+    ctx->size_update_inflight++;
     local->postbuf = ctx->stat;
 
     return 0;

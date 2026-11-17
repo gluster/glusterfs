@@ -342,6 +342,12 @@ typedef struct shard_inode_ctx {
     struct list_head ilist;
     uuid_t base_gfid;
     int block_num;
+    /* Number of size-update xattrops in flight for this inode. While
+     * this is non-zero, the size in this ctx is ahead of what the
+     * bricks have persisted and hence any stat/lookup coming in from
+     * the bricks is stale with respect to size (and block count).
+     */
+    int size_update_inflight;
     gf_boolean_t refresh;
     gf_boolean_t refreshed;
     struct list_head to_fsync_list;
