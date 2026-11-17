@@ -3006,6 +3006,7 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
 {
     dht_layout_t *parent_layout = NULL;
     int ret = 0;
+    int i = 0;
     gf_boolean_t lookup_everywhere = _gf_true;
 
     /* lookup-optimize supersedes lookup-unhashed settings.
@@ -3023,6 +3024,23 @@ dht_should_lookup_everywhere(xlator_t *this, dht_conf_t *conf, loc_t *loc)
             if (!ret && parent_layout &&
                 (parent_layout->commit_hash == conf->vol_commit_hash)) {
                 lookup_everywhere = _gf_false;
+
+                /* A zero hash range entry means the on-disk layout of this
+                 * directory is not settled for the current set of
+                 * subvolumes. This happens when remove-brick rewrites the
+                 * layout before migrating the files off the decommissioned
+                 * bricks (and the rebalance is interrupted), or when a new
+                 * brick has no layout assigned yet. Files can still exist
+                 * on such subvols, so a hashed subvolume ENOENT must not be
+                 * trusted in that state.
+                 */
+                for (i = 0; i < parent_layout->cnt; i++) {
+                    if ((parent_layout->list[i].start == 0) &&
+                        (parent_layout->list[i].stop == 0)) {
+                        lookup_everywhere = _gf_true;
+                        break;
+                    }
+                }
             }
             if (!ret)
                 dht_layout_unref(parent_layout);
