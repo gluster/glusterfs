@@ -39,6 +39,7 @@
 #include <glusterfs/compat.h>
 #include <glusterfs/logging.h>
 #include <glusterfs/dict.h>
+#include <glusterfs/iobuf.h>
 #include <glusterfs/list.h>
 #include <glusterfs/timer.h>
 #include <glusterfs/revision.h>
@@ -99,6 +100,17 @@ glusterfs_ctx_defaults_init(glusterfs_ctx_t *ctx)
                                         STARTING_EVENT_THREADS);
     if (!ctx->event_pool) {
         gf_log("cli", GF_LOG_ERROR, "Failed to create event pool.");
+        goto out;
+    }
+
+    /* RPC replies larger than USE_IOBUF_POOL_IF_SIZE_GREATER_THAN are
+     * allocated from the iobuf pool by the socket transport. Unlike
+     * glusterfsd and libgfapi, the CLI never created one, so large replies
+     * (e.g. "volume status" of a volume with many bricks) crashed with a
+     * NULL pool in iobuf_get2(). */
+    ctx->iobuf_pool = iobuf_pool_new();
+    if (!ctx->iobuf_pool) {
+        gf_log("cli", GF_LOG_ERROR, "Failed to create iobuf pool.");
         goto out;
     }
 
