@@ -1647,6 +1647,15 @@ posix_open(call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
     if (priv->o_direct)
         flags |= O_DIRECT;
 
+    /* Append semantics are implemented by posix_writev() (atomic
+     * write-at-EOF under the inode's write_atomic_lock). Never let the
+     * kernel apply O_APPEND to the backend fd: on GNU/Linux a pwrite()
+     * on an O_APPEND fd ignores the given offset and appends at EOF,
+     * which would corrupt writes that carry an authoritative offset
+     * (e.g. mmap writeback marked GLUSTERFS_WRITE_IS_POSITIONAL).
+     * pfd->flags below still keeps the original open flags. */
+    flags &= ~O_APPEND;
+
     _fd = sys_open(real_path, flags, priv->force_create_mode);
     if (_fd == -1) {
         op_ret = -1;
