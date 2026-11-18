@@ -2014,6 +2014,8 @@ posix_writev(call_frame_t *frame, xlator_t *this, fd_t *fd,
     gf_boolean_t locked = _gf_false;
     gf_boolean_t write_append = _gf_false;
     gf_boolean_t update_atomic = _gf_false;
+    gf_boolean_t is_positional = _gf_false;
+    gf_boolean_t need_append = _gf_false;
     posix_inode_ctx_t *ctx = NULL;
     gf_boolean_t check_space_error = _gf_false;
     struct stat statbuf = {
@@ -2067,7 +2069,17 @@ overwrite:
             write_append = _gf_true;
         if (dict_get(xdata, GLUSTERFS_WRITE_UPDATE_ATOMIC))
             update_atomic = _gf_true;
+        if (dict_get_sizen(xdata, GLUSTERFS_WRITE_IS_POSITIONAL))
+            is_positional = _gf_true;
     }
+
+    /* A write on an O_APPEND fd that is not marked positional is an
+       append-intended write. Append semantics are implemented here
+       (write at EOF below) instead of relying on kernel O_APPEND:
+       the backend fd is opened without O_APPEND so that the kernel
+       does not relocate writes carrying an authoritative offset. */
+    if ((fd->flags & O_APPEND) && !is_positional)
+        need_append = _gf_true;
 
     /* The write_is_append check and write must happen
        atomically. Else another write can overtake this
@@ -2090,7 +2102,7 @@ overwrite:
         goto out;
     }
 
-    if (write_append || update_atomic) {
+    if (write_append || update_atomic || need_append) {
         locked = _gf_true;
         pthread_mutex_lock(&ctx->write_atomic_lock);
     }
@@ -2124,6 +2136,15 @@ overwrite:
     if (locked && write_append) {
         if (preop.ia_size == offset || (fd->flags & O_APPEND))
             is_append = 1;
+    }
+
+    if (need_append) {
+        /* Append-intended write: place it at the current EOF. We hold
+           write_atomic_lock, so this is atomic with respect to other
+           append-intended writes (and atomic update requests) on this
+           inode, replicating the kernel guarantee for O_APPEND fds that
+           the backend fd no longer carries. */
+        offset = preop.ia_size;
     }
 
     op_ret = __posix_writev(_fd, vector, count, offset,

@@ -70,6 +70,21 @@ printf ABXYEFGH > $B0/f4850-expect
 TEST cmp $B0/f4850-expect $M0/offset-file
 EXPECT '8' wc -c < $M0/offset-file
 
+## T3: concurrent appends from multiple processes do not overwrite
+##     each other (append must stay atomic at EOF).
+TEST rm -f $M0/concurrent-file $M1/concurrent-file
+for i in $(seq 1 8); do
+        ( for j in $(seq 1 25); do
+              echo "line-$i-$j" >> $M0/concurrent-file
+              echo "line-$i-$j" >> $M1/concurrent-file
+          done ) &
+done
+wait
+TEST dd if=/dev/zero of=$M0/concurrent-file bs=1 count=1 oflag=append conv=notrunc,fsync 2>/dev/null
+TEST dd if=/dev/zero of=$M1/concurrent-file bs=1 count=1 oflag=append conv=notrunc,fsync 2>/dev/null
+EXPECT '200' wc -l < $M0/concurrent-file
+EXPECT '200' wc -l < $M1/concurrent-file
+
 ## T5: shard volume: a big O_APPEND write decomposed into chunks keeps
 ##     its layout intact (the first chunk goes through the original fd).
 TEST dd if=/dev/urandom of=$B0/shard-ref bs=1M count=5
