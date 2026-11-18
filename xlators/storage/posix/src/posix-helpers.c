@@ -1881,14 +1881,18 @@ __posix_fd_ctx_get(fd_t *fd, xlator_t *this, struct posix_fd **pfd_p,
     /* Using fd->flags in case we choose to have anonymous
      * fds with different flags some day. As of today it
      * would be GF_ANON_FD_FLAGS and nothing else.
+     * O_APPEND is always stripped: backend fds must never carry
+     * it, or the kernel would relocate positional writes (see the
+     * comment in posix_open()). Append semantics live in
+     * posix_writev().
      */
     if (fd->inode->ia_type == IA_IFREG) {
-        _fd = open(real_path, fd->flags);
+        _fd = open(real_path, fd->flags & ~O_APPEND);
         if ((_fd == -1) && (errno == ENOENT)) {
             priv = this->private;
             POSIX_GET_FILE_UNLINK_PATH(priv->base_path, fd->inode->gfid,
                                        unlink_path);
-            _fd = open(unlink_path, fd->flags);
+            _fd = open(unlink_path, fd->flags & ~O_APPEND);
         }
         if (_fd == -1) {
             op_errno = errno;
