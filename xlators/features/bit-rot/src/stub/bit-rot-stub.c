@@ -2238,6 +2238,347 @@ unwind:
 }
 
 int32_t
+br_stub_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                      struct iatt *postbuf, dict_t *xdata)
+{
+    int32_t ret = -1;
+    br_stub_local_t *local = NULL;
+
+    local = frame->local;
+    frame->local = NULL;
+
+    if (op_ret < 0)
+        goto unwind;
+
+    ret = br_stub_mark_inode_modified(this, local);
+    if (ret) {
+        op_ret = -1;
+        op_errno = EINVAL;
+    }
+
+unwind:
+    STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, prebuf, postbuf,
+                        xdata);
+
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+    return 0;
+}
+
+int32_t
+br_stub_fallocate_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                         int32_t mode, off_t offset, size_t len, dict_t *xdata)
+{
+    STACK_WIND(frame, br_stub_fallocate_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
+               xdata);
+    return 0;
+}
+
+/* c.f. br_stub_writev() for explanation */
+int32_t
+br_stub_fallocate(call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t mode,
+                  off_t offset, size_t len, dict_t *xdata)
+{
+    br_stub_local_t *local = NULL;
+    call_stub_t *stub = NULL;
+    int32_t op_ret = -1;
+    int32_t op_errno = EINVAL;
+    gf_boolean_t inc_version = _gf_false;
+    gf_boolean_t modified = _gf_false;
+    br_stub_inode_ctx_t *ctx = NULL;
+    int32_t ret = -1;
+    fop_fallocate_cbk_t cbk = default_fallocate_cbk;
+    br_stub_private_t *priv = NULL;
+
+    GF_VALIDATE_OR_GOTO("bit-rot-stub", this, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, frame, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, fd, unwind);
+
+    priv = this->private;
+    if (!priv->do_versioning)
+        goto wind;
+
+    ret = br_stub_need_versioning(this, fd, &inc_version, &modified, &ctx);
+    if (ret)
+        goto unwind;
+
+    ret = br_stub_check_bad_object(this, fd->inode, &op_ret, &op_errno);
+    if (ret)
+        goto unwind;
+
+    if (!inc_version && modified)
+        goto wind;
+
+    ret = br_stub_versioning_prep(frame, this, fd, ctx);
+    if (ret)
+        goto unwind;
+
+    local = frame->local;
+    if (!inc_version) {
+        br_stub_fill_local(local, NULL, fd, fd->inode, fd->inode->gfid,
+                           BR_STUB_NO_VERSIONING, 0);
+        cbk = br_stub_fallocate_cbk;
+        goto wind;
+    }
+
+    stub = fop_fallocate_stub(frame, br_stub_fallocate_resume, fd, mode, offset,
+                              len, xdata);
+    if (!stub) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "fallocate gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
+        goto cleanup_local;
+    }
+
+    return br_stub_perform_incversioning(this, frame, stub, fd, ctx);
+
+wind:
+    STACK_WIND(frame, cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->fallocate, fd, mode, offset, len,
+               xdata);
+    return 0;
+
+cleanup_local:
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+unwind:
+    frame->local = NULL;
+    STACK_UNWIND_STRICT(fallocate, frame, op_ret, op_errno, NULL, NULL, NULL);
+
+    return 0;
+}
+
+int32_t
+br_stub_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                    struct iatt *postbuf, dict_t *xdata)
+{
+    int32_t ret = -1;
+    br_stub_local_t *local = NULL;
+
+    local = frame->local;
+    frame->local = NULL;
+
+    if (op_ret < 0)
+        goto unwind;
+
+    ret = br_stub_mark_inode_modified(this, local);
+    if (ret) {
+        op_ret = -1;
+        op_errno = EINVAL;
+    }
+
+unwind:
+    STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, prebuf, postbuf,
+                        xdata);
+
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+    return 0;
+}
+
+int32_t
+br_stub_discard_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                       off_t offset, size_t len, dict_t *xdata)
+{
+    STACK_WIND(frame, br_stub_discard_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->discard, fd, offset, len, xdata);
+    return 0;
+}
+
+/* c.f. br_stub_writev() for explanation */
+int32_t
+br_stub_discard(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                size_t len, dict_t *xdata)
+{
+    br_stub_local_t *local = NULL;
+    call_stub_t *stub = NULL;
+    int32_t op_ret = -1;
+    int32_t op_errno = EINVAL;
+    gf_boolean_t inc_version = _gf_false;
+    gf_boolean_t modified = _gf_false;
+    br_stub_inode_ctx_t *ctx = NULL;
+    int32_t ret = -1;
+    fop_discard_cbk_t cbk = default_discard_cbk;
+    br_stub_private_t *priv = NULL;
+
+    GF_VALIDATE_OR_GOTO("bit-rot-stub", this, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, frame, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, fd, unwind);
+
+    priv = this->private;
+    if (!priv->do_versioning)
+        goto wind;
+
+    ret = br_stub_need_versioning(this, fd, &inc_version, &modified, &ctx);
+    if (ret)
+        goto unwind;
+
+    ret = br_stub_check_bad_object(this, fd->inode, &op_ret, &op_errno);
+    if (ret)
+        goto unwind;
+
+    if (!inc_version && modified)
+        goto wind;
+
+    ret = br_stub_versioning_prep(frame, this, fd, ctx);
+    if (ret)
+        goto unwind;
+
+    local = frame->local;
+    if (!inc_version) {
+        br_stub_fill_local(local, NULL, fd, fd->inode, fd->inode->gfid,
+                           BR_STUB_NO_VERSIONING, 0);
+        cbk = br_stub_discard_cbk;
+        goto wind;
+    }
+
+    stub = fop_discard_stub(frame, br_stub_discard_resume, fd, offset, len,
+                            xdata);
+    if (!stub) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "discard gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
+        goto cleanup_local;
+    }
+
+    return br_stub_perform_incversioning(this, frame, stub, fd, ctx);
+
+wind:
+    STACK_WIND(frame, cbk, FIRST_CHILD(this), FIRST_CHILD(this)->fops->discard,
+               fd, offset, len, xdata);
+    return 0;
+
+cleanup_local:
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+unwind:
+    frame->local = NULL;
+    STACK_UNWIND_STRICT(discard, frame, op_ret, op_errno, NULL, NULL, NULL);
+
+    return 0;
+}
+
+int32_t
+br_stub_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
+                     int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
+                     struct iatt *postbuf, dict_t *xdata)
+{
+    int32_t ret = -1;
+    br_stub_local_t *local = NULL;
+
+    local = frame->local;
+    frame->local = NULL;
+
+    if (op_ret < 0)
+        goto unwind;
+
+    ret = br_stub_mark_inode_modified(this, local);
+    if (ret) {
+        op_ret = -1;
+        op_errno = EINVAL;
+    }
+
+unwind:
+    STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, prebuf, postbuf,
+                        xdata);
+
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+    return 0;
+}
+
+int32_t
+br_stub_zerofill_resume(call_frame_t *frame, xlator_t *this, fd_t *fd,
+                        off_t offset, off_t len, dict_t *xdata)
+{
+    STACK_WIND(frame, br_stub_zerofill_cbk, FIRST_CHILD(this),
+               FIRST_CHILD(this)->fops->zerofill, fd, offset, len, xdata);
+    return 0;
+}
+
+/* c.f. br_stub_writev() for explanation */
+int32_t
+br_stub_zerofill(call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
+                 off_t len, dict_t *xdata)
+{
+    br_stub_local_t *local = NULL;
+    call_stub_t *stub = NULL;
+    int32_t op_ret = -1;
+    int32_t op_errno = EINVAL;
+    gf_boolean_t inc_version = _gf_false;
+    gf_boolean_t modified = _gf_false;
+    br_stub_inode_ctx_t *ctx = NULL;
+    int32_t ret = -1;
+    fop_zerofill_cbk_t cbk = default_zerofill_cbk;
+    br_stub_private_t *priv = NULL;
+
+    GF_VALIDATE_OR_GOTO("bit-rot-stub", this, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, this->private, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, frame, unwind);
+    GF_VALIDATE_OR_GOTO(this->name, fd, unwind);
+
+    priv = this->private;
+    if (!priv->do_versioning)
+        goto wind;
+
+    ret = br_stub_need_versioning(this, fd, &inc_version, &modified, &ctx);
+    if (ret)
+        goto unwind;
+
+    ret = br_stub_check_bad_object(this, fd->inode, &op_ret, &op_errno);
+    if (ret)
+        goto unwind;
+
+    if (!inc_version && modified)
+        goto wind;
+
+    ret = br_stub_versioning_prep(frame, this, fd, ctx);
+    if (ret)
+        goto unwind;
+
+    local = frame->local;
+    if (!inc_version) {
+        br_stub_fill_local(local, NULL, fd, fd->inode, fd->inode->gfid,
+                           BR_STUB_NO_VERSIONING, 0);
+        cbk = br_stub_zerofill_cbk;
+        goto wind;
+    }
+
+    stub = fop_zerofill_stub(frame, br_stub_zerofill_resume, fd, offset, len,
+                             xdata);
+    if (!stub) {
+        gf_smsg(this->name, GF_LOG_ERROR, 0, BRS_MSG_STUB_ALLOC_FAILED,
+                "zerofill gfid=%s", uuid_utoa(fd->inode->gfid), NULL);
+        goto cleanup_local;
+    }
+
+    return br_stub_perform_incversioning(this, frame, stub, fd, ctx);
+
+wind:
+    STACK_WIND(frame, cbk, FIRST_CHILD(this), FIRST_CHILD(this)->fops->zerofill,
+               fd, offset, len, xdata);
+    return 0;
+
+cleanup_local:
+    br_stub_cleanup_local(local);
+    br_stub_dealloc_local(local);
+
+unwind:
+    frame->local = NULL;
+    STACK_UNWIND_STRICT(zerofill, frame, op_ret, op_errno, NULL, NULL, NULL);
+
+    return 0;
+}
+
+int32_t
 br_stub_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -3538,6 +3879,9 @@ struct xlator_fops fops = {
     .writev = br_stub_writev,
     .truncate = br_stub_truncate,
     .ftruncate = br_stub_ftruncate,
+    .fallocate = br_stub_fallocate,
+    .discard = br_stub_discard,
+    .zerofill = br_stub_zerofill,
     .mknod = br_stub_mknod,
     .readv = br_stub_readv,
     .removexattr = br_stub_removexattr,
