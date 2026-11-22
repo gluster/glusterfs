@@ -473,6 +473,36 @@ out:
 }
 
 void
+xlator_set_inode_table_size(xlator_t *this, void *data)
+{
+    int inode_table_size = 0;
+
+    if (this->itable) {
+        if (!data) {
+            gf_smsg(this->name, GF_LOG_WARNING, 0, LG_MSG_INPUT_DATA_NULL,
+                    NULL);
+            goto out;
+        }
+        inode_table_size = *(int *)data;
+
+        if (inode_table_size != this->itable->inode_hashsize) {
+            inode_table_t* tmp = inode_table_with_invalidator(this->itable->lru_limit,
+                    this, this->itable->invalidator_fn, this->itable->invalidator_xl,
+                    this->itable->dentry_hashsize, inode_table_size);
+            if (tmp->inode_hashsize != this->itable->inode_hashsize) {
+                inode_table_destroy(this->itable);
+                this->itable = tmp;
+            } else {
+                inode_table_destroy(tmp);
+            }
+        }
+    }
+
+out:
+    return;
+}
+
+void
 xlator_foreach(xlator_t *this, void (*fn)(xlator_t *each, void *data),
                void *data)
 {
