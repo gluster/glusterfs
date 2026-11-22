@@ -2830,7 +2830,10 @@ mgmt_rpc_notify(struct rpc_clnt *rpc, void *mydata, rpc_clnt_event_t event,
                         "Exhausted all volfile servers, Retrying from again!");
                 }
             } else {
-                server = list_entry(server->list.next, typeof(*server), list);
+                char *local_str="127.0.0.1";
+                if (strncmp(local_str,rpc_trans->myinfo.identifier,strlen(local_str)) != 0) {
+                    server = list_entry(server->list.next, typeof(*server), list);
+                }
             }
             ctx->cmd_args.curr_server = server;
             ctx->cmd_args.volfile_server = server->volfile_server;
