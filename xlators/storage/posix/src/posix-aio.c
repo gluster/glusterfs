@@ -111,14 +111,12 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res)
     struct iovec iov;
     int ret = 0;
     off_t offset = 0;
-    struct posix_private *priv = NULL;
     fd_t *fd = NULL;
 
     GF_ASSERT(paiocb);
 
     frame = paiocb->frame;
     this = frame->this;
-    priv = this->private;
     iobuf = paiocb->iobuf;
     fd = paiocb->fd;
     _fd = paiocb->_fd;
@@ -161,8 +159,6 @@ posix_aio_readv_complete(struct posix_aio_cb *paiocb, int res)
     /* Hack to notify higher layers of EOF. */
     if (!postbuf.ia_size || (offset + iov.iov_len) >= postbuf.ia_size)
         op_errno = ENOENT;
-
-    GF_ATOMIC_ADD(priv->read_value, op_ret);
 
 out:
     STACK_UNWIND_STRICT(readv, frame, op_ret, op_errno, &iov, 1, &postbuf,
@@ -269,14 +265,12 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res)
     int op_ret = -1;
     int op_errno = 0;
     int ret = 0;
-    struct posix_private *priv = NULL;
     fd_t *fd = NULL;
 
     GF_ASSERT(paiocb);
 
     frame = paiocb->frame;
     this = frame->this;
-    priv = this->private;
     prebuf = paiocb->prebuf;
     fd = paiocb->fd;
     _fd = paiocb->_fd;
@@ -302,8 +296,6 @@ posix_aio_writev_complete(struct posix_aio_cb *paiocb, int res)
 
     op_ret = res;
     op_errno = 0;
-
-    GF_ATOMIC_ADD(priv->write_value, op_ret);
 
 out:
     STACK_UNWIND_STRICT(writev, frame, op_ret, op_errno, &prebuf, &postbuf,
