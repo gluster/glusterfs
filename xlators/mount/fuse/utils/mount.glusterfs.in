@@ -242,6 +242,10 @@ start_glusterfs ()
         cmd_line=$(echo "$cmd_line --direct-io-mode=$direct_io_mode");
     fi
 
+    if [ -n "$secure_mgmt" ]; then
+        cmd_line=$(echo "$cmd_line --secure-mgmt=$secure_mgmt");
+    fi
+
     if [ -n "$use_readdirp" ]; then
         cmd_line=$(echo "$cmd_line --use-readdirp=$use_readdirp");
     fi
@@ -533,6 +537,9 @@ with_options()
             ;;
         "direct-io-mode")
             direct_io_mode=$value
+            ;;
+        "secure-mgmt")
+            secure_mgmt=$value
             ;;
         "volume-name")
             volume_name=$value
