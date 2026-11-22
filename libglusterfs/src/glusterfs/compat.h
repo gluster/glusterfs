@@ -12,12 +12,34 @@
 #define __COMPAT_H__
 
 #include <stdint.h>
+#include <sys/types.h>
 
 #ifndef LLONG_MAX
 #define LLONG_MAX __LONG_LONG_MAX__ /* compat with old gcc */
 #endif                              /* LLONG_MAX */
 
+#include <libgen.h>
+#include <string.h>
+
 #ifdef GF_LINUX_HOST_OS
+
+#ifndef HAVE_OFF64_T
+typedef int64_t off64_t;
+#endif
+
+#ifdef REDEFINE_QUAD_T
+#define u_quad_t uint64_t
+#define quad_t int64_t
+#endif
+
+#ifndef HAVE_INET_NET_PTON
+#include <stddef.h>
+int
+inet_net_pton(int af, const char *src, void *dst, size_t size);
+#endif
+#ifndef _PATH_MOUNTED
+#define _PATH_MOUNTED "/etc/mtab"
+#endif
 
 #define UNIX_PATH_MAX 108
 

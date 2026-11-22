@@ -15,6 +15,7 @@
 #include <pthread.h>
 #include <errno.h>
 #include <pwd.h>
+#include <libgen.h>
 
 #ifdef GF_LINUX_HOST_OS
 #ifdef HAVE_LINUX_OOM_H

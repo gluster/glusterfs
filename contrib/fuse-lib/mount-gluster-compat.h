@@ -15,6 +15,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 #include <stddef.h>
 #include <limits.h>
 #include <fcntl.h>
@@ -91,6 +92,7 @@ typedef long long mount_flag_t;
 #define _PATH_MOUNT "/sbin/mount"
 #endif
 
+#include "glusterfs/compat.h"
 #ifdef FUSE_UTIL
 #define MALLOC(size) malloc (size)
 #define FREE(ptr) free (ptr)

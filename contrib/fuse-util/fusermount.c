@@ -14,6 +14,7 @@
 #ifndef HAVE_UMOUNT2
 #include "mount-gluster-compat.h"
 #endif
+#include "glusterfs/compat.h"
 
 #include <stdio.h>
 #include <stdlib.h>
