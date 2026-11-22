@@ -6397,7 +6397,6 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
             }
         }
     }
-    UNLOCK(&priv->lock);
 
     if (priv->quorum_count) {
         has_quorum = afr_has_quorum(priv->child_up, priv, NULL);
@@ -6414,6 +6413,7 @@ afr_notify(xlator_t *this, int32_t event, void *data, void *data2)
                      this->ctx->cmd_args.client_pid, this->name);
         }
     }
+    UNLOCK(&priv->lock);
 
     /* if all subvols have reported status, no need to hide anything
        or wait for anything else. Just propagate blindly */
