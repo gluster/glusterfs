@@ -314,9 +314,8 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     ssize_t size = -1, remaining_size = -1, list_offset = 0;
     int ret = -1;
     int len;
-    char *list = NULL, key[4096] = {
-                           0,
-                       };
+    char *list = NULL;
+    char *key;
 
     if (filler->real_path)
         size = sys_llistxattr(filler->real_path, NULL, 0);
@@ -364,7 +363,8 @@ _posix_get_marker_all_contributions(posix_xattr_filler_t *filler)
     list_offset = 0;
 
     while (remaining_size > 0) {
-        len = snprintf(key, sizeof(key), "%s", list + list_offset);
+        key = list + list_offset;
+        len = strlen(key);
         if (fnmatch(marker_contri_key, key, 0) == 0) {
             (void)_posix_xattr_get_set_from_backend(filler, key);
         }
