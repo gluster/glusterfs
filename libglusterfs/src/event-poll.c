@@ -445,7 +445,7 @@ out:
     return -1;
 }
 
-int
+static int
 event_reconfigure_threads_poll(struct event_pool *event_pool, int value)
 {
     /* No-op for poll */

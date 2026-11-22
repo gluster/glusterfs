@@ -12,7 +12,7 @@
 #include "glusterfs/fd-lk.h"
 #include "glusterfs/libglusterfs-messages.h"
 
-int32_t
+static int32_t
 _fd_lk_delete_lock(fd_lk_ctx_node_t *lock)
 {
     int32_t ret = -1;
@@ -26,7 +26,7 @@ out:
     return ret;
 }
 
-int32_t
+static int32_t
 _fd_lk_destroy_lock(fd_lk_ctx_node_t *lock)
 {
     int32_t ret = -1;
@@ -40,7 +40,7 @@ out:
     return ret;
 }
 
-int
+static int
 _fd_lk_destroy_lock_list(fd_lk_ctx_t *lk_ctx)
 {
     int ret = -1;
@@ -114,7 +114,7 @@ out:
     return fd_lk_ctx;
 }
 
-int
+static int
 _fd_lk_insert_lock(fd_lk_ctx_t *lk_ctx, fd_lk_ctx_node_t *lock)
 {
     list_add_tail(&lock->next, &lk_ctx->lk_list);
@@ -159,7 +159,7 @@ out:
     return new_lock;
 }
 
-int32_t
+static int32_t
 _fd_lk_delete_unlck_locks(fd_lk_ctx_t *lk_ctx)
 {
     int32_t ret = -1;
@@ -179,7 +179,7 @@ out:
     return ret;
 }
 
-int
+static int
 fd_lk_overlap(fd_lk_ctx_node_t *l1, fd_lk_ctx_node_t *l2)
 {
     if (l1->fl_end >= l2->fl_start && l2->fl_end >= l1->fl_start)

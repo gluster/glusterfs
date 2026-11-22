@@ -121,7 +121,7 @@ cluster_replies_wipe(default_args_cbk_t *replies, int numsubvols)
     memset(replies, 0, numsubvols * sizeof(*replies));
 }
 
-int32_t
+static int32_t
 cluster_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, inode_t *inode,
                    struct iatt *buf, dict_t *xdata, struct iatt *postparent)
@@ -131,7 +131,7 @@ cluster_lookup_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, struct iatt *buf,
                  dict_t *xdata)
@@ -140,7 +140,7 @@ cluster_stat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                      struct iatt *postbuf, dict_t *xdata)
@@ -149,7 +149,7 @@ cluster_truncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                       struct iatt *postbuf, dict_t *xdata)
@@ -158,7 +158,7 @@ cluster_ftruncate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -166,7 +166,7 @@ cluster_access_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, const char *path,
                      struct iatt *buf, dict_t *xdata)
@@ -175,7 +175,7 @@ cluster_readlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
@@ -186,7 +186,7 @@ cluster_mknod_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, inode_t *inode,
                   struct iatt *buf, struct iatt *preparent,
@@ -197,7 +197,7 @@ cluster_mkdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                    struct iatt *postparent, dict_t *xdata)
@@ -207,7 +207,7 @@ cluster_unlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *preparent,
                   struct iatt *postparent, dict_t *xdata)
@@ -217,7 +217,7 @@ cluster_rmdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, inode_t *inode,
                     struct iatt *buf, struct iatt *preparent,
@@ -228,7 +228,7 @@ cluster_symlink_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *buf,
                    struct iatt *preoldparent, struct iatt *postoldparent,
@@ -240,7 +240,7 @@ cluster_rename_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, inode_t *inode,
                  struct iatt *buf, struct iatt *preparent,
@@ -251,7 +251,7 @@ cluster_link_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, fd_t *fd, inode_t *inode,
                    struct iatt *buf, struct iatt *preparent,
@@ -262,7 +262,7 @@ cluster_create_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                  int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -270,7 +270,7 @@ cluster_open_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iovec *vector,
                   int32_t count, struct iatt *stbuf, struct iobref *iobref,
@@ -281,7 +281,7 @@ cluster_readv_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                    struct iatt *postbuf, dict_t *xdata)
@@ -290,7 +290,7 @@ cluster_writev_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, inode_t *inode,
                 struct iatt *buf, struct iatt *preparent,
@@ -301,7 +301,7 @@ cluster_put_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -309,7 +309,7 @@ cluster_flush_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *prebuf,
                   struct iatt *postbuf, dict_t *xdata)
@@ -318,7 +318,7 @@ cluster_fsync_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                   int32_t op_ret, int32_t op_errno, struct iatt *buf,
                   dict_t *xdata)
@@ -327,7 +327,7 @@ cluster_fstat_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, fd_t *fd, dict_t *xdata)
 {
@@ -335,7 +335,7 @@ cluster_opendir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -343,7 +343,7 @@ cluster_fsyncdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                    int32_t op_ret, int32_t op_errno, struct statvfs *buf,
                    dict_t *xdata)
@@ -352,7 +352,7 @@ cluster_statfs_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -360,7 +360,7 @@ cluster_setxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -368,7 +368,7 @@ cluster_fsetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, dict_t *dict,
                       dict_t *xdata)
@@ -377,7 +377,7 @@ cluster_fgetxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_getxattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
@@ -395,7 +395,7 @@ cluster_xattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *dict,
                      dict_t *xdata)
@@ -404,7 +404,7 @@ cluster_fxattrop_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                         int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -412,7 +412,7 @@ cluster_removexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                          int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -420,7 +420,7 @@ cluster_fremovexattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                int32_t op_ret, int32_t op_errno, struct gf_flock *lock,
                dict_t *xdata)
@@ -429,7 +429,7 @@ cluster_lk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -437,7 +437,7 @@ cluster_inodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -445,7 +445,7 @@ cluster_finodelk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -453,7 +453,7 @@ cluster_entrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -461,7 +461,7 @@ cluster_fentrylk_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, uint32_t weak_checksum,
                       uint8_t *strong_checksum, dict_t *xdata)
@@ -471,7 +471,7 @@ cluster_rchecksum_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                     dict_t *xdata)
@@ -480,7 +480,7 @@ cluster_readdir_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, gf_dirent_t *entries,
                      dict_t *xdata)
@@ -489,7 +489,7 @@ cluster_readdirp_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *statpre,
                     struct iatt *statpost, dict_t *xdata)
@@ -498,7 +498,7 @@ cluster_setattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *statpre,
                      struct iatt *statpost, dict_t *xdata)
@@ -508,7 +508,7 @@ cluster_fsetattr_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                       int32_t op_ret, int32_t op_errno, struct iatt *pre,
                       struct iatt *post, dict_t *xdata)
@@ -517,7 +517,7 @@ cluster_fallocate_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                     int32_t op_ret, int32_t op_errno, struct iatt *pre,
                     struct iatt *post, dict_t *xdata)
@@ -526,7 +526,7 @@ cluster_discard_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                      int32_t op_ret, int32_t op_errno, struct iatt *pre,
                      struct iatt *post, dict_t *xdata)
@@ -535,7 +535,7 @@ cluster_zerofill_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
                 int32_t op_ret, int32_t op_errno, dict_t *xdata)
 {
@@ -543,7 +543,7 @@ cluster_ipc_cbk(call_frame_t *frame, void *cookie, xlator_t *this,
     return 0;
 }
 
-int32_t
+static int32_t
 cluster_fgetxattr(xlator_t **subvols, unsigned char *on, int numsubvols,
                   default_args_cbk_t *replies, unsigned char *output,
                   call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -554,7 +554,7 @@ cluster_fgetxattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_fsetxattr(xlator_t **subvols, unsigned char *on, int numsubvols,
                   default_args_cbk_t *replies, unsigned char *output,
                   call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *dict,
@@ -576,7 +576,7 @@ cluster_setxattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_statfs(xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
@@ -586,7 +586,7 @@ cluster_statfs(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_fsyncdir(xlator_t **subvols, unsigned char *on, int numsubvols,
                  default_args_cbk_t *replies, unsigned char *output,
                  call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
@@ -597,7 +597,7 @@ cluster_fsyncdir(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_opendir(xlator_t **subvols, unsigned char *on, int numsubvols,
                 default_args_cbk_t *replies, unsigned char *output,
                 call_frame_t *frame, xlator_t *this, loc_t *loc, fd_t *fd,
@@ -618,7 +618,7 @@ cluster_fstat(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_fsync(xlator_t **subvols, unsigned char *on, int numsubvols,
               default_args_cbk_t *replies, unsigned char *output,
               call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t flags,
@@ -629,7 +629,7 @@ cluster_fsync(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_flush(xlator_t **subvols, unsigned char *on, int numsubvols,
               default_args_cbk_t *replies, unsigned char *output,
               call_frame_t *frame, xlator_t *this, fd_t *fd, dict_t *xdata)
@@ -639,7 +639,7 @@ cluster_flush(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_writev(xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -663,7 +663,7 @@ cluster_put(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_readv(xlator_t **subvols, unsigned char *on, int numsubvols,
               default_args_cbk_t *replies, unsigned char *output,
               call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -685,7 +685,7 @@ cluster_open(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_create(xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t flags,
@@ -707,7 +707,7 @@ cluster_link(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_rename(xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, loc_t *oldloc,
@@ -784,7 +784,7 @@ cluster_readlink(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_access(xlator_t **subvols, unsigned char *on, int numsubvols,
                default_args_cbk_t *replies, unsigned char *output,
                call_frame_t *frame, xlator_t *this, loc_t *loc, int32_t mask,
@@ -839,7 +839,7 @@ cluster_fxattrop(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_removexattr(xlator_t **subvols, unsigned char *on, int numsubvols,
                     default_args_cbk_t *replies, unsigned char *output,
                     call_frame_t *frame, xlator_t *this, loc_t *loc,
@@ -850,7 +850,7 @@ cluster_removexattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_fremovexattr(xlator_t **subvols, unsigned char *on, int numsubvols,
                      default_args_cbk_t *replies, unsigned char *output,
                      call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -861,7 +861,7 @@ cluster_fremovexattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_lk(xlator_t **subvols, unsigned char *on, int numsubvols,
            default_args_cbk_t *replies, unsigned char *output,
            call_frame_t *frame, xlator_t *this, fd_t *fd, int32_t cmd,
@@ -872,7 +872,7 @@ cluster_lk(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_rchecksum(xlator_t **subvols, unsigned char *on, int numsubvols,
                   default_args_cbk_t *replies, unsigned char *output,
                   call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
@@ -883,7 +883,7 @@ cluster_rchecksum(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_readdir(xlator_t **subvols, unsigned char *on, int numsubvols,
                 default_args_cbk_t *replies, unsigned char *output,
                 call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -894,7 +894,7 @@ cluster_readdir(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_readdirp(xlator_t **subvols, unsigned char *on, int numsubvols,
                  default_args_cbk_t *replies, unsigned char *output,
                  call_frame_t *frame, xlator_t *this, fd_t *fd, size_t size,
@@ -916,7 +916,7 @@ cluster_setattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_truncate(xlator_t **subvols, unsigned char *on, int numsubvols,
                  default_args_cbk_t *replies, unsigned char *output,
                  call_frame_t *frame, xlator_t *this, loc_t *loc, off_t offset,
@@ -927,7 +927,7 @@ cluster_truncate(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_stat(xlator_t **subvols, unsigned char *on, int numsubvols,
              default_args_cbk_t *replies, unsigned char *output,
              call_frame_t *frame, xlator_t *this, loc_t *loc, dict_t *xdata)
@@ -958,7 +958,7 @@ cluster_fsetattr(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_fallocate(xlator_t **subvols, unsigned char *on, int numsubvols,
                   default_args_cbk_t *replies, unsigned char *output,
                   call_frame_t *frame, xlator_t *this, fd_t *fd,
@@ -969,7 +969,7 @@ cluster_fallocate(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_discard(xlator_t **subvols, unsigned char *on, int numsubvols,
                 default_args_cbk_t *replies, unsigned char *output,
                 call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
@@ -980,7 +980,7 @@ cluster_discard(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_zerofill(xlator_t **subvols, unsigned char *on, int numsubvols,
                  default_args_cbk_t *replies, unsigned char *output,
                  call_frame_t *frame, xlator_t *this, fd_t *fd, off_t offset,
@@ -991,7 +991,7 @@ cluster_zerofill(xlator_t **subvols, unsigned char *on, int numsubvols,
     return cluster_fop_success_fill(replies, numsubvols, output);
 }
 
-int32_t
+static int32_t
 cluster_ipc(xlator_t **subvols, unsigned char *on, int numsubvols,
             default_args_cbk_t *replies, unsigned char *output,
             call_frame_t *frame, xlator_t *this, int32_t op, dict_t *xdata)
@@ -1215,7 +1215,7 @@ cluster_tiebreaker_inodelk(xlator_t **subvols, unsigned char *on,
     return cluster_fop_success_fill(replies, numsubvols, locked_on);
 }
 
-int
+static int
 cluster_tiebreaker_entrylk(xlator_t **subvols, unsigned char *on,
                            int numsubvols, default_args_cbk_t *replies,
                            unsigned char *locked_on, call_frame_t *frame,

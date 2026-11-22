@@ -744,7 +744,7 @@ data_from_uint64(uint64_t value)
     return data;
 }
 
-data_t *
+static data_t *
 data_from_double(double value)
 {
     data_t *data = get_new_data();

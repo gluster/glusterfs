@@ -203,7 +203,7 @@ struct volume_options global_xl_options[] = {
 
 static volume_opt_list_t global_xl_opt_list;
 
-void
+static void
 glusterfs_this_init(void)
 {
     global_xlator.name = "glusterfs";

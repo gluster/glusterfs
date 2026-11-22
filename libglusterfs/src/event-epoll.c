@@ -333,7 +333,7 @@ __slot_update_events(struct event_slot_epoll *slot, int poll_in, int poll_out)
     }
 }
 
-int
+static int
 event_register_epoll(struct event_pool *event_pool, int fd,
                      event_handler_t handler, void *data, int poll_in,
                      int poll_out, int notify_poller_death)
@@ -832,7 +832,7 @@ event_pool_dispatched_unlocked(struct event_pool *event_pool)
     return (event_pool->pollers[0] != 0);
 }
 
-int
+static int
 event_reconfigure_threads_epoll(struct event_pool *event_pool, int value)
 {
     int i;
