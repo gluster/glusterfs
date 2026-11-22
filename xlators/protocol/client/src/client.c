@@ -2777,7 +2777,7 @@ client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
 
     ret = client_fd_lk_list_empty(lk_ctx_ref, (use_try_lock = _gf_true));
     if (ret != 0)
-        return;
+        goto out;
 
     gf_proc_dump_write("------", "------");
 
@@ -2785,7 +2785,7 @@ client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
 
     ret = TRY_LOCK(&lk_ctx_ref->lock);
     if (ret)
-        return;
+        goto out;
 
     list_for_each_entry(plock, &lk_ctx_ref->lk_list, next)
     {
@@ -2805,6 +2805,7 @@ client_fd_lk_ctx_dump(xlator_t *this, fd_lk_ctx_t *lk_ctx, int nth_fd)
 
     gf_proc_dump_write("------", "------");
 
+out:
     fd_lk_ctx_unref(lk_ctx_ref);
 }
 
