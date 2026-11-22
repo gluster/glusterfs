@@ -708,8 +708,6 @@ glfs_migrate_fd_locks_safe(struct glfs *fs, xlator_t *oldsubvol, fd_t *oldfd,
     if (!oldfd->lk_ctx || fd_lk_ctx_empty(oldfd->lk_ctx))
         return 0;
 
-    newfd->lk_ctx = fd_lk_ctx_ref(oldfd->lk_ctx);
-
     ret = syncop_fgetxattr(oldsubvol, oldfd, &lockinfo, GF_XATTR_LOCKINFO_KEY,
                            NULL, NULL);
     DECODE_SYNCOP_ERR(ret);
@@ -803,6 +801,13 @@ glfs_migrate_fd_safe(struct glfs *fs, xlator_t *newsubvol, fd_t *oldfd)
                 newsubvol->graph->id, NULL);
         goto out;
     }
+
+    /* The new fd carries on the old one's locks: share its lock context,
+     * and before the open, which is when protocol/client takes the reference
+     * it consults for client.strict-locks and for reopening the fd. */
+    if (newfd->lk_ctx)
+        fd_lk_ctx_unref(newfd->lk_ctx);
+    newfd->lk_ctx = fd_lk_ctx_ref(oldfd->lk_ctx);
 
     loc.inode = inode_ref(newinode);
 
