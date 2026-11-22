@@ -17,7 +17,7 @@ TEST $CLI volume heal $V0 disable
 TEST $CLI volume start $V0
 
 #Disable all caching
-TEST glusterfs --direct-io-mode=yes --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
+TEST glusterfs --entry-timeout=0 --attribute-timeout=0 -s $H0 --volfile-id $V0 $M0
 EXPECT_WITHIN $CHILD_UP_TIMEOUT "6" ec_child_up_count $V0 0
 #TEST volume operations work fine
 
@@ -34,7 +34,7 @@ EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "round-robin" mount_get_option_value $M0 $V
 TEST $CLI volume profile $V0 start
 TEST dd if=/dev/zero of=$M0/1 bs=1M count=4
 #Perform reads now from file on the mount, this only tests dispatch_min
-TEST dd if=$M0/1 of=/dev/null bs=1M count=4
+TEST dd if=$M0/1 of=/dev/null bs=1M count=4 iflag=direct
 #TEST that reads are executed on all bricks
 rr_reads=$($CLI volume profile $V0 info cumulative| grep -w READ | wc -l)
 EXPECT "^6$" echo $rr_reads
@@ -44,7 +44,7 @@ TEST $CLI volume set $V0 disperse.read-policy gfid-hash
 EXPECT_WITHIN $CONFIG_UPDATE_TIMEOUT "gfid-hash" mount_get_option_value $M0 $V0-disperse-0 read-policy
 
 #Perform reads now from file on the mount, this only tests dispatch_min
-TEST dd if=$M0/1 of=/dev/null bs=1M count=4
+TEST dd if=$M0/1 of=/dev/null bs=1M count=4 iflag=direct
 #TEST that reads are executed on all bricks
 gh_reads=$($CLI volume profile $V0 info cumulative| grep -w READ |  wc -l)
 EXPECT "^4$" echo $gh_reads
