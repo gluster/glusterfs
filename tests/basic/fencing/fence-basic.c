@@ -100,7 +100,7 @@ test(glfs_t *fs1, glfs_t *fs2, char *fname)
     lock.l_start = 0;
     lock.l_len = 100;
 
-    ret = glfs_fsetxattr(fd1, GF_ENFORCE_MANDATORY_LOCK, "set", 8, 0);
+    ret = glfs_fsetxattr(fd1, GF_ENFORCE_MANDATORY_LOCK, "set", 4, 0);
     if (ret < 0) {
         LOG_ERR("glfs_fsetxattr", errno);
         ret = -1;

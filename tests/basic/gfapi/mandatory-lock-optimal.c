@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <limits.h>
 #include <glusterfs/api/glfs.h>
 
 #define TOTAL_TEST_COUNT 8
@@ -479,7 +480,7 @@ run_test_8(int i)
 int
 main(int argc, char *argv[])
 {
-    char logfile[50];
+    char logfile[PATH_MAX];
 
     if (argc != 4) {
         fprintf(stderr,
@@ -489,24 +490,25 @@ main(int argc, char *argv[])
         return 0;
     }
 
-    sprintf(logfile, "%s/%s", argv[3], "mandatory-lock-optimal-test.log");
+    snprintf(logfile, sizeof(logfile), "%s/%s", argv[3],
+             "mandatory-lock-optimal-test.log");
     fp = fopen(logfile, "w");
     if (!fp) {
         fprintf(stderr, "\n%s\n", logfile);
         LOG_ERR("Log file creation", errno);
     }
 
-    sprintf(logfile, "%s/%s", argv[3], "glfs-client-1.log");
+    snprintf(logfile, sizeof(logfile), "%s/%s", argv[3], "glfs-client-1.log");
     fs1 = new_client_create(argv[1], argv[2], logfile);
     if (!fs1)
         LOG_ERR("client-1 creation", EINVAL);
 
-    sprintf(logfile, "%s/%s", argv[3], "glfs-client-2.log");
+    snprintf(logfile, sizeof(logfile), "%s/%s", argv[3], "glfs-client-2.log");
     fs2 = new_client_create(argv[1], argv[2], logfile);
     if (!fs2)
         LOG_ERR("client-2 creation", EINVAL);
 
-    sprintf(logfile, "%s/%s", argv[3], "glfs-client-3.log");
+    snprintf(logfile, sizeof(logfile), "%s/%s", argv[3], "glfs-client-3.log");
     fs3 = new_client_create(argv[1], argv[2], logfile);
     if (!fs3)
         LOG_ERR("client-3 creation", EINVAL);

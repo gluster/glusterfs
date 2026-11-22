@@ -189,7 +189,10 @@ checksum_path(const char *path)
     int len = 0;
     int cnt = 0;
 
-    len = roof(strlen(path), sizeof(csum));
+    /* room for the terminating NUL that strcpy() writes: a path whose
+     * length is a multiple of 8 needs one more (zero) word, which leaves
+     * the XOR below unchanged */
+    len = roof(strlen(path) + 1, sizeof(csum));
     cnt = len / sizeof(csum);
 
     nums = __builtin_alloca(len);

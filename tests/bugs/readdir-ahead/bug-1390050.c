@@ -42,7 +42,7 @@ main(int argc, char *argv[])
 
     size_before_write = stbuf.st_size;
 
-    ret = write(filefd, "testdata", strlen("testdata123") + 1);
+    ret = write(filefd, "testdata123", strlen("testdata123") + 1);
     if (ret <= 0) {
         fprintf(stderr, "write failed (%s)\n", strerror(errno));
         goto err;
@@ -54,7 +54,8 @@ main(int argc, char *argv[])
 
     ret = stat(filepath, &stbuf);
     if (ret < 0) {
-        fprintf(stderr, "stat failed on path %s (%s)\n", strerror(errno));
+        fprintf(stderr, "stat failed on path %s (%s)\n", filepath,
+                strerror(errno));
         goto err;
     }
 
