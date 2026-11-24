@@ -692,6 +692,9 @@ function cleanup()
                 umount $flag $m
         done
 
+        # Cleanup zfs
+        type cleanup_zfs &>/dev/null && cleanup_zfs || true;
+
         # Cleanup lvm
         type cleanup_lvm &>/dev/null && cleanup_lvm || true;
 
