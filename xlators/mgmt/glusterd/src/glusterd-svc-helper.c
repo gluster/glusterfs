@@ -705,6 +705,10 @@ glusterd_svc_attach_cbk(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 out:
+    if (rsp.spec)
+        free(rsp.spec);  // malloced by xdr
+    if (rsp.xdata.xdata_val)
+        free(rsp.xdata.xdata_val);  // malloced by xdr
     if (flag) {
         GF_FREE(flag);
     }

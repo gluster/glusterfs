@@ -5570,6 +5570,10 @@ attach_brick_callback(struct rpc_req *req, struct iovec *iov, int count,
         }
     }
 out:
+    if (rsp.spec)
+        free(rsp.spec);  // malloced by xdr
+    if (rsp.xdata.xdata_val)
+        free(rsp.xdata.xdata_val);  // malloced by xdr
     if (GF_ATOMIC_DEC(conf->blockers) == 0) {
         synccond_broadcast(&conf->cond_blockers);
     }
@@ -7006,6 +7010,7 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
                         "The brick on device uses dynamic inode sizes",
                         "Device=%s (%s)", device, fs_name, NULL);
                 cur_word = "N/A";
+                (void)runner_end(&runner);
                 goto cached;
             }
             runner_add_arg(&runner, fs->fs_tool_name);
@@ -7022,6 +7027,8 @@ glusterd_add_inode_size_to_dict(dict_t *dict, int count)
                 "Could not find tool to get inode size for device", "Tool=%s",
                 fs->fs_tool_name, "Device=%s (%s)", device, fs_name,
                 "Missing package=%s ?", fs->fs_tool_pkg, NULL);
+        (void)runner_end(&runner);
+        ret = -1;
         goto out;
     }
 
@@ -9341,6 +9348,8 @@ glusterd_volume_status_copy_tasks_to_ctx_dict(dict_t *this, char *key,
     GF_ASSERT(new_value);
 
     ret = dict_set(ctx_dict, key, new_value);
+    if (ret)
+        data_unref(new_value);
 
     return ret;
 }
@@ -10296,14 +10305,20 @@ _status_volume_add_brick_rsp(dict_t *this, char *key, data_t *value, void *data)
 {
     char new_key[256] = "";
     int keylen;
+    int ret = -1;
     data_t *new_value = 0;
     glusterd_pr_brick_rsp_conv_t *rsp_ctx = NULL;
 
     rsp_ctx = data;
     new_value = data_copy(value);
+    if (!new_value)
+        return 0;
+
     keylen = snprintf(new_key, sizeof(new_key), "brick%d.%s", rsp_ctx->count,
                       key);
-    dict_setn(rsp_ctx->dict, new_key, keylen, new_value);
+    ret = dict_setn(rsp_ctx->dict, new_key, keylen, new_value);
+    if (ret)
+        data_unref(new_value);
 
     return 0;
 }
