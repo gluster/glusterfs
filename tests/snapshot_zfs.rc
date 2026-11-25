@@ -64,7 +64,7 @@ function cleanup_zfs() {
 
     _cleanup_zfs_again >/dev/null 2>&1
     \rm -rf /var/run/gluster/snaps/*
-    zfs list | grep "${ZFS_PREFIX}" | awk '{print $1}'| xargs -L 1 -r zpool destroy -f 2>/dev/null
+    zpool list -H -o name 2>/dev/null | grep "${ZFS_PREFIX}" | xargs -L 1 -r zpool destroy -f 2>/dev/null
     return 0
 }
 
@@ -154,14 +154,14 @@ function _remove_zpool() {
     local num=$1
     local zpool="${ZFS_PREFIX}_pool_${num}"
 
-    /sbin/zpool destroy -f ${!zpool}
+    /sbin/zpool destroy -f ${zpool}
 }
 
 function _remove_zfs_dataset() {
     local num=$1
     local dataset="${ZFS_PREFIX}_pool_${num}/bricks"
 
-    /sbin/zfs destroy -f ${!dataset}
+    /sbin/zfs destroy -f ${dataset}
 }
 
 function _remove_zfs_vhd() {
