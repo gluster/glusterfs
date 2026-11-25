@@ -1667,8 +1667,13 @@ afr_changelog_cbk(call_frame_t *frame, void *cookie, xlator_t *this, int op_ret,
         afr_transaction_fop_failed(local, child_index);
     }
 
-    if (xattr)
+    if (xattr) {
+        LOCK(&frame->lock);
+        if (local->transaction.changelog_xdata[child_index])
+            dict_unref(local->transaction.changelog_xdata[child_index]);
         local->transaction.changelog_xdata[child_index] = dict_ref(xattr);
+        UNLOCK(&frame->lock);
+    }
 
     call_count = afr_frame_return(frame);
 
