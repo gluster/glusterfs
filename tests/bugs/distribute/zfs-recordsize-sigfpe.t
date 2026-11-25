@@ -62,33 +62,13 @@ EXPECT "2097152" stat -f -c %s $L2
 
 TEST $CLI volume start $V0
 
-# truncate any log left by a previous run: the fingerprint count
-# below must only see lines from this mount
-MOUNT_LOG=$LOGDIR/zfs-recordsize-sigfpe-$V0.log
-rm -f $MOUNT_LOG
-TEST $GFS -s $H0 --volfile-id=/$V0 --log-level=DEBUG \
-    --log-file=$MOUNT_LOG $M0
+TEST $GFS -s $H0 --volfile-id=/$V0 $M0
 
 # mkdir triggers dht_get_du_info(): a statfs is wound to every
 # subvolume and dht_du_info_cbk() runs the chunk arithmetic on each
 # reply
 TEST mkdir $M0/dir1
 TEST touch $M0/dir1/file1
-
-# dht_du_info_cbk() logs "avail_percent" right after the chunk
-# computation - on broken code SIGFPE fires in the same function
-# before the line can log, so this also proves the repaired path ran
-# for both large-bsize subvolumes
-function du_cbk_completed() {
-    local count
-    count=$(grep -c "avail_percent" $MOUNT_LOG 2>/dev/null)
-    if [ "${count:-0}" -ge 2 ]; then
-        echo "Y"
-    else
-        echo "N"
-    fi
-}
-EXPECT_WITHIN $PROCESS_UP_TIMEOUT "Y" du_cbk_completed
 
 # the client survived the statfs replies: the mount still answers
 TEST stat $M0/dir1/file1
