@@ -1631,7 +1631,11 @@ inode_table_prune(inode_table_t *table)
         pthread_mutex_lock(&table->lock);
         {
             if (!ret1) {
-                tmp->invalidate_sent = true;
+                /* A FORGET may have moved the inode off the invalidate list
+                 * while the invalidator ran without table->lock. */
+                if (tmp->in_invalidate_list) {
+                    tmp->invalidate_sent = true;
+                }
                 __inode_unref(tmp, false);
             } else {
                 /* Move this back to the lru list*/
