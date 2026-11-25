@@ -1321,8 +1321,17 @@ posix_remove_gfid2path_xattr(xlator_t *this, const char *path, uuid_t pgfid,
 
     ret = sys_lremovexattr(path, key);
     if (ret == -1) {
-        gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
-               "removing gfid2path xattr failed on %s: key = %s", path, key);
+        /* A missing key is normal: the file may have been created with
+         * storage.gfid2path off, or beyond the gfid2path link limit. */
+        if ((errno == ENOATTR) || (errno == ENODATA)) {
+            gf_msg_debug(this->name, errno,
+                         "gfid2path xattr not present on %s: key = %s", path,
+                         key);
+        } else {
+            gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
+                   "removing gfid2path xattr failed on %s: key = %s", path,
+                   key);
+        }
     }
 
     return ret;
@@ -1887,6 +1896,11 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
     dict_t *unwind_dict = NULL;
     gf_boolean_t locked = _gf_false;
     gf_boolean_t get_link_count = _gf_false;
+    gf_boolean_t same_inode = _gf_false;
+    gf_boolean_t victim_locked = _gf_false;
+    struct iatt curbuf = {
+        0,
+    };
     posix_inode_ctx_t *ctx_old = NULL;
     posix_inode_ctx_t *ctx_new = NULL;
 
@@ -1987,9 +2001,17 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
         }
     }
 
+    /* A rename between two names of the same inode is a no-op for the
+     * kernel: no dentry changes, so the index must not be touched. It
+     * does reach posix_rename() through gfapi, unlike over FUSE where
+     * the kernel short-circuits it. */
+    if (newloc->inode && (oldloc->inode == newloc->inode))
+        same_inode = _gf_true;
+
     pthread_mutex_lock(&ctx_old->pgfid_lock);
     {
-        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->update_pgfid_nlinks) {
+        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->update_pgfid_nlinks &&
+            !same_inode) {
             MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                  oldloc->pargfid);
             UNLINK_MODIFY_PGFID_XATTR(real_oldpath, pgfid_xattr_key,
@@ -2044,14 +2066,16 @@ posix_rename(call_frame_t *frame, xlator_t *this, loc_t *oldloc, loc_t *newloc,
             gf_msg(this->name, GF_LOG_WARNING, 0, P_MSG_SET_XDATA_FAIL,
                    "failed to set " GET_LINK_COUNT " for %s", real_newpath);
 
-        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->update_pgfid_nlinks) {
+        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->update_pgfid_nlinks &&
+            !same_inode) {
             MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
                                  newloc->pargfid);
             LINK_MODIFY_PGFID_XATTR(real_newpath, pgfid_xattr_key,
                                     nlink_samepgfid, 0, op_ret, this, unlock);
         }
 
-        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->gfid2path) {
+        if (!IA_ISDIR(oldloc->inode->ia_type) && priv->gfid2path &&
+            !same_inode) {
             MAKE_HANDLE_ABSPATH(gfid_path, this, oldloc->inode->gfid);
 
             posix_remove_gfid2path_xattr(this, gfid_path, oldloc->pargfid,
@@ -2074,6 +2098,65 @@ unlock:
                "parent gfid xattr failed (gfid:%s)",
                uuid_utoa(oldloc->inode->gfid));
         goto out;
+    }
+
+    /* Maintain the victim's index state when the rename overwrote an
+     * existing destination. The victim was sampled before sys_rename()
+     * and brick level entry operations are not serialized across
+     * clients, so the overwritten name may have been re-established on
+     * the victim by a concurrent rename before we get here; removing
+     * blindly would then drop a correct entry. Hold the victim's
+     * pgfid_lock while re-checking and removing (the victim inode is
+     * ctx_new whenever the destination was resolved, the common case);
+     * trylock keeps the lock order with ctx_old->pgfid_lock deadlock
+     * free. On lock contention, or when the name currently belongs to
+     * the victim, skip the maintenance: a leftover stale entry only
+     * causes the pre-existing EEXIST symptom, a wrong deletion would
+     * corrupt the index silently. */
+    if (!same_inode && was_present && (nlink > 1) &&
+        !IA_ISDIR(oldloc->inode->ia_type) &&
+        (priv->gfid2path || priv->update_pgfid_nlinks)) {
+        if (ctx_new && !gf_uuid_compare(newloc->inode->gfid, victim))
+            victim_locked = (pthread_mutex_trylock(&ctx_new->pgfid_lock) == 0);
+
+        if (posix_pstat(this, NULL, NULL, real_newpath, &curbuf, _gf_false,
+                        _gf_false) == 0 &&
+            gf_uuid_compare(curbuf.ia_gfid, victim)) {
+            /* the destination name is no longer owned by the victim */
+            if (priv->gfid2path) {
+                MAKE_HANDLE_ABSPATH(gfid_path, this, victim);
+                posix_remove_gfid2path_xattr(this, gfid_path, newloc->pargfid,
+                                             newloc->name);
+            }
+            if (priv->update_pgfid_nlinks) {
+                MAKE_PGFID_XATTR_KEY(pgfid_xattr_key, PGFID_XATTR_KEY_PREFIX,
+                                     newloc->pargfid);
+                MAKE_HANDLE_ABSPATH(gfid_path, this, victim);
+                if (sys_lgetxattr(gfid_path, pgfid_xattr_key, &nlink_samepgfid,
+                                  sizeof(nlink_samepgfid)) != -1) {
+                    nlink_samepgfid = be32toh(nlink_samepgfid);
+                    if (nlink_samepgfid > 0)
+                        nlink_samepgfid--;
+                    nlink_samepgfid = htobe32(nlink_samepgfid);
+                    if (sys_lsetxattr(gfid_path, pgfid_xattr_key,
+                                      &nlink_samepgfid, sizeof(nlink_samepgfid),
+                                      0) == -1) {
+                        gf_msg(this->name, GF_LOG_WARNING, errno,
+                               P_MSG_PGFID_OP,
+                               "setting xattr failed"
+                               "on %s: key = %s",
+                               gfid_path, pgfid_xattr_key);
+                    }
+                } else if ((errno != ENOATTR) && (errno != ENODATA)) {
+                    gf_msg(this->name, GF_LOG_WARNING, errno, P_MSG_PGFID_OP,
+                           "getting xattr "
+                           "failed on %s: key = %s",
+                           gfid_path, pgfid_xattr_key);
+                }
+            }
+        }
+        if (victim_locked)
+            pthread_mutex_unlock(&ctx_new->pgfid_lock);
     }
 
     if (was_dir)
