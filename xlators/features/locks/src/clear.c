@@ -238,9 +238,11 @@ clrlk_clear_inodelk(xlator_t *this, pl_inode_t *pl_inode, pl_dom_list_t *dom,
     struct list_head *pcontend = NULL;
     struct list_head released;
     struct list_head contend;
+    struct list_head wake;
     struct timespec now = {};
 
     INIT_LIST_HEAD(&released);
+    INIT_LIST_HEAD(&wake);
 
     priv = this->private;
     if (priv->notify_contention) {
@@ -311,8 +313,16 @@ granted:
             list_del_init(&ilock->list);
             list_add(&ilock->list, &released);
         }
+
+        if (gcount > 0) {
+            /* A delayed unlink, rmdir or rename may have been waiting for
+             * one of the locks just cleared. */
+            pl_inode_remove_unlocked(this, pl_inode, &wake);
+        }
     }
     pthread_mutex_unlock(&pl_inode->mutex);
+
+    pl_inode_remove_wake(&wake);
 
     list_for_each_entry_safe(ilock, tmp, &released, list)
     {
