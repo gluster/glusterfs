@@ -527,9 +527,6 @@ dht_check_and_open_fd_on_subvol_task(void *data)
             ret = 0;
         }
 
-        local->op_errno = -ret;
-        ret = -1;
-
     } else {
         dht_fd_ctx_set(this, fd, subvol);
     }
