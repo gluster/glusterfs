@@ -838,7 +838,6 @@ err:
 
         GF_FREE(conf->defrag);
 
-        GF_FREE(conf->xattr_name);
         GF_FREE(conf->link_xattr_name);
         GF_FREE(conf->wild_xattr_name);
         GF_FREE(conf->mds_xattr_key);
